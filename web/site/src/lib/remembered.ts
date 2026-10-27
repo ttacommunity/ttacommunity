@@ -4,8 +4,9 @@ import { DEFAULT_VIEW, parseView, viewParams, type Remembered, type View } from 
 const KEY = 'ttac.leaderboard';
 const PARAMS = { engine: 'model', reset: 'reset_mode', format: 'format' } as const;
 
-/** remember saves the view's engine, reset mode and format; a refusing store is ignored. */
-export function remember(store: Storage, view: View): void {
+/** remember saves the view's engine, reset mode and format; a refusing store, or none, is ignored. */
+export function remember(store: Storage | null, view: View): void {
+  if (store === null) return;
   const all = viewParams({ ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, format: view.format }, true);
   try {
     store.setItem(KEY, all.toString());
@@ -14,8 +15,9 @@ export function remember(store: Storage, view: View): void {
   }
 }
 
-/** recall returns the remembered choices that are still valid, or none. */
-export function recall(store: Storage): Remembered {
+/** recall returns the remembered choices that are still valid, or none (also without a store). */
+export function recall(store: Storage | null): Remembered {
+  if (store === null) return {};
   let saved: string | null = null;
   try {
     saved = store.getItem(KEY);

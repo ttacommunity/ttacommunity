@@ -46,6 +46,7 @@ import {
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
+import { browserStorage } from '../lib/account';
 import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
@@ -59,7 +60,7 @@ import { errorText, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
 
 function readView(): PlayerView {
-  return parsePlayerView(new URLSearchParams(window.location.search), recall(window.localStorage));
+  return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
 }
 
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
@@ -69,7 +70,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
-    remember(window.localStorage, { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
+    remember(browserStorage(), { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
     setView(next);
   }, []);
   const linkTo = viewLinks(playerParams, go);

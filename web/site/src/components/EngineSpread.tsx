@@ -4,6 +4,7 @@ import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, T
 import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
+import { browserStorage } from '../lib/account';
 import Waiting from './Waiting';
 import { errorText, type Load } from '@ttac/shared/load';
 
@@ -25,7 +26,7 @@ function means(d: Distribution) {
 
 /** EngineSpread loads the current run's distribution for the format in the address, or the remembered one. */
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
-  const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(window.localStorage)).format);
+  const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(browserStorage())).format);
   const [load, setLoad] = useState<Load<Distribution>>({ kind: 'loading' });
   const canvas = useRef<HTMLCanvasElement>(null);
 

@@ -16,6 +16,7 @@ import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
 import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
+import { browserStorage } from '../lib/account';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import ScrollTable from './ScrollTable';
@@ -26,7 +27,7 @@ import { viewLinks } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
 
 function readView(): MatrixView {
-  return parseMatrixView(new URLSearchParams(window.location.search), recall(window.localStorage));
+  return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
 }
 
 /** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
@@ -43,7 +44,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
   const go = useCallback((next: MatrixView) => {
     window.history.pushState(null, '', `?${matrixParams(next)}`);
-    remember(window.localStorage, { ...DEFAULT_VIEW, ...recall(window.localStorage), reset: next.reset, format: next.format });
+    remember(browserStorage(), { ...DEFAULT_VIEW, ...recall(browserStorage()), reset: next.reset, format: next.format });
     setView(next);
   }, []);
   const linkTo = viewLinks(matrixParams, go);

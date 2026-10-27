@@ -52,6 +52,7 @@ import {
   type View,
 } from '../lib/leaderboard-view';
 import { recall, remember } from '../lib/remembered';
+import { browserStorage } from '../lib/account';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
@@ -68,7 +69,7 @@ const OPTIONS_OPEN = 'ttac.leaderboard.options';
 const narrow = () => window.innerWidth <= 768;
 
 function readView(): View {
-  return parseView(new URLSearchParams(window.location.search), recall(window.localStorage));
+  return parseView(new URLSearchParams(window.location.search), recall(browserStorage()));
 }
 
 /** Shows the chosen leaderboard. Every choice is part of the address, so a view can be shared. */
@@ -80,7 +81,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
   const go = useCallback((next: View) => {
     window.history.pushState(null, '', `?${viewParams(next, true)}`);
-    remember(window.localStorage, next);
+    remember(browserStorage(), next);
     setView(next);
   }, []);
   const linkTo: LinkTo = viewLinks((v) => viewParams(v, true), go);
@@ -88,7 +89,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
-    remember(window.localStorage, readView());
+    remember(browserStorage(), readView());
     try {
       if (!narrow()) setOptionsOpen(window.localStorage.getItem(OPTIONS_OPEN) === 'true');
     } catch {

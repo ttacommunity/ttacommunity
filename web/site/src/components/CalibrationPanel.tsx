@@ -17,6 +17,7 @@ import {
   type Reset,
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
+import { browserStorage } from '../lib/account';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
@@ -63,7 +64,7 @@ function toggled<T>(set: ReadonlySet<T>, value: T | 'all', every: readonly T[]):
 
 /** CalibrationPanel loads the current run's calibration and lets the reader choose which models to compare. */
 export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
-  const [initial] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(window.localStorage)));
+  const [initial] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(browserStorage())));
   const [mode, setMode] = useState<EvalMode>(initial.mode);
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
