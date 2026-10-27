@@ -35,12 +35,12 @@ var DefaultBlitzPairing = BlitzPairing{First: "dutch", Later: "dutch", Ranks: "r
 // BlitzRankOrders how the starting ranks may be given.
 var (
 	BlitzFirstMethods = []string{"dutch", "dutch-timezone", "timezone", "random"}
-	BlitzLaterMethods = []string{"dutch", "dutch-timezone", "timezone", "rating"}
+	BlitzLaterMethods = []string{"dutch", "dutch-timezone", "timezone", "rating", "random"}
 	BlitzRankOrders   = []string{"rating", "lot"}
 )
 
 // ErrBadBlitzPairing means a method round 1 or the later rounds may not be paired by, or a rank order not offered.
-var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone, timezone or random, later rounds by dutch, dutch-timezone, timezone or rating, and starting ranks are by rating or lot")
+var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone, timezone or random, later rounds by dutch, dutch-timezone, timezone, rating or random, and starting ranks are by rating or lot")
 
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
 // edition's label and format, how many entrants are in and dropped, and the seed that breaks what the

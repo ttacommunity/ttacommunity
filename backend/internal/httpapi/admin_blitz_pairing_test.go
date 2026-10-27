@@ -77,18 +77,18 @@ func TestAnOrganiserSetsHowRoundsArePaired(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := &fakeAdmins{}
 	fourEntered(f)
-	rec := adminDoAs(t, f, org, http.MethodPut, "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch-timezone", "later": "rating", "ranks": "lot"}`)
+	rec := adminDoAs(t, f, org, http.MethodPut, "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "random", "later": "random", "ranks": "lot"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT pairing = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "pairing dutch-timezone/rating/lot"; strings.Join(f.notes, "|") != want {
+	if want := "pairing random/random/lot"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	if len(f.audits) != 1 || f.audits[0] != org+" blitz.pairing us_open/2026" {
 		t.Errorf("audits = %q, want the pairing set", f.audits)
 	}
 	rec = adminDoAs(t, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
-	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "dutch-timezone", "later": "rating", "ranks": "lot"}`)
+	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "random", "later": "random", "ranks": "lot"}`)
 }
 
 func TestSettingThePairingIsRefusedWhenItShouldBe(t *testing.T) {
@@ -98,7 +98,6 @@ func TestSettingThePairingIsRefusedWhenItShouldBe(t *testing.T) {
 		want                     int
 	}{
 		{"round 1 by rating", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "rating", "later": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
-		{"later rounds at random", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "random", "ranks": "rating"}`, http.StatusBadRequest},
 		{"a method nobody knows", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "swiss-ish", "later": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
 		{"a method missing", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
 		{"starting ranks by something else", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch", "ranks": "random"}`, http.StatusBadRequest},

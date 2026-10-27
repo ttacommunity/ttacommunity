@@ -1875,7 +1875,7 @@ type BlitzPairingMethods struct {
 	// First Round 1's method, one of dutch, dutch-timezone, timezone or random
 	First BlitzPairingMethod `json:"first"`
 
-	// Later The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+	// Later The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random
 	Later BlitzPairingMethod `json:"later"`
 
 	// Ranks How the Dutch system's starting ranks are given, fixed when round 1

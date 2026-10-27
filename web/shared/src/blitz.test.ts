@@ -287,6 +287,7 @@ describe('pairingSummary', () => {
     ['one method throughout', { first: 'dutch', later: 'dutch', ranks: 'rating' }, "FIDE's Dutch system, every round"],
     ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone', ranks: 'rating' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak'],
     ['starting ranks by lot', { first: 'dutch', later: 'dutch', ranks: 'lot' }, "FIDE's Dutch system, every round; starting ranks by lot"],
+    ['random throughout', { first: 'random', later: 'random', ranks: 'lot' }, 'Random, every round'],
     ['no starting ranks without the Dutch system', { first: 'timezone', later: 'rating', ranks: 'lot' }, 'Round 1: Closest time zones; later rounds: Closest ratings'],
   ] as const)('%s', (_, pairing, want) => {
     expect(pairingSummary(pairing)).toBe(want);

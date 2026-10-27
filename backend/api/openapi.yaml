@@ -5037,7 +5037,7 @@ components:
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
         later:
-          description: The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+          description: The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
         ranks:

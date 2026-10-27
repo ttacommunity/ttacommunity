@@ -129,7 +129,7 @@ export type PairingMethods = components['schemas']['BlitzPairingMethods'];
 /** FIRST_METHODS are the methods round 1 may be paired by, in the order offered. */
 export const FIRST_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'random'];
 /** LATER_METHODS are the methods the rounds after round 1 may be paired by, in the order offered. */
-export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'rating'];
+export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'rating', 'random'];
 
 export type RankOrder = PairingMethods['ranks'];
 

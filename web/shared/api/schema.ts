@@ -3230,7 +3230,7 @@ export interface components {
         BlitzPairingMethods: {
             /** @description Round 1's method, one of dutch, dutch-timezone, timezone or random */
             first: components["schemas"]["BlitzPairingMethod"];
-            /** @description The later rounds' method, one of dutch, dutch-timezone, timezone or rating */
+            /** @description The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random */
             later: components["schemas"]["BlitzPairingMethod"];
             /**
              * @description How the Dutch system's starting ranks are given, fixed when round 1

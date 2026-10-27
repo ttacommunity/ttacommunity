@@ -34,7 +34,7 @@ func TestAnEditionIsPairedByTheMethodsLastSet(t *testing.T) {
 			}
 		}
 	}
-	for _, bad := range []BlitzPairing{{First: "rating", Later: "dutch", Ranks: "rating"}, {First: "dutch", Later: "random", Ranks: "rating"}, {First: "dutch", Later: "dutch", Ranks: "random"}, {First: "", Later: "", Ranks: ""}} {
+	for _, bad := range []BlitzPairing{{First: "rating", Later: "dutch", Ranks: "rating"}, {First: "dutch", Later: "dutch", Ranks: "random"}, {First: "", Later: "", Ranks: ""}} {
 		if err := a.SetBlitzPairing(ctx, "us_open", "2026", bad); !errors.Is(err, ErrBadBlitzPairing) {
 			t.Errorf("SetBlitzPairing(%+v) = %v, want ErrBadBlitzPairing", bad, err)
 		}
@@ -74,7 +74,9 @@ func TestTheDatabaseRefusesAPairingMethodOutOfPlace(t *testing.T) {
 	}
 	tests := []struct{ name, sql, constraint string }{
 		{"round 1 by rating", "UPDATE blitz_editions SET pairing_first = 'rating'", "blitz_editions_pairing_first_check"},
-		{"later rounds at random", "UPDATE blitz_editions SET pairing_later = 'random'", "blitz_editions_pairing_later_check"},
+		{"later rounds by a method nobody knows", "UPDATE blitz_editions SET pairing_later = 'swiss-ish'", "blitz_editions_pairing_later_check"},
+		{"starting ranks by something else", "UPDATE blitz_editions SET pairing_ranks = 'random'", "blitz_editions_pairing_ranks_check"},
+		{"a starting rank of 0", "UPDATE blitz_entries SET starting_rank = 0", "blitz_entries_starting_rank_check"},
 		{"a method nobody knows", "UPDATE blitz_rounds SET method = 'swiss-ish'", "blitz_rounds_method_check"},
 		{"a Swiss round without one", "UPDATE blitz_rounds SET method = NULL", "blitz_rounds_method_kind_check"},
 		{"a knockout round with one", "UPDATE blitz_rounds SET kind = 'knockout'", "blitz_rounds_method_kind_check"},
