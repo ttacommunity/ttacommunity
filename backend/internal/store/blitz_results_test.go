@@ -330,6 +330,22 @@ func TestBlitzRulingsDecideAMatch(t *testing.T) {
 	}
 }
 
+func TestBlitzRulingsRefuseABye(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	ctx := context.Background()
+	eve, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Eve", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants(Eve): %v", err)
+	}
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 8, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}, {A: eve[0]}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", r1.Matches[2].ID, "a", "Eve played alone"); !errors.Is(err, ErrBlitzBye) {
+		t.Errorf("RecordBlitzRuling on a bye = %v, want ErrBlitzBye", err)
+	}
+}
+
 func TestBlitzRoundsWaitForResultsAndKeepDecidedMatches(t *testing.T) {
 	a, _, ids, matches := blitzRoundOne(t)
 	ctx := context.Background()

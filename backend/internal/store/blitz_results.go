@@ -129,6 +129,15 @@ type blitzMatchRow struct {
 	SeriesName string
 }
 
+// pairedMatchOf finds a match of the edition with two players, or returns ErrNoBlitzMatch, or ErrBlitzBye for a bye.
+func pairedMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMatchRow, error) {
+	m, err := blitzMatchOf(ctx, tx, edID, matchID)
+	if err == nil && m.B == nil {
+		return m, ErrBlitzBye
+	}
+	return m, err
+}
+
 // blitzMatchOf finds a match of the edition, or returns ErrNoBlitzMatch.
 func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMatchRow, error) {
 	var m blitzMatchRow
@@ -212,12 +221,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 	}
 	result, sideA, sideB, placeA, placeB := blitzOutcome(g)
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
-		m, err := blitzMatchOf(ctx, tx, edID, matchID)
+		m, err := pairedMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err
-		}
-		if m.B == nil {
-			return ErrBlitzBye
 		}
 		if m.Kind == "knockout" && result == "draw" {
 			result = "b"
@@ -308,12 +314,9 @@ func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string
 		return ErrBadBlitzRuling
 	}
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
-		m, err := blitzMatchOf(ctx, tx, edID, matchID)
+		m, err := pairedMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err
-		}
-		if m.B == nil {
-			return ErrBlitzBye
 		}
 		if m.Kind == "knockout" && result != "a" && result != "b" {
 			return ErrBlitzKnockoutWinner

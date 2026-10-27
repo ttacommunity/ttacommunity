@@ -57,12 +57,9 @@ func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int6
 // ErrBlitzNotLatest.
 func (a *AdminStore) ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
-		m, err := blitzMatchOf(ctx, tx, edID, matchID)
+		m, err := pairedMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err
-		}
-		if m.B == nil {
-			return ErrBlitzBye
 		}
 		if err := latestRound(ctx, tx, edID, m.Round); err != nil {
 			return err
