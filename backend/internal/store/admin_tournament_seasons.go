@@ -32,11 +32,8 @@ func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium 
 		return ErrBadPodium
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		if err := seasonExists(ctx, tx, slug, season); err != nil {
+		if err := clearPodium(ctx, tx, slug, season); err != nil {
 			return err
-		}
-		if _, err := tx.Exec(ctx, "DELETE FROM tournament_podium_overrides WHERE tournament = $1 AND season = $2", slug, season); err != nil {
-			return fmt.Errorf("setting the podium of %s %s: %w", slug, season, err)
 		}
 		for _, e := range podium {
 			n := ""
@@ -56,14 +53,19 @@ func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium 
 // It returns ErrNoTournament for a season that does not exist.
 func (a *AdminStore) ClearPodium(ctx context.Context, slug, season string) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		if err := seasonExists(ctx, tx, slug, season); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, "DELETE FROM tournament_podium_overrides WHERE tournament = $1 AND season = $2", slug, season); err != nil {
-			return fmt.Errorf("clearing the podium of %s %s: %w", slug, season, err)
-		}
-		return nil
+		return clearPodium(ctx, tx, slug, season)
 	})
+}
+
+// clearPodium removes the podium set for a season in tx, or returns ErrNoTournament for a season that does not exist.
+func clearPodium(ctx context.Context, tx pgx.Tx, slug, season string) error {
+	if err := seasonExists(ctx, tx, slug, season); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "DELETE FROM tournament_podium_overrides WHERE tournament = $1 AND season = $2", slug, season); err != nil {
+		return fmt.Errorf("clearing the podium of %s %s: %w", slug, season, err)
+	}
+	return nil
 }
 
 // seasonExists returns ErrNoTournament unless the tournament has that season.

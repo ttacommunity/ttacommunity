@@ -171,12 +171,7 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	if err != nil {
 		return Player{}, fmt.Errorf("reading a player in run %d: %w", run, err)
 	}
-	if title != nil {
-		p.Title = &Title{Code: *title, Count: *count, Reason: *reason}
-	}
-	if peak != nil {
-		p.Peak = &Peak{Code: *peak, Year: peakYear}
-	}
+	p.Title, p.Peak = titleAndPeak(title, count, reason, peak, peakYear)
 	badges, err := r.badgesByPlayer(ctx, []string{name})
 	if err != nil {
 		return Player{}, err

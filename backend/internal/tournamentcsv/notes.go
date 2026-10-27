@@ -1,9 +1,6 @@
 package tournamentcsv
 
-import (
-	"io"
-	"slices"
-)
+import "io"
 
 // SeasonNotesHeader is a season notes file's first line, exactly.
 var SeasonNotesHeader = []string{"tournament", "season", "stage", "note", "source"}
@@ -29,13 +26,9 @@ func ReadSeasonNotes(file string, r io.Reader, series []string) (Result[SeasonNo
 
 func parseSeasonNote(series []string, f func(int) string) (SeasonNote, Reason) {
 	x := SeasonNote{Tournament: f(0), Season: f(1), Stage: f(2), Note: f(3), Source: f(4)}
-	switch {
-	case !slices.Contains(series, x.Tournament):
-		return x, BadSeries
-	case !trimmed(x.Season):
-		return x, BadSeason
-	case x.Stage != "" && !trimmed(x.Stage):
-		return x, BadDivision
+	switch r := badPlace(series, x.Tournament, x.Season, x.Stage); {
+	case r != "":
+		return x, r
 	case !trimmed(x.Note):
 		return x, BadReason
 	case !trimmed(x.Source):
