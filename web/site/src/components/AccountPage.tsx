@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
+import { PROVIDER_NAMES } from '@ttac/shared/providers';
 import { viewerZone } from '@ttac/shared/time';
 import {
   accountState,
@@ -29,6 +30,7 @@ import {
   signedInAs,
   signInHref,
   signInNotice,
+  SIGNERS,
   signOut,
   suggestedCountry,
   waysIn,
@@ -40,6 +42,7 @@ import {
   type Draft,
   type Me,
   type SaveOutcome,
+  type Signer,
 } from '../lib/account';
 import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
@@ -52,6 +55,24 @@ import './Account.css';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
+
+/** SIGNER_LOOKS is how each provider's button looks, and what adding it says (Google's wording follows its branding rules). */
+const SIGNER_LOOKS: Record<Signer, { className: string; logo?: { src: string; size: number }; add: string }> = {
+  discord: { className: 'btn-antique', add: 'Add Discord' },
+  microsoft: { className: 'btn-antique', logo: { src: '/img/microsoft-logo.svg', size: 21 }, add: 'Add Microsoft' },
+  google: { className: 'btn-google', logo: { src: '/img/google-logo.svg', size: 20 }, add: 'Add sign-in with Google' },
+};
+
+/** SignerLink is a provider's button: its look and logo, going to href. */
+function SignerLink({ signer, href, children }: { signer: Signer; href: string; children: string }) {
+  const { className, logo } = SIGNER_LOOKS[signer];
+  return (
+    <a className={className} href={href}>
+      {logo && <img src={logo.src} alt="" width={logo.size} height={logo.size} />}
+      {children}
+    </a>
+  );
+}
 
 /** AccountPage asks who is signed in and shows what they can do next. */
 export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
@@ -145,9 +166,9 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
       </h2>
       <ul className="account-ways">
         <li>
-          <a className="btn-antique" href={signInHref(apiUrl, 'discord', returnTo)}>
-            Sign in with Discord
-          </a>
+          <SignerLink signer="discord" href={signInHref(apiUrl, 'discord', returnTo)}>
+            {`Sign in with ${PROVIDER_NAMES.discord}`}
+          </SignerLink>
           <p className="account-muted">Needs a Discord account. The TTA community, its events and its tournaments are organised on Discord, so we recommend it.</p>
         </li>
         <li>
@@ -162,14 +183,11 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
             >
               Sign in with email
             </button>
-            <a className="btn-antique" href={signInHref(apiUrl, 'microsoft', returnTo)}>
-              <img src="/img/microsoft-logo.svg" alt="" width="21" height="21" />
-              Sign in with Microsoft
-            </a>
-            <a className="btn-google" href={signInHref(apiUrl, 'google', returnTo)}>
-              <img src="/img/google-logo.svg" alt="" width="20" height="20" />
-              Sign in with Google
-            </a>
+            {(['microsoft', 'google'] as const).map((p) => (
+              <SignerLink key={p} signer={p} href={signInHref(apiUrl, p, returnTo)}>
+                {`Sign in with ${PROVIDER_NAMES[p]}`}
+              </SignerLink>
+            ))}
           </div>
           <p className="account-muted">
             Email needs only an inbox: we send a link each time. Microsoft takes any personal, work or school account, and Google any Google account.
@@ -522,24 +540,13 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           </li>
         ))}
       </ul>
-      {(canAdd.discord || canAdd.microsoft || canAdd.google) && (
+      {SIGNERS.some((p) => canAdd[p]) && (
         <div className="account-row">
-          {canAdd.discord && (
-            <a className="btn-antique" href={addWayInHref(apiUrl, 'discord')}>
-              Add Discord
-            </a>
-          )}
-          {canAdd.microsoft && (
-            <a className="btn-antique" href={addWayInHref(apiUrl, 'microsoft')}>
-              Add Microsoft
-            </a>
-          )}
-          {canAdd.google && (
-            <a className="btn-google" href={addWayInHref(apiUrl, 'google')}>
-              <img src="/img/google-logo.svg" alt="" width="20" height="20" />
-              Add sign-in with Google
-            </a>
-          )}
+          {SIGNERS.filter((p) => canAdd[p]).map((p) => (
+            <SignerLink key={p} signer={p} href={addWayInHref(apiUrl, p)}>
+              {SIGNER_LOOKS[p].add}
+            </SignerLink>
+          ))}
         </div>
       )}
       {needsContact(me) && !changing && (
