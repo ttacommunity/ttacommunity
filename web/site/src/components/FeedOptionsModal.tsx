@@ -1,9 +1,11 @@
 /** Modal dialog allowing users to customize their community pulse feed tournaments, divisions, and players. */
 import { useEffect, useRef, useState } from 'react';
 import { useModal } from '@ttac/shared/modal';
+import type { Load } from '@ttac/shared/load';
 import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
-import { DEFAULT_FEED_SETTINGS } from '../lib/feed-settings';
+import { DEFAULT_FEED_SETTINGS, withPlayer, withoutPlayer } from '../lib/feed-settings';
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
+import { waitingText } from '../lib/waiting';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import './FeedOptionsModal.css';
 
@@ -15,8 +17,8 @@ export interface AvailableTournament {
 interface FeedOptionsModalProps {
   apiUrl: string;
   runId: number;
-  availableTournaments: AvailableTournament[];
-  searchPlayers: SearchPlayer[];
+  availableTournaments: Load<AvailableTournament[]>;
+  searchPlayers: Load<SearchPlayer[]>;
   settings: FeedSettings;
   onSave: (nextSettings: FeedSettings) => void;
   opener: HTMLElement;
@@ -40,6 +42,9 @@ export default function FeedOptionsModal({
   const askedDivisions = useRef(new Set(Object.keys(PREMIER_DIVISIONS)));
 
   const closed = useModal(dialogRef, opener, onClose, { backdropCloses: true });
+  const tournamentList = availableTournaments.kind === 'ready' ? availableTournaments.data : [];
+  const tournamentsWaiting = waitingText(availableTournaments, 'the tournaments to choose from');
+  const playersWaiting = waitingText(searchPlayers, 'the players to choose from');
 
   useEffect(() => {
     for (const slug of divisionsToFetch(staged.tournaments, askedDivisions.current)) {
@@ -57,7 +62,7 @@ export default function FeedOptionsModal({
 
   const addTournament = (slug: string) => {
     if (!slug) return;
-    const tourney = availableTournaments.find((t) => t.slug === slug);
+    const tourney = tournamentList.find((t) => t.slug === slug);
     if (!tourney) return;
 
     // Pick the first unused division or premier division default
@@ -96,23 +101,8 @@ export default function FeedOptionsModal({
     }));
   };
 
-  const addPlayer = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (!staged.players.some((p) => p.toLowerCase() === trimmed.toLowerCase())) {
-      setStaged((prev) => ({
-        ...prev,
-        players: [...prev.players, trimmed],
-      }));
-    }
-  };
-
-  const removePlayer = (name: string) => {
-    setStaged((prev) => ({
-      ...prev,
-      players: prev.players.filter((p) => p.toLowerCase() !== name.toLowerCase()),
-    }));
-  };
+  const addPlayer = (name: string) => setStaged((prev) => withPlayer(prev, name));
+  const removePlayer = (name: string) => setStaged((prev) => withoutPlayer(prev, name));
 
   const resetToPremier = () => {
     setStaged(DEFAULT_FEED_SETTINGS);
@@ -220,7 +210,12 @@ export default function FeedOptionsModal({
               })
             )}
 
-            {availableTournaments.length > 0 && (
+            {tournamentsWaiting !== null && (
+              <p className="feed-empty-hint-small" role="status">
+                {tournamentsWaiting}
+              </p>
+            )}
+            {tournamentList.length > 0 && (
               <div className="feed-add-tourney-row">
                 <select
                   className="feed-add-tourney-select"
@@ -232,7 +227,7 @@ export default function FeedOptionsModal({
                   aria-label="Add tournament to feed"
                 >
                   <option value="" disabled>+ Add Tournament / Division to Feed…</option>
-                  {availableTournaments.map((item) => (
+                  {tournamentList.map((item) => (
                     <option key={item.slug} value={item.slug}>
                       {item.name}
                     </option>
@@ -250,8 +245,13 @@ export default function FeedOptionsModal({
             <span className="feed-section-hint">Optional player tracking</span>
           </h4>
 
+          {playersWaiting !== null && (
+            <p className="feed-empty-hint-small" role="status">
+              {playersWaiting}
+            </p>
+          )}
           <SearchBox
-            players={searchPlayers}
+            players={searchPlayers.kind === 'ready' ? searchPlayers.data : []}
             value=""
             placeholder="Search and add competitor..."
             onSearch={addPlayer}

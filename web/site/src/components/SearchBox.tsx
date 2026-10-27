@@ -24,6 +24,8 @@ interface Props {
   onChange?: (text: string) => void;
   /** The input's id, for the page's own label. */
   id?: string;
+  /** Called when the box is focused, for a page that loads the players only once someone uses the box. */
+  onFocus?: () => void;
 }
 
 /** flagEmoji turns a country code into its flag emoji, as upstream's suggestions show it. */
@@ -57,6 +59,7 @@ export default function SearchBox({
   wide = false,
   onChange,
   id,
+  onFocus,
 }: Props) {
   const fill = onChange !== undefined;
   const field = name !== undefined;
@@ -136,7 +139,10 @@ export default function SearchBox({
           setOpen(true);
           setActive(-1);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          onFocus?.();
+        }}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />

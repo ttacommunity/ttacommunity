@@ -46,6 +46,7 @@ import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import KeptData from './KeptData';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import Turnstile from './Turnstile';
+import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Account.css';
 
@@ -354,7 +355,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
   const saved: Draft = { name: state.kind === 'waiting' || state.kind === 'refused' ? state.name : '', country: me.country ?? '', zone: me.zone };
   const [draft, setDraft] = useState<Draft>(saved);
   const [countries, setCountries] = useState<Country[]>([]);
-  const [players, setPlayers] = useState<SearchPlayer[]>([]);
+  const [searching, setSearching] = useState(saved.name !== '');
   const [outcome, setOutcome] = useState<SaveOutcome | null>(null);
   const [busy, setBusy] = useState(false);
   const changes = draftChanges(saved, draft);
@@ -367,14 +368,14 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
       .catch(() => setCountries([]));
   }, [apiUrl]);
 
-  // The ratings pages' search lists the rated players; only a player not linked yet types a name.
-  useEffect(() => {
-    if (linked) return;
-    currentRun(apiUrl)
-      .then((run) => leaderboard(apiUrl, run.run_id, modelOf(DEFAULT_VIEW), DEFAULT_VIEW.format))
-      .then((board) => setPlayers(board.players))
-      .catch(() => setPlayers([]));
-  }, [apiUrl, linked]);
+  // The rated players, for the username search, are asked for once the box is used or already holds a name.
+  const board = useLoad(
+    apiUrl,
+    linked || !searching
+      ? null
+      : () => currentRun(apiUrl).then((run) => leaderboard(apiUrl, run.run_id, modelOf(DEFAULT_VIEW), DEFAULT_VIEW.format)),
+  );
+  const players: SearchPlayer[] = board.kind === 'ready' ? board.data.players : [];
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -403,6 +404,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
             placeholder=""
             wide
             onChange={(name) => setDraft((d) => ({ ...d, name }))}
+            onFocus={() => setSearching(true)}
           />
         </>
       )}

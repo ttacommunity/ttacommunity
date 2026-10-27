@@ -36,4 +36,9 @@ describe('remember and recall', () => {
   it('does not throw when the store refuses to save', () => {
     expect(() => remember(broken, DEFAULT_VIEW)).not.toThrow();
   });
+
+  it('works without a store, where the browser blocks it', () => {
+    expect(recall(null)).toEqual({});
+    expect(() => remember(null, DEFAULT_VIEW)).not.toThrow();
+  });
 });

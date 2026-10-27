@@ -5,6 +5,9 @@ import {
   loadFeedSettings,
   saveFeedSettings,
   sanitizeFeedSettings,
+  withPlayer,
+  withoutPlayer,
+  withoutTournament,
   type FeedSettings,
 } from './feed-settings';
 
@@ -94,5 +97,55 @@ describe('feed-settings', () => {
 
     expect(loadFeedSettings(failingStorage)).toEqual(DEFAULT_FEED_SETTINGS);
     expect(() => saveFeedSettings(failingStorage, DEFAULT_FEED_SETTINGS)).not.toThrow();
+  });
+
+  it('works without storage, where the browser blocks it', () => {
+    expect(loadFeedSettings(null)).toEqual(DEFAULT_FEED_SETTINGS);
+    expect(() => saveFeedSettings(null, DEFAULT_FEED_SETTINGS)).not.toThrow();
+  });
+});
+
+const league: FeedSettings = {
+  tournaments: [
+    { slug: 'royal_league', name: 'Royal League', division: 'Emperor' },
+    { slug: 'royal_league', name: 'Royal League', division: 'King 1' },
+    { slug: 'royal_league', name: 'Royal League', division: '' },
+    { slug: 'intermezzo', name: 'Intermezzo Championship' },
+  ],
+  players: ['Ada', 'Bram'],
+};
+
+describe('withoutTournament', () => {
+  it.each([
+    ['one division of several', 'royal_league', 'King 1', ['royal_league Emperor', 'royal_league ', 'intermezzo ']],
+    ['all divisions, written as empty', 'royal_league', '', ['royal_league Emperor', 'royal_league King 1', 'intermezzo ']],
+    ['all divisions, written as none', 'intermezzo', undefined, ['royal_league Emperor', 'royal_league King 1', 'royal_league ']],
+    ['a division not chosen', 'royal_league', 'King 2', ['royal_league Emperor', 'royal_league King 1', 'royal_league ', 'intermezzo ']],
+    ['a tournament not chosen', 'international', 'Grandmaster', ['royal_league Emperor', 'royal_league King 1', 'royal_league ', 'intermezzo ']],
+  ])('removes %s', (_, slug, division, want) => {
+    const got = withoutTournament(league, slug, division);
+    expect(got.tournaments.map((t) => `${t.slug} ${t.division ?? ''}`)).toEqual(want);
+    expect(got.players).toEqual(league.players);
+  });
+});
+
+describe('withPlayer and withoutPlayer', () => {
+  it.each([
+    ['adds a new name', 'Cleo', ['Ada', 'Bram', 'Cleo']],
+    ['trims it', '  Cleo ', ['Ada', 'Bram', 'Cleo']],
+    ['keeps a name already there in another case', 'ada', ['Ada', 'Bram']],
+    ['ignores an empty name', '   ', ['Ada', 'Bram']],
+  ])('withPlayer %s', (_, name, want) => {
+    expect(withPlayer(league, name).players).toEqual(want);
+  });
+
+  it.each([
+    ['removes a name', 'Bram', ['Ada']],
+    ['ignoring case', 'ADA', ['Bram']],
+    ['leaves the rest for a name not there', 'Cleo', ['Ada', 'Bram']],
+  ])('withoutPlayer %s', (_, name, want) => {
+    const got = withoutPlayer(league, name);
+    expect(got.players).toEqual(want);
+    expect(got.tournaments).toEqual(league.tournaments);
   });
 });
