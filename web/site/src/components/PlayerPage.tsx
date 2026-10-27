@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -54,6 +54,7 @@ import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
 import { useLoad } from './useLoad';
+import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
 
 function readView(): PlayerView {
@@ -70,14 +71,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
     setView(next);
   }, []);
-  const linkTo = (next: PlayerView) => ({
-    href: `?${playerParams(next)}`,
-    onClick: (e: MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo = viewLinks(playerParams, go);
 
   useEffect(() => {
     const onPop = () => setView(readView());
@@ -281,7 +275,7 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
   );
 }
 
-type LinkTo = (next: PlayerView) => { href: string; onClick: (e: MouseEvent) => void };
+type LinkTo = (next: PlayerView) => Link;
 
 function Games({
   state,

@@ -1,11 +1,10 @@
 /** The player and matrix pages' selector block: their reset mode and format bars, then any of the page's own. */
-import type { MouseEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Format } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import * as show from '../lib/leaderboard-display';
 import type { ResetMode } from '../lib/leaderboard-view';
-
-type Link = { href: string; onClick?: (e: MouseEvent<HTMLAnchorElement>) => void };
+import type { Link } from '../lib/navigate';
 
 const FORMATS: Format[] = [0, 2, 3, 4];
 const RESET_MODES: { value: ResetMode; name: string; desc: string }[] = [

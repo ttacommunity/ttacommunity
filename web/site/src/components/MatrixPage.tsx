@@ -1,5 +1,5 @@
 /** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -22,6 +22,7 @@ import ScrollTable from './ScrollTable';
 import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
+import { viewLinks } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
 
 function readView(): MatrixView {
@@ -45,14 +46,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, { ...DEFAULT_VIEW, ...recall(window.localStorage), reset: next.reset, format: next.format });
     setView(next);
   }, []);
-  const linkTo = (next: MatrixView) => ({
-    href: `?${matrixParams(next)}`,
-    onClick: (e: MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo = viewLinks(matrixParams, go);
 
   useEffect(() => {
     const onPop = () => setView(readView());

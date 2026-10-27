@@ -13,6 +13,7 @@ import {
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import { errorText } from '@ttac/shared/load';
+import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
@@ -81,14 +82,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, next);
     setView(next);
   }, []);
-  const linkTo: LinkTo = (next) => ({
-    href: `?${viewParams(next, true)}`,
-    onClick: (e) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo: LinkTo = viewLinks((v) => viewParams(v, true), go);
 
   useEffect(() => {
     const onPop = () => setView(readView());
