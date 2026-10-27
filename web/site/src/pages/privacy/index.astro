@@ -3,7 +3,7 @@
 import { getEntry, render } from 'astro:content';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import '../../components/HallOfFame.css';
-import '../../components/Privacy.css';
+import '../../components/TextPage.css';
 
 const page = await getEntry('pages', 'privacy');
 if (page === undefined) throw new Error('src/content/privacy.mdx is missing');
@@ -14,7 +14,7 @@ const { Content } = await render(page);
     <h1 class="tournaments-title">{page.data.title}</h1>
     <div class="tournaments-subtitle">Last changed {page.data.updated}.</div>
   </div>
-  <article class="rating-card privacy-body">
+  <article class="rating-card text-page-body">
     <Content />
   </article>
 </SiteLayout>
