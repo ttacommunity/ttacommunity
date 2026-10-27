@@ -72,6 +72,7 @@ var keptColumns = map[string]string{
 	"blitz_entries.member_id":     "omitted: public on the tournament's page",
 	"blitz_entries.status":        "omitted: public on the tournament's page",
 	"blitz_entries.joined_at":     "omitted: public on the tournament's page",
+	"blitz_entries.starting_rank": "omitted: the tournament's pairing order, not about the player; its effect is public in the pairings",
 }
 
 func TestEveryColumnAboutAPlayerIsShownOrLeftOut(t *testing.T) {
