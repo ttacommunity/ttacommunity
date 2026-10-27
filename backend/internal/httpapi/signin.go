@@ -18,8 +18,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/discord"
-	"ttacommunity/backend/internal/google"
-	"ttacommunity/backend/internal/microsoft"
+	"ttacommunity/backend/internal/openid"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -48,16 +47,11 @@ type SignIns interface {
 	// DiscordAuthURL and DiscordUser start and finish a sign-in with Discord.
 	DiscordAuthURL(state, verifier string) string
 	DiscordUser(ctx context.Context, code, verifier string) (discord.User, error)
-	// MicrosoftReady reports whether signing in with Microsoft is set up here; MicrosoftAuthURL and MicrosoftUser
-	// start and finish one.
-	MicrosoftReady() bool
-	MicrosoftAuthURL(state, verifier, nonce string) string
-	MicrosoftUser(ctx context.Context, code, verifier, nonce string) (microsoft.User, error)
-	// GoogleReady reports whether signing in with Google is set up here; GoogleAuthURL and GoogleUser start and
-	// finish one.
-	GoogleReady() bool
-	GoogleAuthURL(state, verifier, nonce string) string
-	GoogleUser(ctx context.Context, code, verifier, nonce string) (google.User, error)
+	// OpenIDReady reports whether signing in with provider ("microsoft" or "google") is set up here; OpenIDAuthURL
+	// and OpenIDUser start and finish one.
+	OpenIDReady(provider string) bool
+	OpenIDAuthURL(provider, state, verifier, nonce string) string
+	OpenIDUser(ctx context.Context, provider, code, verifier, nonce string) (openid.User, error)
 	// AddLogin adds a Discord, Microsoft or Google account to the account whose session hashes to tokenHash.
 	AddLogin(ctx context.Context, tokenHash []byte, id store.Identity, now time.Time) error
 	// RemoveOwnLogin removes one way into the account whose session hashes to tokenHash.
@@ -78,8 +72,6 @@ const (
 	sessionCookie = "ttac_session"
 	flowCookie    = "ttac_signin"
 	discordPath   = "/v1/auth/discord"
-	microsoftPath = "/v1/auth/microsoft"
-	googlePath    = "/v1/auth/google"
 	flowLife      = 10 * time.Minute
 	// cookieLife outlasts any session: the session itself ends after store.SessionLife unused.
 	cookieLife = 400 * 24 * time.Hour
@@ -316,21 +308,24 @@ func (s *server) StartDiscordSignIn(_ context.Context, req StartDiscordSignInReq
 }
 
 func (s *server) StartMicrosoftSignIn(_ context.Context, req StartMicrosoftSignInRequestObject) (StartMicrosoftSignInResponseObject, error) {
-	if !s.signIns.MicrosoftReady() {
+	if !s.signIns.OpenIDReady("microsoft") {
 		return StartMicrosoftSignIn503JSONResponse{notSetUp("Microsoft")}, nil
 	}
-	return startFlow(microsoftPath, req.Params.Return, req.Params.Add, func(state, verifier string) string {
-		return s.signIns.MicrosoftAuthURL(state, verifier, nonceFor(verifier))
-	}), nil
+	return s.startOpenID("microsoft", req.Params.Return, req.Params.Add), nil
 }
 
 func (s *server) StartGoogleSignIn(_ context.Context, req StartGoogleSignInRequestObject) (StartGoogleSignInResponseObject, error) {
-	if !s.signIns.GoogleReady() {
+	if !s.signIns.OpenIDReady("google") {
 		return StartGoogleSignIn503JSONResponse{notSetUp("Google")}, nil
 	}
-	return startFlow(googlePath, req.Params.Return, req.Params.Add, func(state, verifier string) string {
-		return s.signIns.GoogleAuthURL(state, verifier, nonceFor(verifier))
-	}), nil
+	return s.startOpenID("google", req.Params.Return, req.Params.Add), nil
+}
+
+// startOpenID sends the browser to provider, Microsoft or Google, with the nonce its verifier gives.
+func (s *server) startOpenID(provider string, back *string, add *bool) redirect {
+	return startFlow("/v1/auth/"+provider, back, add, func(state, verifier string) string {
+		return s.signIns.OpenIDAuthURL(provider, state, verifier, nonceFor(verifier))
+	})
 }
 
 // notSetUp answers a route of provider, such as Microsoft, on an api without sign-in with it.
@@ -406,34 +401,31 @@ func (s *server) FinishDiscordSignIn(ctx context.Context, req FinishDiscordSignI
 }
 
 func (s *server) FinishMicrosoftSignIn(ctx context.Context, req FinishMicrosoftSignInRequestObject) (FinishMicrosoftSignInResponseObject, error) {
-	if !s.signIns.MicrosoftReady() {
+	if !s.signIns.OpenIDReady("microsoft") {
 		return FinishMicrosoftSignIn503JSONResponse{notSetUp("Microsoft")}, nil
 	}
 	p := req.Params
-	return s.finishFlow(ctx, "microsoft", microsoftPath, p.Code, p.State, p.Error, func(code, verifier string) (store.Identity, error) {
-		u, err := s.signIns.MicrosoftUser(ctx, code, verifier, nonceFor(verifier))
-		return store.Identity{Provider: "microsoft", Subject: u.Subject, Username: accountName(u.Name, "Microsoft"), Email: u.Email}, err
-	}), nil
+	return s.finishOpenID(ctx, "microsoft", "Microsoft", p.Code, p.State, p.Error), nil
 }
 
 func (s *server) FinishGoogleSignIn(ctx context.Context, req FinishGoogleSignInRequestObject) (FinishGoogleSignInResponseObject, error) {
-	if !s.signIns.GoogleReady() {
+	if !s.signIns.OpenIDReady("google") {
 		return FinishGoogleSignIn503JSONResponse{notSetUp("Google")}, nil
 	}
 	p := req.Params
-	return s.finishFlow(ctx, "google", googlePath, p.Code, p.State, p.Error, func(code, verifier string) (store.Identity, error) {
-		u, err := s.signIns.GoogleUser(ctx, code, verifier, nonceFor(verifier))
-		return store.Identity{Provider: "google", Subject: u.Subject, Username: accountName(u.Name, "Google"), Email: u.Email}, err
-	}), nil
+	return s.finishOpenID(ctx, "google", "Google", p.Code, p.State, p.Error), nil
 }
 
-// accountName is what a Microsoft or Google login is called: the account's name, else "<provider> account"; never its
-// email, which the site's nav would show to anyone looking.
-func accountName(name, provider string) string {
-	if name != "" {
-		return name
-	}
-	return provider + " account"
+// finishOpenID finishes a sign-in with provider, Microsoft or Google, whose login is called by the account's name, else
+// "<Name> account"; never by its email, which the site's nav would show to anyone looking.
+func (s *server) finishOpenID(ctx context.Context, provider, name string, code, state, declined *string) redirect {
+	return s.finishFlow(ctx, provider, "/v1/auth/"+provider, code, state, declined, func(code, verifier string) (store.Identity, error) {
+		u, err := s.signIns.OpenIDUser(ctx, provider, code, verifier, nonceFor(verifier))
+		if u.Name == "" {
+			u.Name = name + " account"
+		}
+		return store.Identity{Provider: provider, Subject: u.Subject, Username: u.Name, Email: u.Email}, err
+	})
 }
 
 // addLogin adds id to the signed-in account and goes back to the account page saying how that went, and which way in.
