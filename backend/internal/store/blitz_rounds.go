@@ -480,6 +480,12 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 		if _, err := tx.Exec(ctx, "DELETE FROM blitz_rounds WHERE round_id = $1", roundID); err != nil {
 			return fmt.Errorf("deleting round %d: %w", roundID, err)
 		}
+		// The starting ranks are drawn with round 1, so they go with the last round.
+		if _, err := tx.Exec(ctx, `
+			UPDATE blitz_entries SET starting_rank = NULL
+			WHERE tournament_id = $1 AND NOT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1)`, edID); err != nil {
+			return fmt.Errorf("deleting round %d: %w", roundID, err)
+		}
 		return nil
 	})
 }

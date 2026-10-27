@@ -106,7 +106,7 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 
 // blitzPairing is an edition's pairing methods as the API sends them.
 func blitzPairing(p store.BlitzPairing) BlitzPairingMethods {
-	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later)}
+	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later), Ranks: BlitzPairingMethodsRanks(p.Ranks)}
 }
 
 // blitzStandings is the edition's standings as the API sends them.
@@ -123,7 +123,8 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 			status = "dropped"
 		}
 		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
-			Byes: s.Byes, Buchholz: s.Buchholz, Status: BlitzStandingStatus(status)})
+			Byes: s.Byes, BuchholzCut1: s.BuchholzCut1, Buchholz: s.Buchholz, SonnebornBerger: s.SonnebornBerger, OpponentsBuchholz: s.OpponentsBuchholz,
+			OpponentsSonnebornBerger: s.OpponentsSonnebornBerger, Status: BlitzStandingStatus(status)})
 	}
 	return out
 }

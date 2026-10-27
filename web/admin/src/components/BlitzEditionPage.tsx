@@ -8,7 +8,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, editionParams, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, RANK_ORDERS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, formatLabel, pairingSummary, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, usesStartingRanks, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
@@ -22,7 +22,7 @@ import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } 
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, finishRounds, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminHeader from './AdminHeader';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -775,6 +775,9 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                 <SortHeader col="rating" sort={sort} onSort={sortBy}>
                   Rating
                 </SortHeader>
+                <SortHeader col="rank" sort={sort} onSort={sortBy}>
+                  <abbr title="Starting rank">Rank</abbr>
+                </SortHeader>
                 <SortHeader col="status" sort={sort} onSort={sortBy}>
                   Status
                 </SortHeader>
@@ -811,6 +814,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                         <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
                       </td>
                       <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{e.starting_rank ?? '–'}</td>
                       <td>{entrantState(e, ed.rounds, nameOf)}</td>
                       <td>{e.skips.length}</td>
                       <td className="run-buttons">
@@ -835,6 +839,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                         {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
                       </td>
                       <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{e.starting_rank ?? '–'}</td>
                       <td>{entrantState(e, ed.rounds, nameOf)}</td>
                       <td>{e.skips.length}</td>
                       <td className="run-buttons">
@@ -909,8 +914,6 @@ type View = 'rounds' | 'entrants' | 'standings';
 /** EditionTabs shows one of the format and rounds, the entrants (with the form to add one first) or the standings, chosen by its tabs, the site's sub tabs. */
 function EditionTabs(props: Props) {
   const [hash, setHash] = useHash();
-  const names = new Map(props.ed.entrants.map((e) => [e.id, e.name]));
-  const nameOf = (id: number) => names.get(id) ?? '?';
   return (
     <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
       <SubTabs<View>
@@ -936,7 +939,7 @@ function EditionTabs(props: Props) {
               </>
             ),
           },
-          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={byFinish(props.ed.standings, latestFinishes(finishRounds(props.ed.rounds, nameOf)))} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
         ]}
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
@@ -1168,6 +1171,16 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       <form className="admin-add" onSubmit={(e) => void save(e)}>
         {choice('Round 1', 'first', FIRST_METHODS)}
         {choice('Later rounds', 'later', LATER_METHODS)}
+        <label>
+          Starting ranks
+          <select className="input-antique" value={pairing.ranks} onChange={(e) => setPairing({ ...pairing, ranks: RANK_ORDERS.find((o) => o.value === e.target.value)?.value ?? pairing.ranks })}>
+            {RANK_ORDERS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit" className="btn-antique">
           Save
         </button>
@@ -1175,7 +1188,11 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       <Notice outcome={shownAt(outcome, 'pairing')} onClose={() => say(null)} />
       <p className="muted round-hint">Round 1: {PAIRING_METHODS[pairing.first].about}</p>
       <p className="muted round-hint">Later rounds: {PAIRING_METHODS[pairing.later].about}</p>
-      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method.</p>
+      <p className="muted round-hint">
+        Starting ranks {RANK_ORDERS.find((o) => o.value === pairing.ranks)?.about}
+        {usesStartingRanks(pairing) ? '' : ' Only the Dutch system uses them.'}
+      </p>
+      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method, and starting ranks once given stay until the edition has no round.</p>
     </>
   );
 }
@@ -1508,17 +1525,14 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does, in the order given: how the edition scores, then place, points, games played, byes and Buchholz, dropped players last. */
+/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked where the draw ordered it), points, games played, byes and the tie-breaks, dropped players last. */
 function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   return (
     <>
       <p className="muted">
-        {scoring} Ties are broken by the Swiss tie-breaks: Direct Encounter (the games
-        among the tied players), then Buchholz (the sum of the opponents&apos; scores; a bye, a forfeit or a missed round
-        counts as a game against an opponent on the player&apos;s own score). Players still level share a place, such as
-        1–12, listed by when their game in the latest round finished; where one order is needed, as for the knockout, a
-        draw fixed for the edition decides.
+        {scoring} Players on the same points are separated by {TIE_BREAKS.map((t) => t.label).join(', ')}, in that order.{' '}
+        {UNPLAYED_NOTE} A rank marked <span className="blitz-draw">*</span> was ordered by the draw.
       </p>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
@@ -1527,7 +1541,7 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
             <caption className="visually-hidden">The standings</caption>
             <thead>
               <tr>
-                <SortHeader col="place" sort={sort} onSort={sortBy}>
+                <SortHeader col="rank" sort={sort} onSort={sortBy}>
                   Rank
                 </SortHeader>
                 <SortHeader col="player" sort={sort} onSort={sortBy}>
@@ -1542,15 +1556,28 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
                 <SortHeader col="byes" sort={sort} onSort={sortBy}>
                   Byes
                 </SortHeader>
+                <SortHeader col="cut1" sort={sort} onSort={sortBy}>
+                  <abbr title="Buchholz Cut 1">BH-C1</abbr>
+                </SortHeader>
                 <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
-                  Buchholz
+                  <abbr title="Buchholz">BH</abbr>
+                </SortHeader>
+                <SortHeader col="sb" sort={sort} onSort={sortBy}>
+                  <abbr title="Sonneborn-Berger">SB</abbr>
                 </SortHeader>
               </tr>
             </thead>
             <tbody>
               {rows.map((s) => (
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
-                  <td>{placeLabel(s)}</td>
+                  <td>
+                    {s.rank}
+                    {drawLabel(s) !== null && (
+                      <span className="blitz-draw" title={drawLabel(s) ?? ''}>
+                        *<span className="visually-hidden">{drawLabel(s)}</span>
+                      </span>
+                    )}
+                  </td>
                   <th scope="row">
                     {s.name}
                     {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
@@ -1558,7 +1585,9 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
                   <td>{s.points}</td>
                   <td>{s.games}</td>
                   <td>{s.byes}</td>
+                  <td>{s.buchholz_cut1}</td>
                   <td>{s.buchholz}</td>
+                  <td>{s.sonneborn_berger}</td>
                 </tr>
               ))}
             </tbody>

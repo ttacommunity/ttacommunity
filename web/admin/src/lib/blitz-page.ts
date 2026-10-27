@@ -64,9 +64,10 @@ export function settingsRows(ed: {
   ];
 }
 
-/** ADMIN_ENTRANT_COLUMNS are the entrants table's sortable columns: the site's, then Discord name, email, country, status and skips, an empty value last. */
-export const ADMIN_ENTRANT_COLUMNS: SortColumns<EntrantRow & { discord_name: string; email: string; country: string | null; status: string; skips: readonly number[] }, 'player' | 'zone' | 'rating' | 'discord' | 'email' | 'country' | 'status' | 'skips'> = {
+/** ADMIN_ENTRANT_COLUMNS are the entrants table's sortable columns: the site's, then starting rank, Discord name, email, country, status and skips, an empty value last. */
+export const ADMIN_ENTRANT_COLUMNS: SortColumns<EntrantRow & { discord_name: string; email: string; country: string | null; status: string; skips: readonly number[]; starting_rank: number | null }, 'player' | 'zone' | 'rating' | 'rank' | 'discord' | 'email' | 'country' | 'status' | 'skips'> = {
   ...ENTRANT_COLUMNS,
+  rank: { value: (e) => e.starting_rank, first: 'asc' },
   discord: { value: (e) => (e.discord_name === '' ? null : e.discord_name), first: 'asc' },
   email: { value: (e) => (e.email === '' ? null : e.email), first: 'asc' },
   country: { value: (e) => e.country, first: 'asc' },

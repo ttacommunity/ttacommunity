@@ -1,12 +1,12 @@
 /* The Blitz section: the list of editions and an edition's knockout, standings, rounds and entrants, in the site's card and table look. */
 
-/* The rounds paired so far in "How pairings work", their bullets in line with the dialog's text. */
+/* The rounds paired so far and the tie-break steps in "How pairings and ties work", their bullets in line with the dialog's text. */
 .blitz-paired-list {
   padding-left: 0;
   list-style-position: inside;
 }
 
-/* The edition header's "How pairings work" button, under its subtitle. */
+/* The edition header's "How pairings and ties work" button, under its subtitle. */
 .blitz-how-paired {
   margin-top: 0.75rem;
 }
@@ -129,4 +129,21 @@
 }
 .report-said.report-refused {
   color: var(--loss);
+}
+
+/* The marker on a rank the draw ordered. */
+.blitz-draw {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+/* The "How ties are broken" button, a link in the standings' note. */
+.blitz-text-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent-gold);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }

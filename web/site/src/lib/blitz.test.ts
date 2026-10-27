@@ -183,8 +183,8 @@ describe("blitzGames' row of the signed-in player's game", () => {
 });
 
 describe('pairingNotes', () => {
-  const ed = (first: 'dutch' | 'random', later: 'dutch' | 'rating', bye = 1) => ({
-    pairing: { first, later },
+  const ed = (first: 'dutch' | 'random' | 'timezone', later: 'dutch' | 'rating', bye = 1, ranks: 'rating' | 'lot' = 'rating') => ({
+    pairing: { first, later, ranks },
     points: { bye },
     format: { swiss_rounds: 8, knockout_size: 8 },
     rounds: [] as { number: number; kind: 'swiss' | 'knockout'; method: 'dutch' | 'timezone' | null }[],
@@ -201,6 +201,15 @@ describe('pairingNotes', () => {
     ['points', 3, 'worth 3 points'],
   ])('says what the bye is worth: %s', (_, bye, want) => {
     expect(pairingNotes(ed('dutch', 'dutch', bye)).rules.join(' ')).toContain(want);
+  });
+  it.each([
+    ['by rating with the Dutch system', ed('dutch', 'dutch', 1, 'rating'), 'Starting ranks follow the ratings'],
+    ['by lot with the Dutch system', ed('random', 'dutch', 1, 'lot'), 'Starting ranks are drawn'],
+    ['not at all without the Dutch system', ed('timezone', 'rating', 1, 'lot'), null],
+  ])('says how the starting ranks are given: %s', (_, edition, want) => {
+    const rule = pairingNotes(edition).rules.find((r) => r.startsWith('Starting ranks')) ?? null;
+    if (want === null) expect(rule).toBeNull();
+    else expect(rule).toContain(want);
   });
   it('lists the method each Swiss round was paired with, the knockout left out', () => {
     const edition = ed('dutch', 'dutch');

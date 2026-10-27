@@ -4833,9 +4833,11 @@ components:
             $ref: "#/components/schemas/BlitzRound"
         standings:
           description: |
-            By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
-            then Buchholz), then a draw fixed for the edition; dropped players
-            last. Only the published Swiss rounds count
+            By rank: points, then the tie-breaks in order (Direct Encounter,
+            Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
+            Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
+            the edition; dropped players last. Only the published Swiss rounds
+            count
           type: array
           items:
             $ref: "#/components/schemas/BlitzStanding"
@@ -4953,7 +4955,7 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, place_from, place_to, name, country, points, games, byes, buchholz, status]
+      required: [rank, place_from, place_to, name, country, points, games, byes, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
       properties:
         rank:
           type: integer
@@ -4961,7 +4963,8 @@ components:
           description: |
             The first rank of the place this row shares with the rows only the
             edition's draw separates it from (equal points, direct encounter
-            and Buchholz); place_to is the last. Equal for a place held alone
+            and every tie-break); place_to is the last. Equal for a place held
+            alone
           type: integer
         place_to:
           type: integer
@@ -4980,6 +4983,10 @@ components:
           type: integer
         byes:
           type: integer
+        buchholz_cut1:
+          description: Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
+          type: number
+          format: double
         buchholz:
           description: |
             Buchholz, as FIDE's tie-break regulations for Swiss tournaments
@@ -4987,6 +4994,22 @@ components:
             bye, a forfeit, a round not paired) counts as a game against a
             dummy with the player's own score, and an opponent's rounds after
             dropping out count as draws
+          type: number
+          format: double
+        sonneborn_berger:
+          description: |
+            Sonneborn-Berger: each opponent's score times the points scored
+            against them, so a win counts the opponent's score, a draw half of
+            it and a loss nothing. An unplayed round counts its dummy as
+            Buchholz does
+          type: number
+          format: double
+        opponents_buchholz:
+          description: The sum of the opponents' Buchholz; an unplayed round counts the player's own
+          type: number
+          format: double
+        opponents_sonneborn_berger:
+          description: The sum of the opponents' Sonneborn-Berger; an unplayed round counts the player's own
           type: number
           format: double
         status:
@@ -5004,19 +5027,27 @@ components:
       type: string
       enum: [dutch, dutch-timezone, timezone, rating, random]
     BlitzPairingMethods:
-      description: How an edition's Swiss rounds are paired, round 1 and the rounds after it
+      description: How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given
       type: object
       additionalProperties: false
-      required: [first, later]
+      required: [first, later, ranks]
       properties:
         first:
           description: Round 1's method, one of dutch, dutch-timezone, timezone or random
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
         later:
-          description: The later rounds' method, one of dutch, dutch-timezone, timezone or rating
+          description: The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
+        ranks:
+          description: |
+            How the Dutch system's starting ranks are given, fixed when round 1
+            is paired: rating is by rating, the unrated last, then by name; lot
+            is a draw. A late entrant is slotted in by rating, or given the
+            next rank
+          type: string
+          enum: [rating, lot]
     BlitzPairing:
       description: The matches to keep as they are
       type: object
@@ -5201,7 +5232,7 @@ components:
           type: integer
     AdminBlitzEntrant:
       type: object
-      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, status, skips]
+      required: [id, member, name, player, discord_name, email, country, zone, utc_offset, rating, starting_rank, status, skips]
       properties:
         id:
           type: integer
@@ -5230,6 +5261,10 @@ components:
         rating:
           type: number
           format: double
+          nullable: true
+        starting_rank:
+          description: The Dutch system's starting rank, fixed when round 1 was paired (1 the top); null before
+          type: integer
           nullable: true
         status:
           description: Active is in; dropped is out of the rounds still to come, their results kept

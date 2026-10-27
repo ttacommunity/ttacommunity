@@ -125,11 +125,24 @@ func (f *fakeAdmins) SetBlitzPairing(_ context.Context, slug, edition string, p 
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	if !slices.Contains(store.BlitzFirstMethods, p.First) || !slices.Contains(store.BlitzLaterMethods, p.Later) {
+	if !slices.Contains(store.BlitzFirstMethods, p.First) || !slices.Contains(store.BlitzLaterMethods, p.Later) || !slices.Contains(store.BlitzRankOrders, p.Ranks) {
 		return store.ErrBadBlitzPairing
 	}
 	f.pairing = p
-	f.notes = append(f.notes, "pairing "+p.First+"/"+p.Later)
+	f.notes = append(f.notes, "pairing "+p.First+"/"+p.Later+"/"+p.Ranks)
+	return nil
+}
+
+func (f *fakeAdmins) SetBlitzStartingRanks(_ context.Context, slug, edition string, ranks map[int64]int) error {
+	if slug != "us_open" || edition != "2026" {
+		return store.ErrNoBlitzEdition
+	}
+	for i := range f.entrants {
+		if r, ok := ranks[f.entrants[i].ID]; ok {
+			f.entrants[i].StartingRank = r
+		}
+	}
+	f.notes = append(f.notes, "starting ranks")
 	return nil
 }
 

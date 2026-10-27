@@ -3080,9 +3080,11 @@ export interface components {
             /** @description The published rounds, first first */
             rounds: components["schemas"]["BlitzRound"][];
             /**
-             * @description By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
-             *     then Buchholz), then a draw fixed for the edition; dropped players
-             *     last. Only the published Swiss rounds count
+             * @description By rank: points, then the tie-breaks in order (Direct Encounter,
+             *     Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
+             *     Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
+             *     the edition; dropped players last. Only the published Swiss rounds
+             *     count
              */
             standings: components["schemas"]["BlitzStanding"][];
         };
@@ -3160,7 +3162,8 @@ export interface components {
             /**
              * @description The first rank of the place this row shares with the rows only the
              *     edition's draw separates it from (equal points, direct encounter
-             *     and Buchholz); place_to is the last. Equal for a place held alone
+             *     and every tie-break); place_to is the last. Equal for a place held
+             *     alone
              */
             place_from: number;
             place_to: number;
@@ -3177,6 +3180,11 @@ export interface components {
             byes: number;
             /**
              * Format: double
+             * @description Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
+             */
+            buchholz_cut1: number;
+            /**
+             * Format: double
              * @description Buchholz, as FIDE's tie-break regulations for Swiss tournaments
              *     define it: the sum of the opponents' scores. An unplayed round (a
              *     bye, a forfeit, a round not paired) counts as a game against a
@@ -3184,6 +3192,24 @@ export interface components {
              *     dropping out count as draws
              */
             buchholz: number;
+            /**
+             * Format: double
+             * @description Sonneborn-Berger: each opponent's score times the points scored
+             *     against them, so a win counts the opponent's score, a draw half of
+             *     it and a loss nothing. An unplayed round counts its dummy as
+             *     Buchholz does
+             */
+            sonneborn_berger: number;
+            /**
+             * Format: double
+             * @description The sum of the opponents' Buchholz; an unplayed round counts the player's own
+             */
+            opponents_buchholz: number;
+            /**
+             * Format: double
+             * @description The sum of the opponents' Sonneborn-Berger; an unplayed round counts the player's own
+             */
+            opponents_sonneborn_berger: number;
             /**
              * @description Dropped players come last
              * @enum {string}
@@ -3200,12 +3226,20 @@ export interface components {
          * @enum {string}
          */
         BlitzPairingMethod: "dutch" | "dutch-timezone" | "timezone" | "rating" | "random";
-        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it */
+        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given */
         BlitzPairingMethods: {
             /** @description Round 1's method, one of dutch, dutch-timezone, timezone or random */
             first: components["schemas"]["BlitzPairingMethod"];
-            /** @description The later rounds' method, one of dutch, dutch-timezone, timezone or rating */
+            /** @description The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random */
             later: components["schemas"]["BlitzPairingMethod"];
+            /**
+             * @description How the Dutch system's starting ranks are given, fixed when round 1
+             *     is paired: rating is by rating, the unrated last, then by name; lot
+             *     is a draw. A late entrant is slotted in by rating, or given the
+             *     next rank
+             * @enum {string}
+             */
+            ranks: "rating" | "lot";
         };
         /** @description The matches to keep as they are */
         BlitzPairing: {
@@ -3332,6 +3366,8 @@ export interface components {
             utc_offset: string;
             /** Format: double */
             rating: number | null;
+            /** @description The Dutch system's starting rank, fixed when round 1 was paired (1 the top); null before */
+            starting_rank: number | null;
             /**
              * @description Active is in; dropped is out of the rounds still to come, their results kept
              * @enum {string}
@@ -8777,6 +8813,7 @@ export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
+export const blitzPairingMethodsRanksValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethods"]["ranks"]> = ["rating", "lot"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];

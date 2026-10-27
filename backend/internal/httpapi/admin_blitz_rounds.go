@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"time"
@@ -118,7 +119,7 @@ func pairingError(err error) string {
 
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
 // round named by except (0 for none: a new round) when counting points, places, opponents, byes and floats, and the
-// entrants in busy (already paired, or skipping the round). Starting ranks follow the ratings (startingRanks).
+// entrants in busy (already paired, or skipping the round). Starting ranks are the entrants' (startingRanks).
 func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []pairing.Player {
 	var others []store.BlitzRound
 	for _, r := range ed.Rounds {
@@ -134,7 +135,6 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 	}
 	entrants, matches, numbers := swissPlayed(without)
 	history := blitz.Histories(entrants, matches, numbers, ed.Points)
-	ranks := startingRanks(ed.Entrants, rated)
 	var players []pairing.Player
 	for _, e := range ed.Entrants {
 		if e.Status != "active" || busy[e.ID] {
@@ -142,7 +142,7 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 		}
 		offset, _ := blitz.OffsetMinutes(e.Zone, now)
 		h := history[e.ID]
-		p := pairing.Player{ID: e.ID, Points: points[e.Name], TPN: ranks[e.ID], Place: places[e.Name], Offset: offset, Opponents: met[e.ID],
+		p := pairing.Player{ID: e.ID, Points: points[e.Name], TPN: e.StartingRank, Place: places[e.Name], Offset: offset, Opponents: met[e.ID],
 			HadBye: h.HadBye, Unplayed: h.Unplayed, Floats: h.Floats}
 		if r, ok := rated[e.Player]; ok {
 			p.Rating, p.Rated = r.Rating, true
@@ -152,16 +152,12 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 	return players
 }
 
-// startingRanks numbers the active entrants 1, 2, 3… by rating, highest first, the unrated last, then by name
-// without case, for the Dutch system's order within a score group.
-func startingRanks(entrants []store.BlitzEntrant, rated map[string]store.Rated) map[int64]int {
-	var active []store.BlitzEntrant
-	for _, e := range entrants {
-		if e.Status == "active" {
-			active = append(active, e)
-		}
-	}
-	slices.SortStableFunc(active, func(a, b store.BlitzEntrant) int {
+// startingRanks gives every entrant with a starting rank, and every active one without, a rank 1, 2, 3… for the
+// Dutch system's order within a score group, and says whether any differs from the entrants' own. Ranks given are
+// kept in their order. The others are slotted in by rating (highest first, the unrated last, then by name without
+// case), or by lot: drawn with the seed, after the ranks given.
+func startingRanks(entrants []store.BlitzEntrant, rated map[string]store.Rated, lot bool, seed uint64) (map[int64]int, bool) {
+	byRating := func(a, b store.BlitzEntrant) int {
 		ra, okA := rated[a.Player]
 		rb, okB := rated[b.Player]
 		switch {
@@ -174,12 +170,51 @@ func startingRanks(entrants []store.BlitzEntrant, rated map[string]store.Rated) 
 			return cmp.Compare(rb.Rating, ra.Rating)
 		}
 		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
-	})
-	ranks := make(map[int64]int, len(active))
-	for i, e := range active {
-		ranks[e.ID] = i + 1
 	}
-	return ranks
+	var ranked, late []store.BlitzEntrant
+	for _, e := range entrants {
+		switch {
+		case e.StartingRank > 0:
+			ranked = append(ranked, e)
+		case e.Status == "active":
+			late = append(late, e)
+		}
+	}
+	slices.SortStableFunc(ranked, func(a, b store.BlitzEntrant) int { return cmp.Compare(a.StartingRank, b.StartingRank) })
+	if lot {
+		rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
+		rng.Shuffle(len(late), func(i, j int) { late[i], late[j] = late[j], late[i] })
+		ranked = append(ranked, late...)
+	} else {
+		slices.SortStableFunc(late, byRating)
+		for _, e := range late {
+			at := len(ranked)
+			if i := slices.IndexFunc(ranked, func(r store.BlitzEntrant) bool { return byRating(e, r) < 0 }); i >= 0 {
+				at = i
+			}
+			ranked = slices.Insert(ranked, at, e)
+		}
+	}
+	ranks, changed := make(map[int64]int, len(ranked)), false
+	for i, e := range ranked {
+		ranks[e.ID] = i + 1
+		changed = changed || e.StartingRank != i+1
+	}
+	return ranks, changed
+}
+
+// withStartingRanks is the edition with its entrants given their starting ranks (startingRanks), and the ranks
+// to store when any changed (nil for none).
+func withStartingRanks(ed store.BlitzEdition, rated map[string]store.Rated, seed uint64) (store.BlitzEdition, map[int64]int) {
+	ranks, changed := startingRanks(ed.Entrants, rated, ed.Pairing.Ranks == "lot", seed)
+	ed.Entrants = slices.Clone(ed.Entrants)
+	for i := range ed.Entrants {
+		ed.Entrants[i].StartingRank = ranks[ed.Entrants[i].ID]
+	}
+	if !changed {
+		return ed, nil
+	}
+	return ed, ranks
 }
 
 // nextMethod is how the edition's next Swiss round is paired: round 1's method for its first, else the later one.
@@ -284,8 +319,10 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	now := s.now()
 	seed := uint64(now.UnixNano())
 	var round store.BlitzRound
+	var ranks map[int64]int
 	switch {
 	case swissMade < ed.Format.SwissRounds:
+		ed, ranks = withStartingRanks(ed, rated, seed)
 		busy := map[int64]bool{}
 		for _, e := range skippers(ed.Entrants, next) {
 			busy[e.ID] = true
@@ -322,6 +359,11 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 		var err error
 		if made, err = tx.AddBlitzRound(ctx, req.Tournament, req.Edition, round); err != nil {
 			return err
+		}
+		if ranks != nil {
+			if err := tx.SetBlitzStartingRanks(ctx, req.Tournament, req.Edition, ranks); err != nil {
+				return err
+			}
 		}
 		return tx.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "method": made.Method, "seed": seed})
 	})
@@ -511,6 +553,7 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	}
 	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Method: round.Method, PublishedAt: round.PublishedAt, Matches: kept}
 	now := s.now()
+	ed, _ = withStartingRanks(ed, rated, uint64(now.UnixNano()))
 	free := pairingPlayers(ed, rated, now, round.ID, busy)
 	if i := slices.IndexFunc(proposal.Matches, func(m store.BlitzMatch) bool { return m.B == nil }); i >= 0 && len(free)%2 == 1 {
 		delete(busy, proposal.Matches[i].A)
