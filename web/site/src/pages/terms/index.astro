@@ -1,0 +1,20 @@
+---
+/** The terms of use page: what the site is, what it expects of players, and what it does not promise. */
+import { getEntry, render } from 'astro:content';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import '../../components/HallOfFame.css';
+import '../../components/TextPage.css';
+
+const page = await getEntry('pages', 'terms');
+if (page === undefined) throw new Error('src/content/terms.mdx is missing');
+const { Content } = await render(page);
+---
+<SiteLayout title="Terms of use | Through the Ages community" description="The terms of using the Through the Ages community site: what it is, what it expects of players, and what it does not promise.">
+  <div class="tournaments-header">
+    <h1 class="tournaments-title">{page.data.title}</h1>
+    <div class="tournaments-subtitle">Last changed {page.data.updated}.</div>
+  </div>
+  <article class="rating-card text-page-body">
+    <Content />
+  </article>
+</SiteLayout>

@@ -177,7 +177,10 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
           {emailOpen && <EmailSignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={returnTo} />}
         </li>
       </ul>
-      <p className="account-note">New here? Your account is created the first time you sign in, however you do it.</p>
+      <p className="account-note">
+        New here? Your account is created the first time you sign in, however you do it. Signing in means you accept our{' '}
+        <a href="/terms/">terms of use</a>.
+      </p>
       <p className="account-note account-muted">
         Trouble signing in, or lost access to your sign-in methods? Write to <a href="mailto:support@ttacommunity.org">support@ttacommunity.org</a> and
         we&apos;ll help you back in.
