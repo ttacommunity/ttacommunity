@@ -6,8 +6,7 @@ import { gamesTag } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: CatalogueGames };
+import type { Load } from '@ttac/shared/load';
 
 /** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
 export default function TournamentGames({
@@ -37,7 +36,7 @@ export default function TournamentGames({
     setFilter({ season: pick.season, page: 1 });
     panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [pick]);
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<CatalogueGames>>({ kind: 'loading' });
   useEffect(() => {
     let live = true;
     setLoad({ kind: 'loading' });

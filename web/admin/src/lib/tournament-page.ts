@@ -1,5 +1,7 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
-import type { AdminResult, AdminTournament, AdminTournamentRow, Load } from './admin-api';
+import type { Load } from '@ttac/shared/load';
+import { isSlug } from '@ttac/shared/ratings';
+import type { AdminResult, AdminTournament, AdminTournamentRow } from './admin-api';
 
 export type Setting = 'visible' | 'rated' | 'community' | 'blitz';
 
@@ -10,9 +12,6 @@ export const SETTINGS: { key: Setting; label: string; short: string; hint: strin
   { key: 'community', label: 'Community leaderboard', short: 'Community', hint: 'Counted in the overall community leaderboard' },
   { key: 'blitz', label: 'Blitz', short: 'Blitz', hint: 'Run from admin as a blitz tournament: its editions, entrants, weekly pairings and results are on the Blitz tab' },
 ];
-
-// The API's pattern for a tournament in a path.
-const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
 
 /** settingsHref is the address of a tournament's or group's page; with settings, a group's opens on its settings. */
 export function settingsHref(slug: string, settings = false): string {
@@ -27,7 +26,7 @@ export function opensSettings(search: URLSearchParams): boolean {
 /** slugParam returns the tournament the address names (?t=), or null for none or one the API would refuse. */
 export function slugParam(search: URLSearchParams): string | null {
   const t = search.get('t');
-  return t !== null && SLUG.test(t) ? t : null;
+  return t !== null && isSlug(t) ? t : null;
 }
 
 /** toggledCounts turns a player count's rating on or off, or gives null where that would leave none rated. */

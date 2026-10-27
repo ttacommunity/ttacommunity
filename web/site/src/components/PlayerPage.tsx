@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -35,7 +35,6 @@ import {
   parsePlayerView,
   playerParams,
   formatCards,
-  score,
   signedDelta,
   seatName,
   seatDeltaClass,
@@ -53,32 +52,14 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
-
-type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+import CopyCode from './CopyCode';
+import { useLoad } from './useLoad';
+import { viewLinks, type Link } from '../lib/navigate';
+import { errorText, type Load } from '@ttac/shared/load';
+import { score } from '@ttac/shared/numbers';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(window.localStorage));
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** useLoad runs load whenever key, which names everything load reads, changes; a null load waits. */
-function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
-  const [state, setState] = useState<Load<T>>({ kind: 'loading' });
-  useEffect(() => {
-    if (load === null) return;
-    let stale = false;
-    setState({ kind: 'loading' });
-    load()
-      .then((data) => !stale && setState({ kind: 'ready', data }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [key, load === null]);
-  return state;
 }
 
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
@@ -91,14 +72,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
     setView(next);
   }, []);
-  const linkTo = (next: PlayerView) => ({
-    href: `?${playerParams(next)}`,
-    onClick: (e: MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo = viewLinks(playerParams, go);
 
   useEffect(() => {
     const onPop = () => setView(readView());
@@ -302,7 +276,7 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
   );
 }
 
-type LinkTo = (next: PlayerView) => { href: string; onClick: (e: MouseEvent) => void };
+type LinkTo = (next: PlayerView) => Link;
 
 function Games({
   state,
@@ -379,7 +353,7 @@ function Games({
                   <GameDelta value={m.rating_delta} />
                 </td>
                 <td>
-                  <Replay code={m.replay_code} />
+                  <CopyCode code={m.replay_code} />
                 </td>
                 <td>
                   <div className="seats">
@@ -423,26 +397,6 @@ function GameDelta({ value }: { value: number | null }) {
     <span className={`game-delta${kind}`} data-tooltip={tip}>
       {signedDelta(value)}
     </span>
-  );
-}
-
-function Replay({ code }: { code: string | null }) {
-  const [copied, setCopied] = useState(false);
-  if (code === null) return <span className="replay-none">—</span>;
-  const copy = () => {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <div className="replay">
-      <code>{code}</code>
-      <button type="button" className="btn-copy-code" onClick={copy} title="Copy replay code" aria-label="Copy replay code">
-        {copied ? '✓' : '📋'}
-      </button>
-    </div>
   );
 }
 

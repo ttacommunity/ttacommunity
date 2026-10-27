@@ -1,4 +1,5 @@
 /** The FAQ page's logic: upstream's tab aliases, and the figures it fills from the current run. */
+import { count } from '@ttac/shared/numbers';
 import type { Activity, CalibrationRow, Run } from '@ttac/shared/ratings';
 import { runYears } from './player-view';
 
@@ -42,8 +43,8 @@ export function faqFigures(rows: readonly CalibrationRow[], activity: Activity |
     }
   }
   if (activity?.active != null) out.players = String(activity.active);
-  if (run?.games != null) out['run.games'] = run.games.toLocaleString('en-US');
-  if (run?.players != null) out['run.players'] = run.players.toLocaleString('en-US');
+  if (run?.games != null) out['run.games'] = count(run.games);
+  if (run?.players != null) out['run.players'] = count(run.players);
   const years = run ? runYears(run.first_game, run.last_game) : null;
   if (years) out['run.years'] = `${years[0]}–${years[1]}`;
   return out;

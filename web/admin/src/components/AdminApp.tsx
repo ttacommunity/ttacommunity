@@ -1,7 +1,8 @@
 /** The admin page: the site's header with admin's tabs (tournaments, blitz, members and their sign-ins, data and rating runs, titles and badges, admins). */
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, type Load } from '../lib/admin-api';
+import type { Load } from '@ttac/shared/load';
+import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow } from '../lib/admin-api';
 import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';

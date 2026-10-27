@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
+import { errorText, type Load } from '@ttac/shared/load';
+import { viewerZone } from '@ttac/shared/time';
 import {
   accountState,
   addWayInHref,
@@ -47,7 +49,6 @@ import Turnstile from './Turnstile';
 import Waiting from './Waiting';
 import './Account.css';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; me: Me | null };
 
 type Props = { apiUrl: string; turnstileSitekey: string };
 
@@ -57,23 +58,23 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   const notice = signInNotice(params);
   const first = isFirstSignIn(params);
   const back = backPath(params.get('back'));
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<Me | null>>({ kind: 'loading' });
 
   useEffect(() => {
     if (params.has('signin')) window.history.replaceState(null, '', withoutSignInParam(window.location.pathname, window.location.search));
     sharedMe(apiUrl)
       .then((me) => {
         rememberSignedIn(browserStorage(), me !== null);
-        setLoad({ kind: 'ready', me });
+        setLoad({ kind: 'ready', data: me });
       })
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
   }, [apiUrl, params]);
 
   // refresh reads the account again after a change.
   const refresh = () =>
     fetchMe(apiUrl)
-      .then((me) => setLoad({ kind: 'ready', me }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .then((me) => setLoad({ kind: 'ready', data: me }))
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
 
   return (
     <>
@@ -92,8 +93,8 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
         <Account
           apiUrl={apiUrl}
           turnstileSitekey={turnstileSitekey}
-          me={load.me}
-          state={accountState(load.me)}
+          me={load.data}
+          state={accountState(load.data)}
           first={first}
           back={back}
           refresh={refresh}
@@ -383,7 +384,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
     if (asked?.ok === true || details?.ok === true) refresh();
   };
 
-  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const browserZone = viewerZone();
   const suggestion = suggestedCountry(players.map((p) => ({ name: p.name, country: p.country ?? null })), draft.name, draft.zone, browserZone);
   const suggestionName = countries.find((c) => c.code === suggestion)?.name ?? suggestion;
   return (

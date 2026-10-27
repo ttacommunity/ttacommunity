@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   catalogueGames,
+  isSlug,
   RatingsApiError,
   siteVisits,
   activity,
@@ -46,6 +47,21 @@ function fakeFetch(status: number, body: string): { fetch: typeof fetch; calls: 
   };
   return { fetch: fn as typeof fetch, calls };
 }
+
+describe('isSlug', () => {
+  it.each([
+    ['a slug', 'us_open', true],
+    ['one letter', 'w', true],
+    ['64 characters', `a${'b'.repeat(63)}`, true],
+    ['65 characters', `a${'b'.repeat(64)}`, false],
+    ['a leading digit', '1st', false],
+    ['capitals', 'US_Open', false],
+    ['punctuation', 'Bad!', false],
+    ['nothing', '', false],
+  ])('says whether %s is one', (_name, s, want) => {
+    expect(isSlug(s)).toBe(want);
+  });
+});
 
 describe('currentRun', () => {
   it('reads the current run without credentials', async () => {

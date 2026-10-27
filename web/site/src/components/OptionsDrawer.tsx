@@ -4,9 +4,10 @@ import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
+import type { Link } from '../lib/navigate';
 
 /** A link to a view: a real address, followed in place. */
-export type LinkTo = (view: View) => { href: string; onClick: (e: React.MouseEvent) => void };
+export type LinkTo = (view: View) => Link;
 
 const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',

@@ -5,10 +5,10 @@ import { currentRun, distribution, type Distribution, type Model } from '@ttac/s
 import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
 import Waiting from './Waiting';
+import { errorText, type Load } from '@ttac/shared/load';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; dist: Distribution };
 
 const BARS: { model: Model; label: string; badge: string; short: string; className: string; fill: string; line: string }[] = [
   { model: 'glicko2_daneo', label: '👑 GlickoD', badge: '👑 GlickoD', short: 'GlickoD', className: 'mean-daneo', fill: 'rgba(168, 85, 247, 0.65)', line: '#a855f7' },
@@ -26,7 +26,7 @@ function means(d: Distribution) {
 /** EngineSpread loads the current run's distribution for the format in the address, or the remembered one. */
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(window.localStorage)).format);
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<Distribution>>({ kind: 'loading' });
   const canvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => onFormat(window, setFormat), []);
@@ -37,14 +37,14 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
     setLoad({ kind: 'loading' });
     currentRun(apiUrl)
       .then((r) => distribution(apiUrl, r.run_id, format))
-      .then((dist) => current && setLoad({ kind: 'ready', dist }))
-      .catch((e: unknown) => current && setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .then((data) => current && setLoad({ kind: 'ready', data }))
+      .catch((e: unknown) => current && setLoad({ kind: 'error', message: errorText(e) }));
     return () => {
       current = false;
     };
   }, [apiUrl, format]);
 
-  const dist = load.kind === 'ready' ? load.dist : null;
+  const dist = load.kind === 'ready' ? load.data : null;
 
   useEffect(() => {
     if (canvas.current === null || dist === null) return;

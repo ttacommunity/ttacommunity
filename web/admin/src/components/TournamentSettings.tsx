@@ -1,6 +1,7 @@
 /** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
 import { useEffect, useState } from 'react';
-import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, type Load } from '../lib/admin-api';
+import type { Load } from '@ttac/shared/load';
+import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
 import { tabsFor } from '../lib/admin-tabs';
 import AdminHeader from './AdminHeader';

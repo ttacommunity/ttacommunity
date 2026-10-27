@@ -1,6 +1,19 @@
-/** What both sites say about a blitz tournament: a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, how the standings share places, and how rounds are paired. */
+/** What both sites say about a blitz tournament: an edition's address, a zone's offset, a format, its points, how a match's result and turn order read, how a folded round is summed up, how a round and a seeded player are named, how the standings share places, and how rounds are paired. */
 import type { components } from '../api/schema';
+import { isSlug } from './ratings';
 import type { SortColumns } from './sort';
+
+/** editionParams returns the tournament slug (?t=) and edition label (?e=) the address names, or null for none. */
+export function editionParams(search: URLSearchParams): { slug: string; edition: string } | null {
+  const slug = search.get('t') ?? '';
+  const edition = search.get('e') ?? '';
+  return isSlug(slug) && edition !== '' ? { slug, edition } : null;
+}
+
+/** editionHref is the address of an edition's page. */
+export function editionHref(slug: string, edition: string): string {
+  return `/blitz/?t=${encodeURIComponent(slug)}&e=${encodeURIComponent(edition)}`;
+}
 
 export type BlitzFormat = components['schemas']['BlitzFormat'];
 export type BlitzResult = components['schemas']['BlitzResult'];

@@ -1,4 +1,4 @@
-/** The Blitz section's decisions: which edition the address names, its address, how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
+/** The Blitz section's decisions: how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
 import { PAIRING_METHODS, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
@@ -8,21 +8,6 @@ import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzMatch = components['schemas']['BlitzPublicMatch'];
-
-// The API's pattern for a tournament in a path.
-const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
-
-/** editionParams returns the tournament slug (?t=) and edition label (?e=) the address names, or null for the list. */
-export function editionParams(search: URLSearchParams): { slug: string; edition: string } | null {
-  const slug = search.get('t') ?? '';
-  const edition = search.get('e') ?? '';
-  return SLUG.test(slug) && edition !== '' ? { slug, edition } : null;
-}
-
-/** editionHref is the address of an edition's page. */
-export function editionHref(slug: string, edition: string): string {
-  return `/blitz/?t=${encodeURIComponent(slug)}&e=${encodeURIComponent(edition)}`;
-}
 
 /** ratingText shows a rating to the point, or a dash for a player without one. */
 export function ratingText(rating: number | null): string {

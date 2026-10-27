@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seatRankClass, settled } from './home-view';
-
-describe('settled', () => {
-  it('gives an answer as ready', async () => {
-    expect(await settled(Promise.resolve([1, 2]))).toEqual({ kind: 'ready', data: [1, 2] });
-  });
-
-  it.each([
-    ['an error', new Error('the API is down'), 'the API is down'],
-    ['anything else', 'timed out', 'timed out'],
-  ])('gives a failure with %s as an error with its message', async (_, reason, message) => {
-    expect(await settled(Promise.reject(reason))).toEqual({ kind: 'error', message });
-  });
-});
+import { seatRankClass } from './home-view';
 
 describe('seatRankClass', () => {
   it.each([

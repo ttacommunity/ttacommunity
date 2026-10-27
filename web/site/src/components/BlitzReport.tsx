@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { turnMark, turnOrder } from '@ttac/shared/blitz';
 import { chooseTurn, gameRecordFrom, TURNS, type GameForm } from '@ttac/shared/game-form';
+import { todayIn } from '@ttac/shared/time';
 import { browserStorage, seemsSignedIn, sharedMe } from '../lib/account';
 import { confirmReport, fetchMyMatch, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitzMatch } from '../lib/blitz-report';
 
@@ -11,12 +12,6 @@ const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
   { value: 'resigned', label: 'resigned' },
   { value: 'timed_out', label: 'timed out' },
 ];
-
-/** today is the day on the viewer's clocks as YYYY-MM-DD, the form's default. */
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 type Props = { apiUrl: string; slug: string; edition: string; onChanged: () => void; onMatch: (m: MyBlitzMatch | null) => void };
 
@@ -128,7 +123,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
       {form === null && (
         <div className="report-row">
           {match.actions.includes('report') && (
-            <button type="button" className="btn-antique" disabled={busy} onClick={() => setForm(formFor(match, zone, today()))}>
+            <button type="button" className="btn-antique" disabled={busy} onClick={() => setForm(formFor(match, zone, todayIn(zone, new Date())))}>
               {match.game === null ? 'Report result' : 'Correct report'}
             </button>
           )}

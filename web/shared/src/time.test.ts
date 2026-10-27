@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { formatDay, formatInstant, formatTime } from './time';
+import { formatDay, formatInstant, formatTime, todayIn } from './time';
 
 describe('formatInstant', () => {
   it.each([
@@ -54,5 +54,18 @@ describe.each(['America/New_York', 'UTC', 'Australia/Sydney'])('formatDay with t
     ['New Year\'s Eve', '2025-12-31', '31 Dec 2025'],
   ])('shows %s as that day', (_name, day, want) => {
     expect(formatDay(day)).toBe(want);
+  });
+});
+
+describe('todayIn', () => {
+  it.each([
+    ['Sydney, already tomorrow', '2026-10-27T14:30:00Z', 'Australia/Sydney', '2026-10-28'],
+    ['Sydney, the evening before its clocks go forward', '2026-10-03T13:30:00Z', 'Australia/Sydney', '2026-10-03'],
+    ['Los Angeles, still yesterday', '2026-10-28T03:00:00Z', 'America/Los_Angeles', '2026-10-27'],
+    ['London, just after midnight in summer time', '2026-07-01T23:30:00Z', 'Europe/London', '2026-07-02'],
+    ['a region, on the browser’s clocks', '2026-10-27T14:30:00Z', 'Europe', '2026-10-27'],
+    ['Unknown, on the browser’s clocks', '2026-10-27T14:30:00Z', 'Unknown', '2026-10-27'],
+  ])('gives the day in %s', (_name, now, zone, want) => {
+    expect(todayIn(zone, new Date(now), 'Europe/Berlin')).toBe(want);
   });
 });

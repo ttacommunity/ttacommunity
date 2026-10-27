@@ -1,5 +1,5 @@
 /** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -21,32 +21,12 @@ import './MatrixPage.css';
 import ScrollTable from './ScrollTable';
 import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
-
-type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+import { useLoad } from './useLoad';
+import { viewLinks } from '../lib/navigate';
+import { errorText, type Load } from '@ttac/shared/load';
 
 function readView(): MatrixView {
   return parseMatrixView(new URLSearchParams(window.location.search), recall(window.localStorage));
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** useLoad runs load whenever key, which names everything load reads, changes; a null load waits. */
-function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
-  const [state, setState] = useState<Load<T>>({ kind: 'loading' });
-  useEffect(() => {
-    if (load === null) return;
-    let stale = false;
-    setState({ kind: 'loading' });
-    load()
-      .then((data) => !stale && setState({ kind: 'ready', data }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [key, load === null]);
-  return state;
 }
 
 /** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
@@ -66,14 +46,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, { ...DEFAULT_VIEW, ...recall(window.localStorage), reset: next.reset, format: next.format });
     setView(next);
   }, []);
-  const linkTo = (next: MatrixView) => ({
-    href: `?${matrixParams(next)}`,
-    onClick: (e: MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo = viewLinks(matrixParams, go);
 
   useEffect(() => {
     const onPop = () => setView(readView());

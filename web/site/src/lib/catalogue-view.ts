@@ -1,14 +1,12 @@
 /** The Tournaments page: which tournament the address asks for, its links, how its figures are written, and its games as table rows. */
-import type { CatalogueGame } from '@ttac/shared/ratings';
+import { count } from '@ttac/shared/numbers';
+import { isSlug, type CatalogueGame } from '@ttac/shared/ratings';
 import type { GameRow } from './games-table';
-
-// The API's pattern for a tournament in a path.
-const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
 
 /** tournamentParam returns the tournament the address names (?t=), or null for none or one the API would refuse. */
 export function tournamentParam(search: URLSearchParams): string | null {
   const t = search.get('t');
-  return t !== null && SLUG.test(t) ? t : null;
+  return t !== null && isSlug(t) ? t : null;
 }
 
 /** catalogueHref returns the address of the Tournaments list, or of one tournament. */
@@ -136,12 +134,11 @@ export function podiumCard(p: {
 
 /** entryRows gives a tournament card's figures: its years, seasons, games and players. */
 export function entryRows(t: { first_game: string; last_game: string; seasons: number; games: number; players: number }): [string, string][] {
-  const n = (x: number) => x.toLocaleString('en-US');
   return [
     ['Active History', spanYears(t.first_game, t.last_game)],
-    ['Seasons', n(t.seasons)],
-    ['Recorded Database Matches', n(t.games)],
-    ['Players', n(t.players)],
+    ['Seasons', count(t.seasons)],
+    ['Recorded Database Matches', count(t.games)],
+    ['Players', count(t.players)],
   ];
 }
 

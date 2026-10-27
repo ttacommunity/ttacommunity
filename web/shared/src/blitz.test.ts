@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, offsetMinutes, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pairingSummary, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
+import { editionHref, editionParams } from './blitz';
+
+describe('editionParams', () => {
+  it.each([
+    ['both names', '?t=us_open&e=2026', { slug: 'us_open', edition: '2026' }],
+    ['an edition with spaces', '?t=us_open&e=Season+1', { slug: 'us_open', edition: 'Season 1' }],
+    ['no edition', '?t=us_open', null],
+    ['an empty edition', '?t=us_open&e=', null],
+    ['no tournament', '?e=2026', null],
+    ['a slug that is not one', '?t=Bad!&e=2026', null],
+    ['nothing', '', null],
+  ])('reads %s', (_name, search, want) => {
+    expect(editionParams(new URLSearchParams(search))).toEqual(want);
+  });
+});
+
+describe('editionHref', () => {
+  it('escapes the edition', () => {
+    expect(editionHref('us_open', 'Season 1')).toBe('/blitz/?t=us_open&e=Season%201');
+  });
+});
 
 const game = (aCulture: number, bCulture: number, aOutcome: BlitzPlayedGame['a_outcome'] = 'finished', bOutcome: BlitzPlayedGame['b_outcome'] = 'finished'): BlitzPlayedGame => ({
   share_code: 'ABCD1234',

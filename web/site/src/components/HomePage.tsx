@@ -10,7 +10,10 @@ import {
 } from '@ttac/shared/ratings';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
-import { seatRankClass, settled, type Section } from '../lib/home-view';
+import { errorText, settled, type Load } from '@ttac/shared/load';
+import { count, score } from '@ttac/shared/numbers';
+import { useCopy } from '@ttac/shared/copy';
+import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -27,52 +30,36 @@ import './HomePage.css';
 
 interface HomeData {
   run: Run;
-  players: Section<LeaderboardRow[]>;
-  recentTournaments: Section<PodiumCard[]>;
-  availableTournaments: Section<AvailableTournament[]>;
-}
-
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HomeData };
-
-const count = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US');
-
-function scoreFormatted(n: number) {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  players: Load<LeaderboardRow[]>;
+  recentTournaments: Load<PodiumCard[]>;
+  availableTournaments: Load<AvailableTournament[]>;
 }
 
 /** One-click copyable replay code */
 function ReplayBadge({ code }: { code: string | null }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   if (!code) return null;
-  const copy = () => {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
   return (
     <button
       type="button"
       className="home-replay-btn"
-      onClick={copy}
+      onClick={() => copy(code)}
       title="Click to copy CGE replay code"
       aria-label={`Copy replay code ${code}`}
     >
       <code>{code}</code>
-      <span className="home-replay-hint">{copied ? '✓ Copied' : 'Copy'}</span>
+      <span className="home-replay-hint">{copied === true ? '✓ Copied' : 'Copy'}</span>
     </button>
   );
 }
 
 export default function HomePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<HomeData>>({ kind: 'loading' });
 
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
   const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
-  const [feedMatches, setFeedMatches] = useState<Section<FeedMatch[]>>({ kind: 'loading' });
+  const [feedMatches, setFeedMatches] = useState<Load<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
   const [globalMatchSpoilers, setGlobalMatchSpoilers] = useState(false); // false = hidden, true = revealed
@@ -100,7 +87,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         setLoad({ kind: 'ready', data: { run, players, recentTournaments: podiums, availableTournaments: tournaments } });
       })
       .catch((e: unknown) => {
-        setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+        setLoad({ kind: 'error', message: errorText(e) });
       });
   }, [apiUrl]);
 
@@ -209,12 +196,12 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <div className="home-stats-bar">
                 {data.run.players !== null && (
                   <div className="home-stat-pill">
-                    Active Players: <strong>{count(data.run.players)}</strong>
+                    Active Players: <strong>{count(data.run.players ?? 0)}</strong>
                   </div>
                 )}
                 {data.run.games !== null && (
                   <div className="home-stat-pill">
-                    Recorded Matches: <strong>{count(data.run.games)}</strong>
+                    Recorded Matches: <strong>{count(data.run.games ?? 0)}</strong>
                   </div>
                 )}
                 {data.run.finished_at && (
@@ -461,7 +448,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                                     className={`match-player-link ${rankClass}`.trim()}
                                   />
                                   <span className={`match-score-badge ${isRevealed ? 'revealed' : 'blurred'}`}>
-                                    {isRevealed ? `(${scoreFormatted(s.score)})` : '(???)'}
+                                    {isRevealed ? `(${score(s.score)})` : '(???)'}
                                   </span>
                                   {idx < m.seats.length - 1 && <span className="match-sep">vs</span>}
                                 </span>

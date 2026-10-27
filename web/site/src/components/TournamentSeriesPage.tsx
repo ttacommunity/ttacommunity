@@ -5,6 +5,7 @@ import TrophyboardPanel from './TrophyboardPanel';
 import GameRecordsPanel from './GameRecordsPanel';
 import StoriesPanel, { type StoryView } from './StoriesPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
+import { errorText, type Load } from '@ttac/shared/load';
 import { catalogueHref } from '../lib/catalogue-view';
 import { circuitCard } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
@@ -18,10 +19,7 @@ import {
   type Major,
   type SeriesContent,
 } from '../lib/tournament-series';
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: TournamentSeries };
-
-const count = (n: number) => n.toLocaleString('en-US');
+import { count } from '@ttac/shared/numbers';
 
 
 function WorldChampion() {
@@ -37,13 +35,13 @@ function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
 
 /** TournamentSeriesPage loads the current run's results for a series and shows them as upstream's page does. */
 export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: string; content: SeriesContent }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<TournamentSeries>>({ kind: 'loading' });
 
   useEffect(() => {
     currentRun(apiUrl)
       .then((r) => tournamentSeries(apiUrl, r.run_id, content.slug))
       .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
   }, [apiUrl, content.slug]);
 
   const data = load.kind === 'ready' ? load.data : null;

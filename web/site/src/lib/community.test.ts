@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { CommunityLeaderboard, CommunityRow } from '@ttac/shared/ratings';
 import { columnTitle, countingColumns, editionFacts, editionLabel, editionToShow, parseCommunityView, titleMark, tournamentSums } from './community';
 
@@ -94,9 +95,9 @@ describe('editionFacts', () => {
 
   it("lists each tier with its own columns and points", () => {
     const tiers = editionFacts(sampleLayout).lines;
-    expect(tiers[0]).toEqual({ name: 'World Championship', codes: 'wrld', maxPts: '2,500', each: false });
-    expect(tiers[1]).toEqual({ name: 'International Championship', codes: 'ic_24–27', maxPts: '1,000', each: true });
-    expect(tiers[2]).toEqual({ name: 'Invitational Cups', codes: 'eif, qd', maxPts: '600–1,000', each: true });
+    expect(tiers[0]).toEqual({ name: 'World Championship', codes: 'wrld', maxPts: count(2500), each: false });
+    expect(tiers[1]).toEqual({ name: 'International Championship', codes: 'ic_24–27', maxPts: count(1000), each: true });
+    expect(tiers[2]).toEqual({ name: 'Invitational Cups', codes: 'eif, qd', maxPts: `600–${count(1000)}`, each: true });
   });
 
   it('gives no maximum for a tier with a column whose maximum is unknown', () => {

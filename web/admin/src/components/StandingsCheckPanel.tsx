@@ -1,11 +1,10 @@
 /** CGE's standings tables checked against our games: the totals, and each player who differs. */
 import { useState } from 'react';
+import { count } from '@ttac/shared/numbers';
 import { adminRequest } from '../lib/admin-api';
 import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
-
-const count = (n: number) => n.toLocaleString();
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {

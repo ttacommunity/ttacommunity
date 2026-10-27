@@ -1,4 +1,5 @@
 /** A games table's rows, the same for any tournament's games, and how a list of them is paged and counted. */
+import { count } from '@ttac/shared/numbers';
 
 /** GameSeat is one player in a row: the name shown, the player to link (null for none), a muted detail after the name, the score (null with no game) and how the seat ended. */
 export type GameSeat = { label: string; link: string | null; detail: string; score: number | null; note: string };
@@ -21,6 +22,5 @@ export function pageOf<T>(rows: readonly T[], page: number, size = GAMES_PER_PAG
 
 /** gamesTag counts a games table's games for its header: all of them and those with a replay code, or only the coded ones. */
 export function gamesTag(total: number, coded: number, onlyCoded: boolean): string {
-  const n = (x: number) => x.toLocaleString('en-US');
-  return onlyCoded ? `${n(total)} games with a replay code` : `${n(total)} games · ${n(coded)} with a replay code`;
+  return onlyCoded ? `${count(total)} games with a replay code` : `${count(total)} games · ${count(coded)} with a replay code`;
 }

@@ -1,6 +1,7 @@
 /** Calls to the admin API through this site's /api proxy, with refusals turned into plain messages. */
 import type { components } from '@ttac/shared/api';
 import { errorFields, type ErrorFields } from '@ttac/shared/ratings';
+import type { Load } from '@ttac/shared/load';
 
 export type AdminMe = components['schemas']['AdminMe'];
 export type AdminTournament = components['schemas']['AdminTournament'];
@@ -24,9 +25,6 @@ export type LinkApproved = components['schemas']['LinkApproved'];
 
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
-
-/** Load is something a page is loading, failed to load and why, or has. */
-export type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 
 /** firstError returns the message of the first load that failed, or null when none did: a page shows one. */
 export function firstError(...loads: Load<unknown>[]): string | null {

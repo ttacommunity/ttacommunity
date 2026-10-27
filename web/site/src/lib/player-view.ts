@@ -182,11 +182,6 @@ export function signedDelta(delta: number | null): string {
   return delta === null ? '—' : signed(delta, 1);
 }
 
-/** score writes a game score, without decimals when it is whole. */
-export function score(value: number): string {
-  return String(value);
-}
-
 export type RivalKey = 'name' | 'games' | 'wins' | 'losses' | 'draws' | 'win_rate';
 
 /** The rivals table's filter, minimum, expansion and sort. */

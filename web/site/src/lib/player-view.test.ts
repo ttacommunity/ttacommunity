@@ -14,7 +14,6 @@ import {
   playerParams,
   profileHref,
   ratingIn,
-  score,
   signedDelta,
   runYears,
   seatName,
@@ -209,16 +208,6 @@ describe('signedDelta', () => {
     [null, '—'],
   ])('writes upstream ΔR: %s as %s', (delta, want) => {
     expect(signedDelta(delta)).toBe(want);
-  });
-});
-
-describe('score', () => {
-  it.each([
-    [197, '197'],
-    [-2, '-2'],
-    [12.5, '12.5'],
-  ])('writes %s as %s, dropping the decimals of a whole score', (n, want) => {
-    expect(score(n)).toBe(want);
   });
 });
 

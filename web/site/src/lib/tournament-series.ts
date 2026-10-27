@@ -1,4 +1,5 @@
 /** Upstream's Hall of Fame series pages: the series tabs, each series' text, and how its figures are written. */
+import { count } from '@ttac/shared/numbers';
 import type { Legend, Series, SeriesCount } from '@ttac/shared/ratings';
 
 /** A tab in the series bar: the Hall of Fame overview or one series. */
@@ -177,7 +178,7 @@ export function boardCells(rows: readonly BoardRow[]): { headings: string[]; cla
     return { headings: ['🏆 Top-tier wins'], classes: ['medal-gold'], rows: rows.map((r) => [String(r.wins)]) };
   }
   if (rows.some((r) => r.gold === null && r.wins !== null)) {
-    const n = (x: number | null) => (x === null ? '' : x.toLocaleString('en-US'));
+    const n = (x: number | null) => (x === null ? '' : count(x));
     return {
       headings: ['Games', 'Wins', 'Win %'],
       classes: ['', '', ''],
@@ -273,12 +274,12 @@ export function majorMedals(l: Legend): string {
 export function derivedMatches(counts: SeriesCount[]): string {
   const major = new Set(['international', 'intermezzo', 'royal_league', 'worlds']);
   const total = counts.filter((c) => major.has(c.series)).reduce((n, c) => n + c.games, 0);
-  return `${total.toLocaleString('en-US')}+ Matches`;
+  return `${count(total)}+ Matches`;
 }
 
 /** seriesGames writes a series card's games and editions. */
 export function seriesGames(c: SeriesCount): string {
-  return `${c.games.toLocaleString('en-US')} games (${c.seasons} editions)`;
+  return `${count(c.games)} games (${c.seasons} editions)`;
 }
 
 /** showsWorldChampion says whether a World Champion's WC mark shows: only on the World Championship's own page. */

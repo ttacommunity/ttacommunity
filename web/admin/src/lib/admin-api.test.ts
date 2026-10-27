@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { adminDownload, adminRequest, exportFileName, firstError, type Load } from './admin-api';
+import type { Load } from '@ttac/shared/load';
+import { adminDownload, adminRequest, exportFileName, firstError } from './admin-api';
 
 function answer(status: number, body: unknown) {
   return vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));

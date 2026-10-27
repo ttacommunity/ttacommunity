@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { Activity, CalibrationRow } from '@ttac/shared/ratings';
 import { FAQ_ALIASES, faqFigures, resolveTab } from './faq';
 
@@ -65,7 +66,7 @@ describe('faqFigures from the run', () => {
   };
 
   it("adds the run's games, players and years", () => {
-    expect(faqFigures([], null, run)).toEqual({ 'run.games': '135,393', 'run.players': '3,526', 'run.years': '2017–2026' });
+    expect(faqFigures([], null, run)).toEqual({ 'run.games': count(135393), 'run.players': count(3526), 'run.years': '2017–2026' });
   });
 
   it('leaves out what the run did not record', () => {

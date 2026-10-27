@@ -12,6 +12,9 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
+import { errorText } from '@ttac/shared/load';
+import { count } from '@ttac/shared/numbers';
+import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
@@ -80,14 +83,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     remember(window.localStorage, next);
     setView(next);
   }, []);
-  const linkTo: LinkTo = (next) => ({
-    href: `?${viewParams(next, true)}`,
-    onClick: (e) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      go(next);
-    },
-  });
+  const linkTo: LinkTo = viewLinks((v) => viewParams(v, true), go);
 
   useEffect(() => {
     const onPop = () => setView(readView());
@@ -112,7 +108,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
       })
       .then((next) => !stale && setState(next))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
       stale = true;
     };
@@ -220,7 +216,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
           {state.kind === 'ready' && (
             <p className="leaderboard-count">
-              Players: <strong>{found.rows.length.toLocaleString('en')}</strong>{' '}
+              Players: <strong>{count(found.rows.length)}</strong>{' '}
               <span className={`leaderboard-status status-${view.status}`}>
                 {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
               </span>

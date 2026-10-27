@@ -36,3 +36,17 @@ export function formatDay(day: string): string {
 export function viewerZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
+
+/** todayIn returns the day (YYYY-MM-DD) it is at now on zone's clocks; a zone the browser cannot read (a region, Unknown) takes browser's. */
+export function todayIn(zone: string, now: Date, browser = viewerZone()): string {
+  const day = (timeZone: string) => {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+    const part = (type: string) => parts.find((p) => p.type === type)?.value;
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  try {
+    return day(zone);
+  } catch {
+    return day(browser);
+  }
+}
