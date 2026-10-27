@@ -27,19 +27,7 @@ func (s *server) GetAdminCommunityEditions(ctx context.Context, _ GetAdminCommun
 	}
 	out := make([]CommunityEditionItem, len(list))
 	for i, e := range list {
-		out[i] = CommunityEditionItem{
-			Slug:           e.Slug,
-			Name:           e.Name,
-			Title:          e.Title,
-			ShortName:      e.ShortName,
-			Badge:          e.Badge,
-			Maintainer:     e.Maintainer,
-			MaintainerNote: e.MaintainerNote,
-			Year:           e.Year,
-			CountingEvents: e.CountingEvents,
-			Visible:        e.Visible,
-			SortOrder:      e.SortOrder,
-		}
+		out[i] = communityEditionItem(e)
 	}
 	return GetAdminCommunityEditions200JSONResponse(out), nil
 }

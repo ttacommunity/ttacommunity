@@ -427,14 +427,7 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 				WinRate:      row.WinRate,
 				DeltaWinRate: row.DeltaWinRate,
 				AvgCulture:   row.AvgCulture,
-				Places:       make([]SeatPlaceRate, 0, len(row.Places)),
-			}
-			for _, p := range row.Places {
-				sr.Places = append(sr.Places, SeatPlaceRate{
-					Place: p.Place,
-					Count: p.Count,
-					Rate:  p.Rate,
-				})
+				Places:       seatPlaceRates(row.Places),
 			}
 			group.Seats = append(group.Seats, sr)
 		}
@@ -445,4 +438,13 @@ func (s *server) GetPlayerSeats(ctx context.Context, req GetPlayerSeatsRequestOb
 		Body:    body,
 		Headers: GetPlayerSeats200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// seatPlaceRates is how often a seat finished in each place.
+func seatPlaceRates(ps []store.SeatPlaceRate) []SeatPlaceRate {
+	out := make([]SeatPlaceRate, 0, len(ps))
+	for _, p := range ps {
+		out = append(out, SeatPlaceRate{Place: p.Place, Count: p.Count, Rate: p.Rate})
+	}
+	return out
 }
