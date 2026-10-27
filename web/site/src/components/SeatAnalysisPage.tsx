@@ -14,8 +14,7 @@ import Segmented, { type Option } from '@ttac/shared/Segmented';
 import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysis';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: SeatAnalysis };
+import { errorText, type Load } from '@ttac/shared/load';
 
 const FORMAT_OPTIONS: Option<Format>[] = [
   { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
@@ -41,7 +40,7 @@ const SEAT_NAMES: Record<number, string> = {
 
 /** SeatAnalysisPage displays empirical win rates and finishing placements by turn order. */
 export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<SeatAnalysis>>({ kind: 'loading' });
   const [tier, setTier] = useState<SeatAnalysisTier>('all');
   const [format, setFormat] = useState<Format>(0);
 
@@ -53,7 +52,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         if (!cancelled) setLoad({ kind: 'ready', data });
       })
       .catch((e: unknown) => {
-        if (!cancelled) setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+        if (!cancelled) setLoad({ kind: 'error', message: errorText(e) });
       });
     return () => {
       cancelled = true;

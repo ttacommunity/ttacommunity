@@ -7,8 +7,7 @@ import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: PlayerVersus };
+import { errorText, type Load } from '@ttac/shared/load';
 
 const FORMATS: { value: Format; label: string }[] = [
   { value: 0, label: 'All Formats' },
@@ -36,7 +35,7 @@ export default function VersusDialog({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [state, setState] = useState<Load>({ kind: 'loading' });
+  const [state, setState] = useState<Load<PlayerVersus>>({ kind: 'loading' });
   const [format, setFormat] = useState<Format>(initial);
   // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
@@ -45,7 +44,7 @@ export default function VersusDialog({
     let stale = false;
     playerVersus(apiUrl, runId, name, other)
       .then((data) => !stale && setState({ kind: 'ready', data }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
       stale = true;
     };

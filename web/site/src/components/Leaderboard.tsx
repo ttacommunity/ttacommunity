@@ -12,6 +12,7 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
+import { errorText } from '@ttac/shared/load';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
@@ -112,7 +113,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
       })
       .then((next) => !stale && setState(next))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
       stale = true;
     };

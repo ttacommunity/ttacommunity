@@ -53,32 +53,11 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
-
-type Load<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+import { useLoad } from './useLoad';
+import { errorText, type Load } from '@ttac/shared/load';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(window.localStorage));
-}
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-/** useLoad runs load whenever key, which names everything load reads, changes; a null load waits. */
-function useLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
-  const [state, setState] = useState<Load<T>>({ kind: 'loading' });
-  useEffect(() => {
-    if (load === null) return;
-    let stale = false;
-    setState({ kind: 'loading' });
-    load()
-      .then((data) => !stale && setState({ kind: 'ready', data }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [key, load === null]);
-  return state;
 }
 
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */

@@ -1,16 +1,4 @@
-/** The front page's decisions: what each of its requests became, and how a game's seats are coloured. */
-
-/** A part of the page's data: loading, could not load (with why), or ready. */
-export type Section<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
-
-/** settled waits for a request and gives its answer as ready, or its failure as an error; it never rejects. */
-export async function settled<T>(request: Promise<T>): Promise<Section<T>> {
-  try {
-    return { kind: 'ready', data: await request };
-  } catch (e: unknown) {
-    return { kind: 'error', message: e instanceof Error ? e.message : String(e) };
-  }
-}
+/** The front page's decisions: how a game's seats are coloured. */
 
 /**
  * seatRankClass colours a revealed seat by its score among the game's: the winner gold, then silver and bronze, and

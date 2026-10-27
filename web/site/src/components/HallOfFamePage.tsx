@@ -20,12 +20,11 @@ import {
 } from '../lib/tournament-series';
 import ScrollTable from './ScrollTable';
 import { waitingText } from '../lib/waiting';
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HallOfFame };
+import { errorText, type Load } from '@ttac/shared/load';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<HallOfFame>>({ kind: 'loading' });
 
   const [tournaments, setTournaments] = useState<CatalogueEntry[]>([]);
   const [finals, setFinals] = useState<CatalogueSeason[]>([]);
@@ -42,7 +41,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         return hallOfFame(apiUrl, r.run_id);
       })
       .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
   }, [apiUrl]);
 
   const data = load.kind === 'ready' ? load.data : null;

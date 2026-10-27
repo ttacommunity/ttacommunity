@@ -1,6 +1,7 @@
 /** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
 import { useEffect, useState, type ReactNode } from 'react';
-import { RatingsApiError, blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
+import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
+import { failed, type Found } from '@ttac/shared/load';
 import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
@@ -21,7 +22,6 @@ import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
 
-type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
 
@@ -29,12 +29,6 @@ type BlitzStanding = components['schemas']['BlitzStanding'];
 export default function BlitzPage({ apiUrl }: { apiUrl: string }) {
   const [at] = useState(() => editionParams(new URLSearchParams(window.location.search)));
   return at === null ? <BlitzList apiUrl={apiUrl} /> : <EditionPage apiUrl={apiUrl} slug={at.slug} edition={at.edition} />;
-}
-
-/** failed turns a failed load into the page's state: a 404 is an edition the site does not show. */
-function failed(e: unknown): Load<never> {
-  if (e instanceof RatingsApiError && e.status === 404) return { kind: 'missing' };
-  return { kind: 'error', message: e instanceof Error ? e.message : String(e) };
 }
 
 function Header() {
@@ -52,7 +46,7 @@ function Header() {
 }
 
 function BlitzList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<BlitzEditions>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Found<BlitzEditions>>({ kind: 'loading' });
   useEffect(() => {
     blitzEditions(apiUrl)
       .then((data) => setLoad({ kind: 'ready', data }))
@@ -121,7 +115,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
 }
 
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
-  const [load, setLoad] = useState<Load<BlitzEdition>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Found<BlitzEdition>>({ kind: 'loading' });
   const [hash, setHash] = useHash();
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);

@@ -6,8 +6,8 @@ import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { errorText, type Load } from '@ttac/shared/load';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Activity; years: [number, number] | null };
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
   { col: 'rank', label: 'Rank' },
@@ -24,22 +24,23 @@ const avg = (x: number | null) => (x === null ? '-' : x.toFixed(1));
 
 /** ActivityPage loads the current run's activity and shows it as upstream's page does. */
 export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<{ activity: Activity; years: [number, number] | null }>>({ kind: 'loading' });
   const [sort, setSort] = useState<{ col: CountryColumn; asc: boolean } | null>(null);
   const [directions, setDirections] = useState<Partial<Record<CountryColumn, boolean>>>({});
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => activity(apiUrl, r.run_id).then((data) => setLoad({ kind: 'ready', data, years: runYears(r.first_game, r.last_game) })))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .then((r) => activity(apiUrl, r.run_id).then((a) => setLoad({ kind: 'ready', data: { activity: a, years: runYears(r.first_game, r.last_game) } })))
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
   }, [apiUrl]);
 
-  const ranked = useMemo(() => (load.kind === 'ready' ? load.data.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
+  const ranked = useMemo(() => (load.kind === 'ready' ? load.data.activity.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
   const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
 
   if (load.kind !== 'ready') return <Waiting load={load} what="the activity figures" />;
 
-  const a = load.data;
+  const a = load.data.activity;
+  const years = load.data.years;
   const total = a.active + a.inactive;
   const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
   const formats = formatCards(a.formats);
@@ -66,7 +67,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <div className="metric-card">
           <div className="metric-label">Total Matches Recorded</div>
           <div className="metric-number metric-matches">{count(formats.total)}</div>
-          <div className="metric-note">{load.years ? `Across ${load.years[0]}–${load.years[1]} seasons` : 'Across every season'}</div>
+          <div className="metric-note">{years ? `Across ${years[0]}–${years[1]} seasons` : 'Across every season'}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">All Recorded Competitors</div>

@@ -1,7 +1,8 @@
 /** The Blitz tab: every edition of every series marked Blitz, with how far it has got and its entrant counts, each opening its page. */
 import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
-import { adminRequest, type AdminBlitzEditionRow, type Load } from '../lib/admin-api';
+import type { Load } from '@ttac/shared/load';
+import { adminRequest, type AdminBlitzEditionRow } from '../lib/admin-api';
 import { ADMIN_EDITION_COLUMNS, editionHref } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { LoadNotice } from './Notice';

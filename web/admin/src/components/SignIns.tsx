@@ -2,7 +2,8 @@
 import { Fragment } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatTime, viewerZone } from '@ttac/shared/time';
-import type { AdminAccount, AdminMe, LinkApproved, Load } from '../lib/admin-api';
+import type { Load } from '@ttac/shared/load';
+import type { AdminAccount, AdminMe, LinkApproved } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';

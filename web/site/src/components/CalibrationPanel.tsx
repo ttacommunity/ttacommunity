@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
 import { calibration, currentRun, type Calibration, type Format } from '@ttac/shared/ratings';
+import { errorText, type Load } from '@ttac/shared/load';
 import {
   FORMAT_NAMES,
   MODELS,
@@ -36,7 +37,6 @@ const FAMILY_BUTTONS: { family: Family; label: string; className: string }[] = [
   { family: 'glicko2_std', label: 'G2 Std', className: 'family-std' },
 ];
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: Calibration };
 
 function Toggle({ active, onClick, className, tip, children }: { active: boolean; onClick: () => void; className?: string; tip?: string; children: ReactNode }) {
   return (
@@ -68,7 +68,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
   const [resets, setResets] = useState<ReadonlySet<Reset>>(new Set<Reset>(['continuous']));
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<Calibration>>({ kind: 'loading' });
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
 
@@ -76,7 +76,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     currentRun(apiUrl)
       .then((r) => calibration(apiUrl, r.run_id))
       .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) }));
+      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
   }, [apiUrl]);
 
   const filters = useMemo(() => ({ engines, resets }), [engines, resets]);

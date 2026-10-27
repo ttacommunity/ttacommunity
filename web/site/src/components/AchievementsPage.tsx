@@ -7,6 +7,7 @@ import {
   type PlayerAchievements,
   type TournamentRecord,
 } from '@ttac/shared/ratings';
+import { errorText, type Load } from '@ttac/shared/load';
 import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
@@ -45,7 +46,6 @@ import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; player: Player; ach: PlayerAchievements };
 type Sort = { col: number; dir: Direction } | null;
 
 const SEASON_HEADS = [
@@ -82,10 +82,6 @@ const CATEGORY_OPTIONS: { id: TournamentCategoryFilter; label: string }[] = [
   { id: 'ladder', label: 'Ladders & Leagues' },
   { id: 'community', label: 'Community Events' },
 ];
-
-function errorText(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 
 function next(dirs: Record<number, Direction>, col: number): Direction {
   return (dirs[col] ?? 'asc') === 'asc' ? 'desc' : 'asc';
@@ -702,7 +698,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
 
 /** AchievementsPage renders the achievements of the player named in the address, from the current run. */
 export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
-  const [state, setState] = useState<Load>({ kind: 'loading' });
+  const [state, setState] = useState<Load<{ player: Player; ach: PlayerAchievements }>>({ kind: 'loading' });
 
   useEffect(() => {
     const name = new URLSearchParams(window.location.search).get('name') ?? '';
@@ -716,7 +712,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
       .then(([player, ach]) => {
         if (stale) return;
         document.title = `${player.name} - Tournament Achievements & Records | Through the Ages`;
-        setState({ kind: 'ready', player, ach });
+        setState({ kind: 'ready', data: { player, ach } });
       })
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
@@ -725,7 +721,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
   }, [apiUrl]);
 
   if (state.kind !== 'ready') return <Waiting load={state} what="this player" />;
-  const { player, ach } = state;
+  const { player, ach } = state.data;
   const s = ach.summary;
   const totalMedals = (s?.gold ?? 0) + (s?.silver ?? 0) + (s?.bronze ?? 0);
   const best = majorBestResults(ach.records);

@@ -1,7 +1,6 @@
 /** The Tournaments page: every tournament with games, or one tournament's champions, stages and games. */
 import { useEffect, useState } from 'react';
 import {
-  RatingsApiError,
   catalogue,
   catalogueTournament,
   currentRun,
@@ -26,8 +25,7 @@ import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import { waitingText } from '../lib/waiting';
-
-type Load<T> = { kind: 'loading' } | { kind: 'missing' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+import { errorText, failed, type Found } from '@ttac/shared/load';
 
 const count = (n: number) => n.toLocaleString('en-US');
 
@@ -37,11 +35,6 @@ export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
   return slug === null ? <TournamentList apiUrl={apiUrl} /> : <TournamentDetail apiUrl={apiUrl} slug={slug} />;
 }
 
-/** failed turns a failed load into the page's state: a 404 is a tournament with no games. */
-function failed(e: unknown): Load<never> {
-  if (e instanceof RatingsApiError && e.status === 404) return { kind: 'missing' };
-  return { kind: 'error', message: e instanceof Error ? e.message : String(e) };
-}
 
 function Missing() {
   return (
@@ -52,7 +45,7 @@ function Missing() {
 }
 
 function TournamentList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<Catalogue>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Found<Catalogue>>({ kind: 'loading' });
   useEffect(() => {
     currentRun(apiUrl)
       .then((r) => catalogue(apiUrl, r.run_id))
@@ -145,7 +138,7 @@ function CgeList({ data }: { data: Catalogue }) {
 }
 
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
-  const [load, setLoad] = useState<Load<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Found<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
   const content = MAJORS.find((m) => m.slug === slug);
   const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: waitingText({ kind: 'loading' }, 'the records') ?? '' });
@@ -155,7 +148,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
         if (content !== undefined) {
           tournamentSeries(apiUrl, r.run_id, content.slug)
             .then((data) => setSeries({ data, waiting: '' }))
-            .catch((e: unknown) => setSeries({ data: null, waiting: waitingText({ kind: 'error', message: e instanceof Error ? e.message : String(e) }, 'the records') ?? '' }));
+            .catch((e: unknown) => setSeries({ data: null, waiting: waitingText({ kind: 'error', message: errorText(e) }, 'the records') ?? '' }));
         }
         return catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }));
       })

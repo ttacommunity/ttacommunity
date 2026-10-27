@@ -29,11 +29,8 @@ import SearchBox, { type SearchPlayer } from './SearchBox';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import { errorText, type Load } from '@ttac/shared/load';
 
-type Load =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; data: LeaderboardData; editions: CommunityEditionItem[] };
 
 /** href is the page's address for a view, carrying edition, view, search and page. */
 function href(view: CommunityView, change: Partial<CommunityView>): string {
@@ -334,7 +331,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
 /** CommunityPage renders the edition, view, search and page named in the address, from the current run. */
 export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const [view] = useState(() => parseCommunityView(new URLSearchParams(window.location.search)));
-  const [state, setState] = useState<Load>({ kind: 'loading' });
+  const [state, setState] = useState<Load<{ board: LeaderboardData; editions: CommunityEditionItem[] }>>({ kind: 'loading' });
 
   useEffect(() => {
     let stale = false;
@@ -346,12 +343,12 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
       })
       .then(([editions, data]) => {
         if (!stale) {
-          setState({ kind: 'ready', data, editions });
+          setState({ kind: 'ready', data: { board: data, editions } });
         }
       })
       .catch((e: unknown) => {
         if (!stale) {
-          setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+          setState({ kind: 'error', message: errorText(e) });
         }
       });
     return () => {
@@ -361,7 +358,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   if (state.kind !== 'ready') return <Waiting load={state} what="the community leaderboard" />;
 
-  const data = state.data;
+  const data = state.data.board;
   const found = view.search ? data.rows.filter((r) => matchesSearch(r.name, view.search)) : data.rows;
   const total = Math.max(1, Math.ceil(found.length / view.perPage));
   const page = Math.min(view.page, total);
@@ -370,7 +367,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className="community-page">
-      <Hero data={data} editions={state.editions} view={onPage} />
+      <Hero data={data} editions={state.data.editions} view={onPage} />
       <Explainers data={data} />
       <Controls
         view={onPage}

@@ -1,5 +1,6 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
-import type { AdminResult, AdminTournament, AdminTournamentRow, Load } from './admin-api';
+import type { Load } from '@ttac/shared/load';
+import type { AdminResult, AdminTournament, AdminTournamentRow } from './admin-api';
 
 export type Setting = 'visible' | 'rated' | 'community' | 'blitz';
 

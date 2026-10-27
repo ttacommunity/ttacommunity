@@ -8,6 +8,7 @@
   "exports": {
     "./time": "./src/time.ts",
     "./numbers": "./src/numbers.ts",
+    "./load": "./src/load.ts",
     "./api": "./api/schema.ts",
     "./ratings": "./src/ratings.ts",
     "./blitz": "./src/blitz.ts",

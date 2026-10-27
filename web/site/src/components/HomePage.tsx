@@ -10,7 +10,8 @@ import {
 } from '@ttac/shared/ratings';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
-import { seatRankClass, settled, type Section } from '../lib/home-view';
+import { errorText, settled, type Load } from '@ttac/shared/load';
+import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -27,13 +28,10 @@ import './HomePage.css';
 
 interface HomeData {
   run: Run;
-  players: Section<LeaderboardRow[]>;
-  recentTournaments: Section<PodiumCard[]>;
-  availableTournaments: Section<AvailableTournament[]>;
+  players: Load<LeaderboardRow[]>;
+  recentTournaments: Load<PodiumCard[]>;
+  availableTournaments: Load<AvailableTournament[]>;
 }
-
-
-type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: HomeData };
 
 const count = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US');
 
@@ -67,12 +65,12 @@ function ReplayBadge({ code }: { code: string | null }) {
 }
 
 export default function HomePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [load, setLoad] = useState<Load<HomeData>>({ kind: 'loading' });
 
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
   const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
-  const [feedMatches, setFeedMatches] = useState<Section<FeedMatch[]>>({ kind: 'loading' });
+  const [feedMatches, setFeedMatches] = useState<Load<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
   const [globalMatchSpoilers, setGlobalMatchSpoilers] = useState(false); // false = hidden, true = revealed
@@ -100,7 +98,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         setLoad({ kind: 'ready', data: { run, players, recentTournaments: podiums, availableTournaments: tournaments } });
       })
       .catch((e: unknown) => {
-        setLoad({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
+        setLoad({ kind: 'error', message: errorText(e) });
       });
   }, [apiUrl]);
 
