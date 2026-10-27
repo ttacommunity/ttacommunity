@@ -16,7 +16,9 @@
   box-shadow: 0 0 8px var(--gold-wash);
 }
 
+/* A select has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
 select.input-antique {
+  padding-block: 0;
   cursor: pointer;
 }
 
