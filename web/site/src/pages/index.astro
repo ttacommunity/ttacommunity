@@ -1,11 +1,127 @@
 ---
+// The front page: the hero and the four section cards, prerendered, with the live run figures and the community feed as islands.
 import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import HomePage from '../components/HomePage';
+import RunFigures from '../components/RunFigures';
+import '../components/HomePage.css';
 ---
 <SiteLayout
   title="Through the Ages Community | Ratings, Tournaments & Matchmaking"
   description="The official platform for the Through the Ages board game community: Glicko-D ratings, tournament circuits, Hall of Fame, and blitz matchmaking."
 >
-  <HomePage client:only="react" apiUrl={PUBLIC_API_URL} />
+  <div class="home-container">
+    <section class="home-hero">
+      <div class="home-hero-layout">
+        <div class="home-hero-logo-col">
+          <img
+            src="/img/HubLogo.png"
+            alt="Through the Ages Community"
+            class="home-hero-logo"
+            width="537"
+            height="460"
+          />
+        </div>
+        <div class="home-hero-content-col">
+          <h1 class="home-hero-title">Through the Ages Community</h1>
+          <p class="home-hero-subtitle">
+            The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
+            the World Championship Hall of Fame, and automated blitz matchmaking.
+          </p>
+
+          <RunFigures client:only="react" apiUrl={PUBLIC_API_URL} />
+        </div>
+      </div>
+    </section>
+
+    <section class="home-pillars" aria-label="Core Sections">
+      <div class="home-pillar-card">
+        <div class="pillar-card-header">
+          <span class="pillar-icon">🏆</span>
+          <span class="pillar-tag">Glicko-D Engine</span>
+        </div>
+        <h2 class="pillar-title">Ratings &amp; Leaderboards</h2>
+        <p class="pillar-desc">
+          The multi-paradigm community rating system tracking performance across all competitive player counts with
+          variance-calibrated priors and inactivity decay.
+        </p>
+        <ul class="pillar-features">
+          <li>4-Player, 3-Player &amp; 2-Player duel rankings</li>
+          <li>In-depth player profiles &amp; historical career trajectories</li>
+          <li>Head-to-head match matrices &amp; predictive win rates</li>
+        </ul>
+        <div class="pillar-action">
+          <a href="/ratings/" class="btn-antique pillar-btn">
+            Explore Leaderboards &rarr;
+          </a>
+        </div>
+      </div>
+
+      <div class="home-pillar-card">
+        <div class="pillar-card-header">
+          <span class="pillar-icon">🏛️</span>
+          <span class="pillar-tag">6 Major Circuits</span>
+        </div>
+        <h2 class="pillar-title">Tournaments &amp; Hall of Fame</h2>
+        <p class="pillar-desc">
+          The historical registry of competitive Through the Ages. Explore official championships, season stages, match replay
+          logs, and verified podium trophyboards.
+        </p>
+        <ul class="pillar-features">
+          <li>World Championship Hall of Fame &amp; annual podiums</li>
+          <li>Premier division records across 4 official major leagues</li>
+          <li>Grand Slams, knockout cups &amp; competitive ladders</li>
+        </ul>
+        <div class="pillar-action">
+          <a href="/ratings/hall_of_fame/" class="btn-antique pillar-btn">
+            Explore Tournaments &rarr;
+          </a>
+        </div>
+      </div>
+
+      <div class="home-pillar-card pillar-upcoming">
+        <div class="pillar-card-header">
+          <span class="pillar-icon">⏱️</span>
+          <span class="pillar-tag pillar-tag-upcoming">In Development</span>
+        </div>
+        <h2 class="pillar-title">Blitz Tournaments</h2>
+        <p class="pillar-desc">
+          Community-run blitz tournaments: weekly Swiss rounds paired by score and time zone, then a seeded knockout to
+          crown the champion.
+        </p>
+        <ul class="pillar-features">
+          <li>Entrants, weekly pairings &amp; results</li>
+          <li>Standings with tiebreaks</li>
+          <li>Knockout bracket &amp; champion</li>
+        </ul>
+        <div class="pillar-action">
+          <a href="/blitz/" class="btn-antique pillar-btn">
+            Explore Blitz &rarr;
+          </a>
+        </div>
+      </div>
+
+      <div class="home-pillar-card pillar-pulse">
+        <div class="pillar-card-header">
+          <span class="pillar-icon">⚡</span>
+          <span class="pillar-tag pillar-tag-upcoming">In Development</span>
+        </div>
+        <h2 class="pillar-title">TTA Pulse</h2>
+        <p class="pillar-desc">
+          The upcoming blitz matchmaking queue pairing players by Glicko-D rating tier for rapid, scheduled matches launched
+          directly via CGE&apos;s API.
+        </p>
+        <ul class="pillar-features">
+          <li>Skill-based automated queue pairing</li>
+          <li>Seamless game creation via CGE API integration</li>
+          <li>Rapid blitz ratings &amp; live match notifications</li>
+        </ul>
+        <div class="pillar-action">
+          <span class="pillar-coming-soon">Coming Soon &bull; In Development</span>
+        </div>
+      </div>
+    </section>
+
+    <HomePage client:only="react" apiUrl={PUBLIC_API_URL} />
+  </div>
 </SiteLayout>

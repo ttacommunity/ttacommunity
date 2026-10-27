@@ -1,38 +1,30 @@
-/** The site's front page: the four pillar cards (Ratings, Tournaments, Blitz, TTA Pulse) and the interactive community pulse feed. */
-import { useEffect, useMemo, useState } from 'react';
-import {
-  currentRun,
-  leaderboard,
-  catalogue,
-  recentPodiums,
-  type Run,
-  type LeaderboardRow,
-} from '@ttac/shared/ratings';
-import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
+/** The front page's community feed: recent matches of the chosen tournaments and players, and recent podiums, behind spoiler covers. */
+import { useEffect, useState, type MouseEvent } from 'react';
+import { currentRun, leaderboard, catalogue, recentPodiums, type Run } from '@ttac/shared/ratings';
+import { formatDay } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
-import { count, score } from '@ttac/shared/numbers';
+import { score } from '@ttac/shared/numbers';
 import { useCopy } from '@ttac/shared/copy';
-import { seatRankClass } from '../lib/home-view';
+import { seatRankClass, toggled } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
   DEFAULT_FEED_SETTINGS,
   loadFeedSettings,
   saveFeedSettings,
+  withoutPlayer,
+  withoutTournament,
   type FeedSettings,
 } from '../lib/feed-settings';
 import { fetchFeedMatches, type FeedMatch } from '../lib/feed-data';
-import FeedOptionsModal, { type AvailableTournament } from './FeedOptionsModal';
+import FeedOptionsModal from './FeedOptionsModal';
 import PlayerLink from './PlayerLink';
-import { type SearchPlayer } from './SearchBox';
-import './HomePage.css';
+import { useLoad } from './useLoad';
 
 interface HomeData {
   run: Run;
-  players: Load<LeaderboardRow[]>;
   recentTournaments: Load<PodiumCard[]>;
-  availableTournaments: Load<AvailableTournament[]>;
 }
 
 /** One-click copyable replay code */
@@ -53,12 +45,39 @@ function ReplayBadge({ code }: { code: string | null }) {
   );
 }
 
+interface Spoiler {
+  shown: boolean;
+  /** What the button hides or reveals, as its title says it: "match scores", "podium". */
+  what: string;
+  onToggle: () => void;
+}
+
+/** SpoilerButton hides or reveals every item in a list at once. */
+function SpoilerButton({ shown, what, onToggle }: Spoiler) {
+  return (
+    <button type="button" className="spoiler-toggle-btn" onClick={onToggle} title={`${shown ? 'Hide' : 'Reveal'} all ${what}`}>
+      {shown ? '👁️ Spoilers: Shown' : '🔒 Spoilers: Hidden'}
+    </button>
+  );
+}
+
+/** RevealButton hides or reveals one item. */
+function RevealButton({ shown, what, onToggle }: Spoiler) {
+  const label = `${shown ? 'Hide' : 'Reveal'} ${what}`;
+  return (
+    <button type="button" className="spoiler-cell-btn" onClick={onToggle} title={label} aria-label={label}>
+      {shown ? 'Hide' : 'Reveal'}
+    </button>
+  );
+}
+
 export default function HomePage({ apiUrl }: { apiUrl: string }) {
   const [load, setLoad] = useState<Load<HomeData>>({ kind: 'loading' });
 
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
   const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
+  const [optionsOpened, setOptionsOpened] = useState(false);
   const [feedMatches, setFeedMatches] = useState<Load<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
@@ -69,29 +88,20 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   const [revealedTourneyKeys, setRevealedTourneyKeys] = useState<Set<string>>(new Set());
 
   // Load saved feed settings from localStorage once mounted
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      setFeedSettings(loadFeedSettings(window.localStorage));
-    }
-  }, []);
+  useEffect(() => setFeedSettings(loadFeedSettings(window.localStorage)), []);
 
-  // 1. Initial Load: Current run, default filtered Leaderboard (active, min opps 30), and Tournaments
   useEffect(() => {
     currentRun(apiUrl)
       .then(async (run) => {
-        const [players, tournaments, podiums] = await Promise.all([
-          settled(leaderboard(apiUrl, run.run_id, 'glicko2_daneo', 0).then((b) => b.players)),
-          settled(catalogue(apiUrl, run.run_id).then((c) => c.tournaments.map((t) => ({ slug: t.slug, name: t.name })))),
-          settled(recentPodiums(apiUrl, run.run_id).then((p) => p.podiums.map(podiumCard))),
-        ]);
-        setLoad({ kind: 'ready', data: { run, players, recentTournaments: podiums, availableTournaments: tournaments } });
+        const podiums = await settled(recentPodiums(apiUrl, run.run_id).then((p) => p.podiums.map(podiumCard)));
+        setLoad({ kind: 'ready', data: { run, recentTournaments: podiums } });
       })
       .catch((e: unknown) => {
         setLoad({ kind: 'error', message: errorText(e) });
       });
   }, [apiUrl]);
 
-  // 2. Query matches whenever run or feedSettings changes
+  // Matches are asked for again whenever the run or the feed settings change.
   useEffect(() => {
     if (load.kind !== 'ready') return;
     const runId = load.data.run.run_id;
@@ -109,206 +119,32 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the community feed');
 
-  // Player search options for adding custom contenders
-  const searchCandidates: SearchPlayer[] = useMemo(() => {
-    if (data?.players.kind !== 'ready') return [];
-    return data.players.data.map((r) => ({
-      name: r.name,
-      country: r.country,
-      title: r.title,
-    }));
-  }, [data]);
+  // The options dialog's tournaments and players are asked for when it first opens, and kept.
+  const choosingIn = optionsOpened && data !== null ? data.run.run_id : null;
+  const tournaments = useLoad(
+    String(choosingIn),
+    choosingIn === null ? null : () => catalogue(apiUrl, choosingIn).then((c) => c.tournaments.map((t) => ({ slug: t.slug, name: t.name }))),
+  );
+  const players = useLoad(
+    String(choosingIn),
+    choosingIn === null
+      ? null
+      : () => leaderboard(apiUrl, choosingIn, 'glicko2_daneo', 0).then((b) => b.players.map((r) => ({ name: r.name, country: r.country, title: r.title }))),
+  );
+  const openOptions = (e: MouseEvent<HTMLButtonElement>) => {
+    setOptionsOpened(true);
+    setOptionsOpener(e.currentTarget);
+  };
 
-  const removeTournamentFilter = (slug: string, division?: string) => {
-    const next: FeedSettings = {
-      ...feedSettings,
-      tournaments: feedSettings.tournaments.filter(
-        (t) => !(t.slug === slug && (t.division ?? '') === (division ?? '')),
-      ),
-    };
+  const changeSettings = (next: FeedSettings) => {
     setFeedSettings(next);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      saveFeedSettings(window.localStorage, next);
-    }
+    saveFeedSettings(window.localStorage, next);
   };
-
-  const removePlayerFilter = (name: string) => {
-    const next: FeedSettings = {
-      ...feedSettings,
-      players: feedSettings.players.filter((p) => p.toLowerCase() !== name.toLowerCase()),
-    };
-    setFeedSettings(next);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      saveFeedSettings(window.localStorage, next);
-    }
-  };
-
-  const resetToPremier = () => {
-    setFeedSettings(DEFAULT_FEED_SETTINGS);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      saveFeedSettings(window.localStorage, DEFAULT_FEED_SETTINGS);
-    }
-  };
-
-
-  // Toggle match spoiler
-  const toggleMatchSpoiler = (matchId: number) => {
-    setRevealedMatchIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(matchId)) next.delete(matchId);
-      else next.add(matchId);
-      return next;
-    });
-  };
-
-  // Toggle tournament spoiler
-  const toggleTourneySpoiler = (key: string) => {
-    setRevealedTourneyKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggled(prev, matchId));
+  const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggled(prev, key));
 
   return (
-    <div className="home-container">
-      {/* Hero Header */}
-      <section className="home-hero">
-        <div className="home-hero-layout">
-          <div className="home-hero-logo-col">
-            <img
-              src="/img/HubLogo.png"
-              alt="Through the Ages Community"
-              className="home-hero-logo"
-              width="537"
-              height="460"
-            />
-          </div>
-          <div className="home-hero-content-col">
-            <h1 className="home-hero-title">Through the Ages Community</h1>
-            <p className="home-hero-subtitle">
-              The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
-              the World Championship Hall of Fame, and automated blitz matchmaking.
-            </p>
-
-            {data && (
-              <div className="home-stats-bar">
-                {data.run.players !== null && (
-                  <div className="home-stat-pill">
-                    Active Players: <strong>{count(data.run.players ?? 0)}</strong>
-                  </div>
-                )}
-                {data.run.games !== null && (
-                  <div className="home-stat-pill">
-                    Recorded Matches: <strong>{count(data.run.games ?? 0)}</strong>
-                  </div>
-                )}
-                {data.run.finished_at && (
-                  <div className="home-stat-pill">
-                    Updated: <strong>{formatInstant(data.run.finished_at, viewerZone())}</strong>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* 3 Pillar Cards (The Hub) */}
-      <section className="home-pillars" aria-label="Core Sections">
-        {/* Card 1: Ratings */}
-        <div className="home-pillar-card">
-          <div className="pillar-card-header">
-            <span className="pillar-icon">🏆</span>
-            <span className="pillar-tag">Glicko-D Engine</span>
-          </div>
-          <h2 className="pillar-title">Ratings &amp; Leaderboards</h2>
-          <p className="pillar-desc">
-            The multi-paradigm community rating system tracking performance across all competitive player counts with
-            variance-calibrated priors and inactivity decay.
-          </p>
-          <ul className="pillar-features">
-            <li>4-Player, 3-Player &amp; 2-Player duel rankings</li>
-            <li>In-depth player profiles &amp; historical career trajectories</li>
-            <li>Head-to-head match matrices &amp; predictive win rates</li>
-          </ul>
-          <div className="pillar-action">
-            <a href="/ratings/" className="btn-antique pillar-btn">
-              Explore Leaderboards &rarr;
-            </a>
-          </div>
-        </div>
-
-        {/* Card 2: Tournaments */}
-        <div className="home-pillar-card">
-          <div className="pillar-card-header">
-            <span className="pillar-icon">🏛️</span>
-            <span className="pillar-tag">6 Major Circuits</span>
-          </div>
-          <h2 className="pillar-title">Tournaments &amp; Hall of Fame</h2>
-          <p className="pillar-desc">
-            The historical registry of competitive Through the Ages. Explore official championships, season stages, match replay
-            logs, and verified podium trophyboards.
-          </p>
-          <ul className="pillar-features">
-            <li>World Championship Hall of Fame &amp; annual podiums</li>
-            <li>Premier division records across 4 official major leagues</li>
-            <li>Grand Slams, knockout cups &amp; competitive ladders</li>
-          </ul>
-          <div className="pillar-action">
-            <a href="/ratings/hall_of_fame/" className="btn-antique pillar-btn">
-              Explore Tournaments &rarr;
-            </a>
-          </div>
-        </div>
-
-        {/* Card 3: Blitz */}
-        <div className="home-pillar-card pillar-upcoming">
-          <div className="pillar-card-header">
-            <span className="pillar-icon">⏱️</span>
-            <span className="pillar-tag pillar-tag-upcoming">In Development</span>
-          </div>
-          <h2 className="pillar-title">Blitz Tournaments</h2>
-          <p className="pillar-desc">
-            Community-run blitz tournaments: weekly Swiss rounds paired by score and time zone, then a seeded knockout to
-            crown the champion.
-          </p>
-          <ul className="pillar-features">
-            <li>Entrants, weekly pairings &amp; results</li>
-            <li>Standings with tiebreaks</li>
-            <li>Knockout bracket &amp; champion</li>
-          </ul>
-          <div className="pillar-action">
-            <a href="/blitz/" className="btn-antique pillar-btn">
-              Explore Blitz &rarr;
-            </a>
-          </div>
-        </div>
-
-        {/* Card 4: TTA Pulse */}
-        <div className="home-pillar-card pillar-pulse">
-          <div className="pillar-card-header">
-            <span className="pillar-icon">⚡</span>
-            <span className="pillar-tag pillar-tag-upcoming">In Development</span>
-          </div>
-          <h2 className="pillar-title">TTA Pulse</h2>
-          <p className="pillar-desc">
-            The upcoming blitz matchmaking queue pairing players by Glicko-D rating tier for rapid, scheduled matches launched
-            directly via CGE&apos;s API.
-          </p>
-          <ul className="pillar-features">
-            <li>Skill-based automated queue pairing</li>
-            <li>Seamless game creation via CGE API integration</li>
-            <li>Rapid blitz ratings &amp; live match notifications</li>
-          </ul>
-          <div className="pillar-action">
-            <span className="pillar-coming-soon">Coming Soon &bull; In Development</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Community Pulse Feed (Live Highlights Below the Fold) */}
+    <>
       <section className="rating-card home-feed-section" aria-label="Community Pulse Feed">
         <div className="home-feed-header-bar">
           <h2 className="home-feed-heading">
@@ -331,33 +167,18 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   <button
                     type="button"
                     className="feed-options-btn"
-                    onClick={(e) => setOptionsOpener(e.currentTarget)}
+                    onClick={openOptions}
                     title="Customize tournaments, divisions, and players in feed"
                     aria-label="Feed filter options"
                   >
                     <span>⚙️</span> Options
                   </button>
-                  <button
-                    type="button"
-                    className="spoiler-toggle-btn"
-                    onClick={() => setGlobalMatchSpoilers(!globalMatchSpoilers)}
-                    title={globalMatchSpoilers ? 'Hide all match scores' : 'Reveal all match scores'}
-                  >
-                    {globalMatchSpoilers ? '👁️ Spoilers: Shown' : '🔒 Spoilers: Hidden'}
-                  </button>
+                  <SpoilerButton shown={globalMatchSpoilers} what="match scores" onToggle={() => setGlobalMatchSpoilers(!globalMatchSpoilers)} />
                 </div>
               </div>
               <p className="feed-card-intro">
                 Recently finished tournament matches featuring your selected divisions and competitors.
               </p>
-              {[waitingText(data.availableTournaments, 'the tournaments to choose from'), waitingText(data.players, 'the players to choose from')]
-                .filter((problem) => problem !== null)
-                .map((problem) => (
-                  <p key={problem} className="feed-sub-loading" role="alert">
-                    {problem}
-                  </p>
-                ))}
-
               {/* Feed Filter Toolbar */}
               <div className="player-filter-toolbar">
                 <div className="filter-active-tags-row">
@@ -370,7 +191,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                         <button
                           type="button"
                           className="player-tag-remove"
-                          onClick={() => removeTournamentFilter(t.slug, t.division)}
+                          onClick={() => changeSettings(withoutTournament(feedSettings, t.slug, t.division))}
                           title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
                           aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
                         >
@@ -384,7 +205,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                         <button
                           type="button"
                           className="player-tag-remove"
-                          onClick={() => removePlayerFilter(name)}
+                          onClick={() => changeSettings(withoutPlayer(feedSettings, name))}
                           title={`Remove ${name} from feed`}
                           aria-label={`Remove ${name}`}
                         >
@@ -398,14 +219,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                     <button
                       type="button"
                       className="feed-options-btn feed-filter-inline-btn"
-                      onClick={(e) => setOptionsOpener(e.currentTarget)}
+                      onClick={openOptions}
                     >
                       <span>⚙️</span> Filter / Add
                     </button>
                     <button
                       type="button"
                       className="btn-antique reset-top-btn"
-                      onClick={resetToPremier}
+                      onClick={() => changeSettings(DEFAULT_FEED_SETTINGS)}
                       title="Reset to top divisions of IM, IC, and RL"
                     >
                       Reset to Premier
@@ -456,15 +277,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             })}
                           </div>
 
-                          <button
-                            type="button"
-                            className="spoiler-cell-btn"
-                            onClick={() => toggleMatchSpoiler(m.matchId)}
-                            title={isRevealed ? 'Hide scores' : 'Reveal scores'}
-                            aria-label={isRevealed ? 'Hide scores' : 'Reveal scores'}
-                          >
-                            {isRevealed ? 'Hide' : 'Reveal'}
-                          </button>
+                          <RevealButton shown={isRevealed} what="scores" onToggle={() => toggleMatchSpoiler(m.matchId)} />
                         </div>
                       </div>
                     );
@@ -486,14 +299,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 <h3 className="feed-card-title">
                   <span>🏆</span> Recent Tournaments
                 </h3>
-                <button
-                  type="button"
-                  className="spoiler-toggle-btn"
-                  onClick={() => setGlobalTourneySpoilers(!globalTourneySpoilers)}
-                  title={globalTourneySpoilers ? 'Hide all tournament podiums' : 'Reveal all tournament podiums'}
-                >
-                  {globalTourneySpoilers ? '👁️ Spoilers: Shown' : '🔒 Spoilers: Hidden'}
-                </button>
+                <SpoilerButton shown={globalTourneySpoilers} what="tournament podiums" onToggle={() => setGlobalTourneySpoilers(!globalTourneySpoilers)} />
               </div>
               <p className="feed-card-intro">
                 Recently concluded premier tournament editions and crowned titleholders.
@@ -552,11 +358,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             <div
                               className="tourney-podium-content podium-censored-mask"
                               onClick={() => toggleTourneySpoiler(key)}
-                              role="button"
-                              tabIndex={0}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') toggleTourneySpoiler(key);
-                              }}
+                              aria-hidden="true"
                               title="Click to reveal podium results"
                             >
                               <div className="podium-row champion-row">
@@ -581,15 +383,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             </div>
                           )}
 
-                          <button
-                            type="button"
-                            className="spoiler-cell-btn"
-                            onClick={() => toggleTourneySpoiler(key)}
-                            title={isRevealed ? 'Hide podium' : 'Reveal podium'}
-                            aria-label={isRevealed ? 'Hide podium' : 'Reveal podium'}
-                          >
-                            {isRevealed ? 'Hide' : 'Reveal'}
-                          </button>
+                          <RevealButton shown={isRevealed} what="podium" onToggle={() => toggleTourneySpoiler(key)} />
                         </div>
                       </div>
                     );
@@ -666,19 +460,13 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
           opener={optionsOpener}
           apiUrl={apiUrl}
           runId={data.run.run_id}
-          availableTournaments={data.availableTournaments.kind === 'ready' ? data.availableTournaments.data : []}
-          searchPlayers={searchCandidates}
+          availableTournaments={tournaments}
+          searchPlayers={players}
           settings={feedSettings}
-          onSave={(next) => {
-            setFeedSettings(next);
-            if (typeof window !== 'undefined' && window.localStorage) {
-              saveFeedSettings(window.localStorage, next);
-            }
-          }}
+          onSave={changeSettings}
           onClose={() => setOptionsOpener(null)}
         />
       )}
-    </div>
+    </>
   );
 }
-
