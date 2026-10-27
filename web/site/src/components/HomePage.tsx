@@ -6,6 +6,7 @@ import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
 import { useCopy } from '@ttac/shared/copy';
+import { browserStorage } from '../lib/account';
 import { seatRankClass, toggled } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
@@ -87,8 +88,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
   const [globalTourneySpoilers, setGlobalTourneySpoilers] = useState(false); // false = hidden, true = revealed
   const [revealedTourneyKeys, setRevealedTourneyKeys] = useState<Set<string>>(new Set());
 
-  // Load saved feed settings from localStorage once mounted
-  useEffect(() => setFeedSettings(loadFeedSettings(window.localStorage)), []);
+  useEffect(() => setFeedSettings(loadFeedSettings(browserStorage())), []);
 
   useEffect(() => {
     currentRun(apiUrl)
@@ -138,7 +138,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   const changeSettings = (next: FeedSettings) => {
     setFeedSettings(next);
-    saveFeedSettings(window.localStorage, next);
+    saveFeedSettings(browserStorage(), next);
   };
   const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggled(prev, matchId));
   const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggled(prev, key));

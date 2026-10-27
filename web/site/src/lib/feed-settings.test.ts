@@ -98,6 +98,11 @@ describe('feed-settings', () => {
     expect(loadFeedSettings(failingStorage)).toEqual(DEFAULT_FEED_SETTINGS);
     expect(() => saveFeedSettings(failingStorage, DEFAULT_FEED_SETTINGS)).not.toThrow();
   });
+
+  it('works without storage, where the browser blocks it', () => {
+    expect(loadFeedSettings(null)).toEqual(DEFAULT_FEED_SETTINGS);
+    expect(() => saveFeedSettings(null, DEFAULT_FEED_SETTINGS)).not.toThrow();
+  });
 });
 
 const league: FeedSettings = {
