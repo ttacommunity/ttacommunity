@@ -34,13 +34,7 @@ var formatNames = map[Format]string{N0: "All Formats", N2: "2-Player (Duel)", N3
 // same choices, as a CSV file named after them.
 func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvRequestObject) (GetLeaderboardCsvResponseObject, error) {
 	p := req.Params
-	model, format := Glicko2Daneo, N0
-	if p.Model != nil {
-		model = *p.Model
-	}
-	if p.Format != nil {
-		format = *p.Format
-	}
+	model, format, msg := boardParams(req.Run, p.Model, p.Format)
 	q := leaderboardview.Query{Status: "active", MinOpps: 30, Sort: "rank", Order: "asc"}
 	if p.Year != nil {
 		q.MinOpps = 0 // upstream's archive has no minimum by default
@@ -74,12 +68,8 @@ func (s *server) GetLeaderboardCsv(ctx context.Context, req GetLeaderboardCsvReq
 		}}
 	}
 	switch {
-	case req.Run < 1:
-		return refused("bad parameter: run"), nil
-	case !model.Valid():
-		return refused("unknown model"), nil
-	case !format.Valid():
-		return refused("unknown format"), nil
+	case msg != "":
+		return refused(msg), nil
 	case p.Status != nil && !p.Status.Valid():
 		return refused("unknown status"), nil
 	case q.MinOpps < 0 || q.MinOpps > 1000:
