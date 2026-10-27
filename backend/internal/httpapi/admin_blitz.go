@@ -65,6 +65,9 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 	if r, ok := rated[e.Player]; ok {
 		out.Rating = &r.Rating
 	}
+	if e.StartingRank > 0 {
+		out.StartingRank = &e.StartingRank
+	}
 	return out
 }
 
@@ -383,9 +386,9 @@ func (s *server) PutAdminBlitzPairing(ctx context.Context, req PutAdminBlitzPair
 		return PutAdminBlitzPairing404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
 	if req.Body == nil {
-		return PutAdminBlitzPairing400JSONResponse{badRequest400("the pairing: first and later")}, nil
+		return PutAdminBlitzPairing400JSONResponse{badRequest400("the pairing: first, later and ranks")}, nil
 	}
-	p := store.BlitzPairing{First: string(req.Body.First), Later: string(req.Body.Later)}
+	p := store.BlitzPairing{First: string(req.Body.First), Later: string(req.Body.Later), Ranks: string(req.Body.Ranks)}
 	err := s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.SetBlitzPairing(ctx, req.Tournament, req.Edition, p); err != nil {
 			return err

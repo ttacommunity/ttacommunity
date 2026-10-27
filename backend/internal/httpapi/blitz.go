@@ -106,7 +106,7 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 
 // blitzPairing is an edition's pairing methods as the API sends them.
 func blitzPairing(p store.BlitzPairing) BlitzPairingMethods {
-	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later)}
+	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later), Ranks: BlitzPairingMethodsRanks(p.Ranks)}
 }
 
 // blitzStandings is the edition's standings as the API sends them.

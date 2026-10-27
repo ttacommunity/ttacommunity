@@ -3226,12 +3226,20 @@ export interface components {
          * @enum {string}
          */
         BlitzPairingMethod: "dutch" | "dutch-timezone" | "timezone" | "rating" | "random";
-        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it */
+        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given */
         BlitzPairingMethods: {
             /** @description Round 1's method, one of dutch, dutch-timezone, timezone or random */
             first: components["schemas"]["BlitzPairingMethod"];
             /** @description The later rounds' method, one of dutch, dutch-timezone, timezone or rating */
             later: components["schemas"]["BlitzPairingMethod"];
+            /**
+             * @description How the Dutch system's starting ranks are given, fixed when round 1
+             *     is paired: rating is by rating, the unrated last, then by name; lot
+             *     is a draw. A late entrant is slotted in by rating, or given the
+             *     next rank
+             * @enum {string}
+             */
+            ranks: "rating" | "lot";
         };
         /** @description The matches to keep as they are */
         BlitzPairing: {
@@ -3358,6 +3366,8 @@ export interface components {
             utc_offset: string;
             /** Format: double */
             rating: number | null;
+            /** @description The Dutch system's starting rank, fixed when round 1 was paired (1 the top); null before */
+            starting_rank: number | null;
             /**
              * @description Active is in; dropped is out of the rounds still to come, their results kept
              * @enum {string}
@@ -8803,6 +8813,7 @@ export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
+export const blitzPairingMethodsRanksValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethods"]["ranks"]> = ["rating", "lot"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];

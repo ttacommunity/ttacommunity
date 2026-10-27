@@ -102,8 +102,8 @@ func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, 
 	})
 }
 
-// ResetBlitzEdition starts an edition again: every round, result and game goes, every dropped entrant is in again and
-// every skip goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
+// ResetBlitzEdition starts an edition again: every round, result and game goes, every dropped entrant is in again,
+// every skip and starting rank goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
 func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		edID, err := blitzEditionID(ctx, tx, slug, edition)
@@ -116,7 +116,7 @@ func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string
 		}
 		for _, q := range []string{
 			"DELETE FROM blitz_rounds WHERE tournament_id = $1",
-			"UPDATE blitz_entries SET status = 'active' WHERE tournament_id = $1 AND status = 'dropped'",
+			"UPDATE blitz_entries SET status = 'active', starting_rank = NULL WHERE tournament_id = $1 AND (status = 'dropped' OR starting_rank IS NOT NULL)",
 			"DELETE FROM blitz_skips s USING blitz_entries x WHERE s.entry_id = x.entry_id AND x.tournament_id = $1",
 		} {
 			if _, err := tx.Exec(ctx, q, edID); err != nil {

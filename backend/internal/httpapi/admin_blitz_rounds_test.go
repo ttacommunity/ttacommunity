@@ -177,7 +177,7 @@ func TestAnOrganiserPairsChangesAndPublishesARound(t *testing.T) {
 	if rec := do(http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", ""); rec.Code != http.StatusNoContent {
 		t.Errorf("DELETE the latest round, published but unplayed = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "add round 1|set round 101 matches 7-9,8-10|publish round 101|remove round 101"; strings.Join(f.notes, "|") != want {
+	if want := "add round 1|starting ranks|set round 101 matches 7-9,8-10|publish round 101|remove round 101"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.round.add us_open/2026", "blitz.round.matches 101", "blitz.round.publish 101", "blitz.round.remove 101"}
