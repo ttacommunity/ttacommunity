@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, type AdminBlitzEditionRow } from '../lib/admin-api';
-import { ADMIN_EDITION_COLUMNS, editionHref } from '../lib/blitz-page';
+import { editionHref } from '@ttac/shared/blitz';
+import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { LoadNotice } from './Notice';
 

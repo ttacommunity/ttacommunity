@@ -1,25 +1,10 @@
-/** The blitz edition page's decisions: the edition the address names, its address, advice on its format, its points summed up and changed, its settings summed up, and how its tables sort. */
+/** The blitz edition page's decisions: advice on its format, its points summed up and changed, its settings summed up, and how its tables sort. */
 import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pairingSummary, pointsList, type BlitzPoints, type EditionRow, type EntrantRow, type PairingMethods } from '@ttac/shared/blitz';
 import type { SortColumns } from '@ttac/shared/sort';
 
 type Schemas = components['schemas'];
 export type AdminBlitzEntrant = Schemas['AdminBlitzEntrant'];
-
-// The API's pattern for a tournament in a path.
-const SLUG = /^[a-z][a-z0-9_]{0,63}$/;
-
-/** editionParams returns the tournament slug (?t=) and edition label (?e=) the address names, or null. */
-export function editionParams(search: URLSearchParams): { slug: string; edition: string } | null {
-  const slug = search.get('t') ?? '';
-  const edition = search.get('e') ?? '';
-  return SLUG.test(slug) && edition !== '' ? { slug, edition } : null;
-}
-
-/** editionHref is the address of an edition's page. */
-export function editionHref(slug: string, edition: string): string {
-  return `/blitz/?t=${encodeURIComponent(slug)}&e=${encodeURIComponent(edition)}`;
-}
 
 /** formatAdvice is the most Swiss rounds the active entrants can always be paired for without a repeat (half of them,
  * rounded down, at least one), and warnings for a format past it or a knockout larger than the field. A warning only:

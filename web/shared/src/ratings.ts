@@ -79,6 +79,11 @@ export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
 export type BlitzEdition = components['schemas']['BlitzEdition'];
 export type BlitzEntrant = components['schemas']['BlitzEntrant'];
 
+/** isSlug says whether s matches the API's pattern for a tournament in a path. */
+export function isSlug(s: string): boolean {
+  return /^[a-z][a-z0-9_]{0,63}$/.test(s);
+}
+
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
   constructor(
