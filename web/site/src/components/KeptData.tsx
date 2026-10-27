@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { errorText, type Load } from '@ttac/shared/load';
 import { useModal } from '@ttac/shared/modal';
+import { viewerZone } from '@ttac/shared/time';
 import { fetchMyData, keptGroups, shownZone, type KeptGroup, type MyData } from '../lib/kept-data';
 import Waiting from './Waiting';
 import './KeptData.css';
@@ -22,7 +23,7 @@ export default function KeptData({ apiUrl, savedZone }: { apiUrl: string; savedZ
 function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; savedZone: string; opener: HTMLElement; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [load, setLoad] = useState<Load<MyData>>({ kind: 'loading' });
-  const zone = shownZone(savedZone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const zone = shownZone(savedZone, viewerZone());
   // A click on the backdrop closes it; Esc and Close are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
+import { viewerZone } from '@ttac/shared/time';
 import {
   accountState,
   addWayInHref,
@@ -383,7 +384,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
     if (asked?.ok === true || details?.ok === true) refresh();
   };
 
-  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const browserZone = viewerZone();
   const suggestion = suggestedCountry(players.map((p) => ({ name: p.name, country: p.country ?? null })), draft.name, draft.zone, browserZone);
   const suggestionName = countries.find((c) => c.code === suggestion)?.name ?? suggestion;
   return (

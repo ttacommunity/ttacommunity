@@ -9,7 +9,7 @@ import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
-import { formatInstant } from '@ttac/shared/time';
+import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -220,15 +220,6 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
       )}
     </section>
   );
-}
-
-/** viewerZone is the browser's time zone, for the dates admin shows. */
-function viewerZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return 'UTC';
-  }
 }
 
 type RoundView = 'round' | 'unpaired';
@@ -1240,15 +1231,9 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
   );
 }
 
-/** today is the day in the viewer's zone as YYYY-MM-DD, the result form's default. */
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/** formFromGame fills the game form from a recorded game, its finish on the clocks of zone, for a correction; else the empty form in zone. */
+/** formFromGame fills the game form from a recorded game, its finish on the clocks of zone, for a correction; else the empty form in zone, today on its clocks. */
 function formFromGame(m: AdminBlitzMatch, zone: string, regions: readonly Region[]): GameForm {
-  if (m.game === null) return emptyGameForm(today(), zone);
+  if (m.game === null) return emptyGameForm(clockIn(regions, zone, new Date().toISOString()).day, zone);
   const { day, clock } = clockIn(regions, zone, m.game.finished_at);
   return {
     share_code: m.game.share_code,

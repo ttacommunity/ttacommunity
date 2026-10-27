@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { failed, type Found } from '@ttac/shared/load';
+import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, formatLabel, latestFinishes, placeLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
@@ -370,10 +371,6 @@ function KnockoutGames({ rounds, format, you }: { rounds: BlitzRound[]; format: 
   );
 }
 
-/** viewerZone is the browser's time zone, whose clocks the games' dates are on. */
-function viewerZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone;
-}
 
 /** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time, the signed-in player's game marked. */
 function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound[]; you: YourRow | null }) {
