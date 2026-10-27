@@ -74,11 +74,11 @@ func (r *discordRatings) PlayerNamesLike(_ context.Context, _ int64, term string
 
 func rank(n int) *int { return &n }
 
-// grozz is an invented rated player with Glicko-D ratings for every format together and 2-player.
-func grozz() store.Player {
+// quill is an invented rated player with Glicko-D ratings for every format together and 2-player.
+func quill() store.Player {
 	last := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
 	return store.Player{
-		Name: "Grozz", Title: &store.Title{Code: "SGM"}, LastPlayed: &last, Games: map[int]int{0: 481, 2: 170},
+		Name: "Quill", Title: &store.Title{Code: "SGM"}, LastPlayed: &last, Games: map[int]int{0: 481, 2: 170},
 		Ratings: []store.PlayerRating{
 			{Model: "glicko2_std", Format: 0, Rank: rank(9), Rating: 1500, RD: 30, CRating: 1410, Opponents: 890},
 			{Model: "glicko2_daneo", Format: 0, Rank: rank(2), Rating: 1972, RD: 20, CRating: 1912, Opponents: 890, WinRate: 71.7},
@@ -92,7 +92,7 @@ func newDiscordRatings() *discordRatings {
 	for i := range names {
 		names[i] = fmt.Sprintf("Player%d", i)
 	}
-	r := &discordRatings{players: map[string]store.Player{"Grozz": grozz()}, names: names}
+	r := &discordRatings{players: map[string]store.Player{"Quill": quill()}, names: names}
 	r.run = store.PublishedRun{ID: 2}
 	return r
 }
@@ -157,7 +157,7 @@ func TestTheDiscordEndpointTakesOnlyDiscordsRequests(t *testing.T) {
 			if tt.key != nil {
 				signed := body
 				if tt.altered {
-					signed = rating(`{"name":"player","type":3,"value":"Grozz"}`)
+					signed = rating(`{"name":"player","type":3,"value":"Quill"}`)
 				}
 				req.Header.Set("X-Signature-Timestamp", "1760000000")
 				req.Header.Set("X-Signature-Ed25519", hex.EncodeToString(ed25519.Sign(tt.key, []byte("1760000000"+signed))))
@@ -236,14 +236,14 @@ func TestRatingWithAName(t *testing.T) {
 		wantPrivate bool
 		wantText    string
 	}{
-		{"a rated player, to the asker alone", `{"name":"player","type":3,"value":"Grozz"}`, nil, true, "Grozz"},
-		{"a rated player, shared with everyone", `{"name":"player","type":3,"value":"Grozz"},{"name":"share","type":5,"value":true}`, nil, false, "Grozz"},
-		{"not shared when share is false", `{"name":"player","type":3,"value":"Grozz"},{"name":"share","type":5,"value":false}`, nil, true, "Grozz"},
-		{"a format by its number", `{"name":"player","type":3,"value":"Grozz"},{"name":"format","type":4,"value":2}`, nil, true, "2-player"},
+		{"a rated player, to the asker alone", `{"name":"player","type":3,"value":"Quill"}`, nil, true, "Quill"},
+		{"a rated player, shared with everyone", `{"name":"player","type":3,"value":"Quill"},{"name":"share","type":5,"value":true}`, nil, false, "Quill"},
+		{"not shared when share is false", `{"name":"player","type":3,"value":"Quill"},{"name":"share","type":5,"value":false}`, nil, true, "Quill"},
+		{"a format by its number", `{"name":"player","type":3,"value":"Quill"},{"name":"format","type":4,"value":2}`, nil, true, "2-player"},
 		{"a name no player has, private though shared", `{"name":"player","type":3,"value":"Nobody"},{"name":"share","type":5,"value":true}`, nil, true, "Nobody"},
 		{"a name no player has", `{"name":"player","type":3,"value":"Nobody"}`, nil, true, "Nobody"},
-		{"a format the player has no rating in", `{"name":"player","type":3,"value":"Grozz"},{"name":"format","type":4,"value":4}`, nil, true, "Grozz"},
-		{"the ratings not answering", `{"name":"player","type":3,"value":"Grozz"}`, errors.New("database is down"), true, ""},
+		{"a format the player has no rating in", `{"name":"player","type":3,"value":"Quill"},{"name":"format","type":4,"value":4}`, nil, true, "Quill"},
+		{"the ratings not answering", `{"name":"player","type":3,"value":"Quill"}`, errors.New("database is down"), true, ""},
 		{"no name at all", ``, nil, true, "/rating"},
 	}
 	for _, tt := range tests {
@@ -270,11 +270,11 @@ func TestMyRatingShowsTheAskersOwn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.state, func(t *testing.T) {
 			ratings := newDiscordRatings()
-			discord := &fakeDiscord{members: map[string]store.DiscordMember{asker: {State: tt.state, Name: "Grozz"}}}
+			discord := &fakeDiscord{members: map[string]store.DiscordMember{asker: {State: tt.state, Name: "Quill"}}}
 			r := discordReply(t, discordDo(ratings, discord, discordKey, command("myrating", ""), slog.New(slog.DiscardHandler)))
 			want := ""
 			if tt.wantPlayer {
-				want = "Grozz"
+				want = "Quill"
 			}
 			wantMessage(t, r, tt.wantPrivate, want)
 			if !slices.Equal(discord.asked, []string{asker}) {
@@ -285,13 +285,13 @@ func TestMyRatingShowsTheAskersOwn(t *testing.T) {
 }
 
 func TestMyRatingFindsTheAskerInADirectMessage(t *testing.T) {
-	discord := &fakeDiscord{members: map[string]store.DiscordMember{asker: {State: store.DiscordFound, Name: "Grozz"}}}
+	discord := &fakeDiscord{members: map[string]store.DiscordMember{asker: {State: store.DiscordFound, Name: "Quill"}}}
 	body := `{"type":2,"data":{"name":"myrating","options":[{"name":"format","type":4,"value":2},{"name":"share","type":5,"value":true}]},"user":{"id":"` + asker + `"}}`
 	wantMessage(t, discordReply(t, discordDo(newDiscordRatings(), discord, discordKey, body, slog.New(slog.DiscardHandler))), false, "2-player")
 }
 
 func TestTheDiscordEndpointLogsNoDiscordIDOrName(t *testing.T) {
-	for name, body := range map[string]string{"own": command("myrating", ""), "named": rating(`{"name":"player","type":3,"value":"Grozz"}`)} {
+	for name, body := range map[string]string{"own": command("myrating", ""), "named": rating(`{"name":"player","type":3,"value":"Quill"}`)} {
 		t.Run(name, func(t *testing.T) {
 			var logs bytes.Buffer
 			ratings := newDiscordRatings()
@@ -301,7 +301,7 @@ func TestTheDiscordEndpointLogsNoDiscordIDOrName(t *testing.T) {
 			if !strings.Contains(logs.String(), "database is down") {
 				t.Errorf("logs = %s, want the failure logged", logs.String())
 			}
-			for _, personal := range []string{asker, "Grozz"} {
+			for _, personal := range []string{asker, "Quill"} {
 				if strings.Contains(logs.String(), personal) {
 					t.Errorf("logs = %s, want no %q in them", logs.String(), personal)
 				}
@@ -325,7 +325,7 @@ func TestSummariseShowsGlickoDInTheFormatAsked(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, ok := summarise(grozz(), tt.format)
+			s, ok := summarise(quill(), tt.format)
 			if ok != tt.wantOK || s.CRating != tt.wantCRating || s.Games != tt.wantGames || (s.Rank != nil) != tt.wantRanked {
 				t.Errorf("summarise(format %d) = %+v, %v; want ok %v, C-Rating %v, %d games, ranked %v",
 					tt.format, s, ok, tt.wantOK, tt.wantCRating, tt.wantGames, tt.wantRanked)

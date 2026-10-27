@@ -191,29 +191,29 @@ describe('search', () => {
 describe('parseSearch', () => {
   it('splits positive and negative terms', () => {
     expect(parseSearch('')).toEqual({ positive: [], negative: [] });
-    expect(parseSearch('weidenbaum, yaop, Arne, -barnes, !other')).toEqual({
-      positive: ['weidenbaum', 'yaop', 'Arne'],
-      negative: ['barnes', 'other'],
+    expect(parseSearch('ivy, jon, Kai, -lee, !other')).toEqual({
+      positive: ['ivy', 'jon', 'Kai'],
+      negative: ['lee', 'other'],
     });
   });
 });
 
 describe('excludePlayer and includePlayer', () => {
   it('appends negative exclusion if not already present', () => {
-    expect(excludePlayer('Arne', 'barnes')).toBe('Arne, -barnes');
-    expect(excludePlayer('Arne, -barnes', 'barnes')).toBe('Arne, -barnes');
-    expect(excludePlayer('weidenbaum, Arne', 'barnes')).toBe('weidenbaum, Arne, -barnes');
+    expect(excludePlayer('Kai', 'lee')).toBe('Kai, -lee');
+    expect(excludePlayer('Kai, -lee', 'lee')).toBe('Kai, -lee');
+    expect(excludePlayer('ivy, Kai', 'lee')).toBe('ivy, Kai, -lee');
   });
 
   it('removes matching positive term and adds exclusion when unselecting an explicit positive term', () => {
-    expect(excludePlayer('Arne, barnes', 'barnes')).toBe('Arne, -barnes');
+    expect(excludePlayer('Kai, lee', 'lee')).toBe('Kai, -lee');
   });
 
   it('removes negative exclusion when re-including a player', () => {
-    expect(includePlayer('Arne, -barnes', 'barnes')).toBe('Arne');
-    expect(includePlayer('Arne, !barnes', 'barnes')).toBe('Arne');
-    expect(includePlayer('-barnes', 'barnes')).toBe('');
-    expect(includePlayer('Arne, -barnes, -wolvs', 'barnes')).toBe('Arne, -wolvs');
+    expect(includePlayer('Kai, -lee', 'lee')).toBe('Kai');
+    expect(includePlayer('Kai, !lee', 'lee')).toBe('Kai');
+    expect(includePlayer('-lee', 'lee')).toBe('');
+    expect(includePlayer('Kai, -lee, -mo', 'lee')).toBe('Kai, -mo');
   });
 });
 

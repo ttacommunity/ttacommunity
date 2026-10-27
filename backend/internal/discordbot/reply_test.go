@@ -10,8 +10,8 @@ import (
 
 func TestEscapeMarkdown(t *testing.T) {
 	tests := []struct{ name, in, want string }{
-		{"plain", "Grozz", "Grozz"},
-		{"an underscore", "Martin_Pecheur", `Martin\_Pecheur`},
+		{"plain", "Quill", "Quill"},
+		{"an underscore", "Quill_Pen", `Quill\_Pen`},
 		{"stars and tildes", "*x*~~y~~", `\*x\*\~\~y\~\~`},
 		{"a backslash", `a\b`, `a\\b`},
 		{"code and spoilers", "`a`||b||", "\\`a\\`\\|\\|b\\|\\|"},
@@ -29,9 +29,9 @@ func TestEscapeMarkdown(t *testing.T) {
 
 func TestPlayerURL(t *testing.T) {
 	tests := []struct{ name, site, player, want string }{
-		{"a plain name", "https://site.example", "Grozz", "https://site.example/ratings/player/?name=Grozz"},
+		{"a plain name", "https://site.example", "Quill", "https://site.example/ratings/player/?name=Quill"},
 		{"a name needing escapes", "https://site.example", "a b/c", "https://site.example/ratings/player/?name=a+b%2Fc"},
-		{"a site with a trailing slash", "https://site.example/", "Grozz", "https://site.example/ratings/player/?name=Grozz"},
+		{"a site with a trailing slash", "https://site.example/", "Quill", "https://site.example/ratings/player/?name=Quill"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -208,6 +208,12 @@ if full && area checks; then
     run bash checks/deploy-env-strings.sh
   fi
   run bash checks/deploy-current.test.sh
+  run bash checks/dco.test.sh
+  if [ "${GITHUB_EVENT_NAME:-}" = pull_request ]; then
+    run bash checks/dco.sh "${PR_BASE_SHA:-}" "${PR_HEAD_SHA:-}" "${PR_AUTHOR_ASSOCIATION:-}"
+  else
+    not_covered+=("sign-offs on an outsider's pull request (checks/dco.sh): CI checks each pull request")
+  fi
   if need jq "the engine's golden hashes"; then
     run bash checks/engine-golden.test.sh
     run bash checks/engine-golden.sh
