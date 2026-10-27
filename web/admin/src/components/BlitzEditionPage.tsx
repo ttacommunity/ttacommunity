@@ -8,7 +8,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, formatLabel, pairingSummary, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, RANK_ORDERS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, formatLabel, pairingSummary, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, usesStartingRanks, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
@@ -775,6 +775,9 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                 <SortHeader col="rating" sort={sort} onSort={sortBy}>
                   Rating
                 </SortHeader>
+                <SortHeader col="rank" sort={sort} onSort={sortBy}>
+                  <abbr title="Starting rank">Rank</abbr>
+                </SortHeader>
                 <SortHeader col="status" sort={sort} onSort={sortBy}>
                   Status
                 </SortHeader>
@@ -811,6 +814,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                         <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
                       </td>
                       <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{e.starting_rank ?? '–'}</td>
                       <td>{entrantState(e, ed.rounds, nameOf)}</td>
                       <td>{e.skips.length}</td>
                       <td className="run-buttons">
@@ -835,6 +839,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                         {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
                       </td>
                       <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                      <td>{e.starting_rank ?? '–'}</td>
                       <td>{entrantState(e, ed.rounds, nameOf)}</td>
                       <td>{e.skips.length}</td>
                       <td className="run-buttons">
@@ -1166,6 +1171,16 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       <form className="admin-add" onSubmit={(e) => void save(e)}>
         {choice('Round 1', 'first', FIRST_METHODS)}
         {choice('Later rounds', 'later', LATER_METHODS)}
+        <label>
+          Starting ranks
+          <select className="input-antique" value={pairing.ranks} onChange={(e) => setPairing({ ...pairing, ranks: RANK_ORDERS.find((o) => o.value === e.target.value)?.value ?? pairing.ranks })}>
+            {RANK_ORDERS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit" className="btn-antique">
           Save
         </button>
@@ -1173,7 +1188,11 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       <Notice outcome={shownAt(outcome, 'pairing')} onClose={() => say(null)} />
       <p className="muted round-hint">Round 1: {PAIRING_METHODS[pairing.first].about}</p>
       <p className="muted round-hint">Later rounds: {PAIRING_METHODS[pairing.later].about}</p>
-      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method.</p>
+      <p className="muted round-hint">
+        Starting ranks {RANK_ORDERS.find((o) => o.value === pairing.ranks)?.about}
+        {usesStartingRanks(pairing) ? '' : ' Only the Dutch system uses them.'}
+      </p>
+      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method, and starting ranks once given stay until the edition has no round.</p>
     </>
   );
 }

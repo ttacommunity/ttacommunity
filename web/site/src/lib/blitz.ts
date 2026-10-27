@@ -1,6 +1,6 @@
 /** The Blitz section's decisions: how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
-import { PAIRING_METHODS, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods } from '@ttac/shared/blitz';
+import { PAIRING_METHODS, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods, RANK_ORDERS, usesStartingRanks } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
 import { pageOf, type GameRow, type GameSeat, type GamesColumn } from './games-table';
@@ -128,6 +128,8 @@ export function pairingNotes(ed: {
     'Nobody meets the same opponent twice.',
     `With an odd number of players, one player gets a bye, worth ${bye}: from the lowest score, someone who has not had one.`,
   ];
+  const order = RANK_ORDERS.find((o) => o.value === ed.pairing.ranks);
+  if (usesStartingRanks(ed.pairing) && order !== undefined) rules.push(`Starting ranks ${order.about}`);
   const paired = ed.rounds.flatMap((r) => (r.kind === 'swiss' && r.method !== null ? [{ round: roundTitle(r.number, ed.format), label: PAIRING_METHODS[r.method].label }] : []));
   return { methods, rules, paired };
 }

@@ -40,7 +40,7 @@ describe('admin requests', () => {
     ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4 }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4 }],
     ["an edition's points", req.setBlitzPoints('us_open', '2026', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }), '/api/blitz/us_open/2026/points', 'PUT', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }],
     ["FIDE's points again", req.resetBlitzPoints('us_open', '2026'), '/api/blitz/us_open/2026/points', 'DELETE', undefined],
-    ["an edition's pairing", req.setBlitzPairing('us_open', '2026', { first: 'dutch', later: 'dutch-timezone' }), '/api/blitz/us_open/2026/pairing', 'PUT', { first: 'dutch', later: 'dutch-timezone' }],
+    ["an edition's pairing", req.setBlitzPairing('us_open', '2026', { first: 'dutch', later: 'dutch-timezone', ranks: 'lot' }), '/api/blitz/us_open/2026/pairing', 'PUT', { first: 'dutch', later: 'dutch-timezone', ranks: 'lot' }],
     ['pairing a round', req.pairBlitzRound('us_open', '2026'), '/api/blitz/us_open/2026/rounds', 'POST', undefined],
     ["a round's unpaired players", req.proposeBlitzPairing('us_open', '2026', 101, { keep: [{ a: 7, b: 8 }] }), '/api/blitz/us_open/2026/rounds/101/pairing', 'POST', { keep: [{ a: 7, b: 8 }] }],
     ["a round's matches by hand", req.setBlitzRoundMatches('us_open', '2026', 101, [{ a: 7, b: 8 }, { a: 9 }]), '/api/blitz/us_open/2026/rounds/101/matches', 'PUT', { matches: [{ a: 7, b: 8 }, { a: 9 }] }],

@@ -131,12 +131,25 @@ export const FIRST_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone
 /** LATER_METHODS are the methods the rounds after round 1 may be paired by, in the order offered. */
 export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'rating'];
 
+export type RankOrder = PairingMethods['ranks'];
+
+/** RANK_ORDERS are the ways the Dutch system's starting ranks may be given, in the order offered, each said in plain words. */
+export const RANK_ORDERS: readonly { value: RankOrder; label: string; about: string }[] = [
+  { value: 'rating', label: 'By rating', about: 'follow the ratings when round 1 is paired: highest first, unrated players last, then by name. A late entrant is slotted in by rating.' },
+  { value: 'lot', label: 'By lot', about: 'are drawn when round 1 is paired. A late entrant takes the next rank.' },
+];
+
+/** usesStartingRanks says whether an edition's methods use starting ranks: the Dutch system, in round 1 or later. */
+export function usesStartingRanks(p: PairingMethods): boolean {
+  return [p.first, p.later].some((m) => m === 'dutch' || m === 'dutch-timezone');
+}
+
 /** PAIRING_METHODS names each pairing method and says in plain words how it pairs a round. */
 export const PAIRING_METHODS: Record<PairingMethod, { label: string; about: string }> = {
   dutch: {
     label: "FIDE's Dutch system",
     about:
-      'Players on the same points meet. Each score group is ranked by rating and split in two, and the top half plays the bottom half: the first against the first of the bottom half, the second against the second, and so on. Pairs change only to avoid a rematch, and a player left over moves down to the next group.',
+      'Players on the same points meet. Each score group is ordered by starting rank and split in two, and the top half plays the bottom half: the first against the first of the bottom half, the second against the second, and so on. Pairs change only to avoid a rematch, and a player left over moves down to the next group.',
   },
   'dutch-timezone': {
     label: 'Dutch, time zones as tiebreak',
@@ -147,10 +160,10 @@ export const PAIRING_METHODS: Record<PairingMethod, { label: string; about: stri
   random: { label: 'Random', about: 'Opponents are drawn by chance.' },
 };
 
-/** pairingSummary says in one line how an edition's rounds are paired: one method for every round, or round 1's and the later rounds'. */
+/** pairingSummary says in one line how an edition's rounds are paired: one method for every round, or round 1's and the later rounds', and starting ranks by lot when the Dutch system draws them. */
 export function pairingSummary(p: PairingMethods): string {
-  if (p.first === p.later) return `${PAIRING_METHODS[p.first].label}, every round`;
-  return `Round 1: ${PAIRING_METHODS[p.first].label}; later rounds: ${PAIRING_METHODS[p.later].label}`;
+  const methods = p.first === p.later ? `${PAIRING_METHODS[p.first].label}, every round` : `Round 1: ${PAIRING_METHODS[p.first].label}; later rounds: ${PAIRING_METHODS[p.later].label}`;
+  return usesStartingRanks(p) && p.ranks === 'lot' ? `${methods}; starting ranks by lot` : methods;
 }
 
 /** pointsText writes points in halves as a player reads them: 0, ½, 1, 2½. */

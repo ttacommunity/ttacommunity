@@ -68,7 +68,7 @@ describe('pointsForm and pointsFrom', () => {
 describe('settingsRows', () => {
   it('sums up the format, points and pairing, in that order', () => {
     const points = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
-    const pairing = { first: 'dutch', later: 'rating' } as const;
+    const pairing = { first: 'dutch', later: 'rating', ranks: 'rating' } as const;
     const ed = { format: { swiss_rounds: 8, knockout_size: 8 }, points, fide_points: true, pairing };
     expect(settingsRows(ed)).toEqual([
       { key: 'Format', value: formatLabel(ed.format) },
@@ -79,9 +79,10 @@ describe('settingsRows', () => {
 });
 
 describe('ADMIN_ENTRANT_COLUMNS', () => {
-  const e = (name: string, discord: string, country: string | null, status: 'active' | 'dropped' | 'pending', skips: number[]) => ({ name, discord_name: discord, email: '', country, zone: 'UTC', utc_offset: '+00:00', rating: null, status, skips });
-  const rows = [e('cy', 'zed', 'DE', 'active', [2]), e('Ann', '', null, 'dropped', []), e('bo', 'amy', 'CA', 'active', [2, 3])];
+  const e = (name: string, discord: string, country: string | null, status: 'active' | 'dropped' | 'pending', skips: number[], rank: number | null = null) => ({ name, discord_name: discord, email: '', country, zone: 'UTC', utc_offset: '+00:00', rating: null, starting_rank: rank, status, skips });
+  const rows = [e('cy', 'zed', 'DE', 'active', [2], 2), e('Ann', '', null, 'dropped', []), e('bo', 'amy', 'CA', 'active', [2, 3], 1)];
   it.each([
+    ['starting rank, none last', { col: 'rank', desc: false }, ['bo', 'cy', 'Ann']],
     ['Discord name, none last', { col: 'discord', desc: false }, ['bo', 'cy', 'Ann']],
     ['country, none last', { col: 'country', desc: false }, ['bo', 'cy', 'Ann']],
     ['status', { col: 'status', desc: false }, ['cy', 'bo', 'Ann']],

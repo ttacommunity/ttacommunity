@@ -42,6 +42,7 @@ const entrant = (id: number, status: 'active' | 'dropped' = 'active', skips: num
   zone: 'UTC',
   utc_offset: '+00:00',
   rating: null,
+  starting_rank: null,
   status,
   skips,
 });
@@ -110,7 +111,7 @@ describe('undecided', () => {
 });
 
 describe('nextPairing', () => {
-  const pairing = { first: 'random', later: 'dutch' } as const;
+  const pairing = { first: 'random', later: 'dutch', ranks: 'rating' } as const;
   it.each([
     ["round 1's method before any round", [], 'random'],
     ['the later method once a Swiss round exists', [round(1, 1, true, [])], 'dutch'],

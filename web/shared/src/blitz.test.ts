@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, offsetMinutes, formatLabel, knockoutStage, offsetLabel, pairingSummary, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, offsetMinutes, formatLabel, knockoutStage, offsetLabel, pairingSummary, usesStartingRanks, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { editionHref, editionParams } from './blitz';
 
@@ -284,9 +284,21 @@ describe('ENTRANT_COLUMNS', () => {
 
 describe('pairingSummary', () => {
   it.each([
-    ['one method throughout', { first: 'dutch', later: 'dutch' }, "FIDE's Dutch system, every round"],
-    ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak'],
+    ['one method throughout', { first: 'dutch', later: 'dutch', ranks: 'rating' }, "FIDE's Dutch system, every round"],
+    ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone', ranks: 'rating' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak'],
+    ['starting ranks by lot', { first: 'dutch', later: 'dutch', ranks: 'lot' }, "FIDE's Dutch system, every round; starting ranks by lot"],
+    ['no starting ranks without the Dutch system', { first: 'timezone', later: 'rating', ranks: 'lot' }, 'Round 1: Closest time zones; later rounds: Closest ratings'],
   ] as const)('%s', (_, pairing, want) => {
     expect(pairingSummary(pairing)).toBe(want);
+  });
+});
+
+describe('usesStartingRanks', () => {
+  it.each([
+    ['the Dutch system in round 1', { first: 'dutch', later: 'timezone', ranks: 'rating' }, true],
+    ['the Dutch system with time zones later', { first: 'random', later: 'dutch-timezone', ranks: 'rating' }, true],
+    ['no Dutch system', { first: 'timezone', later: 'rating', ranks: 'lot' }, false],
+  ] as const)('is true with %s', (_, pairing, want) => {
+    expect(usesStartingRanks(pairing)).toBe(want);
   });
 });
