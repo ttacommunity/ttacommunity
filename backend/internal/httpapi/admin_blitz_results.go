@@ -5,10 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
 
-	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -17,20 +14,11 @@ func (s *server) PutAdminBlitzMatchGame(ctx context.Context, req PutAdminBlitzMa
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	if req.Body == nil {
-		return PutAdminBlitzMatchGame400JSONResponse{badRequest400("the game: share_code, a, b, finished_on, finished_time and zone")}, nil
+	g, msg := blitzGame(req.Body, s.now())
+	if msg != "" {
+		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(msg)}, nil
 	}
-	finished, err := blitz.FinishedAt(req.Body.FinishedOn.Format(time.DateOnly), req.Body.FinishedTime, strings.TrimSpace(req.Body.Zone))
-	if err == nil {
-		err = blitz.FinishedBy(finished, s.now())
-	}
-	if err != nil {
-		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(err.Error())}, nil
-	}
-	g := store.BlitzGame{ShareCode: req.Body.ShareCode, Finished: finished,
-		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome), Turn: req.Body.A.Turn},
-		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome), Turn: req.Body.B.Turn}}
-	err = s.admins.Change(ctx, func(tx Admins) error {
+	err := s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.RecordBlitzGame(ctx, req.Tournament, req.Edition, req.Match, g); err != nil {
 			return err
 		}

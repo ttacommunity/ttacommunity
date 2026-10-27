@@ -118,6 +118,24 @@ func reportRefusal(err error) (int, string) {
 	return 0, ""
 }
 
+// blitzGame is the game a player reports or an admin records, or the message refusing it: no game, or a finish
+// that cannot be read or is after now.
+func blitzGame(b *BlitzGameRecord, now time.Time) (store.BlitzGame, string) {
+	if b == nil {
+		return store.BlitzGame{}, "the game: share_code, a, b, finished_on, finished_time and zone"
+	}
+	finished, err := blitz.FinishedAt(b.FinishedOn.Format(time.DateOnly), b.FinishedTime, strings.TrimSpace(b.Zone))
+	if err == nil {
+		err = blitz.FinishedBy(finished, now)
+	}
+	if err != nil {
+		return store.BlitzGame{}, err.Error()
+	}
+	return store.BlitzGame{ShareCode: b.ShareCode, Finished: finished,
+		A: store.BlitzSide{Culture: b.A.Culture, Outcome: string(b.A.Outcome), Turn: b.A.Turn},
+		B: store.BlitzSide{Culture: b.B.Culture, Outcome: string(b.B.Outcome), Turn: b.B.Turn}}, ""
+}
+
 func signedOut401(msg string) SignedOutJSONResponse {
 	return SignedOutJSONResponse{Body: Error{Error: msg}, Headers: SignedOutResponseHeaders{CacheControl: cacheNone}}
 }
@@ -126,21 +144,12 @@ func (s *server) PutMyBlitzGame(ctx context.Context, req PutMyBlitzGameRequestOb
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PutMyBlitzGame400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
-	if req.Body == nil {
-		return PutMyBlitzGame400JSONResponse{badRequest400("the game: share_code, a, b, finished_on, finished_time and zone")}, nil
-	}
-	finished, err := blitz.FinishedAt(req.Body.FinishedOn.Format(time.DateOnly), req.Body.FinishedTime, strings.TrimSpace(req.Body.Zone))
-	if err == nil {
-		err = blitz.FinishedBy(finished, s.now())
-	}
-	if err != nil {
-		return PutMyBlitzGame400JSONResponse{badRequest400(err.Error())}, nil
+	g, msg := blitzGame(req.Body, s.now())
+	if msg != "" {
+		return PutMyBlitzGame400JSONResponse{badRequest400(msg)}, nil
 	}
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
-	g := store.BlitzGame{ShareCode: req.Body.ShareCode, Finished: finished,
-		A: store.BlitzSide{Culture: req.Body.A.Culture, Outcome: string(req.Body.A.Outcome), Turn: req.Body.A.Turn},
-		B: store.BlitzSide{Culture: req.Body.B.Culture, Outcome: string(req.Body.B.Outcome), Turn: req.Body.B.Turn}}
-	err = s.signIns.ReportBlitzGame(ctx, hash, req.Tournament, req.Edition, req.Match, g, s.now())
+	err := s.signIns.ReportBlitzGame(ctx, hash, req.Tournament, req.Edition, req.Match, g, s.now())
 	switch code, msg := reportRefusal(err); code {
 	case 0:
 		if err != nil {
