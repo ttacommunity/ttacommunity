@@ -16,8 +16,12 @@ import (
 const onlyAdminsRun = "only admins run the engine"
 
 func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) (GetAdminRunsResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminRuns403JSONResponse{forbidden(onlyAdminsRun)}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminRuns403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	runs, err := s.admins.Runs(ctx)
 	if err != nil {
@@ -46,8 +50,11 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 
 func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) (PostAdminRunResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PostAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	// The Job starts before the commit, so it runs unaudited only if the audit row or the commit fails.
 	var job string
@@ -71,8 +78,11 @@ func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) 
 
 func (s *server) PostAdminRunPublish(ctx context.Context, req PostAdminRunPublishRequestObject) (PostAdminRunPublishResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PostAdminRunPublish403JSONResponse{forbidden(onlyAdminsRun)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminRunPublish403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.Publish(ctx, req.Run); err != nil {
@@ -105,8 +115,12 @@ func (s *server) PostAdminRunPublish(ctx context.Context, req PostAdminRunPublis
 const prewarmTimeout = 10 * time.Minute
 
 func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesRequestObject) (GetAdminRunChangesResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminRunChanges403JSONResponse{forbidden(onlyAdminsRun)}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminRunChanges403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	var against int64
 	if req.Params.Against != nil {
@@ -137,8 +151,11 @@ func (s *server) GetAdminRunChanges(ctx context.Context, req GetAdminRunChangesR
 
 func (s *server) PostAdminRunStop(ctx context.Context, req PostAdminRunStopRequestObject) (PostAdminRunStopResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PostAdminRunStop403JSONResponse{forbidden(onlyAdminsRun)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminRunStop403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	runs, err := s.admins.Runs(ctx)
 	if err != nil {
@@ -200,8 +217,11 @@ const deleteRunTimeout = time.Hour
 
 func (s *server) PatchAdminRun(ctx context.Context, req PatchAdminRunRequestObject) (PatchAdminRunResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PatchAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PatchAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	if req.Body == nil {
 		return PatchAdminRun400JSONResponse{badRequest400("say whether the run is protected")}, nil
@@ -227,8 +247,11 @@ func (s *server) PatchAdminRun(ctx context.Context, req PatchAdminRunRequestObje
 
 func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestObject) (DeleteAdminRunResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
 	going, err := s.admins.EngineGoing(ctx)
 	if err != nil {

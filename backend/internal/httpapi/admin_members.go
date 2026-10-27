@@ -150,8 +150,11 @@ func (s *server) PatchAdminMember(ctx context.Context, req PatchAdminMemberReque
 
 func (s *server) DeleteAdminMember(ctx context.Context, req DeleteAdminMemberRequestObject) (DeleteAdminMemberResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminMember403JSONResponse{forbidden("only admins remove members")}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminMember403JSONResponse{forbidden("only admins remove members")}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.RemoveMember(ctx, req.Member); err != nil {
@@ -172,8 +175,11 @@ func (s *server) DeleteAdminMember(ctx context.Context, req DeleteAdminMemberReq
 
 func (s *server) PutAdminMemberBan(ctx context.Context, req PutAdminMemberBanRequestObject) (PutAdminMemberBanResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PutAdminMemberBan403JSONResponse{forbidden("only admins ban members")}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PutAdminMemberBan403JSONResponse{forbidden("only admins ban members")}, nil
 	}
 	if req.Body == nil {
 		return PutAdminMemberBan400JSONResponse{badRequest400("a reason")}, nil
@@ -197,8 +203,11 @@ func (s *server) PutAdminMemberBan(ctx context.Context, req PutAdminMemberBanReq
 
 func (s *server) DeleteAdminMemberBan(ctx context.Context, req DeleteAdminMemberBanRequestObject) (DeleteAdminMemberBanResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminMemberBan403JSONResponse{forbidden("only admins lift bans")}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminMemberBan403JSONResponse{forbidden("only admins lift bans")}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.UnbanMember(ctx, req.Member); err != nil {
