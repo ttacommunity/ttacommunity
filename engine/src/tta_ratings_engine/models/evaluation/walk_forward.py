@@ -1,5 +1,6 @@
 """Walk-forward (leak-free out-of-sample t+1) calibration and predictive benchmark engine."""
 
+import functools
 import math
 from collections import defaultdict
 from collections.abc import Callable
@@ -11,19 +12,19 @@ from psycopg.types.json import Jsonb
 
 from tta_ratings_engine.data.db import load_pairs, require_running
 from tta_ratings_engine.models.glicko2.calculator import (
-    CALIBRATED_SIGMA,
-    CALIBRATED_TAU,
-    GOLDEN_MP_WEIGHTS,
-    INACTIVITY_DRIFT_PER_MONTH,
     MODELS,
-    RESET_ALPHA_SOFTER,
-    RESET_LAMBDA_SOFTER,
     PlayerThresholds,
-    compute_decoupled_scaling,
-    get_tier_mean,
+    by_month,
+    count_new_games,
+    drifted,
+    month_encounters,
+    new_rating,
+    new_year,
+    rate,
+    season_reset,
+    split_at_threshold,
 )
-from tta_ratings_engine.models.glicko2.engine import GLICKO2_SCALE as G2_SCALE
-from tta_ratings_engine.models.glicko2.engine import Rating, update_rating
+from tta_ratings_engine.models.glicko2.engine import Rating
 
 BIN_LABELS = [
     "50-55%",
@@ -131,6 +132,139 @@ def compute_metrics_from_preds(
     }
 
 
+def favourite(ra: Rating, rb: Rating, score_a: float) -> tuple[float, float]:
+    """Returns the favourite's expected score in a game of ra against rb (at least 0.5), and the favourite's score."""
+    c = math.sqrt(ra.phi**2 + rb.phi**2)
+    g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
+    exp_prob = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
+    if exp_prob >= 0.5:
+        return exp_prob, score_a
+    return 1.0 - exp_prob, 1.0 - score_a
+
+
+class _Models:
+    """The models as a walk forward advances: thresholds, the retro families' priors and each model's ratings.
+
+    Each advances one month at a time, over the games seen so far.
+    """
+
+    def __init__(self, models: list[str], player_count: int):
+        self.models = models
+        self.player_count = player_count
+        self.thresholds = PlayerThresholds(standard_threshold=15, inactivity_days=365)
+        families_retro = {get_fam(m) for m in models if is_retro(m)}
+        self.priors: dict[str, dict[str, Rating]] = {f: {} for f in families_retro}
+        self.ratings_p1 = {f: defaultdict(new_rating) for f in families_retro}
+        self.games_p1: dict[str, dict[str, set[Any]]] = {
+            f: defaultdict(set) for f in families_retro
+        }
+        self.ratings: dict[str, dict[str, Rating]] = {
+            m: {} if is_retro(m) else defaultdict(new_rating) for m in models
+        }
+        self.games: dict[str, dict[str, set[Any]]] = {
+            m: defaultdict(set) for m in models
+        }
+
+    def rating(self, m: str, p_name: str) -> Rating:
+        """Returns model m's rating of a player; a standard model adds a new player, a retro one only reads."""
+        r_map = self.ratings[m]
+        return r_map.get(p_name, new_rating()) if is_retro(m) else r_map[p_name]
+
+    def predict(self, rows: list[Any]) -> dict[str, tuple[list[float], list[float]]]:
+        """Returns each model's predictions of rows and the favourites' scores, from the ratings so far."""
+        out: dict[str, tuple[list[float], list[float]]] = {
+            m: ([], []) for m in self.models
+        }
+        for r in rows:
+            for m in self.models:
+                ra = self.rating(m, r["player_a"])
+                rb = self.rating(m, r["player_b"])
+                p, actual = favourite(ra, rb, r["outcome_a"])
+                out[m][0].append(p)
+                out[m][1].append(actual)
+        return out
+
+    def season_reset(self) -> None:
+        """Resets the season-reset models; a retro model resets only calibrated players."""
+        for m in self.models:
+            if MODELS[m][1] == "softer":
+                season_reset(self.ratings[m], functools.partial(self._resets, m))
+
+    def _resets(self, m: str, p_name: str) -> bool:
+        if not is_retro(m):
+            return True
+        return len(self.games[m][p_name]) >= self.thresholds.get(p_name, 15)
+
+    def advance(self, rows: list[Any]) -> None:
+        """Takes in a month's games: thresholds, then pass 1, then pass 2."""
+        self.thresholds.add(rows)
+        self._discover_priors(rows)
+        self._update(rows)
+
+    def _discover_priors(self, rows: list[Any]) -> None:
+        """Pass 1 for one month: a retro family's prior is a player's rating at their threshold game."""
+        for fam in self.priors:
+            r_map, gp, priors = (
+                self.ratings_p1[fam],
+                self.games_p1[fam],
+                self.priors[fam],
+            )
+            weighted = fam == "glicko2_daneo"
+            enc = month_encounters(rows, r_map.__getitem__, weighted, self.player_count)
+            for p_name, enc_list in enc.items():
+                prev_g, tot_g, distinct_new = count_new_games(gp[p_name], enc_list)
+                p_thresh = self.thresholds.get(p_name, 15)
+                if prev_g < p_thresh <= tot_g and p_name not in priors:
+                    enc_up, enc_after = split_at_threshold(
+                        enc_list, distinct_new, p_thresh - prev_g
+                    )
+                    r_at_k = rate(r_map[p_name], enc_up, weighted)
+                    priors[p_name] = Rating(r_at_k.rating, r_at_k.rd, r_at_k.sigma)
+                    r_map[p_name] = rate(r_at_k, enc_after, weighted) if enc_after else r_at_k  # fmt: skip
+                else:
+                    r_map[p_name] = rate(r_map[p_name], enc_list, weighted)
+            _drift_inactive(r_map, enc)
+
+    def _update(self, rows: list[Any]) -> None:
+        """Pass 2 for one month: each model's ratings after the month's games.
+
+        A retro model rates a player as the standard model does until the
+        family's prior for them is found, which stands in for the games up
+        to the threshold from then on.
+        """
+        for m in self.models:
+            r_map, fam, retro = self.ratings[m], get_fam(m), is_retro(m)
+            weighted = fam == "glicko2_daneo"
+            rating_of = functools.partial(self.rating, m)
+            enc = month_encounters(rows, rating_of, weighted, self.player_count)
+            for p_name, enc_list in enc.items():
+                if not retro:
+                    r_map[p_name] = rate(r_map[p_name], enc_list, weighted)
+                    continue
+                prev_g, tot_g, distinct_new = count_new_games(
+                    self.games[m][p_name], enc_list
+                )
+                cur_r = r_map.get(p_name, new_rating())
+                p_thresh = self.thresholds.get(p_name, 15)
+                prior = self.priors[fam].get(p_name)
+                if prior is not None and prev_g < p_thresh <= tot_g:
+                    _, enc_after = split_at_threshold(
+                        enc_list, distinct_new, p_thresh - prev_g
+                    )
+                    cur_r = Rating(prior.rating, prior.rd, prior.sigma)
+                    r_map[p_name] = rate(cur_r, enc_after, weighted) if enc_after else cur_r  # fmt: skip
+                else:
+                    r_map[p_name] = rate(cur_r, enc_list, weighted)
+            _drift_inactive(r_map, enc)
+
+
+def _drift_inactive(r_map: dict[str, Rating], active: dict[str, Any]) -> None:
+    """Drifts, in place, every player in r_map with an RD under 350 who is not in active."""
+    for p in list(r_map.keys()):
+        if p not in active and r_map[p].rd < 350.0:
+            r_map[p] = drifted(r_map[p])
+
+
 def run_walk_forward_evaluation(
     player_count: int = 0,
     start_eval_month: str = "2022-01",
@@ -159,22 +293,13 @@ def run_walk_forward_evaluation(
             )
             print("=======================================================")
 
-        # Load chronological matches
         rows = load_pairs(conn, run_id, player_count)
-
         if verbose:
             print(f"Loaded {len(rows)} eligible pairwise matches.")
 
-        # Group matches by calendar month YYYY-MM
-        month_matches = defaultdict(list)
-        for r in rows:
-            m = r["date"][:7]
-            month_matches[m].append(r)
-
-        sorted_months = sorted(month_matches.keys())
-        eval_months = [m for m in sorted_months if m >= start_eval_month]
-        burn_in_months = [m for m in sorted_months if m < start_eval_month]
-
+        month_matches = dict(by_month(rows))
+        eval_months = [m for m in month_matches if m >= start_eval_month]
+        burn_in_months = [m for m in month_matches if m < start_eval_month]
         if verbose:
             print(
                 f"Burn-in period: {len(burn_in_months)} months ({burn_in_months[0]} to {burn_in_months[-1]})"
@@ -187,301 +312,56 @@ def run_walk_forward_evaluation(
             models = [m for m in MODELS if m in models_filter]
         else:
             models = list(MODELS)
+        state = _Models(models, player_count)
 
-        g2_models = list(models)
-
-        # Every month is predicted from the months before it alone: the
-        # thresholds, the retro families' emergent priors (pass 1) and the
-        # models' ratings (pass 2) all advance one month at a time, over
-        # the games seen so far.
-        player_thresholds = PlayerThresholds(standard_threshold=15, inactivity_days=365)
-
-        families_retro = {get_fam(m) for m in g2_models if is_retro(m)}
-        calibrated_priors: dict[str, dict[str, Rating]] = {
-            fam: {} for fam in families_retro
-        }
-        ratings_p1 = {
-            fam: defaultdict(lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-            for fam in families_retro
-        }
-        games_p1 = {fam: defaultdict(set) for fam in families_retro}
-
-        g2_ratings: dict[str, dict[str, Rating]] = {}
-        for m in g2_models:
-            if is_retro(m):
-                g2_ratings[m] = {}
-            else:
-                g2_ratings[m] = defaultdict(
-                    lambda: Rating(1500.0, 350.0, CALIBRATED_SIGMA)
-                )
-        games_played_p2 = {m: defaultdict(set) for m in g2_models}
-
-        def weight_of(fam, r, p_cnt):
-            if fam == "glicko2_daneo":
-                return GOLDEN_MP_WEIGHTS.get(p_cnt, 1.0)
-            return 1.0
-
-        def run_up(fam, r_cur, items):
-            enc3 = [(it[0], it[1], it[2]) for it in items]
-            return update_rating(
-                r_cur, enc3, tau=CALIBRATED_TAU, weighted=fam == "glicko2_daneo"
-            )
-
-        def drift_inactive(r_map, active):
-            for p in list(r_map.keys()):
-                if p not in active and r_map[p].rd < 350.0:
-                    r_cur = r_map[p]
-                    phi_new = (r_cur.phi**2 + INACTIVITY_DRIFT_PER_MONTH**2) ** 0.5
-                    r_map[p] = Rating(
-                        r_cur.rating, min(350.0, phi_new * G2_SCALE), r_cur.sigma
-                    )
-
-        def encounters_of(m_rows, fam, r_map, retro):
-            enc = defaultdict(list)
-            for r in m_rows:
-                pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-                mid = r["match_id"] if "match_id" in r else (r["date"], pa, pb)
-                p_cnt = r.get("player_count", player_count)
-                ra = r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA)) if retro else r_map[pa]  # fmt: skip
-                rb = r_map.get(pb, Rating(1500.0, 350.0, CALIBRATED_SIGMA)) if retro else r_map[pb]  # fmt: skip
-                w = weight_of(fam, r, p_cnt)
-                enc[pa].append((rb, out, w, p_cnt, mid))
-                enc[pb].append((ra, 1.0 - out, w, p_cnt, mid))
-            return enc
-
-        def count_games(gp, p_name, enc_list):
-            """Adds the player's new games to gp; returns (games before, games after, the new ids)."""
-            prev_g = len(gp[p_name])
-            distinct_new = []
-            for it in enc_list:
-                if it[4] not in gp[p_name]:
-                    gp[p_name].add(it[4])
-                    distinct_new.append(it[4])
-            return prev_g, len(gp[p_name]), distinct_new
-
-        def discover_priors(m_rows):
-            """Pass 1 for one month: a retro family's prior is a player's rating at their threshold game."""
-            for fam in families_retro:
-                r_map, gp, priors = (
-                    ratings_p1[fam],
-                    games_p1[fam],
-                    calibrated_priors[fam],
-                )
-                enc = encounters_of(m_rows, fam, r_map, False)
-                for p_name, enc_list in enc.items():
-                    prev_g, tot_g, distinct_new = count_games(gp, p_name, enc_list)
-                    p_thresh = player_thresholds.get(p_name, 15)
-                    if prev_g < p_thresh <= tot_g and p_name not in priors:
-                        mids_up = set(distinct_new[: (p_thresh - prev_g)])
-                        enc_up = [it for it in enc_list if it[4] in mids_up]
-                        enc_after = [it for it in enc_list if it[4] not in mids_up]
-                        r_at_k = run_up(fam, r_map[p_name], enc_up)
-                        priors[p_name] = Rating(r_at_k.rating, r_at_k.rd, r_at_k.sigma)
-                        r_map[p_name] = (
-                            run_up(fam, r_at_k, enc_after) if enc_after else r_at_k
-                        )
-                    else:
-                        r_map[p_name] = run_up(fam, r_map[p_name], enc_list)
-                drift_inactive(r_map, set(enc.keys()))
-
-        def update_month(m_rows):
-            """Pass 2 for one month: each model's ratings after the month's games.
-
-            A retro model rates a player as the standard model does until the
-            family's prior for them is found, which stands in for the games up
-            to the threshold from then on.
-            """
-            for m_key in g2_models:
-                r_map, fam, retro = g2_ratings[m_key], get_fam(m_key), is_retro(m_key)
-                gp = games_played_p2[m_key]
-                enc = encounters_of(m_rows, fam, r_map, retro)
-                for p_name, enc_list in enc.items():
-                    if not retro:
-                        r_map[p_name] = run_up(fam, r_map[p_name], enc_list)
-                        continue
-                    prev_g, tot_g, distinct_new = count_games(gp, p_name, enc_list)
-                    cur_r = r_map.get(p_name, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                    p_thresh = player_thresholds.get(p_name, 15)
-                    prior = calibrated_priors[fam].get(p_name)
-                    if prior is not None and prev_g < p_thresh <= tot_g:
-                        mids_up = set(distinct_new[: (p_thresh - prev_g)])
-                        enc_after = [it for it in enc_list if it[4] not in mids_up]
-                        cur_r = Rating(prior.rating, prior.rd, prior.sigma)
-                        r_map[p_name] = run_up(fam, cur_r, enc_after) if enc_after else cur_r  # fmt: skip
-                    else:
-                        r_map[p_name] = run_up(fam, cur_r, enc_list)
-                drift_inactive(r_map, set(enc.keys()))
-
-        def advance_month(m):
-            """Takes in month m's games: thresholds, then pass 1, then pass 2."""
-            m_rows = month_matches[m]
-            player_thresholds.add(m_rows)
-            discover_priors(m_rows)
-            update_month(m_rows)
-
-        def apply_annual_resets(prev_y: str, cur_y: str):
-            if prev_y is not None and cur_y != prev_y:
-                for m_key in g2_models:
-                    if MODELS[m_key][1] == "softer":
-                        r_map = g2_ratings[m_key]
-                        act_players = [
-                            r
-                            for p, r in r_map.items()
-                            if (
-                                len(games_played_p2[m_key][p])
-                                >= player_thresholds.get(p, 15)
-                                if is_retro(m_key)
-                                else True
-                            )
-                            and r.rd < 350.0
-                        ]
-                        if act_players:
-                            pop_mu = sum(r.rating for r in act_players) / len(
-                                act_players
-                            )
-                            pop_sigma = max(
-                                50.0,
-                                (
-                                    sum((r.rating - pop_mu) ** 2 for r in act_players)
-                                    / len(act_players)
-                                )
-                                ** 0.5,
-                            )
-                            pop_rd_mean = sum(r.rd for r in act_players) / len(
-                                act_players
-                            )
-                            pop_rd_min = max(20.0, min(r.rd for r in act_players))
-                        else:
-                            pop_mu, pop_sigma, pop_rd_mean, pop_rd_min = (
-                                1500.0,
-                                175.0,
-                                75.0,
-                                30.0,
-                            )
-
-                        for p_name in list(r_map.keys()):
-                            is_elig = (
-                                (
-                                    len(games_played_p2[m_key][p_name])
-                                    >= player_thresholds.get(p_name, 15)
-                                )
-                                if is_retro(m_key)
-                                else True
-                            )
-                            if is_elig and r_map[p_name].rd < 350.0:
-                                tm = get_tier_mean(
-                                    r_map[p_name].rating,
-                                    mean_rating=pop_mu,
-                                    sigma=pop_sigma,
-                                )
-                                eff_alpha, eff_lambda = compute_decoupled_scaling(
-                                    r_map[p_name].rating,
-                                    r_map[p_name].rd,
-                                    mean_rating=pop_mu,
-                                    sigma_pop=pop_sigma,
-                                    rd_mean=pop_rd_mean,
-                                    rd_min=pop_rd_min,
-                                    base_alpha=RESET_ALPHA_SOFTER,
-                                    base_lambda=RESET_LAMBDA_SOFTER,
-                                )
-                                new_rd = min(350.0, r_map[p_name].rd * eff_alpha)
-                                new_r = (1.0 - eff_lambda) * r_map[
-                                    p_name
-                                ].rating + eff_lambda * tm
-                                r_map[p_name] = Rating(
-                                    new_r, new_rd, r_map[p_name].sigma
-                                )
-
-        # Execute Burn-in Phase
         if verbose:
             print("Processing burn-in phase...")
-
-        prev_year = None
+        previous = None
         for m in burn_in_months:
-            cur_year = m[:4]
-            apply_annual_resets(prev_year, cur_year)
-            prev_year = cur_year
-            advance_month(m)
+            if new_year(previous, m):
+                state.season_reset()
+            previous = m
+            state.advance(month_matches[m])
 
-        # Data collection for evaluation
-        monthly_results = defaultdict(dict)
-        overall_preds = {m: [] for m in models}
-        overall_actuals = {m: [] for m in models}
-
-        # Walk-Forward Expanding Evaluation Loop
+        monthly_results: dict[str, dict[str, Any]] = defaultdict(dict)
+        overall_preds: dict[str, list[float]] = {m: [] for m in models}
+        overall_actuals: dict[str, list[float]] = {m: [] for m in models}
         for idx, tm in enumerate(eval_months):
-            cur_year = tm[:4]
-            apply_annual_resets(prev_year, cur_year)
-            prev_year = cur_year
-
+            if new_year(previous, tm):
+                state.season_reset()
+            previous = tm
             m_matches = month_matches[tm]
             if not m_matches:
                 continue
 
             # (A) Pure Out-of-Sample Predictions strictly BEFORE observing matches in month tm
-            month_preds = {m: [] for m in models}
-            month_actuals = {m: [] for m in models}
-
-            for r in m_matches:
-                pa, pb, out = r["player_a"], r["player_b"], r["outcome_a"]
-
-                # Glicko-2 models predictions
-                for m_key in g2_models:
-                    r_map = g2_ratings[m_key]
-                    ra = (
-                        r_map.get(pa, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pa]
-                    )
-                    rb = (
-                        r_map.get(pb, Rating(1500.0, 350.0, CALIBRATED_SIGMA))
-                        if is_retro(m_key)
-                        else r_map[pb]
-                    )
-
-                    c = math.sqrt(ra.phi**2 + rb.phi**2)
-                    g_rd = 1.0 / math.sqrt(1.0 + 3.0 * (c**2) / (math.pi**2))
-                    p_val = 1.0 / (1.0 + math.exp(-g_rd * (ra.mu - rb.mu)))
-
-                    if p_val >= 0.5:
-                        month_preds[m_key].append(p_val)
-                        month_actuals[m_key].append(out)
-                    else:
-                        month_preds[m_key].append(1.0 - p_val)
-                        month_actuals[m_key].append(1.0 - out)
-
-            # Record monthly metrics
+            predictions = state.predict(m_matches)
             for m in models:
-                res_m = compute_metrics_from_preds(month_preds[m], month_actuals[m])
-                monthly_results[tm][m] = res_m
-                overall_preds[m].extend(month_preds[m])
-                overall_actuals[m].extend(month_actuals[m])
+                preds, actuals = predictions[m]
+                monthly_results[tm][m] = compute_metrics_from_preds(preds, actuals)
+                overall_preds[m].extend(preds)
+                overall_actuals[m].extend(actuals)
 
             if verbose and (idx % 6 == 0 or idx == len(eval_months) - 1):
-                stat_parts = []
-                for sample_m in models:
-                    if sample_m in monthly_results[tm]:
-                        stat_parts.append(
-                            f"{sample_m}: {monthly_results[tm][sample_m]['brier']:.4f}"
-                        )
+                stat_parts = [
+                    f"{m}: {monthly_results[tm][m]['brier']:.4f}"
+                    for m in models
+                    if m in monthly_results[tm]
+                ]
                 print(
                     f"[{idx + 1}/{len(eval_months)}] Month {tm} ({len(m_matches):5d} games) | Brier -> "
                     + ", ".join(stat_parts)
                 )
 
             # (B) Incremental Online Update for month tm matches
-            advance_month(tm)
-
+            state.advance(m_matches)
             if on_month:
                 on_month(tm)
 
-        # 3. Overall Aggregate Metrics
-        aggregated_results = {}
-        for m in models:
-            aggregated_results[m] = compute_metrics_from_preds(
-                overall_preds[m], overall_actuals[m]
-            )
-
+        aggregated_results = {
+            m: compute_metrics_from_preds(overall_preds[m], overall_actuals[m])
+            for m in models
+        }
         if verbose:
             print(f"\n--- Walk-Forward Summary ({fmt_label}) ---")
             for m in models:
@@ -490,52 +370,10 @@ def run_walk_forward_evaluation(
                     f"Model: {m:28s} | Out-of-Sample Brier: {agg['brier']:.4f} | ECE: {agg['ece_pct']:.2f}% | LogLoss: {agg['log_loss']:.4f} | Acc: {agg['accuracy']:.1f}%"
                 )
 
-        # 4. Save to Database
         save_models = [
             m for m in models if (models_filter is None or m in models_filter)
         ]
-        # Clear previous entries for this player_count format
-        if models_filter:
-            conn.execute(
-                "DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s AND model_type = ANY(%s)",
-                (run_id, player_count, list(models_filter)),
-            )
-        else:
-            conn.execute(
-                "DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s",
-                (run_id, player_count),
-            )
-
-        # Aggregated summary records, then individual monthly records
-        records = [(m, "AGGREGATED", aggregated_results[m]) for m in save_models]
-        records += [
-            (m, tm, m_data[m])
-            for tm, m_data in monthly_results.items()
-            for m in save_models
-        ]
-        with conn.cursor() as cur:
-            cur.executemany(
-                """
-                INSERT INTO walk_forward_calibration
-                (run_id, model_type, player_count, period_month, matches_evaluated, brier_score, ece, log_loss, accuracy, bin_data)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-                [
-                    (
-                        run_id,
-                        m,
-                        player_count,
-                        tm,
-                        item["matches"],
-                        item["brier"],
-                        item["ece"],
-                        item["log_loss"],
-                        item["accuracy"],
-                        Jsonb(item["bin_data"]),
-                    )
-                    for m, tm, item in records
-                ],
-            )
+        _save(conn, run_id, player_count, models_filter, save_models, aggregated_results, monthly_results)  # fmt: skip
 
     if verbose:
         print(f"Saved walk-forward results to database for format {fmt_label}.")
@@ -546,3 +384,55 @@ def run_walk_forward_evaluation(
         "aggregated": aggregated_results,
         "monthly": monthly_results,
     }
+
+
+def _save(
+    conn: psycopg.Connection,
+    run_id: int,
+    player_count: int,
+    models_filter: list[str] | None,
+    save_models: list[str],
+    aggregated_results: dict[str, Any],
+    monthly_results: dict[str, dict[str, Any]],
+) -> None:
+    """Replaces the format's walk-forward rows in the run: aggregated, then month by month."""
+    if models_filter:
+        conn.execute(
+            "DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s AND model_type = ANY(%s)",
+            (run_id, player_count, list(models_filter)),
+        )
+    else:
+        conn.execute(
+            "DELETE FROM walk_forward_calibration WHERE run_id = %s AND player_count = %s",
+            (run_id, player_count),
+        )
+
+    records = [(m, "AGGREGATED", aggregated_results[m]) for m in save_models]
+    records += [
+        (m, tm, m_data[m])
+        for tm, m_data in monthly_results.items()
+        for m in save_models
+    ]
+    with conn.cursor() as cur:
+        cur.executemany(
+            """
+            INSERT INTO walk_forward_calibration
+            (run_id, model_type, player_count, period_month, matches_evaluated, brier_score, ece, log_loss, accuracy, bin_data)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+            [
+                (
+                    run_id,
+                    m,
+                    player_count,
+                    tm,
+                    item["matches"],
+                    item["brier"],
+                    item["ece"],
+                    item["log_loss"],
+                    item["accuracy"],
+                    Jsonb(item["bin_data"]),
+                )
+                for m, tm, item in records
+            ],
+        )
