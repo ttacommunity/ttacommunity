@@ -7,6 +7,7 @@ import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
+import CopyCode from './CopyCode';
 import { errorText, type Load } from '@ttac/shared/load';
 
 const FORMATS: { value: Format; label: string }[] = [
@@ -142,7 +143,7 @@ export default function VersusDialog({
                     ))}
                   </td>
                   <td>
-                    <Replay code={m.replay_code} />
+                    <CopyCode code={m.replay_code} />
                   </td>
                 </tr>
               ))}
@@ -151,25 +152,5 @@ export default function VersusDialog({
         )}
       </div>
     </dialog>
-  );
-}
-
-function Replay({ code }: { code: string | null }) {
-  const [copied, setCopied] = useState(false);
-  if (code === null) return <span className="replay-none">—</span>;
-  const copy = () => {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <div className="replay">
-      <code>{code}</code>
-      <button type="button" className="btn-copy-code" onClick={copy} title="Copy replay code" aria-label="Copy replay code">
-        {copied ? '✓' : '📋'}
-      </button>
-    </div>
   );
 }

@@ -10,6 +10,7 @@ import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, STANDING_COLUMNS, byFinish, editionParams, formatLabel, latestFinishes, pairingSummary, offsetLabel, placeLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
+import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
@@ -1057,10 +1058,9 @@ function DiscordTextDialog({ title, text, opener, onClose }: { title: string; te
   const area = useRef<HTMLTextAreaElement>(null);
   const [copied, setCopied] = useState('');
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
+    if (await copyText(navigator.clipboard as Clipboard | undefined, text)) {
       setCopied('Copied: paste it into Discord.');
-    } catch {
+    } else {
       area.current?.select();
       setCopied('Copying was refused: the text is selected, copy it by hand.');
     }

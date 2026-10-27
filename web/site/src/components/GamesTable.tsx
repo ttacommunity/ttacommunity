@@ -1,5 +1,6 @@
 /** A games table, the same wherever games are listed: date, what each game belongs to, where it was played, the players and scores, a replay code to copy, and pages; a blitz edition marks the signed-in player's game. */
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useCopy } from '@ttac/shared/copy';
 import { count, score } from '@ttac/shared/numbers';
 import SortHeader from '@ttac/shared/SortHeader';
 import type { Sort } from '@ttac/shared/sort';
@@ -114,23 +115,12 @@ export function GamesPages({ page, pages, onPage }: { page: number; pages: numbe
 
 /** ReplayCode is a replay code that copies itself when clicked. */
 function ReplayCode({ code }: { code: string }) {
-  const [note, setNote] = useState('');
-  const copy = () => {
-    const done = (text: string) => {
-      setNote(text);
-      setTimeout(() => setNote(''), 1500);
-    };
-    if (!navigator.clipboard) return done('Select to copy');
-    navigator.clipboard.writeText(code).then(
-      () => done('Copied'),
-      () => done('Select to copy'),
-    );
-  };
+  const { copied, copy } = useCopy();
   return (
-    <button type="button" className="game-code" onClick={copy} title="Copy the replay code" aria-label={`Copy replay code ${code}`}>
+    <button type="button" className="game-code" onClick={() => copy(code)} title="Copy the replay code" aria-label={`Copy replay code ${code}`}>
       <code>{code}</code>
       <span className="game-code-note" aria-live="polite">
-        {note}
+        {copied === null ? '' : copied ? 'Copied' : 'Select to copy'}
       </span>
     </button>
   );

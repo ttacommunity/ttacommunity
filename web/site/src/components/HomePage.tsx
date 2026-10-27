@@ -12,6 +12,7 @@ import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
 import { count, score } from '@ttac/shared/numbers';
+import { useCopy } from '@ttac/shared/copy';
 import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
@@ -36,25 +37,18 @@ interface HomeData {
 
 /** One-click copyable replay code */
 function ReplayBadge({ code }: { code: string | null }) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   if (!code) return null;
-  const copy = () => {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
   return (
     <button
       type="button"
       className="home-replay-btn"
-      onClick={copy}
+      onClick={() => copy(code)}
       title="Click to copy CGE replay code"
       aria-label={`Copy replay code ${code}`}
     >
       <code>{code}</code>
-      <span className="home-replay-hint">{copied ? '✓ Copied' : 'Copy'}</span>
+      <span className="home-replay-hint">{copied === true ? '✓ Copied' : 'Copy'}</span>
     </button>
   );
 }

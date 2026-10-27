@@ -52,6 +52,7 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
@@ -352,7 +353,7 @@ function Games({
                   <GameDelta value={m.rating_delta} />
                 </td>
                 <td>
-                  <Replay code={m.replay_code} />
+                  <CopyCode code={m.replay_code} />
                 </td>
                 <td>
                   <div className="seats">
@@ -396,26 +397,6 @@ function GameDelta({ value }: { value: number | null }) {
     <span className={`game-delta${kind}`} data-tooltip={tip}>
       {signedDelta(value)}
     </span>
-  );
-}
-
-function Replay({ code }: { code: string | null }) {
-  const [copied, setCopied] = useState(false);
-  if (code === null) return <span className="replay-none">—</span>;
-  const copy = () => {
-    if (!navigator.clipboard) return;
-    void navigator.clipboard.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <div className="replay">
-      <code>{code}</code>
-      <button type="button" className="btn-copy-code" onClick={copy} title="Copy replay code" aria-label="Copy replay code">
-        {copied ? '✓' : '📋'}
-      </button>
-    </div>
   );
 }
 
