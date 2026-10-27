@@ -68,6 +68,26 @@ export function sanitizeFeedSettings(data: unknown): FeedSettings {
   return { tournaments, players };
 }
 
+/** withoutTournament removes the filter for one tournament's division; no division (or empty) is its all-divisions filter. */
+export function withoutTournament(settings: FeedSettings, slug: string, division?: string): FeedSettings {
+  return {
+    ...settings,
+    tournaments: settings.tournaments.filter((t) => !(t.slug === slug && (t.division ?? '') === (division ?? ''))),
+  };
+}
+
+/** withPlayer adds a player, trimmed, unless the name is empty or already there in any case. */
+export function withPlayer(settings: FeedSettings, name: string): FeedSettings {
+  const trimmed = name.trim();
+  if (trimmed === '' || settings.players.some((p) => p.toLowerCase() === trimmed.toLowerCase())) return settings;
+  return { ...settings, players: [...settings.players, trimmed] };
+}
+
+/** withoutPlayer removes a player, ignoring case. */
+export function withoutPlayer(settings: FeedSettings, name: string): FeedSettings {
+  return { ...settings, players: settings.players.filter((p) => p.toLowerCase() !== name.toLowerCase()) };
+}
+
 /** Loads saved feed preferences or returns the default premier settings. */
 export function loadFeedSettings(store: Storage): FeedSettings {
   try {
