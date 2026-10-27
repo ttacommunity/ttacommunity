@@ -1,6 +1,6 @@
 // The standings of a Swiss tournament: points from results, byes and skipped rounds as the edition scores them
-// (FIDE's by default), then the tie-breaks of FIDE's Swiss rules (Direct Encounter, then Buchholz with its handling
-// of unplayed rounds), then a draw from a seed.
+// (FIDE's by default), then the tie-breaks of FIDE's Swiss rules (Direct Encounter, Buchholz Cut 1, Buchholz, Sonneborn-Berger,
+// then the opponents' Buchholz and Sonneborn-Berger, with FIDE's handling of unplayed rounds), then a draw from a seed.
 package blitz
 
 import (
@@ -44,15 +44,32 @@ type Played struct {
 }
 
 // Standing is one row: the rank, the place it shares with those only the draw separates it from (PlaceFrom to
-// PlaceTo), points, games played (forfeits and byes aside), byes, Buchholz, and dropped.
+// PlaceTo), points, games played (forfeits and byes aside), byes, the tie-breaks in the order they apply, and dropped.
 type Standing struct {
-	ID                 int64
-	Rank               int
-	PlaceFrom, PlaceTo int
-	Points             float64
-	Games, Byes        int
-	Buchholz           float64
-	Dropped            bool
+	ID                       int64
+	Rank                     int
+	PlaceFrom, PlaceTo       int
+	Points                   float64
+	Games, Byes              int
+	BuchholzCut1             float64
+	Buchholz                 float64
+	SonnebornBerger          float64
+	OpponentsBuchholz        float64
+	OpponentsSonnebornBerger float64
+	Dropped                  bool
+}
+
+// tieBreaks are a standing's tie-breaks in the order they apply, for comparing two.
+func (s Standing) tieBreaks() [5]float64 {
+	return [5]float64{s.BuchholzCut1, s.Buchholz, s.SonnebornBerger, s.OpponentsBuchholz, s.OpponentsSonnebornBerger}
+}
+
+// term is one round's part in a player's tie-breaks: the score it contributes (an opponent's adjusted score, or a
+// dummy's), the opponent (0 for a dummy), and the points the player scored in the round.
+type term struct {
+	score  float64
+	opp    int64
+	points float64
 }
 
 // Scoring is what each outcome is worth, in points: a game won, drawn or lost (a ruled draw is a draw), a win or
@@ -97,9 +114,10 @@ func (s Scoring) points(m Played) (a, b float64, lostA, lostB bool) {
 }
 
 // Standings ranks the entrants by points, as the scoring values each result, bye and skipped round, then by the
-// tie-breaks of FIDE's regulations for Swiss tournaments: Direct Encounter, then Buchholz, with unplayed rounds as its
-// Article 16 has them (rounds is the tournament's number of Swiss rounds); then by a draw from the seed, the same
-// every time.
+// tie-breaks of FIDE's regulations for Swiss tournaments: Direct Encounter, Buchholz Cut 1, Buchholz and
+// Sonneborn-Berger, with unplayed rounds as its Article 16 has them (rounds is the tournament's number of Swiss
+// rounds), then the opponents' Buchholz and the opponents' Sonneborn-Berger, a dummy counting as the player's own;
+// then by a draw from the seed, the same every time.
 // Dropped players come last, their points kept. Ranks run 1, 2, 3…; players only the draw separates share a place.
 func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, scoring Scoring) []Standing {
 	rows := map[int64]*Standing{}
@@ -149,14 +167,13 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 
 	// An unpaired round is a zero-point bye, or a skip worth the skip points. For the opponents' Buchholz it counts as
 	// a draw when only more such rounds or forfeit losses follow it (as after dropping out), else as what it scored.
-	missed, adjusted := map[int64]int{}, map[int64]float64{}
+	adjusted := map[int64]float64{}
 	for id, row := range rows {
 		adjusted[id] = row.Points
 		onlyUnplayedAfter := true
 		for _, r := range slices.Backward(played) {
 			switch {
 			case !paired[id][r]:
-				missed[id]++
 				if onlyUnplayedAfter && slices.Contains(skipped[id], r) {
 					adjusted[id] += scoring.Draw - scoring.Skip
 				} else if onlyUnplayedAfter {
@@ -168,26 +185,59 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 		}
 	}
 
-	// Buchholz: each opponent's adjusted score; an unplayed round counts as a dummy with the player's own score, at
-	// most the opponent's adjusted score for a forfeit, and a draw in every round for a bye or missed round.
+	// Each round's term: the opponent's adjusted score, or for an unplayed round a dummy with the player's own score,
+	// at most the opponent's adjusted score for a forfeit, and a draw in every round for a bye or missed round.
 	most := scoring.Draw * float64(rounds)
+	terms := map[int64][]term{}
 	for _, m := range matches {
 		a, b := rows[m.A], rows[m.B]
+		pa, pb, _, _ := scoring.points(m)
 		switch {
 		case a == nil:
 		case m.B == 0:
-			a.Buchholz += min(a.Points, most)
+			terms[m.A] = append(terms[m.A], term{score: min(a.Points, most), points: scoring.Bye})
 		case b == nil || m.Result == Undecided:
 		case m.Forfeit:
-			a.Buchholz += min(a.Points, adjusted[m.B])
-			b.Buchholz += min(b.Points, adjusted[m.A])
+			terms[m.A] = append(terms[m.A], term{score: min(a.Points, adjusted[m.B]), points: pa})
+			terms[m.B] = append(terms[m.B], term{score: min(b.Points, adjusted[m.A]), points: pb})
 		default:
-			a.Buchholz += adjusted[m.B]
-			b.Buchholz += adjusted[m.A]
+			terms[m.A] = append(terms[m.A], term{score: adjusted[m.B], opp: m.B, points: pa})
+			terms[m.B] = append(terms[m.B], term{score: adjusted[m.A], opp: m.A, points: pb})
 		}
 	}
 	for id, row := range rows {
-		row.Buchholz += float64(missed[id]) * min(row.Points, most)
+		for _, r := range played {
+			if !paired[id][r] {
+				var points float64
+				if slices.Contains(skipped[id], r) {
+					points = scoring.Skip
+				}
+				terms[id] = append(terms[id], term{score: min(row.Points, most), points: points})
+			}
+		}
+	}
+	for id, row := range rows {
+		lowest := math.Inf(1)
+		for _, t := range terms[id] {
+			row.Buchholz += t.score
+			row.SonnebornBerger += t.score * t.points
+			lowest = min(lowest, t.score)
+		}
+		row.BuchholzCut1 = row.Buchholz
+		if len(terms[id]) > 0 {
+			row.BuchholzCut1 -= lowest
+		}
+	}
+	// The opponents' tie-breaks, a dummy counting as the player's own.
+	for id, row := range rows {
+		for _, t := range terms[id] {
+			opp := rows[id]
+			if t.opp != 0 {
+				opp = rows[t.opp]
+			}
+			row.OpponentsBuchholz += opp.Buchholz
+			row.OpponentsSonnebornBerger += opp.SonnebornBerger
+		}
 	}
 
 	among := func(a, b int64) (float64, bool) {
@@ -228,18 +278,21 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 		slices.Sort(group)
 		for _, tied := range directEncounter(group, among) {
 			slices.SortFunc(tied, func(x, y int64) int {
-				if c := cmp.Compare(rows[y].Buchholz, rows[x].Buchholz); c != 0 {
-					return c
+				tx, ty := rows[x].tieBreaks(), rows[y].tieBreaks()
+				for i := range tx {
+					if c := cmp.Compare(ty[i], tx[i]); c != 0 {
+						return c
+					}
 				}
 				return cmp.Compare(draw(x), draw(y))
 			})
 			for _, id := range tied {
 				out = append(out, *rows[id])
 			}
-			// Equal Buchholz leaves only the draw between them, so they share a place.
+			// Equal tie-breaks leave only the draw between them, so they share a place.
 			for start := len(out) - len(tied); start < len(out); {
 				end := start + 1
-				for end < len(out) && out[end].Buchholz == out[start].Buchholz {
+				for end < len(out) && out[end].tieBreaks() == out[start].tieBreaks() {
 					end++
 				}
 				for i := start; i < end; i++ {

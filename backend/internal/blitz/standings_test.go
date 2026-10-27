@@ -192,7 +192,7 @@ func TestDirectEncounter(t *testing.T) {
 				game(3, 2, 3, blitz.WinA), game(3, 6, 1, blitz.WinA), game(3, 7, 4, blitz.WinA), game(3, 5, 8, blitz.WinA),
 				game(4, 1, 2, blitz.WinA), game(4, 7, 3, blitz.WinA), game(4, 5, 4, blitz.WinA), game(4, 8, 6, blitz.WinA),
 			},
-			[]int64{1, 2, 3}, []int64{2, 3, 1}},
+			[]int64{1, 2, 3}, []int64{3, 2, 1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -375,13 +375,13 @@ func TestStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
 		{"after a round, the winners share the first places and the losers the next", 4,
 			[]blitz.Played{game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.WinA)},
 			map[int64][2]int{1: {1, 2}, 3: {1, 2}, 2: {3, 4}, 4: {3, 4}}},
-		{"direct encounter separates two players level on points; a drawn encounter and equal Buchholz leave a shared place", 6,
+		{"direct encounter separates two players level on points", 6,
 			[]blitz.Played{
 				game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.Draw), game(1, 5, 6, blitz.WinA),
 				game(2, 3, 1, blitz.WinA), game(2, 2, 5, blitz.WinA), game(2, 6, 4, blitz.WinA),
 				game(3, 4, 1, blitz.WinA), game(3, 6, 2, blitz.WinA), game(3, 5, 3, blitz.WinA),
 			},
-			map[int64][2]int{1: {5, 5}, 2: {6, 6}, 3: {3, 4}, 4: {3, 4}}},
+			map[int64][2]int{1: {5, 5}, 2: {6, 6}}},
 		{"Buchholz separates two players level on points who have not met", 6,
 			[]blitz.Played{
 				forfeit(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.Draw), game(1, 5, 6, blitz.WinA),
@@ -400,6 +400,116 @@ func TestStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
 				if want, ok := tt.want[s.ID]; ok && (s.PlaceFrom != want[0] || s.PlaceTo != want[1]) {
 					t.Errorf("player %d's place = %d–%d, want %d–%d", s.ID, s.PlaceFrom, s.PlaceTo, want[0], want[1])
 				}
+			}
+		})
+	}
+}
+
+func TestTieBreaks(t *testing.T) {
+	// Two rounds of four: 1 beats 2 and 3, 3 beats 4, 4 beats 2.
+	four := []blitz.Played{game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.WinA), game(2, 1, 3, blitz.WinA), game(2, 4, 2, blitz.WinA)}
+	// Two rounds of four with a draw: 1 beats 2, 3 beats 4, 1 draws 3, 2 beats 4.
+	drawn := []blitz.Played{game(1, 1, 2, blitz.WinA), game(1, 3, 4, blitz.WinA), game(2, 1, 3, blitz.Draw), game(2, 2, 4, blitz.WinA)}
+	// Two rounds of three: 1 beats 2, 3 has the bye; 3 beats 1, 2 has the bye.
+	byes := []blitz.Played{game(1, 1, 2, blitz.WinA), bye(1, 3), game(2, 3, 1, blitz.WinA), bye(2, 2)}
+	cut1 := func(s blitz.Standing) float64 { return s.BuchholzCut1 }
+	sb := func(s blitz.Standing) float64 { return s.SonnebornBerger }
+	oppBH := func(s blitz.Standing) float64 { return s.OpponentsBuchholz }
+	oppSB := func(s blitz.Standing) float64 { return s.OpponentsSonnebornBerger }
+	tests := []struct {
+		name     string
+		entrants []blitz.Entrant
+		matches  []blitz.Played
+		of       int64
+		value    func(blitz.Standing) float64
+		want     float64
+	}{
+		{"Buchholz Cut 1 leaves out the lowest opponent's score", in(1, 2, 3, 4), four, 1, cut1, 1},
+		{"Buchholz Cut 1 leaves out a dummy's score like any opponent's", in(1, 2, 3), byes, 3, cut1, 2},
+		{"Sonneborn-Berger counts a beaten opponent's score and half a drawn one's", in(1, 2, 3, 4), drawn, 1, sb, 1.75},
+		{"Sonneborn-Berger counts nothing for a loss", in(1, 2, 3, 4), drawn, 4, sb, 0},
+		{"Sonneborn-Berger counts a bye as the dummy's score times the bye's points", in(1, 2, 3), byes, 3, sb, 3},
+		{"the opponents' Buchholz is the sum of each opponent's", in(1, 2, 3, 4), four, 1, oppBH, 6},
+		{"the opponents' Buchholz counts a bye as the player's own", in(1, 2, 3), byes, 3, oppBH, 6},
+		{"the opponents' Sonneborn-Berger is the sum of each opponent's", in(1, 2, 3, 4), drawn, 3, oppSB, 1.75},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, s := range blitz.Standings(tt.entrants, tt.matches, 4, 1, blitz.FIDEScoring) {
+				if s.ID == tt.of && tt.value(s) != tt.want {
+					t.Errorf("tie-break of %d = %g, want %g", tt.of, tt.value(s), tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestStandingsBreakTiesInOrder(t *testing.T) {
+	tests := []struct {
+		name         string
+		players      int64
+		matches      []blitz.Played
+		above, below int64
+	}{
+		{"Buchholz Cut 1 before Buchholz", 6,
+			[]blitz.Played{
+				game(1, 6, 2, blitz.WinB), game(1, 3, 4, blitz.Draw), game(1, 5, 1, blitz.WinA),
+				game(2, 5, 2, blitz.WinB), game(2, 6, 3, blitz.WinA), game(2, 4, 1, blitz.WinB),
+				game(3, 1, 5, blitz.Draw), game(3, 6, 4, blitz.WinA), game(3, 3, 2, blitz.WinA),
+			},
+			3, 5},
+		{"Buchholz before Sonneborn-Berger", 8,
+			[]blitz.Played{
+				game(1, 4, 6, blitz.WinB), game(1, 1, 7, blitz.Draw), game(1, 5, 3, blitz.Draw), game(1, 2, 8, blitz.WinB),
+				game(2, 8, 1, blitz.Draw), game(2, 7, 2, blitz.WinB), game(2, 6, 5, blitz.Draw), game(2, 3, 4, blitz.Draw),
+				game(3, 3, 4, blitz.Draw), game(3, 7, 8, blitz.WinB), game(3, 2, 1, blitz.Draw), game(3, 5, 6, blitz.WinA),
+			},
+			6, 1},
+		{"Sonneborn-Berger before the opponents' Buchholz", 8,
+			[]blitz.Played{
+				game(1, 7, 3, blitz.WinA), game(1, 2, 1, blitz.Draw), game(1, 8, 4, blitz.Draw), game(1, 5, 6, blitz.WinA),
+				game(2, 4, 3, blitz.Draw), game(2, 7, 1, blitz.WinB), game(2, 2, 5, blitz.WinB), game(2, 6, 8, blitz.WinB),
+			},
+			4, 7},
+		{"the opponents' Buchholz before the opponents' Sonneborn-Berger", 8,
+			[]blitz.Played{
+				game(1, 2, 1, blitz.WinA), game(1, 7, 5, blitz.WinB), game(1, 6, 3, blitz.WinB), game(1, 8, 4, blitz.Draw),
+				game(2, 4, 6, blitz.WinB), game(2, 8, 1, blitz.WinB), game(2, 2, 3, blitz.Draw), game(2, 5, 7, blitz.WinA),
+				game(3, 5, 1, blitz.WinA), game(3, 8, 3, blitz.WinA), game(3, 4, 6, blitz.WinA), game(3, 2, 7, blitz.WinB),
+			},
+			2, 4},
+		{"the opponents' Sonneborn-Berger before the draw", 6,
+			[]blitz.Played{
+				game(1, 3, 5, blitz.WinA), game(1, 6, 4, blitz.WinA), game(1, 2, 1, blitz.WinA),
+				game(2, 3, 5, blitz.WinA), game(2, 1, 6, blitz.WinA), game(2, 4, 2, blitz.Draw),
+				game(3, 2, 3, blitz.WinA), game(3, 1, 4, blitz.WinB), game(3, 5, 6, blitz.WinA),
+			},
+			1, 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var entrants []blitz.Entrant
+			for id := range tt.players {
+				entrants = append(entrants, blitz.Entrant{ID: id + 1})
+			}
+			standings := blitz.Standings(entrants, tt.matches, 4, 1, blitz.FIDEScoring)
+			if got := order(standings, tt.above, tt.below); !slices.Equal(got, []int64{tt.above, tt.below}) {
+				t.Errorf("order of %d and %d = %v, want %d first", tt.above, tt.below, got, tt.above)
+			}
+			var above, below blitz.Standing
+			for _, s := range standings {
+				switch s.ID {
+				case tt.above:
+					above = s
+				case tt.below:
+					below = s
+				}
+			}
+			if above.Points != below.Points {
+				t.Fatalf("players %d and %d have %g and %g points, want a tie for the tie-breaks to break", tt.above, tt.below, above.Points, below.Points)
+			}
+			if above.PlaceTo >= below.PlaceFrom {
+				t.Errorf("places of %d and %d = %d–%d and %d–%d, want %d placed alone above %d", tt.above, tt.below, above.PlaceFrom, above.PlaceTo, below.PlaceFrom, below.PlaceTo, tt.above, tt.below)
 			}
 		})
 	}

@@ -3080,9 +3080,11 @@ export interface components {
             /** @description The published rounds, first first */
             rounds: components["schemas"]["BlitzRound"][];
             /**
-             * @description By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
-             *     then Buchholz), then a draw fixed for the edition; dropped players
-             *     last. Only the published Swiss rounds count
+             * @description By rank: points, then the tie-breaks in order (Direct Encounter,
+             *     Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
+             *     Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
+             *     the edition; dropped players last. Only the published Swiss rounds
+             *     count
              */
             standings: components["schemas"]["BlitzStanding"][];
         };
@@ -3160,7 +3162,8 @@ export interface components {
             /**
              * @description The first rank of the place this row shares with the rows only the
              *     edition's draw separates it from (equal points, direct encounter
-             *     and Buchholz); place_to is the last. Equal for a place held alone
+             *     and every tie-break); place_to is the last. Equal for a place held
+             *     alone
              */
             place_from: number;
             place_to: number;
@@ -3177,6 +3180,11 @@ export interface components {
             byes: number;
             /**
              * Format: double
+             * @description Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
+             */
+            buchholz_cut1: number;
+            /**
+             * Format: double
              * @description Buchholz, as FIDE's tie-break regulations for Swiss tournaments
              *     define it: the sum of the opponents' scores. An unplayed round (a
              *     bye, a forfeit, a round not paired) counts as a game against a
@@ -3184,6 +3192,24 @@ export interface components {
              *     dropping out count as draws
              */
             buchholz: number;
+            /**
+             * Format: double
+             * @description Sonneborn-Berger: each opponent's score times the points scored
+             *     against them, so a win counts the opponent's score, a draw half of
+             *     it and a loss nothing. An unplayed round counts its dummy as
+             *     Buchholz does
+             */
+            sonneborn_berger: number;
+            /**
+             * Format: double
+             * @description The sum of the opponents' Buchholz; an unplayed round counts the player's own
+             */
+            opponents_buchholz: number;
+            /**
+             * Format: double
+             * @description The sum of the opponents' Sonneborn-Berger; an unplayed round counts the player's own
+             */
+            opponents_sonneborn_berger: number;
             /**
              * @description Dropped players come last
              * @enum {string}

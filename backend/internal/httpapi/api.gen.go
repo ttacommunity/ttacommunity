@@ -1705,9 +1705,11 @@ type BlitzEdition struct {
 	// Rounds The published rounds, first first
 	Rounds []BlitzRound `json:"rounds"`
 
-	// Standings By rank: points, then FIDE's Swiss tie-breaks (Direct Encounter,
-	// then Buchholz), then a draw fixed for the edition; dropped players
-	// last. Only the published Swiss rounds count
+	// Standings By rank: points, then the tie-breaks in order (Direct Encounter,
+	// Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
+	// Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
+	// the edition; dropped players last. Only the published Swiss rounds
+	// count
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
@@ -1984,7 +1986,10 @@ type BlitzStanding struct {
 	// dummy with the player's own score, and an opponent's rounds after
 	// dropping out count as draws
 	Buchholz float64 `json:"buchholz"`
-	Byes     int     `json:"byes"`
+
+	// BuchholzCut1 Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
+	BuchholzCut1 float64 `json:"buchholz_cut1"`
+	Byes         int     `json:"byes"`
 
 	// Country A two-letter country code, null for none
 	Country *string `json:"country"`
@@ -1993,15 +1998,28 @@ type BlitzStanding struct {
 	Games int    `json:"games"`
 	Name  string `json:"name"`
 
+	// OpponentsBuchholz The sum of the opponents' Buchholz; an unplayed round counts the player's own
+	OpponentsBuchholz float64 `json:"opponents_buchholz"`
+
+	// OpponentsSonnebornBerger The sum of the opponents' Sonneborn-Berger; an unplayed round counts the player's own
+	OpponentsSonnebornBerger float64 `json:"opponents_sonneborn_berger"`
+
 	// PlaceFrom The first rank of the place this row shares with the rows only the
 	// edition's draw separates it from (equal points, direct encounter
-	// and Buchholz); place_to is the last. Equal for a place held alone
+	// and every tie-break); place_to is the last. Equal for a place held
+	// alone
 	PlaceFrom int `json:"place_from"`
 	PlaceTo   int `json:"place_to"`
 
 	// Points As the edition's points score each result and bye (FIDE's by default)
 	Points float64 `json:"points"`
 	Rank   int     `json:"rank"`
+
+	// SonnebornBerger Sonneborn-Berger: each opponent's score times the points scored
+	// against them, so a win counts the opponent's score, a draw half of
+	// it and a loss nothing. An unplayed round counts its dummy as
+	// Buchholz does
+	SonnebornBerger float64 `json:"sonneborn_berger"`
 
 	// Status Dropped players come last
 	Status BlitzStandingStatus `json:"status"`
