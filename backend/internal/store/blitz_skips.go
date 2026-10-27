@@ -115,11 +115,7 @@ const unpublishedSkip = `NOT EXISTS (SELECT 1 FROM blitz_rounds r WHERE r.tourna
 // UnskipBlitzRound undoes an entrant's skip of a round not yet published: they are paired in it again (by hand, or by
 // Pair, when it is a draft). It returns ErrNoBlitzEdition, ErrNoBlitzEntrant or ErrBlitzNotSkipping.
 func (a *AdminStore) UnskipBlitzRound(ctx context.Context, slug, edition string, id int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		tag, err := tx.Exec(ctx, `
 			DELETE FROM blitz_skips s USING blitz_entries x
 			WHERE s.entry_id = x.entry_id AND x.entry_id = $1 AND x.tournament_id = $2 AND `+unpublishedSkip, id, edID)

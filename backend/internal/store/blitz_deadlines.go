@@ -17,11 +17,7 @@ var ErrBlitzRoundFinished = errors.New("the round is finished: its deadline no l
 // (checked by the caller), or returns ErrNoBlitzEdition, ErrNoBlitzRound or, once every game of the round has a
 // result, ErrBlitzRoundFinished.
 func (a *AdminStore) SetBlitzRoundDeadline(ctx context.Context, slug, edition string, roundID int64, at time.Time, zone string) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		id, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
 		if _, _, err := blitzRoundOf(ctx, tx, id, roundID); err != nil {
 			return err
 		}

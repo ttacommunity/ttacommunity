@@ -211,11 +211,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		return ErrBadBlitzGame
 	}
 	result, sideA, sideB, placeA, placeB := blitzOutcome(g)
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		m, err := blitzMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err
@@ -251,6 +247,12 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		name := fmt.Sprintf("%s %s Round %d", m.SeriesName, edition, m.Round)
 		// A game's day is its finish's day in UTC, as for the games CGE's data brings.
 		date := g.Finished.UTC().Truncate(24 * time.Hour)
+		seats := []struct {
+			player int64
+			name   string
+			side   BlitzSide
+			place  int
+		}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}}
 		gameID := m.GameID
 		if gameID == nil {
 			var batch int64
@@ -264,12 +266,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				batch, fmt.Sprintf("blitz match %d", matchID), name, date, g.Finished, g.ShareCode, groupID).Scan(gameID); err != nil {
 				return fmt.Errorf("recording a game: %w", err)
 			}
-			for seat, s := range []struct {
-				player int64
-				name   string
-				side   BlitzSide
-				place  int
-			}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}} {
+			for seat, s := range seats {
 				if _, err := tx.Exec(ctx, `
 					INSERT INTO seats (game_id, seat, player_id, player_name, outcome, culture, place, starting_position)
 					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -282,12 +279,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 				*gameID, g.ShareCode, date, g.Finished, name, groupID); err != nil {
 				return fmt.Errorf("correcting a game: %w", err)
 			}
-			for seat, s := range []struct {
-				player int64
-				name   string
-				side   BlitzSide
-				place  int
-			}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}} {
+			for seat, s := range seats {
 				if _, err := tx.Exec(ctx, `
 					UPDATE seats SET player_id = $3, player_name = $4, outcome = $5, culture = $6, place = $7, starting_position = $8
 					WHERE game_id = $1 AND seat = $2`,
@@ -315,11 +307,7 @@ func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string
 	if !slices.Contains(blitzResults, result) || reason == "" || utf8.RuneCountInString(reason) > 1000 {
 		return ErrBadBlitzRuling
 	}
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		m, err := blitzMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err

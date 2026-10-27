@@ -134,11 +134,7 @@ func (s *PlayerStore) answerBlitzReport(ctx context.Context, tokenHash []byte, s
 // KeepBlitzReport resolves a flagged report by keeping its result; players still cannot change it. It returns
 // ErrNoBlitzEdition, ErrNoBlitzMatch or ErrBlitzNotFlagged.
 func (a *AdminStore) KeepBlitzReport(ctx context.Context, slug, edition string, matchID int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		if _, err := blitzMatchOf(ctx, tx, edID, matchID); err != nil {
 			return err
 		}

@@ -56,11 +56,7 @@ func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int6
 // played; resetting it again changes nothing. It returns ErrNoBlitzEdition, ErrNoBlitzMatch, ErrBlitzBye or
 // ErrBlitzNotLatest.
 func (a *AdminStore) ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		m, err := blitzMatchOf(ctx, tx, edID, matchID)
 		if err != nil {
 			return err
@@ -82,11 +78,7 @@ func (a *AdminStore) ResetBlitzResult(ctx context.Context, slug, edition string,
 // ResetBlitzRound undoes every result in the edition's latest round, its pairing kept (so it can then be deleted).
 // It returns ErrNoBlitzEdition, ErrNoBlitzRound or ErrBlitzNotLatest.
 func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		_, number, err := blitzRoundOf(ctx, tx, edID, roundID)
 		if err != nil {
 			return err
@@ -105,11 +97,7 @@ func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, 
 // ResetBlitzEdition starts an edition again: every round, result and game goes, every dropped entrant is in again,
 // every skip and starting rank goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
 func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		games, err := undecide(ctx, tx, "m.round_id IN (SELECT round_id FROM blitz_rounds WHERE tournament_id = $1)", edID)
 		if err != nil {
 			return err
