@@ -1,14 +1,12 @@
 /** A games table, the same wherever games are listed: date, what each game belongs to, where it was played, the players and scores, a replay code to copy, and pages; a blitz edition marks the signed-in player's game. */
 import { useState, type ReactNode } from 'react';
+import { count, score } from '@ttac/shared/numbers';
 import SortHeader from '@ttac/shared/SortHeader';
 import type { Sort } from '@ttac/shared/sort';
 import type { GameRow, GamesColumn } from '../lib/games-table';
 import PlayerLink from './PlayerLink';
 import './TournamentSeries.css';
 import './GamesTable.css';
-
-const count = (n: number) => n.toLocaleString('en-US');
-const score = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /** GamesTable shows rows under a caption, context naming their second column (Season, Round). waiting, when given, stands in for the rows while they load; empty is said when there are none. With onSort, its headers sort by their column (the caller orders the rows by sort). */
 export default function GamesTable({

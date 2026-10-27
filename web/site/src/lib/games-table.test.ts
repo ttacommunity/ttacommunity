@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import { gamesTag, pageOf } from './games-table';
 
 describe('pageOf', () => {
@@ -19,7 +20,7 @@ describe('pageOf', () => {
 
 describe('gamesTag', () => {
   it.each([
-    ['every game', 1234, 56, false, '1,234 games · 56 with a replay code'],
+    ['every game', 1234, 56, false, `${count(1234)} games · 56 with a replay code`],
     ['only coded games', 56, 56, true, '56 games with a replay code'],
   ])('counts %s', (_name, total, coded, onlyCoded, want) => {
     expect(gamesTag(total, coded, onlyCoded)).toBe(want);

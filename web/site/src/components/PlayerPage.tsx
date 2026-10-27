@@ -35,7 +35,6 @@ import {
   parsePlayerView,
   playerParams,
   formatCards,
-  score,
   signedDelta,
   seatName,
   seatDeltaClass,
@@ -56,6 +55,7 @@ import Pager from './Pager';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
+import { score } from '@ttac/shared/numbers';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(window.localStorage));

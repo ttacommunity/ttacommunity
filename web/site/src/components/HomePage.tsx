@@ -11,6 +11,7 @@ import {
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
+import { count, score } from '@ttac/shared/numbers';
 import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
@@ -31,12 +32,6 @@ interface HomeData {
   players: Load<LeaderboardRow[]>;
   recentTournaments: Load<PodiumCard[]>;
   availableTournaments: Load<AvailableTournament[]>;
-}
-
-const count = (n: number | null | undefined) => (n ?? 0).toLocaleString('en-US');
-
-function scoreFormatted(n: number) {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 /** One-click copyable replay code */
@@ -207,12 +202,12 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <div className="home-stats-bar">
                 {data.run.players !== null && (
                   <div className="home-stat-pill">
-                    Active Players: <strong>{count(data.run.players)}</strong>
+                    Active Players: <strong>{count(data.run.players ?? 0)}</strong>
                   </div>
                 )}
                 {data.run.games !== null && (
                   <div className="home-stat-pill">
-                    Recorded Matches: <strong>{count(data.run.games)}</strong>
+                    Recorded Matches: <strong>{count(data.run.games ?? 0)}</strong>
                   </div>
                 )}
                 {data.run.finished_at && (
@@ -459,7 +454,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                                     className={`match-player-link ${rankClass}`.trim()}
                                   />
                                   <span className={`match-score-badge ${isRevealed ? 'revealed' : 'blurred'}`}>
-                                    {isRevealed ? `(${scoreFormatted(s.score)})` : '(???)'}
+                                    {isRevealed ? `(${score(s.score)})` : '(???)'}
                                   </span>
                                   {idx < m.seats.length - 1 && <span className="match-sep">vs</span>}
                                 </span>

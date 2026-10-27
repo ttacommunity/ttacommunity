@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { CalibrationRow } from '@ttac/shared/ratings';
 import {
   MODELS,
@@ -143,9 +144,9 @@ describe('formatCards', () => {
 
   it('notes each format with its own pair count, in upstream order', () => {
     expect(formatCards(formats).cards).toEqual([
-      { format: 3, name: '3-Player Games', note: 'Most popular tournament format (188,142 pairwise duels)', games: 62714 },
-      { format: 2, name: '2-Player (Duels)', note: 'Pure 1v1 heads-up duels (47,157 pairwise games)', games: 47157 },
-      { format: 4, name: '4-Player Games', note: 'Full table political strategy (153,132 pairwise duels)', games: 25522 },
+      { format: 3, name: '3-Player Games', note: `Most popular tournament format (${count(188142)} pairwise duels)`, games: 62714 },
+      { format: 2, name: '2-Player (Duels)', note: `Pure 1v1 heads-up duels (${count(47157)} pairwise games)`, games: 47157 },
+      { format: 4, name: '4-Player Games', note: `Full table political strategy (${count(153132)} pairwise duels)`, games: 25522 },
     ]);
   });
 

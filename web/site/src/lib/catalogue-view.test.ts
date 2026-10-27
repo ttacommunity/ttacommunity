@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { CatalogueGame } from '@ttac/shared/ratings';
 import { catalogueGameRow, catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
@@ -144,8 +145,8 @@ describe('entryRows', () => {
     expect(entryRows({ first_game: '2019-03-10', last_game: '2026-09-16', seasons: 31, games: 26352, players: 1900 })).toEqual([
       ['Active History', '2019 – 2026'],
       ['Seasons', '31'],
-      ['Recorded Database Matches', '26,352'],
-      ['Players', '1,900'],
+      ['Recorded Database Matches', count(26352)],
+      ['Players', count(1900)],
     ]);
   });
 });

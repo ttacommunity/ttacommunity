@@ -1,3 +1,4 @@
+import { count } from '@ttac/shared/numbers';
 import type {
   CommunityEditionItem,
   CommunityLeaderboard,
@@ -96,10 +97,8 @@ export function editionLabel(e: Pick<CommunityEditionItem, 'name' | 'short_name'
 /** editionFacts returns an edition's event slots, tiers and tournaments, and each tier's columns and maximum
  * points (null when a column's is unknown). */
 export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'summary' | 'counting_events'>) {
-  const pts = (n: number) => n.toLocaleString('en-US');
-  const count = data.counting_events ?? 8;
   return {
-    counting: count,
+    counting: data.counting_events ?? 8,
     slots: data.categories.reduce((n, c) => n + c.columns.length, 0),
     tiers: data.categories.length,
     tournaments: data.summary.length,
@@ -110,7 +109,7 @@ export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'su
       return {
         name: c.category,
         codes: codesOf(c.columns.map((x) => x.id)),
-        maxPts: known.length < max.length ? null : lo === hi ? pts(hi) : `${pts(lo)}–${pts(hi)}`,
+        maxPts: known.length < max.length ? null : lo === hi ? count(hi) : `${count(lo)}–${count(hi)}`,
         each: c.columns.length > 1,
       };
     }),
@@ -124,5 +123,5 @@ export function matchesSearch(name: string, search: string): boolean {
 
 /** whole formats points as upstream's "{:,.0f}". */
 export function whole(n: number): string {
-  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }

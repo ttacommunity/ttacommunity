@@ -30,6 +30,7 @@ import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
 import { errorText, type Load } from '@ttac/shared/load';
+import { count } from '@ttac/shared/numbers';
 
 
 /** href is the page's address for a view, carrying edition, view, search and page. */
@@ -99,7 +100,7 @@ function Hero({
       </div>
       <div className="comm-stats-grid">
         <div className="stat-tile">
-          <div className="stat-tile-num">{data.rows.length.toLocaleString('en-US')}</div>
+          <div className="stat-tile-num">{count(data.rows.length)}</div>
           <div className="stat-tile-label">Ranked Competitors</div>
         </div>
         <div className="stat-tile">

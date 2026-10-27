@@ -1,7 +1,7 @@
 /** Rating runs, for admins: start one, watch its progress, compare and publish it, and protect or delete old ones. */
 import { Fragment, useEffect, useState } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import { signed } from '@ttac/shared/numbers';
+import { count, signed } from '@ttac/shared/numbers';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
@@ -275,8 +275,8 @@ function RunRow({
         <span className={`run-state run-${state}`}>{runLabel(run)}</span>
       </td>
       <td>{when(run.started_at)}</td>
-      <td className="run-wide">{run.games > 0 ? run.games.toLocaleString() : ''}</td>
-      <td className="run-wide">{run.players > 0 ? run.players.toLocaleString() : ''}</td>
+      <td className="run-wide">{run.games > 0 ? count(run.games) : ''}</td>
+      <td className="run-wide">{run.players > 0 ? count(run.players) : ''}</td>
       <td>{runSize(run.status, run.bytes)}</td>
       <td>{runSize(run.status, run.disk_bytes)}</td>
       <td className="run-wide">{run.engine_version}</td>

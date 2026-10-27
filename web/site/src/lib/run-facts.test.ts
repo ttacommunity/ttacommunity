@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { Run } from '@ttac/shared/ratings';
 import { runFacts } from './run-facts';
 
@@ -15,12 +16,12 @@ const run: Run = {
 
 describe('runFacts', () => {
   it('gives the years, games, players and when the run was computed', () => {
-    expect(runFacts(run, 'UTC')).toBe(' (2017–2026) • 135,393 games • 3,526 players • updated 1 Oct 2026, 01:10 (UTC)');
+    expect(runFacts(run, 'UTC')).toBe(` (2017–2026) • ${count(135393)} games • ${count(3526)} players • updated 1 Oct 2026, 01:10 (UTC)`);
   });
 
   it('gives the visits beside the players, with the days they cover', () => {
     const visits = { visits: 1190, days: 28, as_of: '2026-10-27T05:00:00Z' };
-    expect(runFacts(run, 'UTC', visits)).toContain(' • 3,526 players • 1,190 visits (last 28 days) • ');
+    expect(runFacts(run, 'UTC', visits)).toContain(` • ${count(3526)} players • ${count(1190)} visits (last 28 days) • `);
   });
 
   it('leaves out the visits when there is no count', () => {

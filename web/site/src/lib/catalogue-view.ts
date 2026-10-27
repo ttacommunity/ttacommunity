@@ -1,4 +1,5 @@
 /** The Tournaments page: which tournament the address asks for, its links, how its figures are written, and its games as table rows. */
+import { count } from '@ttac/shared/numbers';
 import type { CatalogueGame } from '@ttac/shared/ratings';
 import type { GameRow } from './games-table';
 
@@ -136,12 +137,11 @@ export function podiumCard(p: {
 
 /** entryRows gives a tournament card's figures: its years, seasons, games and players. */
 export function entryRows(t: { first_game: string; last_game: string; seasons: number; games: number; players: number }): [string, string][] {
-  const n = (x: number) => x.toLocaleString('en-US');
   return [
     ['Active History', spanYears(t.first_game, t.last_game)],
-    ['Seasons', n(t.seasons)],
-    ['Recorded Database Matches', n(t.games)],
-    ['Players', n(t.players)],
+    ['Seasons', count(t.seasons)],
+    ['Recorded Database Matches', count(t.games)],
+    ['Players', count(t.players)],
   ];
 }
 

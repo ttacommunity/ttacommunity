@@ -15,6 +15,7 @@ import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysi
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { errorText, type Load } from '@ttac/shared/load';
+import { count } from '@ttac/shared/numbers';
 
 const FORMAT_OPTIONS: Option<Format>[] = [
   { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
@@ -28,8 +29,6 @@ const TIER_OPTIONS: Option<SeatAnalysisTier>[] = SEAT_TIERS.map((t) => ({
   label: t.label,
   tooltip: t.tooltip,
 }));
-
-const count = (n: number) => n.toLocaleString('en-US');
 
 const SEAT_NAMES: Record<number, string> = {
   1: 'Seat 1 (Starting Player)',

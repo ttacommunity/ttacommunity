@@ -26,8 +26,7 @@ import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import { waitingText } from '../lib/waiting';
 import { errorText, failed, type Found } from '@ttac/shared/load';
-
-const count = (n: number) => n.toLocaleString('en-US');
+import { count } from '@ttac/shared/numbers';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {

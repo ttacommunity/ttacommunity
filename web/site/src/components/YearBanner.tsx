@@ -1,4 +1,5 @@
 /** Upstream's season archive banner: the year, its snapshot, game count, record view and World Champion. */
+import { count } from '@ttac/shared/numbers';
 import type { YearLeaderboard } from '@ttac/shared/ratings';
 import type { View } from '../lib/leaderboard-view';
 import type { LinkTo } from './OptionsDrawer';
@@ -27,8 +28,8 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
           </span>
         </div>
         <p className="archive-facts">
-          Recorded Matches in {y}: <strong className="archive-games">{board.games.toLocaleString('en')}</strong> • Ranked
-          Competitors: <strong className="archive-ranked">{ranked.toLocaleString('en')}</strong>
+          Recorded Matches in {y}: <strong className="archive-games">{count(board.games)}</strong> • Ranked
+          Competitors: <strong className="archive-ranked">{count(ranked)}</strong>
           {board.previous !== null && (
             <>
               {' '}

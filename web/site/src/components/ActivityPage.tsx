@@ -7,6 +7,7 @@ import { Flag } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { errorText, type Load } from '@ttac/shared/load';
+import { count } from '@ttac/shared/numbers';
 
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
@@ -19,7 +20,6 @@ const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
   { col: 'all', label: 'Avg (All)', tip: 'Average rating across all registered players in this country' },
 ];
 
-const count = (n: number) => n.toLocaleString('en-US');
 const avg = (x: number | null) => (x === null ? '-' : x.toFixed(1));
 
 /** ActivityPage loads the current run's activity and shows it as upstream's page does. */

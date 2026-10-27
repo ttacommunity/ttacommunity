@@ -19,9 +19,7 @@ import {
   type Major,
   type SeriesContent,
 } from '../lib/tournament-series';
-
-
-const count = (n: number) => n.toLocaleString('en-US');
+import { count } from '@ttac/shared/numbers';
 
 
 function WorldChampion() {

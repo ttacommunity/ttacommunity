@@ -1,5 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { signed } from './numbers';
+import { count, score, signed } from './numbers';
+
+describe('count', () => {
+  it.each([
+    ['in an English browser', 1234567, 'en-US', '1,234,567'],
+    ['in a German browser', 1234567, 'de-DE', '1.234.567'],
+    ['below a thousand', 999, 'en-US', '999'],
+  ])('writes a count %s', (_name, n, locale, want) => {
+    expect(count(n, locale)).toBe(want);
+  });
+
+  it("writes a count in the browser's locale when given none", () => {
+    expect(count(1234567)).toBe(new Intl.NumberFormat().format(1234567));
+  });
+});
+
+describe('score', () => {
+  it.each([
+    ['a whole score', 197, '197'],
+    ['a negative score', -2, '-2'],
+    ['a half', 12.5, '12.5'],
+    ['more decimals, to one place', 12.75, '12.8'],
+  ])('writes %s', (_name, n, want) => {
+    expect(score(n)).toBe(want);
+  });
+});
 
 describe('signed', () => {
   it.each([

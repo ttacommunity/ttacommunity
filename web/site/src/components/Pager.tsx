@@ -1,5 +1,6 @@
 /** Paging through a long table, as upstream's leaderboard does: where you are, First/Prev, a page box, Next/Last. */
 import { useEffect, useState } from 'react';
+import { count } from '@ttac/shared/numbers';
 import { typedPage } from '../lib/pager';
 import './Pager.css';
 
@@ -23,7 +24,7 @@ export default function Pager({ page, pages, total, link, go }: Props) {
     <nav className="pagination" aria-label="Pages">
       <div>
         Showing page <strong>{page}</strong> of <strong>{pages}</strong>
-        {total !== undefined && ` (${total.count.toLocaleString('en')} ${total.noun})`}
+        {total !== undefined && ` (${count(total.count)} ${total.noun})`}
       </div>
       <div className="pagination-links">
         {page > 1 && (

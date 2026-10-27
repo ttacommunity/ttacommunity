@@ -1,5 +1,5 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
-import { signed } from '@ttac/shared/numbers';
+import { count, signed } from '@ttac/shared/numbers';
 import { titleName } from './leaderboard-display';
 import type { Activity, CalibrationRow, CountryRatings, Format, SeatStatsGroup, TitleCode } from '@ttac/shared/ratings';
 
@@ -138,8 +138,6 @@ export function agreementName(key: ModelInfo['key']): string {
   return info.family === 'glicko2_daneo' ? family : `${family} (Career)`;
 }
 
-
-const count = (n: number) => n.toLocaleString('en-US');
 
 /** formatCards returns the activity page's total games and its cards for 3-, 2- and 4-player games, from the run's counts. */
 export function formatCards(formats: Activity['formats']) {

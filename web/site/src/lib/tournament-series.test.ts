@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { count } from '@ttac/shared/numbers';
 import type { Legend, SeriesCount } from '@ttac/shared/ratings';
 import {
   BUILT,
@@ -167,8 +168,8 @@ describe('the Hall of Fame overview', () => {
       { series: 'worlds', games: 31121, seasons: 5 },
       { series: 'grand_slams', games: 12868, seasons: 5222 },
     ];
-    expect(derivedMatches(counts)).toBe('102,407+ Matches');
-    expect(seriesGames({ series: 'grand_slams', games: 12868, seasons: 5222 })).toBe('12,868 games (5222 editions)');
+    expect(derivedMatches(counts)).toBe(`${count(102407)}+ Matches`);
+    expect(seriesGames({ series: 'grand_slams', games: 12868, seasons: 5222 })).toBe(`${count(12868)} games (5222 editions)`);
   });
 });
 
@@ -185,7 +186,7 @@ describe('boardCells', () => {
   });
 
   it('writes thousands with separators', () => {
-    expect(boardCells([{ ...ladder, games: 1234, wins: 1001 }]).rows[0]).toEqual(['1,234', '1,001', '37.5%']);
+    expect(boardCells([{ ...ladder, games: 1234, wins: 1001 }]).rows[0]).toEqual([count(1234), count(1001), '37.5%']);
   });
 });
 

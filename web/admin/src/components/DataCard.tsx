@@ -1,6 +1,7 @@
 /** The loaded data at a glance: games, players, and when they were last loaded. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
+import { count } from '@ttac/shared/numbers';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
 import { refusalOf, type Outcome } from '../lib/outcome';
@@ -9,7 +10,6 @@ import Notice, { LoadNotice } from './Notice';
 
 type DataSummary = components['schemas']['DataSummary'];
 
-const count = (n: number) => n.toLocaleString();
 
 /** DataCard loads the summary once and shows it, warning when games sit in no tournament. */
 export default function DataCard() {

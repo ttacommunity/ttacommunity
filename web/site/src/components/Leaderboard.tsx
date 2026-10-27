@@ -13,6 +13,7 @@ import {
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import { errorText } from '@ttac/shared/load';
+import { count } from '@ttac/shared/numbers';
 import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
@@ -215,7 +216,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
           {state.kind === 'ready' && (
             <p className="leaderboard-count">
-              Players: <strong>{found.rows.length.toLocaleString('en')}</strong>{' '}
+              Players: <strong>{count(found.rows.length)}</strong>{' '}
               <span className={`leaderboard-status status-${view.status}`}>
                 {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
               </span>
