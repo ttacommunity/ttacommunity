@@ -624,6 +624,133 @@ def _board_rows(run_id, boards):
     ]  # fmt: skip
 
 
+class _Facts(NamedTuple):
+    """What derive_tournaments reads besides the series' rules: the games and the recorded facts."""
+
+    rows: list[dict]
+    unplayed: list[dict]
+    recorded: dict[tuple, str]
+    corrections: dict[tuple, Any]
+    official: dict[tuple, list]
+    dates: dict[tuple, str]
+    honours: list[dict]
+
+
+def _load_facts(conn: DictConnection, rules: dict) -> _Facts:
+    """Reads the played and unplayed games and the recorded divisions, corrections, placements, dates and honours."""
+    rows = conn.execute(
+        f"SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.finished_at, m.player_count, {SEAT_COLUMNS}, "
+        "m.group_name AS group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
+        "se.label AS catalogue_season, st.label AS catalogue_stage "
+        "FROM game_lines m LEFT JOIN stages st ON st.stage_id = m.stage_id "
+        "LEFT JOIN tournaments se ON se.tournament_id = m.tournament_id "
+        "LEFT JOIN series t ON t.series_id = m.series_id WHERE m.state = 'played' ORDER BY m.game_id"
+    ).fetchall()
+    recorded = {
+        (r["series"], r["season"], r["player_name"]): r["division"]
+        for r in conn.execute(
+            "SELECT series, season, division, player_name FROM tournament_group_divisions"
+        ).fetchall()
+    }
+    corrections = {
+        (r["series"], r["name_season"]): r["season"]
+        for r in conn.execute(
+            "SELECT series, name_season, season FROM tournament_season_corrections"
+        ).fetchall()
+    }
+    official = defaultdict(list)
+    for r in conn.execute(
+        "SELECT series, season, division, player_name, place, points "
+        "FROM tournament_official_placements WHERE series = ANY(%s) "
+        "ORDER BY place, player_name",
+        (list(rules),),
+    ).fetchall():
+        official[(r["series"], r["season"], r["division"])].append(r)
+    dates = {
+        (r["series"], r["season"]): r["finish_date"].isoformat()
+        for r in conn.execute(
+            "SELECT series, season, finish_date FROM tournament_finish_dates"
+        ).fetchall()
+    }
+    honours = conn.execute(
+        "SELECT series, player_name, gold, silver, bronze, points "
+        "FROM tournament_career_honours ORDER BY series, player_name"
+    ).fetchall()
+    unplayed = conn.execute(
+        "SELECT m.game_id AS match_id, m.name AS tournament, m.group_name AS group_label, "
+        "coalesce(m.players, '{}') AS players FROM game_lines m "
+        "WHERE m.state IN ('prepared', 'running') ORDER BY m.game_id"
+    ).fetchall()
+    return _Facts(rows, unplayed, recorded, corrections, official, dates, honours)
+
+
+def _finish_dates(classified, by_id, in_progress, recorded_dates):
+    """Returns each season's finish date: the recorded one, else a finished season's last game."""
+    dates = dict(recorded_dates)
+    for g in classified:
+        of = (g["series"], g["season"])
+        if g["season"] is not None and of not in in_progress:
+            day = by_id[g["match_id"]]["date"].isoformat()
+            if of not in recorded_dates and day > dates.get(of, ""):
+                dates[of] = day
+    return dates
+
+
+def _groups_and_records(classified, by_id, rules, in_progress):
+    """Returns each group's games' seats, by (series, season, division, group), and each series' games
+    that count for its seasonal records (finished seasons, no tiebreaks)."""
+    groups = defaultdict(list)
+    records = defaultdict(list)
+    for g in classified:
+        r = by_id[g["match_id"]]
+        if (
+            g["in_records"]
+            and g["season"] is not None
+            and not g["tiebreak"]
+            and rules[g["series"]].season_records
+            and (g["series"], g["season"]) not in in_progress
+        ):
+            records[g["series"]].append({**r, **g})
+        if g["division"] is not None and not g["tiebreak"]:
+            key = (g["series"], g["season"], g["division"], g["group"])
+            groups[key].append(seats_of(r))
+    return groups, records
+
+
+def _standings(run_id, groups, rules):
+    """Returns each group's standing rows to insert, and the standings by (series, season, division)."""
+    standing_rows = []
+    derived = defaultdict(list)
+    for (series, season, division, group), games in groups.items():
+        for s in rank_group(games, rules[series]):
+            standing_rows.append(
+                (run_id, series, season, division, group, s["player_name"],
+                 s["place"], s["points"], s["games"], s["placings"])
+            )  # fmt: skip
+            derived[(series, season, division)].append(s)
+    return standing_rows, derived
+
+
+def _boards(conn, rows, finished, official, rules, worlds):
+    """Returns every board by series: the leagues', worlds, grand slams and ladders."""
+    boards = _league_boards(finished, official, rules)
+    boards["worlds"] = worlds_board(
+        [{**p, "season": season} for (series, season, _), placed in official.items()
+         if series == worlds for p in placed]
+    )  # fmt: skip
+    boards["grand_slams"] = grand_slams_board(
+        conn.execute(
+            "SELECT cup, season, final, finished, place, player_name FROM tournament_cup_podiums"
+        ).fetchall(),
+        {
+            r["slug"]: r["name"]
+            for r in conn.execute("SELECT slug, name FROM series").fetchall()
+        },
+    )
+    boards["ladders"] = ladders_board(rows)
+    return boards
+
+
 def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
     """Replaces the run's tournament games, standings, boards, seasonal records
     and each player's achievements and records.
@@ -634,88 +761,18 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
     with conn.transaction():
         require_running(conn, run_id)
         rules, final = series_rules(conn)
-        rows = conn.execute(
-            f"SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.finished_at, m.player_count, {SEAT_COLUMNS}, "
-            "m.group_name AS group_label, t.slug AS catalogue_slug, t.name AS catalogue_name, "
-            "se.label AS catalogue_season, st.label AS catalogue_stage "
-            "FROM game_lines m LEFT JOIN stages st ON st.stage_id = m.stage_id "
-            "LEFT JOIN tournaments se ON se.tournament_id = m.tournament_id "
-            "LEFT JOIN series t ON t.series_id = m.series_id WHERE m.state = 'played' ORDER BY m.game_id"
-        ).fetchall()
-        recorded = {
-            (r["series"], r["season"], r["player_name"]): r["division"]
-            for r in conn.execute(
-                "SELECT series, season, division, player_name FROM tournament_group_divisions"
-            ).fetchall()
-        }
-        corrections = {
-            (r["series"], r["name_season"]): r["season"]
-            for r in conn.execute(
-                "SELECT series, name_season, season FROM tournament_season_corrections"
-            ).fetchall()
-        }
-        official = defaultdict(list)
-        for r in conn.execute(
-            "SELECT series, season, division, player_name, place, points "
-            "FROM tournament_official_placements WHERE series = ANY(%s) "
-            "ORDER BY place, player_name",
-            (list(rules),),
-        ).fetchall():
-            official[(r["series"], r["season"], r["division"])].append(r)
-        dates = {
-            (r["series"], r["season"]): r["finish_date"].isoformat()
-            for r in conn.execute(
-                "SELECT series, season, finish_date FROM tournament_finish_dates"
-            ).fetchall()
-        }
-        recorded_dates = set(dates)
-        honours = conn.execute(
-            "SELECT series, player_name, gold, silver, bronze, points "
-            "FROM tournament_career_honours ORDER BY series, player_name"
-        ).fetchall()
-        classified = classify(rows, recorded, corrections, rules)
+        facts = _load_facts(conn, rules)
+        rows, official = facts.rows, facts.official
+        classified = classify(rows, facts.recorded, facts.corrections, rules)
         by_id = {r["match_id"]: r for r in rows}
-        unplayed = conn.execute(
-            "SELECT m.game_id AS match_id, m.name AS tournament, m.group_name AS group_label, "
-            "coalesce(m.players, '{}') AS players FROM game_lines m "
-            "WHERE m.state IN ('prepared', 'running') ORDER BY m.game_id"
-        ).fetchall()
         in_progress = seasons_in_progress(
-            classify(unplayed, recorded, corrections, rules), rules, dates
+            classify(facts.unplayed, facts.recorded, facts.corrections, rules),
+            rules,
+            facts.dates,
         )
-        # A finished season with no recorded date ends on its last game.
-        for g in classified:
-            of = (g["series"], g["season"])
-            if g["season"] is not None and of not in in_progress:
-                day = by_id[g["match_id"]]["date"].isoformat()
-                if of not in recorded_dates and day > dates.get(of, ""):
-                    dates[of] = day
-
-        groups = defaultdict(list)
-        records = defaultdict(list)
-        for g in classified:
-            r = by_id[g["match_id"]]
-            if (
-                g["in_records"]
-                and g["season"] is not None
-                and not g["tiebreak"]
-                and rules[g["series"]].season_records
-                and (g["series"], g["season"]) not in in_progress
-            ):
-                records[g["series"]].append({**r, **g})
-            if g["division"] is not None and not g["tiebreak"]:
-                key = (g["series"], g["season"], g["division"], g["group"])
-                groups[key].append(seats_of(r))
-
-        standing_rows = []
-        derived = defaultdict(list)
-        for (series, season, division, group), games in groups.items():
-            for s in rank_group(games, rules[series]):
-                standing_rows.append(
-                    (run_id, series, season, division, group, s["player_name"],
-                     s["place"], s["points"], s["games"], s["placings"])
-                )  # fmt: skip
-                derived[(series, season, division)].append(s)
+        dates = _finish_dates(classified, by_id, in_progress, facts.dates)
+        groups, records = _groups_and_records(classified, by_id, rules, in_progress)
+        standing_rows, derived = _standings(run_id, groups, rules)
         # A season still being played shows its standings, but no podium yet.
         finished = {
             k: v
@@ -726,31 +783,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
         for k in [k for k in official if rules[k[0]].podium == "none"]:
             del official[k]
-        boards = _league_boards(finished, official, rules)
-        boards["worlds"] = worlds_board(
-            [{**p, "season": season} for (series, season, _), placed in official.items()
-             if series == worlds for p in placed]
-        )  # fmt: skip
-        boards["grand_slams"] = grand_slams_board(
-            conn.execute(
-                "SELECT cup, season, final, finished, place, player_name FROM tournament_cup_podiums"
-            ).fetchall(),
-            {
-                r["slug"]: r["name"]
-                for r in conn.execute("SELECT slug, name FROM series").fetchall()
-            },
-        )
-        boards["ladders"] = ladders_board(rows)
-        legend_rows = [
-            (run_id, position, r["player_name"], r["world_titles"], r["international_titles"],
-             r["intermezzo_titles"], r["royal_league_titles"], r["gold"], r["silver"], r["bronze"])
-            for position, r in enumerate(legends(boards), start=1)
-        ]  # fmt: skip
-        board_rows = _board_rows(run_id, boards)
-        series_rows = [
-            (run_id, series, games, editions)
-            for series, (games, editions) in series_metrics(rows).items()
-        ]
+        boards = _boards(conn, rows, finished, official, rules, worlds)
 
         world_places = {
             (season, p["player_name"]): p["place"]
@@ -758,12 +791,6 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             if series == worlds
             for p in placed
         }
-        achievement_rows = [
-            (run_id, a["player_name"], a["world_titles"], a["international_titles"],
-             a["intermezzo_titles"], a["royal_league_titles"], a["gold"], a["silver"],
-             a["bronze"], a["accolades"])
-            for a in player_achievements(boards, world_places)
-        ]  # fmt: skip
         player_record_rows = player_records(
             rows=match_order(rows),
             top_divisions={
@@ -772,78 +799,106 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             standings=top_division_seasons(finished, official, rules),
             official=official,
             boards=boards,
-            honours=honours,
+            honours=facts.honours,
             dates=dates,
         )
+        _write(
+            conn,
+            run_id,
+            classified=classified,
+            player_record_rows=player_record_rows,
+            standing_rows=standing_rows,
+            board_rows=_board_rows(run_id, boards),
+            series_rows=[
+                (run_id, series, games, editions)
+                for series, (games, editions) in series_metrics(rows).items()
+            ],
+            legend_rows=[
+                (run_id, position, r["player_name"], r["world_titles"], r["international_titles"],
+                 r["intermezzo_titles"], r["royal_league_titles"], r["gold"], r["silver"], r["bronze"])
+                for position, r in enumerate(legends(boards), start=1)
+            ],
+            achievement_rows=[
+                (run_id, a["player_name"], a["world_titles"], a["international_titles"],
+                 a["intermezzo_titles"], a["royal_league_titles"], a["gold"], a["silver"],
+                 a["bronze"], a["accolades"])
+                for a in player_achievements(boards, world_places)
+            ],
+            record_rows=[
+                (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
+                 rec["placings"], rec["last_date"], rec["first_match_id"])
+                for series, top_rows in records.items()
+                for (season, p), rec in season_records(top_rows, rules[series]).items()
+            ],
+        )  # fmt: skip
 
-        record_rows = [
-            (run_id, series, season, rec["division"], p, rec["points"], rec["games"],
-             rec["placings"], rec["last_date"], rec["first_match_id"])
-            for series, top_rows in records.items()
-            for (season, p), rec in season_records(top_rows, rules[series]).items()
-        ]  # fmt: skip
 
-        written = (
-            "tournament_records",
-            "tournament_achievements",
-            "tournament_series",
-            "tournament_legends",
-            "tournament_season_records",
-            "tournament_boards",
-            "tournament_standings",
-            "tournament_games",
+def _write(
+    conn, run_id, *, classified, player_record_rows, standing_rows, board_rows,
+    series_rows, legend_rows, achievement_rows, record_rows,
+):  # fmt: skip
+    """Replaces the run's rows in every table derive_tournaments writes, then analyzes them."""
+    written = (
+        "tournament_records",
+        "tournament_achievements",
+        "tournament_series",
+        "tournament_legends",
+        "tournament_season_records",
+        "tournament_boards",
+        "tournament_standings",
+        "tournament_games",
+    )
+    for table in written:
+        conn.execute(f"DELETE FROM {table} WHERE run_id = %s", (run_id,))
+    with conn.cursor().copy(
+        "COPY tournament_games (run_id, match_id, series, season, name_season, division, "
+        "group_label, division_source, tiebreak, in_records) FROM STDIN"
+    ) as copy:
+        for g in classified:
+            copy.write_row(
+                (run_id, g["match_id"], g["series"], g["season"], g["name_season"],
+                 g["division"], g["group"], g["source"], g["tiebreak"], g["in_records"])
+            )  # fmt: skip
+    with conn.cursor().copy(
+        "COPY tournament_records (run_id, player_name, position, tournament, season, "
+        "division, placement, points, medal, details, finish_date, career) FROM STDIN"
+    ) as copy:
+        # A player's records written together, so their page reads a few blocks rather than one per record.
+        for r in sorted(
+            player_record_rows,
+            key=lambda r: (r["player_name"].lower(), r["position"]),
+        ):
+            copy.write_row(
+                (run_id, r["player_name"], r["position"], r["tournament"], r["season"],
+                 r["division"], r["placement"], r["points"], r["medal"], r["details"],
+                 r["finish_date"], r["career"])
+            )  # fmt: skip
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            standing_rows,
         )
-        for table in written:
-            conn.execute(f"DELETE FROM {table} WHERE run_id = %s", (run_id,))
-        with conn.cursor().copy(
-            "COPY tournament_games (run_id, match_id, series, season, name_season, division, "
-            "group_label, division_source, tiebreak, in_records) FROM STDIN"
-        ) as copy:
-            for g in classified:
-                copy.write_row(
-                    (run_id, g["match_id"], g["series"], g["season"], g["name_season"],
-                     g["division"], g["group"], g["source"], g["tiebreak"], g["in_records"])
-                )  # fmt: skip
-        with conn.cursor().copy(
-            "COPY tournament_records (run_id, player_name, position, tournament, season, "
-            "division, placement, points, medal, details, finish_date, career) FROM STDIN"
-        ) as copy:
-            # A player's records written together, so their page reads a few blocks rather than one per record.
-            for r in sorted(
-                player_record_rows,
-                key=lambda r: (r["player_name"].lower(), r["position"]),
-            ):
-                copy.write_row(
-                    (run_id, r["player_name"], r["position"], r["tournament"], r["season"],
-                     r["division"], r["placement"], r["points"], r["medal"], r["details"],
-                     r["finish_date"], r["career"])
-                )  # fmt: skip
-        with conn.cursor() as cur:
-            cur.executemany(
-                "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                standing_rows,
-            )
-            cur.executemany(
-                "INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, "
-                "bronze, points, title, first_season, position, details, games, wins, "
-                "win_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                board_rows,
-            )
-            cur.executemany(
-                "INSERT INTO tournament_series VALUES (%s, %s, %s, %s)", series_rows
-            )
-            cur.executemany(
-                "INSERT INTO tournament_legends VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                legend_rows,
-            )
-            cur.executemany(
-                "INSERT INTO tournament_achievements VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                achievement_rows,
-            )
-            cur.executemany(
-                "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                record_rows,
-            )
-        # Without fresh statistics, the titles' query on tournament_games gets a plan for the run's rows missing.
-        for table in written:
-            conn.execute(f"ANALYZE {table}")
+        cur.executemany(
+            "INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, "
+            "bronze, points, title, first_season, position, details, games, wins, "
+            "win_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            board_rows,
+        )
+        cur.executemany(
+            "INSERT INTO tournament_series VALUES (%s, %s, %s, %s)", series_rows
+        )
+        cur.executemany(
+            "INSERT INTO tournament_legends VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            legend_rows,
+        )
+        cur.executemany(
+            "INSERT INTO tournament_achievements VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            achievement_rows,
+        )
+        cur.executemany(
+            "INSERT INTO tournament_season_records VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            record_rows,
+        )
+    # Without fresh statistics, the titles' query on tournament_games gets a plan for the run's rows missing.
+    for table in written:
+        conn.execute(f"ANALYZE {table}")
