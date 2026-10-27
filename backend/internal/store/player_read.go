@@ -930,9 +930,13 @@ func (r *RatingsReader) HiddenNames(ctx context.Context, names []string) (map[st
 
 // maskNames replaces each of names whose player has a deleted or banned CGE account with DeletedPlayer.
 func (r *RatingsReader) maskNames(ctx context.Context, names []*string) error {
-	list := make([]string, len(names))
-	for i, n := range names {
-		list[i] = *n
+	var list []string
+	seen := map[string]bool{}
+	for _, n := range names {
+		if !seen[*n] {
+			seen[*n] = true
+			list = append(list, *n)
+		}
 	}
 	hidden, err := r.HiddenNames(ctx, list)
 	if err != nil {
@@ -948,29 +952,11 @@ func (r *RatingsReader) maskNames(ctx context.Context, names []*string) error {
 
 // maskMatchSeats replaces the names of seats whose players are deleted or banned with DeletedPlayer.
 func (r *RatingsReader) maskMatchSeats(ctx context.Context, matches []PlayerMatch) error {
-	var names []string
-	seen := map[string]bool{}
-	for _, m := range matches {
-		for _, s := range m.Seats {
-			if !seen[s.Name] {
-				seen[s.Name] = true
-				names = append(names, s.Name)
-			}
-		}
-	}
-	hidden, err := r.HiddenNames(ctx, names)
-	if err != nil {
-		return err
-	}
-	if len(hidden) == 0 {
-		return nil
-	}
+	var names []*string
 	for i := range matches {
 		for j := range matches[i].Seats {
-			if hidden[matches[i].Seats[j].Name] {
-				matches[i].Seats[j].Name = DeletedPlayer
-			}
+			names = append(names, &matches[i].Seats[j].Name)
 		}
 	}
-	return nil
+	return r.maskNames(ctx, names)
 }
