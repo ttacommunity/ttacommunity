@@ -51,10 +51,8 @@ func openEmail(getenv func(string) string, site string) (emailSignIn, error) {
 	}
 	e := emailSignIn{support: support}
 	if dev {
-		if !strings.HasPrefix(getenv("API_ADDR"), "127.0.0.1:") || getenv("KUBERNETES_SERVICE_HOST") != "" ||
-			!strings.HasPrefix(site, "http://127.0.0.1:") || key != "" {
-			return emailSignIn{}, errors.New("EMAIL_DEV_MAIL is for this machine alone: API_ADDR and SITE_ORIGIN on 127.0.0.1, " +
-				"outside Kubernetes, and no RESEND_API_KEY")
+		if err := devGuard(getenv, site, "EMAIL_DEV_MAIL", "RESEND_API_KEY", key != ""); err != nil {
+			return emailSignIn{}, err
 		}
 		e.send = printLink
 	} else {

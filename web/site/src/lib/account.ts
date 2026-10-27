@@ -1,16 +1,13 @@
 /** A player's account on the site: who is signed in, what the account page and nav show for them, and their requests to the api, made with the session cookie. */
 import type { components } from '@ttac/shared/api';
 import type { Question } from '@ttac/shared/Dialog';
+import { hasOwnName, isOpenID, PROVIDER_NAMES, type Provider } from '@ttac/shared/providers';
 import { errorFields } from '@ttac/shared/ratings';
 import { playerHref } from './player-view';
 import { ZONE_COUNTRIES } from './zone-countries';
 
 export type Me = components['schemas']['Me'];
 export type MyMember = components['schemas']['MyMember'];
-type Provider = Me['provider'];
-
-/** PROVIDER_NAMES names each way in as the page shows it; a new provider in the api's types will not compile until it is named here. */
-const PROVIDER_NAMES: Record<Provider, string> = { discord: 'Discord', email: 'Email', microsoft: 'Microsoft', google: 'Google' };
 
 /** AccountState is what the account page shows: signed out; signed in but not linked, waiting for an answer, or refused; or linked to a member. */
 export type AccountState =
@@ -52,7 +49,7 @@ export function navLabel(me: Me | null): string {
   if (me.provider === 'discord') return me.display_name || me.username;
   const discord = me.logins.find((l) => l.provider === 'discord');
   if (discord !== undefined) return discord.display_name || discord.username;
-  const named = me.logins.find((l) => (l.provider === 'microsoft' || l.provider === 'google') && l.username !== `${PROVIDER_NAMES[l.provider]} account`);
+  const named = me.logins.find((l) => isOpenID(l.provider) && hasOwnName(l.provider, l.username));
   return named === undefined ? 'Your account' : named.username;
 }
 
@@ -64,7 +61,7 @@ export function showsAdminLink(me: Me | null): boolean {
 /** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
 export function signedInAs(me: Me): { heading: string; detail: string } {
   if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };
-  if (me.provider === 'microsoft' || me.provider === 'google') return { heading: `Signed in with ${PROVIDER_NAMES[me.provider]} as ${me.username}`, detail: '' };
+  if (isOpenID(me.provider)) return { heading: `Signed in with ${PROVIDER_NAMES[me.provider]} as ${me.username}`, detail: '' };
   return { heading: `Signed in with Discord as ${me.display_name || me.username}`, detail: me.display_name === '' ? '' : `Discord username: ${me.username}` };
 }
 
@@ -76,7 +73,7 @@ export type WayIn = { provider: Provider; label: string; removable: boolean; cha
 export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolean> } {
   const removable = me.logins.length > 1;
   const ways = me.logins.map((l) => {
-    const also = l.provider === 'microsoft' || l.provider === 'google' ? l.email : l.display_name;
+    const also = isOpenID(l.provider) ? l.email : l.display_name;
     const name = also === '' || also === l.username ? l.username : `${l.username} (${also})`;
     return { provider: l.provider, label: `${PROVIDER_NAMES[l.provider]}: ${name}`, removable, changeable: l.provider === 'email' };
   });
@@ -84,8 +81,11 @@ export function waysIn(me: Me): { ways: WayIn[]; canAdd: Record<Provider, boolea
   return { ways, canAdd: { discord: !has('discord'), email: !has('email'), microsoft: !has('microsoft'), google: !has('google') } };
 }
 
+/** SIGNERS are the ways in that sign in through their own site, in the order the page offers them. */
+export const SIGNERS = ['discord', 'microsoft', 'google'] as const;
+
 /** Signer is a way in that signs in through its own site: Discord, Microsoft or Google. */
-export type Signer = 'discord' | 'microsoft' | 'google';
+export type Signer = (typeof SIGNERS)[number];
 
 /** signInHref opens the api's sign-in with provider, which comes back to the page at back. */
 export function signInHref(apiUrl: string, provider: Signer, back: string): string {

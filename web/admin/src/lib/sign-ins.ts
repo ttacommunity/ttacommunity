@@ -1,4 +1,5 @@
 /** The decisions behind players' accounts on the Members tab: which wait for an answer, which member each linked one belongs to, how each is named, and what an approver is told. */
+import { hasOwnName, isOpenID, PROVIDER_NAMES } from '@ttac/shared/providers';
 import type { AdminAccount } from './admin-api';
 
 type Request = NonNullable<AdminAccount['request']>;
@@ -7,10 +8,7 @@ type Request = NonNullable<AdminAccount['request']>;
 export function who(a: AdminAccount): string {
   return a.logins
     .map((l) => {
-      if (l.provider === 'microsoft' || l.provider === 'google') {
-        const provider = l.provider === 'microsoft' ? 'Microsoft' : 'Google';
-        return l.username === `${provider} account` ? l.username : `${l.username} (${provider})`;
-      }
+      if (isOpenID(l.provider)) return hasOwnName(l.provider, l.username) ? `${l.username} (${PROVIDER_NAMES[l.provider]})` : l.username;
       return l.display_name === '' || l.display_name === l.username ? l.username : `${l.username} (${l.display_name})`;
     })
     .join(' · ');

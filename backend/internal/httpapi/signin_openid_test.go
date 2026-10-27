@@ -8,36 +8,25 @@ import (
 	"strings"
 	"testing"
 
-	"ttacommunity/backend/internal/google"
-	"ttacommunity/backend/internal/microsoft"
+	"ttacommunity/backend/internal/openid"
 	"ttacommunity/backend/internal/store"
 )
 
 // The fake's Microsoft and Google: good-code signs in Player One with a verified email, nameless-code an account with
 // only an email, bare-code one with neither; each only with the verifier and nonce its last authorize URL carried.
 
-func (f *fakeSignIns) MicrosoftReady() bool { return !f.microsoftOff }
+func (f *fakeSignIns) OpenIDReady(provider string) bool {
+	return !(provider == "microsoft" && f.microsoftOff || provider == "google" && f.googleOff)
+}
 
-func (f *fakeSignIns) MicrosoftAuthURL(state, verifier, nonce string) string {
+func (f *fakeSignIns) OpenIDAuthURL(provider, state, verifier, nonce string) string {
 	f.verifier, f.nonce = verifier, nonce
-	return "https://microsoft.example/authorize?state=" + url.QueryEscape(state)
+	return "https://" + provider + ".example/authorize?state=" + url.QueryEscape(state)
 }
 
-func (f *fakeSignIns) MicrosoftUser(_ context.Context, code, verifier, nonce string) (microsoft.User, error) {
-	subject, name, email, err := f.openIDUser("microsoft", code, verifier, nonce)
-	return microsoft.User{Subject: subject, Name: name, Email: email}, err
-}
-
-func (f *fakeSignIns) GoogleReady() bool { return !f.googleOff }
-
-func (f *fakeSignIns) GoogleAuthURL(state, verifier, nonce string) string {
-	f.verifier, f.nonce = verifier, nonce
-	return "https://google.example/authorize?state=" + url.QueryEscape(state)
-}
-
-func (f *fakeSignIns) GoogleUser(_ context.Context, code, verifier, nonce string) (google.User, error) {
-	subject, name, email, err := f.openIDUser("google", code, verifier, nonce)
-	return google.User{Subject: subject, Name: name, Email: email}, err
+func (f *fakeSignIns) OpenIDUser(_ context.Context, provider, code, verifier, nonce string) (openid.User, error) {
+	subject, name, email, err := f.openIDUser(provider, code, verifier, nonce)
+	return openid.User{Subject: subject, Name: name, Email: email}, err
 }
 
 // openIDUser is who code signs in at provider, as the fake's Microsoft and Google describe.
