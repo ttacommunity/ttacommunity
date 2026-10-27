@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, byFinish, offsetMinutes, formatLabel, knockoutStage, latestFinishes, placeLabel, offsetLabel, pairingSummary, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, offsetMinutes, formatLabel, knockoutStage, offsetLabel, pairingSummary, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { editionHref, editionParams } from './blitz';
 
@@ -216,55 +216,31 @@ describe('scoringSentence', () => {
   });
 });
 
-describe('placeLabel', () => {
+describe('drawLabel', () => {
   it.each([
-    ['a place held alone', 3, 3, '3'],
-    ['a shared place', 1, 12, '1–12'],
-  ] as const)('writes %s', (_name, from, to, want) => {
-    expect(placeLabel({ place_from: from, place_to: to })).toBe(want);
+    ['nothing for a rank held alone', 3, 3, null],
+    ['the ranks the draw ordered', 8, 9, 'Ranks 8–9 were ordered by the draw'],
+  ] as const)('gives %s', (_name, from, to, want) => {
+    expect(drawLabel({ place_from: from, place_to: to })).toBe(want);
   });
 });
 
-describe('latestFinishes', () => {
-  const played = (a: string, b: string | null, at: string | null) => ({ a, b, game: at === null ? null : { finished_at: at } });
-  it.each([
-    ['each player of the latest Swiss round with a played game, by when it finished',
-      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Di', '2026-10-26T10:00:00Z'), played('Cy', 'Bo', null)] }],
-      { Ann: '2026-10-26T10:00:00Z', Di: '2026-10-26T10:00:00Z' }],
-    ['the round before while the latest has no game yet',
-      [{ number: 1, kind: 'swiss', matches: [played('Ann', 'Cy', '2026-10-19T16:00:00Z')] }, { number: 2, kind: 'swiss', matches: [played('Ann', 'Cy', null)] }],
-      { Ann: '2026-10-19T16:00:00Z', Cy: '2026-10-19T16:00:00Z' }],
-    ['no knockout round', [{ number: 7, kind: 'knockout', matches: [played('Ann', 'Cy', '2026-12-01T10:00:00Z')] }], {}],
-    ['nobody for a bye', [{ number: 1, kind: 'swiss', matches: [played('Ann', null, null)] }], {}],
-  ] as const)('finds %s', (_name, rounds, want) => {
-    expect(Object.fromEntries(latestFinishes(rounds))).toEqual(want);
-  });
-});
-
-describe('byFinish', () => {
-  const row = (name: string, from: number) => ({ name, place_from: from });
-  const finished = new Map([
-    ['Ann', '2026-10-19T18:00:00Z'],
-    ['Bo', '2026-10-19T16:00:00Z'],
-    ['Di', '2026-10-19T17:00:00Z'],
-  ]);
-  it.each([
-    ['earliest finish first within a shared place', [row('Ann', 1), row('Bo', 1), row('Di', 1)], ['Bo', 'Di', 'Ann']],
-    ['players without a game after, in the order given', [row('Cy', 1), row('Ed', 1), row('Ann', 1)], ['Ann', 'Cy', 'Ed']],
-    ['never across places', [row('Ann', 1), row('Bo', 2)], ['Ann', 'Bo']],
-  ] as const)('keeps %s', (_name, rows, want) => {
-    expect(byFinish(rows, finished).map((r) => r.name)).toEqual(want);
+describe('TIE_BREAKS', () => {
+  it('lists the seven steps, Direct Encounter first and the draw last', () => {
+    expect(TIE_BREAKS.map((t) => t.label)).toEqual(['Direct Encounter', 'Buchholz Cut 1', 'Buchholz', 'Sonneborn-Berger', "Opponents' Buchholz", "Opponents' Sonneborn-Berger", 'The draw']);
   });
 });
 
 describe('STANDING_COLUMNS', () => {
-  const standing = (name: string, place: number, points: number, buchholz: number) => ({ rank: place, place_from: place, place_to: place, name, country: null, points, games: 1, byes: 0, buchholz, status: 'active' as const });
-  const rows = [standing('cy', 1, 2, 1), standing('Ann', 2, 1, 3), standing('bo', 3, 1, 2)];
+  const standing = (name: string, rank: number, points: number, buchholz: number, cut1: number, sb: number) => ({ rank, place_from: rank, place_to: rank, name, country: null, points, games: 1, byes: 0, buchholz_cut1: cut1, buchholz, sonneborn_berger: sb, opponents_buchholz: 0, opponents_sonneborn_berger: 0, status: 'active' as const });
+  const rows = [standing('cy', 1, 2, 1, 0.5, 2), standing('Ann', 2, 1, 3, 2, 0), standing('bo', 3, 1, 2, 1.5, 1)];
   it.each([
-    ['place', { col: 'place', desc: false }, ['cy', 'Ann', 'bo']],
+    ['rank', { col: 'rank', desc: false }, ['cy', 'Ann', 'bo']],
     ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
     ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
-    ['buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
+    ['Buchholz Cut 1', { col: 'cut1', desc: true }, ['Ann', 'bo', 'cy']],
+    ['Buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
+    ['Sonneborn-Berger', { col: 'sb', desc: true }, ['cy', 'bo', 'Ann']],
   ] as const)('sorts the standings by %s', (_name, sort, want) => {
     expect(sortRows(rows, STANDING_COLUMNS, sort).map((r) => r.name)).toEqual(want);
   });

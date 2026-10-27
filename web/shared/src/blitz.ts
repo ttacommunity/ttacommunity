@@ -205,53 +205,37 @@ export function reachedLabel(round: number | null, f: BlitzFormat, champion: str
   return round === null ? 'Pairing not started' : roundTitle(round, f);
 }
 
-/** placeLabel writes a standing's place: "3" when held alone, "1–12" when shared. */
-export function placeLabel(s: { place_from: number; place_to: number }): string {
-  return s.place_from === s.place_to ? String(s.place_from) : `${s.place_from}–${s.place_to}`;
+/** drawLabel says which ranks the draw ordered, for a standing in a shared place: "Ranks 8–9 were ordered by the draw"; null for a rank held alone. */
+export function drawLabel(s: { place_from: number; place_to: number }): string | null {
+  return s.place_from === s.place_to ? null : `Ranks ${s.place_from}–${s.place_to} were ordered by the draw`;
 }
 
-/** FinishRound is what latestFinishes reads of a round: its number, kind, and each match's players and game. */
-export type FinishRound = { number: number; kind: 'swiss' | 'knockout'; matches: readonly { a: string; b: string | null; game: { finished_at: string } | null }[] };
+/** TIE_BREAKS are the steps that separate players on the same points, in the order they apply, each said in plain words. */
+export const TIE_BREAKS: readonly { label: string; about: string }[] = [
+  { label: 'Direct Encounter', about: 'The games among the tied players, when they have all met each other.' },
+  { label: 'Buchholz Cut 1', about: "The sum of the opponents' scores, the lowest left out." },
+  { label: 'Buchholz', about: "The sum of all the opponents' scores." },
+  { label: 'Sonneborn-Berger', about: 'The scores of the opponents beaten, plus half the scores of those drawn.' },
+  { label: "Opponents' Buchholz", about: "The sum of the opponents' Buchholz." },
+  { label: "Opponents' Sonneborn-Berger", about: "The sum of the opponents' Sonneborn-Berger." },
+  { label: 'The draw', about: 'A draw of lots fixed for the edition, the same every time the standings are shown.' },
+];
 
-/** latestFinishes maps each player with a game in the latest Swiss round that has one to when that game finished. */
-export function latestFinishes(rounds: readonly FinishRound[]): Map<string, string> {
-  const latest = rounds
-    .filter((r) => r.kind === 'swiss' && r.matches.some((m) => m.game !== null))
-    .reduce<FinishRound | null>((best, r) => (best === null || r.number > best.number ? r : best), null);
-  const out = new Map<string, string>();
-  for (const m of latest?.matches ?? []) {
-    if (m.game === null || m.b === null) continue;
-    out.set(m.a, m.game.finished_at);
-    out.set(m.b, m.game.finished_at);
-  }
-  return out;
-}
-
-/** byFinish orders the standings within each shared place by when each player's game finished (finished, from latestFinishes), earliest first; those without one follow in the order given. */
-export function byFinish<T extends { name: string; place_from: number }>(standings: readonly T[], finished: ReadonlyMap<string, string>): T[] {
-  const at = (s: T) => finished.get(s.name) ?? null;
-  return standings
-    .map((s, i) => ({ s, i }))
-    .sort((x, y) => {
-      if (x.s.place_from !== y.s.place_from) return x.i - y.i;
-      const a = at(x.s);
-      const b = at(y.s);
-      if (a === null || b === null) return a === b ? x.i - y.i : a === null ? 1 : -1;
-      return a === b ? x.i - y.i : a < b ? -1 : 1;
-    })
-    .map(({ s }) => s);
-}
+/** UNPLAYED_NOTE says how a bye, a forfeit or a missed round counts in the tie-breaks. */
+export const UNPLAYED_NOTE = "A bye, a forfeit or a missed round counts as a game against an opponent on the player's own score.";
 
 export type BlitzStanding = components['schemas']['BlitzStanding'];
 
 /** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
-export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'place' | 'player' | 'points' | 'played' | 'byes' | 'buchholz'> = {
-  place: { value: (s) => s.place_from, first: 'asc' },
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'points' | 'played' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
+  rank: { value: (s) => s.rank, first: 'asc' },
   player: { value: (s) => s.name, first: 'asc' },
   points: { value: (s) => s.points, first: 'desc' },
   played: { value: (s) => s.games, first: 'desc' },
   byes: { value: (s) => s.byes, first: 'desc' },
+  cut1: { value: (s) => s.buchholz_cut1, first: 'desc' },
   buchholz: { value: (s) => s.buchholz, first: 'desc' },
+  sb: { value: (s) => s.sonneborn_berger, first: 'desc' },
 };
 
 /** EditionRow is what an editions list shows of an edition, on the site and in admin. */
