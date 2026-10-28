@@ -47,7 +47,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 		}
 	}
 	met := metBefore(swiss, r.ID)
-	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r),
+	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: RoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r),
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
 	if r.Deadline != nil {
 		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}

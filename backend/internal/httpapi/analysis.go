@@ -216,7 +216,7 @@ func (s *server) GetSeatAnalysis(ctx context.Context, req GetSeatAnalysisRequest
 
 	body := SeatAnalysis{
 		RunId:  req.Run,
-		Tier:   SeatAnalysisTier(tier),
+		Tier:   SeatTier(tier),
 		Groups: make([]SeatStatsGroup, 0, len(groups)),
 	}
 	for _, g := range groups {

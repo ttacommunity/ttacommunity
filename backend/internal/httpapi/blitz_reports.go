@@ -54,13 +54,13 @@ func myBlitzMatch(ed store.BlitzEdition, member int64) *MyBlitzMatch {
 				reportedBy = "a"
 			}
 		}
-		out := &MyBlitzMatch{Id: m.ID, Round: r.Number, A: names[m.A], Me: MyBlitzMatchMe(me), Result: blitzResult(m), Game: playedGame(m),
+		out := &MyBlitzMatch{Id: m.ID, Round: r.Number, A: names[m.A], Me: MatchSide(me), Result: blitzResult(m), Game: playedGame(m),
 			Ruled: m.Ruling != "", Report: blitzReport(m), FlagReason: m.FlagReason, Actions: []MyBlitzMatchActions{}}
 		if m.B != nil {
 			out.B = new(names[*m.B])
 		}
 		if reportedBy != "" {
-			out.ReportedBy = new(MyBlitzMatchReportedBy(reportedBy))
+			out.ReportedBy = new(MatchSide(reportedBy))
 		}
 		closed := ed.PairedRound != nil && *ed.PairedRound > r.Number
 		for _, a := range blitz.PlayerActions(blitz.PlayerMatch{Me: me, ReportedBy: reportedBy, Report: m.Report, Decided: m.Result != "",

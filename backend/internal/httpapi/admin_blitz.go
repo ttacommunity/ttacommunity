@@ -58,7 +58,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 	// A stored zone was checked on the way in, so an error here is an unknown later zone: shown with no offset.
 	offset, _ := blitz.Offset(e.Zone, s.now())
 	out := AdminBlitzEntrant{Id: e.ID, Member: e.MemberID, Name: e.Name, Player: e.Player, DiscordName: e.DiscordName, Email: e.Email,
-		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: AdminBlitzEntrantStatus(e.Status), Skips: []int{}}
+		Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset, Status: EntrantStatus(e.Status), Skips: []int{}}
 	if e.Skips != nil {
 		out.Skips = e.Skips
 	}
@@ -105,7 +105,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
-		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing), RanksFixedBy: ranksFixedByOf[AdminBlitzEditionRanksFixedBy](ed.RanksFixedBy),
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing), RanksFixedBy: ranksFixedByOf[RanksFixedBy](ed.RanksFixedBy),
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)

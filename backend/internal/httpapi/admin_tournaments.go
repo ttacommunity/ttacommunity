@@ -66,9 +66,9 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 			Podium: podiumEntries(se.Podium), PodiumNote: se.PodiumNote, SuggestedPodium: podiumEntries(se.Suggested),
 			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Finished: se.Finished, Players: se.Players}
 	}
-	var ps *AdminTournamentPodiumSource
+	var ps *PodiumSource
 	if t.PodiumSource != "" {
-		s := AdminTournamentPodiumSource(t.PodiumSource)
+		s := PodiumSource(t.PodiumSource)
 		ps = &s
 	}
 	out := AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description,

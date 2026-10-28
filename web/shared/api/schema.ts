@@ -2812,8 +2812,7 @@ export interface components {
         AdminPerson: {
             discord_id: string;
             name: string;
-            /** @enum {string} */
-            role: "admin" | "organiser";
+            role: components["schemas"]["Role"];
         };
         AdminAuditPage: {
             page: number;
@@ -2841,8 +2840,7 @@ export interface components {
         };
         AdminRole: {
             name: string;
-            /** @enum {string} */
-            role: "admin" | "organiser";
+            role: components["schemas"]["Role"];
         };
         AdminTournament: {
             /** @description The name it came in with, kept when it is renamed */
@@ -2873,11 +2871,8 @@ export interface components {
             points_3p: components["schemas"]["PlacePoints"];
             points_4p: components["schemas"]["PlacePoints"];
             kind: components["schemas"]["TournamentKind"];
-            /**
-             * @description How its podium is chosen: top_divisions, final_stage, recorded, or none
-             * @enum {string|null}
-             */
-            podium_source?: "top_divisions" | "final_stage" | "recorded" | "none" | null;
+            /** @description How its podium is chosen: top_divisions, final_stage, recorded, or none */
+            podium_source?: components["schemas"]["PodiumSource"] | null;
             /** @description A league's divisions whose final standings make its podium; empty for none */
             top_divisions: string[];
             /** @description The player counts whose games count towards ratings */
@@ -3032,11 +3027,8 @@ export interface components {
             name?: string;
             description?: string;
             kind?: components["schemas"]["TournamentKind"];
-            /**
-             * @description How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
-             * @enum {string|null}
-             */
-            podium_source?: "top_divisions" | "final_stage" | "recorded" | "none" | null;
+            /** @description How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none */
+            podium_source?: components["schemas"]["PodiumSource"] | null;
             /** @description A league's divisions whose final standings make its podium on the site; empty for none */
             top_divisions?: string[];
             /** @description The player counts whose games count towards ratings, from the next run */
@@ -3058,8 +3050,7 @@ export interface components {
         PlacePoints: number[];
         AdminMe: {
             name: string;
-            /** @enum {string} */
-            role: "admin" | "organiser";
+            role: components["schemas"]["Role"];
         };
         Health: {
             status: string;
@@ -3110,11 +3101,8 @@ export interface components {
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
             pairing: components["schemas"]["BlitzPairingMethods"];
-            /**
-             * @description What fixed the starting ranks when round 1 was paired, rating or lot; null before
-             * @enum {string|null}
-             */
-            ranks_fixed_by: "rating" | "lot" | null;
+            /** @description What fixed the starting ranks when round 1 was paired, rating or lot; null before */
+            ranks_fixed_by: components["schemas"]["RanksFixedBy"] | null;
             /**
              * Format: date-time
              * @description When the latest result in a published round was recorded; null before the first
@@ -3151,11 +3139,8 @@ export interface components {
             /** @description Who sat the round out, by username, in sign-up order */
             skipped: string[];
             number: number;
-            /**
-             * @description A Swiss round, or a knockout round (its matches in bracket order)
-             * @enum {string}
-             */
-            kind: "swiss" | "knockout";
+            /** @description A Swiss round, or a knockout round (its matches in bracket order) */
+            kind: components["schemas"]["RoundKind"];
             /** Format: date-time */
             published_at: string;
             matches: components["schemas"]["BlitzPublicMatch"][];
@@ -3193,12 +3178,12 @@ export interface components {
             share_code: string;
             /** Format: double */
             a_culture: number;
-            a_outcome: components["schemas"]["BlitzOutcome"];
+            a_outcome: components["schemas"]["SeatOutcome"];
             /** @description a's place in the turn order, 1 for the player who went first; null when it was not recorded */
             a_turn: number | null;
             /** Format: double */
             b_culture: number;
-            b_outcome: components["schemas"]["BlitzOutcome"];
+            b_outcome: components["schemas"]["SeatOutcome"];
             /** @description b's place in the turn order, 1 for the player who went first; null when it was not recorded */
             b_turn: number | null;
             /**
@@ -3211,7 +3196,7 @@ export interface components {
          * @description How a player's game ended
          * @enum {string}
          */
-        BlitzOutcome: "finished" | "resigned" | "timed_out";
+        SeatOutcome: "finished" | "resigned" | "timed_out";
         /** @description One row of the standings */
         BlitzStanding: {
             rank: number;
@@ -3268,11 +3253,8 @@ export interface components {
              * @description The sum of the opponents' Sonneborn-Berger; an unplayed round counts the player's own
              */
             opponents_sonneborn_berger: number;
-            /**
-             * @description Dropped players come last
-             * @enum {string}
-             */
-            status: "active" | "dropped";
+            /** @description Dropped players come last */
+            status: components["schemas"]["EntrantStatus"];
         };
         /**
          * @description How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
@@ -3361,8 +3343,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             number: number;
-            /** @enum {string} */
-            kind: "swiss" | "knockout";
+            kind: components["schemas"]["RoundKind"];
             /** @description The method a Swiss round was paired with; null for a knockout round */
             method: components["schemas"]["BlitzPairingMethod"] | null;
             /** @description The order a Swiss round was paired by; null for a knockout round */
@@ -3441,20 +3422,14 @@ export interface components {
             rating: number | null;
             /** @description The Dutch system's starting rank, fixed when round 1 was paired (1 the top); null before */
             starting_rank: number | null;
-            /**
-             * @description Active is in; dropped is out of the rounds still to come, their results kept
-             * @enum {string}
-             */
-            status: "active" | "dropped";
+            /** @description Active is in; dropped is out of the rounds still to come, their results kept */
+            status: components["schemas"]["EntrantStatus"];
             /** @description The rounds they skip or skipped, in order; one not yet published is the next round, which can be undone */
             skips: number[];
         };
         AdminBlitzEdition: {
-            /**
-             * @description What fixed the starting ranks when round 1 was paired, rating or lot; null before
-             * @enum {string|null}
-             */
-            ranks_fixed_by: "rating" | "lot" | null;
+            /** @description What fixed the starting ranks when round 1 was paired, rating or lot; null before */
+            ranks_fixed_by: components["schemas"]["RanksFixedBy"] | null;
             pairing: components["schemas"]["BlitzPairingMethods"];
             points: components["schemas"]["BlitzPoints"];
             /** @description True when the points are FIDE's, so Reset has nothing to do */
@@ -3598,7 +3573,7 @@ export interface components {
              * @description Ignored (0) for a player who resigned or timed out
              */
             culture: number;
-            outcome: components["schemas"]["BlitzOutcome"];
+            outcome: components["schemas"]["SeatOutcome"];
             /**
              * @description The player's place in the turn order, 1 for the player who went
              *     first. A game's players take 1 to N, each once
@@ -3627,22 +3602,16 @@ export interface components {
             a: string;
             /** @description Null for the bye */
             b: string | null;
-            /**
-             * @description Which side the player is
-             * @enum {string}
-             */
-            me: "a" | "b";
+            /** @description Which side the player is */
+            me: components["schemas"]["MatchSide"];
             result: components["schemas"]["BlitzResult"] | null;
             game: components["schemas"]["BlitzPlayedGame"] | null;
             /** @description Whether the result is the organisers' ruling */
             ruled: boolean;
             /** @description Null when no player reported the game */
             report: components["schemas"]["BlitzReport"] | null;
-            /**
-             * @description Which side reported the game; null when no player did
-             * @enum {string|null}
-             */
-            reported_by: "a" | "b" | null;
+            /** @description Which side reported the game; null when no player did */
+            reported_by: components["schemas"]["MatchSide"] | null;
             /** @description The opponent's reason when the report was flagged, else empty */
             flag_reason: string;
             /**
@@ -3718,8 +3687,7 @@ export interface components {
             /** @description A two-letter country code, or empty for none */
             country?: string;
             zone?: string;
-            /** @enum {string} */
-            status?: "active" | "dropped";
+            status?: components["schemas"]["EntrantStatus"];
         };
         Error: {
             error: string;
@@ -3847,6 +3815,56 @@ export interface components {
         };
         /** @enum {string} */
         TitleCode: "WC" | "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
+        /**
+         * @description What a person may do in admin
+         * @enum {string}
+         */
+        Role: "admin" | "organiser";
+        /**
+         * @description Whether a blitz entrant is in the rounds still to come
+         * @enum {string}
+         */
+        EntrantStatus: "active" | "dropped";
+        /**
+         * @description A Swiss round, or a knockout round
+         * @enum {string}
+         */
+        RoundKind: "swiss" | "knockout";
+        /**
+         * @description What fixed a blitz edition's starting ranks
+         * @enum {string}
+         */
+        RanksFixedBy: "rating" | "lot";
+        /**
+         * @description How a tournament's podium is chosen
+         * @enum {string}
+         */
+        PodiumSource: "top_divisions" | "final_stage" | "recorded" | "none";
+        /**
+         * @description A game's state
+         * @enum {string}
+         */
+        GameState: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
+        /**
+         * @description A seat analysis' group of players, by rating
+         * @enum {string}
+         */
+        SeatTier: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
+        /**
+         * @description A side of a blitz match
+         * @enum {string}
+         */
+        MatchSide: "a" | "b";
+        /**
+         * @description Where a request to be linked to a member stands
+         * @enum {string}
+         */
+        RequestStatus: "pending" | "approved" | "refused";
+        /**
+         * @description How an account was linked to its member
+         * @enum {string}
+         */
+        LinkedHow: "match" | "approved";
         /** @description The tournament title the run derived for the player, if any */
         Title: {
             code: components["schemas"]["TitleCode"];
@@ -4286,8 +4304,7 @@ export interface components {
         SeatAnalysis: {
             /** Format: int64 */
             run_id: number;
-            /** @enum {string} */
-            tier: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
+            tier: components["schemas"]["SeatTier"];
             /** @description Seat statistics grouped by player count (2P, 3P, 4P) */
             groups: components["schemas"]["SeatStatsGroup"][];
         };
@@ -4506,11 +4523,8 @@ export interface components {
             /** @description As the leaderboard writes it */
             name: string;
             country: string | null;
-            /**
-             * @description The run's title for the player, null when none or not a player here
-             * @enum {string|null}
-             */
-            title: "WC" | "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W" | null;
+            /** @description The run's title for the player, null when none or not a player here */
+            title: components["schemas"]["TitleCode"] | null;
             /** Format: double */
             points: number;
             events: number;
@@ -4695,11 +4709,8 @@ export interface components {
             group: string;
             /** @description The game's number in its group, or null when its name gives none */
             game: number | null;
-            /**
-             * @description A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
-             * @enum {string}
-             */
-            state: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
+            /** @description A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated */
+            state: components["schemas"]["GameState"];
             replay_code: string | null;
             /** @description Highest score first */
             seats: components["schemas"]["GameSeat"][];
@@ -4712,11 +4723,8 @@ export interface components {
             name: string;
             /** Format: double */
             score: number;
-            /**
-             * @description How the seat ended, as CGE records it; null where CGE's seats are not known
-             * @enum {string|null}
-             */
-            outcome: "finished" | "resigned" | "timed_out" | null;
+            /** @description How the seat ended, as CGE records it; null where CGE's seats are not known */
+            outcome: components["schemas"]["SeatOutcome"] | null;
         };
         /**
          * @description A tournament series
@@ -4895,8 +4903,7 @@ export interface components {
             display_name: string;
             member: components["schemas"]["MyMember"] | null;
             request: components["schemas"]["MyLinkRequest"] | null;
-            /** @enum {string|null} */
-            admin_role: "admin" | "organiser" | null;
+            admin_role: components["schemas"]["Role"] | null;
         };
         /**
          * @description Where a player signs in
@@ -4950,8 +4957,7 @@ export interface components {
         /** @description A request to be linked to a TTA username, and its answer */
         MyLinkRequest: {
             name: string;
-            /** @enum {string} */
-            status: "pending" | "approved" | "refused";
+            status: components["schemas"]["RequestStatus"];
             /** @description Why it was refused, empty when no reason was given */
             reason: string;
             /** Format: date-time */
@@ -4978,11 +4984,8 @@ export interface components {
             country: string | null;
             /** @description The time zone given before a link; null when none (a link moves it to the member) */
             zone: string | null;
-            /**
-             * @description How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
-             * @enum {string|null}
-             */
-            linked_how: "match" | "approved" | null;
+            /** @description How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked */
+            linked_how: components["schemas"]["LinkedHow"] | null;
             /** Format: date-time */
             linked_at: string | null;
             /** @description Whether a sign-in may link the account by a matching Discord name or email; off once an admin unlinked it */
@@ -5034,8 +5037,7 @@ export interface components {
         /** @description A request to be linked, and its answer */
         MyDataRequest: {
             name: string;
-            /** @enum {string} */
-            status: "pending" | "approved" | "refused";
+            status: components["schemas"]["RequestStatus"];
             /** @description Why it was refused, empty when no reason was given */
             reason: string;
             /** Format: date-time */
@@ -5099,11 +5101,8 @@ export interface components {
             member_id: number | null;
             /** @description The linked member's TTA username, empty when not linked */
             member: string;
-            /**
-             * @description By a recorded Discord name or email, or by an approved request; null when not linked
-             * @enum {string|null}
-             */
-            linked_how: "match" | "approved" | null;
+            /** @description By a recorded Discord name or email, or by an approved request; null when not linked */
+            linked_how: components["schemas"]["LinkedHow"] | null;
             /**
              * Format: date-time
              * @description The latest sign-in by any way in
@@ -5983,7 +5982,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Skill tier of the table based on average Glicko-D rating when played */
-                tier?: "all" | "grandmaster" | "master" | "advanced" | "intermediate" | "beginner";
+                tier?: components["schemas"]["SeatTier"];
                 /** @description Player count format (0 for all formats, or 2, 3, 4) */
                 format?: components["schemas"]["Format"];
             };
@@ -6127,7 +6126,7 @@ export interface operations {
                 /** @description Only games with a replay code */
                 coded?: boolean;
                 /** @description Only games in this state */
-                state?: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
+                state?: components["schemas"]["GameState"];
                 page?: number;
             };
             header?: never;
@@ -8909,48 +8908,33 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
-export const pathsV1RunsRunAnalysisSeatsGetParametersQueryTierValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/analysis/seats"]["get"]["parameters"]["query"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
-export const pathsV1RunsRunCatalogueTournamentGamesGetParametersQueryStateValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/catalogue/{tournament}/games"]["get"]["parameters"]["query"]["state"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
-export const adminPersonRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminPerson"]["role"]> = ["admin", "organiser"];
-export const adminRoleRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRole"]["role"]> = ["admin", "organiser"];
-export const adminTournamentPodium_sourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTournament"]["podium_source"]> = ["top_divisions", "final_stage", "recorded", "none"];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
-export const tournamentSettingsPodium_sourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentSettings"]["podium_source"]> = ["top_divisions", "final_stage", "recorded", "none"];
-export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
-export const blitzEditionRanks_fixed_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEdition"]["ranks_fixed_by"]> = ["rating", "lot"];
-export const blitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
-export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
-export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
+export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
 export const blitzPairingOrderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingOrder"]> = ["rating", "lot", "random"];
-export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
-export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
-export const adminBlitzEditionRanks_fixed_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEdition"]["ranks_fixed_by"]> = ["rating", "lot"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];
-export const myBlitzMatchMeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["me"]> = ["a", "b"];
-export const myBlitzMatchReported_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["reported_by"]> = ["a", "b"];
 export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
-export const blitzEntrantChangeStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEntrantChange"]["status"]> = ["active", "dropped"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
+export const roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Role"]> = ["admin", "organiser"];
+export const entrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EntrantStatus"]> = ["active", "dropped"];
+export const roundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RoundKind"]> = ["swiss", "knockout"];
+export const ranksFixedByValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RanksFixedBy"]> = ["rating", "lot"];
+export const podiumSourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PodiumSource"]> = ["top_divisions", "final_stage", "recorded", "none"];
+export const gameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameState"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
+export const seatTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatTier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
+export const matchSideValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MatchSide"]> = ["a", "b"];
+export const requestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RequestStatus"]> = ["pending", "approved", "refused"];
+export const linkedHowValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LinkedHow"]> = ["match", "approved"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
-export const seatAnalysisTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatAnalysis"]["tier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
-export const communityRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CommunityRow"]["title"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
-export const catalogueGameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CatalogueGame"]["state"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
-export const gameSeatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameSeat"]["outcome"]> = ["finished", "resigned", "timed_out"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
-export const meAdmin_roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Me"]["admin_role"]> = ["admin", "organiser"];
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
-export const myLinkRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyLinkRequest"]["status"]> = ["pending", "approved", "refused"];
-export const myDataAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyDataAccount"]["linked_how"]> = ["match", "approved"];
-export const myDataRequestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyDataRequest"]["status"]> = ["pending", "approved", "refused"];
-export const adminAccountLinked_howValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminAccount"]["linked_how"]> = ["match", "approved"];
