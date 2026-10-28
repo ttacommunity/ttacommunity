@@ -1789,9 +1789,10 @@ type BlitzEdition struct {
 
 	// Standings By rank: points, then the tie-breaks in order (Direct Encounter,
 	// Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
-	// Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
-	// the edition; dropped players last. Only the published Swiss rounds
-	// count
+	// Buchholz, the opponents' Sonneborn-Berger), then the starting
+	// ranks (the lot, or the seed by rating), and before round 1 fixed
+	// them a draw fixed for the edition; dropped players last. Only the
+	// published Swiss rounds count
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
@@ -2115,9 +2116,9 @@ type BlitzStanding struct {
 	OpponentsSonnebornBerger float64 `json:"opponents_sonneborn_berger"`
 
 	// PlaceFrom The first rank of the place this row shares with the rows only the
-	// edition's draw separates it from (equal points, direct encounter
-	// and every tie-break); place_to is the last. Equal for a place held
-	// alone
+	// starting ranks (or, before round 1, the edition's draw) separate
+	// it from (equal points, direct encounter and every tie-break);
+	// place_to is the last. Equal for a place held alone
 	PlaceFrom int `json:"place_from"`
 	PlaceTo   int `json:"place_to"`
 

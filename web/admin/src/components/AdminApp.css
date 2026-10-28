@@ -874,3 +874,17 @@
   color: var(--accent-gold);
   font-weight: 700;
 }
+
+/* The row above the blitz standings: the scoring at a glance, the tie-breaks toggle; the marker's meaning under it. */
+.blitz-table-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.blitz-footnote {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+}

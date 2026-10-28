@@ -8,7 +8,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringSentence, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
@@ -939,7 +939,7 @@ function EditionTabs(props: Props) {
               </>
             ),
           },
-          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} start={startLabel(props.ed.ranks_fixed_by)} /> },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringLine(props.ed.points, props.ed.fide_points)} fixedBy={props.ed.ranks_fixed_by} /> },
         ]}
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
@@ -1533,19 +1533,19 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the draw ordered it), the starting rank once fixed (start: the column's heading), points, games played, byes and, on request, the tie-breaks; dropped players last. */
-function StandingsPanel({ standings, scoring, start }: { standings: BlitzStanding[]; scoring: string; start: string | null }) {
+/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the lot, the seed or the draw ordered it; fixedBy is what fixed the starting ranks, null before round 1), the starting rank once fixed, points, games played, byes and, on request, the tie-breaks; dropped players last. */
+function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
+  const start = startLabel(fixedBy);
   return (
     <>
-      <p className="muted">
-        {scoring} Players on the same points are separated by {TIE_BREAKS.map((t) => t.label).join(', ')}, in that order.{' '}
-        {UNPLAYED_NOTE} A rank marked <span className="blitz-draw">*</span> was ordered by the draw.
-      </p>
-      <label className="setting-inline">
-        <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
-      </label>
+      <div className="blitz-table-bar muted">
+        <span>{scoring}</span>
+        <label className="setting-inline">
+          <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
+        </label>
+      </div>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
         <div className="table-responsive">
@@ -1559,11 +1559,6 @@ function StandingsPanel({ standings, scoring, start }: { standings: BlitzStandin
                 <SortHeader col="player" sort={sort} onSort={sortBy}>
                   Player
                 </SortHeader>
-                {start !== null && (
-                  <SortHeader col="start" sort={sort} onSort={sortBy}>
-                    {start}
-                  </SortHeader>
-                )}
                 <SortHeader col="points" sort={sort} onSort={sortBy}>
                   Points
                 </SortHeader>
@@ -1586,6 +1581,11 @@ function StandingsPanel({ standings, scoring, start }: { standings: BlitzStandin
                     </SortHeader>
                   </>
                 )}
+                {start !== null && (
+                  <SortHeader col="start" sort={sort} onSort={sortBy}>
+                    {start}
+                  </SortHeader>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1593,9 +1593,9 @@ function StandingsPanel({ standings, scoring, start }: { standings: BlitzStandin
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
                   <td>
                     <span className="blitz-draw-slot">
-                      {drawLabel(s) !== null && (
-                        <span className="blitz-draw" title={drawLabel(s) ?? ''}>
-                          *<span className="visually-hidden">{drawLabel(s)}</span>
+                      {drawLabel(s, fixedBy) !== null && (
+                        <span className="blitz-draw" title={drawLabel(s, fixedBy) ?? ''}>
+                          *<span className="visually-hidden">{drawLabel(s, fixedBy)}</span>
                         </span>
                       )}
                     </span>
@@ -1605,7 +1605,6 @@ function StandingsPanel({ standings, scoring, start }: { standings: BlitzStandin
                     {s.name}
                     {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
                   </th>
-                  {start !== null && <td>{s.starting_rank ?? '–'}</td>}
                   <td>{s.points}</td>
                   <td>{s.games}</td>
                   <td>{s.byes}</td>
@@ -1616,11 +1615,22 @@ function StandingsPanel({ standings, scoring, start }: { standings: BlitzStandin
                       <td>{s.sonneborn_berger}</td>
                     </>
                   )}
+                  {start !== null && <td>{s.starting_rank ?? '–'}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {standings.length > 0 && (
+        <p className="muted blitz-footnote">
+          {standings.some((s) => s.place_from !== s.place_to) && (
+            <>
+              <span className="blitz-draw">*</span> Equal on every tie-break; ordered by {lastTieBreak(fixedBy)}.{' '}
+            </>
+          )}
+          Ties: {TIE_BREAKS.map((t) => t.label).join(', ')}, in that order. {UNPLAYED_NOTE}
+        </p>
       )}
     </>
   );

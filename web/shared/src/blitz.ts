@@ -233,6 +233,12 @@ export function scoringSentence(p: BlitzPoints, fide: boolean): string {
   return fide ? 'A win is 1 point, a draw a half, a bye 1.' : `This edition's points: ${pointsList(p)}.`;
 }
 
+/** scoringLine is the scoring in a glance: "Win 1 · Draw ½ · Bye 1" for FIDE's, every outcome for an edition's own. */
+export function scoringLine(p: BlitzPoints, fide: boolean): string {
+  if (fide) return `Win ${pointsText(p.win)} · Draw ${pointsText(p.draw)} · Bye ${pointsText(p.bye)}`;
+  return `Win ${pointsText(p.win)} · Draw ${pointsText(p.draw)} · Loss ${pointsText(p.loss)} · Forfeit win ${pointsText(p.forfeit_win)} · Forfeit loss ${pointsText(p.forfeit_loss)} · Bye ${pointsText(p.bye)} · Skip ${pointsText(p.skip)}`;
+}
+
 /** knockoutStage names a knockout round by how many still play in it (Final, Semi-finals, Quarter-finals, Round of 16), or null for a round outside the knockout. */
 export function knockoutStage(round: number, f: BlitzFormat): string | null {
   const k = round - f.swiss_rounds;
@@ -259,9 +265,14 @@ export function reachedLabel(round: number | null, f: BlitzFormat, champion: str
   return round === null ? 'Pairing not started' : roundTitle(round, f);
 }
 
-/** drawLabel says which ranks the draw ordered, for a standing in a shared place: "Ranks 8–9 were ordered by the draw"; null for a rank held alone. */
-export function drawLabel(s: { place_from: number; place_to: number }): string | null {
-  return s.place_from === s.place_to ? null : `Ranks ${s.place_from}–${s.place_to} were ordered by the draw`;
+/** lastTieBreak names what orders the players every tie-break leaves level: "the lot" or "the seed" by what fixed the starting ranks, "the draw" before round 1. */
+export function lastTieBreak(fixedBy: 'rating' | 'lot' | null): string {
+  return fixedBy === 'lot' ? 'the lot' : fixedBy === 'rating' ? 'the seed' : 'the draw';
+}
+
+/** drawLabel says which ranks the lot, the seed or the draw ordered (lastTieBreak), for a standing in a shared place: "Ranks 8–9 were ordered by the lot"; null for a rank held alone. */
+export function drawLabel(s: { place_from: number; place_to: number }, fixedBy: 'rating' | 'lot' | null): string | null {
+  return s.place_from === s.place_to ? null : `Ranks ${s.place_from}–${s.place_to} were ordered by ${lastTieBreak(fixedBy)}`;
 }
 
 /** TIE_BREAKS are the steps that separate players on the same points, in the order they apply, each said in plain words. */
@@ -272,7 +283,7 @@ export const TIE_BREAKS: readonly { label: string; about: string }[] = [
   { label: 'Sonneborn-Berger', about: 'The scores of the opponents beaten, plus half the scores of those drawn.' },
   { label: "Opponents' Buchholz", about: "The sum of the opponents' Buchholz." },
   { label: "Opponents' Sonneborn-Berger", about: "The sum of the opponents' Sonneborn-Berger." },
-  { label: 'The draw', about: 'A draw of lots fixed for the edition, the same every time the standings are shown.' },
+  { label: 'The lot', about: 'The starting ranks fixed when round 1 was paired, the lower first: a draw of lots, or the seed when they follow the ratings. Before round 1, a draw fixed for the edition.' },
 ];
 
 /** UNPLAYED_NOTE says how a bye, a forfeit or a missed round counts in the tie-breaks. */

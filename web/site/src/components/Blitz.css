@@ -142,14 +142,34 @@
   font-weight: 700;
 }
 
-/* The "Show tie-breaks" checkbox above the standings. */
+/* The row above the standings: the scoring at a glance on the left, the table's controls on the right; they wrap on a phone. */
+.blitz-table-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+.blitz-table-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
 .blitz-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
-  color: var(--text-soft);
-  font-size: 0.9rem;
+}
+
+/* The marker's meaning, a footnote under the standings. */
+.blitz-footnote {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 /* The one-line pairing of each round group under the edition's subtitle. */

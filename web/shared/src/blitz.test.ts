@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { editionHref, editionParams } from './blitz';
 
@@ -105,6 +105,15 @@ describe('formatLabel', () => {
     [{ swiss_rounds: 6, knockout_size: 0 }, '6 Swiss rounds, no knockout'],
   ])('describes %o', (format, want) => {
     expect(formatLabel(format)).toBe(want);
+  });
+});
+
+describe('scoringLine', () => {
+  it.each([
+    ["FIDE's, the three a reader needs", FIDE, true, 'Win 1 · Draw ½ · Bye 1'],
+    ["the edition's own, every outcome", OURS, false, 'Win 3 · Draw 1½ · Loss ½ · Forfeit win 1 · Forfeit loss 0 · Bye 2½ · Skip 10'],
+  ])('%s', (_, points, fide, want) => {
+    expect(scoringLine(points, fide)).toBe(want);
   });
 });
 
@@ -218,16 +227,18 @@ describe('scoringSentence', () => {
 
 describe('drawLabel', () => {
   it.each([
-    ['nothing for a rank held alone', 3, 3, null],
-    ['the ranks the draw ordered', 8, 9, 'Ranks 8–9 were ordered by the draw'],
-  ] as const)('gives %s', (_name, from, to, want) => {
-    expect(drawLabel({ place_from: from, place_to: to })).toBe(want);
+    ['nothing for a rank held alone', 3, 3, 'lot', null],
+    ['the ranks the lot ordered', 8, 9, 'lot', 'Ranks 8–9 were ordered by the lot'],
+    ['the ranks the seed ordered', 8, 9, 'rating', 'Ranks 8–9 were ordered by the seed'],
+    ['the ranks the draw ordered before round 1', 1, 12, null, 'Ranks 1–12 were ordered by the draw'],
+  ] as const)('gives %s', (_name, from, to, fixedBy, want) => {
+    expect(drawLabel({ place_from: from, place_to: to }, fixedBy)).toBe(want);
   });
 });
 
 describe('TIE_BREAKS', () => {
-  it('lists the seven steps, Direct Encounter first and the draw last', () => {
-    expect(TIE_BREAKS.map((t) => t.label)).toEqual(['Direct Encounter', 'Buchholz Cut 1', 'Buchholz', 'Sonneborn-Berger', "Opponents' Buchholz", "Opponents' Sonneborn-Berger", 'The draw']);
+  it('lists the seven steps, Direct Encounter first and the lot last', () => {
+    expect(TIE_BREAKS.map((t) => t.label)).toEqual(['Direct Encounter', 'Buchholz Cut 1', 'Buchholz', 'Sonneborn-Berger', "Opponents' Buchholz", "Opponents' Sonneborn-Berger", 'The lot']);
   });
 });
 

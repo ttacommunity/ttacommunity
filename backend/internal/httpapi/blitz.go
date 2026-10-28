@@ -91,7 +91,7 @@ func swissPlayed(ed store.BlitzEdition) ([]blitz.Entrant, []blitz.Played, []int)
 				skipped = append(skipped, n)
 			}
 		}
-		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped", Skipped: skipped})
+		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped", Skipped: skipped, StartingRank: e.StartingRank})
 	}
 	return entrants, matches, numbers
 }
