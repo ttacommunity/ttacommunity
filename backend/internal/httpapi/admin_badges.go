@@ -30,8 +30,12 @@ func conflictBadge() ConflictJSONResponse {
 }
 
 func (s *server) GetAdminBadges(ctx context.Context, _ GetAdminBadgesRequestObject) (GetAdminBadgesResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminBadges403JSONResponse{forbidden(onlyAdminsBadge)}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminBadges403JSONResponse{forbidden(onlyAdminsBadge)}, nil
 	}
 	list, err := s.admins.Badges(ctx)
 	if err != nil {
@@ -46,8 +50,11 @@ func (s *server) GetAdminBadges(ctx context.Context, _ GetAdminBadgesRequestObje
 
 func (s *server) PostAdminBadge(ctx context.Context, req PostAdminBadgeRequestObject) (PostAdminBadgeResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PostAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, nil
 	}
 	b, msg := badgeSetting(req.Body)
 	if msg != "" {
@@ -77,8 +84,11 @@ func (s *server) PostAdminBadge(ctx context.Context, req PostAdminBadgeRequestOb
 
 func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObject) (PutAdminBadgeResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PutAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PutAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, nil
 	}
 	b, msg := badgeSetting(req.Body)
 	if msg != "" {
@@ -111,8 +121,11 @@ func (s *server) PutAdminBadge(ctx context.Context, req PutAdminBadgeRequestObje
 
 func (s *server) DeleteAdminBadge(ctx context.Context, req DeleteAdminBadgeRequestObject) (DeleteAdminBadgeResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminBadge403JSONResponse{forbidden(onlyAdminsBadge)}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.RemoveBadge(ctx, req.Badge); err != nil {

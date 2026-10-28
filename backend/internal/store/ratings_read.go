@@ -194,12 +194,7 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 		var count, peakYear *int
 		err := row.Scan(&p.Rank, &p.RankDelta, &p.Name, &p.Rating, &p.RD, &p.CRating, &p.Games, &p.Opponents,
 			&p.Wins, &p.Losses, &p.Draws, &p.WinRate, &p.LastPlayed, &p.Country, &title, &count, &reason, &peak, &peakYear)
-		if title != nil {
-			p.Title = &Title{Code: *title, Count: *count, Reason: *reason}
-		}
-		if peak != nil {
-			p.Peak = &Peak{Code: *peak, Year: peakYear}
-		}
+		p.Title, p.Peak = titleAndPeak(title, count, reason, peak, peakYear)
 		return p, err
 	})
 	if err != nil {
@@ -292,4 +287,17 @@ func (r *RatingsReader) requirePublished(ctx context.Context, run int64) error {
 		return ErrRunNotFound
 	}
 	return nil
+}
+
+// titleAndPeak is a player's title and peak title from their nullable columns, nil where the player has none.
+func titleAndPeak(title *string, count *int, reason, peak *string, peakYear *int) (*Title, *Peak) {
+	var t *Title
+	var k *Peak
+	if title != nil {
+		t = &Title{Code: *title, Count: *count, Reason: *reason}
+	}
+	if peak != nil {
+		k = &Peak{Code: *peak, Year: peakYear}
+	}
+	return t, k
 }

@@ -30,17 +30,27 @@ func ReadCGEStages(file string, r io.Reader, series []string) (Result[CGEStage],
 	})
 }
 
+// badPlace is the reason a row's tournament, season or stage is refused: a tournament not in series, or a season or
+// stage with spaces round it (a stage may be empty); "" when all three are good.
+func badPlace(series []string, tournament, season, stage string) Reason {
+	switch {
+	case !slices.Contains(series, tournament):
+		return BadSeries
+	case !trimmed(season):
+		return BadSeason
+	case stage != "" && !trimmed(stage):
+		return BadDivision
+	}
+	return ""
+}
+
 func parseCGEStage(series []string, f func(int) string) (CGEStage, Reason) {
 	t, errT := strconv.Atoi(f(3))
 	s, errS := strconv.Atoi(f(4))
 	x := CGEStage{Tournament: f(0), Season: f(1), Stage: f(2), CGETournament: t, CGESeason: s}
-	switch {
-	case !slices.Contains(series, x.Tournament):
-		return x, BadSeries
-	case !trimmed(x.Season):
-		return x, BadSeason
-	case x.Stage != "" && !trimmed(x.Stage):
-		return x, BadDivision
+	switch r := badPlace(series, x.Tournament, x.Season, x.Stage); {
+	case r != "":
+		return x, r
 	case errT != nil || errS != nil || t < 1 || s < 1:
 		return x, BadEvent
 	}

@@ -12,8 +12,12 @@ import (
 const onlyAdminsTitle = "only admins set titles"
 
 func (s *server) GetAdminTitles(ctx context.Context, _ GetAdminTitlesRequestObject) (GetAdminTitlesResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminTitles403JSONResponse{forbidden(onlyAdminsTitle)}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminTitles403JSONResponse{forbidden(onlyAdminsTitle)}, nil
 	}
 	list, err := s.admins.TitleOverrides(ctx)
 	if err != nil {
@@ -28,8 +32,11 @@ func (s *server) GetAdminTitles(ctx context.Context, _ GetAdminTitlesRequestObje
 
 func (s *server) PutAdminTitle(ctx context.Context, req PutAdminTitleRequestObject) (PutAdminTitleResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PutAdminTitle403JSONResponse{forbidden(onlyAdminsTitle)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PutAdminTitle403JSONResponse{forbidden(onlyAdminsTitle)}, nil
 	}
 	b := req.Body
 	if b == nil || !b.Title.Valid() || strings.TrimSpace(b.Reason) == "" || len(b.Reason) > 300 || len(req.Player) > 200 {
@@ -54,8 +61,11 @@ func (s *server) PutAdminTitle(ctx context.Context, req PutAdminTitleRequestObje
 
 func (s *server) DeleteAdminTitle(ctx context.Context, req DeleteAdminTitleRequestObject) (DeleteAdminTitleResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminTitle403JSONResponse{forbidden(onlyAdminsTitle)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminTitle403JSONResponse{forbidden(onlyAdminsTitle)}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.ClearTitle(ctx, req.Player); err != nil {

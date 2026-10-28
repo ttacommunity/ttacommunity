@@ -14,8 +14,12 @@ const onlyAdminsCommunity = "only admins manage community editions"
 
 // GetAdminCommunityEditions returns all editions (visible or not) for admin management.
 func (s *server) GetAdminCommunityEditions(ctx context.Context, _ GetAdminCommunityEditionsRequestObject) (GetAdminCommunityEditionsResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminCommunityEditions403JSONResponse{forbidden(onlyAdminsCommunity)}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminCommunityEditions403JSONResponse{forbidden(onlyAdminsCommunity)}, nil
 	}
 	list, err := s.admins.AdminCommunityEditions(ctx)
 	if err != nil {
@@ -23,19 +27,7 @@ func (s *server) GetAdminCommunityEditions(ctx context.Context, _ GetAdminCommun
 	}
 	out := make([]CommunityEditionItem, len(list))
 	for i, e := range list {
-		out[i] = CommunityEditionItem{
-			Slug:           e.Slug,
-			Name:           e.Name,
-			Title:          e.Title,
-			ShortName:      e.ShortName,
-			Badge:          e.Badge,
-			Maintainer:     e.Maintainer,
-			MaintainerNote: e.MaintainerNote,
-			Year:           e.Year,
-			CountingEvents: e.CountingEvents,
-			Visible:        e.Visible,
-			SortOrder:      e.SortOrder,
-		}
+		out[i] = communityEditionItem(e)
 	}
 	return GetAdminCommunityEditions200JSONResponse(out), nil
 }
@@ -43,8 +35,11 @@ func (s *server) GetAdminCommunityEditions(ctx context.Context, _ GetAdminCommun
 // PostAdminCommunityEdition creates a new community edition.
 func (s *server) PostAdminCommunityEdition(ctx context.Context, req PostAdminCommunityEditionRequestObject) (PostAdminCommunityEditionResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PostAdminCommunityEdition403JSONResponse{forbidden(onlyAdminsCommunity)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminCommunityEdition403JSONResponse{forbidden(onlyAdminsCommunity)}, nil
 	}
 	if req.Body == nil {
 		return PostAdminCommunityEdition400JSONResponse{badRequest400("edition data is required")}, nil
@@ -87,8 +82,11 @@ func (s *server) PostAdminCommunityEdition(ctx context.Context, req PostAdminCom
 // PatchAdminCommunityEdition updates an existing edition's attributes.
 func (s *server) PatchAdminCommunityEdition(ctx context.Context, req PatchAdminCommunityEditionRequestObject) (PatchAdminCommunityEditionResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PatchAdminCommunityEdition403JSONResponse{forbidden(onlyAdminsCommunity)}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PatchAdminCommunityEdition403JSONResponse{forbidden(onlyAdminsCommunity)}, nil
 	}
 	slug := strings.TrimSpace(req.Edition)
 	if slug == "" {

@@ -232,14 +232,7 @@ func (s *server) GetSeatAnalysis(ctx context.Context, req GetSeatAnalysisRequest
 				Wins:    row.Wins,
 				Draws:   row.Draws,
 				WinRate: row.WinRate,
-				Places:  make([]SeatPlaceRate, 0, len(row.Places)),
-			}
-			for _, p := range row.Places {
-				sr.Places = append(sr.Places, SeatPlaceRate{
-					Place: p.Place,
-					Count: p.Count,
-					Rate:  p.Rate,
-				})
+				Places:  seatPlaceRates(row.Places),
 			}
 			sg.Seats = append(sg.Seats, sr)
 		}

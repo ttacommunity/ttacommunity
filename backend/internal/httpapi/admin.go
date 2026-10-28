@@ -207,8 +207,12 @@ func adminOnly(ctx context.Context) (store.Admin, bool, error) {
 }
 
 func (s *server) GetAdminAdmins(ctx context.Context, _ GetAdminAdminsRequestObject) (GetAdminAdminsResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil || !ok {
-		return GetAdminAdmins403JSONResponse{forbidden("only admins manage admin")}, err
+	_, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return GetAdminAdmins403JSONResponse{forbidden("only admins manage admin")}, nil
 	}
 	list, err := s.admins.Admins(ctx)
 	if err != nil {
@@ -223,8 +227,11 @@ func (s *server) GetAdminAdmins(ctx context.Context, _ GetAdminAdminsRequestObje
 
 func (s *server) PutAdminAdmin(ctx context.Context, req PutAdminAdminRequestObject) (PutAdminAdminResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return PutAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PutAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, nil
 	}
 	b := req.Body
 	if b == nil || b.Name == "" || len(b.Name) > 64 || !b.Role.Valid() {
@@ -247,8 +254,11 @@ func (s *server) PutAdminAdmin(ctx context.Context, req PutAdminAdminRequestObje
 
 func (s *server) DeleteAdminAdmin(ctx context.Context, req DeleteAdminAdminRequestObject) (DeleteAdminAdminResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
-	if err != nil || !ok {
-		return DeleteAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminAdmin403JSONResponse{forbidden("only admins manage admin")}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.RemoveAdmin(ctx, req.DiscordId); err != nil {

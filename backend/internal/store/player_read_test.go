@@ -655,6 +655,26 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 	}
 }
 
+func TestVersusMasksAHiddenPlayersSeat(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	addGame(t, pool, run, "2024-02-01", "Cup", Seat{"cy", 9}, Seat{"bob", 7}, Seat{"ann", 5})
+	if _, err := pool.Exec(ctx, "INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'cy', true FROM players WHERE name = 'cy'"); err != nil {
+		t.Fatalf("setting up player account: %v", err)
+	}
+
+	_, _, got, err := r.Versus(ctx, run, "ann", "bob")
+	if err != nil {
+		t.Fatalf("Versus: %v", err)
+	}
+	if len(got) != 1 || got[0].Seats[0].Name != DeletedPlayer {
+		t.Errorf("Versus(ann, bob) = %v, want the one game with cy's seat as %q", got, DeletedPlayer)
+	}
+}
+
 // deref prints a career's optional fields by value, so two careers compare by content.
 func deref(years []CareerYear) []string {
 	out := make([]string, 0, len(years))

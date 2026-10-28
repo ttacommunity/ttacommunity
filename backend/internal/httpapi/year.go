@@ -31,20 +31,9 @@ func (s *server) GetYears(ctx context.Context, req GetYearsRequestObject) (GetYe
 
 // GetYearLeaderboard returns the ratings at the end of a year, for the season archive.
 func (s *server) GetYearLeaderboard(ctx context.Context, req GetYearLeaderboardRequestObject) (GetYearLeaderboardResponseObject, error) {
-	model, format := Glicko2Daneo, formatOr(req.Params.Format)
-	if req.Params.Model != nil {
-		model = *req.Params.Model
-	}
-	msg := ""
-	switch {
-	case req.Run < 1:
-		msg = "bad parameter: run"
-	case req.Year < 2000 || req.Year > 2100:
+	model, format, msg := boardParams(req.Run, req.Params.Model, req.Params.Format)
+	if req.Run >= 1 && (req.Year < 2000 || req.Year > 2100) {
 		msg = "bad parameter: year"
-	case !model.Valid():
-		msg = "unknown model"
-	case !format.Valid():
-		msg = "unknown format"
 	}
 	if msg != "" {
 		return GetYearLeaderboard400JSONResponse{badRequestBody(msg)}, nil

@@ -229,24 +229,29 @@ func (s *server) GetCommunityEditions(ctx context.Context, _ GetCommunityEdition
 	}
 	body := make([]CommunityEditionItem, 0, len(editions))
 	for _, e := range editions {
-		body = append(body, CommunityEditionItem{
-			Slug:           e.Slug,
-			Name:           e.Name,
-			Title:          e.Title,
-			ShortName:      e.ShortName,
-			Badge:          e.Badge,
-			Maintainer:     e.Maintainer,
-			MaintainerNote: e.MaintainerNote,
-			Year:           e.Year,
-			CountingEvents: e.CountingEvents,
-			Visible:        e.Visible,
-			SortOrder:      e.SortOrder,
-		})
+		body = append(body, communityEditionItem(e))
 	}
 	return GetCommunityEditions200JSONResponse{
 		Body:    body,
 		Headers: GetCommunityEditions200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil
+}
+
+// communityEditionItem is a community edition as the site and admin list it.
+func communityEditionItem(e store.CommunityEdition) CommunityEditionItem {
+	return CommunityEditionItem{
+		Slug:           e.Slug,
+		Name:           e.Name,
+		Title:          e.Title,
+		ShortName:      e.ShortName,
+		Badge:          e.Badge,
+		Maintainer:     e.Maintainer,
+		MaintainerNote: e.MaintainerNote,
+		Year:           e.Year,
+		CountingEvents: e.CountingEvents,
+		Visible:        e.Visible,
+		SortOrder:      e.SortOrder,
+	}
 }
 
 // gameRecords turns games' winning records into the API's.

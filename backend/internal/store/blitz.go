@@ -239,6 +239,17 @@ func (r *RatingsReader) BlitzEdition(ctx context.Context, slug, edition string) 
 	return blitzEdition(ctx, r.pool, true, slug, edition)
 }
 
+// inBlitzEdition runs fn in one transaction with the id of slug's blitz edition, or returns ErrNoBlitzEdition.
+func (a *AdminStore) inBlitzEdition(ctx context.Context, slug, edition string, fn func(tx pgx.Tx, editionID int64) error) error {
+	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		id, err := blitzEditionID(ctx, tx, slug, edition)
+		if err != nil {
+			return err
+		}
+		return fn(tx, id)
+	})
+}
+
 // blitzEditionID finds the edition, and gives it its row when it has none yet, or returns ErrNoBlitzEdition.
 func blitzEditionID(ctx context.Context, tx pgx.Tx, slug, edition string) (int64, error) {
 	var id int64
@@ -265,11 +276,7 @@ func (a *AdminStore) SetBlitzFormat(ctx context.Context, slug, edition string, f
 	if f.SwissRounds < 1 || f.SwissRounds > 30 || !slices.Contains([]int{0, 2, 4, 8, 16, 32}, f.KnockoutSize) {
 		return ErrBadBlitzFormat
 	}
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		id, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
 		switch started, err := knockoutStarted(ctx, tx, id); {
 		case err != nil:
 			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
@@ -294,11 +301,7 @@ func knockoutStarted(ctx context.Context, tx pgx.Tx, id int64) (bool, error) {
 // SetBlitzPoints sets what each outcome of an edition is worth (checked by the caller) until its knockout has a
 // round, or returns ErrBlitzPointsLocked or ErrNoBlitzEdition.
 func (a *AdminStore) SetBlitzPoints(ctx context.Context, slug, edition string, s blitz.Scoring) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		id, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
 		switch started, err := knockoutStarted(ctx, tx, id); {
 		case err != nil:
 			return fmt.Errorf("setting %s %s's points: %w", slug, edition, err)
@@ -321,11 +324,7 @@ func (a *AdminStore) SetBlitzPairing(ctx context.Context, slug, edition string, 
 	if !slices.Contains(BlitzFirstMethods, p.First) || !slices.Contains(BlitzLaterMethods, p.Later) || !slices.Contains(BlitzRankOrders, p.Ranks) {
 		return ErrBadBlitzPairing
 	}
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		id, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
 		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET pairing_first = $2, pairing_later = $3, pairing_ranks = $4 WHERE tournament_id = $1", id, p.First, p.Later, p.Ranks); err != nil {
 			return fmt.Errorf("setting %s %s's pairing: %w", slug, edition, err)
 		}
@@ -336,11 +335,7 @@ func (a *AdminStore) SetBlitzPairing(ctx context.Context, slug, edition string, 
 // SetBlitzStartingRanks gives the entries named their starting ranks (1 the top), the other entries' kept, or returns
 // ErrNoBlitzEdition. A rank below 1 is an error.
 func (a *AdminStore) SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		id, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
 		for entry, rank := range ranks {
 			if _, err := tx.Exec(ctx, "UPDATE blitz_entries SET starting_rank = $3 WHERE entry_id = $1 AND tournament_id = $2", entry, id, rank); err != nil {
 				return fmt.Errorf("setting %s %s's starting ranks: %w", slug, edition, err)
@@ -525,11 +520,7 @@ func (a *AdminStore) SetBlitzEntrant(ctx context.Context, slug, edition string, 
 	if c.Status != nil && !slices.Contains(blitzStatuses, *c.Status) {
 		return ErrBadBlitzStatus
 	}
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		if c.Status != nil && *c.Status == "dropped" {
 			played, err := blitzEntrantPlayed(ctx, tx, edID, id)
 			if err != nil {
@@ -552,7 +543,7 @@ func (a *AdminStore) SetBlitzEntrant(ctx context.Context, slug, edition string, 
 			}
 		}
 		var memberID int64
-		err = tx.QueryRow(ctx, "UPDATE blitz_entries SET status = coalesce($3, status) WHERE entry_id = $1 AND tournament_id = $2 RETURNING member_id",
+		err := tx.QueryRow(ctx, "UPDATE blitz_entries SET status = coalesce($3, status) WHERE entry_id = $1 AND tournament_id = $2 RETURNING member_id",
 			id, edID, c.Status).Scan(&memberID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoBlitzEntrant
@@ -583,11 +574,7 @@ func blitzEntrantPlayed(ctx context.Context, tx pgx.Tx, edID, id int64) (bool, e
 // in (their opponent is left unpaired), or returns ErrNoBlitzEdition, ErrNoBlitzEntrant, ErrBlitzEntrantPlayed, or
 // ErrBlitzEntrantInKnockout.
 func (a *AdminStore) RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		var known, knockout bool
 		if err := tx.QueryRow(ctx, `
 			SELECT EXISTS (SELECT 1 FROM blitz_entries WHERE entry_id = $2 AND tournament_id = $1),

@@ -394,13 +394,6 @@ func (s *server) GetCurrentRun(ctx context.Context, _ GetCurrentRunRequestObject
 	if err != nil {
 		return nil, err
 	}
-	utc := func(t *time.Time) *time.Time {
-		if t == nil {
-			return nil
-		}
-		u := t.UTC()
-		return &u
-	}
 	date := func(t *time.Time) *openapi_types.Date {
 		if t == nil {
 			return nil
@@ -408,29 +401,37 @@ func (s *server) GetCurrentRun(ctx context.Context, _ GetCurrentRunRequestObject
 		return &openapi_types.Date{Time: *t}
 	}
 	return GetCurrentRun200JSONResponse{
-		Body: Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC(), EngineVersion: run.EngineVersion, FinishedAt: utc(run.FinishedAt),
+		Body: Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC(), EngineVersion: run.EngineVersion, FinishedAt: inUTC(run.FinishedAt),
 			Games: run.Games, Players: run.Players, FirstGame: date(run.FirstGame), LastGame: date(run.LastGame)},
 		Headers: GetCurrentRun200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil
 }
 
+// boardParams is a board's model and format, Glicko-2 (DANeo) and N0 when not given, and the message refusing a bad
+// run, model or format, checked in that order ("" when all are good).
+func boardParams(run int64, m *Model, f *Format) (Model, Format, string) {
+	model := Glicko2Daneo
+	if m != nil {
+		model = *m
+	}
+	format := formatOr(f)
+	switch {
+	case run < 1:
+		return model, format, "bad parameter: run"
+	case !model.Valid():
+		return model, format, "unknown model"
+	case !format.Valid():
+		return model, format, "unknown format"
+	}
+	return model, format, ""
+}
+
 // GetLeaderboard returns one published run's leaderboard for a model and
 // format, refusing unknown values before they reach the database.
 func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestObject) (GetLeaderboardResponseObject, error) {
-	model, format := Glicko2Daneo, N0
-	if req.Params.Model != nil {
-		model = *req.Params.Model
-	}
-	if req.Params.Format != nil {
-		format = *req.Params.Format
-	}
-	switch {
-	case req.Run < 1:
-		return leaderboardRefused("bad parameter: run"), nil
-	case !model.Valid():
-		return leaderboardRefused("unknown model"), nil
-	case !format.Valid():
-		return leaderboardRefused("unknown format"), nil
+	model, format, msg := boardParams(req.Run, req.Params.Model, req.Params.Format)
+	if msg != "" {
+		return GetLeaderboard400JSONResponse{badRequestBody(msg)}, nil
 	}
 
 	rows, err := s.ratings.Leaderboard(ctx, req.Run, string(model), int(format))
@@ -469,26 +470,9 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 // GetHistory returns each player's rating at a past date, or at the run's
 // previous period when no date is given.
 func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (GetHistoryResponseObject, error) {
-	model, format := Glicko2Daneo, N0
-	if req.Params.Model != nil {
-		model = *req.Params.Model
-	}
-	if req.Params.Format != nil {
-		format = *req.Params.Format
-	}
-	refused := func(msg string) GetHistoryResponseObject {
-		return GetHistory400JSONResponse{BadRequestJSONResponse{
-			Body:    Error{Error: msg},
-			Headers: BadRequestResponseHeaders{CacheControl: cacheNone},
-		}}
-	}
-	switch {
-	case req.Run < 1:
-		return refused("bad parameter: run"), nil
-	case !model.Valid():
-		return refused("unknown model"), nil
-	case !format.Valid():
-		return refused("unknown format"), nil
+	model, format, msg := boardParams(req.Run, req.Params.Model, req.Params.Format)
+	if msg != "" {
+		return GetHistory400JSONResponse{badRequestBody(msg)}, nil
 	}
 	var at *time.Time
 	if req.Params.At != nil {
@@ -513,13 +497,6 @@ func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (G
 		Body:    History{RunId: req.Run, Model: model, Format: format, At: openapi_types.Date{Time: on}, Players: players},
 		Headers: GetHistory200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
-}
-
-func leaderboardRefused(msg string) GetLeaderboardResponseObject {
-	return GetLeaderboard400JSONResponse{BadRequestJSONResponse{
-		Body:    Error{Error: msg},
-		Headers: BadRequestResponseHeaders{CacheControl: cacheNone},
-	}}
 }
 
 // extraBadges turns a player's badges into the API's, or nil for none, so the field is left out.

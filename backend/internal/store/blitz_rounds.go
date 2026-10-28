@@ -363,11 +363,7 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 // result stays as it is: the new matches must include it, else ErrBlitzMatchDecided names it. A knockout round
 // is ErrBlitzKnockoutFixed.
 func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []BlitzMatch) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, number, err := blitzRoundOf(ctx, tx, edID, roundID)
 		if err != nil {
 			return err
@@ -421,11 +417,7 @@ func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition str
 // PublishBlitzRound makes a round public: a Swiss round once every active entrant not skipping it is in it exactly
 // once and no pair is a repeat; a knockout round as the bracket made it. Publishing again changes nothing.
 func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, number, err := blitzRoundOf(ctx, tx, edID, roundID)
 		if err != nil {
 			return err
@@ -455,11 +447,7 @@ func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string
 // replaced before anyone plays), or returns ErrBlitzRoundNotLast for an earlier one and ErrBlitzRoundPlayed
 // for one with a result.
 func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		if _, _, err := blitzRoundOf(ctx, tx, edID, roundID); err != nil {
 			return err
 		}
@@ -495,11 +483,7 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 // ErrNoBlitzMatch, ErrBlitzNotKnockout, ErrBlitzMatchDecided, ErrBlitzNotDropped, or ErrBadBlitzMatch naming
 // whom it cannot take.
 func (a *AdminStore) ReplaceBlitzPlayer(ctx context.Context, slug, edition string, roundID, matchID, out, in int64) error {
-	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		edID, err := blitzEditionID(ctx, tx, slug, edition)
-		if err != nil {
-			return err
-		}
+	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, _, err := blitzRoundOf(ctx, tx, edID, roundID)
 		if err != nil {
 			return err
