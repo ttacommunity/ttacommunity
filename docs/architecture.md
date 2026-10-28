@@ -116,7 +116,7 @@ PostgreSQL. **The exact schema is
 [`backend/migrations/ratings/00001_schema.sql`](../backend/migrations/ratings/00001_schema.sql)**
 (every table, function, index, grant and starting row), plus any numbered
 migration after it (goose, plain SQL). To see the tables, apply them to an
-empty database (`go run ./cmd/load -migrate`) and use `\d` in `psql`. A
+empty database (`go run ./cmd/load migrate`) and use `\d` in `psql`. A
 database is rebuilt from scratch from an export (README, "Rebuild a
 database from scratch"). What follows is the shape, which changes only when
 a new kind of data arrives.
@@ -190,8 +190,8 @@ Patterns that hold across the schema:
   foreign keys to games, so a recorded fact survives a re-import of the games
 - **The export is the import.** Every input table (Games, Catalogue and
   recorded facts, admin's settings) is exported as CSV with a manifest
-  (`go run ./cmd/load -export`, or **Download all data** in admin) and
-  restored whole by `-restore`. Personal data (`admins`, `admin_audit`, the
+  (`go run ./cmd/load export`, or **Download all data** in admin) and
+  restored whole by `load restore`. Personal data (`admins`, `admin_audit`, the
   blitz tables, players' sign-ins, sessions and requests) and
   `refused_rows` are left out, and of `members` only the name, its ids and
   the country are written (the manifest names the columns); a test

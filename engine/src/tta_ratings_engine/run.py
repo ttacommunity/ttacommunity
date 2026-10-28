@@ -245,7 +245,7 @@ def run(
         ).fetchone()["n"]
         if unplaced:
             raise GamesUnplaced(
-                f"{unplaced} game{'s' if unplaced != 1 else ''} placed in no tournament: run the load job's -classify"
+                f"{unplaced} game{'s' if unplaced != 1 else ''} placed in no tournament: run the load job's classify"
             )
         fingerprint = input_fingerprint(conn, ranking_id)
         if fingerprint is None:

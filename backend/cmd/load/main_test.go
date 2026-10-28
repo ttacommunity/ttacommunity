@@ -170,3 +170,92 @@ func TestWriteInputTablesListsTheStoresInputTables(t *testing.T) {
 		t.Errorf("got = %q, want %q", got, want)
 	}
 }
+
+func TestRunRefusesAMissingOrWrongCommandLine(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		args []string
+		want int
+	}{
+		{"no command", nil, 64},
+		{"unknown command", []string{"frobnicate"}, 64},
+		{"old flag form", []string{"-migrate"}, 64},
+		{"argument where none is taken", []string{"migrate", "extra"}, 64},
+		{"matches without a directory", []string{"matches"}, 64},
+		{"matches with two directories", []string{"matches", "a", "b"}, 64},
+		{"facts without a file", []string{"facts", "divisions"}, 64},
+		{"countries without a file", []string{"countries"}, 64},
+		{"add-admin without a name and role", []string{"add-admin", "100000000000000001"}, 64},
+		{"cge-extract without settings", []string{"cge-extract", "extract"}, 64},
+		{"input-tables with an argument", []string{"input-tables", "x"}, 64},
+		{"unknown flag", []string{"migrate", "-nope"}, 2},
+		{"help", []string{"migrate", "-h"}, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr strings.Builder
+			if got := run(tt.args, &stderr); got != tt.want {
+				t.Errorf("run(%q) = %d, want %d", tt.args, got, tt.want)
+			}
+			if !strings.Contains(stderr.String(), "usage: load") {
+				t.Errorf("run(%q) printed no usage:\n%s", tt.args, stderr.String())
+			}
+		})
+	}
+}
+
+func TestRunListsEveryCommand(t *testing.T) {
+	var stderr strings.Builder
+	run(nil, &stderr)
+	for _, name := range []string{"migrate", "matches", "facts", "countries", "classify", "export", "backup", "backup-to", "backup-config-to", "restore", "export-upstream", "check-standings", "add-admin", "cge-extract", "input-tables"} {
+		if !strings.Contains(stderr.String(), "load "+name+" ") && !strings.Contains(stderr.String(), "load "+name+"\n") {
+			t.Errorf("usage does not list %q:\n%s", name, stderr.String())
+		}
+	}
+}
+
+func TestRunReachesEachCommand(t *testing.T) {
+	t.Setenv("RATINGS_DATABASE_URL", "")
+	t.Setenv("BACKUP_AGE_RECIPIENT", "")
+	missing := filepath.Join(t.TempDir(), "missing")
+	for _, tt := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"migrate", []string{"migrate"}, "RATINGS_DATABASE_URL is not set"},
+		{"classify", []string{"classify"}, "RATINGS_DATABASE_URL is not set"},
+		{"matches", []string{"matches", missing}, "checking " + missing},
+		{"matches with reset", []string{"matches", "-reset", missing}, "checking " + missing},
+		{"countries", []string{"countries", missing}, "missing"},
+		{"facts of an unknown kind", []string{"facts", "nonsense", missing}, `unknown kind of fact "nonsense"`},
+		{"facts", []string{"facts", "divisions", missing}, "opening " + missing},
+		{"export", []string{"export", missing}, "RATINGS_DATABASE_URL is not set"},
+		{"backup", []string{"backup", missing}, "RATINGS_DATABASE_URL is not set"},
+		{"backup-to", []string{"backup-to", missing}, "BACKUP_AGE_RECIPIENT is not set"},
+		{"backup-config-to", []string{"backup-config-to", missing}, "BACKUP_AGE_RECIPIENT is not set"},
+		{"restore", []string{"restore", missing}, "RATINGS_DATABASE_URL is not set"},
+		{"export-upstream", []string{"export-upstream", missing}, "RATINGS_DATABASE_URL is not set"},
+		{"check-standings", []string{"check-standings", missing}, "RATINGS_DATABASE_URL is not set"},
+		{"add-admin", []string{"add-admin", "-name", "Local admin", "-role", "admin", "100000000000000001"}, "RATINGS_DATABASE_URL is not set"},
+		{"cge-extract", []string{"cge-extract", "-settings", missing, missing}, "missing"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr strings.Builder
+			if got := run(tt.args, &stderr); got != 1 {
+				t.Errorf("run(%q) = %d, want 1", tt.args, got)
+			}
+			if got := stderr.String(); !strings.HasPrefix(got, "load: ") || !strings.Contains(got, tt.want) {
+				t.Errorf("run(%q) printed %q, want a load error containing %q", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnknownFactKindNamesTheKnownOnes(t *testing.T) {
+	err := replaceFacts("nonsense", "x.csv")
+	for _, want := range []string{"divisions", "podiums", "community_ladders"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("replaceFacts(nonsense) = %v, want an error naming %q", err, want)
+		}
+	}
+}

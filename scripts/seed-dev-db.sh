@@ -31,7 +31,7 @@ sql() { kubectl "${ns[@]}" "${pod[@]}" psql -X -q -v ON_ERROR_STOP=1 -U ratings 
 secret() { kubectl "${ns[@]}" get secret "$1" -o jsonpath="{.data.$2}" | base64 -d; }
 
 # Which tables are inputs is the load job's to say; asked before anything is dropped, so a failure changes nothing.
-tables=$(cd backend && go run ./cmd/load -input-tables)
+tables=$(cd backend && go run ./cmd/load input-tables)
 [ -n "$tables" ] || { echo "seed-dev-db.sh: the load job listed no input tables" >&2; exit 1; }
 
 kubectl "${ns[@]}" rollout status deploy/ratings-db --timeout=60s

@@ -71,10 +71,7 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 			return err
 		}
 	}
-	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
-		if err := store.MigrateRatings(ctx, pool); err != nil {
-			return err
-		}
+	return withRatings(func(ctx context.Context, pool *pgxpool.Pool) error {
 		plan, err := store.PlanCGEExtract(ctx, pool, in.Extract, confirmed)
 		if err != nil {
 			return err

@@ -50,7 +50,7 @@ spec:
           initContainers:
             - name: backup
               image: ghcr.io/ttacommunity/ttacommunity/load:sha-5c2b1aaf@sha256:a5ce40cef88c23b8d44b30f57a2a2da7fb3baae8b244d6df83c97ec13ead41e4
-              args: [-backup-to, /backup]
+              args: [backup-to, /backup]
               env:
                 - name: RATINGS_DATABASE_URL
                   valueFrom:
