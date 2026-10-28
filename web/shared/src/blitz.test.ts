@@ -230,7 +230,7 @@ describe('drawLabel', () => {
     ['nothing for a rank held alone', 3, 3, 'lot', null],
     ['the ranks the lot ordered', 8, 9, 'lot', 'Ranks 8–9 were ordered by the lot'],
     ['the ranks the seed ordered', 8, 9, 'rating', 'Ranks 8–9 were ordered by the seed'],
-    ['the ranks the draw ordered before round 1', 1, 12, null, 'Ranks 1–12 were ordered by the draw'],
+    ['nothing before round 1, when nothing orders them', 1, 12, null, null],
   ] as const)('gives %s', (_name, from, to, fixedBy, want) => {
     expect(drawLabel({ place_from: from, place_to: to }, fixedBy)).toBe(want);
   });

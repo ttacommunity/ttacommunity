@@ -60,7 +60,7 @@ func TestStandingsScore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := map[int64]string{}
-			for _, s := range blitz.Standings(in(1, 2, 3, 4, 5), tt.matches, 8, 1, blitz.FIDEScoring) {
+			for _, s := range blitz.Standings(in(1, 2, 3, 4, 5), tt.matches, 8, blitz.FIDEScoring) {
 				got[s.ID] = fmt.Sprintf("%g %d %d", s.Points, s.Games, s.Byes)
 			}
 			if !maps.Equal(got, tt.want) {
@@ -126,7 +126,7 @@ func TestBuchholz(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, s := range blitz.Standings(tt.entrants, tt.matches, tt.rounds, 1, blitz.FIDEScoring) {
+			for _, s := range blitz.Standings(tt.entrants, tt.matches, tt.rounds, blitz.FIDEScoring) {
 				if s.ID == tt.of && s.Buchholz != tt.want {
 					t.Errorf("Buchholz of %d = %g, want %g", tt.of, s.Buchholz, tt.want)
 				}
@@ -200,7 +200,7 @@ func TestDirectEncounter(t *testing.T) {
 			for id := range tt.players {
 				entrants = append(entrants, blitz.Entrant{ID: id + 1})
 			}
-			if got := order(blitz.Standings(entrants, tt.matches, 8, 1, blitz.FIDEScoring), tt.tied...); !slices.Equal(got, tt.want) {
+			if got := order(blitz.Standings(entrants, tt.matches, 8, blitz.FIDEScoring), tt.tied...); !slices.Equal(got, tt.want) {
 				t.Errorf("order of %v = %v, want %v", tt.tied, got, tt.want)
 			}
 		})
@@ -209,66 +209,57 @@ func TestDirectEncounter(t *testing.T) {
 
 func TestStandingsPutDroppedPlayersLastWithTheirPoints(t *testing.T) {
 	entrants := []blitz.Entrant{{ID: 1}, {ID: 2, Dropped: true}, {ID: 3}}
-	got := blitz.Standings(entrants, []blitz.Played{game(1, 2, 1, blitz.WinA), bye(1, 3), game(2, 1, 3, blitz.WinA)}, 8, 1, blitz.FIDEScoring)
+	got := blitz.Standings(entrants, []blitz.Played{game(1, 2, 1, blitz.WinA), bye(1, 3), game(2, 1, 3, blitz.WinA)}, 8, blitz.FIDEScoring)
 	if last := got[len(got)-1]; last.ID != 2 || !last.Dropped || last.Points != 1 {
 		t.Errorf("last standing = %+v, want 2, dropped, on 1 point", last)
 	}
-	if len(blitz.Standings(nil, nil, 8, 1, blitz.FIDEScoring)) != 0 {
+	if len(blitz.Standings(nil, nil, 8, blitz.FIDEScoring)) != 0 {
 		t.Error("Standings of nobody is not empty")
 	}
 }
 
-func TestStandingsBreakWhatIsLeftByTheSeed(t *testing.T) {
-	entrants := in(1, 2, 3, 4, 5, 6, 7, 8)
-	ids := func(seed uint64) []int64 {
-		var out []int64
-		for _, s := range blitz.Standings(entrants, nil, 8, seed, blitz.FIDEScoring) {
-			out = append(out, s.ID)
+func TestStandingsWithoutALotKeepSignUpOrderAndShareThePlace(t *testing.T) {
+	entrants := in(5, 2, 8, 1, 7, 3, 6, 4)
+	var got []int64
+	for _, s := range blitz.Standings(entrants, nil, 8, blitz.FIDEScoring) {
+		got = append(got, s.ID)
+		if s.PlaceFrom != 1 || s.PlaceTo != 8 {
+			t.Errorf("player %d's place = %d–%d, want 1–8: nothing separates them", s.ID, s.PlaceFrom, s.PlaceTo)
 		}
-		return out
 	}
-	first := ids(1)
-	if !slices.Equal(first, ids(1)) {
-		t.Errorf("the same seed twice gave %v then %v", first, ids(1))
+	if want := []int64{5, 2, 8, 1, 7, 3, 6, 4}; !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v, the sign-up order given", got, want)
 	}
-	if slices.IsSorted(first) {
-		t.Errorf("seed 1 left the ids in their given order %v, want a draw", first)
-	}
-	if other := ids(2); slices.Equal(first, other) {
-		t.Errorf("seeds 1 and 2 gave the same order %v", first)
-	}
-	for i, s := range blitz.Standings(entrants, nil, 8, 1, blitz.FIDEScoring) {
+	for i, s := range blitz.Standings(entrants, nil, 8, blitz.FIDEScoring) {
 		if s.Rank != i+1 {
-			t.Errorf("standing %d has rank %d, want %d: a tie the draw broke reads like any other rank", i, s.Rank, i+1)
+			t.Errorf("standing %d has rank %d, want %d", i, s.Rank, i+1)
 		}
 	}
 }
 
 func TestStandingsBreakWhatIsLeftByTheStartingRanks(t *testing.T) {
-	// Every player has a starting rank; the lot (the lower rank first) orders what the tie-breaks leave, whatever the seed.
+	// Every player has a starting rank; the lot (the lower rank first) orders what the tie-breaks leave.
 	var entrants []blitz.Entrant
 	for i, rank := range []int{5, 2, 8, 1, 7, 3, 6, 4} {
 		entrants = append(entrants, blitz.Entrant{ID: int64(i + 1), StartingRank: rank})
 	}
-	for _, seed := range []uint64{1, 2} {
-		var got []int64
-		for _, s := range blitz.Standings(entrants, nil, 8, seed, blitz.FIDEScoring) {
-			got = append(got, s.ID)
-		}
-		if want := []int64{4, 2, 6, 8, 1, 7, 5, 3}; !slices.Equal(got, want) {
-			t.Errorf("seed %d: order = %v, want %v, the starting ranks' order", seed, got, want)
-		}
+	var got []int64
+	for _, s := range blitz.Standings(entrants, nil, 8, blitz.FIDEScoring) {
+		got = append(got, s.ID)
+	}
+	if want := []int64{4, 2, 6, 8, 1, 7, 5, 3}; !slices.Equal(got, want) {
+		t.Errorf("order = %v, want %v, the starting ranks' order", got, want)
 	}
 	// They still share the place: only the lot separates them.
-	for _, s := range blitz.Standings(entrants, nil, 8, 1, blitz.FIDEScoring) {
+	for _, s := range blitz.Standings(entrants, nil, 8, blitz.FIDEScoring) {
 		if s.PlaceFrom != 1 || s.PlaceTo != 8 {
 			t.Errorf("player %d's place = %d–%d, want 1–8", s.ID, s.PlaceFrom, s.PlaceTo)
 		}
 	}
-	// A player without a rank goes after those with one, by the seed.
+	// A player without a rank goes after those with one.
 	entrants[2].StartingRank = 0
 	var last int64
-	for _, s := range blitz.Standings(entrants, nil, 8, 1, blitz.FIDEScoring) {
+	for _, s := range blitz.Standings(entrants, nil, 8, blitz.FIDEScoring) {
 		last = s.ID
 	}
 	if last != 3 {
@@ -293,7 +284,7 @@ func TestStandingsScoreByTheEditionsPoints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, s := range blitz.Standings(in(1, 2, 3, 4, 5), tt.matches, 8, 1, edition) {
+			for _, s := range blitz.Standings(in(1, 2, 3, 4, 5), tt.matches, 8, edition) {
 				if want, ok := tt.want[s.ID]; ok && s.Points != want {
 					t.Errorf("player %d: points = %v, want %v", s.ID, s.Points, want)
 				}
@@ -321,7 +312,7 @@ func TestBuchholzUsesTheEditionsPoints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, s := range blitz.Standings(in(1, 2, 3), tt.matches, tt.rounds, 1, tt.scoring) {
+			for _, s := range blitz.Standings(in(1, 2, 3), tt.matches, tt.rounds, tt.scoring) {
 				if want, ok := tt.want[s.ID]; ok && s.Buchholz != want {
 					t.Errorf("player %d: Buchholz = %v, want %v", s.ID, s.Buchholz, want)
 				}
@@ -350,7 +341,7 @@ func TestASkippedRoundScoresTheSkipPoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			entrants := []blitz.Entrant{{ID: 1}, {ID: 2, Skipped: []int{2}}, {ID: 3}, {ID: 4}}
-			for _, s := range blitz.Standings(entrants, tt.matches, 4, 1, tt.scoring) {
+			for _, s := range blitz.Standings(entrants, tt.matches, 4, tt.scoring) {
 				if s.ID == tt.of && (s.Points != tt.points || s.Buchholz != tt.buchholz) {
 					t.Errorf("player %d: points %g, Buchholz %g; want %g and %g", s.ID, s.Points, s.Buchholz, tt.points, tt.buchholz)
 				}
@@ -428,7 +419,7 @@ func TestStandingsSharePlacesOnlyTheDrawSeparates(t *testing.T) {
 			for id := range tt.players {
 				entrants = append(entrants, blitz.Entrant{ID: id + 1})
 			}
-			for _, s := range blitz.Standings(entrants, tt.matches, 8, 1, blitz.FIDEScoring) {
+			for _, s := range blitz.Standings(entrants, tt.matches, 8, blitz.FIDEScoring) {
 				if want, ok := tt.want[s.ID]; ok && (s.PlaceFrom != want[0] || s.PlaceTo != want[1]) {
 					t.Errorf("player %d's place = %d–%d, want %d–%d", s.ID, s.PlaceFrom, s.PlaceTo, want[0], want[1])
 				}
@@ -467,7 +458,7 @@ func TestTieBreaks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, s := range blitz.Standings(tt.entrants, tt.matches, 4, 1, blitz.FIDEScoring) {
+			for _, s := range blitz.Standings(tt.entrants, tt.matches, 4, blitz.FIDEScoring) {
 				if s.ID == tt.of && tt.value(s) != tt.want {
 					t.Errorf("tie-break of %d = %g, want %g", tt.of, tt.value(s), tt.want)
 				}
@@ -524,7 +515,7 @@ func TestStandingsBreakTiesInOrder(t *testing.T) {
 			for id := range tt.players {
 				entrants = append(entrants, blitz.Entrant{ID: id + 1})
 			}
-			standings := blitz.Standings(entrants, tt.matches, 4, 1, blitz.FIDEScoring)
+			standings := blitz.Standings(entrants, tt.matches, 4, blitz.FIDEScoring)
 			if got := order(standings, tt.above, tt.below); !slices.Equal(got, []int64{tt.above, tt.below}) {
 				t.Errorf("order of %d and %d = %v, want %d first", tt.above, tt.below, got, tt.above)
 			}

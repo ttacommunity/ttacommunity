@@ -256,7 +256,7 @@ function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener
   );
 }
 
-/** StandingsPanel shows the standings by rank, with how the edition scores, a marker before the ranks the lot, the seed or the draw ordered (fixedBy: what fixed the starting ranks, null before round 1), the starting ranks once fixed, the tie-breaks on request, and a button to how ties are broken (onHow). */
+/** StandingsPanel shows the standings by rank, with how the edition scores, a marker before the ranks the lot or the seed ordered (fixedBy: what fixed the starting ranks, null before round 1), the starting ranks once fixed, the tie-breaks on request, and a button to how ties are broken (onHow). */
 function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null; onHow: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
@@ -347,7 +347,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
           </tbody>
         </table>
       </div>
-      {standings.some((s) => s.place_from !== s.place_to) && (
+      {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
         <p className="blitz-footnote">
           <span className="blitz-draw">*</span> Equal on every tie-break; ordered by {lastTieBreak(fixedBy)}.
         </p>
@@ -356,7 +356,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
   );
 }
 
-/** DrawMark marks a rank the lot, the seed or the draw ordered, before the number in a slot of its own so the numbers line up, with the ranks it was ordered among as its text; the slot stays empty for a rank held alone. */
+/** DrawMark marks a rank the lot or the seed ordered, before the number in a slot of its own so the numbers line up, with the ranks it was ordered among as its text; the slot stays empty for a rank held alone or before round 1. */
 function DrawMark({ s, fixedBy }: { s: BlitzStanding; fixedBy: 'rating' | 'lot' | null }) {
   const label = drawLabel(s, fixedBy);
   return (

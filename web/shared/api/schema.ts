@@ -3137,8 +3137,8 @@ export interface components {
              *     Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
              *     Buchholz, the opponents' Sonneborn-Berger), then the starting
              *     ranks (the lot, or the seed by rating), and before round 1 fixed
-             *     them a draw fixed for the edition; dropped players last. Only the
-             *     published Swiss rounds count
+             *     them sign-up order; dropped players last. Only the published Swiss
+             *     rounds count
              */
             standings: components["schemas"]["BlitzStanding"][];
         };
@@ -3217,8 +3217,8 @@ export interface components {
             rank: number;
             /**
              * @description The first rank of the place this row shares with the rows only the
-             *     starting ranks (or, before round 1, the edition's draw) separate
-             *     it from (equal points, direct encounter and every tie-break);
+             *     starting ranks (or, before round 1, sign-up order) separate it
+             *     from (equal points, direct encounter and every tie-break);
              *     place_to is the last. Equal for a place held alone
              */
             place_from: number;

@@ -1196,7 +1196,7 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       {fields.later && <p className="muted round-hint">Later rounds: {methodText(pairing.later, 'later', pairing.later_order)}</p>}
       {fixed === null && (
         <p className="muted round-hint">
-          Starting ranks are fixed for everyone when round 1 is paired, {fixedByLabel(ranksFixedBy(pairing))}: by rating is highest first, unrated players last, then by name; by lot is a draw. A late entrant is slotted in the same way. After that an order can only be what fixed them, or random.
+          Starting ranks are fixed for everyone when round 1 is paired, {fixedByLabel(ranksFixedBy(pairing))}: by rating is highest first, unrated players last, then by name; by lot is lots drawn for everyone. A late entrant is slotted in the same way. After that an order can only be what fixed them, or random.
         </p>
       )}
       {fixed !== null && <p className="muted round-hint">Starting ranks were fixed {fixed} when round 1 was paired: the Entrants tab shows them. To fix them again, delete the edition&apos;s rounds.</p>}
@@ -1533,7 +1533,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the lot, the seed or the draw ordered it; fixedBy is what fixed the starting ranks, null before round 1), the starting rank once fixed, points, games played, byes and, on request, the tie-breaks; dropped players last. */
+/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the lot or the seed ordered it; fixedBy is what fixed the starting ranks, null before round 1), the starting rank once fixed, points, games played, byes and, on request, the tie-breaks; dropped players last. */
 function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
@@ -1624,7 +1624,7 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
       )}
       {standings.length > 0 && (
         <p className="muted blitz-footnote">
-          {standings.some((s) => s.place_from !== s.place_to) && (
+          {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
             <>
               <span className="blitz-draw">*</span> Equal on every tie-break; ordered by {lastTieBreak(fixedBy)}.{' '}
             </>

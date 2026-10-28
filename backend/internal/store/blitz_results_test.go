@@ -75,9 +75,6 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BlitzEdition: %v", err)
 	}
-	if ed.TiebreakSeed == 0 {
-		t.Errorf("the edition's tiebreak seed = 0, want one drawn when its row was made")
-	}
 	m := matchOf(t, ed, annBob)
 	if want := "a game=ABCD1234 250/finished 200/finished on 2026-10-15T03:30:00Z"; resultLine(m) != want || m.GameID == nil || m.DecidedAt == nil {
 		t.Fatalf("Ann v Bob = %q (game %v, decided %v), want %q with a game id and a time", resultLine(m), m.GameID, m.DecidedAt, want)
