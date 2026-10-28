@@ -391,11 +391,14 @@ def _honour_rows(honours):
     return rows
 
 
-def _campaign_rows(rows, keys, dates):
-    """Returns upstream's campaign rows: every match-name group a player played
-    in, and appends each official row's record to it instead where one exists.
+def _campaign_rows(rows, keys, dates, group_of, group_standings):
+    """Returns upstream's campaign rows, one for every match-name group a player played in, and what each
+    official row (by its key in keys) takes from the games instead: its record, and a finish date.
 
-    An official row keeps its own division, which its standings gave it, whatever the games' names say.
+    A group whose games are all one standings group (group_of maps a match id to its key in group_standings)
+    gives its players their standings place and points; any other ranks by wins, as upstream. A cup round's
+    row also carries its stage, place, games, wins and score as numbers. An official row keeps its own
+    division, which its standings gave it, whatever the games' names say.
     """
     groups = {}
     for r in rows:
@@ -406,10 +409,10 @@ def _campaign_rows(rows, keys, dates):
         ]
         g["players"].update(p for p, _, _ in players)
         g["matches"].append(
-            {"date": str(r["date"]), "count": r["player_count"], "players": players}
-        )
+            {"id": r["match_id"], "date": str(r["date"]), "count": r["player_count"], "players": players}
+        )  # fmt: skip
 
-    out = []
+    out, added = [], {}
     for (tournament, season, division), g in groups.items():
         size = len(g["players"])
         ladder = any(
@@ -435,43 +438,66 @@ def _campaign_rows(rows, keys, dates):
                 reverse=True,
             )
             ranks = {p: i for i, p in enumerate(ranked, start=1)}
+        in_groups = {group_of.get(m["id"]) for m in g["matches"]}
+        group = in_groups.pop() if len(in_groups) == 1 else None
+        table = {s["player_name"]: s for s in group_standings.get(group, [])}
         for p, pc in played.items():
             n, w = pc["games"], pc["wins"]
             pct = _pct(w, n)
             finish = finish_date(tournament, season, pc["finish"], dates)
-            if ladder or n == 1 or single:
-                placement = f"{pc['rank']} / {pc['count']}"
-                points = f"{pc['last']:g} pts" if pc["last"] > 0 else f"{w}W - {n - w}L"
+            score = 0.0
+            if p in table:
+                place, of = table[p]["place"], len(table)
+                points = f"{table[p]['points']:g} pts"
+            elif ladder or n == 1 or single:
+                place, of = pc["rank"], pc["count"]
+                score = pc["last"] if pc["last"] > 0 else 0.0
+                points = f"{score:g} pts" if score else f"{w}W - {n - w}L"
             else:
-                placement = f"{ranks.get(p, 1)} / {size}"
+                place, of = ranks.get(p, 1), size
                 points = f"{w}W - {n - w}L ({pct}%)"
-            medal = None
-            official = keys.get((p, tournament, season))
-            if official is not None:
-                if "Record:" not in official["details"]:
-                    official["details"] += (
-                        f" • Record: {w}W - {n - w}L ({pct}% win rate)"
-                    )
-                if not official["finish_date"]:
-                    official["finish_date"] = finish
+            if (p, tournament, season) in keys:
+                added.setdefault(
+                    (p, tournament, season),
+                    (f" • Record: {w}W - {n - w}L ({pct}% win rate)", finish),
+                )
                 continue
-            out.append({"player_name": p, "tournament": tournament, "season": season, "division": division,
-                        "placement": placement, "points": points, "medal": medal,
-                        "details": f"Competed in {division}: {n} matches played, {w} victories ({pct}% win rate)",
-                        "finish_date": finish, "career": False})  # fmt: skip
-    return out
+            row = {"player_name": p, "tournament": tournament, "season": season, "division": division,
+                   "placement": f"{place} / {of}", "points": points, "medal": None,
+                   "details": f"Competed in {division}: {n} matches played, {w} victories ({pct}% win rate)",
+                   "finish_date": finish, "career": False}  # fmt: skip
+            if _cup_round(row):
+                row["cup"] = {
+                    "stage": _stage(division),
+                    "place": place,
+                    "games": n,
+                    "wins": w,
+                    "score": score,
+                }
+            out.append(row)
+    return out, added
 
 
 def player_records(
-    *, rows, top_divisions, standings, official, boards, honours, dates
+    *,
+    rows,
+    group_of,
+    group_standings,
+    top_divisions,
+    standings,
+    official,
+    boards,
+    honours,
+    dates,
 ) -> list[dict]:
     """Returns every player's records in the order upstream makes them, each numbered by position.
 
-    rows are the matches in the order upstream's table holds them. standings and official map (series,
-    season, division) to rows of player_name, place and points; boards map a
-    series to its board rows; top_divisions map a league to its top
-    divisions' names; honours are the recorded career honours; dates
-    map (series, season) to a finish date.
+    rows are the matches in the order upstream's table holds them; group_of maps a match id to its standings
+    group's key, and group_standings that key to the group's rows of player_name, place and points: a
+    lower division's rows take their place from them. standings
+    and official map (series, season, division) to rows of player_name, place and points; boards map a series
+    to its board rows; top_divisions map a league to its top divisions' names; honours are the recorded career
+    honours; dates map (series, season) to a finish date.
     """
     worlds, keys = _worlds_rows(official, dates)
     made = list(worlds)
@@ -486,36 +512,29 @@ def player_records(
     )
     keys |= rl_keys
     made += rl + _honour_rows(honours)
-    made += _campaign_rows(rows, keys, dates)
+    # A top division's ties are settled by its official placements, which its standings do not know.
+    lower = {
+        m: k for m, k in group_of.items() if k[2] not in top_divisions.get(k[0], ())
+    }
+    campaign, added = _campaign_rows(rows, keys, dates, lower, group_standings)
+    # One official row can sit under several keys: the first games to reach it give it their record.
+    changed: dict[int, dict] = {}
+    for key, (record, finish) in added.items():
+        rec = keys[key]
+        if id(rec) not in changed:
+            details = (
+                rec["details"]
+                if "Record:" in rec["details"]
+                else rec["details"] + record
+            )
+            changed[id(rec)] = {
+                **rec,
+                "details": details,
+                "finish_date": rec["finish_date"] or finish,
+            }
+    made = [changed.get(id(r), r) for r in made] + campaign
     made = _top_tier_medals(_one_row_per_cup(made))
     return [{**r, "position": i} for i, r in enumerate(made, start=1)]
-
-
-def is_top_division(tournament: str, division: str) -> bool:
-    """Reports whether a group is its tournament's top division, as upstream decides which wins earn gold."""
-    if not division:
-        return False
-    d, t = division.strip().lower(), tournament.strip().lower()
-    if "royal league" in t:
-        return d == "emperor"
-    if "international" in t or "intermezzo" in t:
-        return d in ("grandmaster", "championship", "premier")
-    if "world" in t:
-        return d in ("championship", "final", "finals", "grand final", "main")
-    if "ladder" in t:
-        return d in (
-            "tier 1",
-            "tier 01",
-            "hydrogen",
-            "1-hydrogen",
-            "ladder division 1",
-            "top tier",
-        )
-    if "slam" in t or "open" in t:
-        return d in ("championship", "final", "finals", "main")
-    if "cup" in t or "trophy" in t:
-        return d in ("championship", "final", "finals", "stage 11", "stage 3")
-    return d in ("championship", "grandmaster", "emperor", "tier 1")
 
 
 # Upstream's lower-tier medal clearing: (tournaments, divisions that keep a medal, or None for none).
@@ -568,10 +587,11 @@ def _stage(division: str) -> int:
     return int(m.group(1)) if m else 1
 
 
-def _place(placement: str | None) -> int:
-    """Returns the place a placement starts with ("2 / 4" is 2), or upstream's 3."""
-    m = re.match(r"(\d+)\s*/", placement or "")
-    return int(m.group(1)) if m else 3
+def _cup_round(r) -> bool:
+    """Reports whether a record is one round of a Survivors Cup or Leaderboard Trophy year."""
+    return (
+        r["tournament"] in _CUPS and not r["career"] and r["division"] != "Championship"
+    )
 
 
 def _one_row_per_cup(records):
@@ -582,11 +602,7 @@ def _one_row_per_cup(records):
     """
     cups, out = {}, []
     for r in records:
-        if (
-            r["tournament"] in _CUPS
-            and not r["career"]
-            and r["division"] != "Championship"
-        ):
+        if _cup_round(r):
             cups.setdefault((r["tournament"], r["season"]), {}).setdefault(
                 r["player_name"], []
             ).append(r)
@@ -595,20 +611,12 @@ def _one_row_per_cup(records):
     for (tournament, year), players in cups.items():
         ranks = []
         for p, rows in players.items():
-            furthest = max(_stage(r["division"]) for r in rows)
-            last = [r for r in rows if _stage(r["division"]) == furthest]
-            place = min(_place(r["placement"]) for r in last)
-            games = wins = points = 0
-            for r in rows:
-                m = re.search(
-                    r"(\d+)\s+matches played,\s+(\d+)\s+victories", r["details"] or ""
-                )
-                games, wins = (
-                    games + (int(m.group(1)) if m else 1),
-                    wins + (int(m.group(2)) if m else 0),
-                )
-                if m := re.search(r"(\d+)\s*pts", r["points"] or ""):
-                    points += int(m.group(1))
+            furthest = max(r["cup"]["stage"] for r in rows)
+            last = [r for r in rows if r["cup"]["stage"] == furthest]
+            place = min(r["cup"]["place"] for r in last)
+            games = sum(r["cup"]["games"] for r in rows)
+            wins = sum(r["cup"]["wins"] for r in rows)
+            points = sum(r["cup"]["score"] for r in rows)
             finish = max(r["finish_date"] for r in last)
             ranks.append((p, furthest, place, points, games, wins, finish))
         survivors = tournament == "Survivors Cup"
@@ -618,8 +626,8 @@ def _one_row_per_cup(records):
         ):
             details = f"Advanced to Stage {furthest} • {games} matches played, {wins} victories ({_pct(wins, games)}% win rate)"
             if survivors:
-                details += f" • Cumulative Score: {points:,} pts"
+                details += f" • Cumulative Score: {points:,g} pts"
             out.append({"player_name": p, "tournament": tournament, "season": year, "division": "Championship",
-                        "placement": f"{i} / {len(ranks)}", "points": f"{points} pts" if survivors else "",
+                        "placement": f"{i} / {len(ranks)}", "points": f"{points:g} pts" if survivors else "",
                         "medal": _medal(i), "details": details, "finish_date": finish, "career": False})  # fmt: skip
     return out

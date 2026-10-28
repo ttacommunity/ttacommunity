@@ -806,8 +806,19 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             if series == worlds
             for p in placed
         }
+        group_standings = defaultdict(list)
+        for row in standing_rows:
+            group_standings[row[1:5]].append(
+                {"player_name": row[5], "place": row[6], "points": row[7]}
+            )
         player_record_rows = player_records(
             rows=match_order(rows),
+            group_of={
+                g["match_id"]: (g["series"], g["season"], g["division"], g["group"])
+                for g in classified
+                if g["division"] is not None and not g["tiebreak"]
+            },
+            group_standings=group_standings,
             top_divisions={
                 s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
