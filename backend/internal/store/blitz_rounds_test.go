@@ -45,7 +45,7 @@ func TestOnlyAnEntrantWhoHasPlayedIsDropped(t *testing.T) {
 		t.Fatalf("AddBlitzEntrants: %v", err)
 	}
 	ann, bob, cy, dee, eve := ids[0], ids[1], ids[2], ids[3], more[0]
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestAnEntrantWhoHasNotPlayedIsRemovedFromTheirRound(t *testing.T) {
 		t.Fatalf("AddBlitzEntrants: %v", err)
 	}
 	ann, bob, cy, dee, eve := ids[0], ids[1], ids[2], ids[3], more[0]
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}}); err != nil {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}, {A: eve}}}); err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	for _, id := range []int64{bob, eve} {
@@ -137,14 +137,14 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 	a, reader, ids := blitzWithEntrants(t)
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "timezone", Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "timezone", Order: "rating", Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	if r1.ID == 0 || r1.Number != 1 || r1.Kind != "swiss" || len(r1.Matches) != 2 || r1.Matches[0].ID == 0 {
 		t.Errorf("round made = %+v, want round 1, swiss, two matches with ids", r1)
 	}
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 8, Matches: []BlitzMatch{{A: ann, B: &cy}}}); !errors.Is(err, ErrBlitzDraftExists) {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 8, Matches: []BlitzMatch{{A: ann, B: &cy}}}); !errors.Is(err, ErrBlitzDraftExists) {
 		t.Errorf("a second round while the first is a draft = %v, want ErrBlitzDraftExists", err)
 	}
 
@@ -169,7 +169,7 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 	if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
 		t.Errorf("deleting the published round 1, the latest = %v, want nil (nothing played yet)", err)
 	}
-	if r1, err = a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "timezone", Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil || r1.Number != 1 {
+	if r1, err = a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "timezone", Order: "rating", Seed: 7, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil || r1.Number != 1 {
 		t.Fatalf("round 1 again = %+v, %v; want round 1", r1, err)
 	}
 	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r1.ID); err != nil {
@@ -180,7 +180,7 @@ func TestBlitzRoundsAreMadePublishedAndListed(t *testing.T) {
 			t.Fatalf("RecordBlitzRuling(%d): %v", m.ID, err)
 		}
 	}
-	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 9, Matches: []BlitzMatch{{A: ann, B: &cy}, {A: bob, B: &dee}}})
+	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 9, Matches: []BlitzMatch{{A: ann, B: &cy}, {A: bob, B: &dee}}})
 	if err != nil || r2.Number != 2 {
 		t.Errorf("the next round = %+v, %v; want round 2", r2, err)
 	}
@@ -203,7 +203,7 @@ func TestBlitzRoundMatchesAreCheckedAndChanged(t *testing.T) {
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
 	markDropped(t, a, dee)
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -226,14 +226,14 @@ func TestBlitzRoundMatchesAreCheckedAndChanged(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 2, Matches: tt.matches})
+			_, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 2, Matches: tt.matches})
 			if !errors.Is(err, tt.want) || !strings.Contains(err.Error(), tt.named) {
 				t.Errorf("AddBlitzRound = %v, want %v naming %q", err, tt.want, tt.named)
 			}
 		})
 	}
 
-	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 3, Matches: []BlitzMatch{{A: ann, B: &cy}}})
+	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 3, Matches: []BlitzMatch{{A: ann, B: &cy}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound(round 2, incomplete): %v", err)
 	}

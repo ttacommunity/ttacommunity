@@ -25,7 +25,7 @@ func TestAnEditionIsPairedByTheMethodsLastSet(t *testing.T) {
 	}
 	for _, first := range BlitzFirstMethods {
 		for _, later := range BlitzLaterMethods {
-			set := BlitzPairing{First: first, Later: later, Ranks: BlitzRankOrders[(len(first)+len(later))%len(BlitzRankOrders)]}
+			set := BlitzPairing{First: first, Later: later, FirstOrder: BlitzOrders[len(first)%len(BlitzOrders)], LaterOrder: BlitzOrders[len(later)%len(BlitzOrders)]}
 			if err := a.SetBlitzPairing(ctx, "us_open", "2026", set); err != nil {
 				t.Fatalf("SetBlitzPairing(%+v): %v", set, err)
 			}
@@ -34,7 +34,7 @@ func TestAnEditionIsPairedByTheMethodsLastSet(t *testing.T) {
 			}
 		}
 	}
-	for _, bad := range []BlitzPairing{{First: "rating", Later: "dutch", Ranks: "rating"}, {First: "dutch", Later: "dutch", Ranks: "random"}, {First: "", Later: "", Ranks: ""}} {
+	for _, bad := range []BlitzPairing{{First: "rating", Later: "dutch", FirstOrder: "rating", LaterOrder: "rating"}, {First: "dutch", Later: "dutch", FirstOrder: "seed", LaterOrder: "rating"}, {First: "dutch", Later: "dutch", FirstOrder: "rating", LaterOrder: ""}, {First: "", Later: "", FirstOrder: "", LaterOrder: ""}} {
 		if err := a.SetBlitzPairing(ctx, "us_open", "2026", bad); !errors.Is(err, ErrBadBlitzPairing) {
 			t.Errorf("SetBlitzPairing(%+v) = %v, want ErrBadBlitzPairing", bad, err)
 		}
@@ -49,7 +49,7 @@ func TestARoundKeepsTheMethodItWasPairedWith(t *testing.T) {
 	ctx := context.Background()
 	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
 	for _, method := range []string{"dutch", "dutch-timezone", "timezone", "rating", "random"} {
-		r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: method, Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
+		r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: method, Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
 		if err != nil {
 			t.Fatalf("AddBlitzRound(%s): %v", method, err)
 		}
@@ -60,6 +60,9 @@ func TestARoundKeepsTheMethodItWasPairedWith(t *testing.T) {
 		if got := ed.Rounds[len(ed.Rounds)-1].Method; got != method {
 			t.Errorf("round method = %q, want %q", got, method)
 		}
+		if got := ed.Rounds[len(ed.Rounds)-1].Order; got != "rating" {
+			t.Errorf("round order = %q, want rating", got)
+		}
 		if err := a.DeleteBlitzRound(ctx, "us_open", "2026", r.ID); err != nil {
 			t.Fatalf("DeleteBlitzRound: %v", err)
 		}
@@ -69,13 +72,15 @@ func TestARoundKeepsTheMethodItWasPairedWith(t *testing.T) {
 func TestTheDatabaseRefusesAPairingMethodOutOfPlace(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}}); err != nil {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}}); err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	tests := []struct{ name, sql, constraint string }{
 		{"round 1 by rating", "UPDATE blitz_editions SET pairing_first = 'rating'", "blitz_editions_pairing_first_check"},
 		{"later rounds by a method nobody knows", "UPDATE blitz_editions SET pairing_later = 'swiss-ish'", "blitz_editions_pairing_later_check"},
-		{"starting ranks by something else", "UPDATE blitz_editions SET pairing_ranks = 'random'", "blitz_editions_pairing_ranks_check"},
+		{"an order nobody knows", "UPDATE blitz_editions SET pairing_first_order = 'seed'", "blitz_editions_pairing_first_order_check"},
+		{"ranks fixed by chance", "UPDATE blitz_editions SET ranks_fixed_by = 'random'", "blitz_editions_ranks_fixed_by_check"},
+		{"a Swiss round without an order", "UPDATE blitz_rounds SET pairing_order = NULL", "blitz_rounds_order_kind_check"},
 		{"a starting rank of 0", "UPDATE blitz_entries SET starting_rank = 0", "blitz_entries_starting_rank_check"},
 		{"a method nobody knows", "UPDATE blitz_rounds SET method = 'swiss-ish'", "blitz_rounds_method_check"},
 		{"a Swiss round without one", "UPDATE blitz_rounds SET method = NULL", "blitz_rounds_method_kind_check"},
@@ -154,19 +159,22 @@ func TestStartingRanksStayUntilTheEditionHasNoRound(t *testing.T) {
 		t.Errorf("starting ranks before any are set = %v, want none", got)
 	}
 	set := map[int64]int{ann: 2, bob: 4, cy: 1, dee: 3}
-	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", set); err != nil {
+	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", set, "lot"); err != nil {
 		t.Fatalf("SetBlitzStartingRanks: %v", err)
+	}
+	if ed, _ := a.BlitzEdition(ctx, "us_open", "2026"); ed.RanksFixedBy != "lot" {
+		t.Errorf("ranks fixed by %q, want lot", ed.RanksFixedBy)
 	}
 	if got := ranksOf(); !maps.Equal(got, set) {
 		t.Errorf("starting ranks = %v, want %v", got, set)
 	}
-	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", map[int64]int{ann: 0}); err == nil {
+	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", map[int64]int{ann: 0}, "lot"); err == nil {
 		t.Errorf("SetBlitzStartingRanks(rank 0) = nil, want an error: a rank starts at 1")
 	}
-	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2027", set); !errors.Is(err, ErrNoBlitzEdition) {
+	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2027", set, "lot"); !errors.Is(err, ErrNoBlitzEdition) {
 		t.Errorf("SetBlitzStartingRanks(an unknown edition) = %v, want ErrNoBlitzEdition", err)
 	}
-	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
+	r1, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -176,16 +184,28 @@ func TestStartingRanksStayUntilTheEditionHasNoRound(t *testing.T) {
 	if got := ranksOf(); !maps.Equal(got, map[int64]int{ann: 0, bob: 0, cy: 0, dee: 0}) {
 		t.Errorf("starting ranks after deleting the last round = %v, want none", got)
 	}
-	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", set); err != nil {
+	if ed, _ := a.BlitzEdition(ctx, "us_open", "2026"); ed.RanksFixedBy != "" {
+		t.Errorf("ranks fixed by %q after deleting the last round, want none", ed.RanksFixedBy)
+	}
+	if err := a.SetBlitzStartingRanks(ctx, "us_open", "2026", set, "rating"); err != nil {
 		t.Fatalf("SetBlitzStartingRanks: %v", err)
 	}
-	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil {
+	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ann, B: &bob}, {A: cy, B: &dee}}}); err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if err := a.SetBlitzPairing(ctx, "us_open", "2026", BlitzPairing{First: "dutch", Later: "dutch", FirstOrder: "rating", LaterOrder: "lot"}); !errors.Is(err, ErrBlitzRanksFixed) {
+		t.Errorf("the other fixed order once ranks are fixed by rating = %v, want ErrBlitzRanksFixed", err)
+	}
+	if err := a.SetBlitzPairing(ctx, "us_open", "2026", BlitzPairing{First: "random", Later: "timezone", FirstOrder: "random", LaterOrder: "rating"}); err != nil {
+		t.Errorf("the methods, random and the same fixed order once ranks are fixed = %v, want them to pass", err)
 	}
 	if err := a.ResetBlitzEdition(ctx, "us_open", "2026"); err != nil {
 		t.Fatalf("ResetBlitzEdition: %v", err)
 	}
 	if got := ranksOf(); !maps.Equal(got, map[int64]int{ann: 0, bob: 0, cy: 0, dee: 0}) {
 		t.Errorf("starting ranks after a reset = %v, want none", got)
+	}
+	if ed, _ := a.BlitzEdition(ctx, "us_open", "2026"); ed.RanksFixedBy != "" {
+		t.Errorf("ranks fixed by %q after a reset, want none", ed.RanksFixedBy)
 	}
 }

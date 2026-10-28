@@ -20,7 +20,7 @@ func TestPairRefusesWhatNoMethodCanPair(t *testing.T) {
 	for _, m := range pairing.Methods {
 		for _, tt := range tests {
 			t.Run(string(m)+"/"+tt.name, func(t *testing.T) {
-				if got, err := pairing.Pair(tt.players, m, 1); !errors.Is(err, tt.want) {
+				if got, err := pairing.Pair(tt.players, m, pairing.ByRating, 1); !errors.Is(err, tt.want) {
 					t.Errorf("Pair = %v, %v; want %v", pairs(got), err, tt.want)
 				}
 			})
@@ -29,7 +29,7 @@ func TestPairRefusesWhatNoMethodCanPair(t *testing.T) {
 }
 
 func TestPairRefusesAnUnknownMethod(t *testing.T) {
-	if _, err := pairing.Pair(field(0, 0), "swiss-ish", 1); !errors.Is(err, pairing.ErrUnknownMethod) {
+	if _, err := pairing.Pair(field(0, 0), "swiss-ish", pairing.ByRating, 1); !errors.Is(err, pairing.ErrUnknownMethod) {
 		t.Errorf("Pair(swiss-ish) = %v, want ErrUnknownMethod", err)
 	}
 }

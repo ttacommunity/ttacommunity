@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, offsetMinutes, formatLabel, knockoutStage, offsetLabel, pairingSummary, usesStartingRanks, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { editionHref, editionParams } from './blitz';
 
@@ -105,6 +105,15 @@ describe('formatLabel', () => {
     [{ swiss_rounds: 6, knockout_size: 0 }, '6 Swiss rounds, no knockout'],
   ])('describes %o', (format, want) => {
     expect(formatLabel(format)).toBe(want);
+  });
+});
+
+describe('scoringLine', () => {
+  it.each([
+    ["FIDE's, the three a reader needs", FIDE, true, 'Win 1 · Draw ½ · Bye 1'],
+    ["the edition's own, every outcome", OURS, false, 'Win 3 · Draw 1½ · Loss ½ · Forfeit win 1 · Forfeit loss 0 · Bye 2½ · Skip 10'],
+  ])('%s', (_, points, fide, want) => {
+    expect(scoringLine(points, fide)).toBe(want);
   });
 });
 
@@ -218,24 +227,27 @@ describe('scoringSentence', () => {
 
 describe('drawLabel', () => {
   it.each([
-    ['nothing for a rank held alone', 3, 3, null],
-    ['the ranks the draw ordered', 8, 9, 'Ranks 8–9 were ordered by the draw'],
-  ] as const)('gives %s', (_name, from, to, want) => {
-    expect(drawLabel({ place_from: from, place_to: to })).toBe(want);
+    ['nothing for a rank held alone', 3, 3, 'lot', null],
+    ['the ranks the lot ordered', 8, 9, 'lot', 'Ranks 8–9 were ordered by the lot'],
+    ['the ranks the seed ordered', 8, 9, 'rating', 'Ranks 8–9 were ordered by the seed'],
+    ['the ranks the draw ordered before round 1', 1, 12, null, 'Ranks 1–12 were ordered by the draw'],
+  ] as const)('gives %s', (_name, from, to, fixedBy, want) => {
+    expect(drawLabel({ place_from: from, place_to: to }, fixedBy)).toBe(want);
   });
 });
 
 describe('TIE_BREAKS', () => {
-  it('lists the seven steps, Direct Encounter first and the draw last', () => {
-    expect(TIE_BREAKS.map((t) => t.label)).toEqual(['Direct Encounter', 'Buchholz Cut 1', 'Buchholz', 'Sonneborn-Berger', "Opponents' Buchholz", "Opponents' Sonneborn-Berger", 'The draw']);
+  it('lists the seven steps, Direct Encounter first and the lot last', () => {
+    expect(TIE_BREAKS.map((t) => t.label)).toEqual(['Direct Encounter', 'Buchholz Cut 1', 'Buchholz', 'Sonneborn-Berger', "Opponents' Buchholz", "Opponents' Sonneborn-Berger", 'The lot']);
   });
 });
 
 describe('STANDING_COLUMNS', () => {
-  const standing = (name: string, rank: number, points: number, buchholz: number, cut1: number, sb: number) => ({ rank, place_from: rank, place_to: rank, name, country: null, points, games: 1, byes: 0, buchholz_cut1: cut1, buchholz, sonneborn_berger: sb, opponents_buchholz: 0, opponents_sonneborn_berger: 0, status: 'active' as const });
+  const standing = (name: string, rank: number, points: number, buchholz: number, cut1: number, sb: number) => ({ rank, place_from: rank, place_to: rank, name, country: null, starting_rank: rank === 1 ? 3 : rank === 2 ? null : 1, points, games: 1, byes: 0, buchholz_cut1: cut1, buchholz, sonneborn_berger: sb, opponents_buchholz: 0, opponents_sonneborn_berger: 0, status: 'active' as const });
   const rows = [standing('cy', 1, 2, 1, 0.5, 2), standing('Ann', 2, 1, 3, 2, 0), standing('bo', 3, 1, 2, 1.5, 1)];
   it.each([
     ['rank', { col: 'rank', desc: false }, ['cy', 'Ann', 'bo']],
+    ['starting rank, none last', { col: 'start', desc: false }, ['bo', 'cy', 'Ann']],
     ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
     ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
     ['Buchholz Cut 1', { col: 'cut1', desc: true }, ['Ann', 'bo', 'cy']],
@@ -271,12 +283,13 @@ describe('offsetMinutes', () => {
 });
 
 describe('ENTRANT_COLUMNS', () => {
-  const e = (name: string, zone: string, utc_offset: string, rating: number | null) => ({ name, zone, utc_offset, rating });
-  const rows = [e('cy', 'Europe/Berlin', '+02:00', 1500), e('Ann', 'Unknown', '', null), e('bo', 'US East', '-04:00', 1800), e('di', 'Europe/Paris', '+02:00', 1600)];
+  const e = (name: string, zone: string, utc_offset: string, rating: number | null, start: number | null = null) => ({ name, zone, utc_offset, rating, starting_rank: start });
+  const rows = [e('cy', 'Europe/Berlin', '+02:00', 1500, 2), e('Ann', 'Unknown', '', null), e('bo', 'US East', '-04:00', 1800, 1), e('di', 'Europe/Paris', '+02:00', 1600, 3)];
   it.each([
     ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy', 'di']],
     ['time zone, west to east, then by name, unknown last', { col: 'zone', desc: false }, ['bo', 'cy', 'di', 'Ann']],
     ['rating, the highest first, unrated last', { col: 'rating', desc: true }, ['bo', 'di', 'cy', 'Ann']],
+    ['starting rank, none last', { col: 'start', desc: false }, ['bo', 'cy', 'di', 'Ann']],
   ] as const)('sorts the entrants by %s', (_name, sort, want) => {
     expect(sortRows(rows, ENTRANT_COLUMNS, sort).map((r) => r.name)).toEqual(want);
   });
@@ -284,22 +297,66 @@ describe('ENTRANT_COLUMNS', () => {
 
 describe('pairingSummary', () => {
   it.each([
-    ['one method throughout', { first: 'dutch', later: 'dutch', ranks: 'rating' }, "FIDE's Dutch system, every round"],
-    ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone', ranks: 'rating' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak'],
-    ['starting ranks by lot', { first: 'dutch', later: 'dutch', ranks: 'lot' }, "FIDE's Dutch system, every round; starting ranks by lot"],
-    ['random throughout', { first: 'random', later: 'random', ranks: 'lot' }, 'Random, every round'],
-    ['no starting ranks without the Dutch system', { first: 'timezone', later: 'rating', ranks: 'lot' }, 'Round 1: Closest time zones; later rounds: Closest ratings'],
+    ['one method and order throughout', { first: 'dutch', later: 'dutch', first_order: 'rating', later_order: 'rating' }, "FIDE's Dutch system, by rating, every round"],
+    ['round 1 and the later rounds', { first: 'random', later: 'dutch-timezone', first_order: 'random', later_order: 'lot' }, 'Round 1: Random; later rounds: Dutch, time zones as tiebreak, by lot'],
+    ['the same method with different orders', { first: 'timezone', later: 'timezone', first_order: 'random', later_order: 'rating' }, 'Round 1: Closest time zones, random; later rounds: Closest time zones, by rating'],
   ] as const)('%s', (_, pairing, want) => {
     expect(pairingSummary(pairing)).toBe(want);
   });
 });
 
-describe('usesStartingRanks', () => {
+describe('methodText', () => {
   it.each([
-    ['the Dutch system in round 1', { first: 'dutch', later: 'timezone', ranks: 'rating' }, true],
-    ['the Dutch system with time zones later', { first: 'random', later: 'dutch-timezone', ranks: 'rating' }, true],
-    ['no Dutch system', { first: 'timezone', later: 'rating', ranks: 'lot' }, false],
-  ] as const)('is true with %s', (_, pairing, want) => {
-    expect(usesStartingRanks(pairing)).toBe(want);
+    ['round 1 has no points yet', 'timezone', 'first', 'rating', 'Everyone meets the opponent closest to their time zone; among equally close ones, the closest in rating decides.'],
+    ['later rounds group by points', 'timezone', 'later', 'rating', 'Players on the same points meet the opponent closest to their time zone; among equally close ones, the closest in rating decides.'],
+    ['time zones then chance', 'timezone', 'first', 'random', 'among equally close ones, chance decides'],
+    ['time zones then the lot', 'timezone', 'later', 'lot', 'among equally close ones, the closest in the lot decides'],
+    ['the Dutch system names the order: by rating', 'dutch', 'later', 'rating', 'Each score group is ordered by starting rank, by rating, and split in two'],
+    ['the Dutch system names the order: by lot', 'dutch', 'first', 'lot', 'The players are ordered by starting rank, drawn by lot, and split in two'],
+    ['the Dutch system names the order: random', 'dutch', 'first', 'random', 'ordered by starting rank, drawn afresh for this round'],
+    ['Dutch with time zones, round 1', 'dutch-timezone', 'first', 'lot', 'The players are ordered by starting rank, drawn by lot, and the top half plays the bottom half'],
+    ['random, round 1', 'random', 'first', 'rating', 'Opponents are drawn by chance.'],
+    ['closest ratings, later', 'rating', 'later', 'rating', 'Players on the same points meet the opponent closest in rating.'],
+  ] as const)('%s', (_, m, when, order, want) => {
+    expect(methodText(m, when, order)).toContain(want);
+  });
+});
+
+describe('roundLine', () => {
+  it.each([
+    ['a method with its order', 'timezone', 'lot', 'Closest time zones, by lot'],
+    ['random alone', 'random', 'rating', 'Random'],
+  ] as const)('names %s', (_, m, o, want) => {
+    expect(roundLine(m, o)).toBe(want);
+  });
+});
+
+describe('needsOrder and ranksFixedBy', () => {
+  it.each([
+    ['dutch', true],
+    ['dutch-timezone', true],
+    ['timezone', true],
+    ['rating', true],
+    ['random', false],
+  ] as const)('%s needs an order: %s', (m, want) => {
+    expect(needsOrder(m)).toBe(want);
+  });
+  it.each([
+    ["round 1's fixed order", { first: 'dutch', later: 'dutch', first_order: 'lot', later_order: 'rating' }, 'lot'],
+    ["the later rounds' when round 1 is random", { first: 'timezone', later: 'dutch', first_order: 'random', later_order: 'rating' }, 'rating'],
+    ['a lot when both are random', { first: 'random', later: 'random', first_order: 'random', later_order: 'random' }, 'lot'],
+  ] as const)('the ranks are fixed by %s', (_, pairing, want) => {
+    expect(ranksFixedBy(pairing)).toBe(want);
+  });
+});
+
+describe('startLabel and fixedByLabel', () => {
+  it.each([
+    [null, null, null],
+    ['lot', 'Lot', 'by lot'],
+    ['rating', 'Seed', 'by rating'],
+  ] as const)('for ranks fixed by %s', (fixedBy, start, by) => {
+    expect(startLabel(fixedBy)).toBe(start);
+    expect(fixedByLabel(fixedBy)).toBe(by);
   });
 });

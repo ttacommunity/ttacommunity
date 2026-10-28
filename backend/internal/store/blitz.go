@@ -22,25 +22,29 @@ type BlitzFormat struct {
 // DefaultBlitzFormat is an edition's format until admin sets one: the US Open's.
 var DefaultBlitzFormat = BlitzFormat{SwissRounds: 8, KnockoutSize: 8}
 
-// BlitzPairing is how an edition's Swiss rounds are paired: round 1's method, the later rounds', and how the Dutch
-// system's starting ranks are given (by rating or by lot).
+// BlitzPairing is how an edition's Swiss rounds are paired: round 1's method and order, and the later rounds'. An
+// order (rating, lot or random) gives the Dutch system its starting ranks and breaks ties among equally close time
+// zones.
 type BlitzPairing struct {
-	First, Later, Ranks string
+	First, Later, FirstOrder, LaterOrder string
 }
 
-// DefaultBlitzPairing is a new edition's pairing: FIDE's Dutch system throughout, starting ranks by rating.
-var DefaultBlitzPairing = BlitzPairing{First: "dutch", Later: "dutch", Ranks: "rating"}
+// DefaultBlitzPairing is a new edition's pairing: FIDE's Dutch system throughout, by rating.
+var DefaultBlitzPairing = BlitzPairing{First: "dutch", Later: "dutch", FirstOrder: "rating", LaterOrder: "rating"}
 
 // BlitzFirstMethods and BlitzLaterMethods are the methods round 1 and the later rounds may be paired by, and
-// BlitzRankOrders how the starting ranks may be given.
+// BlitzOrders the orders either may pair by.
 var (
 	BlitzFirstMethods = []string{"dutch", "dutch-timezone", "timezone", "random"}
 	BlitzLaterMethods = []string{"dutch", "dutch-timezone", "timezone", "rating", "random"}
-	BlitzRankOrders   = []string{"rating", "lot"}
+	BlitzOrders       = []string{"rating", "lot", "random"}
 )
 
-// ErrBadBlitzPairing means a method round 1 or the later rounds may not be paired by, or a rank order not offered.
-var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone, timezone or random, later rounds by dutch, dutch-timezone, timezone, rating or random, and starting ranks are by rating or lot")
+// ErrBadBlitzPairing means a method round 1 or the later rounds may not be paired by, or an order not offered.
+var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone, timezone or random, later rounds by those or rating, and each by rating, lot or random")
+
+// ErrBlitzRanksFixed means an order cannot change to the other fixed one once round 1 has fixed the starting ranks.
+var ErrBlitzRanksFixed = errors.New("the starting ranks are fixed")
 
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
 // edition's label and format, how many entrants are in and dropped, and the seed that breaks what the
@@ -56,6 +60,8 @@ type BlitzEditionRow struct {
 	Points blitz.Scoring
 	// Pairing is how its Swiss rounds are paired, DefaultBlitzPairing until admin sets it.
 	Pairing BlitzPairing
+	// RanksFixedBy is what fixed the starting ranks when round 1 was paired, "rating" or "lot"; "" before.
+	RanksFixedBy string
 	// Round is the latest published round's number, nil before the first is published; PairedRound is the latest
 	// round's, published or not.
 	Round, PairedRound *int
@@ -144,7 +150,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
 		       coalesce(e.points_win, $6), coalesce(e.points_draw, $7), coalesce(e.points_loss, $8), coalesce(e.points_forfeit_win, $9),
 		       coalesce(e.points_forfeit_loss, $10), coalesce(e.points_bye, $11), coalesce(e.points_skip, $12),
-		       coalesce(e.pairing_first, $13), coalesce(e.pairing_later, $14), coalesce(e.pairing_ranks, $15),
+		       coalesce(e.pairing_first, $13), coalesce(e.pairing_later, $14), coalesce(e.pairing_first_order, $15),
+		       coalesce(e.pairing_later_order, $16), coalesce(e.ranks_fixed_by, ''),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
 		       coalesce(e.tiebreak_seed, 0),
@@ -157,7 +164,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
 		ORDER BY s.name, coalesce(substring(t.label FROM '^[0-9]+')::int, -1) DESC, t.label DESC`,
 		public, slug, edition, DefaultBlitzFormat.SwissRounds, DefaultBlitzFormat.KnockoutSize, fide.Win, fide.Draw, fide.Loss, fide.ForfeitWin,
-		fide.ForfeitLoss, fide.Bye, fide.Skip, DefaultBlitzPairing.First, DefaultBlitzPairing.Later, DefaultBlitzPairing.Ranks)
+		fide.ForfeitLoss, fide.Bye, fide.Skip, DefaultBlitzPairing.First, DefaultBlitzPairing.Later, DefaultBlitzPairing.FirstOrder, DefaultBlitzPairing.LaterOrder)
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
 	}
@@ -165,7 +172,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.Ranks, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -318,24 +325,41 @@ func (a *AdminStore) SetBlitzPoints(ctx context.Context, slug, edition string, s
 	})
 }
 
-// SetBlitzPairing sets how an edition's Swiss rounds are paired, at any time, or returns ErrBadBlitzPairing or
-// ErrNoBlitzEdition.
+// SetBlitzPairing sets how an edition's Swiss rounds are paired, at any time, except that once round 1 has fixed the
+// starting ranks an order may only be what fixed them or random; or returns ErrBadBlitzPairing, ErrBlitzRanksFixed
+// or ErrNoBlitzEdition.
 func (a *AdminStore) SetBlitzPairing(ctx context.Context, slug, edition string, p BlitzPairing) error {
-	if !slices.Contains(BlitzFirstMethods, p.First) || !slices.Contains(BlitzLaterMethods, p.Later) || !slices.Contains(BlitzRankOrders, p.Ranks) {
+	if !slices.Contains(BlitzFirstMethods, p.First) || !slices.Contains(BlitzLaterMethods, p.Later) ||
+		!slices.Contains(BlitzOrders, p.FirstOrder) || !slices.Contains(BlitzOrders, p.LaterOrder) {
 		return ErrBadBlitzPairing
 	}
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
-		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET pairing_first = $2, pairing_later = $3, pairing_ranks = $4 WHERE tournament_id = $1", id, p.First, p.Later, p.Ranks); err != nil {
+		var fixedBy string
+		if err := tx.QueryRow(ctx, "SELECT coalesce(ranks_fixed_by, '') FROM blitz_editions WHERE tournament_id = $1", id).Scan(&fixedBy); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("setting %s %s's pairing: %w", slug, edition, err)
+		}
+		for _, o := range []string{p.FirstOrder, p.LaterOrder} {
+			if fixedBy != "" && o != "random" && o != fixedBy {
+				return fmt.Errorf("%w: by %s, when round 1 was paired, so an order is %s or random; delete the edition's rounds to fix them again", ErrBlitzRanksFixed, fixedBy, fixedBy)
+			}
+		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE blitz_editions SET pairing_first = $2, pairing_later = $3, pairing_first_order = $4, pairing_later_order = $5
+			WHERE tournament_id = $1`, id, p.First, p.Later, p.FirstOrder, p.LaterOrder); err != nil {
 			return fmt.Errorf("setting %s %s's pairing: %w", slug, edition, err)
 		}
 		return nil
 	})
 }
 
-// SetBlitzStartingRanks gives the entries named their starting ranks (1 the top), the other entries' kept, or returns
-// ErrNoBlitzEdition. A rank below 1 is an error.
-func (a *AdminStore) SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int) error {
+// SetBlitzStartingRanks gives the entries named their starting ranks (1 the top), the other entries' kept, and
+// records what fixed them (fixedBy: "rating" or "lot") unless already recorded; or returns ErrNoBlitzEdition. A rank
+// below 1 is an error.
+func (a *AdminStore) SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int, fixedBy string) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
+		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET ranks_fixed_by = coalesce(ranks_fixed_by, nullif($2, '')) WHERE tournament_id = $1", id, fixedBy); err != nil {
+			return fmt.Errorf("setting %s %s's starting ranks: %w", slug, edition, err)
+		}
 		for entry, rank := range ranks {
 			if _, err := tx.Exec(ctx, "UPDATE blitz_entries SET starting_rank = $3 WHERE entry_id = $1 AND tournament_id = $2", entry, id, rank); err != nil {
 				return fmt.Errorf("setting %s %s's starting ranks: %w", slug, edition, err)

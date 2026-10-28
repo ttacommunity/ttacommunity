@@ -1,6 +1,6 @@
 /** The Blitz section's decisions: how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
-import { PAIRING_METHODS, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods, RANK_ORDERS, usesStartingRanks } from '@ttac/shared/blitz';
+import { pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods, methodText, orderLabel, ranksFixedBy, roundLine, type PairingOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
 import { pageOf, type GameRow, type GameSeat, type GamesColumn } from './games-table';
@@ -112,24 +112,24 @@ export function resultsUpdated(at: string | null, zone: string): string {
 }
 
 /** PairingNotes is what the "How pairings work" dialog says: the edition's methods, the rules every method keeps, and the method each Swiss round so far was paired with. */
-export type PairingNotes = { methods: { when: string; label: string; about: string }[]; rules: string[]; paired: { round: string; label: string }[] };
+export type PairingNotes = { methods: { when: string; label: string; about: string }[]; rules: string[] };
 
-/** pairingNotes explains how an edition's rounds are paired: one method for every Swiss round or round 1's and the later rounds', the rules that hold whatever the method, and the method each Swiss round shown was paired with. */
+/** pairingNotes explains how an edition's rounds are paired: round 1's method and order and, with more than one Swiss round, the later rounds', each in its own words; and the rules that hold whatever the method, how the starting ranks are fixed among them. */
 export function pairingNotes(ed: {
   pairing: PairingMethods;
+  ranks_fixed_by: 'rating' | 'lot' | null;
   points: { bye: number };
   format: BlitzFormat;
-  rounds: readonly { number: number; kind: 'swiss' | 'knockout'; method: PairingMethod | null }[];
 }): PairingNotes {
-  const method = (when: string, m: PairingMethod) => ({ when, label: PAIRING_METHODS[m].label, about: PAIRING_METHODS[m].about });
-  const methods = ed.pairing.first === ed.pairing.later ? [method('Every Swiss round', ed.pairing.first)] : [method('Round 1', ed.pairing.first), method('Later rounds', ed.pairing.later)];
+  const method = (when: string, m: PairingMethod, round: 'first' | 'later', o: PairingOrder) => ({ when, label: roundLine(m, o), about: methodText(m, round, o) });
+  const methods = [method('Round 1', ed.pairing.first, 'first', ed.pairing.first_order)];
+  if (ed.format.swiss_rounds > 1) methods.push(method('Later rounds', ed.pairing.later, 'later', ed.pairing.later_order));
   const bye = `${pointsText(ed.points.bye)} ${ed.points.bye > 0 && ed.points.bye <= 1 ? 'point' : 'points'}`;
   const rules = [
     'Nobody meets the same opponent twice.',
     `With an odd number of players, one player gets a bye, worth ${bye}: from the lowest score, someone who has not had one.`,
   ];
-  const order = RANK_ORDERS.find((o) => o.value === ed.pairing.ranks);
-  if (usesStartingRanks(ed.pairing) && order !== undefined) rules.push(`Starting ranks ${order.about}`);
-  const paired = ed.rounds.flatMap((r) => (r.kind === 'swiss' && r.method !== null ? [{ round: roundTitle(r.number, ed.format), label: PAIRING_METHODS[r.method].label }] : []));
-  return { methods, rules, paired };
+  if (ed.ranks_fixed_by !== null) rules.push(`Starting ranks were fixed for everyone when round 1 was paired, ${orderLabel(ed.ranks_fixed_by)}: the Players tab shows them.`);
+  else rules.push(`Starting ranks are fixed for everyone when round 1 is paired, ${orderLabel(ranksFixedBy(ed.pairing))}; a late entrant is slotted in the same way.`);
+  return { methods, rules };
 }

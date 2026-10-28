@@ -442,7 +442,7 @@ func TestThePointsLockOnceTheKnockoutHasARound(t *testing.T) {
 	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 4}); err != nil {
 		t.Fatalf("SetBlitzFormat: %v", err)
 	}
-	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound(swiss): %v", err)
 	}

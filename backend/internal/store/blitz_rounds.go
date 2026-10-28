@@ -45,6 +45,8 @@ type BlitzRound struct {
 	ID           int64
 	Number       int
 	Kind, Method string
+	// Order is the order a Swiss round was paired by (rating, lot or random); "" for a knockout round.
+	Order        string
 	Seed         int64
 	PublishedAt  *time.Time
 	Deadline     *time.Time
@@ -97,7 +99,7 @@ var ErrBlitzEntrantNotPlayed = errors.New("the entrant has not played yet: remov
 // blitzRounds reads an edition's rounds with their matches, every round or the published ones only.
 func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzRound, error) {
 	rows, err := db.Query(ctx, `
-		SELECT r.round_id, r.number, r.kind, coalesce(r.method, ''), r.seed, r.published_at, r.deadline, coalesce(r.deadline_zone, '')
+		SELECT r.round_id, r.number, r.kind, coalesce(r.method, ''), coalesce(r.pairing_order, ''), r.seed, r.published_at, r.deadline, coalesce(r.deadline_zone, '')
 		FROM blitz_rounds r JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
 		WHERE s.slug = $1 AND t.label = $2 AND (r.published_at IS NOT NULL OR NOT $3)
 		ORDER BY r.number`, slug, edition, public)
@@ -106,7 +108,7 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	}
 	rounds, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzRound, error) {
 		r := BlitzRound{Matches: []BlitzMatch{}}
-		return r, row.Scan(&r.ID, &r.Number, &r.Kind, &r.Method, &r.Seed, &r.PublishedAt, &r.Deadline, &r.DeadlineZone)
+		return r, row.Scan(&r.ID, &r.Number, &r.Kind, &r.Method, &r.Order, &r.Seed, &r.PublishedAt, &r.Deadline, &r.DeadlineZone)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's rounds: %w", slug, edition, err)
@@ -338,8 +340,8 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 			return err
 		}
 		if err := tx.QueryRow(ctx, `
-			INSERT INTO blitz_rounds (tournament_id, number, kind, method, seed) VALUES ($1, $2, $3, nullif($4, ''), $5)
-			RETURNING round_id`, edID, r.Number, r.Kind, r.Method, r.Seed).Scan(&r.ID); err != nil {
+			INSERT INTO blitz_rounds (tournament_id, number, kind, method, pairing_order, seed) VALUES ($1, $2, $3, nullif($4, ''), nullif($5, ''), $6)
+			RETURNING round_id`, edID, r.Number, r.Kind, r.Method, r.Order, r.Seed).Scan(&r.ID); err != nil {
 			return fmt.Errorf("adding a round to %s %s: %w", slug, edition, err)
 		}
 		if r.Kind == "knockout" {
@@ -468,11 +470,14 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 		if _, err := tx.Exec(ctx, "DELETE FROM blitz_rounds WHERE round_id = $1", roundID); err != nil {
 			return fmt.Errorf("deleting round %d: %w", roundID, err)
 		}
-		// The starting ranks are drawn with round 1, so they go with the last round.
-		if _, err := tx.Exec(ctx, `
-			UPDATE blitz_entries SET starting_rank = NULL
-			WHERE tournament_id = $1 AND NOT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1)`, edID); err != nil {
-			return fmt.Errorf("deleting round %d: %w", roundID, err)
+		// The starting ranks are fixed with round 1, so they go with the last round.
+		for _, q := range []string{
+			"UPDATE blitz_entries SET starting_rank = NULL WHERE tournament_id = $1 AND NOT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1)",
+			"UPDATE blitz_editions SET ranks_fixed_by = NULL WHERE tournament_id = $1 AND NOT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1)",
+		} {
+			if _, err := tx.Exec(ctx, q, edID); err != nil {
+				return fmt.Errorf("deleting round %d: %w", roundID, err)
+			}
 		}
 		return nil
 	})

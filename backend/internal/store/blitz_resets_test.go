@@ -98,7 +98,7 @@ func TestOnlyTheLatestRoundIsReset(t *testing.T) {
 			t.Fatalf("RecordBlitzRuling: %v", err)
 		}
 	}
-	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 2, Matches: []BlitzMatch{{A: ids[0], B: &ids[2]}, {A: ids[1]}}})
+	r2, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 2, Matches: []BlitzMatch{{A: ids[0], B: &ids[2]}, {A: ids[1]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestAGameInARatingsRunIsResetToo(t *testing.T) {
 			if err != nil {
 				t.Fatalf("AddBlitzEntrants: %v", err)
 			}
-			r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+			r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
 			if err != nil {
 				t.Fatalf("AddBlitzRound: %v", err)
 			}
@@ -226,7 +226,7 @@ func TestTheAdminLoginDeletesOnlyBlitzGamesNoMatchHolds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddBlitzEntrants: %v", err)
 	}
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}

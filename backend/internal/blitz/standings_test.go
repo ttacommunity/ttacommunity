@@ -244,6 +244,38 @@ func TestStandingsBreakWhatIsLeftByTheSeed(t *testing.T) {
 	}
 }
 
+func TestStandingsBreakWhatIsLeftByTheStartingRanks(t *testing.T) {
+	// Every player has a starting rank; the lot (the lower rank first) orders what the tie-breaks leave, whatever the seed.
+	var entrants []blitz.Entrant
+	for i, rank := range []int{5, 2, 8, 1, 7, 3, 6, 4} {
+		entrants = append(entrants, blitz.Entrant{ID: int64(i + 1), StartingRank: rank})
+	}
+	for _, seed := range []uint64{1, 2} {
+		var got []int64
+		for _, s := range blitz.Standings(entrants, nil, 8, seed, blitz.FIDEScoring) {
+			got = append(got, s.ID)
+		}
+		if want := []int64{4, 2, 6, 8, 1, 7, 5, 3}; !slices.Equal(got, want) {
+			t.Errorf("seed %d: order = %v, want %v, the starting ranks' order", seed, got, want)
+		}
+	}
+	// They still share the place: only the lot separates them.
+	for _, s := range blitz.Standings(entrants, nil, 8, 1, blitz.FIDEScoring) {
+		if s.PlaceFrom != 1 || s.PlaceTo != 8 {
+			t.Errorf("player %d's place = %d–%d, want 1–8", s.ID, s.PlaceFrom, s.PlaceTo)
+		}
+	}
+	// A player without a rank goes after those with one, by the seed.
+	entrants[2].StartingRank = 0
+	var last int64
+	for _, s := range blitz.Standings(entrants, nil, 8, 1, blitz.FIDEScoring) {
+		last = s.ID
+	}
+	if last != 3 {
+		t.Errorf("the player without a starting rank is not last: last = %d", last)
+	}
+}
+
 // edition is an edition's own scoring, every value unlike FIDE's.
 var edition = blitz.Scoring{Win: 3, Draw: 1, Loss: 0.5, ForfeitWin: 2, ForfeitLoss: 0, Bye: 1.5, Skip: 0}
 

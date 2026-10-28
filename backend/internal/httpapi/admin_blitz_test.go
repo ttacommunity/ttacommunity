@@ -39,6 +39,14 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 	if f.pairing != (store.BlitzPairing{}) {
 		row.Pairing = f.pairing
 	}
+	// A test that names only the methods gets the default orders, as the database defaults them.
+	if row.Pairing.FirstOrder == "" {
+		row.Pairing.FirstOrder = store.DefaultBlitzPairing.FirstOrder
+	}
+	if row.Pairing.LaterOrder == "" {
+		row.Pairing.LaterOrder = store.DefaultBlitzPairing.LaterOrder
+	}
+	row.RanksFixedBy = f.ranksFixedBy
 	for _, r := range f.rounds {
 		if r.PublishedAt != nil && (row.Round == nil || r.Number > *row.Round) {
 			row.Round = new(r.Number)
@@ -91,7 +99,14 @@ func (f *fakeAdmins) BlitzEdition(_ context.Context, slug, edition string) (stor
 	if slug != "us_open" || edition != "2026" {
 		return store.BlitzEdition{}, store.ErrNoBlitzEdition
 	}
-	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: slices.Clone(f.rounds)}, nil
+	rounds := slices.Clone(f.rounds)
+	// A test that names only a round's method gets the default order, as the database requires one.
+	for i := range rounds {
+		if rounds[i].Kind == "swiss" && rounds[i].Order == "" {
+			rounds[i].Order = store.DefaultBlitzPairing.FirstOrder
+		}
+	}
+	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: rounds}, nil
 }
 
 func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, format store.BlitzFormat) error {
@@ -125,15 +140,21 @@ func (f *fakeAdmins) SetBlitzPairing(_ context.Context, slug, edition string, p 
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
-	if !slices.Contains(store.BlitzFirstMethods, p.First) || !slices.Contains(store.BlitzLaterMethods, p.Later) || !slices.Contains(store.BlitzRankOrders, p.Ranks) {
+	if !slices.Contains(store.BlitzFirstMethods, p.First) || !slices.Contains(store.BlitzLaterMethods, p.Later) ||
+		!slices.Contains(store.BlitzOrders, p.FirstOrder) || !slices.Contains(store.BlitzOrders, p.LaterOrder) {
 		return store.ErrBadBlitzPairing
 	}
+	for _, o := range []string{p.FirstOrder, p.LaterOrder} {
+		if f.ranksFixedBy != "" && o != "random" && o != f.ranksFixedBy {
+			return store.ErrBlitzRanksFixed
+		}
+	}
 	f.pairing = p
-	f.notes = append(f.notes, "pairing "+p.First+"/"+p.Later+"/"+p.Ranks)
+	f.notes = append(f.notes, "pairing "+p.First+"/"+p.Later+"/"+p.FirstOrder+"/"+p.LaterOrder)
 	return nil
 }
 
-func (f *fakeAdmins) SetBlitzStartingRanks(_ context.Context, slug, edition string, ranks map[int64]int) error {
+func (f *fakeAdmins) SetBlitzStartingRanks(_ context.Context, slug, edition string, ranks map[int64]int, fixedBy string) error {
 	if slug != "us_open" || edition != "2026" {
 		return store.ErrNoBlitzEdition
 	}
@@ -142,7 +163,10 @@ func (f *fakeAdmins) SetBlitzStartingRanks(_ context.Context, slug, edition stri
 			f.entrants[i].StartingRank = r
 		}
 	}
-	f.notes = append(f.notes, "starting ranks")
+	if f.ranksFixedBy == "" {
+		f.ranksFixedBy = fixedBy
+	}
+	f.notes = append(f.notes, "starting ranks by "+fixedBy)
 	return nil
 }
 

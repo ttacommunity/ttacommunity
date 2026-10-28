@@ -37,6 +37,24 @@ func (e AdminAccountLinkedHow) Valid() bool {
 	}
 }
 
+// Defines values for AdminBlitzEditionRanksFixedBy.
+const (
+	AdminBlitzEditionRanksFixedByLot    AdminBlitzEditionRanksFixedBy = "lot"
+	AdminBlitzEditionRanksFixedByRating AdminBlitzEditionRanksFixedBy = "rating"
+)
+
+// Valid indicates whether the value is a known member of the AdminBlitzEditionRanksFixedBy enum.
+func (e AdminBlitzEditionRanksFixedBy) Valid() bool {
+	switch e {
+	case AdminBlitzEditionRanksFixedByLot:
+		return true
+	case AdminBlitzEditionRanksFixedByRating:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminBlitzEntrantStatus.
 const (
 	AdminBlitzEntrantStatusActive  AdminBlitzEntrantStatus = "active"
@@ -238,6 +256,24 @@ func (e AdminTournamentPodiumSource) Valid() bool {
 	}
 }
 
+// Defines values for BlitzEditionRanksFixedBy.
+const (
+	BlitzEditionRanksFixedByLot    BlitzEditionRanksFixedBy = "lot"
+	BlitzEditionRanksFixedByRating BlitzEditionRanksFixedBy = "rating"
+)
+
+// Valid indicates whether the value is a known member of the BlitzEditionRanksFixedBy enum.
+func (e BlitzEditionRanksFixedBy) Valid() bool {
+	switch e {
+	case BlitzEditionRanksFixedByLot:
+		return true
+	case BlitzEditionRanksFixedByRating:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BlitzEntrantChangeStatus.
 const (
 	BlitzEntrantChangeStatusActive  BlitzEntrantChangeStatus = "active"
@@ -304,18 +340,21 @@ func (e BlitzPairingMethod) Valid() bool {
 	}
 }
 
-// Defines values for BlitzPairingMethodsRanks.
+// Defines values for BlitzPairingOrder.
 const (
-	BlitzPairingMethodsRanksLot    BlitzPairingMethodsRanks = "lot"
-	BlitzPairingMethodsRanksRating BlitzPairingMethodsRanks = "rating"
+	BlitzPairingOrderLot    BlitzPairingOrder = "lot"
+	BlitzPairingOrderRandom BlitzPairingOrder = "random"
+	BlitzPairingOrderRating BlitzPairingOrder = "rating"
 )
 
-// Valid indicates whether the value is a known member of the BlitzPairingMethodsRanks enum.
-func (e BlitzPairingMethodsRanks) Valid() bool {
+// Valid indicates whether the value is a known member of the BlitzPairingOrder enum.
+func (e BlitzPairingOrder) Valid() bool {
 	switch e {
-	case BlitzPairingMethodsRanksLot:
+	case BlitzPairingOrderLot:
 		return true
-	case BlitzPairingMethodsRanksRating:
+	case BlitzPairingOrderRandom:
+		return true
+	case BlitzPairingOrderRating:
 		return true
 	default:
 		return false
@@ -1208,7 +1247,12 @@ type AdminBlitzEdition struct {
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`
 
-	// Pairing How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given
+	// Pairing How an edition's Swiss rounds are paired: round 1's method and order,
+	// and the later rounds'. The starting ranks are fixed for everyone when
+	// round 1 is paired, by the first of the two orders that is rating or
+	// lot (a lot when both are random), and a late entrant is slotted in by
+	// rating or given the next rank; after that an order may only be what
+	// fixed them, or random
 	Pairing BlitzPairingMethods `json:"pairing"`
 
 	// Points What each outcome is worth in an edition's standings, 0 to 10 in
@@ -1218,6 +1262,9 @@ type AdminBlitzEdition struct {
 	// "both lose" ruling is a forfeit loss each.
 	Points BlitzPoints `json:"points"`
 
+	// RanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
+	RanksFixedBy *AdminBlitzEditionRanksFixedBy `json:"ranks_fixed_by"`
+
 	// Rounds Every round, first first, drafts included
 	Rounds []AdminBlitzRound `json:"rounds"`
 
@@ -1225,6 +1272,9 @@ type AdminBlitzEdition struct {
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
+
+// AdminBlitzEditionRanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
+type AdminBlitzEditionRanksFixedBy string
 
 // AdminBlitzEditionRow One edition of a blitz tournament as admin's list shows it
 type AdminBlitzEditionRow struct {
@@ -1335,6 +1385,9 @@ type AdminBlitzRound struct {
 	// Method The method a Swiss round was paired with; null for a knockout round
 	Method *BlitzPairingMethod `json:"method"`
 	Number int                 `json:"number"`
+
+	// PairingOrder The order a Swiss round was paired by; null for a knockout round
+	PairingOrder *BlitzPairingOrder `json:"pairing_order"`
 
 	// PublishedAt Null for a draft
 	PublishedAt *time.Time `json:"published_at"`
@@ -1710,7 +1763,12 @@ type BlitzEdition struct {
 	Format BlitzFormat `json:"format"`
 	Name   string      `json:"name"`
 
-	// Pairing How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given
+	// Pairing How an edition's Swiss rounds are paired: round 1's method and order,
+	// and the later rounds'. The starting ranks are fixed for everyone when
+	// round 1 is paired, by the first of the two orders that is rating or
+	// lot (a lot when both are random), and a late entrant is slotted in by
+	// rating or given the next rank; after that an order may only be what
+	// fixed them, or random
 	Pairing BlitzPairingMethods `json:"pairing"`
 
 	// Points What each outcome is worth in an edition's standings, 0 to 10 in
@@ -1720,6 +1778,9 @@ type BlitzEdition struct {
 	// "both lose" ruling is a forfeit loss each.
 	Points BlitzPoints `json:"points"`
 
+	// RanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
+	RanksFixedBy *BlitzEditionRanksFixedBy `json:"ranks_fixed_by"`
+
 	// ResultsUpdatedAt When the latest result in a published round was recorded; null before the first
 	ResultsUpdatedAt *time.Time `json:"results_updated_at"`
 
@@ -1728,12 +1789,16 @@ type BlitzEdition struct {
 
 	// Standings By rank: points, then the tie-breaks in order (Direct Encounter,
 	// Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
-	// Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
-	// the edition; dropped players last. Only the published Swiss rounds
-	// count
+	// Buchholz, the opponents' Sonneborn-Berger), then the starting
+	// ranks (the lot, or the seed by rating), and before round 1 fixed
+	// them a draw fixed for the edition; dropped players last. Only the
+	// published Swiss rounds count
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
+
+// BlitzEditionRanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
+type BlitzEditionRanksFixedBy string
 
 // BlitzEditionRow One edition of a blitz tournament as the site's list shows it
 type BlitzEditionRow struct {
@@ -1774,6 +1839,9 @@ type BlitzEntrant struct {
 
 	// Rating The 2-player rating in the current run, null when unrated
 	Rating *float64 `json:"rating"`
+
+	// StartingRank The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before
+	StartingRank *int `json:"starting_rank"`
 
 	// UtcOffset The zone's offset from UTC now, as +02:00 (a region's is its city's); empty for Unknown
 	UtcOffset string `json:"utc_offset"`
@@ -1863,33 +1931,40 @@ type BlitzPairing struct {
 }
 
 // BlitzPairingMethod How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
-// without colours); dutch-timezone the same, with the closest time
-// zones choosing among the opponents it ranks equally; timezone the
-// closest time zones, then ratings, within a score group; rating the
-// closest ratings within a score group; random chance within a score
-// group
+// without colours), its starting ranks by the order; dutch-timezone
+// the same, with the closest time zones choosing among the opponents
+// it ranks equally; timezone the closest time zones within a score
+// group, equally close ones by the order; rating the closest ratings
+// within a score group; random chance within a score group
 type BlitzPairingMethod string
 
-// BlitzPairingMethods How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given
+// BlitzPairingMethods How an edition's Swiss rounds are paired: round 1's method and order,
+// and the later rounds'. The starting ranks are fixed for everyone when
+// round 1 is paired, by the first of the two orders that is rating or
+// lot (a lot when both are random), and a late entrant is slotted in by
+// rating or given the next rank; after that an order may only be what
+// fixed them, or random
 type BlitzPairingMethods struct {
 	// First Round 1's method, one of dutch, dutch-timezone, timezone or random
 	First BlitzPairingMethod `json:"first"`
 
+	// FirstOrder Round 1's order
+	FirstOrder BlitzPairingOrder `json:"first_order"`
+
 	// Later The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random
 	Later BlitzPairingMethod `json:"later"`
 
-	// Ranks How the Dutch system's starting ranks are given, fixed when round 1
-	// is paired: rating is by rating, the unrated last, then by name; lot
-	// is a draw. A late entrant is slotted in by rating, or given the
-	// next rank
-	Ranks BlitzPairingMethodsRanks `json:"ranks"`
+	// LaterOrder The later rounds' order
+	LaterOrder BlitzPairingOrder `json:"later_order"`
 }
 
-// BlitzPairingMethodsRanks How the Dutch system's starting ranks are given, fixed when round 1
-// is paired: rating is by rating, the unrated last, then by name; lot
-// is a draw. A late entrant is slotted in by rating, or given the
-// next rank
-type BlitzPairingMethodsRanks string
+// BlitzPairingOrder What decides where a method leaves a choice: rating is the ratings
+// (the Dutch system's starting ranks by rating, the unrated last, then
+// by name; the closest rating among equal time zones); lot is a draw
+// made once, when round 1 is paired, and kept (the starting ranks; the
+// closest in the draw among equal time zones); random is a fresh draw
+// each round. Nothing but rating ever reads a rating
+type BlitzPairingOrder string
 
 // BlitzPlayedGame A played game as recorded, each side as the match names them
 type BlitzPlayedGame struct {
@@ -1981,9 +2056,12 @@ type BlitzRound struct {
 	Matches []BlitzPublicMatch `json:"matches"`
 
 	// Method The method a Swiss round was paired with; null for a knockout round
-	Method      *BlitzPairingMethod `json:"method"`
-	Number      int                 `json:"number"`
-	PublishedAt time.Time           `json:"published_at"`
+	Method *BlitzPairingMethod `json:"method"`
+	Number int                 `json:"number"`
+
+	// PairingOrder The order a Swiss round was paired by; null for a knockout round
+	PairingOrder *BlitzPairingOrder `json:"pairing_order"`
+	PublishedAt  time.Time          `json:"published_at"`
 
 	// Skipped Who sat the round out, by username, in sign-up order
 	Skipped []string `json:"skipped"`
@@ -2038,9 +2116,9 @@ type BlitzStanding struct {
 	OpponentsSonnebornBerger float64 `json:"opponents_sonneborn_berger"`
 
 	// PlaceFrom The first rank of the place this row shares with the rows only the
-	// edition's draw separates it from (equal points, direct encounter
-	// and every tie-break); place_to is the last. Equal for a place held
-	// alone
+	// starting ranks (or, before round 1, the edition's draw) separate
+	// it from (equal points, direct encounter and every tie-break);
+	// place_to is the last. Equal for a place held alone
 	PlaceFrom int `json:"place_from"`
 	PlaceTo   int `json:"place_to"`
 
@@ -2053,6 +2131,9 @@ type BlitzStanding struct {
 	// it and a loss nothing. An unplayed round counts its dummy as
 	// Buchholz does
 	SonnebornBerger float64 `json:"sonneborn_berger"`
+
+	// StartingRank The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before
+	StartingRank *int `json:"starting_rank"`
 
 	// Status Dropped players come last
 	Status BlitzStandingStatus `json:"status"`
@@ -11148,6 +11229,21 @@ func (response PutAdminBlitzPairing404JSONResponse) VisitPutAdminBlitzPairingRes
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminBlitzPairing409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminBlitzPairing409JSONResponse) VisitPutAdminBlitzPairingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }

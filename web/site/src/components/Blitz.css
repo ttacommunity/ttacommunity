@@ -1,12 +1,12 @@
 /* The Blitz section: the list of editions and an edition's knockout, standings, rounds and entrants, in the site's card and table look. */
 
-/* The rounds paired so far and the tie-break steps in "How pairings and ties work", their bullets in line with the dialog's text. */
+/* The rounds paired so far and the tie-break steps in "How pairings and ties are calculated", their bullets in line with the dialog's text. */
 .blitz-paired-list {
   padding-left: 0;
   list-style-position: inside;
 }
 
-/* The edition header's "How pairings and ties work" button, under its subtitle. */
+/* The edition header's "How pairings and ties are calculated" button, under the pairing lines. */
 .blitz-how-paired {
   margin-top: 0.75rem;
 }
@@ -131,10 +131,53 @@
   color: var(--loss);
 }
 
-/* The marker on a rank the draw ordered. */
+/* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */
+.blitz-draw-slot {
+  display: inline-block;
+  width: 0.9em;
+  text-align: left;
+}
 .blitz-draw {
   color: var(--accent-gold);
   font-weight: 700;
+}
+
+/* The row above the standings: the scoring at a glance on the left, the table's controls on the right; they wrap on a phone. */
+.blitz-table-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+.blitz-table-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.25rem;
+}
+.blitz-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* The marker's meaning, a footnote under the standings. */
+.blitz-footnote {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* The one-line pairing of each round group under the edition's subtitle. */
+.blitz-pairing-lines {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-soft);
 }
 
 /* The "How ties are broken" button, a link in the standings' note. */

@@ -7,6 +7,7 @@ const round = (id: number, number: number, published: boolean, matches: AdminBli
   number,
   kind: 'swiss',
   method: 'timezone',
+  pairing_order: 'rating',
   published_at: published ? '2026-10-12T12:00:00Z' : null,
   deadline: null,
   matches,
@@ -111,12 +112,12 @@ describe('undecided', () => {
 });
 
 describe('nextPairing', () => {
-  const pairing = { first: 'random', later: 'dutch', ranks: 'rating' } as const;
+  const pairing = { first: 'random', later: 'dutch', first_order: 'random', later_order: 'rating' } as const;
   it.each([
-    ["round 1's method before any round", [], 'random'],
-    ['the later method once a Swiss round exists', [round(1, 1, true, [])], 'dutch'],
+    ["round 1's method and order before any round", [], ['random', 'random']],
+    ['the later ones once a Swiss round exists', [round(1, 1, true, [])], ['dutch', 'rating']],
   ])('%s', (_, rounds, want) => {
-    expect(nextPairing(pairing, rounds)).toBe(want);
+    expect(nextPairing(pairing, rounds)).toEqual(want);
   });
 });
 

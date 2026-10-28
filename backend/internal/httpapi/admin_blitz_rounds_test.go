@@ -177,7 +177,7 @@ func TestAnOrganiserPairsChangesAndPublishesARound(t *testing.T) {
 	if rec := do(http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", ""); rec.Code != http.StatusNoContent {
 		t.Errorf("DELETE the latest round, published but unplayed = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "add round 1|starting ranks|set round 101 matches 7-9,8-10|publish round 101|remove round 101"; strings.Join(f.notes, "|") != want {
+	if want := "add round 1|starting ranks by rating|set round 101 matches 7-9,8-10|publish round 101|remove round 101"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	want := []string{"blitz.round.add us_open/2026", "blitz.round.matches 101", "blitz.round.publish 101", "blitz.round.remove 101"}
@@ -300,7 +300,7 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		draft(f)
 		at := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
 		f.rounds[0].PublishedAt = &at
-		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Seed: 2})
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Order: "rating", Seed: 2})
 	}
 	oneDecided := func(f *fakeAdmins) {
 		roundOnePublished(f)
@@ -418,7 +418,7 @@ func TestAdminStandingsCountOnlyPublishedRounds(t *testing.T) {
 	f := &fakeAdmins{}
 	roundOnePublished(f)
 	cy := int64(8)
-	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: &cy}, {ID: 1021, A: 9}}})
+	f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Order: "rating", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: &cy}, {ID: 1021, A: 9}}})
 	rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
 	var ed AdminBlitzEdition
 	if err := json.Unmarshal(rec.Body.Bytes(), &ed); err != nil || rec.Code != http.StatusOK {

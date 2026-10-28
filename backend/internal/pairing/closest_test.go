@@ -54,7 +54,7 @@ func TestZoneGapIsCircular(t *testing.T) {
 func TestPairPutsPlayersInTheSameZoneTogether(t *testing.T) {
 	players := []pairing.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
 	for seed := uint64(1); seed <= 3; seed++ {
-		got, err := pairing.Pair(players, pairing.Timezone, seed)
+		got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, seed)
 		if err != nil {
 			t.Fatalf("Pair: %v", err)
 		}
@@ -85,7 +85,7 @@ func TestPairGivesTheByeToTheLowestRankedWithoutOne(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pairing.Pair(tt.players, pairing.Timezone, 7)
+			got, err := pairing.Pair(tt.players, pairing.Timezone, pairing.ByRating, 7)
 			if err != nil {
 				t.Fatalf("Pair: %v", err)
 			}
@@ -104,7 +104,7 @@ func TestPairNeverRepeatsAnOpponentWhileItCan(t *testing.T) {
 	players := []pairing.Player{rated(1, 2, 1500, 0), rated(2, -4, 1500, 0), rated(3, 2, 1500, 0), rated(4, -4, 1500, 0)}
 	players[0].Opponents, players[2].Opponents = []int64{3}, []int64{1}
 	players[1].Opponents, players[3].Opponents = []int64{4}, []int64{2}
-	got, err := pairing.Pair(players, pairing.Timezone, 1)
+	got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, 1)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestPairFindsARoundWithoutRepeatsTheScoreGroupsMiss(t *testing.T) {
 	players := []pairing.Player{rated(1, 0, 1500, 2), rated(2, 0, 1500, 2), rated(3, 0, 1500, 0), rated(4, 0, 1500, 0)}
 	players[2].Opponents, players[3].Opponents = []int64{4}, []int64{3}
 	for seed := uint64(1); seed <= 5; seed++ {
-		got, err := pairing.Pair(players, pairing.Timezone, seed)
+		got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, seed)
 		if err != nil {
 			t.Fatalf("Pair(seed %d): %v", seed, err)
 		}
@@ -164,7 +164,7 @@ func TestPairRefusesARoundThatWouldRepeatAnOpponent(t *testing.T) {
 			}
 		}
 	}
-	if got, err := pairing.Pair(players, pairing.Random, 1); !errors.Is(err, pairing.ErrNoPairing) {
+	if got, err := pairing.Pair(players, pairing.Random, pairing.ByChance, 1); !errors.Is(err, pairing.ErrNoPairing) {
 		t.Errorf("Pair = %v, %v; want ErrNoPairing", pairs(got), err)
 	}
 }
@@ -175,7 +175,7 @@ func TestPairKeepsScoreGroupsTogetherAndFloatsTheOddOneDown(t *testing.T) {
 		rated(3, 0, 1500, 1), rated(4, 0, 1500, 1), rated(5, 0, 1500, 1),
 		rated(6, 0, 1500, 0), rated(7, 0, 1500, 0), rated(8, 0, 1500, 0),
 	}
-	got, err := pairing.Pair(players, pairing.Timezone, 3)
+	got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, 3)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -206,7 +206,7 @@ func TestPairKeepsScoreGroupsTogetherAndFloatsTheOddOneDown(t *testing.T) {
 
 func TestPairUsesRatingsWithinAZoneWhenAsked(t *testing.T) {
 	players := []pairing.Player{rated(1, 1, 2000, 0), rated(2, 1, 1400, 0), rated(3, 1, 1900, 0), rated(4, 1, 1500, 0)}
-	got, err := pairing.Pair(players, pairing.Timezone, 5)
+	got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, 5)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -220,17 +220,17 @@ func TestPairIsTheSameForASeedAndVariesAcrossSeeds(t *testing.T) {
 	for i := int64(1); i <= 8; i++ {
 		players = append(players, rated(i, 0, 1500, 0))
 	}
-	first, err := pairing.Pair(players, pairing.Random, 11)
+	first, err := pairing.Pair(players, pairing.Random, pairing.ByChance, 11)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
-	again, _ := pairing.Pair(players, pairing.Random, 11)
+	again, _ := pairing.Pair(players, pairing.Random, pairing.ByChance, 11)
 	if !slices.Equal(pairs(first), pairs(again)) {
 		t.Errorf("seed 11 twice = %v and %v", pairs(first), pairs(again))
 	}
 	seen := map[string]bool{}
 	for seed := uint64(1); seed <= 20; seed++ {
-		r, _ := pairing.Pair(players, pairing.Random, seed)
+		r, _ := pairing.Pair(players, pairing.Random, pairing.ByChance, seed)
 		seen[fmt.Sprint(pairs(r))] = true
 	}
 	if len(seen) < 2 {
@@ -244,7 +244,7 @@ func TestPairHandlesATwentyFourPlayerRoundOne(t *testing.T) {
 		zone := []float64{2, -4, 8}[i%3]
 		players = append(players, rated(i, zone, 1500+float64(i)*10, 0))
 	}
-	got, err := pairing.Pair(players, pairing.Timezone, 2)
+	got, err := pairing.Pair(players, pairing.Timezone, pairing.ByRating, 2)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -259,7 +259,71 @@ func TestPairHandlesATwentyFourPlayerRoundOne(t *testing.T) {
 }
 
 func TestPairRefusesFewerThanTwoPlayers(t *testing.T) {
-	if _, err := pairing.Pair([]pairing.Player{rated(1, 0, 1500, 0)}, pairing.Random, 1); !errors.Is(err, pairing.ErrTooFew) {
+	if _, err := pairing.Pair([]pairing.Player{rated(1, 0, 1500, 0)}, pairing.Random, pairing.ByChance, 1); !errors.Is(err, pairing.ErrTooFew) {
 		t.Errorf("Pair(one player) = %v, want ErrTooFew", err)
+	}
+}
+
+func TestPairByZonesTakesTheOrderAmongEqualZones(t *testing.T) {
+	// One zone; the ratings would pair 1-3 and 2-4, the TPNs (1:4, 2:3, 3:2, 4:1) 1-2 and 3-4.
+	lot := func(p pairing.Player, tpn int) pairing.Player {
+		p.TPN = tpn
+		return p
+	}
+	players := []pairing.Player{lot(rated(1, 1, 2000, 0), 4), lot(rated(2, 1, 1400, 0), 3), lot(rated(3, 1, 1900, 0), 2), lot(rated(4, 1, 1500, 0), 1)}
+	tests := []struct {
+		name  string
+		order pairing.Order
+		want  []string
+	}{
+		{"by rating: the closest ratings", pairing.ByRating, []string{"1-3", "2-4"}},
+		{"by lot: the closest TPNs", pairing.ByLot, []string{"1-2", "3-4"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := pairing.Pair(players, pairing.Timezone, tt.order, 5)
+			if err != nil {
+				t.Fatalf("Pair: %v", err)
+			}
+			if !slices.Equal(pairs(got), tt.want) {
+				t.Errorf("pairs = %v, want %v", pairs(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestPairByZonesThenChanceIgnoresRatings(t *testing.T) {
+	// Two zones, two players each; the zones decide whatever the ratings.
+	players := []pairing.Player{rated(1, 1, 2000, 0), rated(2, 1, 1400, 0), rated(3, -5, 1900, 0), rated(4, -5, 1500, 0)}
+	for seed := uint64(1); seed <= 5; seed++ {
+		got, err := pairing.Pair(players, pairing.Timezone, pairing.ByChance, seed)
+		if err != nil {
+			t.Fatalf("Pair: %v", err)
+		}
+		if want := []string{"1-2", "3-4"}; !slices.Equal(pairs(got), want) {
+			t.Errorf("seed %d: pairs = %v, want %v: the zones decide", seed, pairs(got), want)
+		}
+	}
+	// One zone: the ratings never decide; chance does.
+	same := []pairing.Player{rated(1, 1, 2000, 0), rated(2, 1, 1400, 0), rated(3, 1, 1900, 0), rated(4, 1, 1500, 0), rated(5, 1, 1800, 0), rated(6, 1, 1600, 0)}
+	seen := map[string]bool{}
+	for seed := uint64(1); seed <= 20; seed++ {
+		r, err := pairing.Pair(same, pairing.Timezone, pairing.ByChance, seed)
+		if err != nil {
+			t.Fatalf("Pair: %v", err)
+		}
+		seen[fmt.Sprint(pairs(r))] = true
+	}
+	if len(seen) < 2 {
+		t.Errorf("20 seeds gave %d pairing(s) in one zone, want chance to vary them", len(seen))
+	}
+	for _, seed := range []uint64{3, 4} {
+		a, _ := pairing.Pair(same, pairing.Timezone, pairing.ByChance, seed)
+		swapped := slices.Clone(same)
+		swapped[0].Rating, swapped[1].Rating = swapped[1].Rating, swapped[0].Rating
+		b, _ := pairing.Pair(swapped, pairing.Timezone, pairing.ByChance, seed)
+		if !slices.Equal(pairs(a), pairs(b)) {
+			t.Errorf("seed %d: swapping two ratings changed the pairs from %v to %v", seed, pairs(a), pairs(b))
+		}
 	}
 }

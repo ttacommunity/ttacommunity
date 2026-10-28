@@ -127,7 +127,7 @@ func TestASkippingPlayerIsLeftOutOfThePairing(t *testing.T) {
 		want             []string
 	}{
 		{"the next round", "/v1/admin/blitz/us_open/2026/rounds", `{"timezone": true}`, deeSkipsRoundTwo, []string{"7-9", "bye:8"}},
-		{"a round paired again", "/v1/admin/blitz/us_open/2026/rounds/101/pairing", `{}`, deeSkipsRoundOne, []string{"7-8", "bye:9"}},
+		{"a round paired again", "/v1/admin/blitz/us_open/2026/rounds/101/pairing", `{}`, deeSkipsRoundOne, []string{"7-9", "bye:8"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

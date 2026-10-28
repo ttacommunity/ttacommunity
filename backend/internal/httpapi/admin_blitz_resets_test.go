@@ -97,7 +97,7 @@ func TestResetsAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site = "https://ttac-admin.example"
 	twoRounds := func(f *fakeAdmins) {
 		roundOneDecided(f)
-		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: new(int64(9))}, {ID: 1021, A: 8}}})
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 102, Number: 2, Kind: "swiss", Method: "timezone", Order: "rating", Matches: []store.BlitzMatch{{ID: 1020, A: 7, B: new(int64(9))}, {ID: 1021, A: 8}}})
 	}
 	tests := []struct {
 		name, method, path, origin string

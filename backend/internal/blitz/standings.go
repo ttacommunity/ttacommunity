@@ -1,6 +1,7 @@
 // The standings of a Swiss tournament: points from results, byes and skipped rounds as the edition scores them
 // (FIDE's by default), then the tie-breaks of FIDE's Swiss rules (Direct Encounter, Buchholz Cut 1, Buchholz, Sonneborn-Berger,
-// then the opponents' Buchholz and Sonneborn-Berger, with FIDE's handling of unplayed rounds), then a draw from a seed.
+// then the opponents' Buchholz and Sonneborn-Berger, with FIDE's handling of unplayed rounds), then the starting ranks
+// (the lot or the seed), and before those a draw from a seed.
 package blitz
 
 import (
@@ -32,6 +33,8 @@ type Entrant struct {
 	ID      int64
 	Dropped bool
 	Skipped []int
+	// StartingRank is the rank fixed when round 1 was paired (1 the top), by lot or by rating; 0 before.
+	StartingRank int
 }
 
 // Played is a match as the standings see it: its round, who met whom, how it ended, and whether it was a forfeit
@@ -117,8 +120,9 @@ func (s Scoring) points(m Played) (a, b float64, lostA, lostB bool) {
 // tie-breaks of FIDE's regulations for Swiss tournaments: Direct Encounter, Buchholz Cut 1, Buchholz and
 // Sonneborn-Berger, with unplayed rounds as its Article 16 has them (rounds is the tournament's number of Swiss
 // rounds), then the opponents' Buchholz and the opponents' Sonneborn-Berger, a dummy counting as the player's own;
-// then by a draw from the seed, the same every time.
-// Dropped players come last, their points kept. Ranks run 1, 2, 3…; players only the draw separates share a place.
+// then by the starting ranks (the lot, or the seed), and before round 1 fixed them by a draw from the seed, the same
+// every time. Dropped players come last, their points kept. Ranks run 1, 2, 3…; players only the lot or the draw
+// separates share a place.
 func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, scoring Scoring) []Standing {
 	rows := map[int64]*Standing{}
 	skipped := map[int64][]int{}
@@ -254,6 +258,17 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 	draw := func(id int64) float64 {
 		return rand.New(rand.NewPCG(seed, uint64(id))).Float64()
 	}
+	// The starting ranks are the lot (or the seed) the tie-breaks leave it to; a player without one comes after those with.
+	starts := map[int64]int{}
+	for _, e := range entrants {
+		starts[e.ID] = e.StartingRank
+	}
+	startOf := func(id int64) int {
+		if starts[id] == 0 {
+			return math.MaxInt
+		}
+		return starts[id]
+	}
 	type tie struct {
 		dropped bool
 		points  float64
@@ -284,7 +299,7 @@ func Standings(entrants []Entrant, matches []Played, rounds int, seed uint64, sc
 						return c
 					}
 				}
-				return cmp.Compare(draw(x), draw(y))
+				return cmp.Or(cmp.Compare(startOf(rows[x].ID), startOf(rows[y].ID)), cmp.Compare(draw(x), draw(y)))
 			})
 			for _, id := range tied {
 				out = append(out, *rows[id])

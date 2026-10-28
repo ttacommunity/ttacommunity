@@ -12,7 +12,7 @@ import (
 func TestARoundKeepsTheDeadlineLastSetAndItsZone(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestARoundKeepsTheDeadlineLastSetAndItsZone(t *testing.T) {
 func TestAFinishedRoundKeepsItsDeadline(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestAFinishedRoundKeepsItsDeadline(t *testing.T) {
 func TestSetBlitzRoundDeadlineRefusesARoundItCannotFind(t *testing.T) {
 	a, _, ids := blitzWithEntrants(t)
 	ctx := context.Background()
-	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
 	if err != nil {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}

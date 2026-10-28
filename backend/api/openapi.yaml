@@ -3457,7 +3457,8 @@ paths:
       description: |
         Audited. The Origin must be the admin site. Allowed at any time: the
         next round paired follows it, and rounds already paired keep the
-        method they record.
+        method they record. Once round 1 has fixed the starting ranks, an
+        order may only be what fixed them or random (409).
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -3478,6 +3479,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline:
     put:
       operationId: putAdminBlitzRoundDeadline
@@ -4773,7 +4776,7 @@ components:
     BlitzEntrant:
       description: An entrant as the site shows them
       type: object
-      required: [name, country, zone, utc_offset, rating]
+      required: [name, country, zone, utc_offset, rating, starting_rank]
       properties:
         name:
           description: The member's TTA username
@@ -4793,13 +4796,22 @@ components:
           type: number
           format: double
           nullable: true
+        starting_rank:
+          description: The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before
+          type: integer
+          nullable: true
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion, results_updated_at]
+      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, results_updated_at]
       properties:
         pairing:
           $ref: "#/components/schemas/BlitzPairingMethods"
+        ranks_fixed_by:
+          description: What fixed the starting ranks when round 1 was paired, rating or lot; null before
+          type: string
+          enum: [rating, lot]
+          nullable: true
         results_updated_at:
           description: When the latest result in a published round was recorded; null before the first
           type: string
@@ -4835,21 +4847,27 @@ components:
           description: |
             By rank: points, then the tie-breaks in order (Direct Encounter,
             Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
-            Buchholz, the opponents' Sonneborn-Berger), then a draw fixed for
-            the edition; dropped players last. Only the published Swiss rounds
-            count
+            Buchholz, the opponents' Sonneborn-Berger), then the starting
+            ranks (the lot, or the seed by rating), and before round 1 fixed
+            them a draw fixed for the edition; dropped players last. Only the
+            published Swiss rounds count
           type: array
           items:
             $ref: "#/components/schemas/BlitzStanding"
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, method, published_at, matches, skipped]
+      required: [number, kind, method, pairing_order, published_at, matches, skipped]
       properties:
         method:
           description: The method a Swiss round was paired with; null for a knockout round
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
+        pairing_order:
+          description: The order a Swiss round was paired by; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingOrder"
           nullable: true
         skipped:
           description: Who sat the round out, by username, in sign-up order
@@ -4955,16 +4973,16 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, place_from, place_to, name, country, points, games, byes, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
+      required: [rank, place_from, place_to, name, country, starting_rank, points, games, byes, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
       properties:
         rank:
           type: integer
         place_from:
           description: |
             The first rank of the place this row shares with the rows only the
-            edition's draw separates it from (equal points, direct encounter
-            and every tie-break); place_to is the last. Equal for a place held
-            alone
+            starting ranks (or, before round 1, the edition's draw) separate
+            it from (equal points, direct encounter and every tie-break);
+            place_to is the last. Equal for a place held alone
           type: integer
         place_to:
           type: integer
@@ -4973,6 +4991,10 @@ components:
         country:
           description: A two-letter country code, null for none
           type: string
+          nullable: true
+        starting_rank:
+          description: The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before
+          type: integer
           nullable: true
         points:
           description: As the edition's points score each result and bye (FIDE's by default)
@@ -5019,18 +5041,34 @@ components:
     BlitzPairingMethod:
       description: |
         How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
-        without colours); dutch-timezone the same, with the closest time
-        zones choosing among the opponents it ranks equally; timezone the
-        closest time zones, then ratings, within a score group; rating the
-        closest ratings within a score group; random chance within a score
-        group
+        without colours), its starting ranks by the order; dutch-timezone
+        the same, with the closest time zones choosing among the opponents
+        it ranks equally; timezone the closest time zones within a score
+        group, equally close ones by the order; rating the closest ratings
+        within a score group; random chance within a score group
       type: string
       enum: [dutch, dutch-timezone, timezone, rating, random]
+    BlitzPairingOrder:
+      description: |
+        What decides where a method leaves a choice: rating is the ratings
+        (the Dutch system's starting ranks by rating, the unrated last, then
+        by name; the closest rating among equal time zones); lot is a draw
+        made once, when round 1 is paired, and kept (the starting ranks; the
+        closest in the draw among equal time zones); random is a fresh draw
+        each round. Nothing but rating ever reads a rating
+      type: string
+      enum: [rating, lot, random]
     BlitzPairingMethods:
-      description: How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given
+      description: |
+        How an edition's Swiss rounds are paired: round 1's method and order,
+        and the later rounds'. The starting ranks are fixed for everyone when
+        round 1 is paired, by the first of the two orders that is rating or
+        lot (a lot when both are random), and a late entrant is slotted in by
+        rating or given the next rank; after that an order may only be what
+        fixed them, or random
       type: object
       additionalProperties: false
-      required: [first, later, ranks]
+      required: [first, later, first_order, later_order]
       properties:
         first:
           description: Round 1's method, one of dutch, dutch-timezone, timezone or random
@@ -5040,14 +5078,14 @@ components:
           description: The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
-        ranks:
-          description: |
-            How the Dutch system's starting ranks are given, fixed when round 1
-            is paired: rating is by rating, the unrated last, then by name; lot
-            is a draw. A late entrant is slotted in by rating, or given the
-            next rank
-          type: string
-          enum: [rating, lot]
+        first_order:
+          description: Round 1's order
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingOrder"
+        later_order:
+          description: The later rounds' order
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingOrder"
     BlitzPairing:
       description: The matches to keep as they are
       type: object
@@ -5128,7 +5166,7 @@ components:
           nullable: true
     AdminBlitzRound:
       type: object
-      required: [id, number, kind, method, published_at, deadline, matches, reserve]
+      required: [id, number, kind, method, pairing_order, published_at, deadline, matches, reserve]
       properties:
         id:
           type: integer
@@ -5142,6 +5180,11 @@ components:
           description: The method a Swiss round was paired with; null for a knockout round
           allOf:
             - $ref: "#/components/schemas/BlitzPairingMethod"
+          nullable: true
+        pairing_order:
+          description: The order a Swiss round was paired by; null for a knockout round
+          allOf:
+            - $ref: "#/components/schemas/BlitzPairingOrder"
           nullable: true
         published_at:
           description: Null for a draft
@@ -5277,8 +5320,13 @@ components:
             type: integer
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, points, fide_points, pairing, entrants, rounds, standings, champion]
+      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion]
       properties:
+        ranks_fixed_by:
+          description: What fixed the starting ranks when round 1 was paired, rating or lot; null before
+          type: string
+          enum: [rating, lot]
+          nullable: true
         pairing:
           $ref: "#/components/schemas/BlitzPairingMethods"
         points:

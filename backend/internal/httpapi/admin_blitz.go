@@ -105,7 +105,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	}
 	row := adminBlitzEditionRow(ed.BlitzEditionRow)
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
-		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
+		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing), RanksFixedBy: ranksFixedByOf[AdminBlitzEditionRanksFixedBy](ed.RanksFixedBy),
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed)}
 	for i, e := range ed.Entrants {
 		body.Entrants[i] = s.adminBlitzEntrant(e, rated)
@@ -386,9 +386,9 @@ func (s *server) PutAdminBlitzPairing(ctx context.Context, req PutAdminBlitzPair
 		return PutAdminBlitzPairing404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
 	if req.Body == nil {
-		return PutAdminBlitzPairing400JSONResponse{badRequest400("the pairing: first, later and ranks")}, nil
+		return PutAdminBlitzPairing400JSONResponse{badRequest400("the pairing: first, later, first_order and later_order")}, nil
 	}
-	p := store.BlitzPairing{First: string(req.Body.First), Later: string(req.Body.Later), Ranks: string(req.Body.Ranks)}
+	p := store.BlitzPairing{First: string(req.Body.First), Later: string(req.Body.Later), FirstOrder: string(req.Body.FirstOrder), LaterOrder: string(req.Body.LaterOrder)}
 	err := s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.SetBlitzPairing(ctx, req.Tournament, req.Edition, p); err != nil {
 			return err
@@ -398,6 +398,8 @@ func (s *server) PutAdminBlitzPairing(ctx context.Context, req PutAdminBlitzPair
 	switch {
 	case errors.Is(err, store.ErrBadBlitzPairing):
 		return PutAdminBlitzPairing400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrBlitzRanksFixed):
+		return PutAdminBlitzPairing409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PutAdminBlitzPairing404JSONResponse{notFound404("no such blitz edition")}, nil
 	case err != nil:
