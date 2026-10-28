@@ -109,8 +109,8 @@ type Admins interface {
 	SetBlitzPoints(ctx context.Context, slug, edition string, points blitz.Scoring) error
 	// SetBlitzPairing sets how the edition's Swiss rounds are paired.
 	SetBlitzPairing(ctx context.Context, slug, edition string, p store.BlitzPairing) error
-	// SetBlitzStartingRanks gives the entries named their Dutch starting ranks, the others' kept.
-	SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int) error
+	// SetBlitzStartingRanks gives the entries named their starting ranks, the others' kept, and records what fixed them.
+	SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int, fixedBy string) error
 	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)

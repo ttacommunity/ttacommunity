@@ -2410,7 +2410,8 @@ export interface paths {
          * Set how a blitz edition's Swiss rounds are paired
          * @description Audited. The Origin must be the admin site. Allowed at any time: the
          *     next round paired follows it, and rounds already paired keep the
-         *     method they record.
+         *     method they record. Once round 1 has fixed the starting ranks, an
+         *     order may only be what fixed them or random (409).
          */
         put: operations["putAdminBlitzPairing"];
         post?: never;
@@ -3058,10 +3059,17 @@ export interface components {
              * @description The 2-player rating in the current run, null when unrated
              */
             rating: number | null;
+            /** @description The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before */
+            starting_rank: number | null;
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
             pairing: components["schemas"]["BlitzPairingMethods"];
+            /**
+             * @description What fixed the starting ranks when round 1 was paired, rating or lot; null before
+             * @enum {string|null}
+             */
+            ranks_fixed_by: "rating" | "lot" | null;
             /**
              * Format: date-time
              * @description When the latest result in a published round was recorded; null before the first
@@ -3092,6 +3100,8 @@ export interface components {
         BlitzRound: {
             /** @description The method a Swiss round was paired with; null for a knockout round */
             method: components["schemas"]["BlitzPairingMethod"] | null;
+            /** @description The order a Swiss round was paired by; null for a knockout round */
+            pairing_order: components["schemas"]["BlitzPairingOrder"] | null;
             /** @description Who sat the round out, by username, in sign-up order */
             skipped: string[];
             number: number;
@@ -3170,6 +3180,8 @@ export interface components {
             name: string;
             /** @description A two-letter country code, null for none */
             country: string | null;
+            /** @description The starting rank fixed when round 1 was paired (1 the top), by rating or by lot; null before */
+            starting_rank: number | null;
             /**
              * Format: double
              * @description As the edition's points score each result and bye (FIDE's by default)
@@ -3218,28 +3230,41 @@ export interface components {
         };
         /**
          * @description How a Swiss round is paired: dutch is FIDE's Dutch system (C.04.3,
-         *     without colours); dutch-timezone the same, with the closest time
-         *     zones choosing among the opponents it ranks equally; timezone the
-         *     closest time zones, then ratings, within a score group; rating the
-         *     closest ratings within a score group; random chance within a score
-         *     group
+         *     without colours), its starting ranks by the order; dutch-timezone
+         *     the same, with the closest time zones choosing among the opponents
+         *     it ranks equally; timezone the closest time zones within a score
+         *     group, equally close ones by the order; rating the closest ratings
+         *     within a score group; random chance within a score group
          * @enum {string}
          */
         BlitzPairingMethod: "dutch" | "dutch-timezone" | "timezone" | "rating" | "random";
-        /** @description How an edition's Swiss rounds are paired, round 1 and the rounds after it, and how the Dutch system's starting ranks are given */
+        /**
+         * @description What decides where a method leaves a choice: rating is the ratings
+         *     (the Dutch system's starting ranks by rating, the unrated last, then
+         *     by name; the closest rating among equal time zones); lot is a draw
+         *     made once, when round 1 is paired, and kept (the starting ranks; the
+         *     closest in the draw among equal time zones); random is a fresh draw
+         *     each round. Nothing but rating ever reads a rating
+         * @enum {string}
+         */
+        BlitzPairingOrder: "rating" | "lot" | "random";
+        /**
+         * @description How an edition's Swiss rounds are paired: round 1's method and order,
+         *     and the later rounds'. The starting ranks are fixed for everyone when
+         *     round 1 is paired, by the first of the two orders that is rating or
+         *     lot (a lot when both are random), and a late entrant is slotted in by
+         *     rating or given the next rank; after that an order may only be what
+         *     fixed them, or random
+         */
         BlitzPairingMethods: {
             /** @description Round 1's method, one of dutch, dutch-timezone, timezone or random */
             first: components["schemas"]["BlitzPairingMethod"];
             /** @description The later rounds' method, one of dutch, dutch-timezone, timezone, rating or random */
             later: components["schemas"]["BlitzPairingMethod"];
-            /**
-             * @description How the Dutch system's starting ranks are given, fixed when round 1
-             *     is paired: rating is by rating, the unrated last, then by name; lot
-             *     is a draw. A late entrant is slotted in by rating, or given the
-             *     next rank
-             * @enum {string}
-             */
-            ranks: "rating" | "lot";
+            /** @description Round 1's order */
+            first_order: components["schemas"]["BlitzPairingOrder"];
+            /** @description The later rounds' order */
+            later_order: components["schemas"]["BlitzPairingOrder"];
         };
         /** @description The matches to keep as they are */
         BlitzPairing: {
@@ -3294,6 +3319,8 @@ export interface components {
             kind: "swiss" | "knockout";
             /** @description The method a Swiss round was paired with; null for a knockout round */
             method: components["schemas"]["BlitzPairingMethod"] | null;
+            /** @description The order a Swiss round was paired by; null for a knockout round */
+            pairing_order: components["schemas"]["BlitzPairingOrder"] | null;
             /**
              * Format: date-time
              * @description Null for a draft
@@ -3377,6 +3404,11 @@ export interface components {
             skips: number[];
         };
         AdminBlitzEdition: {
+            /**
+             * @description What fixed the starting ranks when round 1 was paired, rating or lot; null before
+             * @enum {string|null}
+             */
+            ranks_fixed_by: "rating" | "lot" | null;
             pairing: components["schemas"]["BlitzPairingMethods"];
             points: components["schemas"]["BlitzPoints"];
             /** @description True when the points are FIDE's, so Reset has nothing to do */
@@ -8593,6 +8625,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     putAdminBlitzRoundDeadline: {
@@ -8808,14 +8841,16 @@ export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequire
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const tournamentSettingsPodium_sourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentSettings"]["podium_source"]> = ["top_divisions", "final_stage", "recorded", "none"];
 export const adminMeRoleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminMe"]["role"]> = ["admin", "organiser"];
+export const blitzEditionRanks_fixed_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzEdition"]["ranks_fixed_by"]> = ["rating", "lot"];
 export const blitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const blitzOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzStandingStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzStanding"]["status"]> = ["active", "dropped"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
-export const blitzPairingMethodsRanksValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethods"]["ranks"]> = ["rating", "lot"];
+export const blitzPairingOrderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingOrder"]> = ["rating", "lot", "random"];
 export const adminBlitzRoundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzRound"]["kind"]> = ["swiss", "knockout"];
 export const adminBlitzEntrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEntrant"]["status"]> = ["active", "dropped"];
+export const adminBlitzEditionRanks_fixed_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminBlitzEdition"]["ranks_fixed_by"]> = ["rating", "lot"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];
 export const myBlitzMatchMeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["me"]> = ["a", "b"];
 export const myBlitzMatchReported_byValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["reported_by"]> = ["a", "b"];

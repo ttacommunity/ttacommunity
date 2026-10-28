@@ -102,6 +102,7 @@ func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string
 		for _, q := range []string{
 			"DELETE FROM blitz_rounds WHERE tournament_id = $1",
 			"UPDATE blitz_entries SET status = 'active', starting_rank = NULL WHERE tournament_id = $1 AND (status = 'dropped' OR starting_rank IS NOT NULL)",
+			"UPDATE blitz_editions SET ranks_fixed_by = NULL WHERE tournament_id = $1",
 			"DELETE FROM blitz_skips s USING blitz_entries x WHERE s.entry_id = x.entry_id AND x.tournament_id = $1",
 		} {
 			if _, err := tx.Exec(ctx, q, edID); err != nil {

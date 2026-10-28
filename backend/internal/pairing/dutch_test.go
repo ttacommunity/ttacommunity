@@ -77,7 +77,7 @@ func TestDutchPairs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pairing.Pair(tt.players, pairing.Dutch, 1)
+			got, err := pairing.Pair(tt.players, pairing.Dutch, pairing.ByRating, 1)
 			if err != nil {
 				t.Fatalf("Pair: %v", err)
 			}
@@ -100,7 +100,7 @@ func TestDutchWithTimezonesKeepsTheHalves(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pairing.Pair(tt.players, pairing.DutchTimezone, 1)
+			got, err := pairing.Pair(tt.players, pairing.DutchTimezone, pairing.ByRating, 1)
 			if err != nil {
 				t.Fatalf("Pair: %v", err)
 			}
@@ -113,7 +113,7 @@ func TestDutchWithTimezonesKeepsTheHalves(t *testing.T) {
 
 func TestDutchIgnoresTimezones(t *testing.T) {
 	players := inZones(field(0, 0, 0, 0, 0, 0, 0, 0), 10, -5, 0, 0, -5, 10, 0, 0)
-	got, err := pairing.Pair(players, pairing.Dutch, 1)
+	got, err := pairing.Pair(players, pairing.Dutch, pairing.ByRating, 1)
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestDutchPlaysWholeTournaments(t *testing.T) {
 					players[i] = pairing.Player{ID: int64(i + 1), TPN: i + 1, Offset: 60 * (rng.IntN(24) - 11)}
 				}
 				for round := 1; round <= min(8, size/2); round++ {
-					got, err := pairing.Pair(players, m, uint64(round))
+					got, err := pairing.Pair(players, m, pairing.ByRating, uint64(round))
 					if err != nil {
 						t.Fatalf("round %d: %v", round, err)
 					}

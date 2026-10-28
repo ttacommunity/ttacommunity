@@ -1,5 +1,6 @@
 // The closest-fit methods: players on the same points meet, and within a score group the pairs are the best
-// time-zone fit and then the closest ratings, as the criteria ask, with chance deciding the rest.
+// time-zone fit when asked, then the closest by the order (ratings, or the players' TPN for a lot), with chance
+// deciding the rest.
 package pairing
 
 import (
@@ -11,9 +12,10 @@ import (
 )
 
 // criteria are what the closest-fit pairing minimises within a score group: the zone gap when timezone, then the
-// rating gap when rating. What is left is decided by the seed.
+// rating gap (ByRating) or the TPN gap (ByLot). What is left is decided by the seed.
 type criteria struct {
-	timezone, rating bool
+	timezone bool
+	order    Order
 }
 
 // unratedAs is the rating an unrated player is given for a rating gap.
@@ -26,7 +28,7 @@ const dpPlayers = 20
 // the same round. It returns ErrNoPairing when no round pairs everyone without a repeat.
 func closest(players []Player, c criteria, seed uint64) (Round, error) {
 	rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
-	ranked := rank(players, rng)
+	ranked := rank(players, rng, c.order)
 	jitter := map[[2]int64]float64{}
 	cost := func(a, b Player) float64 {
 		if met(a, b) {
@@ -40,8 +42,11 @@ func closest(players []Player, c criteria, seed uint64) (Round, error) {
 		if c.timezone {
 			v += float64(ZoneGap(a.Offset, b.Offset)) * 1000
 		}
-		if c.rating {
+		switch c.order {
+		case ByRating:
 			v += ratingGap(a, b)
+		case ByLot:
+			v += math.Abs(float64(a.TPN - b.TPN))
 		}
 		return v + jitter[key]
 	}
@@ -131,9 +136,10 @@ func withoutRepeats(field []Player, cost func(a, b Player) float64) ([]Match, bo
 	return out, true
 }
 
-// rank orders players by points, then by their place in the standings where both have one, then by rating with
-// unrated players last, then by chance.
-func rank(players []Player, rng *rand.Rand) []Player {
+// rank orders players by points, then by their place in the standings where both have one, then by the order (rating
+// with unrated players last, or TPN for a lot), then by chance. The order decides the bye and the search's start, so
+// a method without ratings leaves them out here too.
+func rank(players []Player, rng *rand.Rand, order Order) []Player {
 	ranked := slices.Clone(players)
 	draw := make(map[int64]float64, len(ranked))
 	for _, p := range ranked {
@@ -149,17 +155,20 @@ func rank(players []Player, rng *rand.Rand) []Player {
 		if a.Place > 0 && b.Place > 0 && a.Place != b.Place {
 			return a.Place - b.Place
 		}
-		if a.Rated != b.Rated {
+		if order == ByRating && a.Rated != b.Rated {
 			if a.Rated {
 				return -1
 			}
 			return 1
 		}
-		if a.Rated && a.Rating != b.Rating {
+		if order == ByRating && a.Rated && a.Rating != b.Rating {
 			if a.Rating > b.Rating {
 				return -1
 			}
 			return 1
+		}
+		if order == ByLot && a.TPN != b.TPN {
+			return a.TPN - b.TPN
 		}
 		if draw[a.ID] != draw[b.ID] {
 			if draw[a.ID] < draw[b.ID] {

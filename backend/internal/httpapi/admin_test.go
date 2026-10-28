@@ -43,7 +43,9 @@ type fakeAdmins struct {
 	format   store.BlitzFormat
 	points   blitz.Scoring
 	pairing  store.BlitzPairing
-	rounds   []store.BlitzRound
+	// ranksFixedBy is what fixed the blitz edition's starting ranks, "" before round 1.
+	ranksFixedBy string
+	rounds       []store.BlitzRound
 	// members are the community's (admin_members_test.go).
 	members []store.Member
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched

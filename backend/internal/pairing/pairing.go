@@ -1,5 +1,6 @@
 // Package pairing pairs a round of a Swiss tournament by a chosen method: FIDE's Dutch system, with or without
-// time zones as a tiebreak, or the closest time zones, the closest ratings or chance within each score group.
+// time zones as a tiebreak, or the closest time zones, the closest ratings or chance within each score group; and
+// by an order (ratings, a lot, or chance) where the method leaves a choice.
 package pairing
 
 import (
@@ -22,6 +23,20 @@ const (
 
 // Methods are the methods Pair knows, in the order they are offered.
 var Methods = []Method{Dutch, DutchTimezone, Timezone, Rating, Random}
+
+// Order is what decides where a method leaves a choice: the Dutch system's starting ranks (set in Player.TPN by
+// the caller), and the tiebreak among equally close time zones.
+type Order string
+
+// The orders. Orders lists them all.
+const (
+	ByRating Order = "rating"
+	ByLot    Order = "lot"
+	ByChance Order = "random"
+)
+
+// Orders are the orders Pair knows.
+var Orders = []Order{ByRating, ByLot, ByChance}
 
 // Float is a float a player received in a round: down when they met a lower score or had a bye, up when they met
 // a higher score.
@@ -74,12 +89,20 @@ var ErrNoPairing = errors.New("no round pairs everyone without someone meeting a
 // ErrUnknownMethod means a method Pair does not know.
 var ErrUnknownMethod = errors.New("unknown pairing method")
 
-// Pair pairs the players for a round by the method, never two who have met before. The seed decides what the method
-// leaves to chance, so the same players give the same round. It returns ErrNoPairing when no round pairs everyone
-// without a repeat.
-func Pair(players []Player, m Method, seed uint64) (Round, error) {
+// ErrUnknownOrder means an order Pair does not know.
+var ErrUnknownOrder = errors.New("unknown pairing order")
+
+// Pair pairs the players for a round by the method, never two who have met before. The order decides among equally
+// close time zones (Timezone), and ranks the bye there: by rating, by the players' TPN (a lot), or by chance; the
+// Dutch methods follow Player.TPN, and Rating and Random have their own. The seed decides what is left to chance, so
+// the same players give the same round. Only ByRating ever reads a rating. It returns ErrNoPairing when no round
+// pairs everyone without a repeat.
+func Pair(players []Player, m Method, o Order, seed uint64) (Round, error) {
 	if !slices.Contains(Methods, m) {
 		return Round{}, fmt.Errorf("%w: %q", ErrUnknownMethod, m)
+	}
+	if !slices.Contains(Orders, o) {
+		return Round{}, fmt.Errorf("%w: %q", ErrUnknownOrder, o)
 	}
 	if len(players) < 2 {
 		return Round{}, ErrTooFew
@@ -90,11 +113,11 @@ func Pair(players []Player, m Method, seed uint64) (Round, error) {
 	case DutchTimezone:
 		return pairDutch(players, true)
 	case Timezone:
-		return closest(players, criteria{timezone: true, rating: true}, seed)
+		return closest(players, criteria{timezone: true, order: o}, seed)
 	case Rating:
-		return closest(players, criteria{rating: true}, seed)
+		return closest(players, criteria{order: ByRating}, seed)
 	default:
-		return closest(players, criteria{}, seed)
+		return closest(players, criteria{order: ByChance}, seed)
 	}
 }
 

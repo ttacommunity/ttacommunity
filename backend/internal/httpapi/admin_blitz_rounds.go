@@ -47,7 +47,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 		}
 	}
 	met := metBefore(swiss, r.ID)
-	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Method: roundMethod(r),
+	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: AdminBlitzRoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r),
 		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
 	if r.Deadline != nil {
 		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}
@@ -119,8 +119,9 @@ func pairingError(err error) string {
 
 // pairingPlayers turns the edition's active entrants into what the pairing needs, as of now, leaving out the
 // round named by except (0 for none: a new round) when counting points, places, opponents, byes and floats, and the
-// entrants in busy (already paired, or skipping the round). Starting ranks are the entrants' (startingRanks).
-func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool) []pairing.Player {
+// entrants in busy (already paired, or skipping the round). TPN is the entrant's starting rank (startingRanks), or by
+// the order random a fresh draw from the seed.
+func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now time.Time, except int64, busy map[int64]bool, order string, seed uint64) []pairing.Player {
 	var others []store.BlitzRound
 	for _, r := range ed.Rounds {
 		if r.ID != except {
@@ -148,6 +149,12 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 			p.Rating, p.Rated = r.Rating, true
 		}
 		players = append(players, p)
+	}
+	if order == "random" {
+		rng := rand.New(rand.NewPCG(seed, seed^0x9E3779B97F4A7C15))
+		for i, tpn := range rng.Perm(len(players)) {
+			players[i].TPN = tpn + 1
+		}
 	}
 	return players
 }
@@ -203,26 +210,43 @@ func startingRanks(entrants []store.BlitzEntrant, rated map[string]store.Rated, 
 	return ranks, changed
 }
 
-// withStartingRanks is the edition with its entrants given their starting ranks (startingRanks), and the ranks
-// to store when any changed (nil for none).
-func withStartingRanks(ed store.BlitzEdition, rated map[string]store.Rated, seed uint64) (store.BlitzEdition, map[int64]int) {
-	ranks, changed := startingRanks(ed.Entrants, rated, ed.Pairing.Ranks == "lot", seed)
+// ranksFixedBy is what fixes an edition's starting ranks: what fixed them already, else the first of its orders that
+// is rating or lot, else lot.
+func ranksFixedBy(ed store.BlitzEdition) string {
+	if ed.RanksFixedBy != "" {
+		return ed.RanksFixedBy
+	}
+	for _, o := range []string{ed.Pairing.FirstOrder, ed.Pairing.LaterOrder} {
+		if o == "rating" || o == "lot" {
+			return o
+		}
+	}
+	return "lot"
+}
+
+// withStartingRanks is the edition with its entrants given their starting ranks (startingRanks, by ranksFixedBy),
+// the ranks to store when any changed (nil for none), and what fixed them.
+func withStartingRanks(ed store.BlitzEdition, rated map[string]store.Rated, seed uint64) (store.BlitzEdition, map[int64]int, string) {
+	fixedBy := ranksFixedBy(ed)
+	ranks, changed := startingRanks(ed.Entrants, rated, fixedBy == "lot", seed)
 	ed.Entrants = slices.Clone(ed.Entrants)
 	for i := range ed.Entrants {
 		ed.Entrants[i].StartingRank = ranks[ed.Entrants[i].ID]
 	}
+	ed.RanksFixedBy = fixedBy
 	if !changed {
-		return ed, nil
+		return ed, nil, fixedBy
 	}
-	return ed, ranks
+	return ed, ranks, fixedBy
 }
 
-// nextMethod is how the edition's next Swiss round is paired: round 1's method for its first, else the later one.
-func nextMethod(ed store.BlitzEdition, swissMade int) string {
+// nextPairing is how the edition's next Swiss round is paired, its method and order: round 1's for its first, else
+// the later rounds'.
+func nextPairing(ed store.BlitzEdition, swissMade int) (method, order string) {
 	if swissMade == 0 {
-		return ed.Pairing.First
+		return ed.Pairing.First, ed.Pairing.FirstOrder
 	}
-	return ed.Pairing.Later
+	return ed.Pairing.Later, ed.Pairing.LaterOrder
 }
 
 // errNoKnockout means the knockout's next round cannot be paired yet, or at all.
@@ -320,22 +344,23 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 	seed := uint64(now.UnixNano())
 	var round store.BlitzRound
 	var ranks map[int64]int
+	var fixedBy string
 	switch {
 	case swissMade < ed.Format.SwissRounds:
-		ed, ranks = withStartingRanks(ed, rated, seed)
+		ed, ranks, fixedBy = withStartingRanks(ed, rated, seed)
 		busy := map[int64]bool{}
 		for _, e := range skippers(ed.Entrants, next) {
 			busy[e.ID] = true
 		}
-		method := nextMethod(ed, swissMade)
-		paired, err := pairing.Pair(pairingPlayers(ed, rated, now, 0, busy), pairing.Method(method), seed)
+		method, order := nextPairing(ed, swissMade)
+		paired, err := pairing.Pair(pairingPlayers(ed, rated, now, 0, busy, order, seed), pairing.Method(method), pairing.Order(order), seed)
 		if errors.Is(err, pairing.ErrTooFew) || errors.Is(err, pairing.ErrNoPairing) {
 			return PostAdminBlitzRound400JSONResponse{badRequest400(pairingError(err))}, nil
 		}
 		if err != nil {
 			return nil, err
 		}
-		round = store.BlitzRound{Kind: "swiss", Method: method, Seed: int64(seed)}
+		round = store.BlitzRound{Kind: "swiss", Method: method, Order: order, Seed: int64(seed)}
 		for _, m := range paired.Matches {
 			round.Matches = append(round.Matches, store.BlitzMatch{A: m.A, B: new(m.B)})
 		}
@@ -361,11 +386,11 @@ func (s *server) PostAdminBlitzRound(ctx context.Context, req PostAdminBlitzRoun
 			return err
 		}
 		if ranks != nil {
-			if err := tx.SetBlitzStartingRanks(ctx, req.Tournament, req.Edition, ranks); err != nil {
+			if err := tx.SetBlitzStartingRanks(ctx, req.Tournament, req.Edition, ranks, fixedBy); err != nil {
 				return err
 			}
 		}
-		return tx.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "method": made.Method, "seed": seed})
+		return tx.Audit(ctx, me.DiscordID, "blitz.round.add", blitzEditionKey(req.Tournament, req.Edition), map[string]any{"round": made.Number, "kind": made.Kind, "method": made.Method, "order": made.Order, "seed": seed})
 	})
 	switch {
 	case errors.Is(err, store.ErrBlitzDraftExists), errors.Is(err, store.ErrBlitzRoundUndecided), errors.Is(err, store.ErrBlitzFinished):
@@ -551,23 +576,23 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 	for _, e := range skippers(ed.Entrants, round.Number) {
 		busy[e.ID] = true
 	}
-	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Method: round.Method, PublishedAt: round.PublishedAt, Matches: kept}
+	proposal := store.BlitzRound{ID: round.ID, Number: round.Number, Kind: round.Kind, Method: round.Method, Order: round.Order, PublishedAt: round.PublishedAt, Matches: kept}
 	now := s.now()
-	ed, _ = withStartingRanks(ed, rated, uint64(now.UnixNano()))
-	free := pairingPlayers(ed, rated, now, round.ID, busy)
+	seed := uint64(now.UnixNano())
+	ed, _, _ = withStartingRanks(ed, rated, seed)
+	free := pairingPlayers(ed, rated, now, round.ID, busy, round.Order, seed)
 	if i := slices.IndexFunc(proposal.Matches, func(m store.BlitzMatch) bool { return m.B == nil }); i >= 0 && len(free)%2 == 1 {
 		delete(busy, proposal.Matches[i].A)
 		proposal.Matches = slices.Delete(proposal.Matches, i, i+1)
-		free = pairingPlayers(ed, rated, now, round.ID, busy)
+		free = pairingPlayers(ed, rated, now, round.ID, busy, round.Order, seed)
 	}
-	seed := uint64(now.UnixNano())
 	proposal.Seed = int64(seed)
 	switch len(free) {
 	case 0:
 	case 1:
 		proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: free[0].ID})
 	default:
-		paired, err := pairing.Pair(free, pairing.Method(round.Method), seed)
+		paired, err := pairing.Pair(free, pairing.Method(round.Method), pairing.Order(round.Order), seed)
 		if errors.Is(err, pairing.ErrNoPairing) {
 			return PostAdminBlitzRoundPairing400JSONResponse{badRequest400(pairingError(err))}, nil
 		}

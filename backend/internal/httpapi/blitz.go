@@ -106,14 +106,32 @@ func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 
 // blitzPairing is an edition's pairing methods as the API sends them.
 func blitzPairing(p store.BlitzPairing) BlitzPairingMethods {
-	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later), Ranks: BlitzPairingMethodsRanks(p.Ranks)}
+	return BlitzPairingMethods{First: BlitzPairingMethod(p.First), Later: BlitzPairingMethod(p.Later), FirstOrder: BlitzPairingOrder(p.FirstOrder), LaterOrder: BlitzPairingOrder(p.LaterOrder)}
+}
+
+// roundOrder is the order a round was paired by as the API sends it, nil for a knockout round.
+func roundOrder(r store.BlitzRound) *BlitzPairingOrder {
+	if r.Order == "" {
+		return nil
+	}
+	o := BlitzPairingOrder(r.Order)
+	return &o
+}
+
+// ranksFixedByOf is what fixed an edition's starting ranks as the API sends it, nil before round 1.
+func ranksFixedByOf[T ~string](fixedBy string) *T {
+	if fixedBy == "" {
+		return nil
+	}
+	v := T(fixedBy)
+	return &v
 }
 
 // blitzStandings is the edition's standings as the API sends them.
 func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
-	names, countries := map[int64]string{}, map[int64]string{}
+	names, countries, starts := map[int64]string{}, map[int64]string{}, map[int64]int{}
 	for _, e := range ed.Entrants {
-		names[e.ID], countries[e.ID] = e.Name, e.Country
+		names[e.ID], countries[e.ID], starts[e.ID] = e.Name, e.Country, e.StartingRank
 	}
 	standings := swissStandings(ed)
 	out := make([]BlitzStanding, 0, len(standings))
@@ -122,7 +140,11 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 		if s.Dropped {
 			status = "dropped"
 		}
-		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), Points: s.Points, Games: s.Games,
+		var start *int
+		if starts[s.ID] > 0 {
+			start = new(starts[s.ID])
+		}
+		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), StartingRank: start, Points: s.Points, Games: s.Games,
 			Byes: s.Byes, BuchholzCut1: s.BuchholzCut1, Buchholz: s.Buchholz, SonnebornBerger: s.SonnebornBerger, OpponentsBuchholz: s.OpponentsBuchholz,
 			OpponentsSonnebornBerger: s.OpponentsSonnebornBerger, Status: BlitzStandingStatus(status)})
 	}
@@ -159,13 +181,17 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
 		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
-		Entrants: []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
+		RanksFixedBy: ranksFixedByOf[BlitzEditionRanksFixedBy](ed.RanksFixedBy),
+		Entrants:     []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {
 			continue
 		}
 		offset, _ := blitz.Offset(e.Zone, s.now())
 		entrant := BlitzEntrant{Name: e.Name, Country: nullableText(e.Country), Zone: e.Zone, UtcOffset: offset}
+		if e.StartingRank > 0 {
+			entrant.StartingRank = new(e.StartingRank)
+		}
 		if r, ok := rated[e.Player]; ok {
 			entrant.Rating = &r.Rating
 		}
@@ -183,7 +209,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Method: roundMethod(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
+		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
 		for _, e := range skippers(ed.Entrants, r.Number) {
 			pr.Skipped = append(pr.Skipped, e.Name)
 		}

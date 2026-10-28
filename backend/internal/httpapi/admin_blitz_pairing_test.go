@@ -77,18 +77,18 @@ func TestAnOrganiserSetsHowRoundsArePaired(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := &fakeAdmins{}
 	fourEntered(f)
-	rec := adminDoAs(t, f, org, http.MethodPut, "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "random", "later": "random", "ranks": "lot"}`)
+	rec := adminDoAs(t, f, org, http.MethodPut, "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "random", "later": "timezone", "first_order": "random", "later_order": "lot"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT pairing = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "pairing random/random/lot"; strings.Join(f.notes, "|") != want {
+	if want := "pairing random/timezone/random/lot"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	if len(f.audits) != 1 || f.audits[0] != org+" blitz.pairing us_open/2026" {
 		t.Errorf("audits = %q, want the pairing set", f.audits)
 	}
 	rec = adminDoAs(t, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
-	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "random", "later": "random", "ranks": "lot"}`)
+	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "random", "later": "timezone", "first_order": "random", "later_order": "lot"}`)
 }
 
 func TestSettingThePairingIsRefusedWhenItShouldBe(t *testing.T) {
@@ -97,18 +97,22 @@ func TestSettingThePairingIsRefusedWhenItShouldBe(t *testing.T) {
 		name, path, origin, body string
 		want                     int
 	}{
-		{"round 1 by rating", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "rating", "later": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
-		{"a method nobody knows", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "swiss-ish", "later": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
-		{"a method missing", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "ranks": "rating"}`, http.StatusBadRequest},
-		{"starting ranks by something else", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch", "ranks": "random"}`, http.StatusBadRequest},
-		{"the rank order missing", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch"}`, http.StatusBadRequest},
-		{"an unknown edition", "/v1/admin/blitz/us_open/2027/pairing", site, `{"first": "dutch", "later": "dutch", "ranks": "rating"}`, http.StatusNotFound},
-		{"from another site", "/v1/admin/blitz/us_open/2026/pairing", "https://evil.example", `{"first": "dutch", "later": "dutch", "ranks": "rating"}`, http.StatusForbidden},
+		{"round 1 by rating", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "rating", "later": "dutch", "first_order": "rating", "later_order": "rating"}`, http.StatusBadRequest},
+		{"a method nobody knows", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "swiss-ish", "later": "dutch", "first_order": "rating", "later_order": "rating"}`, http.StatusBadRequest},
+		{"a method missing", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "first_order": "rating", "later_order": "rating"}`, http.StatusBadRequest},
+		{"an order nobody knows", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch", "first_order": "seed", "later_order": "rating"}`, http.StatusBadRequest},
+		{"an order missing", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch", "first_order": "rating"}`, http.StatusBadRequest},
+		{"the other fixed order once round 1 fixed the ranks", "/v1/admin/blitz/us_open/2026/pairing", site, `{"first": "dutch", "later": "dutch", "first_order": "rating", "later_order": "lot"}`, http.StatusConflict},
+		{"an unknown edition", "/v1/admin/blitz/us_open/2027/pairing", site, `{"first": "dutch", "later": "dutch", "first_order": "rating", "later_order": "rating"}`, http.StatusNotFound},
+		{"from another site", "/v1/admin/blitz/us_open/2026/pairing", "https://evil.example", `{"first": "dutch", "later": "dutch", "first_order": "rating", "later_order": "rating"}`, http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeAdmins{}
 			fourEntered(f)
+			if tt.want == http.StatusConflict {
+				f.entrants[0].StartingRank, f.ranksFixedBy = 1, "rating"
+			}
 			if rec := adminDoAs(t, f, org, http.MethodPut, tt.path, tt.origin, tt.body); rec.Code != tt.want {
 				t.Errorf("PUT %s %s = %d %s, want %d", tt.path, tt.body, rec.Code, rec.Body, tt.want)
 			}
@@ -124,7 +128,7 @@ func TestTheSiteShowsHowAnEditionIsPaired(t *testing.T) {
 	at := time.Date(2026, 12, 21, 12, 0, 0, 0, time.UTC)
 	ed := store.BlitzEdition{
 		BlitzEditionRow: store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2}, Points: blitz.FIDEScoring,
-			Pairing: store.BlitzPairing{First: "random", Later: "dutch", Ranks: "lot"}, Entrants: 2, Round: new(2)},
+			Pairing: store.BlitzPairing{First: "random", Later: "dutch", FirstOrder: "random", LaterOrder: "lot"}, RanksFixedBy: "lot", Entrants: 2, Round: new(2)},
 		Entrants: []store.BlitzEntrant{{ID: 7, Name: "Ann", Zone: "UTC", Status: "active"}, {ID: 8, Name: "bob", Zone: "UTC", Status: "active"}},
 		Rounds: []store.BlitzRound{
 			{ID: 101, Number: 1, Kind: "swiss", Method: "random", PublishedAt: &at, Matches: []store.BlitzMatch{{ID: 1, A: 7, B: &bob}}},
@@ -132,7 +136,8 @@ func TestTheSiteShowsHowAnEditionIsPaired(t *testing.T) {
 		},
 	}
 	rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: &ed}, "/v1/blitz/us_open/2026")
-	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "random", "later": "dutch", "ranks": "lot"}`)
+	wantJSON(t, rec.Body.Bytes(), "pairing", `{"first": "random", "later": "dutch", "first_order": "random", "later_order": "lot"}`)
+	wantJSON(t, rec.Body.Bytes(), "ranks_fixed_by", `"lot"`)
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.method", `"random"`)
 	wantJSON(t, rec.Body.Bytes(), "rounds.1.method", `null`)
 }
@@ -209,18 +214,20 @@ func TestStartingRanksByLotAreADrawTheSeedFixes(t *testing.T) {
 func TestRoundOneFixesTheStartingRanksByTheEditionsOrder(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	tests := []struct {
-		name  string
-		ranks string
-		want  map[int64]int
+		name                string
+		first, later, fixed string
+		want                map[int64]int
 	}{
-		{"by rating: Ann 1700, Cy 1650, then bob and Dee by name", "rating", map[int64]int{7: 1, 8: 2, 9: 3, 10: 4}},
-		{"by lot: a draw", "lot", nil},
+		{"by rating: Ann 1700, Cy 1650, then bob and Dee by name", "rating", "rating", "rating", map[int64]int{7: 1, 8: 2, 9: 3, 10: 4}},
+		{"by lot: a draw", "lot", "lot", "lot", nil},
+		{"by the later rounds' order when round 1's is random", "random", "lot", "lot", nil},
+		{"by lot when both are random, for the record", "random", "random", "lot", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeAdmins{}
 			fourEntered(f)
-			f.pairing = store.BlitzPairing{First: "dutch", Later: "dutch", Ranks: tt.ranks}
+			f.pairing = store.BlitzPairing{First: "dutch", Later: "dutch", FirstOrder: tt.first, LaterOrder: tt.later}
 			ratings := &fakeRatings{run: store.PublishedRun{ID: 7}, rated: map[string]store.Rated{"Ann": {Rating: 1700}, "Cy": {Rating: 1650}}}
 			rec := adminDoWith(t, ratings, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, "")
 			var round AdminBlitzRound
@@ -236,6 +243,12 @@ func TestRoundOneFixesTheStartingRanksByTheEditionsOrder(t *testing.T) {
 			}
 			if ranks := slices.Sorted(maps.Values(got)); !slices.Equal(ranks, []int{1, 2, 3, 4}) {
 				t.Fatalf("stored starting ranks = %v, want 1 to 4 once each", got)
+			}
+			if f.ranksFixedBy != tt.fixed {
+				t.Errorf("ranks fixed by %q, want %q", f.ranksFixedBy, tt.fixed)
+			}
+			if tt.first == "random" {
+				return
 			}
 			// The Dutch pairs the top half against the bottom half by starting rank: 1 v 3 and 2 v 4.
 			byRank := map[int]int64{}
