@@ -4,7 +4,7 @@ import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } fr
 import { failed, type Found } from '@ttac/shared/load';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, reachedLabel, scoringSentence, zoneLabel } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, reachedLabel, roundLine, scoringSentence, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
 import BackLink from '@ttac/shared/BackLink';
@@ -151,9 +151,9 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
-    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} onHow={(e) => setHowPaired(e.currentTarget)} /> },
+    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringSentence(ed.points, ed.fide_points)} start={startLabel(ed.ranks_fixed_by)} onHow={(e) => setHowPaired(e.currentTarget)} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
-    players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} /> },
+    players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} start={startLabel(ed.ranks_fixed_by)} /> },
   };
   return (
     <>
@@ -167,8 +167,12 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <div className="tournaments-subtitle">
           {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
         </div>
+        <ul className="blitz-pairing-lines">
+          <li>Round 1: {roundLine(ed.pairing.first, ed.pairing.first_order)}</li>
+          {ed.format.swiss_rounds > 1 && <li>Later rounds: {roundLine(ed.pairing.later, ed.pairing.later_order)}</li>}
+        </ul>
         <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired(e.currentTarget)}>
-          How pairings and ties work
+          How pairings and ties are calculated
         </button>
       </div>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired} onClose={() => setHowPaired(null)} />}
@@ -210,11 +214,11 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   );
 }
 
-/** HowPairedDialog explains how the edition's rounds are paired (its methods, the rules every method keeps, and the method each Swiss round shown was paired with) and how ties in the standings are broken. */
+/** HowPairedDialog explains how the edition's rounds are paired (its settings, and the rules every method keeps) and how ties in the standings are broken. */
 function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HTMLElement; onClose: () => void }) {
   const notes = pairingNotes(ed);
   return (
-    <InfoDialog title="How pairings and ties work" opener={opener} onClose={onClose}>
+    <InfoDialog title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
       {notes.methods.map((m) => (
         <p key={m.when} className="site-dialog-text">
           <strong>
@@ -228,18 +232,6 @@ function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HT
           {r}
         </p>
       ))}
-      {notes.paired.length > 0 && (
-        <>
-          <p className="site-dialog-text">Paired so far:</p>
-          <ul className="site-dialog-text blitz-paired-list">
-            {notes.paired.map((p) => (
-              <li key={p.round}>
-                {p.round}: {p.label}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
       <p className="site-dialog-text">
         <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
         ones before leave them level:
@@ -256,22 +248,24 @@ function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HT
   );
 }
 
-/** StandingsPanel shows the standings by rank, with how the edition scores, a marker on the ranks the draw ordered, and a button to how ties are broken (onHow). */
-function StandingsPanel({ standings, scoring, onHow }: { standings: BlitzStanding[]; scoring: string; onHow: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
+/** StandingsPanel shows the standings by rank, with how the edition scores, a marker before the ranks the draw ordered, the starting ranks once fixed (start: the column's heading, null before), the tie-breaks on request, and a button to how ties are broken (onHow). */
+function StandingsPanel({ standings, scoring, start, onHow }: { standings: BlitzStanding[]; scoring: string; start: string | null; onHow: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
+  const [tieBreaks, setTieBreaks] = useState(false);
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
         Standings
       </h2>
       <p className="blitz-intro">
-        {scoring} Players on the same points are separated by Direct Encounter, Buchholz Cut 1, Buchholz,
-        Sonneborn-Berger and the opponents&apos; Buchholz and Sonneborn-Berger, in that order, and last by a draw fixed for
-        the edition. A rank marked <span className="blitz-draw">*</span> was ordered by the draw.{' '}
+        {scoring} A rank marked <span className="blitz-draw">*</span> was ordered by the draw.{' '}
         <button type="button" className="blitz-text-button" onClick={onHow}>
           How ties are broken
         </button>
       </p>
+      <label className="blitz-toggle">
+        <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
+      </label>
       <div className="blitz-table-wrap">
         <table className="blitz-table">
           <caption>The standings after the results recorded so far</caption>
@@ -283,6 +277,11 @@ function StandingsPanel({ standings, scoring, onHow }: { standings: BlitzStandin
               <SortHeader col="player" sort={sort} onSort={sortBy}>
                 Player
               </SortHeader>
+              {start !== null && (
+                <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
+                  {start}
+                </SortHeader>
+              )}
               <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
                 Points
               </SortHeader>
@@ -292,23 +291,27 @@ function StandingsPanel({ standings, scoring, onHow }: { standings: BlitzStandin
               <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
                 Byes
               </SortHeader>
-              <SortHeader col="cut1" sort={sort} onSort={sortBy} className="num">
-                <abbr title="Buchholz Cut 1">BH-C1</abbr>
-              </SortHeader>
-              <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
-                <abbr title="Buchholz">BH</abbr>
-              </SortHeader>
-              <SortHeader col="sb" sort={sort} onSort={sortBy} className="num">
-                <abbr title="Sonneborn-Berger">SB</abbr>
-              </SortHeader>
+              {tieBreaks && (
+                <>
+                  <SortHeader col="cut1" sort={sort} onSort={sortBy} className="num">
+                    <abbr title="Buchholz Cut 1">BH-C1</abbr>
+                  </SortHeader>
+                  <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
+                    <abbr title="Buchholz">BH</abbr>
+                  </SortHeader>
+                  <SortHeader col="sb" sort={sort} onSort={sortBy} className="num">
+                    <abbr title="Sonneborn-Berger">SB</abbr>
+                  </SortHeader>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
             {rows.map((s) => (
               <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
                 <td className="num">
-                  {s.rank}
                   <DrawMark s={s} />
+                  {s.rank}
                 </td>
                 <th scope="row">
                   <span className="blitz-flag">
@@ -317,12 +320,17 @@ function StandingsPanel({ standings, scoring, onHow }: { standings: BlitzStandin
                   {s.name}
                   {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
                 </th>
+                {start !== null && <td className="num">{s.starting_rank ?? '–'}</td>}
                 <td className="num">{s.points}</td>
                 <td className="num">{s.games}</td>
                 <td className="num">{s.byes}</td>
-                <td className="num">{s.buchholz_cut1}</td>
-                <td className="num">{s.buchholz}</td>
-                <td className="num">{s.sonneborn_berger}</td>
+                {tieBreaks && (
+                  <>
+                    <td className="num">{s.buchholz_cut1}</td>
+                    <td className="num">{s.buchholz}</td>
+                    <td className="num">{s.sonneborn_berger}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -332,19 +340,22 @@ function StandingsPanel({ standings, scoring, onHow }: { standings: BlitzStandin
   );
 }
 
-/** DrawMark marks a rank the draw ordered, with the ranks it was drawn among as its text; nothing for a rank held alone. */
+/** DrawMark marks a rank the draw ordered, before the number in a slot of its own so the numbers line up, with the ranks it was drawn among as its text; the slot stays empty for a rank held alone. */
 function DrawMark({ s }: { s: BlitzStanding }) {
   const label = drawLabel(s);
-  if (label === null) return null;
   return (
-    <span className="blitz-draw" title={label}>
-      *<span className="visually-hidden">{label}</span>
+    <span className="blitz-draw-slot">
+      {label !== null && (
+        <span className="blitz-draw" title={label}>
+          *<span className="visually-hidden">{label}</span>
+        </span>
+      )}
     </span>
   );
 }
 
-/** PlayersPanel shows the entrants still in, in sign-up order, with their time zones and ratings. */
-function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
+/** PlayersPanel shows the entrants still in, in sign-up order, with their time zones, ratings and, once round 1 fixed them, starting ranks (start: the column's heading). */
+function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants']; start: string | null }) {
   const [rows, sort, sortBy] = useSort(entrants, ENTRANT_COLUMNS);
   return (
     <section aria-labelledby="blitz-entrants">
@@ -367,6 +378,11 @@ function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
                 <SortHeader col="rating" sort={sort} onSort={sortBy} className="num">
                   Rating
                 </SortHeader>
+                {start !== null && (
+                  <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
+                    {start}
+                  </SortHeader>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -380,6 +396,7 @@ function PlayersPanel({ entrants }: { entrants: BlitzEdition['entrants'] }) {
                   </th>
                   <td>{zoneLabel(e.zone, e.utc_offset)}</td>
                   <td className="num">{ratingText(e.rating)}</td>
+                  {start !== null && <td className="num">{e.starting_rank ?? '–'}</td>}
                 </tr>
               ))}
             </tbody>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { components } from '@ttac/shared/api';
 import { blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
-import { PAIRING_METHODS } from '@ttac/shared/blitz';
+import { methodText, roundLine } from '@ttac/shared/blitz';
 
 describe('splitRounds', () => {
   it('puts the Swiss rounds newest first and the knockout rounds in bracket order, first to final', () => {
@@ -183,44 +183,31 @@ describe("blitzGames' row of the signed-in player's game", () => {
 });
 
 describe('pairingNotes', () => {
-  const ed = (first: 'dutch' | 'random' | 'timezone', later: 'dutch' | 'rating', bye = 1, ranks: 'rating' | 'lot' = 'rating') => ({
-    pairing: { first, later, ranks },
+  const ed = (first: 'dutch' | 'random' | 'timezone', later: 'dutch' | 'rating', firstOrder: 'rating' | 'lot' | 'random' = 'rating', laterOrder: 'rating' | 'lot' | 'random' = 'rating', bye = 1, swiss = 8, fixedBy: 'rating' | 'lot' | null = null) => ({
+    pairing: { first, later, first_order: firstOrder, later_order: laterOrder },
+    ranks_fixed_by: fixedBy,
     points: { bye },
-    format: { swiss_rounds: 8, knockout_size: 8 },
-    rounds: [] as { number: number; kind: 'swiss' | 'knockout'; method: 'dutch' | 'timezone' | null }[],
+    format: { swiss_rounds: swiss, knockout_size: 8 },
   });
   it.each([
-    ['one method for every round', ed('dutch', 'dutch'), [['Every Swiss round', 'dutch']]],
-    ['round 1 and the later rounds', ed('random', 'rating'), [['Round 1', 'random'], ['Later rounds', 'rating']]],
+    ['round 1 in its own words, then the later rounds', ed('dutch', 'dutch', 'lot', 'lot'), [['Round 1', 'dutch', 'first', 'lot'], ['Later rounds', 'dutch', 'later', 'lot']]],
+    ['round 1 and the later rounds', ed('random', 'rating', 'random', 'rating'), [['Round 1', 'random', 'first', 'random'], ['Later rounds', 'rating', 'later', 'rating']]],
+    ['round 1 alone when it is the only Swiss round', ed('timezone', 'dutch', 'rating', 'rating', 1, 1), [['Round 1', 'timezone', 'first', 'rating']]],
   ] as const)('names the methods: %s', (_, edition, want) => {
-    expect(pairingNotes(edition).methods).toEqual(want.map(([when, m]) => ({ when, label: PAIRING_METHODS[m].label, about: PAIRING_METHODS[m].about })));
+    expect(pairingNotes(edition).methods).toEqual(want.map(([when, m, round, o]) => ({ when, label: roundLine(m, o), about: methodText(m, round, o) })));
   });
   it.each([
     ['a whole point', 1, 'worth 1 point'],
     ['half a point', 0.5, 'worth ½ point'],
     ['points', 3, 'worth 3 points'],
   ])('says what the bye is worth: %s', (_, bye, want) => {
-    expect(pairingNotes(ed('dutch', 'dutch', bye)).rules.join(' ')).toContain(want);
+    expect(pairingNotes(ed('dutch', 'dutch', 'rating', 'rating', bye)).rules.join(' ')).toContain(want);
   });
   it.each([
-    ['by rating with the Dutch system', ed('dutch', 'dutch', 1, 'rating'), 'Starting ranks follow the ratings'],
-    ['by lot with the Dutch system', ed('random', 'dutch', 1, 'lot'), 'Starting ranks are drawn'],
-    ['not at all without the Dutch system', ed('timezone', 'rating', 1, 'lot'), null],
+    ['to come, by the first fixed order', ed('timezone', 'dutch', 'random', 'lot'), 'are fixed for everyone when round 1 is paired, by lot'],
+    ['to come, by lot when both are random', ed('random', 'random' as never, 'random', 'random'), 'are fixed for everyone when round 1 is paired, by lot'],
+    ['fixed already', ed('dutch', 'dutch', 'rating', 'rating', 1, 8, 'rating'), 'were fixed for everyone when round 1 was paired, by rating'],
   ])('says how the starting ranks are given: %s', (_, edition, want) => {
-    const rule = pairingNotes(edition).rules.find((r) => r.startsWith('Starting ranks')) ?? null;
-    if (want === null) expect(rule).toBeNull();
-    else expect(rule).toContain(want);
-  });
-  it('lists the method each Swiss round was paired with, the knockout left out', () => {
-    const edition = ed('dutch', 'dutch');
-    edition.rounds = [
-      { number: 1, kind: 'swiss', method: 'timezone' },
-      { number: 2, kind: 'swiss', method: 'dutch' },
-      { number: 9, kind: 'knockout', method: null },
-    ];
-    expect(pairingNotes(edition).paired).toEqual([
-      { round: 'Round 1', label: PAIRING_METHODS.timezone.label },
-      { round: 'Round 2', label: PAIRING_METHODS.dutch.label },
-    ]);
+    expect(pairingNotes(edition).rules.find((r) => r.startsWith('Starting ranks'))).toContain(want);
   });
 });

@@ -865,7 +865,11 @@
 }
 
 
-/* The marker on a rank the draw ordered, in the blitz standings. */
+/* The marker on a rank the draw ordered, in the blitz standings, in a slot before the number so the numbers line up. */
+.blitz-draw-slot {
+  display: inline-block;
+  width: 0.9em;
+}
 .blitz-draw {
   color: var(--accent-gold);
   font-weight: 700;

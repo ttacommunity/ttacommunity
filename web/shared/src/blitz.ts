@@ -127,43 +127,84 @@ export type PairingMethod = components['schemas']['BlitzPairingMethod'];
 export type PairingMethods = components['schemas']['BlitzPairingMethods'];
 
 /** FIRST_METHODS are the methods round 1 may be paired by, in the order offered. */
-export const FIRST_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'random'];
+export const FIRST_METHODS: readonly PairingMethod[] = ['dutch', 'timezone', 'dutch-timezone', 'random'];
 /** LATER_METHODS are the methods the rounds after round 1 may be paired by, in the order offered. */
-export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'dutch-timezone', 'timezone', 'rating', 'random'];
+export const LATER_METHODS: readonly PairingMethod[] = ['dutch', 'timezone', 'dutch-timezone', 'random'];
 
-export type RankOrder = PairingMethods['ranks'];
+export type PairingOrder = PairingMethods['first_order'];
 
-/** RANK_ORDERS are the ways the Dutch system's starting ranks may be given, in the order offered, each said in plain words. */
-export const RANK_ORDERS: readonly { value: RankOrder; label: string; about: string }[] = [
-  { value: 'rating', label: 'By rating', about: 'follow the ratings when round 1 is paired: highest first, unrated players last, then by name. A late entrant is slotted in by rating.' },
-  { value: 'lot', label: 'By lot', about: 'are drawn when round 1 is paired. A late entrant takes the next rank.' },
+/** ORDERS are what a method pairs by where it leaves a choice, in the order offered: the Dutch system's starting ranks, the tiebreak among equally close time zones. */
+export const ORDERS: readonly { value: PairingOrder; label: string }[] = [
+  { value: 'rating', label: 'By rating' },
+  { value: 'lot', label: 'By lot' },
+  { value: 'random', label: 'Random' },
 ];
 
-/** usesStartingRanks says whether an edition's methods use starting ranks: the Dutch system, in round 1 or later. */
-export function usesStartingRanks(p: PairingMethods): boolean {
-  return [p.first, p.later].some((m) => m === 'dutch' || m === 'dutch-timezone');
+/** orderLabel names an order in a sentence: "by rating", "by lot", "random". */
+export function orderLabel(o: PairingOrder): string {
+  return ORDERS.find((x) => x.value === o)?.label.toLowerCase() ?? o;
 }
 
-/** PAIRING_METHODS names each pairing method and says in plain words how it pairs a round. */
-export const PAIRING_METHODS: Record<PairingMethod, { label: string; about: string }> = {
-  dutch: {
-    label: "FIDE's Dutch system",
-    about:
-      'Players on the same points meet. Each score group is ordered by starting rank and split in two, and the top half plays the bottom half: the first against the first of the bottom half, the second against the second, and so on. Pairs change only to avoid a rematch, and a player left over moves down to the next group.',
-  },
-  'dutch-timezone': {
-    label: 'Dutch, time zones as tiebreak',
-    about: "As FIDE's Dutch system, the top half of each score group plays the bottom half; within that, each player meets the opponent in the bottom half closest to their time zone.",
-  },
-  timezone: { label: 'Closest time zones', about: 'Players on the same points meet the opponent closest to their time zone, then the closest in rating.' },
-  rating: { label: 'Closest ratings', about: 'Players on the same points meet the opponent closest in rating.' },
-  random: { label: 'Random', about: 'Opponents are drawn by chance.' },
+/** needsOrder says whether a method pairs by an order at all: every method but Random. */
+export function needsOrder(m: PairingMethod): boolean {
+  return m !== 'random';
+}
+
+/** ranksFixedBy says what fixes the starting ranks when round 1 is paired: the first of the two orders that is rating or lot, else a lot. */
+export function ranksFixedBy(p: PairingMethods): 'rating' | 'lot' {
+  for (const o of [p.first_order, p.later_order]) if (o === 'rating' || o === 'lot') return o;
+  return 'lot';
+}
+
+/** PAIRING_METHODS names each pairing method; methodText says how it pairs a round. */
+export const PAIRING_METHODS: Record<PairingMethod, { label: string }> = {
+  dutch: { label: "FIDE's Dutch system" },
+  'dutch-timezone': { label: 'Dutch, time zones as tiebreak' },
+  timezone: { label: 'Closest time zones' },
+  rating: { label: 'Closest ratings' },
+  random: { label: 'Random' },
 };
 
-/** pairingSummary says in one line how an edition's rounds are paired: one method for every round, or round 1's and the later rounds', and starting ranks by lot when the Dutch system draws them. */
+/** roundLine names a method with its order, as a round's one-line label: "Closest time zones, by lot"; Random alone. */
+export function roundLine(m: PairingMethod, o: PairingOrder): string {
+  return needsOrder(m) ? `${PAIRING_METHODS[m].label}, ${orderLabel(o)}` : PAIRING_METHODS[m].label;
+}
+
+/** methodText says in plain words how a method pairs round 1 (first: nobody has points yet) or a later round (later: within each score group) by the order. */
+export function methodText(m: PairingMethod, when: 'first' | 'later', o: PairingOrder): string {
+  const who = when === 'first' ? 'Everyone meets' : 'Players on the same points meet';
+  const ranks = { rating: 'by rating', lot: 'drawn by lot', random: 'drawn afresh for this round' }[o];
+  const tie = { rating: 'the closest in rating', lot: 'the closest in the lot', random: 'chance' }[o];
+  const group = when === 'first' ? 'The players are' : 'Players on the same points meet. Each score group is';
+  switch (m) {
+    case 'dutch':
+      return `${group} ordered by starting rank, ${ranks}, and split in two, and the top half plays the bottom half: the first against the first of the bottom half, the second against the second, and so on. Pairs change only to avoid a rematch${when === 'first' ? '' : ', and a player left over moves down to the next group'}.`;
+    case 'dutch-timezone':
+      return `${group} ordered by starting rank, ${ranks}, and the top half plays the bottom half; within that, each player meets the opponent in the bottom half closest to their time zone.`;
+    case 'timezone':
+      return `${who} the opponent closest to their time zone; among equally close ones, ${tie} decides.`;
+    case 'rating':
+      return `${who} the opponent closest in rating.`;
+    case 'random':
+      return 'Opponents are drawn by chance.';
+  }
+}
+
+/** pairingSummary says in one line how an edition's rounds are paired: one method and order for every round, or round 1's and the later rounds'. */
 export function pairingSummary(p: PairingMethods): string {
-  const methods = p.first === p.later ? `${PAIRING_METHODS[p.first].label}, every round` : `Round 1: ${PAIRING_METHODS[p.first].label}; later rounds: ${PAIRING_METHODS[p.later].label}`;
-  return usesStartingRanks(p) && p.ranks === 'lot' ? `${methods}; starting ranks by lot` : methods;
+  const first = roundLine(p.first, p.first_order);
+  const later = roundLine(p.later, p.later_order);
+  return first === later ? `${first}, every round` : `Round 1: ${first}; later rounds: ${later}`;
+}
+
+/** fixedByLabel says what fixed the starting ranks: "by lot" or "by rating"; null before round 1. */
+export function fixedByLabel(fixedBy: 'rating' | 'lot' | null): string | null {
+  return fixedBy === null ? null : orderLabel(fixedBy);
+}
+
+/** startLabel is the starting-rank column's heading: "Lot" when a draw fixed the ranks, "Seed" when ratings did; null before round 1. */
+export function startLabel(fixedBy: 'rating' | 'lot' | null): string | null {
+  return fixedBy === null ? null : fixedBy === 'lot' ? 'Lot' : 'Seed';
 }
 
 /** pointsText writes points in halves as a player reads them: 0, ½, 1, 2½. */
@@ -240,8 +281,9 @@ export const UNPLAYED_NOTE = "A bye, a forfeit or a missed round counts as a gam
 export type BlitzStanding = components['schemas']['BlitzStanding'];
 
 /** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
-export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'points' | 'played' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'played' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
   rank: { value: (s) => s.rank, first: 'asc' },
+  start: { value: (s) => s.starting_rank, first: 'asc' },
   player: { value: (s) => s.name, first: 'asc' },
   points: { value: (s) => s.points, first: 'desc' },
   played: { value: (s) => s.games, first: 'desc' },
@@ -271,11 +313,12 @@ export function offsetMinutes(offset: string): number | null {
 }
 
 /** EntrantRow is what an entrants table shows of every entrant, on the site and in admin. */
-export type EntrantRow = { name: string; zone: string; utc_offset: string; rating: number | null };
+export type EntrantRow = { name: string; zone: string; utc_offset: string; rating: number | null; starting_rank: number | null };
 
 /** ENTRANT_COLUMNS are an entrants table's sortable columns; zone sorts west to east, then by the zone's name. */
-export const ENTRANT_COLUMNS: SortColumns<EntrantRow, 'player' | 'zone' | 'rating'> = {
+export const ENTRANT_COLUMNS: SortColumns<EntrantRow, 'player' | 'zone' | 'rating' | 'start'> = {
   player: { value: (e) => e.name, first: 'asc' },
   zone: { value: (e) => [offsetMinutes(e.utc_offset), e.zone], first: 'asc' },
   rating: { value: (e) => e.rating, first: 'desc' },
+  start: { value: (e) => e.starting_rank, first: 'asc' },
 };

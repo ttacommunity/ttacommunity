@@ -1,6 +1,6 @@
 /** The blitz edition page's decisions: advice on its format, its points summed up and changed, its settings summed up, and how its tables sort. */
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pairingSummary, pointsList, type BlitzPoints, type EditionRow, type EntrantRow, type PairingMethods } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, formatLabel, pairingSummary, pointsList, type BlitzPoints, type EditionRow, type EntrantRow, type PairingMethods, ORDERS, needsOrder, type PairingOrder } from '@ttac/shared/blitz';
 import type { SortColumns } from '@ttac/shared/sort';
 
 type Schemas = components['schemas'];
@@ -80,3 +80,18 @@ export const ADMIN_EDITION_COLUMNS: SortColumns<EditionRow & { dropped: number }
   ...EDITION_COLUMNS,
   dropped: { value: (e) => e.dropped, first: 'desc' },
 };
+
+/** PairingFields says which pairing settings apply: whether Later rounds shows (more than one Swiss round), whether each row's order shows (its method is not Random), and the orders on offer: every order until round 1 fixes the ranks, then what fixed them and random. */
+export type PairingFields = { later: boolean; firstOrder: boolean; laterOrder: boolean; orders: readonly PairingOrder[] };
+
+/** pairingFields decides the pairing settings shown for the pairing chosen, the format's Swiss rounds, and what fixed the starting ranks (null before round 1). */
+export function pairingFields(pairing: PairingMethods, swissRounds: number, fixedBy: 'rating' | 'lot' | null): PairingFields {
+  const later = swissRounds > 1;
+  const all = ORDERS.map((o) => o.value);
+  return {
+    later,
+    firstOrder: needsOrder(pairing.first),
+    laterOrder: later && needsOrder(pairing.later),
+    orders: fixedBy === null ? all : all.filter((o) => o === fixedBy || o === 'random'),
+  };
+}

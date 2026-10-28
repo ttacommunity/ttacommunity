@@ -8,14 +8,14 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, PAIRING_METHODS, RANK_ORDERS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, formatLabel, pairingSummary, offsetLabel, resultSummary, roundShown, roundSummary, roundTitle, scoringSentence, seededName, turnMark, turnOrder, usesStartingRanks, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringSentence, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
+import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, discordBlocker, type DeadlineForm } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
@@ -456,7 +456,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
       </div>
       {action.kind === 'next' && action.round.kind === 'swiss' && (
         <p className="muted round-hint">
-          {roundTitle(action.round.number, ed.format)} is paired by {PAIRING_METHODS[nextPairing(ed.pairing, ed.rounds)].label} (Settings, Pairing).
+          {roundTitle(action.round.number, ed.format)} is paired by {roundLine(...nextPairing(ed.pairing, ed.rounds))} (Settings, Pairing).
         </p>
       )}
       <Notice outcome={shownAt(outcome, 'rounds')} onClose={close} />
@@ -776,7 +776,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
                   Rating
                 </SortHeader>
                 <SortHeader col="rank" sort={sort} onSort={sortBy}>
-                  <abbr title="Starting rank">Rank</abbr>
+                  <abbr title="Starting rank">{startLabel(ed.ranks_fixed_by) ?? 'Rank'}</abbr>
                 </SortHeader>
                 <SortHeader col="status" sort={sort} onSort={sortBy}>
                   Status
@@ -939,7 +939,7 @@ function EditionTabs(props: Props) {
               </>
             ),
           },
-          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} /> },
+          { value: 'standings', label: 'Standings', panel: <StandingsPanel standings={props.ed.standings} scoring={scoringSentence(props.ed.points, props.ed.fide_points)} start={startLabel(props.ed.ranks_fixed_by)} /> },
         ]}
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
@@ -1145,7 +1145,7 @@ function PointsPanel({ at, ed, onReload, outcome, say }: Props) {
   );
 }
 
-/** PairingPanel sets how the edition's Swiss rounds are paired, round 1 and the rounds after it, at any time. Keyed by the saved pairing, so a save starts the form again from it. */
+/** PairingPanel sets how the edition's Swiss rounds are paired: round 1's method and order, and the later rounds' when there are any; an order shows while its method is not Random, and once round 1 has fixed the starting ranks only what fixed them and random are offered (pairingFields). Keyed by the saved pairing, so a save starts the form again from it. */
 function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
   const [pairing, setPairing] = useState(ed.pairing);
   const save = async (e: FormEvent) => {
@@ -1154,7 +1154,8 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
     say(outcomeOf(r, `Pairing saved: ${pairingSummary(pairing)}.`, 'pairing'));
     await onReload();
   };
-  const choice = (label: string, key: 'first' | 'later', methods: readonly PairingMethod[]) => (
+  const fields = pairingFields(pairing, ed.format.swiss_rounds, ed.ranks_fixed_by);
+  const method = (label: string, key: 'first' | 'later', methods: readonly PairingMethod[]) => (
     <label>
       {label}
       <select className="input-antique" value={pairing[key]} onChange={(e) => setPairing({ ...pairing, [key]: methods.find((m) => m === e.target.value) ?? pairing[key] })}>
@@ -1166,33 +1167,40 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
       </select>
     </label>
   );
+  const order = (label: string, key: 'first_order' | 'later_order') => (
+    <label>
+      {label}
+      <select className="input-antique" value={pairing[key]} onChange={(e) => setPairing({ ...pairing, [key]: fields.orders.find((o) => o === e.target.value) ?? pairing[key] })}>
+        {ORDERS.filter((o) => fields.orders.includes(o.value)).map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const fixed = fixedByLabel(ed.ranks_fixed_by);
   return (
     <>
       <form className="admin-add" onSubmit={(e) => void save(e)}>
-        {choice('Round 1', 'first', FIRST_METHODS)}
-        {choice('Later rounds', 'later', LATER_METHODS)}
-        <label>
-          Starting ranks
-          <select className="input-antique" value={pairing.ranks} onChange={(e) => setPairing({ ...pairing, ranks: RANK_ORDERS.find((o) => o.value === e.target.value)?.value ?? pairing.ranks })}>
-            {RANK_ORDERS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {method('Round 1', 'first', FIRST_METHODS)}
+        {fields.firstOrder && order('Round 1 order', 'first_order')}
+        {fields.later && method('Later rounds', 'later', LATER_METHODS)}
+        {fields.laterOrder && order('Later rounds order', 'later_order')}
         <button type="submit" className="btn-antique">
           Save
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'pairing')} onClose={() => say(null)} />
-      <p className="muted round-hint">Round 1: {PAIRING_METHODS[pairing.first].about}</p>
-      <p className="muted round-hint">Later rounds: {PAIRING_METHODS[pairing.later].about}</p>
-      <p className="muted round-hint">
-        Starting ranks {RANK_ORDERS.find((o) => o.value === pairing.ranks)?.about}
-        {usesStartingRanks(pairing) ? '' : ' Only the Dutch system uses them.'}
-      </p>
-      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method, and starting ranks once given stay until the edition has no round.</p>
+      <p className="muted round-hint">Round 1: {methodText(pairing.first, 'first', pairing.first_order)}</p>
+      {fields.later && <p className="muted round-hint">Later rounds: {methodText(pairing.later, 'later', pairing.later_order)}</p>}
+      {fixed === null && (
+        <p className="muted round-hint">
+          Starting ranks are fixed for everyone when round 1 is paired, {fixedByLabel(ranksFixedBy(pairing))}: by rating is highest first, unrated players last, then by name; by lot is a draw. A late entrant is slotted in the same way. After that an order can only be what fixed them, or random.
+        </p>
+      )}
+      {fixed !== null && <p className="muted round-hint">Starting ranks were fixed {fixed} when round 1 was paired: the Entrants tab shows them. To fix them again, delete the edition&apos;s rounds.</p>}
+      <p className="muted round-hint">Nobody meets the same opponent twice. The next round paired follows this; rounds already paired keep their method and order.</p>
     </>
   );
 }
@@ -1525,15 +1533,19 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   );
 }
 
-/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked where the draw ordered it), points, games played, byes and the tie-breaks, dropped players last. */
-function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; scoring: string }) {
+/** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the draw ordered it), the starting rank once fixed (start: the column's heading), points, games played, byes and, on request, the tie-breaks; dropped players last. */
+function StandingsPanel({ standings, scoring, start }: { standings: BlitzStanding[]; scoring: string; start: string | null }) {
   const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
+  const [tieBreaks, setTieBreaks] = useState(false);
   return (
     <>
       <p className="muted">
         {scoring} Players on the same points are separated by {TIE_BREAKS.map((t) => t.label).join(', ')}, in that order.{' '}
         {UNPLAYED_NOTE} A rank marked <span className="blitz-draw">*</span> was ordered by the draw.
       </p>
+      <label className="setting-inline">
+        <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
+      </label>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
         <div className="table-responsive">
@@ -1547,6 +1559,11 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
                 <SortHeader col="player" sort={sort} onSort={sortBy}>
                   Player
                 </SortHeader>
+                {start !== null && (
+                  <SortHeader col="start" sort={sort} onSort={sortBy}>
+                    {start}
+                  </SortHeader>
+                )}
                 <SortHeader col="points" sort={sort} onSort={sortBy}>
                   Points
                 </SortHeader>
@@ -1556,38 +1573,49 @@ function StandingsPanel({ standings, scoring }: { standings: BlitzStanding[]; sc
                 <SortHeader col="byes" sort={sort} onSort={sortBy}>
                   Byes
                 </SortHeader>
-                <SortHeader col="cut1" sort={sort} onSort={sortBy}>
-                  <abbr title="Buchholz Cut 1">BH-C1</abbr>
-                </SortHeader>
-                <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
-                  <abbr title="Buchholz">BH</abbr>
-                </SortHeader>
-                <SortHeader col="sb" sort={sort} onSort={sortBy}>
-                  <abbr title="Sonneborn-Berger">SB</abbr>
-                </SortHeader>
+                {tieBreaks && (
+                  <>
+                    <SortHeader col="cut1" sort={sort} onSort={sortBy}>
+                      <abbr title="Buchholz Cut 1">BH-C1</abbr>
+                    </SortHeader>
+                    <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
+                      <abbr title="Buchholz">BH</abbr>
+                    </SortHeader>
+                    <SortHeader col="sb" sort={sort} onSort={sortBy}>
+                      <abbr title="Sonneborn-Berger">SB</abbr>
+                    </SortHeader>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {rows.map((s) => (
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
                   <td>
+                    <span className="blitz-draw-slot">
+                      {drawLabel(s) !== null && (
+                        <span className="blitz-draw" title={drawLabel(s) ?? ''}>
+                          *<span className="visually-hidden">{drawLabel(s)}</span>
+                        </span>
+                      )}
+                    </span>
                     {s.rank}
-                    {drawLabel(s) !== null && (
-                      <span className="blitz-draw" title={drawLabel(s) ?? ''}>
-                        *<span className="visually-hidden">{drawLabel(s)}</span>
-                      </span>
-                    )}
                   </td>
                   <th scope="row">
                     {s.name}
                     {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
                   </th>
+                  {start !== null && <td>{s.starting_rank ?? '–'}</td>}
                   <td>{s.points}</td>
                   <td>{s.games}</td>
                   <td>{s.byes}</td>
-                  <td>{s.buchholz_cut1}</td>
-                  <td>{s.buchholz}</td>
-                  <td>{s.sonneborn_berger}</td>
+                  {tieBreaks && (
+                    <>
+                      <td>{s.buchholz_cut1}</td>
+                      <td>{s.buchholz}</td>
+                      <td>{s.sonneborn_berger}</td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>

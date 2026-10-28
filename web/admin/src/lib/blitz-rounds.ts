@@ -1,6 +1,6 @@
 /** The rounds card's decisions: when a round can be paired, which round may still change, who is unpaired, the matches a change by hand produces, and the rounds the standings order by. */
 import type { components } from '@ttac/shared/api';
-import type { PairingMethod, PairingMethods } from '@ttac/shared/blitz';
+import type { PairingMethod, PairingMethods, PairingOrder } from '@ttac/shared/blitz';
 import type { SortColumns } from '@ttac/shared/sort';
 
 type Schemas = components['schemas'];
@@ -292,7 +292,7 @@ export function flaggedColumns(nameOf: (id: number) => string): SortColumns<{ ro
   };
 }
 
-/** nextPairing is the method the edition's next Swiss round is paired by: round 1's while it has no Swiss round, else the later rounds'. */
-export function nextPairing(pairing: PairingMethods, rounds: readonly { kind: 'swiss' | 'knockout' }[]): PairingMethod {
-  return rounds.some((r) => r.kind === 'swiss') ? pairing.later : pairing.first;
+/** nextPairing is the method and order the edition's next Swiss round is paired by: round 1's while it has no Swiss round, else the later rounds'. */
+export function nextPairing(pairing: PairingMethods, rounds: readonly { kind: 'swiss' | 'knockout' }[]): [PairingMethod, PairingOrder] {
+  return rounds.some((r) => r.kind === 'swiss') ? [pairing.later, pairing.later_order] : [pairing.first, pairing.first_order];
 }

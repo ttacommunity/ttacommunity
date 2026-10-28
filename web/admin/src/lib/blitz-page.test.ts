@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows } from './blitz-page';
+import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows, pairingFields } from './blitz-page';
 import { sortRows } from '@ttac/shared/sort';
 import { formatLabel, pairingSummary } from '@ttac/shared/blitz';
 
@@ -68,7 +68,7 @@ describe('pointsForm and pointsFrom', () => {
 describe('settingsRows', () => {
   it('sums up the format, points and pairing, in that order', () => {
     const points = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
-    const pairing = { first: 'dutch', later: 'rating', ranks: 'rating' } as const;
+    const pairing = { first: 'dutch', later: 'rating', first_order: 'rating', later_order: 'rating' } as const;
     const ed = { format: { swiss_rounds: 8, knockout_size: 8 }, points, fide_points: true, pairing };
     expect(settingsRows(ed)).toEqual([
       { key: 'Format', value: formatLabel(ed.format) },
@@ -96,5 +96,18 @@ describe('ADMIN_EDITION_COLUMNS', () => {
   const ed = (name: string, dropped: number) => ({ name, edition: '2026', format: { swiss_rounds: 6, knockout_size: 8 }, round: null, champion: null, entrants: 10, dropped });
   it('sorts the editions by players dropped, the most first', () => {
     expect(sortRows([ed('a', 1), ed('b', 3)], ADMIN_EDITION_COLUMNS, { col: 'dropped', desc: true }).map((r) => r.name)).toEqual(['b', 'a']);
+  });
+});
+
+describe('pairingFields', () => {
+  const p = (first: 'dutch' | 'timezone' | 'random', later: 'dutch' | 'rating' | 'random') => ({ first, later, first_order: 'rating' as const, later_order: 'lot' as const });
+  it.each([
+    ['both orders with more than one Swiss round and no Random', p('dutch', 'rating'), 6, null, { later: true, firstOrder: true, laterOrder: true, orders: ['rating', 'lot', 'random'] }],
+    ["no order for a Random round 1", p('random', 'dutch'), 6, null, { later: true, firstOrder: false, laterOrder: true, orders: ['rating', 'lot', 'random'] }],
+    ['no Later rounds or later order with a single Swiss round', p('timezone', 'dutch'), 1, null, { later: false, firstOrder: true, laterOrder: false, orders: ['rating', 'lot', 'random'] }],
+    ['only the fixing order and random once round 1 fixed the ranks by lot', p('dutch', 'dutch'), 6, 'lot', { later: true, firstOrder: true, laterOrder: true, orders: ['lot', 'random'] }],
+    ['only the fixing order and random once round 1 fixed the ranks by rating', p('timezone', 'random'), 6, 'rating', { later: true, firstOrder: true, laterOrder: false, orders: ['rating', 'random'] }],
+  ] as const)('shows %s', (_, pairing, swiss, fixedBy, want) => {
+    expect(pairingFields(pairing, swiss, fixedBy)).toEqual(want);
   });
 });
