@@ -1304,6 +1304,9 @@ type AdminTournament struct {
 	// Description Admin's description of it; empty for none
 	Description string `json:"description"`
 
+	// Divisions A league's divisions, highest first, each with its title tier; empty for none
+	Divisions []LeagueDivision `json:"divisions"`
+
 	// FirstGame The date of its first game; null for none
 	FirstGame *openapi_types.Date `json:"first_game"`
 
@@ -1344,6 +1347,9 @@ type AdminTournament struct {
 	// RatedPlayerCounts The player counts whose games count towards ratings
 	RatedPlayerCounts []int `json:"rated_player_counts"`
 
+	// RecordMinGames The fewest games a player's season needs to count for its season records
+	RecordMinGames int `json:"record_min_games"`
+
 	// Regulations The format and regulations written in admin, empty for none
 	Regulations string `json:"regulations"`
 
@@ -1355,6 +1361,9 @@ type AdminTournament struct {
 	// StageName What it calls a stage, as admin set it; empty for the default, Stage
 	StageName string  `json:"stage_name"`
 	Stories   []Story `json:"stories"`
+
+	// SuperGm Whether a win in its top divisions makes a Super GM
+	SuperGm bool `json:"super_gm"`
 
 	// TopDivisions A league's divisions whose final standings make its podium; empty for none
 	TopDivisions []string `json:"top_divisions"`
@@ -2618,6 +2627,12 @@ type LeaderboardRow struct {
 	Wins    int     `json:"wins"`
 }
 
+// LeagueDivision One of a league's divisions and the title its players earn, tier 1 (GM) to 7 (W)
+type LeagueDivision struct {
+	Name string `json:"name"`
+	Tier int    `json:"tier"`
+}
+
 // Legend defines model for Legend.
 type Legend struct {
 	Bronze int `json:"bronze"`
@@ -3729,6 +3744,9 @@ type TournamentSettings struct {
 	Community   *bool           `json:"community,omitempty"`
 	Description *string         `json:"description,omitempty"`
 
+	// Divisions A league's divisions, highest first, each with its title tier; empty for none (admins only)
+	Divisions *[]LeagueDivision `json:"divisions,omitempty"`
+
 	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
 	Kind *TournamentKind `json:"kind,omitempty"`
 
@@ -3757,6 +3775,9 @@ type TournamentSettings struct {
 	// RatedPlayerCounts The player counts whose games count towards ratings, from the next run
 	RatedPlayerCounts *[]int `json:"rated_player_counts,omitempty"`
 
+	// RecordMinGames The fewest games a player's season needs to count for its season records (admins only)
+	RecordMinGames *int `json:"record_min_games,omitempty"`
+
 	// Regulations Plain text; empty shows CGE's description again
 	Regulations *string `json:"regulations,omitempty"`
 
@@ -3766,6 +3787,9 @@ type TournamentSettings struct {
 	// StageName What it calls a stage on its pages; empty for the default, Stage
 	StageName *string  `json:"stage_name,omitempty"`
 	Stories   *[]Story `json:"stories,omitempty"`
+
+	// SuperGm Whether a win in its top divisions makes a Super GM (admins only)
+	SuperGm *bool `json:"super_gm,omitempty"`
 
 	// TopDivisions A league's divisions whose final standings make its podium on the site; empty for none
 	TopDivisions *[]string `json:"top_divisions,omitempty"`

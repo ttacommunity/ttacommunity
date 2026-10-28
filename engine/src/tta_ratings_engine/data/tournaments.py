@@ -128,19 +128,23 @@ class SeriesRulesMissing(Exception):
 class Series:
     """How one series is named, scored, ranked and shown, as upstream does it.
 
-    points (by player count), top_divisions and podium (where its podium comes from: podium_sources gives the
-    choices) come from the tournament settings, through series_rules.
+    points (by player count), top_divisions, podium (where its podium comes from: podium_sources gives the
+    choices), division_tiers (each division's title tier, 1 the highest), super_gm (whether a top-division win makes
+    a Super GM) and record_min_games (the fewest games for a season record) come from the tournament settings,
+    through series_rules.
     """
 
     parse: Callable[[str], Parsed | None]
     duel: bool
-    record_min_games: int
     record_division: str
     in_records: Callable[[str], bool] | None = None
     season_records: bool = True
     points: dict[int, list[float]] = field(default_factory=dict)
     top_divisions: frozenset[str] = frozenset()
     podium: str = ""
+    division_tiers: dict[str, int] = field(default_factory=dict)
+    super_gm: bool = False
+    record_min_games: int = 0
     # Where a podium can come from: its top divisions' standings, its final stage's games, recorded placements.
     podium_sources: frozenset[str] = frozenset({"top_divisions", "recorded", "none"})
 
@@ -149,19 +153,16 @@ SERIES = {
     "international": Series(
         parse=parse_international,
         duel=False,
-        record_min_games=6,
         record_division="Grandmaster",
     ),
     "intermezzo": Series(
         parse=parse_intermezzo,
         duel=False,
-        record_min_games=6,
         record_division="Grandmaster",
     ),
     "royal_league": Series(
         parse=parse_royal_league,
         duel=True,
-        record_min_games=5,
         record_division="Emperor",
     ),
     # Its board comes from recorded placements (series_pages.worlds_board);
@@ -170,7 +171,6 @@ SERIES = {
         parse=parse_worlds,
         duel=False,
         in_records=lambda n: _like(n, "Stage 4", "Final", "Upper", "Lower"),
-        record_min_games=0,
         record_division="",
         season_records=False,
         podium_sources=frozenset({"final_stage", "recorded", "none"}),
@@ -180,16 +180,17 @@ SERIES = {
 
 def series_rules(conn) -> tuple[dict[str, Series], Series]:
     """Returns each series holding one of SERIES' rule sets (its results_rules), by slug, with its points, top
-    divisions and podium source from its tournament settings, and the World Championship final's rules.
+    divisions, podium source and league rules from its tournament settings, and the World Championship final's rules.
 
     The World Championship's points score only its final: its other stages have no standings. Raises
-    SeriesRulesMissing when a rule set has no series, a league no points or top divisions, the final no points, or
-    a series no podium source its rules can give.
+    SeriesRulesMissing when a rule set has no series, a league no points, top divisions or division tiers, the final
+    no points, or a series no podium source its rules can give.
     """
     rows = {
         r["results_rules"]: r
         for r in conn.execute(
-            "SELECT se.slug, se.results_rules, se.top_divisions, se.podium_source, "
+            "SELECT se.slug, se.results_rules, se.top_divisions, se.podium_source, se.divisions, se.division_tiers, "
+            "se.super_gm, se.record_min_games, "
             "coalesce(s.points_2p, '{}') AS points_2p, coalesce(s.points_3p, '{}') AS points_3p, "
             "coalesce(s.points_4p, '{}') AS points_4p "
             "FROM series se LEFT JOIN settings s ON s.series_id = se.series_id WHERE se.results_rules IS NOT NULL"
@@ -218,7 +219,11 @@ def series_rules(conn) -> tuple[dict[str, Series], Series]:
             continue
         if not top:
             raise SeriesRulesMissing(f"{slug} has no top divisions")
-        rules[slug] = replace(base, points=points, top_divisions=top, podium=podium)
+        if not r["divisions"]:
+            raise SeriesRulesMissing(f"{slug} has no division tiers")
+        rules[slug] = replace(base, points=points, top_divisions=top, podium=podium,
+                              division_tiers=dict(zip(r["divisions"], r["division_tiers"], strict=True)),
+                              super_gm=r["super_gm"], record_min_games=r["record_min_games"])  # fmt: skip
     if final is None:
         raise SeriesRulesMissing("no series holds the worlds rules")
     return rules, final
@@ -819,6 +824,11 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
                 if g["division"] is not None and not g["tiebreak"]
             },
             group_standings=group_standings,
+            division_of={
+                g["match_id"]: (g["series"], g["division"])
+                for g in classified
+                if g["division"] is not None
+            },
             top_divisions={
                 s: r.top_divisions for s, r in rules.items() if r.top_divisions
             },
@@ -887,7 +897,7 @@ def _write(
             )  # fmt: skip
     with conn.cursor().copy(
         "COPY tournament_records (run_id, player_name, position, tournament, season, "
-        "division, placement, points, medal, details, finish_date, career) FROM STDIN"
+        "division, placement, points, medal, details, finish_date, career, series, series_division) FROM STDIN"
     ) as copy:
         # A player's records written together, so their page reads a few blocks rather than one per record.
         for r in sorted(
@@ -897,7 +907,7 @@ def _write(
             copy.write_row(
                 (run_id, r["player_name"], r["position"], r["tournament"], r["season"],
                  r["division"], r["placement"], r["points"], r["medal"], r["details"],
-                 r["finish_date"], r["career"])
+                 r["finish_date"], r["career"], r["series"], r["series_division"])
             )  # fmt: skip
     with conn.cursor() as cur:
         cur.executemany(

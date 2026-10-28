@@ -267,6 +267,35 @@ func TestMigrationThreeNamesSlowBurnsLevelsAndRenamesItsStages(t *testing.T) {
 	}
 }
 
+func TestClassifyMatchesGivesNewLeaguesTheirRules(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	loadNamed(t, pool, "Wimbledon 2024 Stage 1 - group 1 game 1", "International S30 - Grandmaster game 1", "RL_s09 - Duke game 1")
+	if _, err := ClassifyMatches(ctx, pool); err != nil {
+		t.Fatalf("ClassifyMatches: %v", err)
+	}
+	tests := []struct{ slug, want string }{
+		{"international", "[Grandmaster Diamond Master Platinum Gold Silver Bronze Wood] [1 1 2 3 4 5 6 7] true 6"},
+		{"royal_league", "[Emperor King Prince Duke Marquess Count Viscount Baron Knight] [1 2 3 4 5 6 7 7 7] true 5"},
+		{"wimbledon", "[] [] false 0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.slug, func(t *testing.T) {
+			var divisions []string
+			var tiers []int16
+			var superGM bool
+			var games int16
+			if err := pool.QueryRow(ctx, "SELECT divisions, division_tiers, super_gm, record_min_games FROM series WHERE slug = $1",
+				tt.slug).Scan(&divisions, &tiers, &superGM, &games); err != nil {
+				t.Fatal(err)
+			}
+			if got := fmt.Sprint(divisions, tiers, superGM, games); got != tt.want {
+				t.Errorf("divisions, tiers, Super GM, record games = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestClassifyMatchesGivesNewSeriesTheEnginesRules(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

@@ -1395,9 +1395,10 @@ export interface paths {
         head?: never;
         /**
          * Change a tournament's settings, card, regulations, stories, description, group, or a group's members
-         * @description Only the settings given change. Admins and organisers may change them;
-         *     each change is audited. The Origin must be the admin site. Rating
-         *     takes effect on the next engine run.
+         * @description Only the settings given change. Admins and organisers may change them,
+         *     apart from a league's rules (divisions, super_gm, record_min_games),
+         *     which only admins may; each change is audited. The Origin must be the
+         *     admin site. Rating takes effect on the next engine run.
          */
         patch: operations["patchAdminTournament"];
         trace?: never;
@@ -2875,6 +2876,12 @@ export interface components {
             podium_source?: components["schemas"]["PodiumSource"] | null;
             /** @description A league's divisions whose final standings make its podium; empty for none */
             top_divisions: string[];
+            /** @description A league's divisions, highest first, each with its title tier; empty for none */
+            divisions: components["schemas"]["LeagueDivision"][];
+            /** @description Whether a win in its top divisions makes a Super GM */
+            super_gm: boolean;
+            /** @description The fewest games a player's season needs to count for its season records */
+            record_min_games: number;
             /** @description The player counts whose games count towards ratings */
             rated_player_counts: number[];
             stories: components["schemas"]["Story"][];
@@ -3045,6 +3052,17 @@ export interface components {
             season_name?: string;
             /** @description What it calls a stage on its pages; empty for the default, Stage */
             stage_name?: string;
+            /** @description A league's divisions, highest first, each with its title tier; empty for none (admins only) */
+            divisions?: components["schemas"]["LeagueDivision"][];
+            /** @description Whether a win in its top divisions makes a Super GM (admins only) */
+            super_gm?: boolean;
+            /** @description The fewest games a player's season needs to count for its season records (admins only) */
+            record_min_games?: number;
+        };
+        /** @description One of a league's divisions and the title its players earn, tier 1 (GM) to 7 (W) */
+        LeagueDivision: {
+            name: string;
+            tier: number;
         };
         /** @description Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place */
         PlacePoints: number[];

@@ -72,6 +72,32 @@ var Scoring = map[string]map[int][]float64{
 	"worlds":        {2: {4, 0}, 3: {5, 2, 0}, 4: {6, 3, 1, 0}},
 }
 
+// championship are the International's and Intermezzo's divisions, highest first, and their title tiers.
+var championship = League{
+	Divisions: []string{"Grandmaster", "Diamond", "Master", "Platinum", "Gold", "Silver", "Bronze", "Wood"},
+	Tiers:     []int{1, 1, 2, 3, 4, 5, 6, 7}, SuperGM: true, RecordMinGames: 6,
+}
+
+// League is a league's rules when first added; admin changes them after: its divisions, highest first, with
+// their title tiers (1 GM to 7 W), whether a win in its top divisions makes a Super GM, and the fewest games a
+// season record needs.
+type League struct {
+	Divisions      []string
+	Tiers          []int
+	SuperGM        bool
+	RecordMinGames int
+}
+
+// Leagues are the tournaments that start with league rules.
+var Leagues = map[string]League{
+	"international": championship,
+	"intermezzo":    championship,
+	"royal_league": {
+		Divisions: []string{"Emperor", "King", "Prince", "Duke", "Marquess", "Count", "Viscount", "Baron", "Knight"},
+		Tiers:     []int{1, 2, 3, 4, 5, 6, 7, 7, 7}, SuperGM: true, RecordMinGames: 5,
+	},
+}
+
 // LevelNames are what a tournament calls its seasons and stages when first added, where not the defaults.
 var LevelNames = map[string][2]string{
 	"slow_burn": {"Edition", "Season"},

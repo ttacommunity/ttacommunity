@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -23,6 +24,7 @@ func TestAdminTournamentGivesItsSettingsSeasonsAndStages(t *testing.T) {
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "", `{"slug": "worlds", "kind": "cup", "original_name": "World Championships", "top_divisions": []}`)
 	wantJSON(t, body, "", `{"visible": true, "rated": true, "community": true, "blitz": true}`)
+	wantJSON(t, body, "", `{"divisions": [{"name": "Final", "tier": 1}, {"name": "Semi-final", "tier": 2}], "super_gm": true, "record_min_games": 3}`)
 	wantJSON(t, body, "seasons.0", `{"label": "2025", "original_name": "2025 Edition", "games": 3, "finished": 2, "players": 5}`)
 	wantJSON(t, body, "seasons.0.stages.0", `{"label": "Stage 1", "original_name": "Groups", "note": "n", "number": 1, "games": 2, "finished": 1, "players": 5}`)
 	if rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/nope", "", ""); rec.Code != http.StatusNotFound {
@@ -247,6 +249,36 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
 	wantJSON(t, rec.Body.Bytes(), "rated_player_counts", `[3, 4]`)
 	wantJSON(t, rec.Body.Bytes(), "seasons.0.rated", `true`)
+}
+
+func TestOnlyAnAdminSetsALeaguesRules(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	for _, body := range []string{`{"divisions": [{"name": "Gold", "tier": 1}]}`, `{"super_gm": true}`, `{"record_min_games": 4}`,
+		`{"visible": true, "super_gm": false}`} {
+		if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, body); rec.Code != http.StatusForbidden {
+			t.Errorf("an organiser's PATCH %s = %d %s, want 403", body, rec.Code, rec.Body)
+		}
+	}
+	if len(f.settings) != 0 || len(f.audits) != 0 {
+		t.Fatalf("after organisers' refused changes: settings %+v, audits %q; want none", f.settings, f.audits)
+	}
+
+	rec := adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/tournaments/worlds", site,
+		`{"divisions": [{"name": "Gold", "tier": 1}, {"name": "Silver", "tier": 2}], "super_gm": true, "record_min_games": 4}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("an admin's PATCH = %d %s, want 204", rec.Code, rec.Body)
+	}
+	got := f.settings[0]
+	if fmt.Sprint(got.Divisions) != "[{Gold 1} {Silver 2}]" || got.SuperGM == nil || !*got.SuperGM || got.RecordMinGames == nil || *got.RecordMinGames != 4 {
+		t.Errorf("settings = %+v, want Gold 1, Silver 2, Super GM, 4 games", got)
+	}
+	if strings.Join(f.audits, "|") != owner+" tournament.settings worlds" {
+		t.Errorf("audits = %q, want the admin's change", f.audits)
+	}
+	if rec := adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"divisions": [{"name": "Gold", "tier": 8}]}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("a tier of 8 = %d %s, want 400", rec.Code, rec.Body)
+	}
 }
 
 func TestAnOrganiserSetsScoringAndTimeoutPenalties(t *testing.T) {
