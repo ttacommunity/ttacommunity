@@ -306,6 +306,44 @@ def test_a_game_named_without_a_division_takes_cges_group(
     )
 
 
+@pytest.mark.parametrize(
+    ("name", "series", "season", "group", "division"),
+    [
+        (
+            "Royal League Stage 10 - Duke 2 game 14",
+            "royal_league",
+            "10",
+            "Duke 2",
+            "Duke",
+        ),
+        (
+            "International Championship Stage 1 - Wood 7 game 3",
+            "international",
+            "10",
+            "Wood 7",
+            "Wood",
+        ),
+    ],
+)
+def test_a_game_its_name_does_not_place_takes_the_catalogues_season_and_group(
+    conn, add_match, run_id, name, series, season, group, division
+):
+    add_match(("ann", 90), ("bob", 80), tournament=name, placed=series, group=group)
+    conn.execute(
+        "UPDATE tournaments se SET label = %s FROM series t WHERE t.series_id = se.series_id AND t.slug = %s",
+        (season, series),
+    )
+    conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    row = conn.execute(
+        "SELECT series, season, division, group_label, division_source FROM tournament_games WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()
+    assert tuple(row.values()) == (series, int(season), division, group, "cge")
+
+
 def test_a_world_championship_group_is_not_a_division(conn, add_match, run_id):
     add_match(
         ("ann", 90),
@@ -1170,6 +1208,28 @@ def test_a_seasons_results_wait_for_its_top_division_to_finish(
     else:
         assert got == ({}, {}, 0)
     assert len(standings(conn, run_id, 30)) == 4
+
+
+def test_a_season_waits_for_a_game_only_the_catalogue_places(conn, add_match, run_id):
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            ("dan", 60),
+            tournament=gm(n),
+            group="Grandmaster",
+        )
+    add_match(("ann", 0), ("bob", 0), ("cat", 0), ("dan", 0), tournament="International Championship Stage 9 - Grandmaster game 7",
+              placed="international", group="Grandmaster", state="running")  # fmt: skip
+    conn.execute(
+        "UPDATE tournaments se SET label = '30' FROM series t WHERE t.series_id = se.series_id AND t.slug = 'international'"
+    )
+    conn.commit()
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert medals_and_records(conn, run_id) == ({}, {}, 0)
 
 
 def test_a_finished_season_without_a_date_is_dated_by_its_last_game(

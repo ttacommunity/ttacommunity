@@ -938,6 +938,8 @@ def golden_season(add_match):
         add_match(("Bob", 130 - swing), ("Cat", 125), ("Dan", -1), ("Eve", 80 + swing),
                   day=date(year, month, 14), tournament="Cup")  # fmt: skip
         add_match(("Fay", 90), ("Dan", -2), day=date(year, month, 20), tournament="Cup")
+    add_match(("Ann", 105), ("Cat", 97), day=date(2022, 4, 25), tournament="Royal League Stage 1 - Emperor",
+              placed="royal_league", group="Emperor")  # fmt: skip
 
 
 def stable(value):
