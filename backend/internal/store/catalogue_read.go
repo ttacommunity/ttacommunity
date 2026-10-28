@@ -574,7 +574,8 @@ func newSeason(label string, span GameSpan) CatalogueSeason {
 }
 
 // addPodiums gives each season in got its podium: the recorded cup podium, else its league's recorded
-// top-division placements, else the run's top-division standings; a podium set in admin replaces any of them.
+// top-division placements, else the run's top-division standings of a finished season; a podium set in admin
+// replaces any of them.
 // A player with a deleted or banned CGE account is named DeletedPlayer.
 func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []string, got map[string]*CatalogueTournament) error {
 	byLabel := map[string]map[string]int{}
@@ -624,7 +625,7 @@ func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []strin
 		derived AS (
 			SELECT d.series, d.season, d.place, d.player_name, d.division || ' standings' AS source
 			FROM tournament_standings d JOIN series t ON t.slug = d.series
-			WHERE d.run_id = $2 AND d.series = ANY($1) AND d.division = ANY(t.top_divisions) AND d.place <= 3
+			WHERE d.run_id = $2 AND d.series = ANY($1) AND d.division = ANY(t.top_divisions) AND d.place <= 3 AND d.finished
 			  AND NOT EXISTS (SELECT 1 FROM official o WHERE o.series = d.series AND o.season = d.season))
 		SELECT series, season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
 		ORDER BY series, season, place, player_name`, slugs, run)

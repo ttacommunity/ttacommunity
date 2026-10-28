@@ -393,6 +393,19 @@ def _components(games):
     return list(groups.values())
 
 
+def _placed(row, series_rules) -> tuple[str | None, Parsed | None]:
+    """Returns the series a game's name places it in and what the name says; else, for a name no series
+    reads, the series and season the catalogue places it in; else (None, None)."""
+    for series, rules in series_rules.items():
+        parsed = rules.parse(row["tournament"])
+        if parsed is not None:
+            return series, parsed
+    season = row.get("catalogue_season") or ""
+    if row.get("catalogue_slug") in series_rules and season.isdigit():
+        return row["catalogue_slug"], Parsed(int(season), None, None)
+    return None, None
+
+
 def classify(rows, recorded, corrections, series_rules):
     """Returns a dict per tournament game: match_id, series, season, name_season, division,
     group, source, tiebreak and in_records.
@@ -407,34 +420,33 @@ def classify(rows, recorded, corrections, series_rules):
     out = []
     pending = defaultdict(list)
     for r in rows:
-        for series, rules in series_rules.items():
-            parsed = rules.parse(r["tournament"])
-            if parsed is None:
-                continue
-            season = corrections.get((series, parsed.season), parsed.season)
-            g = {
-                "match_id": r["match_id"], "series": series, "season": season,
-                "name_season": parsed.season, "division": None, "group": None,
-                "source": None, "tiebreak": parsed.tiebreak,
-                "in_records": rules.in_records(r["tournament"]) if rules.in_records else False,
-            }  # fmt: skip
-            out.append(g)
-            if season is None:
-                break
-            if parsed.division:
-                g.update(division=parsed.division, group=parsed.group, source="name")
-                break
-            # A league game named without its division: the group CGE recorded for it, when it has one.
-            cge_group = (r.get("group_label") or "").strip()
-            if cge_group and not parsed.tiebreak and rules.points:
-                division = re.sub(r"\s+\d+$", "", cge_group)
-                g.update(division=division, group=cge_group, source="cge")
-                break
-            players = list(r["players"])
-            divs = {recorded.get((series, season, p)) for p in players}
-            if len(divs) == 1 and None not in divs and not parsed.tiebreak:
-                pending[(series, season, divs.pop())].append((g, players))
-            break
+        series, parsed = _placed(r, series_rules)
+        if series is None or parsed is None:
+            continue
+        rules = series_rules[series]
+        season = corrections.get((series, parsed.season), parsed.season)
+        g = {
+            "match_id": r["match_id"], "series": series, "season": season,
+            "name_season": parsed.season, "division": None, "group": None,
+            "source": None, "tiebreak": parsed.tiebreak,
+            "in_records": rules.in_records(r["tournament"]) if rules.in_records else False,
+        }  # fmt: skip
+        out.append(g)
+        if season is None:
+            continue
+        if parsed.division:
+            g.update(division=parsed.division, group=parsed.group, source="name")
+            continue
+        # A league game named without its division: the group CGE recorded for it, when it has one.
+        cge_group = (r.get("group_label") or "").strip()
+        if cge_group and not parsed.tiebreak and rules.points:
+            division = re.sub(r"\s+\d+$", "", cge_group)
+            g.update(division=division, group=cge_group, source="cge")
+            continue
+        players = list(r["players"])
+        divs = {recorded.get((series, season, p)) for p in players}
+        if len(divs) == 1 and None not in divs and not parsed.tiebreak:
+            pending[(series, season, divs.pop())].append((g, players))
     for (_series, _season, division), games in pending.items():
         groups = _components([players for _, players in games])
         for g, players in games:
@@ -589,7 +601,7 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
         for s in standings:
             standing_rows.append(
                 (run_id, worlds, season, "Final", "Final", s["player_name"],
-                 s["place"], s["points"], s["games"], s["placings"])
+                 s["place"], s["points"], s["games"], s["placings"], True)
             )  # fmt: skip
         for s in standings[:3]:
             derived[season][s["place"]].append(
@@ -678,7 +690,9 @@ def _load_facts(conn: DictConnection, rules: dict) -> _Facts:
     ).fetchall()
     unplayed = conn.execute(
         "SELECT m.game_id AS match_id, m.name AS tournament, m.group_name AS group_label, "
-        "coalesce(m.players, '{}') AS players FROM game_lines m "
+        "coalesce(m.players, '{}') AS players, t.slug AS catalogue_slug, se.label AS catalogue_season "
+        "FROM game_lines m LEFT JOIN tournaments se ON se.tournament_id = m.tournament_id "
+        "LEFT JOIN series t ON t.series_id = m.series_id "
         "WHERE m.state IN ('prepared', 'running') ORDER BY m.game_id"
     ).fetchall()
     return _Facts(rows, unplayed, recorded, corrections, official, dates, honours)
@@ -717,15 +731,16 @@ def _groups_and_records(classified, by_id, rules, in_progress):
     return groups, records
 
 
-def _standings(run_id, groups, rules):
-    """Returns each group's standing rows to insert, and the standings by (series, season, division)."""
+def _standings(run_id, groups, rules, in_progress):
+    """Returns each group's standing rows to insert, each saying if its season is finished (not in in_progress),
+    and the standings by (series, season, division)."""
     standing_rows = []
     derived = defaultdict(list)
     for (series, season, division, group), games in groups.items():
         for s in rank_group(games, rules[series]):
             standing_rows.append(
                 (run_id, series, season, division, group, s["player_name"],
-                 s["place"], s["points"], s["games"], s["placings"])
+                 s["place"], s["points"], s["games"], s["placings"], (series, season) not in in_progress)
             )  # fmt: skip
             derived[(series, season, division)].append(s)
     return standing_rows, derived
@@ -772,7 +787,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         )
         dates = _finish_dates(classified, by_id, in_progress, facts.dates)
         groups, records = _groups_and_records(classified, by_id, rules, in_progress)
-        standing_rows, derived = _standings(run_id, groups, rules)
+        standing_rows, derived = _standings(run_id, groups, rules, in_progress)
         # A season still being played shows its standings, but no podium yet.
         finished = {
             k: v
@@ -875,7 +890,7 @@ def _write(
             )  # fmt: skip
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             standing_rows,
         )
         cur.executemany(
