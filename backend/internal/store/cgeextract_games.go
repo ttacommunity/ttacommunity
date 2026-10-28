@@ -173,9 +173,18 @@ func placeGroup(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cge
 	if stage == 0 {
 		return 0, nil
 	}
+	var unlinked int64
+	err = tx.QueryRow(ctx, `SELECT group_id FROM groups WHERE stage_id = $1 AND name = $2 AND cge_tournament = $3
+		AND cge_stage_number = $4 AND cge_group IS NULL LIMIT 1`, stage, g.GroupName, g.TournamentID, g.StageNumber).Scan(&unlinked)
+	if err == nil {
+		return 0, fmt.Errorf("group %d is CGE tournament %d stage %d's %q but has no CGE group: link it in the data first",
+			unlinked, g.TournamentID, g.StageNumber, g.GroupName)
+	}
+	if err != pgx.ErrNoRows {
+		return 0, err
+	}
 	err = tx.QueryRow(ctx, `
 		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number, cge_group) VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET cge_group = coalesce(groups.cge_group, excluded.cge_group)
 		RETURNING group_id`, stage, g.GroupName, g.TournamentID, g.StageNumber, g.GroupID).Scan(&group)
 	return group, err
 }

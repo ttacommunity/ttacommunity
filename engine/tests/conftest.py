@@ -184,7 +184,7 @@ def group_in(conn, slug, group=""):
     ).fetchone()["stage_id"]
     return conn.execute(
         "INSERT INTO groups (stage_id, name) VALUES (%s, %s) "
-        "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name "
+        "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number, cge_group) DO UPDATE SET name = excluded.name "
         "RETURNING group_id",
         (st, group),
     ).fetchone()["group_id"]
@@ -282,7 +282,7 @@ def move_last_game(conn):
             "JOIN series t USING (series_id) WHERE t.slug = %(slug)s AND (%(label)s::text IS NULL OR s.label = %(label)s) "
             "AND (%(stage)s::text IS NULL OR x.label = %(stage)s)), "
             "gr AS (INSERT INTO groups (stage_id, name) SELECT stage_id, %(group)s FROM st "
-            "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name "
+            "ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number, cge_group) DO UPDATE SET name = excluded.name "
             "RETURNING group_id) "
             "UPDATE games SET group_id = (SELECT group_id FROM gr), cge_finished = coalesce(%(finished)s, cge_finished) "
             "WHERE game_id = (SELECT max(game_id) FROM games)",

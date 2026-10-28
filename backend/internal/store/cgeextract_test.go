@@ -205,6 +205,70 @@ func TestApplyCGEExtractKeepsAnUnlinkedTournamentsStagesInOneTournament(t *testi
 	}
 }
 
+func TestApplyCGEExtractKeepsTwoGroupsOfOneNameApart(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	var seats []cgeextract.Seat
+	for i, group := range []int{91, 92} {
+		s := extractOf(999, 200+i, fmt.Sprintf("CODE%04d", i), cgeDone(5+2*i, "eve", 1, 100), cgeDone(6+2*i, "fay", 2, 50))
+		for j := range s {
+			s[j].StageID, s[j].StageNumber, s[j].GroupID, s[j].GroupName = 11, 1, group, "Group A"
+			s[j].PlayerName = fmt.Sprintf("%s%d", s[j].PlayerName, i)
+		}
+		seats = append(seats, s...)
+	}
+	x := cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup"}}}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+		t.Fatalf("ApplyCGEExtract: %v", err)
+	}
+
+	var got string
+	err = pool.QueryRow(ctx, `SELECT string_agg(gr.cge_group || ': ' || (SELECT count(*) FROM games g WHERE g.group_id = gr.group_id), ', '
+		ORDER BY gr.cge_group) FROM groups gr WHERE gr.cge_tournament = 999 AND gr.name = 'Group A'`).Scan(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "91: 1, 92: 1"; got != want {
+		t.Errorf("CGE group: games = %q, want %q", got, want)
+	}
+}
+
+func TestApplyCGEExtractRefusesAGroupOfItsNameWithNoCGEGroup(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	seats := extractOf(999, 200, "CODE0000", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50))
+	x := cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup"}}}
+	load := func() error {
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		_, err = ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x})
+		return err
+	}
+	if err := load(); err != nil {
+		t.Fatalf("first load: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number)
+		SELECT stage_id, 'Semi', 999, 1 FROM groups WHERE cge_group = 90`); err != nil {
+		t.Fatal(err)
+	}
+	semi := extractOf(999, 201, "CODE0001", cgeDone(5, "eve", 2, 80), cgeDone(6, "fay", 1, 90))
+	for i := range semi {
+		semi[i].GroupID, semi[i].GroupName = 91, "Semi"
+	}
+	x.Seats = append(x.Seats, semi...)
+
+	err := load()
+	if err == nil || !strings.Contains(err.Error(), "has no CGE group") {
+		t.Errorf("second load: err = %v, want a refusal naming the group with no CGE group", err)
+	}
+}
+
 func TestApplyCGEExtractMovesAnUnlinkedTournamentsStagesBackIntoOneTournament(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
