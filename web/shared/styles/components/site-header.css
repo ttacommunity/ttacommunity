@@ -1,4 +1,4 @@
-/* The site's header, upstream's: brand, section links, and the menu that replaces them on phones. Both sites use it. */
+/* The header both sites use: the bar, brand, sections with click-open menus (.site-menu), controls, and the drawer (.nav-drawer) that holds them on phones. */
 @keyframes nav-in {
   from {
     transform: translateX(320px);
@@ -67,26 +67,148 @@
   text-transform: uppercase;
 }
 
-.site-header nav {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
+.section-list,
+.section-pages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.site-header nav a {
+/* A section: a plain link, or a button that shows its pages (.section-pages) below it. */
+.section-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.25rem 0.5rem;
+  background: none;
+  border: 0;
   border-bottom: 2px solid transparent;
   color: var(--text-main);
   font-family: var(--font-subheading);
   font-size: 1.05rem;
   letter-spacing: 0.5px;
+  cursor: pointer;
   transition: color 0.2s, border-bottom 0.2s;
 }
 
-.site-header nav a:hover,
-.site-header nav a.active {
-  border-bottom: 2px solid var(--accent-gold);
+.section-name:hover,
+.section-name[aria-expanded='true'] {
   color: var(--accent-gold);
+}
+
+.section-name.current {
+  border-bottom-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.caret {
+  transition: transform 0.2s;
+}
+
+.section-name[aria-expanded='true'] .caret {
+  transform: rotate(180deg);
+}
+
+.section-name[aria-expanded='false'] + .section-pages {
+  display: none;
+}
+
+.section-pages a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text-main);
+}
+
+.section-pages a:hover {
+  background: var(--gold-wash);
+  color: var(--accent-gold-light);
+}
+
+.section-pages a.current {
+  color: var(--accent-gold-light);
+}
+
+.page-label {
+  font-family: var(--font-stats);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.section-pages a.current .page-label {
+  font-weight: 700;
+}
+
+.page-description {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: 0.78rem;
+}
+
+/* Controls at the bar's end, set apart from the sections: Sign in, the account, Community Hub. */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-controls a {
+  display: flex;
+  align-items: center;
+  height: var(--control-height);
+  padding: 0 1rem;
+  border: 1px solid var(--accent-gold);
+  border-radius: 6px;
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.header-controls a:hover,
+.header-controls a.active {
+  background: var(--gold-wash);
+  color: var(--accent-gold-light);
+}
+
+@media (min-width: 821px) {
+  .site-menu {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  /* First, whatever its place in the drawer, pushing what follows to the bar's end. */
+  .site-menu .sections {
+    order: -1;
+    margin-right: auto;
+  }
+
+  .section-list {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .section {
+    position: relative;
+  }
+
+  .section-pages {
+    position: absolute;
+    top: calc(100% + 0.6rem);
+    left: -0.75rem;
+    z-index: 101;
+    width: 18.5rem;
+    padding: 0.4rem;
+    background: var(--surface-well);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
 }
 
 .nav-toggle {
@@ -172,7 +294,7 @@
     display: flex;
   }
 
-  .site-header nav {
+  .nav-drawer {
     position: fixed;
     top: 0;
     right: 0;
@@ -192,16 +314,16 @@
     backdrop-filter: blur(12px);
   }
 
-  .site-header nav.open,
-  .site-header nav.closing {
+  .nav-drawer.open,
+  .nav-drawer.closing {
     display: flex;
   }
 
-  .site-header nav.open {
+  .nav-drawer.open {
     animation: nav-in 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .site-header nav.closing {
+  .nav-drawer.closing {
     animation: nav-out 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
@@ -243,31 +365,49 @@
     color: var(--loss);
   }
 
-  .site-header nav a {
-    display: flex;
-    align-items: center;
+  .section-name {
+    justify-content: space-between;
+    width: 100%;
     min-height: 44px;
-    margin-bottom: 0.3rem;
-    padding: 0.8rem 1rem;
-    border-bottom: none;
+    padding: 0.6rem 1rem;
+    border-bottom: 0;
     border-left: 3px solid transparent;
     border-radius: 5px;
-    font-size: 1rem;
+    font-size: 1.1rem;
   }
 
-  .site-header nav a:hover {
-    border-bottom: none;
+  .section-name.current {
     border-left-color: var(--accent-gold);
-    background: rgba(229, 169, 60, 0.12);
-    color: var(--accent-gold);
   }
 
-  .site-header nav a.active {
-    border-bottom: none;
-    border-left-color: var(--accent-gold);
-    background: rgba(229, 169, 60, 0.22);
-    color: var(--accent-gold);
-    font-weight: 700;
+  .section-pages {
+    padding: 0 0 0.5rem 1rem;
   }
 
+  .section-pages a {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.4rem 1rem;
+  }
+
+  .section-pages a.current {
+    background: var(--gold-wash);
+  }
+
+  .page-description {
+    display: none;
+  }
+
+  .header-controls {
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .header-controls a {
+    justify-content: center;
+    min-height: 44px;
+  }
 }

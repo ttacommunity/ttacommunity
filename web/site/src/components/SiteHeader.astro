@@ -1,0 +1,155 @@
+---
+/** The site's header, the same on every page: brand, the sections (a menu of pages each, opened by click), player search and sign-in; a drawer on phones. */
+import { PUBLIC_ADMIN_URL, PUBLIC_API_URL } from 'astro:env/client';
+import homeButton from '@ttac/shared/styles/img/home-button.webp';
+import { placeOf, sections } from '../lib/nav';
+import HeaderSearch from './HeaderSearch';
+import NavAccount from './NavAccount';
+
+const path = Astro.url.pathname;
+const here = placeOf(path);
+const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === href;
+---
+<header class="site-header">
+  <div class="header-container">
+    <a href="/" class="brand">
+      <img src={homeButton.src} alt="" width="42" height="42" />
+      <div>
+        <span class="brand-title">Through the Ages</span>
+        <span class="brand-subtitle">Competitive Community Hub</span>
+      </div>
+    </a>
+    <button type="button" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-menu">
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
+    <div class="nav-backdrop"></div>
+    <div id="site-menu" class="nav-drawer site-menu">
+      <div class="nav-mobile-header">
+        <span class="nav-mobile-title">Menu</span>
+        <button type="button" class="nav-close-btn" aria-label="Close navigation">✕</button>
+      </div>
+      <div class="search">
+        <HeaderSearch client:only="react" apiUrl={PUBLIC_API_URL} />
+      </div>
+      <nav class="sections" aria-label="Sections">
+        <ul class="section-list">
+          {sections.map((s, i) => (
+            <li class="section">
+              {s.href !== undefined ? (
+                <a href={s.href} class:list={['section-name', { current: here?.section === s }]} aria-current={here?.section === s ? 'page' : undefined}>
+                  {s.label}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  class:list={['section-name', { current: here?.section === s }]}
+                  aria-expanded="false"
+                  aria-controls={`section-${i}`}
+                  data-current={here?.section === s ? '' : undefined}
+                >
+                  {s.label}
+                  {here?.section === s && <span class="visually-hidden">(current section)</span>}
+                  <svg class="caret" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6"></path>
+                  </svg>
+                </button>
+              )}
+              {s.pages.length > 0 && (
+                <ul id={`section-${i}`} class="section-pages">
+                  {s.pages.map((p) => (
+                    <li>
+                      <a href={p.href} class:list={{ current: here?.page === p }} aria-current={here?.page === p ? (exact(p.href) ? 'page' : 'true') : undefined}>
+                        <span class="page-label">{p.label}</span>
+                        <span class="page-description">{p.description}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div class="header-controls">
+        <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={PUBLIC_ADMIN_URL} current={path.startsWith('/account/')} />
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  const menu = document.getElementById('site-menu');
+  const toggle = document.querySelector<HTMLElement>('.nav-toggle');
+  const backdrop = document.querySelector('.nav-backdrop');
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('.section-name[aria-expanded]')];
+  const drawerOpen = () => menu?.classList.contains('open') === true;
+  const opened = () => buttons.find((b) => b.getAttribute('aria-expanded') === 'true');
+  // One section's pages show at a time; undefined folds them all.
+  const expand = (button: HTMLButtonElement | undefined) => {
+    for (const b of buttons) b.setAttribute('aria-expanded', String(b === button));
+  };
+
+  const setNav = (open: boolean) => {
+    // A closed drawer is not displayed, so it adds no width on phones; closing plays its slide first.
+    if (menu && !open && menu.classList.contains('open')) {
+      menu.classList.add('closing');
+      if (getComputedStyle(menu).animationName === 'none') menu.classList.remove('closing');
+      else menu.addEventListener('animationend', () => menu.classList.remove('closing'), { once: true });
+    }
+    if (open) menu?.classList.remove('closing');
+    menu?.classList.toggle('open', open);
+    backdrop?.classList.toggle('open', open);
+    toggle?.classList.toggle('open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+    document.body.style.overflow = open ? 'hidden' : '';
+    expand(open ? buttons.find((b) => b.dataset.current !== undefined) : undefined);
+  };
+  toggle?.addEventListener('click', () => setNav(!drawerOpen()));
+  document.querySelector('.nav-close-btn')?.addEventListener('click', () => setNav(false));
+  backdrop?.addEventListener('click', () => setNav(false));
+
+  for (const b of buttons) b.addEventListener('click', () => expand(b.getAttribute('aria-expanded') === 'true' ? undefined : b));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const b = opened();
+    if (drawerOpen()) {
+      setNav(false);
+      toggle?.focus();
+    } else if (b) {
+      expand(undefined);
+      b.focus();
+    }
+  });
+  // On desktop a menu closes when a click or the focus goes elsewhere; in the phone drawer it stays open.
+  const leaves = (target: EventTarget | null) => {
+    const b = opened();
+    return b !== undefined && !drawerOpen() && !(target instanceof Node && b.parentElement?.contains(target));
+  };
+  document.addEventListener('click', (e) => leaves(e.target) && expand(undefined));
+  menu?.addEventListener('focusout', (e) => e.relatedTarget !== null && leaves(e.relatedTarget) && expand(undefined));
+</script>
+
+<style>
+  .search :global(.search-form) {
+    margin: 0;
+  }
+
+  .search :global(.header-search-input) {
+    width: 200px;
+  }
+
+  @media (max-width: 820px) {
+    .search {
+      margin-bottom: 0.75rem;
+    }
+
+    .search :global(.search-form),
+    .search :global(.search-input-wrapper),
+    .search :global(.header-search-input) {
+      width: 100%;
+    }
+  }
+</style>

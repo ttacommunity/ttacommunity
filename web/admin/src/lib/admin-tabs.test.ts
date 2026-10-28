@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
+import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -59,5 +59,24 @@ describe('admin tabs', () => {
     ['empty or unknown', '', 'https://ttacommunity.org'],
   ] as const)('resolves site URL for %s: %s -> %s', (_name, host, want) => {
     expect(siteUrlFor(host)).toBe(want);
+  });
+
+  it.each([
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Players', ['members']], ['Site', ['data']]]],
+  ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
+    expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
+  });
+
+  it('drops a group with no tab left', () => {
+    expect(groupsFor(tabsFor('admin').filter((t) => t.key !== 'members' && t.key !== 'titles'), {}).map((g) => g.label)).toEqual(['Tournaments', 'Site']);
+  });
+
+  it.each([
+    ['nothing waiting', {}, [0, 0, 0]],
+    ['one tab waiting', { members: 3 }, [0, 3, 0]],
+    ['two tabs, two groups', { members: 1, blitz: 2 }, [2, 1, 0]],
+  ] as const)('totals each group\'s counts: %s', (_name, counts, want) => {
+    expect(groupsFor(tabsFor('admin'), counts).map((g) => g.count)).toEqual(want);
   });
 });

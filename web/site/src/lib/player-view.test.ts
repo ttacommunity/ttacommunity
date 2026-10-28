@@ -14,6 +14,7 @@ import {
   playerParams,
   profileHref,
   ratingIn,
+  searchHref,
   signedDelta,
   runYears,
   seatName,
@@ -28,6 +29,20 @@ describe('playerHref', () => {
     ['query characters', 'a&b=c', '/ratings/player/?name=a%26b%3Dc'],
   ])('puts the name in the query, encoded: %s', (_name, name, want) => {
     expect(playerHref(name)).toBe(want);
+  });
+});
+
+describe('searchHref', () => {
+  const names = ['alder440', 'gila loomer'];
+  it.each([
+    ['a name in full', 'alder440', '/ratings/player/?name=alder440'],
+    ['a name in another case', 'Gila Loomer', '/ratings/player/?name=gila+loomer'],
+    ['a name with spaces around it', '  alder440 ', '/ratings/player/?name=alder440'],
+    ['part of a name', 'alder', '/ratings/?search=alder'],
+    ['a list of names', 'alder440, gila loomer', '/ratings/?search=alder440%2C+gila+loomer'],
+    ['a name not rated', 'nobody', '/ratings/?search=nobody'],
+  ])('leads %s to its page', (_name, term, want) => {
+    expect(searchHref(names, term)).toBe(want);
   });
 });
 
