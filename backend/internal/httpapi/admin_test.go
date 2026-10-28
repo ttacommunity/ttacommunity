@@ -56,6 +56,9 @@ type fakeAdmins struct {
 	// inChange is set while Change runs fn; auditErr is what Audit answers there.
 	inChange bool
 	auditErr error
+	// logAsked is the filter and page AuditLog was last asked for (admin_audit_test.go).
+	logAsked *store.AuditFilter
+	logPage  int
 }
 
 // fakeRuns are runs 4 (complete, published third, after a roll back), 5 (complete, published first),
@@ -326,6 +329,13 @@ func (f *fakeAdmins) SetSeasonInCommunity(_ context.Context, slug, season string
 	}
 	f.notes = append(f.notes, fmt.Sprintf("season %s community %v", season, in))
 	return nil
+}
+
+func (f *fakeAdmins) AuditLog(_ context.Context, filter store.AuditFilter, page int) (store.AuditPage, error) {
+	f.logAsked, f.logPage = &filter, page
+	return store.AuditPage{Page: page, Pages: 3, Total: 101, Actions: []string{"badge.add"}, Entries: []store.AuditEntry{
+		{ID: 7, At: time.Date(2026, 10, 28, 12, 13, 0, 0, time.FixedZone("AEDT", 11*60*60)), Admin: "Owner", Action: "badge.add", Target: "Gold", Detail: []byte(`{"label": "Gold"}`)},
+	}}, nil
 }
 
 func (f *fakeAdmins) Admins(context.Context) ([]store.Admin, error) {

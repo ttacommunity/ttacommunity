@@ -52,6 +52,7 @@ type Admins interface {
 	AddSeason(ctx context.Context, slug, label string) error
 	RemoveSeason(ctx context.Context, slug, label string) error
 	Admins(ctx context.Context) ([]store.Admin, error)
+	AuditLog(ctx context.Context, filter store.AuditFilter, page int) (store.AuditPage, error)
 	SetAdmin(ctx context.Context, a store.Admin) error
 	RemoveAdmin(ctx context.Context, discordID string) error
 	Runs(ctx context.Context) ([]store.AdminRun, error)

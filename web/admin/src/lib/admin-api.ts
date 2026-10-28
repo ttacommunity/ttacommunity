@@ -10,6 +10,7 @@ export type AdminTournamentRow = components['schemas']['AdminTournamentRow'];
 export type TournamentBrief = Omit<AdminTournamentRow, 'cge_about'>;
 export type TournamentSettings = components['schemas']['TournamentSettings'];
 export type AdminPerson = components['schemas']['AdminPerson'];
+export type AdminAuditPage = components['schemas']['AdminAuditPage'];
 export type AdminRun = components['schemas']['AdminRun'];
 export type RunChanges = components['schemas']['RunChanges'];
 export type StartedRun = components['schemas']['StartedRun'];
