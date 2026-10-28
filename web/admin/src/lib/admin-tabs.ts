@@ -15,6 +15,21 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
   { key: 'audit', label: 'Audit', adminOnly: true },
 ];
 
+/** GROUPS are the header's menus, each holding tabs in TABS's order. */
+const GROUPS: { label: string; tabs: TabKey[] }[] = [
+  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz'] },
+  { label: 'Players', tabs: ['members', 'titles'] },
+  { label: 'Site', tabs: ['data', 'admins', 'audit'] },
+];
+
+/** groupsFor returns the header's menus holding the given tabs, each with the total of its tabs' counts; a menu left with no tab is dropped. */
+export function groupsFor(tabs: typeof TABS, counts: Partial<Record<TabKey, number>>): { label: string; tabs: typeof TABS; count: number }[] {
+  return GROUPS.map((g) => {
+    const held = tabs.filter((t) => g.tabs.includes(t.key));
+    return { label: g.label, tabs: held, count: held.reduce((n, t) => n + (counts[t.key] ?? 0), 0) };
+  }).filter((g) => g.tabs.length > 0);
+}
+
 /** tabsFor returns the tabs role sees. */
 export function tabsFor(role: Role): typeof TABS {
   return TABS.filter((t) => role === 'admin' || !t.adminOnly);

@@ -1,50 +1,71 @@
 import { describe, expect, it } from 'vitest';
-import { areaOf, currentSection, sectionsFor } from './nav';
+import { breadcrumb, placeOf, sections } from './nav';
 
-describe('sectionsFor', () => {
-  it("lists the ratings' pages in upstream's menu order, and nothing outside the ratings", () => {
-    expect(sectionsFor('ratings').map((s) => s.href)).toEqual([
-      '/ratings/',
-      '/ratings/hall_of_fame/',
-      '/ratings/community/',
-      '/ratings/analysis/',
-      '/ratings/faq/',
-      '/ratings/methodology/',
-    ]);
+describe('sections', () => {
+  it('lists Home, then the sections with pages', () => {
+    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments']);
   });
-  it("lists the root site's sections, Blitz among them", () => {
-    expect(sectionsFor('hub').map((s) => s.href)).toEqual(['/ratings/', '/blitz/']);
+  it('gives every page a description', () => {
+    const pages = sections.flatMap((s) => s.pages);
+    expect(pages.filter((p) => p.description === '')).toEqual([]);
+  });
+  it('lists each page once', () => {
+    const hrefs = sections.flatMap((s) => s.pages.map((p) => p.href));
+    expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 });
 
-describe('areaOf', () => {
+describe('placeOf', () => {
   it.each([
-    ['the ratings', '/ratings/', 'ratings'],
-    ['the ratings without the slash', '/ratings', 'ratings'],
-    ['a ratings page', '/ratings/hall_of_fame/royal_league/', 'ratings'],
-    ['the home page', '/', 'hub'],
-    ['blitz', '/blitz/', 'hub'],
-    ['a shared prefix', '/ratingsx/', 'hub'],
-    ['the design page', '/design/', 'hub'],
-  ])('puts %s in its area', (_name, path, want) => {
-    expect(areaOf(path)).toBe(want);
+    ['the home page', '/', 'Home', undefined],
+    ['the leaderboard', '/ratings/', 'Ratings', 'Leaderboard'],
+    ['the leaderboard without its slash', '/ratings', 'Ratings', 'Leaderboard'],
+    ['a player page', '/ratings/player/', 'Ratings', 'Leaderboard'],
+    ["a player's achievements", '/ratings/player/achievements/', 'Ratings', 'Leaderboard'],
+    ['model analysis', '/ratings/analysis/', 'Ratings', 'Model analysis'],
+    ["a tab of model analysis", '/ratings/analysis/seats/', 'Ratings', 'Model analysis'],
+    ['methodology', '/ratings/methodology/', 'Ratings', 'Methodology'],
+    ['the FAQ', '/ratings/faq/', 'Ratings', 'FAQ & guide'],
+    ['all tournaments, under the ratings path', '/ratings/tournaments/', 'Tournaments', 'All tournaments'],
+    ['the Hall of Fame, under the ratings path', '/ratings/hall_of_fame/', 'Tournaments', 'Hall of Fame'],
+    ['a Hall of Fame series', '/ratings/hall_of_fame/royal_league/', 'Tournaments', 'Hall of Fame'],
+    ['the community leaderboard', '/ratings/community/', 'Tournaments', 'Community leaderboard'],
+    ['blitz', '/blitz/', 'Tournaments', 'Blitz'],
+  ])('puts %s in its section and page', (_name, path, section, page) => {
+    const place = placeOf(path);
+    expect([place?.section.label, place?.page?.label]).toEqual([section, page]);
+  });
+
+  it.each([
+    ['the account page', '/account/'],
+    ['privacy', '/privacy/'],
+    ['the design page', '/design/'],
+    ['a shared prefix', '/ratingsx/'],
+    ['another shared prefix', '/blitzy/'],
+  ])('puts %s nowhere', (_name, path) => {
+    expect(placeOf(path)).toBeUndefined();
   });
 });
 
-describe('currentSection', () => {
+describe('breadcrumb', () => {
+  const home = { label: 'Home', href: '/' };
   it.each([
-    ['a section', '/ratings/', '/ratings/'],
-    ['a section without its slash', '/ratings', '/ratings/'],
-    ['a page under a section', '/ratings/player/x/', '/ratings/'],
-    ['the most specific section', '/ratings/analysis/', '/ratings/analysis/'],
-    ['a page under the most specific section', '/ratings/analysis/seats/', '/ratings/analysis/'],
-    ['another specific section', '/ratings/faq/', '/ratings/faq/'],
-    ['a page under another specific section', '/ratings/hall_of_fame/royal_league/', '/ratings/hall_of_fame/'],
-    ['the blitz section, on the root site', '/blitz/', '/blitz/'],
-    ['nothing at the home page', '/', undefined],
-    ['nothing on a shared prefix', '/ratingsx/', undefined],
-    ['nothing outside the sections', '/design/', undefined],
-  ])('matches %s', (_name, path, want) => {
-    expect(currentSection(path)).toBe(want);
+    ['a menu page', '/ratings/methodology/', [home, { label: 'Ratings' }, { label: 'Methodology', current: true }]],
+    ['a menu page without its slash', '/blitz', [home, { label: 'Tournaments' }, { label: 'Blitz', current: true }]],
+    ['a page below a menu page', '/ratings/player/', [home, { label: 'Ratings' }, { label: 'Leaderboard', href: '/ratings/' }]],
+    [
+      'a tab of a menu page',
+      '/ratings/hall_of_fame/royal_league/',
+      [home, { label: 'Tournaments' }, { label: 'Hall of Fame', href: '/ratings/hall_of_fame/' }],
+    ],
+  ])('leads from Home to %s', (_name, path, want) => {
+    expect(breadcrumb(path)).toEqual(want);
+  });
+
+  it.each([
+    ['the home page', '/'],
+    ['a page in no section', '/account/'],
+  ])('is empty on %s', (_name, path) => {
+    expect(breadcrumb(path)).toEqual([]);
   });
 });

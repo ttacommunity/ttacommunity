@@ -23,6 +23,13 @@ export function playerHref(name: string): string {
   return `/ratings/player/?${new URLSearchParams({ name })}`;
 }
 
+/** searchHref returns where the header's search leads: a rated name typed in full (any case) to its page, anything else to the leaderboard's search. */
+export function searchHref(names: readonly string[], term: string): string {
+  const t = term.trim();
+  const exact = names.find((n) => n.toLowerCase() === t.toLowerCase());
+  return exact !== undefined ? playerHref(exact) : `/ratings/?${new URLSearchParams({ search: t })}`;
+}
+
 /** hasPlayerPage is false for the names the API gives no page: a deleted or banned player, and an empty seat. */
 export function hasPlayerPage(name: string): boolean {
   return name !== 'Deleted player' && name !== 'Unknown player';

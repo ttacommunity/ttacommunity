@@ -847,22 +847,6 @@
   vertical-align: 0.1em;
 }
 
-/* Nav link back to the public Community Hub. */
-.site-header nav a.admin-hub-link {
-  margin-left: auto;
-  opacity: 0.9;
-}
-.site-header nav a.admin-hub-link:hover {
-  opacity: 1;
-}
-@media (max-width: 820px) {
-  .site-header nav a.admin-hub-link {
-    margin-left: 0;
-    margin-top: 0.5rem;
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 0.8rem;
-  }
-}
 
 
 /* The marker on a rank the draw ordered, in the blitz standings, in a slot before the number so the numbers line up. */
