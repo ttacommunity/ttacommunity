@@ -32,7 +32,7 @@ export default function DataCard() {
     a.download = exportFileName(new Date());
     a.click();
     URL.revokeObjectURL(url);
-    setDownload('Downloaded. The load job restores it: load -restore <folder> (unzipped).');
+    setDownload('Downloaded. The load job restores it: load restore <folder> (unzipped).');
   };
   useEffect(() => {
     void adminRequest<DataSummary>('/api/data', {}).then((r) => (r.ok ? setD(r.data) : setMessage(r.message)));

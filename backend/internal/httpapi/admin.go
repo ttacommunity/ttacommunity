@@ -21,8 +21,22 @@ import (
 // adminPrefix is where the admin routes sit.
 const adminPrefix = "/v1/admin/"
 
-// Admins verifies who is calling admin, makes their changes, and records them.
+// Admins verifies who is calling admin, makes their changes, and records them: each area's part, together.
 type Admins interface {
+	AdminAccess
+	TeamAdmin
+	TournamentAdmin
+	DataAdmin
+	BadgeAdmin
+	RunAdmin
+	CommunityAdmin
+	BlitzAdmin
+	MemberAdmin
+	AccountAdmin
+}
+
+// AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.
+type AdminAccess interface {
 	Verify(ctx context.Context, token string) (access.Identity, error)
 	Admin(ctx context.Context, discordID string) (store.Admin, error)
 	// Audit records a change; it runs inside Change, so the audit row commits with the change or not at all.
@@ -31,6 +45,18 @@ type Admins interface {
 	Change(ctx context.Context, fn func(tx Admins) error) error
 	// AllowedOrigin is the admin site's origin, the only one a change may come from.
 	AllowedOrigin() string
+}
+
+// TeamAdmin is who may use admin, with which role, and the audit log of what they did.
+type TeamAdmin interface {
+	Admins(ctx context.Context) ([]store.Admin, error)
+	AuditLog(ctx context.Context, filter store.AuditFilter, page int) (store.AuditPage, error)
+	SetAdmin(ctx context.Context, a store.Admin) error
+	RemoveAdmin(ctx context.Context, discordID string) error
+}
+
+// TournamentAdmin is the tournament catalogue: tournaments, their seasons and groups.
+type TournamentAdmin interface {
 	TournamentRows(ctx context.Context) ([]store.AdminTournamentRow, error)
 	Tournament(ctx context.Context, slug string) (store.AdminTournament, error)
 	// ChangeTournament sets every part of a change in one transaction: a refused part changes nothing.
@@ -38,10 +64,20 @@ type Admins interface {
 	// ChangeSeason sets every part of a season change in one transaction: a refused part changes nothing.
 	ChangeSeason(ctx context.Context, slug, season string, c store.SeasonChange) error
 	CreateGroup(ctx context.Context, g store.Group) (string, error)
+	AddSeason(ctx context.Context, slug, label string) error
+	RemoveSeason(ctx context.Context, slug, label string) error
+}
+
+// DataAdmin is the data as a whole: its summary, the standings check and the export.
+type DataAdmin interface {
 	DataSummary(ctx context.Context) (store.DataSummary, error)
 	CheckStandings(ctx context.Context) (store.StandingsCheck, error)
 	// ExportZip writes every input table, as the load job's export, as a zip to w.
 	ExportZip(ctx context.Context, w io.Writer) error
+}
+
+// BadgeAdmin is the badges and the players' titles set by hand.
+type BadgeAdmin interface {
 	Badges(ctx context.Context) ([]store.Badge, error)
 	AddBadge(ctx context.Context, b store.Badge) (int64, error)
 	SetBadge(ctx context.Context, b store.Badge) error
@@ -49,12 +85,10 @@ type Admins interface {
 	TitleOverrides(ctx context.Context) ([]store.TitleOverride, error)
 	SetTitle(ctx context.Context, o store.TitleOverride) error
 	ClearTitle(ctx context.Context, name string) error
-	AddSeason(ctx context.Context, slug, label string) error
-	RemoveSeason(ctx context.Context, slug, label string) error
-	Admins(ctx context.Context) ([]store.Admin, error)
-	AuditLog(ctx context.Context, filter store.AuditFilter, page int) (store.AuditPage, error)
-	SetAdmin(ctx context.Context, a store.Admin) error
-	RemoveAdmin(ctx context.Context, discordID string) error
+}
+
+// RunAdmin is the rating runs and the engine that makes them.
+type RunAdmin interface {
 	Runs(ctx context.Context) ([]store.AdminRun, error)
 	SetRunProtected(ctx context.Context, run int64, protected bool) error
 	// StartDeleteRun marks a run for deletion; DeleteRun then removes it, in the background.
@@ -70,9 +104,17 @@ type Admins interface {
 	StopRun(ctx context.Context) ([]string, error)
 	// EngineGoing reports whether an engine Job has not finished, or returns enginejob.ErrNotSetUp.
 	EngineGoing(ctx context.Context) (bool, error)
+}
+
+// CommunityAdmin is the community leaderboard's editions.
+type CommunityAdmin interface {
 	AdminCommunityEditions(ctx context.Context) ([]store.CommunityEdition, error)
 	SetCommunityEdition(ctx context.Context, slug string, c store.CommunityEditionChange) error
 	CreateCommunityEdition(ctx context.Context, e store.CommunityEdition) error
+}
+
+// BlitzAdmin is running a blitz tournament's edition: its format, entrants, rounds and results.
+type BlitzAdmin interface {
 	BlitzEditions(ctx context.Context) ([]store.BlitzEditionRow, error)
 	BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error)
 	SetBlitzFormat(ctx context.Context, slug, edition string, f store.BlitzFormat) error
@@ -112,15 +154,21 @@ type Admins interface {
 	SetBlitzPairing(ctx context.Context, slug, edition string, p store.BlitzPairing) error
 	// SetBlitzStartingRanks gives the entries named their starting ranks, the others' kept, and records what fixed them.
 	SetBlitzStartingRanks(ctx context.Context, slug, edition string, ranks map[int64]int, fixedBy string) error
-	// The community's members: listed, added (returning the id), changed, banned and unbanned, removed.
+}
+
+// MemberAdmin is the community's members: listed, added (returning the id), changed, banned and unbanned, removed.
+type MemberAdmin interface {
 	Members(ctx context.Context) ([]store.Member, error)
 	AddMember(ctx context.Context, m store.Member) (int64, error)
 	SetMember(ctx context.Context, id int64, c store.MemberChange) error
 	BanMember(ctx context.Context, id int64, reason string) error
 	UnbanMember(ctx context.Context, id int64) error
 	RemoveMember(ctx context.Context, id int64) error
-	// Players' accounts: listed with their ways in and pending requests, a request approved (linking the member it
-	// names, added when new) or refused with a reason, an account unlinked from its member or removed.
+}
+
+// AccountAdmin is players' accounts: listed with their ways in and pending requests, a request approved (linking the
+// member it names, added when new) or refused with a reason, an account unlinked from its member or removed.
+type AccountAdmin interface {
 	Accounts(ctx context.Context) ([]store.AccountRow, error)
 	ApproveLink(ctx context.Context, request int64, now time.Time) (store.LinkApproved, error)
 	RefuseLink(ctx context.Context, request int64, reason string, now time.Time) error

@@ -2277,7 +2277,7 @@ paths:
       description: >
         The same export the load job writes (one CSV per table and a manifest
         with each file's row count and SHA-256), from one snapshot; the load
-        job's -restore reads it back. Audited.
+        job's restore reads it back. Audited.
       responses:
         "200":
           description: The export

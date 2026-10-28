@@ -17,9 +17,9 @@ if ($restore -and $Reset) {
 
 Push-Location (Join-Path (Split-Path -Parent $PSScriptRoot) 'backend')
 try {
-    if ($restore) { go run ./cmd/load -restore $Dir }
-    elseif ($Reset) { go run ./cmd/load -reset $Dir }
-    else { go run ./cmd/load $Dir }
+    if ($restore) { go run ./cmd/load restore $Dir }
+    elseif ($Reset) { go run ./cmd/load matches -reset $Dir }
+    else { go run ./cmd/load matches $Dir }
     if ($LASTEXITCODE -ne 0) { throw 'ratings-db.ps1: the load failed' }
 } finally {
     Pop-Location

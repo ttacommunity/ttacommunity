@@ -74,7 +74,7 @@ scripts/ci.sh            # everything CI runs, in CI's order
   other roles; the id must be in `admins`). The api refuses to start with it
   unless `ADMIN_ORIGIN` is `http://127.0.0.1:…`, `API_ADDR` is
   `127.0.0.1:…`, and it is not in Kubernetes. Add the admin once:
-  `go run ./cmd/load -add-admin 100000000000000001 -name "Local admin" -role admin`.
+  `go run ./cmd/load add-admin -name "Local admin" -role admin 100000000000000001`.
   An older `.env` may say `API_ADDR=:8080`: change it to `127.0.0.1:8080`
 - **Player sign-in in local dev**: with `DISCORD_DEV_USER` set in `.env`,
   "Sign in with Discord" on the site signs you in at once as that invented

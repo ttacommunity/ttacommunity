@@ -59,7 +59,7 @@ var exportColumns = map[string][]string{"members": {"member_id", "tta_name", "cg
 
 // NotExported are the input tables an export leaves out: who the admins are
 // and what they did (Discord ids; a new database adds its admins with
-// load -add-admin), the rows a load refused (load history, which no view
+// load add-admin), the rows a load refused (load history, which no view
 // needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
 // members, and players' accounts, sign-ins, sessions, requests to be linked and emailed links. A backup restores
 // them in this order, after ExportTables.

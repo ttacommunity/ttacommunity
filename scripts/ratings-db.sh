@@ -56,9 +56,9 @@ set +a
 "${compose[@]}" up -d --wait ratings-db || exit 1
 if [ "$native" = 1 ]; then
   cd backend || exit 1
-  [ "$restore" = 1 ] && exec go run ./cmd/load -restore "$dir"
-  exec go run ./cmd/load "${args[@]}" "$dir"
+  [ "$restore" = 1 ] && exec go run ./cmd/load restore "$dir"
+  exec go run ./cmd/load matches "${args[@]}" "$dir"
 fi
 # The container sees only $dir, so symlinks out of it do not resolve.
-[ "$restore" = 1 ] && exec "${compose[@]}" --profile load run --rm --build -v "$dir:/data:ro,z" load -restore /data
-exec "${compose[@]}" --profile load run --rm --build -v "$dir:/data:ro,z" load "${args[@]}" /data
+[ "$restore" = 1 ] && exec "${compose[@]}" --profile load run --rm --build -v "$dir:/data:ro,z" load restore /data
+exec "${compose[@]}" --profile load run --rm --build -v "$dir:/data:ro,z" load matches "${args[@]}" /data

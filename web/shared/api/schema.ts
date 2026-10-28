@@ -1618,7 +1618,7 @@ export interface paths {
         };
         /**
          * Download every input table as a zip (admins and organisers)
-         * @description The same export the load job writes (one CSV per table and a manifest with each file's row count and SHA-256), from one snapshot; the load job's -restore reads it back. Audited.
+         * @description The same export the load job writes (one CSV per table and a manifest with each file's row count and SHA-256), from one snapshot; the load job's restore reads it back. Audited.
          */
         get: operations["getAdminExport"];
         put?: never;

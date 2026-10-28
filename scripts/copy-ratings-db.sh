@@ -2,7 +2,7 @@
 # Copy a ratings database into an empty one on the same server, with its grants and sequences (so no run id is
 # reused): every rating run, only the current one, or none. Runs in the database's container as its superuser.
 # Usage: copy-ratings-db.sh SOURCE TARGET TARGET_OWNER all-runs|latest-run|no-runs INPUT_TABLES_FILE
-# (the file is load -input-tables' output; every other table but goose's holds a run's results)
+# (the file is load input-tables' output; every other table but goose's holds a run's results)
 set -eu
 
 src=$1 dst=$2 owner=$3 mode=$4 inputs_file=$5

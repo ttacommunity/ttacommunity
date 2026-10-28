@@ -121,8 +121,8 @@ The site is at http://127.0.0.1:4321, admin at http://127.0.0.1:4322 and
 the API at http://127.0.0.1:8080/healthz. Locally, `ADMIN_DEV_USER` in `.env`
 stands in for Cloudflare Access: a request with no Access token is that
 admin, and the token `dev-<id>` is admin `<id>` (to try another role). Add
-that admin once, `go run ./cmd/load -add-admin 100000000000000001 -name
-"Local admin" -role admin`. The api refuses `ADMIN_DEV_USER` unless
+that admin once, `go run ./cmd/load add-admin -name "Local admin" -role
+admin 100000000000000001`. The api refuses `ADMIN_DEV_USER` unless
 `ADMIN_ORIGIN` and `API_ADDR` are `127.0.0.1` and it runs outside
 Kubernetes, so it can never open a deployed admin. `DISCORD_DEV_USER` does
 the same for players' sign-in: "Sign in with Discord" signs you in at once
@@ -167,7 +167,7 @@ pull requests. Then, by kind of change:
   `backend/migrations/ratings/` (goose, plain SQL, with its `-- +goose
   Down`), after `00001_schema.sql`, the whole schema at its start. Never
   edit one that has reached `main`. Apply it locally with `go
-  run ./cmd/load -migrate`. The export and import must stay equal: a new
+  run ./cmd/load migrate`. The export and import must stay equal: a new
   table the data needs goes into the export too, and the data repository
   then needs a new baseline. The schema at a glance:
   [`docs/architecture.md#the-ratings-database`](docs/architecture.md#the-ratings-database)
@@ -355,7 +355,7 @@ remove the database's volume. Then [compute ratings](#compute-ratings).
 
 A new baseline is any export: **Download all data** on admin's home page
 (admins and organisers; a zip of the same files), or `go run ./cmd/load
--export <new folder>` (see [Export the data, and rebuild from
+export <new folder>` (see [Export the data, and rebuild from
 it](#export-the-data-and-rebuild-from-it)). It replaces the contents of the
 data repo's `baseline/` folder, whose name never changes, so the commands here
 stay the same.
@@ -363,7 +363,7 @@ stay the same.
 After pulling a new migration, apply it to a database you already loaded:
 
 ```bash
-cd backend && set -a && . ../.env && set +a && go run ./cmd/load -migrate
+cd backend && set -a && . ../.env && set +a && go run ./cmd/load migrate
 ```
 
 ### Add new data
@@ -394,8 +394,8 @@ tournament where an earlier load split them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -cge-extract ../../ttac-ratings-data/cge/extract/2026-10-07 \
-  -cge-settings ../../ttac-ratings-data/cge/settings [-cge-pairs <file>] [-apply]
+go run ./cmd/load cge-extract -settings ../../ttac-ratings-data/cge/settings \
+  [-pairs <file>] [-apply] ../../ttac-ratings-data/cge/extract/2026-10-07
 ```
 
 The extract in the data repository is gzipped (`gzip -dk` restores it).
@@ -424,7 +424,7 @@ are not players are counted and skipped:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -countries ~/tta-data/ratings_overall.csv ~/tta-data/country-overrides.csv
+go run ./cmd/load countries ~/tta-data/ratings_overall.csv ~/tta-data/country-overrides.csv
 ```
 
 What match names cannot say about a tournament is a recorded fact, kept
@@ -451,7 +451,7 @@ again. A season's time-out penalty set in admin is kept when
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load -facts divisions ~/tta-data/new/group_divisions.csv
+go run ./cmd/load facts divisions ~/tta-data/new/group_divisions.csv
 ```
 
 Each tournament's points per place (for 2, 3 and 4 players), its top
@@ -492,7 +492,7 @@ shows beside the name; the manifest names the columns). Keep exports
 outside the repo.
 
 ```bash
-go run ./cmd/load -export <new or empty folder>
+go run ./cmd/load export <new or empty folder>
 ```
 
 #### Rebuild a database from scratch
@@ -509,7 +509,7 @@ again from nothing:
 2. **Schema and data**, from the newest export:
 
    ```bash
-   cd backend && go run ./cmd/load -restore ../../ttac-ratings-data/baseline
+   cd backend && go run ./cmd/load restore ../../ttac-ratings-data/baseline
    ```
 
    The restore applies the migrations, then loads everything in one
@@ -517,7 +517,7 @@ again from nothing:
    file changed since the export, and an export taken at another schema
    version (restore with the `load` of that version, then migrate)
 3. **Admins**, which no export holds (they are personal data):
-   `go run ./cmd/load -add-admin <Discord id> -name <name> -role admin`
+   `go run ./cmd/load add-admin -name <name> -role admin <Discord id>`
 4. **Ratings**: run the engine and publish the run
    ([Compute ratings](#compute-ratings), with `--make-current`)
 
@@ -525,7 +525,7 @@ For the original site (upstream), write the games as the one match CSV its
 loader reads, `data/raw/all_matches.csv`:
 
 ```bash
-go run ./cmd/load -export-upstream ~/tta-data/exports/all_matches.csv   # a new file
+go run ./cmd/load export-upstream ~/tta-data/exports/all_matches.csv   # a new file
 ```
 
 It holds every played game, oldest first. Games never played or unconfirmed
@@ -641,7 +641,7 @@ container normally does it), and check the version moved:
 
 ```bash
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
-cd backend && go run ./cmd/load -migrate
+cd backend && go run ./cmd/load migrate
 psql "$RATINGS_DATABASE_URL" -Atc "SELECT max(version_id) FROM goose_db_version"
 ```
 
@@ -652,7 +652,7 @@ its kind:
 
 ```bash
 cd backend
-go run ./cmd/load -facts placements ~/tta-data/new/official_placements.csv
+go run ./cmd/load facts placements ~/tta-data/new/official_placements.csv
 ```
 
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The
@@ -747,7 +747,7 @@ until step 8.
    `psql "$RATINGS_DATABASE_URL" -c "SELECT setval('rating_runs_run_id_seq', <highest>)"`
 7. **Restore the admins** from step 2:
    `pg_restore --data-only -d "$RATINGS_DATABASE_URL" admins-<date>.dump`
-   (or add them by hand with `load -add-admin`)
+   (or add them by hand with `load add-admin`)
 8. **Compute a run, check it, and publish it** (above)
 
 ### The sites and the sign-in worker on Cloudflare Workers
@@ -822,7 +822,7 @@ preview is `dev.admin.ttacommunity.org`.
 ### The Secrets and Cloudflare's settings are backed up nightly
 
 The CronJob `backup-config` (`deploy/backup-config.yaml`) runs at 03:30 UTC:
-`load -backup-config-to` exports the namespace's Secrets and the Cloudflare
+`load backup-config-to` exports the namespace's Secrets and the Cloudflare
 settings that are not in git (Access, DNS, Turnstile, Email Routing, the
 zone's rulesets, the Workers' names, the R2 buckets' rules) as JSON, encrypts
 each with `age` to the maintainers' key, and rclone puts them in the R2
@@ -877,7 +877,7 @@ only what admin edits. A database owner without `CREATEROLE` needs the role
 made first (`scripts/seed-cluster-db.sh` does). Add someone to admin:
 
 ```bash
-go run ./cmd/load -add-admin <Discord id> -name <name> -role admin   # or organiser
+go run ./cmd/load add-admin -name <name> -role admin <Discord id>   # or organiser
 ```
 
 ### The API
