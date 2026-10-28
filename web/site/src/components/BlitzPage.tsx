@@ -1,5 +1,5 @@
 /** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { failed, type Found } from '@ttac/shared/load';
 import { viewerZone } from '@ttac/shared/time';
@@ -121,7 +121,8 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
   const [mine, setMine] = useState<MyBlitzMatch | null>(null);
-  const [howPaired, setHowPaired] = useState<HTMLElement | null>(null);
+  // The dialog opens at its top from the header, or at "How ties are broken" from the standings.
+  const [howPaired, setHowPaired] = useState<{ opener: HTMLElement; at: 'top' | 'ties' } | null>(null);
   useEffect(() => {
     blitzEdition(apiUrl, slug, edition)
       .then((data) => setLoad({ kind: 'ready', data }))
@@ -151,7 +152,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const countryOf = new Map(ed.standings.map((s) => [s.name, s.country]));
   const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
-    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringLine(ed.points, ed.fide_points)} fixedBy={ed.ranks_fixed_by} onHow={(e) => setHowPaired(e.currentTarget)} /> },
+    standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringLine(ed.points, ed.fide_points)} fixedBy={ed.ranks_fixed_by} onHow={(e) => setHowPaired({ opener: e.currentTarget, at: 'ties' })} /> },
     pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} start={startLabel(ed.ranks_fixed_by)} /> },
   };
@@ -171,11 +172,11 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           <li>Round 1: {roundLine(ed.pairing.first, ed.pairing.first_order)}</li>
           {ed.format.swiss_rounds > 1 && <li>Later rounds: {roundLine(ed.pairing.later, ed.pairing.later_order)}</li>}
         </ul>
-        <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired(e.currentTarget)}>
+        <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired({ opener: e.currentTarget, at: 'top' })}>
           How pairings and ties are calculated
         </button>
       </div>
-      {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired} onClose={() => setHowPaired(null)} />}
+      {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onMatch={setMine} />
       {ed.rounds.length === 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
@@ -214,9 +215,16 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   );
 }
 
-/** HowPairedDialog explains how the edition's rounds are paired (its settings, and the rules every method keeps) and how ties in the standings are broken. */
-function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HTMLElement; onClose: () => void }) {
+/** HowPairedDialog explains how the edition's rounds are paired (its settings, and the rules every method keeps) and how ties in the standings are broken; opened at the top, or at the ties (at). */
+function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener: HTMLElement; at: 'top' | 'ties'; onClose: () => void }) {
   const notes = pairingNotes(ed);
+  const ties = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (at === 'ties') {
+      ties.current?.scrollIntoView();
+      ties.current?.focus();
+    }
+  }, [at]);
   return (
     <InfoDialog title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
       {notes.methods.map((m) => (
@@ -232,7 +240,7 @@ function HowPairedDialog({ ed, opener, onClose }: { ed: BlitzEdition; opener: HT
           {r}
         </p>
       ))}
-      <p className="site-dialog-text">
+      <p className="site-dialog-text" ref={ties} tabIndex={-1}>
         <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
         ones before leave them level:
       </p>
