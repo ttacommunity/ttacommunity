@@ -210,9 +210,10 @@ serve a production build locally and put it and the API behind
    Check it: its log has no "bypassed" or "stand-in" warning, and
    `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/v1/admin/me`
    prints `401`. **Never leave the API's tunnel up while `scripts/dev.sh`
-   runs**: its API listens on the same port with the dev sign-ins on. Admin
-   cannot be shown this way: it signs in through Access, or `ADMIN_DEV_USER`
-   on `127.0.0.1` only
+   runs**: its API listens on the same port with the dev sign-ins on. To
+   keep `scripts/dev.sh` running meanwhile, give this API another port and
+   no metrics port (`API_ADDR=127.0.0.1:8090 METRICS_ADDR=`), and tunnel
+   that port in step 2
 
 2. Open a tunnel to it, and note the `https://….trycloudflare.com` URL it
    prints:
@@ -247,6 +248,22 @@ curl -s "https://<site-tunnel>.trycloudflare.com/ratings/" | grep -o 'props="[^"
 
 The preview sends none of `public/_headers`, so the real CSP is only
 checked on the deployed site.
+
+**Admin** is shown another way, because its dev sign-in works on
+`127.0.0.1` only: tunnel admin's dev server, not the API. The dev server
+proxies `/api/*` to the API on `127.0.0.1:8080` and sets the `Origin` the
+API expects itself (`web/admin/astro.config.mjs`), so the API never sees
+the tunnel. With `scripts/dev.sh` running (its API keeps `ADMIN_DEV_USER`):
+
+```bash
+cd web && pnpm --filter admin exec astro dev --ignore-lock --port 4324 --host 127.0.0.1 --allowed-hosts .trycloudflare.com
+cloudflared tunnel --no-autoupdate --url http://127.0.0.1:4324
+```
+
+`curl -s https://<admin-tunnel>.trycloudflare.com/api/me` answers with the
+dev admin. **Anyone with that URL is that admin on your local database**
+until the tunnel stops, so share it with the one person testing and stop it
+after.
 
 ### The Discord bot
 
