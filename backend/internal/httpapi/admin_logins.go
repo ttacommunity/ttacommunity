@@ -23,7 +23,7 @@ func (s *server) GetAdminAccounts(ctx context.Context, _ GetAdminAccountsRequest
 		}
 		out[i] = AdminAccount{Id: a.ID, Logins: logins, MemberId: a.MemberID, Member: a.Member, SignedInAt: a.SignedInAt, AutoLink: a.AutoLink}
 		if a.LinkedHow != "" {
-			how := AdminAccountLinkedHow(a.LinkedHow)
+			how := LinkedHow(a.LinkedHow)
 			out[i].LinkedHow = &how
 		}
 		if r := a.Request; r != nil {

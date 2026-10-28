@@ -36,8 +36,8 @@ func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 		return nil
 	}
 	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, FinishedAt: m.Game.Finished.UTC(),
-		ACulture: m.Game.A.Culture, AOutcome: BlitzOutcome(m.Game.A.Outcome), ATurn: turnOf(m.Game.A),
-		BCulture: m.Game.B.Culture, BOutcome: BlitzOutcome(m.Game.B.Outcome), BTurn: turnOf(m.Game.B)}
+		ACulture: m.Game.A.Culture, AOutcome: SeatOutcome(m.Game.A.Outcome), ATurn: turnOf(m.Game.A),
+		BCulture: m.Game.B.Culture, BOutcome: SeatOutcome(m.Game.B.Outcome), BTurn: turnOf(m.Game.B)}
 }
 
 // turnOf is a side's turn, nil when it was not recorded.
@@ -146,7 +146,7 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 		}
 		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), StartingRank: start, Points: s.Points, Games: s.Games,
 			Byes: s.Byes, BuchholzCut1: s.BuchholzCut1, Buchholz: s.Buchholz, SonnebornBerger: s.SonnebornBerger, OpponentsBuchholz: s.OpponentsBuchholz,
-			OpponentsSonnebornBerger: s.OpponentsSonnebornBerger, Status: BlitzStandingStatus(status)})
+			OpponentsSonnebornBerger: s.OpponentsSonnebornBerger, Status: EntrantStatus(status)})
 	}
 	return out
 }
@@ -181,7 +181,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	row := blitzEditionRow(ed.BlitzEditionRow)
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
 		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
-		RanksFixedBy: ranksFixedByOf[BlitzEditionRanksFixedBy](ed.RanksFixedBy),
+		RanksFixedBy: ranksFixedByOf[RanksFixedBy](ed.RanksFixedBy),
 		Entrants:     []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {
@@ -209,7 +209,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Kind: BlitzRoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
+		pr := BlitzRound{Number: r.Number, Kind: RoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
 		for _, e := range skippers(ed.Entrants, r.Number) {
 			pr.Skipped = append(pr.Skipped, e.Name)
 		}

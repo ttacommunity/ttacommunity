@@ -19,132 +19,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for AdminAccountLinkedHow.
-const (
-	AdminAccountLinkedHowApproved AdminAccountLinkedHow = "approved"
-	AdminAccountLinkedHowMatch    AdminAccountLinkedHow = "match"
-)
-
-// Valid indicates whether the value is a known member of the AdminAccountLinkedHow enum.
-func (e AdminAccountLinkedHow) Valid() bool {
-	switch e {
-	case AdminAccountLinkedHowApproved:
-		return true
-	case AdminAccountLinkedHowMatch:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminBlitzEditionRanksFixedBy.
-const (
-	AdminBlitzEditionRanksFixedByLot    AdminBlitzEditionRanksFixedBy = "lot"
-	AdminBlitzEditionRanksFixedByRating AdminBlitzEditionRanksFixedBy = "rating"
-)
-
-// Valid indicates whether the value is a known member of the AdminBlitzEditionRanksFixedBy enum.
-func (e AdminBlitzEditionRanksFixedBy) Valid() bool {
-	switch e {
-	case AdminBlitzEditionRanksFixedByLot:
-		return true
-	case AdminBlitzEditionRanksFixedByRating:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminBlitzEntrantStatus.
-const (
-	AdminBlitzEntrantStatusActive  AdminBlitzEntrantStatus = "active"
-	AdminBlitzEntrantStatusDropped AdminBlitzEntrantStatus = "dropped"
-)
-
-// Valid indicates whether the value is a known member of the AdminBlitzEntrantStatus enum.
-func (e AdminBlitzEntrantStatus) Valid() bool {
-	switch e {
-	case AdminBlitzEntrantStatusActive:
-		return true
-	case AdminBlitzEntrantStatusDropped:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminBlitzRoundKind.
-const (
-	AdminBlitzRoundKindKnockout AdminBlitzRoundKind = "knockout"
-	AdminBlitzRoundKindSwiss    AdminBlitzRoundKind = "swiss"
-)
-
-// Valid indicates whether the value is a known member of the AdminBlitzRoundKind enum.
-func (e AdminBlitzRoundKind) Valid() bool {
-	switch e {
-	case AdminBlitzRoundKindKnockout:
-		return true
-	case AdminBlitzRoundKindSwiss:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminMeRole.
-const (
-	AdminMeRoleAdmin     AdminMeRole = "admin"
-	AdminMeRoleOrganiser AdminMeRole = "organiser"
-)
-
-// Valid indicates whether the value is a known member of the AdminMeRole enum.
-func (e AdminMeRole) Valid() bool {
-	switch e {
-	case AdminMeRoleAdmin:
-		return true
-	case AdminMeRoleOrganiser:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminPersonRole.
-const (
-	AdminPersonRoleAdmin     AdminPersonRole = "admin"
-	AdminPersonRoleOrganiser AdminPersonRole = "organiser"
-)
-
-// Valid indicates whether the value is a known member of the AdminPersonRole enum.
-func (e AdminPersonRole) Valid() bool {
-	switch e {
-	case AdminPersonRoleAdmin:
-		return true
-	case AdminPersonRoleOrganiser:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminRoleRole.
-const (
-	AdminRoleRoleAdmin     AdminRoleRole = "admin"
-	AdminRoleRoleOrganiser AdminRoleRole = "organiser"
-)
-
-// Valid indicates whether the value is a known member of the AdminRoleRole enum.
-func (e AdminRoleRole) Valid() bool {
-	switch e {
-	case AdminRoleRoleAdmin:
-		return true
-	case AdminRoleRoleOrganiser:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AdminRunStatus.
 const (
 	AdminRunStatusComplete AdminRunStatus = "complete"
@@ -226,87 +100,6 @@ func (e AdminTitle) Valid() bool {
 	case AdminTitleWCB:
 		return true
 	case AdminTitleWCS:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for AdminTournamentPodiumSource.
-const (
-	AdminTournamentPodiumSourceFinalStage   AdminTournamentPodiumSource = "final_stage"
-	AdminTournamentPodiumSourceNone         AdminTournamentPodiumSource = "none"
-	AdminTournamentPodiumSourceRecorded     AdminTournamentPodiumSource = "recorded"
-	AdminTournamentPodiumSourceTopDivisions AdminTournamentPodiumSource = "top_divisions"
-)
-
-// Valid indicates whether the value is a known member of the AdminTournamentPodiumSource enum.
-func (e AdminTournamentPodiumSource) Valid() bool {
-	switch e {
-	case AdminTournamentPodiumSourceFinalStage:
-		return true
-	case AdminTournamentPodiumSourceNone:
-		return true
-	case AdminTournamentPodiumSourceRecorded:
-		return true
-	case AdminTournamentPodiumSourceTopDivisions:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for BlitzEditionRanksFixedBy.
-const (
-	BlitzEditionRanksFixedByLot    BlitzEditionRanksFixedBy = "lot"
-	BlitzEditionRanksFixedByRating BlitzEditionRanksFixedBy = "rating"
-)
-
-// Valid indicates whether the value is a known member of the BlitzEditionRanksFixedBy enum.
-func (e BlitzEditionRanksFixedBy) Valid() bool {
-	switch e {
-	case BlitzEditionRanksFixedByLot:
-		return true
-	case BlitzEditionRanksFixedByRating:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for BlitzEntrantChangeStatus.
-const (
-	BlitzEntrantChangeStatusActive  BlitzEntrantChangeStatus = "active"
-	BlitzEntrantChangeStatusDropped BlitzEntrantChangeStatus = "dropped"
-)
-
-// Valid indicates whether the value is a known member of the BlitzEntrantChangeStatus enum.
-func (e BlitzEntrantChangeStatus) Valid() bool {
-	switch e {
-	case BlitzEntrantChangeStatusActive:
-		return true
-	case BlitzEntrantChangeStatusDropped:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for BlitzOutcome.
-const (
-	BlitzOutcomeFinished BlitzOutcome = "finished"
-	BlitzOutcomeResigned BlitzOutcome = "resigned"
-	BlitzOutcomeTimedOut BlitzOutcome = "timed_out"
-)
-
-// Valid indicates whether the value is a known member of the BlitzOutcome enum.
-func (e BlitzOutcome) Valid() bool {
-	switch e {
-	case BlitzOutcomeFinished:
-		return true
-	case BlitzOutcomeResigned:
-		return true
-	case BlitzOutcomeTimedOut:
 		return true
 	default:
 		return false
@@ -409,42 +202,6 @@ func (e BlitzResult) Valid() bool {
 	}
 }
 
-// Defines values for BlitzRoundKind.
-const (
-	BlitzRoundKindKnockout BlitzRoundKind = "knockout"
-	BlitzRoundKindSwiss    BlitzRoundKind = "swiss"
-)
-
-// Valid indicates whether the value is a known member of the BlitzRoundKind enum.
-func (e BlitzRoundKind) Valid() bool {
-	switch e {
-	case BlitzRoundKindKnockout:
-		return true
-	case BlitzRoundKindSwiss:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for BlitzStandingStatus.
-const (
-	BlitzStandingStatusActive  BlitzStandingStatus = "active"
-	BlitzStandingStatusDropped BlitzStandingStatus = "dropped"
-)
-
-// Valid indicates whether the value is a known member of the BlitzStandingStatus enum.
-func (e BlitzStandingStatus) Valid() bool {
-	switch e {
-	case BlitzStandingStatusActive:
-		return true
-	case BlitzStandingStatusDropped:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for CalibrationRowMode.
 const (
 	Standard    CalibrationRowMode = "standard"
@@ -457,78 +214,6 @@ func (e CalibrationRowMode) Valid() bool {
 	case Standard:
 		return true
 	case WalkForward:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CatalogueGameState.
-const (
-	CatalogueGameStateNeverPlayed CatalogueGameState = "never_played"
-	CatalogueGameStatePlayed      CatalogueGameState = "played"
-	CatalogueGameStatePrepared    CatalogueGameState = "prepared"
-	CatalogueGameStateRunning     CatalogueGameState = "running"
-	CatalogueGameStateUnconfirmed CatalogueGameState = "unconfirmed"
-)
-
-// Valid indicates whether the value is a known member of the CatalogueGameState enum.
-func (e CatalogueGameState) Valid() bool {
-	switch e {
-	case CatalogueGameStateNeverPlayed:
-		return true
-	case CatalogueGameStatePlayed:
-		return true
-	case CatalogueGameStatePrepared:
-		return true
-	case CatalogueGameStateRunning:
-		return true
-	case CatalogueGameStateUnconfirmed:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CommunityRowTitle.
-const (
-	CommunityRowTitleB   CommunityRowTitle = "B"
-	CommunityRowTitleG   CommunityRowTitle = "G"
-	CommunityRowTitleGM  CommunityRowTitle = "GM"
-	CommunityRowTitleM   CommunityRowTitle = "M"
-	CommunityRowTitleP   CommunityRowTitle = "P"
-	CommunityRowTitleS   CommunityRowTitle = "S"
-	CommunityRowTitleSGM CommunityRowTitle = "SGM"
-	CommunityRowTitleW   CommunityRowTitle = "W"
-	CommunityRowTitleWC  CommunityRowTitle = "WC"
-	CommunityRowTitleWCB CommunityRowTitle = "WCB"
-	CommunityRowTitleWCS CommunityRowTitle = "WCS"
-)
-
-// Valid indicates whether the value is a known member of the CommunityRowTitle enum.
-func (e CommunityRowTitle) Valid() bool {
-	switch e {
-	case CommunityRowTitleB:
-		return true
-	case CommunityRowTitleG:
-		return true
-	case CommunityRowTitleGM:
-		return true
-	case CommunityRowTitleM:
-		return true
-	case CommunityRowTitleP:
-		return true
-	case CommunityRowTitleS:
-		return true
-	case CommunityRowTitleSGM:
-		return true
-	case CommunityRowTitleW:
-		return true
-	case CommunityRowTitleWC:
-		return true
-	case CommunityRowTitleWCB:
-		return true
-	case CommunityRowTitleWCS:
 		return true
 	default:
 		return false
@@ -550,6 +235,24 @@ func (e EmailSignedInOutcome) Valid() bool {
 	case First:
 		return true
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EntrantStatus.
+const (
+	EntrantStatusActive  EntrantStatus = "active"
+	EntrantStatusDropped EntrantStatus = "dropped"
+)
+
+// Valid indicates whether the value is a known member of the EntrantStatus enum.
+func (e EntrantStatus) Valid() bool {
+	switch e {
+	case EntrantStatusActive:
+		return true
+	case EntrantStatusDropped:
 		return true
 	default:
 		return false
@@ -580,21 +283,45 @@ func (e Format) Valid() bool {
 	}
 }
 
-// Defines values for GameSeatOutcome.
+// Defines values for GameState.
 const (
-	GameSeatOutcomeFinished GameSeatOutcome = "finished"
-	GameSeatOutcomeResigned GameSeatOutcome = "resigned"
-	GameSeatOutcomeTimedOut GameSeatOutcome = "timed_out"
+	GameStateNeverPlayed GameState = "never_played"
+	GameStatePlayed      GameState = "played"
+	GameStatePrepared    GameState = "prepared"
+	GameStateRunning     GameState = "running"
+	GameStateUnconfirmed GameState = "unconfirmed"
 )
 
-// Valid indicates whether the value is a known member of the GameSeatOutcome enum.
-func (e GameSeatOutcome) Valid() bool {
+// Valid indicates whether the value is a known member of the GameState enum.
+func (e GameState) Valid() bool {
 	switch e {
-	case GameSeatOutcomeFinished:
+	case GameStateNeverPlayed:
 		return true
-	case GameSeatOutcomeResigned:
+	case GameStatePlayed:
 		return true
-	case GameSeatOutcomeTimedOut:
+	case GameStatePrepared:
+		return true
+	case GameStateRunning:
+		return true
+	case GameStateUnconfirmed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinkedHow.
+const (
+	LinkedHowApproved LinkedHow = "approved"
+	LinkedHowMatch    LinkedHow = "match"
+)
+
+// Valid indicates whether the value is a known member of the LinkedHow enum.
+func (e LinkedHow) Valid() bool {
+	switch e {
+	case LinkedHowApproved:
+		return true
+	case LinkedHowMatch:
 		return true
 	default:
 		return false
@@ -625,18 +352,18 @@ func (e LoginProvider) Valid() bool {
 	}
 }
 
-// Defines values for MeAdminRole.
+// Defines values for MatchSide.
 const (
-	MeAdminRoleAdmin     MeAdminRole = "admin"
-	MeAdminRoleOrganiser MeAdminRole = "organiser"
+	MatchSideA MatchSide = "a"
+	MatchSideB MatchSide = "b"
 )
 
-// Valid indicates whether the value is a known member of the MeAdminRole enum.
-func (e MeAdminRole) Valid() bool {
+// Valid indicates whether the value is a known member of the MatchSide enum.
+func (e MatchSide) Valid() bool {
 	switch e {
-	case MeAdminRoleAdmin:
+	case MatchSideA:
 		return true
-	case MeAdminRoleOrganiser:
+	case MatchSideB:
 		return true
 	default:
 		return false
@@ -685,126 +412,150 @@ func (e MyBlitzMatchActions) Valid() bool {
 	}
 }
 
-// Defines values for MyBlitzMatchMe.
+// Defines values for PodiumSource.
 const (
-	MyBlitzMatchMeA MyBlitzMatchMe = "a"
-	MyBlitzMatchMeB MyBlitzMatchMe = "b"
+	FinalStage   PodiumSource = "final_stage"
+	None         PodiumSource = "none"
+	Recorded     PodiumSource = "recorded"
+	TopDivisions PodiumSource = "top_divisions"
 )
 
-// Valid indicates whether the value is a known member of the MyBlitzMatchMe enum.
-func (e MyBlitzMatchMe) Valid() bool {
+// Valid indicates whether the value is a known member of the PodiumSource enum.
+func (e PodiumSource) Valid() bool {
 	switch e {
-	case MyBlitzMatchMeA:
+	case FinalStage:
 		return true
-	case MyBlitzMatchMeB:
+	case None:
+		return true
+	case Recorded:
+		return true
+	case TopDivisions:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for MyBlitzMatchReportedBy.
+// Defines values for RanksFixedBy.
 const (
-	MyBlitzMatchReportedByA MyBlitzMatchReportedBy = "a"
-	MyBlitzMatchReportedByB MyBlitzMatchReportedBy = "b"
+	RanksFixedByLot    RanksFixedBy = "lot"
+	RanksFixedByRating RanksFixedBy = "rating"
 )
 
-// Valid indicates whether the value is a known member of the MyBlitzMatchReportedBy enum.
-func (e MyBlitzMatchReportedBy) Valid() bool {
+// Valid indicates whether the value is a known member of the RanksFixedBy enum.
+func (e RanksFixedBy) Valid() bool {
 	switch e {
-	case MyBlitzMatchReportedByA:
+	case RanksFixedByLot:
 		return true
-	case MyBlitzMatchReportedByB:
+	case RanksFixedByRating:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for MyDataAccountLinkedHow.
+// Defines values for RequestStatus.
 const (
-	MyDataAccountLinkedHowApproved MyDataAccountLinkedHow = "approved"
-	MyDataAccountLinkedHowMatch    MyDataAccountLinkedHow = "match"
+	RequestStatusApproved RequestStatus = "approved"
+	RequestStatusPending  RequestStatus = "pending"
+	RequestStatusRefused  RequestStatus = "refused"
 )
 
-// Valid indicates whether the value is a known member of the MyDataAccountLinkedHow enum.
-func (e MyDataAccountLinkedHow) Valid() bool {
+// Valid indicates whether the value is a known member of the RequestStatus enum.
+func (e RequestStatus) Valid() bool {
 	switch e {
-	case MyDataAccountLinkedHowApproved:
+	case RequestStatusApproved:
 		return true
-	case MyDataAccountLinkedHowMatch:
+	case RequestStatusPending:
+		return true
+	case RequestStatusRefused:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for MyDataRequestStatus.
+// Defines values for Role.
 const (
-	MyDataRequestStatusApproved MyDataRequestStatus = "approved"
-	MyDataRequestStatusPending  MyDataRequestStatus = "pending"
-	MyDataRequestStatusRefused  MyDataRequestStatus = "refused"
+	Admin     Role = "admin"
+	Organiser Role = "organiser"
 )
 
-// Valid indicates whether the value is a known member of the MyDataRequestStatus enum.
-func (e MyDataRequestStatus) Valid() bool {
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
 	switch e {
-	case MyDataRequestStatusApproved:
+	case Admin:
 		return true
-	case MyDataRequestStatusPending:
-		return true
-	case MyDataRequestStatusRefused:
+	case Organiser:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for MyLinkRequestStatus.
+// Defines values for RoundKind.
 const (
-	MyLinkRequestStatusApproved MyLinkRequestStatus = "approved"
-	MyLinkRequestStatusPending  MyLinkRequestStatus = "pending"
-	MyLinkRequestStatusRefused  MyLinkRequestStatus = "refused"
+	Knockout RoundKind = "knockout"
+	Swiss    RoundKind = "swiss"
 )
 
-// Valid indicates whether the value is a known member of the MyLinkRequestStatus enum.
-func (e MyLinkRequestStatus) Valid() bool {
+// Valid indicates whether the value is a known member of the RoundKind enum.
+func (e RoundKind) Valid() bool {
 	switch e {
-	case MyLinkRequestStatusApproved:
+	case Knockout:
 		return true
-	case MyLinkRequestStatusPending:
-		return true
-	case MyLinkRequestStatusRefused:
+	case Swiss:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for SeatAnalysisTier.
+// Defines values for SeatOutcome.
 const (
-	SeatAnalysisTierAdvanced     SeatAnalysisTier = "advanced"
-	SeatAnalysisTierAll          SeatAnalysisTier = "all"
-	SeatAnalysisTierBeginner     SeatAnalysisTier = "beginner"
-	SeatAnalysisTierGrandmaster  SeatAnalysisTier = "grandmaster"
-	SeatAnalysisTierIntermediate SeatAnalysisTier = "intermediate"
-	SeatAnalysisTierMaster       SeatAnalysisTier = "master"
+	Finished SeatOutcome = "finished"
+	Resigned SeatOutcome = "resigned"
+	TimedOut SeatOutcome = "timed_out"
 )
 
-// Valid indicates whether the value is a known member of the SeatAnalysisTier enum.
-func (e SeatAnalysisTier) Valid() bool {
+// Valid indicates whether the value is a known member of the SeatOutcome enum.
+func (e SeatOutcome) Valid() bool {
 	switch e {
-	case SeatAnalysisTierAdvanced:
+	case Finished:
 		return true
-	case SeatAnalysisTierAll:
+	case Resigned:
 		return true
-	case SeatAnalysisTierBeginner:
+	case TimedOut:
 		return true
-	case SeatAnalysisTierGrandmaster:
+	default:
+		return false
+	}
+}
+
+// Defines values for SeatTier.
+const (
+	SeatTierAdvanced     SeatTier = "advanced"
+	SeatTierAll          SeatTier = "all"
+	SeatTierBeginner     SeatTier = "beginner"
+	SeatTierGrandmaster  SeatTier = "grandmaster"
+	SeatTierIntermediate SeatTier = "intermediate"
+	SeatTierMaster       SeatTier = "master"
+)
+
+// Valid indicates whether the value is a known member of the SeatTier enum.
+func (e SeatTier) Valid() bool {
+	switch e {
+	case SeatTierAdvanced:
 		return true
-	case SeatAnalysisTierIntermediate:
+	case SeatTierAll:
 		return true
-	case SeatAnalysisTierMaster:
+	case SeatTierBeginner:
+		return true
+	case SeatTierGrandmaster:
+		return true
+	case SeatTierIntermediate:
+		return true
+	case SeatTierMaster:
 		return true
 	default:
 		return false
@@ -961,30 +712,6 @@ func (e TournamentRecordMedal) Valid() bool {
 	}
 }
 
-// Defines values for TournamentSettingsPodiumSource.
-const (
-	TournamentSettingsPodiumSourceFinalStage   TournamentSettingsPodiumSource = "final_stage"
-	TournamentSettingsPodiumSourceNone         TournamentSettingsPodiumSource = "none"
-	TournamentSettingsPodiumSourceRecorded     TournamentSettingsPodiumSource = "recorded"
-	TournamentSettingsPodiumSourceTopDivisions TournamentSettingsPodiumSource = "top_divisions"
-)
-
-// Valid indicates whether the value is a known member of the TournamentSettingsPodiumSource enum.
-func (e TournamentSettingsPodiumSource) Valid() bool {
-	switch e {
-	case TournamentSettingsPodiumSourceFinalStage:
-		return true
-	case TournamentSettingsPodiumSourceNone:
-		return true
-	case TournamentSettingsPodiumSourceRecorded:
-		return true
-	case TournamentSettingsPodiumSourceTopDivisions:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for TrophyRowTitle.
 const (
 	TrophyRowTitleGM TrophyRowTitle = "GM"
@@ -1000,63 +727,6 @@ func (e TrophyRowTitle) Valid() bool {
 	case TrophyRowTitleM:
 		return true
 	case TrophyRowTitleWC:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetSeatAnalysisParamsTier.
-const (
-	GetSeatAnalysisParamsTierAdvanced     GetSeatAnalysisParamsTier = "advanced"
-	GetSeatAnalysisParamsTierAll          GetSeatAnalysisParamsTier = "all"
-	GetSeatAnalysisParamsTierBeginner     GetSeatAnalysisParamsTier = "beginner"
-	GetSeatAnalysisParamsTierGrandmaster  GetSeatAnalysisParamsTier = "grandmaster"
-	GetSeatAnalysisParamsTierIntermediate GetSeatAnalysisParamsTier = "intermediate"
-	GetSeatAnalysisParamsTierMaster       GetSeatAnalysisParamsTier = "master"
-)
-
-// Valid indicates whether the value is a known member of the GetSeatAnalysisParamsTier enum.
-func (e GetSeatAnalysisParamsTier) Valid() bool {
-	switch e {
-	case GetSeatAnalysisParamsTierAdvanced:
-		return true
-	case GetSeatAnalysisParamsTierAll:
-		return true
-	case GetSeatAnalysisParamsTierBeginner:
-		return true
-	case GetSeatAnalysisParamsTierGrandmaster:
-		return true
-	case GetSeatAnalysisParamsTierIntermediate:
-		return true
-	case GetSeatAnalysisParamsTierMaster:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetCatalogueGamesParamsState.
-const (
-	GetCatalogueGamesParamsStateNeverPlayed GetCatalogueGamesParamsState = "never_played"
-	GetCatalogueGamesParamsStatePlayed      GetCatalogueGamesParamsState = "played"
-	GetCatalogueGamesParamsStatePrepared    GetCatalogueGamesParamsState = "prepared"
-	GetCatalogueGamesParamsStateRunning     GetCatalogueGamesParamsState = "running"
-	GetCatalogueGamesParamsStateUnconfirmed GetCatalogueGamesParamsState = "unconfirmed"
-)
-
-// Valid indicates whether the value is a known member of the GetCatalogueGamesParamsState enum.
-func (e GetCatalogueGamesParamsState) Valid() bool {
-	switch e {
-	case GetCatalogueGamesParamsStateNeverPlayed:
-		return true
-	case GetCatalogueGamesParamsStatePlayed:
-		return true
-	case GetCatalogueGamesParamsStatePrepared:
-		return true
-	case GetCatalogueGamesParamsStateRunning:
-		return true
-	case GetCatalogueGamesParamsStateUnconfirmed:
 		return true
 	default:
 		return false
@@ -1188,7 +858,7 @@ type AdminAccount struct {
 	Id       int64 `json:"id"`
 
 	// LinkedHow By a recorded Discord name or email, or by an approved request; null when not linked
-	LinkedHow *AdminAccountLinkedHow `json:"linked_how"`
+	LinkedHow *LinkedHow `json:"linked_how"`
 
 	// Logins Every way into the account, by provider
 	Logins []AdminAccountLogin `json:"logins"`
@@ -1202,9 +872,6 @@ type AdminAccount struct {
 	// SignedInAt The latest sign-in by any way in
 	SignedInAt time.Time `json:"signed_in_at"`
 }
-
-// AdminAccountLinkedHow By a recorded Discord name or email, or by an approved request; null when not linked
-type AdminAccountLinkedHow string
 
 // AdminAccountLogin A way into an account
 type AdminAccountLogin struct {
@@ -1294,7 +961,7 @@ type AdminBlitzEdition struct {
 	Points BlitzPoints `json:"points"`
 
 	// RanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
-	RanksFixedBy *AdminBlitzEditionRanksFixedBy `json:"ranks_fixed_by"`
+	RanksFixedBy *RanksFixedBy `json:"ranks_fixed_by"`
 
 	// Rounds Every round, first first, drafts included
 	Rounds []AdminBlitzRound `json:"rounds"`
@@ -1303,9 +970,6 @@ type AdminBlitzEdition struct {
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
-
-// AdminBlitzEditionRanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
-type AdminBlitzEditionRanksFixedBy string
 
 // AdminBlitzEditionRow One edition of a blitz tournament as admin's list shows it
 type AdminBlitzEditionRow struct {
@@ -1355,13 +1019,10 @@ type AdminBlitzEntrant struct {
 	StartingRank *int `json:"starting_rank"`
 
 	// Status Active is in; dropped is out of the rounds still to come, their results kept
-	Status    AdminBlitzEntrantStatus `json:"status"`
-	UtcOffset string                  `json:"utc_offset"`
-	Zone      string                  `json:"zone"`
+	Status    EntrantStatus `json:"status"`
+	UtcOffset string        `json:"utc_offset"`
+	Zone      string        `json:"zone"`
 }
-
-// AdminBlitzEntrantStatus Active is in; dropped is out of the rounds still to come, their results kept
-type AdminBlitzEntrantStatus string
 
 // AdminBlitzMatch A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
 type AdminBlitzMatch struct {
@@ -1408,10 +1069,12 @@ type AdminBlitzMatch struct {
 // AdminBlitzRound defines model for AdminBlitzRound.
 type AdminBlitzRound struct {
 	// Deadline The deadline to play by, null until set
-	Deadline *BlitzDeadline      `json:"deadline"`
-	Id       int64               `json:"id"`
-	Kind     AdminBlitzRoundKind `json:"kind"`
-	Matches  []AdminBlitzMatch   `json:"matches"`
+	Deadline *BlitzDeadline `json:"deadline"`
+	Id       int64          `json:"id"`
+
+	// Kind A Swiss round, or a knockout round
+	Kind    RoundKind         `json:"kind"`
+	Matches []AdminBlitzMatch `json:"matches"`
 
 	// Method The method a Swiss round was paired with; null for a knockout round
 	Method *BlitzPairingMethod `json:"method"`
@@ -1428,9 +1091,6 @@ type AdminBlitzRound struct {
 	// round. Null for a Swiss round, or with nobody left.
 	Reserve *int64 `json:"reserve"`
 }
-
-// AdminBlitzRoundKind defines model for AdminBlitzRound.Kind.
-type AdminBlitzRoundKind string
 
 // AdminLinkRefused An account's last request to be linked, when it was refused and neither a new request nor a link has followed
 type AdminLinkRefused struct {
@@ -1469,12 +1129,11 @@ type AdminLinkRequest struct {
 
 // AdminMe defines model for AdminMe.
 type AdminMe struct {
-	Name string      `json:"name"`
-	Role AdminMeRole `json:"role"`
-}
+	Name string `json:"name"`
 
-// AdminMeRole defines model for AdminMe.Role.
-type AdminMeRole string
+	// Role What a person may do in admin
+	Role Role `json:"role"`
+}
 
 // AdminMember A member of the community as admin sees them
 type AdminMember struct {
@@ -1510,22 +1169,20 @@ type AdminMember struct {
 
 // AdminPerson defines model for AdminPerson.
 type AdminPerson struct {
-	DiscordId string          `json:"discord_id"`
-	Name      string          `json:"name"`
-	Role      AdminPersonRole `json:"role"`
-}
+	DiscordId string `json:"discord_id"`
+	Name      string `json:"name"`
 
-// AdminPersonRole defines model for AdminPerson.Role.
-type AdminPersonRole string
+	// Role What a person may do in admin
+	Role Role `json:"role"`
+}
 
 // AdminRole defines model for AdminRole.
 type AdminRole struct {
-	Name string        `json:"name"`
-	Role AdminRoleRole `json:"role"`
-}
+	Name string `json:"name"`
 
-// AdminRoleRole defines model for AdminRole.Role.
-type AdminRoleRole string
+	// Role What a person may do in admin
+	Role Role `json:"role"`
+}
 
 // AdminRun defines model for AdminRun.
 type AdminRun struct {
@@ -1670,7 +1327,7 @@ type AdminTournament struct {
 	Parent string `json:"parent"`
 
 	// PodiumSource How its podium is chosen: top_divisions, final_stage, recorded, or none
-	PodiumSource *AdminTournamentPodiumSource `json:"podium_source,omitempty"`
+	PodiumSource *PodiumSource `json:"podium_source,omitempty"`
 
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p PlacePoints `json:"points_2p"`
@@ -1705,9 +1362,6 @@ type AdminTournament struct {
 	// Visible Shown on the site though not rated
 	Visible bool `json:"visible"`
 }
-
-// AdminTournamentPodiumSource How its podium is chosen: top_divisions, final_stage, recorded, or none
-type AdminTournamentPodiumSource string
 
 // AdminTournamentRow defines model for AdminTournamentRow.
 type AdminTournamentRow struct {
@@ -1810,7 +1464,7 @@ type BlitzEdition struct {
 	Points BlitzPoints `json:"points"`
 
 	// RanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
-	RanksFixedBy *BlitzEditionRanksFixedBy `json:"ranks_fixed_by"`
+	RanksFixedBy *RanksFixedBy `json:"ranks_fixed_by"`
 
 	// ResultsUpdatedAt When the latest result in a published round was recorded; null before the first
 	ResultsUpdatedAt *time.Time `json:"results_updated_at"`
@@ -1827,9 +1481,6 @@ type BlitzEdition struct {
 	Standings  []BlitzStanding `json:"standings"`
 	Tournament string          `json:"tournament"`
 }
-
-// BlitzEditionRanksFixedBy What fixed the starting ranks when round 1 was paired, rating or lot; null before
-type BlitzEditionRanksFixedBy string
 
 // BlitzEditionRow One edition of a blitz tournament as the site's list shows it
 type BlitzEditionRow struct {
@@ -1884,15 +1535,14 @@ type BlitzEntrant struct {
 // BlitzEntrantChange What to change, the entrant's status or the member's details; a field left out stays as it is
 type BlitzEntrantChange struct {
 	// Country A two-letter country code, or empty for none
-	Country     *string                   `json:"country,omitempty"`
-	DiscordName *string                   `json:"discord_name,omitempty"`
-	Email       *string                   `json:"email,omitempty"`
-	Status      *BlitzEntrantChangeStatus `json:"status,omitempty"`
-	Zone        *string                   `json:"zone,omitempty"`
-}
+	Country     *string `json:"country,omitempty"`
+	DiscordName *string `json:"discord_name,omitempty"`
+	Email       *string `json:"email,omitempty"`
 
-// BlitzEntrantChangeStatus defines model for BlitzEntrantChange.Status.
-type BlitzEntrantChangeStatus string
+	// Status Whether a blitz entrant is in the rounds still to come
+	Status *EntrantStatus `json:"status,omitempty"`
+	Zone   *string        `json:"zone,omitempty"`
+}
 
 // BlitzEntrantIds defines model for BlitzEntrantIds.
 type BlitzEntrantIds struct {
@@ -1937,7 +1587,7 @@ type BlitzGameSide struct {
 	Culture float64 `json:"culture"`
 
 	// Outcome How a player's game ended
-	Outcome BlitzOutcome `json:"outcome"`
+	Outcome SeatOutcome `json:"outcome"`
 
 	// Turn The player's place in the turn order, 1 for the player who went
 	// first. A game's players take 1 to N, each once
@@ -1951,9 +1601,6 @@ type BlitzMatchChange struct {
 	// B Left out for the bye
 	B *int64 `json:"b,omitempty"`
 }
-
-// BlitzOutcome How a player's game ended
-type BlitzOutcome string
 
 // BlitzPairing The matches to keep as they are
 type BlitzPairing struct {
@@ -2002,14 +1649,14 @@ type BlitzPlayedGame struct {
 	ACulture float64 `json:"a_culture"`
 
 	// AOutcome How a player's game ended
-	AOutcome BlitzOutcome `json:"a_outcome"`
+	AOutcome SeatOutcome `json:"a_outcome"`
 
 	// ATurn a's place in the turn order, 1 for the player who went first; null when it was not recorded
 	ATurn    *int    `json:"a_turn"`
 	BCulture float64 `json:"b_culture"`
 
 	// BOutcome How a player's game ended
-	BOutcome BlitzOutcome `json:"b_outcome"`
+	BOutcome SeatOutcome `json:"b_outcome"`
 
 	// BTurn b's place in the turn order, 1 for the player who went first; null when it was not recorded
 	BTurn *int `json:"b_turn"`
@@ -2083,7 +1730,7 @@ type BlitzResult string
 // BlitzRound A published round as the site shows it
 type BlitzRound struct {
 	// Kind A Swiss round, or a knockout round (its matches in bracket order)
-	Kind    BlitzRoundKind     `json:"kind"`
+	Kind    RoundKind          `json:"kind"`
 	Matches []BlitzPublicMatch `json:"matches"`
 
 	// Method The method a Swiss round was paired with; null for a knockout round
@@ -2097,9 +1744,6 @@ type BlitzRound struct {
 	// Skipped Who sat the round out, by username, in sign-up order
 	Skipped []string `json:"skipped"`
 }
-
-// BlitzRoundKind A Swiss round, or a knockout round (its matches in bracket order)
-type BlitzRoundKind string
 
 // BlitzRoundMatches defines model for BlitzRoundMatches.
 type BlitzRoundMatches struct {
@@ -2167,11 +1811,8 @@ type BlitzStanding struct {
 	StartingRank *int `json:"starting_rank"`
 
 	// Status Dropped players come last
-	Status BlitzStandingStatus `json:"status"`
+	Status EntrantStatus `json:"status"`
 }
-
-// BlitzStandingStatus Dropped players come last
-type BlitzStandingStatus string
 
 // CGETournament A tournament on CGE's site, as its page shows it
 type CGETournament struct {
@@ -2348,11 +1989,8 @@ type CatalogueGame struct {
 	Stage string `json:"stage"`
 
 	// State A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
-	State CatalogueGameState `json:"state"`
+	State GameState `json:"state"`
 }
-
-// CatalogueGameState A never-played game had no player; an unconfirmed one has a result in doubt. Neither is rated
-type CatalogueGameState string
 
 // CatalogueGames defines model for CatalogueGames.
 type CatalogueGames struct {
@@ -2552,11 +2190,8 @@ type CommunityRow struct {
 	Scores map[string]float64 `json:"scores"`
 
 	// Title The run's title for the player, null when none or not a player here
-	Title *CommunityRowTitle `json:"title"`
+	Title *TitleCode `json:"title"`
 }
-
-// CommunityRowTitle The run's title for the player, null when none or not a player here
-type CommunityRowTitle string
 
 // CommunitySummaryGroup defines model for CommunitySummaryGroup.
 type CommunitySummaryGroup struct {
@@ -2793,6 +2428,9 @@ type EngineDistribution struct {
 	Model Model `json:"model"`
 }
 
+// EntrantStatus Whether a blitz entrant is in the rounds still to come
+type EntrantStatus string
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
@@ -2850,12 +2488,9 @@ type GameSeat struct {
 	Name string `json:"name"`
 
 	// Outcome How the seat ended, as CGE records it; null where CGE's seats are not known
-	Outcome *GameSeatOutcome `json:"outcome"`
-	Score   float64          `json:"score"`
+	Outcome *SeatOutcome `json:"outcome"`
+	Score   float64      `json:"score"`
 }
-
-// GameSeatOutcome How the seat ended, as CGE records it; null where CGE's seats are not known
-type GameSeatOutcome string
 
 // GameSpan How many games and players a tournament, season or stage has, and when its first and last game were played
 type GameSpan struct {
@@ -2864,6 +2499,9 @@ type GameSpan struct {
 	LastGame  openapi_types.Date `json:"last_game"`
 	Players   int                `json:"players"`
 }
+
+// GameState A game's state
+type GameState string
 
 // HallOfFame defines model for HallOfFame.
 type HallOfFame struct {
@@ -3016,8 +2654,14 @@ type LinkRequestAsk struct {
 	Name string `json:"name"`
 }
 
+// LinkedHow How an account was linked to its member
+type LinkedHow string
+
 // LoginProvider Where a player signs in
 type LoginProvider string
+
+// MatchSide A side of a blitz match
+type MatchSide string
 
 // MatrixCell defines model for MatrixCell.
 type MatrixCell struct {
@@ -3037,7 +2681,7 @@ type MatrixCell struct {
 // member they are linked to (null until linked), their latest request to be linked (null if none), and their
 // role in admin (null if none)
 type Me struct {
-	AdminRole *MeAdminRole `json:"admin_role"`
+	AdminRole *Role `json:"admin_role"`
 
 	// Country Their country as a two-letter ISO code, or null; the member's once linked, until then the one they gave
 	Country *string `json:"country"`
@@ -3057,9 +2701,6 @@ type Me struct {
 	// Zone Their time zone (IANA, a region such as US East, or Unknown); the member's once linked, until then the one they gave
 	Zone string `json:"zone"`
 }
-
-// MeAdminRole defines model for Me.AdminRole.
-type MeAdminRole string
 
 // MemberAdded defines model for MemberAdded.
 type MemberAdded struct {
@@ -3130,15 +2771,15 @@ type MyBlitzMatch struct {
 	Id         int64            `json:"id"`
 
 	// Me Which side the player is
-	Me MyBlitzMatchMe `json:"me"`
+	Me MatchSide `json:"me"`
 
 	// Report Null when no player reported the game
 	Report *BlitzReport `json:"report"`
 
 	// ReportedBy Which side reported the game; null when no player did
-	ReportedBy *MyBlitzMatchReportedBy `json:"reported_by"`
-	Result     *BlitzResult            `json:"result"`
-	Round      int                     `json:"round"`
+	ReportedBy *MatchSide   `json:"reported_by"`
+	Result     *BlitzResult `json:"result"`
+	Round      int          `json:"round"`
 
 	// Ruled Whether the result is the organisers' ruling
 	Ruled bool `json:"ruled"`
@@ -3146,12 +2787,6 @@ type MyBlitzMatch struct {
 
 // MyBlitzMatchActions defines model for MyBlitzMatch.Actions.
 type MyBlitzMatchActions string
-
-// MyBlitzMatchMe Which side the player is
-type MyBlitzMatchMe string
-
-// MyBlitzMatchReportedBy Which side reported the game; null when no player did
-type MyBlitzMatchReportedBy string
 
 // MyData Everything we keep about the signed-in player
 type MyData struct {
@@ -3183,14 +2818,11 @@ type MyDataAccount struct {
 	LinkedAt  *time.Time `json:"linked_at"`
 
 	// LinkedHow How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
-	LinkedHow *MyDataAccountLinkedHow `json:"linked_how"`
+	LinkedHow *LinkedHow `json:"linked_how"`
 
 	// Zone The time zone given before a link; null when none (a link moves it to the member)
 	Zone *string `json:"zone"`
 }
-
-// MyDataAccountLinkedHow How the account was linked to its member, by a matching Discord name or email or by an approved request; null when not linked
-type MyDataAccountLinkedHow string
 
 // MyDataEmailLink An emailed sign-in link
 type MyDataEmailLink struct {
@@ -3268,13 +2900,12 @@ type MyDataRequest struct {
 	Name      string     `json:"name"`
 
 	// Reason Why it was refused, empty when no reason was given
-	Reason      string              `json:"reason"`
-	RequestedAt time.Time           `json:"requested_at"`
-	Status      MyDataRequestStatus `json:"status"`
-}
+	Reason      string    `json:"reason"`
+	RequestedAt time.Time `json:"requested_at"`
 
-// MyDataRequestStatus defines model for MyDataRequest.Status.
-type MyDataRequestStatus string
+	// Status Where a request to be linked to a member stands
+	Status RequestStatus `json:"status"`
+}
 
 // MyDataSession A session, which ends and is removed 30 days after its last use
 type MyDataSession struct {
@@ -3304,13 +2935,12 @@ type MyLinkRequest struct {
 	Name string `json:"name"`
 
 	// Reason Why it was refused, empty when no reason was given
-	Reason      string              `json:"reason"`
-	RequestedAt time.Time           `json:"requested_at"`
-	Status      MyLinkRequestStatus `json:"status"`
-}
+	Reason      string    `json:"reason"`
+	RequestedAt time.Time `json:"requested_at"`
 
-// MyLinkRequestStatus defines model for MyLinkRequest.Status.
-type MyLinkRequestStatus string
+	// Status Where a request to be linked to a member stands
+	Status RequestStatus `json:"status"`
+}
 
 // MyLogin A way into the signed-in player's account
 type MyLogin struct {
@@ -3652,12 +3282,18 @@ type PodiumSetting struct {
 	Podium []PodiumEntry `json:"podium"`
 }
 
+// PodiumSource How a tournament's podium is chosen
+type PodiumSource string
+
 // PreviousRating The player's rating on the previous year's last period, if they had one
 type PreviousRating struct {
 	CRating float64 `json:"c_rating"`
 	Rating  float64 `json:"rating"`
 	Rd      float64 `json:"rd"`
 }
+
+// RanksFixedBy What fixed a blitz edition's starting ranks
+type RanksFixedBy string
 
 // RecentPodium A tournament season's podium
 type RecentPodium struct {
@@ -3694,6 +3330,9 @@ type Region struct {
 	Zone string `json:"zone"`
 }
 
+// RequestStatus Where a request to be linked to a member stands
+type RequestStatus string
+
 // Rival defines model for Rival.
 type Rival struct {
 	Draws  int    `json:"draws"`
@@ -3705,6 +3344,12 @@ type Rival struct {
 	WinRate float64 `json:"win_rate"`
 	Wins    int     `json:"wins"`
 }
+
+// Role What a person may do in admin
+type Role string
+
+// RoundKind A Swiss round, or a knockout round
+type RoundKind string
 
 // Run defines model for Run.
 type Run struct {
@@ -3833,11 +3478,13 @@ type SeatAnalysis struct {
 	// Groups Seat statistics grouped by player count (2P, 3P, 4P)
 	Groups []SeatStatsGroup `json:"groups"`
 	RunId  int64            `json:"run_id"`
-	Tier   SeatAnalysisTier `json:"tier"`
+
+	// Tier A seat analysis' group of players, by rating
+	Tier SeatTier `json:"tier"`
 }
 
-// SeatAnalysisTier defines model for SeatAnalysis.Tier.
-type SeatAnalysisTier string
+// SeatOutcome How a player's game ended
+type SeatOutcome string
 
 // SeatPlaceRate defines model for SeatPlaceRate.
 type SeatPlaceRate struct {
@@ -3856,6 +3503,9 @@ type SeatStatsGroup struct {
 	Seats       []SeatWinrateRow `json:"seats"`
 	TotalGames  int              `json:"total_games"`
 }
+
+// SeatTier A seat analysis' group of players, by rating
+type SeatTier string
 
 // SeatWinrateRow defines model for SeatWinrateRow.
 type SeatWinrateRow struct {
@@ -4092,7 +3742,7 @@ type TournamentSettings struct {
 	Parent *string `json:"parent,omitempty"`
 
 	// PodiumSource How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
-	PodiumSource *TournamentSettingsPodiumSource `json:"podium_source,omitempty"`
+	PodiumSource *PodiumSource `json:"podium_source,omitempty"`
 
 	// Points2p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points2p *PlacePoints `json:"points_2p,omitempty"`
@@ -4121,9 +3771,6 @@ type TournamentSettings struct {
 	TopDivisions *[]string `json:"top_divisions,omitempty"`
 	Visible      *bool     `json:"visible,omitempty"`
 }
-
-// TournamentSettingsPodiumSource How its podium is chosen: top_divisions (final standings), final_stage (games in final stage), recorded (organisers' placements), or none
-type TournamentSettingsPodiumSource string
 
 // TrophyRow One player on a series' board: medals and a title for the leagues
 // and the World Championship, medals and honours for the cups, or
@@ -4418,14 +4065,11 @@ type GetComparedPlayersParams struct {
 // GetSeatAnalysisParams defines parameters for GetSeatAnalysis.
 type GetSeatAnalysisParams struct {
 	// Tier Skill tier of the table based on average Glicko-D rating when played
-	Tier *GetSeatAnalysisParamsTier `form:"tier,omitempty" json:"tier,omitempty"`
+	Tier *SeatTier `form:"tier,omitempty" json:"tier,omitempty"`
 
 	// Format Player count format (0 for all formats, or 2, 3, 4)
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
-
-// GetSeatAnalysisParamsTier defines parameters for GetSeatAnalysis.
-type GetSeatAnalysisParamsTier string
 
 // GetCatalogueGamesParams defines parameters for GetCatalogueGames.
 type GetCatalogueGamesParams struct {
@@ -4440,12 +4084,9 @@ type GetCatalogueGamesParams struct {
 	Coded *bool `form:"coded,omitempty" json:"coded,omitempty"`
 
 	// State Only games in this state
-	State *GetCatalogueGamesParamsState `form:"state,omitempty" json:"state,omitempty"`
-	Page  *int                          `form:"page,omitempty" json:"page,omitempty"`
+	State *GameState `form:"state,omitempty" json:"state,omitempty"`
+	Page  *int       `form:"page,omitempty" json:"page,omitempty"`
 }
-
-// GetCatalogueGamesParamsState defines parameters for GetCatalogueGames.
-type GetCatalogueGamesParamsState string
 
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
@@ -8193,7 +7834,7 @@ func (siw *ServerInterfaceWrapper) GetSeatAnalysis(w http.ResponseWriter, r *htt
 
 	// ------------- Optional query parameter "tier" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "tier", r.URL.Query(), &params.Tier, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "tier", r.URL.Query(), &params.Tier, runtime.BindQueryParameterOptions{Type: "", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {

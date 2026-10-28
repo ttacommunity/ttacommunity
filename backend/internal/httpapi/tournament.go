@@ -211,7 +211,7 @@ func (s *server) GetCommunityLeaderboard(ctx context.Context, req GetCommunityLe
 			row.Scores = map[string]float64{}
 		}
 		if r.Title != nil {
-			title := CommunityRowTitle(*r.Title)
+			title := TitleCode(*r.Title)
 			row.Title = &title
 		}
 		body.Rows = append(body.Rows, row)

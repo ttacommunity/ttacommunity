@@ -3,17 +3,17 @@ import type { components } from '@ttac/shared/api';
 
 type Schemas = components['schemas'];
 export type BlitzGameRecord = Schemas['BlitzGameRecord'];
-export type BlitzOutcome = Schemas['BlitzOutcome'];
+export type SeatOutcome = Schemas['SeatOutcome'];
 export type BlitzStanding = Schemas['BlitzStanding'];
 
 /** GameForm is the result form as typed: cultures as text, outcomes and turns chosen (1 for who went first, null for none yet), and when it finished: the day (YYYY-MM-DD) and time (HH:MM) on the clocks of a zone (IANA, a region or Unknown). */
 export type GameForm = {
   share_code: string;
   a_culture: string;
-  a_outcome: BlitzOutcome;
+  a_outcome: SeatOutcome;
   a_turn: number | null;
   b_culture: string;
-  b_outcome: BlitzOutcome;
+  b_outcome: SeatOutcome;
   b_turn: number | null;
   finished_on: string;
   finished_time: string;
@@ -46,7 +46,7 @@ export function chooseTurn(f: GameForm, who: GameSide, turn: number): GameForm {
 }
 
 /** culture reads a typed culture: 0 for a player who did not finish, else a number of 0 or more, or null when it is not one. */
-function culture(text: string, outcome: BlitzOutcome): number | null {
+function culture(text: string, outcome: SeatOutcome): number | null {
   if (outcome !== 'finished') return 0;
   const n = text.trim() === '' ? NaN : Number(text);
   return Number.isFinite(n) && n >= 0 ? n : null;

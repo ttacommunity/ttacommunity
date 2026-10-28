@@ -237,7 +237,7 @@ func (s *server) GetAdminMe(ctx context.Context, _ GetAdminMeRequestObject) (Get
 		return nil, errors.New("admin route reached without the gate")
 	}
 	return GetAdminMe200JSONResponse{
-		Body:    AdminMe{Name: a.Name, Role: AdminMeRole(a.Role)},
+		Body:    AdminMe{Name: a.Name, Role: Role(a.Role)},
 		Headers: GetAdminMe200ResponseHeaders{CacheControl: cacheNone},
 	}, nil
 }
@@ -269,7 +269,7 @@ func (s *server) GetAdminAdmins(ctx context.Context, _ GetAdminAdminsRequestObje
 	}
 	out := make([]AdminPerson, len(list))
 	for i, a := range list {
-		out[i] = AdminPerson{DiscordId: a.DiscordID, Name: a.Name, Role: AdminPersonRole(a.Role)}
+		out[i] = AdminPerson{DiscordId: a.DiscordID, Name: a.Name, Role: Role(a.Role)}
 	}
 	return GetAdminAdmins200JSONResponse{Body: out, Headers: GetAdminAdmins200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

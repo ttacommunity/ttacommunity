@@ -25,11 +25,11 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 		me.Member = &MyMember{Name: l.Member.Name, Player: l.Member.Player, Banned: l.Banned, BanReason: l.BanReason}
 	}
 	if l.Request != nil {
-		me.Request = &MyLinkRequest{Name: l.Request.Name, Status: MyLinkRequestStatus(l.Request.Status), Reason: l.Request.Reason,
+		me.Request = &MyLinkRequest{Name: l.Request.Name, Status: RequestStatus(l.Request.Status), Reason: l.Request.Reason,
 			RequestedAt: l.Request.RequestedAt}
 	}
 	if l.AdminRole != "" {
-		role := MeAdminRole(l.AdminRole)
+		role := Role(l.AdminRole)
 		me.AdminRole = &role
 	}
 	return GetMe200JSONResponse{Body: me, Headers: GetMe200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -51,7 +51,7 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 		Sessions: make([]MyDataSession, len(k.Sessions)), EmailLinks: make([]MyDataEmailLink, len(k.EmailLinks)),
 	}
 	if a.LinkedHow != "" {
-		how := MyDataAccountLinkedHow(a.LinkedHow)
+		how := LinkedHow(a.LinkedHow)
 		d.Account.LinkedHow = &how
 	}
 	for i, l := range k.Logins {
@@ -63,7 +63,7 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 			Country: nullableText(m.Country), Zone: m.Zone, Banned: m.Banned, BanReason: m.BanReason, BannedAt: inUTC(m.BannedAt), CreatedAt: m.CreatedAt.UTC()}
 	}
 	for i, r := range k.Requests {
-		d.Requests[i] = MyDataRequest{Name: r.Name, Status: MyDataRequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt.UTC(), DecidedAt: inUTC(r.DecidedAt)}
+		d.Requests[i] = MyDataRequest{Name: r.Name, Status: RequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt.UTC(), DecidedAt: inUTC(r.DecidedAt)}
 	}
 	for i, x := range k.Sessions {
 		d.Sessions[i] = MyDataSession{Provider: LoginProvider(x.Provider), CreatedAt: x.CreatedAt.UTC(), EndsAt: x.Ends.UTC(), ThisBrowser: x.ThisBrowser}
