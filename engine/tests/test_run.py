@@ -940,6 +940,12 @@ def golden_season(add_match):
         add_match(("Fay", 90), ("Dan", -2), day=date(year, month, 20), tournament="Cup")
     add_match(("Ann", 105), ("Cat", 97), day=date(2022, 4, 25), tournament="Royal League Stage 1 - Emperor",
               placed="royal_league", group="Emperor")  # fmt: skip
+    for day, players in (
+        (26, (("Eve", 90), ("Fay", 80))),
+        (27, (("Fay", 90), ("Eve", 70))),
+    ):
+        add_match(*players, day=date(2022, 4, day), tournament="RL_s01 - Duke 1", placed="royal_league",
+                  group="Duke 1")  # fmt: skip
 
 
 def stable(value):
