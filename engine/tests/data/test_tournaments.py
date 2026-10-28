@@ -1208,6 +1208,11 @@ def test_a_seasons_results_wait_for_its_top_division_to_finish(
     else:
         assert got == ({}, {}, 0)
     assert len(standings(conn, run_id, 30)) == 4
+    flags = conn.execute(
+        "SELECT DISTINCT finished FROM tournament_standings WHERE run_id = %s",
+        (run_id,),
+    ).fetchall()
+    assert [r["finished"] for r in flags] == [finished]
 
 
 def test_a_season_waits_for_a_game_only_the_catalogue_places(conn, add_match, run_id):

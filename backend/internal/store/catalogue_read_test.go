@@ -759,6 +759,30 @@ func TestRecentPodiumsGivesEachTournamentsLatestSeasonWithAPodium(t *testing.T) 
 	}
 }
 
+func TestRecentPodiumsLeavesOutASeasonStillBeingPlayed(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Intermezzo S23 - Grandmaster game 1": day("2023-09-02"),
+		"Intermezzo S24 - Grandmaster game 1": day("2024-01-02"),
+	})
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings, finished)
+		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', 'ann', 1, 12, 6, '{}', true),
+		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'bob', 1, 20, 1, '{}', false)`, run); err != nil {
+		t.Fatalf("adding standings: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).RecentPodiums(ctx, run, 12, 8)
+	if err != nil {
+		t.Fatalf("RecentPodiums: %v", err)
+	}
+	if diff := cmp.Diff([]string{"intermezzo 23 2023-09-02 ann"}, podiumLines(got)); diff != "" {
+		t.Errorf("recent podiums with season 24 still being played: season 23's only (-want +got):\n%s", diff)
+	}
+}
+
 func TestRecentPodiumsLooksAtTheMostRecentlyPlayedTournamentsOnly(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

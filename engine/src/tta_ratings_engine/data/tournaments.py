@@ -601,7 +601,7 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
         for s in standings:
             standing_rows.append(
                 (run_id, worlds, season, "Final", "Final", s["player_name"],
-                 s["place"], s["points"], s["games"], s["placings"])
+                 s["place"], s["points"], s["games"], s["placings"], True)
             )  # fmt: skip
         for s in standings[:3]:
             derived[season][s["place"]].append(
@@ -731,15 +731,16 @@ def _groups_and_records(classified, by_id, rules, in_progress):
     return groups, records
 
 
-def _standings(run_id, groups, rules):
-    """Returns each group's standing rows to insert, and the standings by (series, season, division)."""
+def _standings(run_id, groups, rules, in_progress):
+    """Returns each group's standing rows to insert, each saying if its season is finished (not in in_progress),
+    and the standings by (series, season, division)."""
     standing_rows = []
     derived = defaultdict(list)
     for (series, season, division, group), games in groups.items():
         for s in rank_group(games, rules[series]):
             standing_rows.append(
                 (run_id, series, season, division, group, s["player_name"],
-                 s["place"], s["points"], s["games"], s["placings"])
+                 s["place"], s["points"], s["games"], s["placings"], (series, season) not in in_progress)
             )  # fmt: skip
             derived[(series, season, division)].append(s)
     return standing_rows, derived
@@ -786,7 +787,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
         )
         dates = _finish_dates(classified, by_id, in_progress, facts.dates)
         groups, records = _groups_and_records(classified, by_id, rules, in_progress)
-        standing_rows, derived = _standings(run_id, groups, rules)
+        standing_rows, derived = _standings(run_id, groups, rules, in_progress)
         # A season still being played shows its standings, but no podium yet.
         finished = {
             k: v
@@ -889,7 +890,7 @@ def _write(
             )  # fmt: skip
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO tournament_standings VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             standing_rows,
         )
         cur.executemany(
