@@ -112,7 +112,7 @@ func TestApprovingKeepsTheRequestersDiscordNameOnANewMember(t *testing.T) {
 	}
 }
 
-func TestALinkedMembersMissingDiscordNameAndEmailComeFromTheirLogins(t *testing.T) {
+func TestALinkedMembersDiscordNameAndMissingEmailComeFromTheirLogins(t *testing.T) {
 	addEmail := func(t *testing.T, p *PlayerStore, account int64, address string) {
 		t.Helper()
 		ctx := context.Background()
@@ -134,11 +134,24 @@ func TestALinkedMembersMissingDiscordNameAndEmailComeFromTheirLogins(t *testing.
 			addEmail(t, p, l.ID, "player@example.test")
 			approved(t, a, p, l, "ann")
 		}, "player_one", "player@example.test"},
-		{"approved, keeping what the member has", Member{Name: "ann", DiscordName: "ann_elsewhere", Email: "ann@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+		{"approved, the Discord sign-in's name replacing the member's, the member's email kept", Member{Name: "ann", DiscordName: "ann_elsewhere", Email: "ann@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
 			l := signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 			addEmail(t, p, l.ID, "player@example.test")
 			approved(t, a, p, l, "ann")
-		}, "ann_elsewhere", "ann@example.test"},
+		}, "player_one", "ann@example.test"},
+		{"linked by email, Discord added after, replacing an organiser's name", Member{Name: "ann", DiscordName: "typed_by_organiser", Email: "player@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			emailSignedIn(t, p, "player@example.test", "email")
+			if err := p.AddLogin(context.Background(), tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {
+				t.Fatalf("AddLogin: %v", err)
+			}
+		}, "player_one", "player@example.test"},
+		{"a renamed Discord account, at its next sign-in", Member{Name: "ann", DiscordName: "player_one", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
+			signedIn(t, p, discordID("100000000000000001", "player_renamed", ""), "again")
+		}, "player_renamed", ""},
+		{"approved with no Discord way in, keeping the organiser's name", Member{Name: "ann", DiscordName: "typed_by_organiser", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			approved(t, a, p, signedIn(t, p, googleID("100000000000000000001", "Player One", "player@example.test"), "token"), "ann")
+		}, "typed_by_organiser", "player@example.test"},
 		{"linked by email, Discord added after", Member{Name: "ann", Email: "player@example.test", Zone: "UTC"}, func(t *testing.T, a *AdminStore, p *PlayerStore) {
 			emailSignedIn(t, p, "player@example.test", "email")
 			if err := p.AddLogin(context.Background(), tokenHash("email"), discordID("100000000000000001", "player_one", ""), signInAt); err != nil {

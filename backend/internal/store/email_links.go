@@ -128,6 +128,9 @@ func (s *PlayerStore) UseEmailLink(ctx context.Context, linkHash, sessionHash []
 		if err := startSession(ctx, tx, login, sessionHash, now); err != nil {
 			return err
 		}
+		if _, err := tx.Exec(ctx, "SELECT audit_own_login_added($1, 'email', $2)", sessionHash, now); err != nil {
+			return fmt.Errorf("auditing a way in added: %w", err)
+		}
 		return autoLink(ctx, tx, *account, id, sessionHash, now)
 	})
 	return out, err
