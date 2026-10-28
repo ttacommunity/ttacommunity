@@ -3,7 +3,7 @@ import { panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'members', 'data', 'titles', 'admins']],
+    ['admin', ['tournaments', 'community', 'blitz', 'members', 'data', 'titles', 'admins', 'audit']],
     ['organiser', ['tournaments', 'blitz', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
@@ -17,6 +17,8 @@ describe('admin tabs', () => {
     ['#nonsense', 'admin', 'tournaments'],
     ['#runs', 'admin', 'data'],
     ['#admins', 'organiser', 'tournaments'],
+    ['#audit', 'admin', 'audit'],
+    ['#audit', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
     ['#signins', 'organiser', 'members'],
@@ -34,6 +36,7 @@ describe('admin tabs', () => {
     ['blitz', 'organiser', ['blitz']],
     ['members', 'organiser', ['members']],
     ['admins', 'admin', ['admins']],
+    ['audit', 'admin', ['audit']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);
   });

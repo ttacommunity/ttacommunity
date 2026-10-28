@@ -1221,6 +1221,37 @@ type AdminAccountLogin struct {
 	Username string `json:"username"`
 }
 
+// AdminAuditEntry defines model for AdminAuditEntry.
+type AdminAuditEntry struct {
+	Action string `json:"action"`
+
+	// Admin The name of the admin who made the change; empty for a player, or someone no longer in admin
+	Admin string    `json:"admin"`
+	At    time.Time `json:"at"`
+
+	// ByPlayer A player made the change, through their own account
+	ByPlayer bool `json:"by_player"`
+
+	// Detail The change's detail, as JSON text
+	Detail string `json:"detail"`
+	Id     int64  `json:"id"`
+
+	// Target What was changed, by its id or name
+	Target string `json:"target"`
+}
+
+// AdminAuditPage defines model for AdminAuditPage.
+type AdminAuditPage struct {
+	// Actions Every action in the log, to filter by
+	Actions []string          `json:"actions"`
+	Entries []AdminAuditEntry `json:"entries"`
+	Page    int               `json:"page"`
+	Pages   int               `json:"pages"`
+
+	// Total The entries the filters allow
+	Total int `json:"total"`
+}
+
 // AdminBadge defines model for AdminBadge.
 type AdminBadge struct {
 	Description string `json:"description"`
@@ -4285,6 +4316,22 @@ type TooManyLinks = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// GetAdminAuditParams defines parameters for GetAdminAudit.
+type GetAdminAuditParams struct {
+	// Action Only this action
+	Action *string `form:"action,omitempty" json:"action,omitempty"`
+
+	// Q Only entries whose action, target, detail or admin's name holds this, in any case
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// From Only entries at or after this time
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Only entries before this time, which is not before from
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+	Page *int       `form:"page,omitempty" json:"page,omitempty"`
+}
+
 // GetAdminBlitzCandidatesParams defines parameters for GetAdminBlitzCandidates.
 type GetAdminBlitzCandidatesParams struct {
 	// Q Part of a name, at least two characters
@@ -4621,6 +4668,9 @@ type ServerInterface interface {
 	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
 	// (PUT /v1/admin/admins/{discord_id})
 	PutAdminAdmin(w http.ResponseWriter, r *http.Request, discordId DiscordID)
+	// GetAdminAudit The audit log, newest first, 50 to a page (admins only)
+	// (GET /v1/admin/audit)
+	GetAdminAudit(w http.ResponseWriter, r *http.Request, params GetAdminAuditParams)
 	// GetAdminBadges Every badge admin made, with who holds it (admins only)
 	// (GET /v1/admin/badges)
 	GetAdminBadges(w http.ResponseWriter, r *http.Request)
@@ -5154,6 +5204,91 @@ func (siw *ServerInterfaceWrapper) PutAdminAdmin(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminAdmin(w, r, discordId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminAudit operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminAuditParams
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminAudit(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9448,6 +9583,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/admins", wrapper.GetAdminAdmins)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.DeleteAdminAdmin)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/audit", wrapper.GetAdminAudit)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/members", wrapper.GetAdminMembers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/members", wrapper.PostAdminMember)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/members/{member}", wrapper.DeleteAdminMember)
@@ -10057,6 +10193,81 @@ func (response PutAdminAdmin401JSONResponse) VisitPutAdminAdminResponse(w http.R
 type PutAdminAdmin403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response PutAdminAdmin403JSONResponse) VisitPutAdminAdminResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAuditRequestObject struct {
+	Params GetAdminAuditParams
+}
+
+type GetAdminAuditResponseObject interface {
+	VisitGetAdminAuditResponse(w http.ResponseWriter) error
+}
+
+type GetAdminAudit200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminAudit200JSONResponse struct {
+	Body    AdminAuditPage
+	Headers GetAdminAudit200ResponseHeaders
+}
+
+func (response GetAdminAudit200JSONResponse) VisitGetAdminAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAudit400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetAdminAudit400JSONResponse) VisitGetAdminAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAudit401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminAudit401JSONResponse) VisitGetAdminAuditResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminAudit403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminAudit403JSONResponse) VisitGetAdminAuditResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -18430,6 +18641,9 @@ type StrictServerInterface interface {
 	// PutAdminAdmin Add someone to admin, or change their name or role (admins only; admin always keeps one admin)
 	// (PUT /v1/admin/admins/{discord_id})
 	PutAdminAdmin(ctx context.Context, request PutAdminAdminRequestObject) (PutAdminAdminResponseObject, error)
+	// GetAdminAudit The audit log, newest first, 50 to a page (admins only)
+	// (GET /v1/admin/audit)
+	GetAdminAudit(ctx context.Context, request GetAdminAuditRequestObject) (GetAdminAuditResponseObject, error)
 	// GetAdminBadges Every badge admin made, with who holds it (admins only)
 	// (GET /v1/admin/badges)
 	GetAdminBadges(ctx context.Context, request GetAdminBadgesRequestObject) (GetAdminBadgesResponseObject, error)
@@ -19052,6 +19266,32 @@ func (sh *strictHandler) PutAdminAdmin(w http.ResponseWriter, r *http.Request, d
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminAdminResponseObject); ok {
 		if err := validResponse.VisitPutAdminAdminResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminAudit operation middleware
+func (sh *strictHandler) GetAdminAudit(w http.ResponseWriter, r *http.Request, params GetAdminAuditParams) {
+	var request GetAdminAuditRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminAudit(ctx, request.(GetAdminAuditRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminAudit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminAuditResponseObject); ok {
+		if err := validResponse.VisitGetAdminAuditResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -51,7 +51,7 @@ spec:
           # its own credentials: load the service account token and the Cloudflare token, rclone the R2 token.
           initContainers:
             - name: export
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-5a799b43@sha256:cabf52abeb7b2fd0bf57ec6b655076dce692b05522efca95e246adc82679c33f
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-0b7be3d9@sha256:f96da1a50fc402f232e77c5d3a783c9b0795a4e90b81c79d52f5fd221db0b4a3
               args: [-backup-config-to, /backup]
               env:
                 - name: BACKUP_AGE_RECIPIENT

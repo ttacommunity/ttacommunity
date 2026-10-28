@@ -166,7 +166,7 @@ The tables fall into five groups:
 | **Catalogue and recorded facts** | Series, tournaments, stages and groups with their settings; what counts towards which ranking; and what games cannot say: official placements, divisions, podium and title overrides, rules, notes, cards, regulations, stories, CGE's own standings, community points | `series`, `tournaments`, `stages`, `groups`, `settings`, `rankings`, `ranking_series`, `cge_tournaments`, `tournament_official_placements`, `tournament_cards`, `community_scores`, `badges` | load job, admin |
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
 | **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year and seat statistics, the analysis pages' counts, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_seat_stats`, `seat_tier_stats`, `run_format_counts`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
-| **Admin** | Who may use admin and with which role; an audit of every admin change, which names members by id and a change by the fields it set, never a member's details | `admins`, `admin_audit` | admin |
+| **Admin** | Who may use admin and with which role; an audit of every admin change and of players' changes to their own sign-ins and blitz games, which names members and accounts by id and a change by the fields it set, never a member's details; admins read it on admin's Audit tab | `admins`, `admin_audit` | admin |
 
 Patterns that hold across the schema:
 
@@ -208,10 +208,11 @@ Patterns that hold across the schema:
   `write_game`, is granted to nobody. Reading is the same: a player sees
   everything kept about them (`GET /v1/me/data`), and the member fields the
   login cannot select, such as the email, come through `own_member`, which
-  returns the session's own member and no other. A linked member's empty Discord name
-  and email are filled from their account's sign-ins
-  (`fill_member_from_logins`, for both the player and admin logins); what
-  the member has is never replaced. The api checks each login's limits
+  returns the session's own member and no other. A linked member's Discord
+  name is their Discord sign-in's whenever they have one, so a name an
+  organiser typed is a pre-fill, and an empty email is filled from their
+  sign-ins (`fill_member_from_logins`, for both the player and admin logins).
+  A name changed this way, and a way in added or removed, is audited by ids. The api checks each login's limits
   when it starts, and refuses to serve with one that can do more
 
 The **app database** *(planned)* will hold tournament

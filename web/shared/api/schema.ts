@@ -1443,6 +1443,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The audit log, newest first, 50 to a page (admins only)
+         * @description Every change made in admin, and each player's own change the log
+         *     records, with who made it. A page past the last gives the last.
+         */
+        get: operations["getAdminAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/members": {
         parameters: {
             query?: never;
@@ -2793,6 +2814,30 @@ export interface components {
             name: string;
             /** @enum {string} */
             role: "admin" | "organiser";
+        };
+        AdminAuditPage: {
+            page: number;
+            pages: number;
+            /** @description The entries the filters allow */
+            total: number;
+            /** @description Every action in the log, to filter by */
+            actions: string[];
+            entries: components["schemas"]["AdminAuditEntry"][];
+        };
+        AdminAuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description The name of the admin who made the change; empty for a player, or someone no longer in admin */
+            admin: string;
+            /** @description A player made the change, through their own account */
+            by_player: boolean;
+            action: string;
+            /** @description What was changed, by its id or name */
+            target: string;
+            /** @description The change's detail, as JSON text */
+            detail: string;
         };
         AdminRole: {
             name: string;
@@ -7071,6 +7116,40 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminAudit: {
+        parameters: {
+            query?: {
+                /** @description Only this action */
+                action?: string;
+                /** @description Only entries whose action, target, detail or admin's name holds this, in any case */
+                q?: string;
+                /** @description Only entries at or after this time */
+                from?: string;
+                /** @description Only entries before this time, which is not before from */
+                to?: string;
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the log */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAuditPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getAdminMembers: {

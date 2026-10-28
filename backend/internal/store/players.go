@@ -334,6 +334,9 @@ func (s *PlayerStore) AddLogin(ctx context.Context, tokenHash []byte, id Identit
 		if _, err := addLogin(ctx, tx, account, id, now); err != nil {
 			return err
 		}
+		if _, err := tx.Exec(ctx, "SELECT audit_own_login_added($1, $2, $3)", tokenHash, id.Provider, now); err != nil {
+			return fmt.Errorf("auditing a way in added: %w", err)
+		}
 		return autoLink(ctx, tx, account, id, tokenHash, now)
 	})
 }
