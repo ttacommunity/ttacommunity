@@ -97,11 +97,11 @@ func swissPlayed(ed store.BlitzEdition) ([]blitz.Entrant, []blitz.Played, []int)
 }
 
 // swissStandings ranks an edition's entrants by its published Swiss rounds' results and skips, as its points score
-// them, and its tiebreak seed. The knockout's results never count: the standings after the last Swiss round are its
-// seeds.
+// them, and their starting ranks. The knockout's results never count: the standings after the last Swiss round are
+// its seeds.
 func swissStandings(ed store.BlitzEdition) []blitz.Standing {
 	entrants, matches, _ := swissPlayed(ed)
-	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, uint64(ed.TiebreakSeed), ed.Points)
+	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, ed.Points)
 }
 
 // blitzPairing is an edition's pairing methods as the API sends them.

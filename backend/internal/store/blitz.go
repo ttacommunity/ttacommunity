@@ -47,15 +47,13 @@ var ErrBadBlitzPairing = errors.New("round 1 is paired by dutch, dutch-timezone,
 var ErrBlitzRanksFixed = errors.New("the starting ranks are fixed")
 
 // BlitzEditionRow is one edition of a blitz series as the lists show it: the series' slug and name, the
-// edition's label and format, how many entrants are in and dropped, and the seed that breaks what the
-// standings' tiebreaks leave (0 until the edition has a row of its own).
+// edition's label and format, and how many entrants are in and dropped.
 type BlitzEditionRow struct {
 	Slug, Name, Edition string
 	Format              BlitzFormat
 	Entrants, Dropped   int
 	// Flagged counts the players' reports flagged and waiting for an organiser.
-	Flagged      int
-	TiebreakSeed int64
+	Flagged int
 	// Points are what each outcome is worth, FIDE's until admin sets them.
 	Points blitz.Scoring
 	// Pairing is how its Swiss rounds are paired, DefaultBlitzPairing until admin sets it.
@@ -154,7 +152,6 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       coalesce(e.pairing_later_order, $16), coalesce(e.ranks_fixed_by, ''),
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'active')::int,
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
-		       coalesce(e.tiebreak_seed, 0),
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL),
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id),
 		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) WHERE r.tournament_id = t.tournament_id AND m.report = 'flagged')::int,
@@ -172,7 +169,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.TiebreakSeed, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)

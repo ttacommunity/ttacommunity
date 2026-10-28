@@ -202,7 +202,7 @@ export function fixedByLabel(fixedBy: 'rating' | 'lot' | null): string | null {
   return fixedBy === null ? null : orderLabel(fixedBy);
 }
 
-/** startLabel is the starting-rank column's heading: "Lot" when a draw fixed the ranks, "Seed" when ratings did; null before round 1. */
+/** startLabel is the starting-rank column's heading: "Lot" when lots fixed the ranks, "Seed" when ratings did; null before round 1. */
 export function startLabel(fixedBy: 'rating' | 'lot' | null): string | null {
   return fixedBy === null ? null : fixedBy === 'lot' ? 'Lot' : 'Seed';
 }
@@ -265,14 +265,14 @@ export function reachedLabel(round: number | null, f: BlitzFormat, champion: str
   return round === null ? 'Pairing not started' : roundTitle(round, f);
 }
 
-/** lastTieBreak names what orders the players every tie-break leaves level: "the lot" or "the seed" by what fixed the starting ranks, "the draw" before round 1. */
-export function lastTieBreak(fixedBy: 'rating' | 'lot' | null): string {
-  return fixedBy === 'lot' ? 'the lot' : fixedBy === 'rating' ? 'the seed' : 'the draw';
+/** lastTieBreak names what orders the players every tie-break leaves level, by what fixed the starting ranks: "the lot" or "the seed". */
+export function lastTieBreak(fixedBy: 'rating' | 'lot'): string {
+  return fixedBy === 'lot' ? 'the lot' : 'the seed';
 }
 
-/** drawLabel says which ranks the lot, the seed or the draw ordered (lastTieBreak), for a standing in a shared place: "Ranks 8–9 were ordered by the lot"; null for a rank held alone. */
+/** drawLabel says which ranks the lot or the seed ordered, for a standing in a shared place: "Ranks 8–9 were ordered by the lot"; null for a rank held alone, and before round 1 fixed the ranks (fixedBy null), when nothing orders them. */
 export function drawLabel(s: { place_from: number; place_to: number }, fixedBy: 'rating' | 'lot' | null): string | null {
-  return s.place_from === s.place_to ? null : `Ranks ${s.place_from}–${s.place_to} were ordered by ${lastTieBreak(fixedBy)}`;
+  return s.place_from === s.place_to || fixedBy === null ? null : `Ranks ${s.place_from}–${s.place_to} were ordered by ${lastTieBreak(fixedBy)}`;
 }
 
 /** TIE_BREAKS are the steps that separate players on the same points, in the order they apply, each said in plain words. */
@@ -283,7 +283,7 @@ export const TIE_BREAKS: readonly { label: string; about: string }[] = [
   { label: 'Sonneborn-Berger', about: 'The scores of the opponents beaten, plus half the scores of those drawn.' },
   { label: "Opponents' Buchholz", about: "The sum of the opponents' Buchholz." },
   { label: "Opponents' Sonneborn-Berger", about: "The sum of the opponents' Sonneborn-Berger." },
-  { label: 'The lot', about: 'The starting ranks fixed when round 1 was paired, the lower first: a draw of lots, or the seed when they follow the ratings. Before round 1, a draw fixed for the edition.' },
+  { label: 'The lot', about: 'The starting ranks fixed when round 1 is paired, the lower first: lots drawn for everyone, or the seed when they follow the ratings.' },
 ];
 
 /** UNPLAYED_NOTE says how a bye, a forfeit or a missed round counts in the tie-breaks. */
