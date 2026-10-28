@@ -85,7 +85,8 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
     };
   }, [history]);
 
-  useEffect(() => {
+  // A layout effect, declared before the fill below, so the chart exists when its lines are filled in.
+  useIsomorphicLayoutEffect(() => {
     if (canvas.current === null || data === null || empty) return;
     const font = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
     const grid = { color: 'rgba(74, 53, 37, 0.25)' };
