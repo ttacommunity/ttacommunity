@@ -34,3 +34,11 @@ export function opponentLabel(o: Opponent): string {
 export function previewText(c: ChallengeInfo): string {
   return [...(c.description.length > 0 ? c.description : c.rules)].join(' ');
 }
+
+/** ChallengeTile is what a page's islands need of a challenge to lay it out and link it. */
+export type ChallengeTile = Pick<ChallengeInfo, 'id' | 'set' | 'group' | 'name' | 'players'>;
+
+/** challengeTiles is every challenge as a ChallengeTile, small enough to hand to an island. */
+export function challengeTiles(): ChallengeTile[] {
+  return CHALLENGE_LIST.map(({ id, set, group, name, players }) => ({ id, set, group, name, players }));
+}

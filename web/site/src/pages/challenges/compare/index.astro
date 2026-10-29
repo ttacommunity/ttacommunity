@@ -1,0 +1,13 @@
+---
+/** Two players' challenge results side by side; the address names them (?a= and ?b=). */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengeComparePage from '../../../components/ChallengeComparePage';
+import { challengeTiles } from '../../../lib/challenge-list';
+import '../../../components/Challenges.css';
+---
+<SiteLayout title="Compare players | Challenges" description="Two players' challenge dominations side by side: wins, ties and each challenge's difference.">
+  <ChallengesNav page="compare" />
+  <ChallengeComparePage client:only="react" apiUrl={PUBLIC_API_URL} list={challengeTiles()} />
+</SiteLayout>
