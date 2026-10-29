@@ -279,3 +279,130 @@
     margin-left: 0;
   }
 }
+
+/* A challenge's page: its heading with picture, story, rules and opponents, then its board. */
+.challenges-crumbs {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+}
+.challenges-crumbs a {
+  color: var(--accent-gold);
+}
+.challenges-head {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+.challenges-head-img {
+  flex: none;
+  width: 12rem;
+  height: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenges-flavour {
+  color: var(--text-soft);
+  font-style: italic;
+}
+.challenges-rules {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  color: var(--text-main);
+}
+.challenges-opponents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+}
+.challenges-chip {
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-main);
+  background: var(--surface-inset);
+}
+.challenges-chip.easy {
+  border-color: var(--win);
+}
+.challenges-chip.medium {
+  border-color: var(--draw);
+}
+.challenges-chip.hard {
+  border-color: var(--loss);
+}
+.challenges-bar-title {
+  margin: 0;
+}
+.challenges-first td {
+  background: var(--gold-wash-faint);
+}
+.challenges-all summary {
+  cursor: pointer;
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+}
+
+/* The record history chart. */
+.challenges-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1rem;
+  font-family: var(--font-stats);
+}
+.challenges-chart .grid {
+  stroke: var(--border-faint);
+}
+.challenges-chart .axis {
+  fill: var(--text-muted);
+  font-size: 12px;
+}
+.challenges-chart .record-line {
+  fill: none;
+  stroke: var(--accent-gold);
+  stroke-width: 2.5;
+}
+.challenges-chart .hit {
+  fill: transparent;
+}
+.challenges-chart .marker {
+  fill: var(--bg-dark);
+  stroke: var(--accent-gold);
+  stroke-width: 2;
+}
+.challenges-chart .marker.active,
+.challenges-chart g:focus .marker {
+  fill: var(--accent-gold);
+}
+.challenges-chart g:focus {
+  outline: none;
+}
+.challenges-chart .chart-tip rect {
+  fill: var(--surface-well);
+  stroke: var(--accent-gold);
+}
+.challenges-chart .chart-tip text {
+  fill: var(--text-main);
+  font-size: 13px;
+}
+.challenges-chart .chart-tip text.muted {
+  fill: var(--text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .challenges-head {
+    flex-direction: column;
+  }
+  .challenges-head-img {
+    width: 100%;
+    max-width: 20rem;
+  }
+}
