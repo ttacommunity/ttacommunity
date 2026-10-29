@@ -403,15 +403,10 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if got.Rules, err = pgx.CollectRows(rows, pgx.RowToStructByPos[EditionRules]); err != nil {
 		return fail("rules", err)
 	}
-	err = r.pool.QueryRow(ctx, "SELECT coalesce((SELECT text FROM tournament_regulations WHERE tournament = $1), '')", slug).Scan(&got.Regulations)
-	if err != nil {
+	if got.Regulations, err = r.regulations(ctx, slug); err != nil {
 		return fail("regulations", err)
 	}
-	err = r.pool.QueryRow(ctx, `SELECT coalesce(max(icon), ''), coalesce(max(tagline), ''), coalesce(max(summary), ''),
-		coalesce(max(subtitle), ''), coalesce(max(cadence), '')
-		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&got.Card.Icon, &got.Card.Tagline, &got.Card.Summary,
-		&got.Card.Subtitle, &got.Card.Cadence)
-	if err != nil {
+	if got.Card, err = r.card(ctx, slug); err != nil {
 		return fail("card", err)
 	}
 	err = r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM ranking_series rt JOIN series t USING (series_id)
@@ -461,6 +456,22 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 		return fail("players", err)
 	}
 	return got, nil
+}
+
+// regulations returns a tournament's or group's format and regulations as admin writes them, empty for none.
+func (r *RatingsReader) regulations(ctx context.Context, slug string) (string, error) {
+	var text string
+	err := r.pool.QueryRow(ctx, "SELECT coalesce((SELECT text FROM tournament_regulations WHERE tournament = $1), '')", slug).Scan(&text)
+	return text, err
+}
+
+// card returns a tournament's or group's card as admin writes it, empty for none.
+func (r *RatingsReader) card(ctx context.Context, slug string) (Card, error) {
+	var c Card
+	err := r.pool.QueryRow(ctx, `SELECT coalesce(max(icon), ''), coalesce(max(tagline), ''), coalesce(max(summary), ''),
+		coalesce(max(subtitle), ''), coalesce(max(cadence), '')
+		FROM tournament_cards WHERE tournament = $1`, slug).Scan(&c.Icon, &c.Tagline, &c.Summary, &c.Subtitle, &c.Cadence)
+	return c, err
 }
 
 // shownStories returns a tournament's stories in their order, without those about a player with a deleted or

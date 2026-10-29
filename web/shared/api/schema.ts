@@ -2888,6 +2888,8 @@ export interface components {
             card: components["schemas"]["TournamentCard"];
             /** @description The format and regulations written in admin, empty for none */
             regulations: string;
+            /** @description Its format in brief, which its group's Hall of Fame page lists as its format and regulations; empty for none */
+            format_summary: string;
             /** @description The latest edition's description on CGE, shown when admin has written none; empty for none */
             cge_regulations: string;
             slug: string;
@@ -3025,6 +3027,8 @@ export interface components {
             card?: components["schemas"]["TournamentCard"];
             /** @description Plain text; empty shows CGE's description again */
             regulations?: string;
+            /** @description Its format in brief, in plain text; empty for none */
+            format_summary?: string;
             stories?: components["schemas"]["Story"][];
             /** @description A group's members, exactly */
             members?: string[];
@@ -4753,6 +4757,18 @@ export interface components {
             /** Format: int64 */
             run_id: number;
             series: components["schemas"]["Series"];
+            /** @description The series' name, as admin writes it; empty when the database has no such series */
+            name: string;
+            card: components["schemas"]["TournamentCard"];
+            /**
+             * Format: date
+             * @description The day of the first game in the series or a tournament in it, of those the catalogue shows
+             */
+            first_game: string | null;
+            /** @description Its stories, as admin writes them, in order */
+            stories: components["schemas"]["Story"][];
+            /** @description The tournaments in it that the catalogue shows, in the order they were added */
+            members: components["schemas"]["SeriesMember"][];
             /** @description The games the original site counts for the series, by its name patterns */
             games: number;
             /**
@@ -4768,6 +4784,25 @@ export interface components {
             season_records: components["schemas"]["SeasonRecord"][];
             /** @description The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games) */
             game_records: components["schemas"]["GameRecord"][];
+        };
+        /** @description A tournament in a series of several, by its catalogue slug and name */
+        SeriesMember: {
+            slug: string;
+            name: string;
+            /** @description Its format in brief, as admin writes it, which the series' page lists as its format and regulations; plain text, absent for none */
+            format?: string;
+        };
+        /** @description How a series of several tournaments presents itself on the Hall of Fame overview */
+        Circuit: {
+            series: components["schemas"]["Series"];
+            /** @description Its name, as admin writes it; empty when the database has no such series */
+            name: string;
+            card: components["schemas"]["TournamentCard"];
+            /**
+             * Format: date
+             * @description The day of the first game in a tournament in it, of those the catalogue shows
+             */
+            first_game: string | null;
         };
         /**
          * @description One player on a series' board: medals and a title for the leagues
@@ -4835,6 +4870,8 @@ export interface components {
             grand_slams: components["schemas"]["TrophyRow"][];
             /** @description The first ten rows of the Ladders board */
             ladders: components["schemas"]["TrophyRow"][];
+            /** @description The Grand Slams and the Competitive Ladders, in that order */
+            circuits: components["schemas"]["Circuit"][];
         };
         SeriesCount: {
             series: components["schemas"]["Series"];

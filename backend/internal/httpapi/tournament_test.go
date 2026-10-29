@@ -48,12 +48,56 @@ func TestTournamentSeries(t *testing.T) {
 		`"tournament":"International S29 - Grandmaster game 2","world_champion":true}],"games":31674,"run_id":7,` +
 		`"season_records":[{"division":"Grandmaster","games":7,"last_played":"2025-10-20","name":"bob","placings":[6,1,0,0],` +
 		`"points":36,"season":31,"world_champion":false}],"seasons":34,"series":"international"}`
-	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
-		t.Errorf("GET series: %d %s\nwant 200 %s", rec.Code, got, want)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET series: %d %s, want 200", rec.Code, rec.Body)
 	}
+	wantJSON(t, rec.Body.Bytes(), "", want)
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSeries != "international" {
 		t.Errorf("GET series: Cache-Control %q; asked run %d series %q", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSeries)
 	}
+}
+
+func TestTournamentSeriesGivesThePageAsAdminWritesIt(t *testing.T) {
+	first := time.Date(2020, 6, 30, 0, 0, 0, 0, time.UTC)
+	f := &fakeTournaments{series: store.TournamentSeries{
+		Circuit: store.Circuit{Slug: "grand_slams", Name: "Grand Slams & Cups", FirstGame: &first,
+			Card: store.Card{Icon: "🎾", Tagline: "Cups", Summary: "All the cups.", Subtitle: "Open", Cadence: "Yearly"}},
+		Stories: []store.Story{{Player: "ann", Badge: "Champion", Title: "Won", Text: "Won it all."}},
+		Members: []store.SeriesMember{{Slug: "wimbledon", Name: "Wimbledon", Format: "Knockout duels."}},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/tournaments/grand_slams")
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "name", `"Grand Slams & Cups"`)
+	wantJSON(t, body, "card", `{"icon":"🎾","tagline":"Cups","summary":"All the cups.","subtitle":"Open","cadence":"Yearly"}`)
+	wantJSON(t, body, "first_game", `"2020-06-30"`)
+	wantJSON(t, body, "stories", `[{"player":"ann","badge":"Champion","title":"Won","text":"Won it all."}]`)
+	wantJSON(t, body, "members", `[{"slug":"wimbledon","name":"Wimbledon","format":"Knockout duels."}]`)
+}
+
+func TestTournamentSeriesWithoutPageTextLeavesItEmpty(t *testing.T) {
+	rec, _ := serve(t, &fakeTournaments{}, "/v1/runs/7/tournaments/ladders")
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "first_game", `null`)
+	wantJSON(t, body, "stories", `[]`)
+	wantJSON(t, body, "members", `[]`)
+
+	f := &fakeTournaments{series: store.TournamentSeries{Members: []store.SeriesMember{{Slug: "sodium_ladder", Name: "Sodium Ladder"}}}}
+	rec, _ = serve(t, f, "/v1/runs/7/tournaments/ladders")
+	if strings.Contains(rec.Body.String(), `"format"`) {
+		t.Errorf("GET series whose member has no format in brief: %s, want no format key", rec.Body.String())
+	}
+}
+
+func TestHallOfFameGivesEachCircuitsCard(t *testing.T) {
+	first := time.Date(2017, 9, 25, 0, 0, 0, 0, time.UTC)
+	f := &fakeHallOfFame{hof: store.HallOfFame{Circuits: []store.Circuit{
+		{Slug: "grand_slams", Name: "Grand Slams", Card: store.Card{Icon: "🎾"}},
+		{Slug: "ladders", Name: "Ladders", FirstGame: &first},
+	}}}
+	rec, _ := serve(t, f, "/v1/runs/7/tournaments")
+	wantJSON(t, rec.Body.Bytes(), "circuits", `[
+		{"series":"grand_slams","name":"Grand Slams","card":{"icon":"🎾","tagline":"","summary":"","subtitle":"","cadence":""},"first_game":null},
+		{"series":"ladders","name":"Ladders","first_game":"2017-09-25"}]`)
 }
 
 func TestTournamentSeriesKnowsEachSeries(t *testing.T) {
@@ -116,9 +160,10 @@ func TestHallOfFame(t *testing.T) {
 	want := `{"grand_slams":[{"bronze":1,"details":"2025 Wimbledon TTA Champion","games":null,"gold":1,"name":"bob","silver":1,"title":null,"win_rate":null,"wins":null,"world_champion":false}],` +
 		`"ladders":[],"legends":[{"bronze":0,"gold":7,"intermezzo_titles":0,"international_titles":6,"name":"ann","royal_league_titles":0,"silver":2,"world_champion":true,"world_titles":1}],` +
 		`"run_id":7,"series":[{"games":31121,"seasons":5,"series":"worlds"}]}`
-	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
-		t.Errorf("GET Hall of Fame: %d %s\nwant 200 %s", rec.Code, got, want)
+	if rec.Code != http.StatusOK {
+		t.Errorf("GET Hall of Fame: %d %s, want 200", rec.Code, rec.Body)
 	}
+	wantJSON(t, rec.Body.Bytes(), "", want)
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 {
 		t.Errorf("GET Hall of Fame: Cache-Control %q, asked run %d", rec.Header().Get("Cache-Control"), f.gotRun)
 	}

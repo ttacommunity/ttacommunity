@@ -201,7 +201,7 @@ func TestAdminTournamentGivesItsCardRegulationsAndStories(t *testing.T) {
 	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "card", `{"tagline": "Annual World Championship"}`)
-	wantJSON(t, body, "", `{"regulations": "Mine.", "cge_regulations": "CGE's."}`)
+	wantJSON(t, body, "", `{"regulations": "Mine.", "cge_regulations": "CGE's.", "format_summary": "Knockout."}`)
 	wantJSON(t, body, "stories.0", `{"player": "alder440"}`)
 }
 
@@ -320,6 +320,24 @@ func TestAnOrganiserSetsScoringAndTimeoutPenalties(t *testing.T) {
 	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
 	wantJSON(t, rec.Body.Bytes(), "", `{"points_2p": [], "points_3p": [5, 2, 0], "points_4p": [6, 3, 1, 0]}`)
 	wantJSON(t, rec.Body.Bytes(), "seasons.0.timeout_penalty", `-1`)
+}
+
+func TestAnOrganiserWritesATournamentsFormatInBrief(t *testing.T) {
+	const site = "https://ttac-admin.example"
+	f := &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"format_summary": "Knockout duels."}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH format_summary = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || f.settings[0].FormatSummary == nil || *f.settings[0].FormatSummary != "Knockout duels." {
+		t.Errorf("settings = %+v, want the format in brief", f.settings)
+	}
+	f = &fakeAdmins{}
+	if rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"format_summary": "`+strings.Repeat("é", 301)+`"}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("a 301-character format in brief = %d %s, want 400", rec.Code, rec.Body)
+	}
+	if len(f.settings)+len(f.audits) != 0 {
+		t.Errorf("a refused format in brief still changed something: %+v %q", f.settings, f.audits)
+	}
 }
 
 func TestAnOrganiserNamesATournamentsSeasonsAndStages(t *testing.T) {

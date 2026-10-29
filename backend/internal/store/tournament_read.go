@@ -45,33 +45,69 @@ type GameRecord struct {
 	Date          time.Time
 }
 
+// Circuit is how a series presents itself on its Hall of Fame page and card: its name and card as admin writes
+// them, and the day of the first game in it or its members, nil for none.
+type Circuit struct {
+	Slug, Name string
+	Card       Card
+	FirstGame  *time.Time
+}
+
+// SeriesMember is a tournament in a group, by its catalogue slug and name, with its format in brief ("" for none).
+type SeriesMember struct {
+	Slug, Name, Format string
+}
+
 // TournamentSeries is what a series' Hall of Fame page shows.
 type TournamentSeries struct {
+	Circuit
 	Games, Seasons int
-	Board          []TrophyRow
-	SeasonRecords  []SeasonRecord
-	GameRecords    []GameRecord
+	Stories        []Story
+	// Members are the tournaments in the group that have a page in the run, in the order they were added.
+	Members       []SeriesMember
+	Board         []TrophyRow
+	SeasonRecords []SeasonRecord
+	GameRecords   []GameRecord
 }
 
 // recordsShown is how many seasons and games the page lists, as upstream's.
 const recordsShown = 10
 
-// TournamentSeries returns a published run's results for a series: its game
-// and edition counts, its board in the engine's order, and the ten best
-// top-division seasons (points, then wins, then first seen) and games the
-// engine marked for records (winner's score, then load order). A player with
-// a deleted or banned CGE account is left off the board, and named
-// DeletedPlayer, without a crown, in the records.
+// TournamentSeries returns a published run's results for a series: how it
+// presents itself, its stories and members, its game and edition
+// counts, its board in the engine's order, and the ten best top-division
+// seasons (points, then wins, then first seen) and games the engine marked for
+// records (winner's score, then load order). A player with a deleted or banned
+// CGE account is left off the board and the stories, and named DeletedPlayer,
+// without a crown, in the records.
 func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series string) (TournamentSeries, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return TournamentSeries{}, err
 	}
-	got := TournamentSeries{Board: []TrophyRow{}, SeasonRecords: []SeasonRecord{}, GameRecords: []GameRecord{}}
 	fail := func(what string, err error) (TournamentSeries, error) {
 		return TournamentSeries{}, fmt.Errorf("reading run %d's %s %s: %w", run, series, what, err)
 	}
+	circuit, err := r.circuit(ctx, run, series)
+	if err != nil {
+		return fail("card", err)
+	}
+	got := TournamentSeries{Circuit: circuit, Board: []TrophyRow{}, SeasonRecords: []SeasonRecord{}, GameRecords: []GameRecord{}}
+	if got.Stories, err = r.shownStories(ctx, series); err != nil {
+		return fail("stories", err)
+	}
+	rows, err := r.pool.Query(ctx, `
+		SELECT m.slug, m.name, m.format_summary FROM series m JOIN series g ON g.series_id = m.parent_id
+		WHERE g.slug = $1 AND (m.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = m.series_id))
+		  AND EXISTS (SELECT 1 FROM catalogue_spans s WHERE s.run_id = $2 AND s.series_id = m.series_id AND s.tournament_id IS NULL)
+		ORDER BY m.series_id`, series, run)
+	if err != nil {
+		return fail("members", err)
+	}
+	if got.Members, err = pgx.CollectRows(rows, pgx.RowToStructByPos[SeriesMember]); err != nil {
+		return fail("members", err)
+	}
 
-	err := r.pool.QueryRow(ctx, `
+	err = r.pool.QueryRow(ctx, `
 		SELECT coalesce(max(games), 0), coalesce(max(editions), 0) FROM tournament_series WHERE run_id = $1 AND series = $2`,
 		run, series).Scan(&got.Games, &got.Seasons)
 	if err != nil {
@@ -83,7 +119,7 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 		return fail("board", err)
 	}
 
-	rows, err := r.pool.Query(ctx, `
+	rows, err = r.pool.Query(ctx, `
 		SELECT s.player_name, p.player_name IS NOT NULL, s.points, s.games, s.placings, s.season, s.division, s.last_date
 		FROM tournament_season_records s
 		LEFT JOIN player_peak_titles p ON p.run_id = s.run_id AND p.player_name = s.player_name AND p.peak_title = 'WC'
@@ -128,6 +164,27 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 		return fail("game records", err)
 	}
 	return got, r.markWorldChampions(ctx, run, got.GameRecords)
+}
+
+// circuit returns how the series slug presents itself in a run; one that does not exist has no name, card or first
+// game. The first game is the earliest in the series or a tournament in it, of those shown in the catalogue.
+func (r *RatingsReader) circuit(ctx context.Context, run int64, slug string) (Circuit, error) {
+	c := Circuit{Slug: slug}
+	var err error
+	if c.Card, err = r.card(ctx, slug); err != nil {
+		return Circuit{}, err
+	}
+	err = r.pool.QueryRow(ctx, `
+		SELECT coalesce((SELECT name FROM series WHERE slug = $1), ''),
+		       (SELECT min(s.first_game) FROM catalogue_spans s JOIN series t USING (series_id)
+		        WHERE s.run_id = $2 AND s.tournament_id IS NULL
+		          AND (t.slug = $1 OR t.parent_id = (SELECT series_id FROM series WHERE slug = $1))
+		          AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id)))`,
+		slug, run).Scan(&c.Name, &c.FirstGame)
+	if err != nil {
+		return Circuit{}, err
+	}
+	return c, nil
 }
 
 // markWorldChampions sets WorldChampion on each game record whose winner the
@@ -223,7 +280,11 @@ type HallOfFame struct {
 	Series              []SeriesCount
 	Legends             []Legend
 	GrandSlams, Ladders []TrophyRow
+	Circuits            []Circuit
 }
+
+// circuits are the series of several tournaments the overview shows a card for, in its order.
+var circuits = []string{"grand_slams", "ladders"}
 
 // hubBoardRows is how many rows of the cups and ladders boards the overview lists, as upstream's.
 const hubBoardRows = 10
@@ -231,7 +292,7 @@ const hubBoardRows = 10
 // HallOfFame returns a published run's Hall of Fame overview: every series'
 // counts, the all-time major circuits table in the engine's order, and the
 // first ten rows of the Grand Slams and Ladders boards, all without players
-// who have a deleted or banned CGE account.
+// who have a deleted or banned CGE account, and how each circuit presents itself.
 func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return HallOfFame{}, err
@@ -275,6 +336,13 @@ func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, 
 	}
 	if got.Ladders, err = r.board(ctx, run, "ladders", &shown); err != nil {
 		return fail("ladders", err)
+	}
+	for _, slug := range circuits {
+		c, err := r.circuit(ctx, run, slug)
+		if err != nil {
+			return fail(slug+" card", err)
+		}
+		got.Circuits = append(got.Circuits, c)
 	}
 	return got, nil
 }

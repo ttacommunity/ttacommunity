@@ -46,6 +46,7 @@ export type PlayerSeatOverview = components['schemas']['PlayerSeatOverview'];
 export type PlayerSeatDelta = components['schemas']['PlayerSeatDelta'];
 export type Series = components['schemas']['Series'];
 export type TournamentSeries = components['schemas']['TournamentSeries'];
+export type SeriesMember = components['schemas']['SeriesMember'];
 export type TrophyRow = components['schemas']['TrophyRow'];
 export type SeasonRecord = components['schemas']['SeasonRecord'];
 export type GameRecord = components['schemas']['GameRecord'];

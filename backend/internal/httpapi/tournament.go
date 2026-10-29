@@ -26,10 +26,16 @@ func (s *server) GetTournamentSeries(ctx context.Context, req GetTournamentSerie
 	}
 
 	body := TournamentSeries{
-		RunId: req.Run, Series: req.Series, Games: t.Games, Seasons: t.Seasons,
-		Board:         make([]TrophyRow, 0, len(t.Board)),
+		RunId: req.Run, Series: req.Series, Name: t.Name, Card: tournamentCard(t.Card), FirstGame: dateOf(t.FirstGame),
+		Stories: storyList(t.Stories), Members: make([]SeriesMember, 0, len(t.Members)), Games: t.Games, Seasons: t.Seasons,
 		SeasonRecords: make([]SeasonRecord, 0, len(t.SeasonRecords)),
-		GameRecords:   make([]GameRecord, 0, len(t.GameRecords)),
+	}
+	for _, m := range t.Members {
+		member := SeriesMember{Slug: m.Slug, Name: m.Name}
+		if m.Format != "" {
+			member.Format = &m.Format
+		}
+		body.Members = append(body.Members, member)
 	}
 	body.Board = trophyRows(t.Board)
 	for _, r := range t.SeasonRecords {
@@ -74,7 +80,10 @@ func (s *server) GetHallOfFame(ctx context.Context, req GetHallOfFameRequestObje
 	}
 	body := HallOfFame{
 		RunId: req.Run, Series: make([]SeriesCount, 0, len(h.Series)), Legends: make([]Legend, 0, len(h.Legends)),
-		GrandSlams: trophyRows(h.GrandSlams), Ladders: trophyRows(h.Ladders),
+		GrandSlams: trophyRows(h.GrandSlams), Ladders: trophyRows(h.Ladders), Circuits: make([]Circuit, 0, len(h.Circuits)),
+	}
+	for _, c := range h.Circuits {
+		body.Circuits = append(body.Circuits, Circuit{Series: Series(c.Slug), Name: c.Name, Card: tournamentCard(c.Card), FirstGame: dateOf(c.FirstGame)})
 	}
 	for _, c := range h.Series {
 		body.Series = append(body.Series, SeriesCount{Series: Series(c.Series), Games: c.Games, Seasons: c.Seasons})

@@ -30,6 +30,8 @@ type TournamentSettings struct {
 	// Parent is the slug of the group to put it in, "" for none; Description replaces its description, and Name
 	// renames the tournament or group (nil unchanged).
 	Parent, Description, Name *string
+	// FormatSummary replaces its format in brief, trimmed (nil unchanged, "" none).
+	FormatSummary *string
 	// PodiumSource is how its podium is derived: top_divisions, final_stage, recorded, or none (nil unchanged).
 	PodiumSource *string
 	// Divisions replace a league's divisions and their title tiers, highest first (nil unchanged, empty none);
@@ -195,6 +197,11 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.Description != nil {
 			if _, err := tx.Exec(ctx, "UPDATE series SET description = $2 WHERE series_id = $1", id, *s.Description); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.FormatSummary != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET format_summary = $2 WHERE series_id = $1", id, strings.TrimSpace(*s.FormatSummary)); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}

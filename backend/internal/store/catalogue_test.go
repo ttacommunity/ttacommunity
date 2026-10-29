@@ -326,3 +326,67 @@ func TestClassifyMatchesGivesNewSeriesTheEnginesRules(t *testing.T) {
 		})
 	}
 }
+
+func TestMigration64GroupsTheCircuitsAndItsDownUngroupsThem(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	down := func(to int64) {
+		t.Helper()
+		if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, to); return err }); err != nil {
+			t.Fatalf("migrating down to %d: %v", to, err)
+		}
+	}
+	down(63)
+	for _, q := range []string{
+		`INSERT INTO series (slug, name, original_name, kind, is_group) VALUES ('grand_slams', 'Grand Slams', 'Grand Slams', 'group', true), ('other', 'Other', 'Other', 'group', true)`,
+		`INSERT INTO series (slug, name) VALUES ('wimbledon', 'Wimbledon'), ('survivors_cup', 'Survivors Cup'), ('slow_burn', 'Slow Burn'),
+		   ('eiffel_tower', 'Eiffel Tower'), ('mercurial_ladder', 'Mercurial Ladder'), ('sodium_ladder', 'Sodium Ladder'),
+		   ('transcontinental_ladder', 'Transcontinental Ladder')`,
+		`UPDATE series SET parent_id = (SELECT series_id FROM series WHERE slug = 'grand_slams') WHERE slug = 'wimbledon'`,
+		`UPDATE series SET parent_id = (SELECT series_id FROM series WHERE slug = 'other') WHERE slug = 'slow_burn'`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("building the old shape: %v\n%s", err, q)
+		}
+	}
+	tree := `SELECT concat_ws('|', s.slug, s.name, p.slug, s.description <> '') FROM series s LEFT JOIN series p ON p.series_id = s.parent_id ORDER BY s.slug`
+	before := rowsOf(t, pool, tree)
+	imported := `SELECT original_name FROM series WHERE slug = 'grand_slams'`
+
+	if err := migrateRatingsTo(ctx, pool, 64); err != nil {
+		t.Fatalf("migrateRatingsTo(64): %v", err)
+	}
+	want := []string{
+		"eiffel_tower|Eiffel Tower|grand_slams|f", "grand_slams|Grand Slams & Championship Cups|f",
+		"ladders|Competitive Ladders (Mercurial, Sodium & Transcontinental)|f", "mercurial_ladder|Mercurial Ladder|ladders|f",
+		"other|Other|f", "slow_burn|Slow Burn|other|f", "sodium_ladder|Sodium Ladder|ladders|f",
+		"survivors_cup|Survivors Cup|grand_slams|f", "transcontinental_ladder|Transcontinental Ladder|ladders|f",
+		"wimbledon|Wimbledon|grand_slams|f",
+	}
+	if got := rowsOf(t, pool, tree); !slices.Equal(got, want) {
+		t.Errorf("after the migration, series (slug|name|group|described) = %q\nwant %q (a cup already in another group stays there)", got, want)
+	}
+	if got := rowsOf(t, pool, imported); !slices.Equal(got, []string{"Grand Slams & Championship Cups"}) {
+		t.Errorf("grand_slams imported as %q, want its new name, so admin shows no old one", got)
+	}
+	briefs := `SELECT slug FROM series WHERE format_summary <> '' ORDER BY 1`
+	wantBriefs := []string{"eiffel_tower", "mercurial_ladder", "slow_burn", "sodium_ladder", "survivors_cup", "transcontinental_ladder", "wimbledon"}
+	if got := rowsOf(t, pool, briefs); !slices.Equal(got, wantBriefs) {
+		t.Errorf("tournaments with a format in brief = %q, want %q", got, wantBriefs)
+	}
+	pages := `SELECT tournament FROM tournament_cards WHERE tournament IN ('grand_slams', 'ladders') AND summary <> '' ORDER BY 1`
+	if got := rowsOf(t, pool, pages); !slices.Equal(got, []string{"grand_slams", "ladders"}) {
+		t.Errorf("circuits with a card = %q, want both", got)
+	}
+
+	down(63)
+	if got := rowsOf(t, pool, tree); !slices.Equal(got, before) {
+		t.Errorf("after the Down, series = %q\nwant as before %q", got, before)
+	}
+	if got := rowsOf(t, pool, pages); len(got) != 0 {
+		t.Errorf("after the Down, circuits with a card = %q, want none", got)
+	}
+	if got := rowsOf(t, pool, imported); !slices.Equal(got, []string{"Grand Slams"}) {
+		t.Errorf("after the Down, grand_slams imported as %q, want Grand Slams again", got)
+	}
+}

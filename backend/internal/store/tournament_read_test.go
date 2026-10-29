@@ -476,3 +476,113 @@ func TestTournamentSeriesHidesHiddenPlayers(t *testing.T) {
 		t.Errorf("season records = %q, want %q: ann's season kept, its name and crown masked", seasons, want)
 	}
 }
+
+// circuitGroup makes slug a group named name, with a card, holding members.
+func circuitGroup(t *testing.T, pool *pgxpool.Pool, slug, name string, members ...string) {
+	t.Helper()
+	ctx := context.Background()
+	for _, q := range []string{
+		`INSERT INTO series (slug, name, kind, is_group) VALUES ($1, $2, 'group', true)`,
+		`INSERT INTO tournament_cards (tournament, icon, tagline, summary, subtitle, cadence) VALUES ($1, '🎾', $2, 'All the cups.', 'Open format', 'Yearly')
+		 ON CONFLICT (tournament) DO UPDATE SET icon = excluded.icon, tagline = excluded.tagline, summary = excluded.summary,
+		     subtitle = excluded.subtitle, cadence = excluded.cadence`,
+	} {
+		if _, err := pool.Exec(ctx, q, slug, name); err != nil {
+			t.Fatalf("making the group %s: %v", slug, err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE series SET parent_id = (SELECT series_id FROM series WHERE slug = $1) WHERE slug = ANY($2)`,
+		slug, members); err != nil {
+		t.Fatalf("putting %v in %s: %v", members, slug, err)
+	}
+}
+
+func TestTournamentSeriesGivesTheGroupsPageAsAdminWritesIt(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Intermezzo S24 - Bronze 1 game 1":        day("2024-01-02"),
+	})
+	for _, q := range []string{
+		`INSERT INTO series (slug, name) VALUES ('quiet_cup', 'Quiet Cup')`,
+		`DELETE FROM ranking_series WHERE series_id = (SELECT series_id FROM series WHERE slug = 'intermezzo')`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	circuitGroup(t, pool, "grand_slams", "Grand Slams & Cups", "wimbledon", "intermezzo", "quiet_cup")
+	if _, err := pool.Exec(ctx, "UPDATE series SET format_summary = 'Knockout duels.' WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatalf("giving Wimbledon a format in brief: %v", err)
+	}
+	if err := NewAdminStore(pool).SetStories(ctx, "grand_slams", []Story{{Player: "ann", Title: "Champion", Text: "Won it."}}); err != nil {
+		t.Fatalf("SetStories: %v", err)
+	}
+	withSpans(t, pool, run)
+
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "grand_slams")
+	if err != nil {
+		t.Fatalf("TournamentSeries: %v", err)
+	}
+	if got.Name != "Grand Slams & Cups" || got.Card.Tagline != "Grand Slams & Cups" || got.Card.Cadence != "Yearly" {
+		t.Errorf("name %q, card %+v; want the group's name and card", got.Name, got.Card)
+	}
+	if want := []Story{{Player: "ann", Title: "Champion", Text: "Won it."}}; !slices.Equal(got.Stories, want) {
+		t.Errorf("stories = %+v, want %+v", got.Stories, want)
+	}
+	// Intermezzo is neither rated nor visible, and the quiet cup has no games: neither has a page to link to.
+	if want := []SeriesMember{{Slug: "wimbledon", Name: "Wimbledon", Format: "Knockout duels."}}; !slices.Equal(got.Members, want) {
+		t.Errorf("members = %+v, want %+v", got.Members, want)
+	}
+	if got.FirstGame == nil || !got.FirstGame.Equal(day("2024-07-01")) {
+		t.Errorf("first game = %v, want Wimbledon's 2024-07-01, not the hidden Intermezzo's", got.FirstGame)
+	}
+}
+
+func TestTournamentSeriesWithoutAGroupHasNoPageText(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	if _, err := pool.Exec(ctx, "DELETE FROM tournament_cards WHERE tournament = 'ladders'"); err != nil {
+		t.Fatalf("removing the ladders' card: %v", err)
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "ladders")
+	if err != nil {
+		t.Fatalf("TournamentSeries: %v", err)
+	}
+	if got.Name != "" || got.Card != (Card{}) || got.FirstGame != nil || got.Members == nil || len(got.Members) != 0 || got.Stories == nil {
+		t.Errorf("got name %q, card %+v, first game %v, members %v, stories %v; want none, as empty lists",
+			got.Name, got.Card, got.FirstGame, got.Members, got.Stories)
+	}
+}
+
+func TestHallOfFameGivesEachCircuitsCard(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	circuitGroup(t, pool, "grand_slams", "Grand Slams & Cups", "wimbledon")
+	circuitGroup(t, pool, "ladders", "Ladders")
+	withSpans(t, pool, run)
+
+	got, err := NewRatingsReader(asReader(t, pool)).HallOfFame(ctx, run)
+	if err != nil {
+		t.Fatalf("HallOfFame: %v", err)
+	}
+	var slugs, names []string
+	for _, c := range got.Circuits {
+		slugs, names = append(slugs, c.Slug), append(names, c.Name)
+	}
+	if !slices.Equal(slugs, []string{"grand_slams", "ladders"}) || !slices.Equal(names, []string{"Grand Slams & Cups", "Ladders"}) {
+		t.Fatalf("circuits %q named %q, want grand_slams then ladders, by their groups' names", slugs, names)
+	}
+	if c := got.Circuits[0]; c.Card.Summary != "All the cups." || c.FirstGame == nil || !c.FirstGame.Equal(day("2024-07-01")) {
+		t.Errorf("grand slams card %+v, first game %v; want its card and Wimbledon's first game", c.Card, c.FirstGame)
+	}
+	if got.Circuits[1].FirstGame != nil {
+		t.Errorf("ladders' first game = %v, want none: it holds no tournament", got.Circuits[1].FirstGame)
+	}
+}

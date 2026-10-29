@@ -249,6 +249,25 @@ func TestAdminSetsWhatATournamentCallsItsSeasonsAndStages(t *testing.T) {
 	}
 }
 
+func TestAdminSetsATournamentsFormatInBrief(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{FormatSummary: ptr(" Knockout duels. ")}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if got := adminTournament(t, a, "wimbledon").FormatSummary; got != "Knockout duels." {
+		t.Errorf("format in brief = %q, want it trimmed", got)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{FormatSummary: ptr("")}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if got := adminTournament(t, a, "wimbledon").FormatSummary; got != "" {
+		t.Errorf("after clearing, format in brief = %q, want none", got)
+	}
+}
+
 func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

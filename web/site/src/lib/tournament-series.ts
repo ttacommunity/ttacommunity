@@ -1,6 +1,10 @@
-/** Upstream's Hall of Fame series pages: the series tabs, each series' text, and how its figures are written. */
+/** Upstream's Hall of Fame series pages: the series tabs, the majors and circuits, and how their figures are written. */
 import { count } from '@ttac/shared/numbers';
-import type { Legend, Series, SeriesCount } from '@ttac/shared/ratings';
+import { isCircuit } from '@ttac/shared/circuits';
+import type { Legend, Series, SeriesCount, SeriesMember } from '@ttac/shared/ratings';
+import type { RegulationsBox } from './catalogue-view';
+
+export { CIRCUITS, type Circuit } from '@ttac/shared/circuits';
 
 /** A tab in the series bar: the Hall of Fame overview or one series. */
 export interface SeriesTab {
@@ -34,15 +38,7 @@ export const BUILT: ReadonlySet<SeriesTab['slug']> = new Set([
 /** seriesHref returns the address of a series' page (a major's own tournament page), or of the Hall of Fame for the overview. */
 export function seriesHref(slug: SeriesTab['slug']): string {
   if (slug === 'overview') return '/ratings/hall_of_fame/';
-  return CIRCUITS.some((c) => c.slug === slug) ? `/ratings/hall_of_fame/${slug}/` : `/ratings/tournaments/?t=${slug}`;
-}
-
-/** A player story on a series page, as upstream's template states it. */
-export interface Story {
-  player: string;
-  badge: string;
-  title: string;
-  text: string;
+  return isCircuit(slug) ? `/ratings/hall_of_fame/${slug}/` : `/ratings/tournaments/?t=${slug}`;
 }
 
 /** A major: one tournament, whose page is its own; its card, header, rules and stories are written in admin. */
@@ -65,102 +61,20 @@ export function majorName(slug: string): string | undefined {
   return MAJORS.find((m) => m.slug === slug)?.name;
 }
 
-/** What a circuit page (several tournaments, so not edited in admin) says about itself, copied from upstream's routes/hall_of_fame.py. */
-export interface SeriesContent {
-  slug: Series;
-  name: string;
-  subtitle: string;
-  icon: string;
-  formatBadge: string;
-  summary: string;
-  frequency: string;
-  since: string;
-  /** The "Historical Era" as upstream states it, where it is not computed from the latest season. */
-  era?: string;
-  rules: string[];
-  stories: Story[];
-  /** Each tournament in the circuit, by its catalogue slug and name. */
-  members: { slug: string; name: string }[];
+/** circuitEra writes a circuit's "Historical Era" from the day of its first game, or says it has none. */
+export function circuitEra(firstGame: string | null): string {
+  return firstGame === null ? 'No games yet' : `${firstGame.slice(0, 4)} – Present`;
 }
 
-export const GRAND_SLAMS: SeriesContent = {
-  slug: 'grand_slams',
-  icon: '🎾',
-  name: 'Grand Slams & Championship Cups',
-  subtitle: '4-Player Major Open Format',
-  formatBadge: 'Major Cups & Slams',
-  summary:
-    'Prestigious open championships and multi-stage endurance cups: Survivors Cup (3P survival elimination), Wimbledon TTA (1v1 knockout duel bracket), French Open (3P/4P clay season major), Eiffel Tower Tournament (floor climbing stages to The Top), and Slow Burn.',
-  frequency: 'Annual / Seasonal Majors',
-  since: '2023',
-  era: '2023 – Present',
-  rules: [
-    'Survivors Cup: 11 progressive stages of 3-player survival tables with cuts to Upper/Lower semifinals and Grand Finals.',
-    'Wimbledon TTA: Direct 2-player knockout duel rounds through to Quarterfinals, Semifinals, and Finals.',
-    "Eiffel Tower: Multi-level qualification climbing up the tower to 'The Top' elite division.",
-    'Slow Burn: Extended multi-month endurance rounds culminating in a 3-game Finals series.',
-  ],
-  stories: [
-    {
-      player: 'Grozz',
-      badge: 'Survivors Cup Champion',
-      title: '2026 Survivors Cup Winner',
-      text: 'Grozz conquered the 11-stage 2026 Survivors Cup, triumphing in the Grand Final (213.0 pts) against Weidenbaum (208.0 pts) and Sellux (201.0 pts).',
-    },
-    {
-      player: 'wolvs',
-      badge: 'Slow Burn Champion',
-      title: 'Season 15 Slow Burn Sweep',
-      text: 'wolvs swept all 3 games in the Season 15 Slow Burn Finals (218, 281, 168 pts) to claim the championship over saru and DiddleySquat.',
-    },
-  ],
-  members: [
-    { slug: 'wimbledon', name: 'Wimbledon' },
-    { slug: 'french_open', name: 'French Open' },
-    { slug: 'australian_open', name: 'Australian Open' },
-    { slug: 'survivors_cup', name: 'Survivors Cup' },
-    { slug: 'slow_burn', name: 'Slow Burn' },
-    { slug: 'eiffel_tower', name: 'Eiffel Tower' },
-  ],
-};
+/** circuitBox lists a circuit's tournaments that have a format in brief, each after its name, as its format and regulations; null for none. */
+export function circuitBox(members: readonly SeriesMember[]): RegulationsBox | null {
+  const lines = members.filter((m) => (m.format ?? '').trim() !== '').map((m) => `${m.name}: ${(m.format ?? '').trim()}`);
+  return lines.length === 0 ? null : { lines, source: null };
+}
 
-export const LADDERS: SeriesContent = {
-  slug: 'ladders',
-  icon: '🪜',
-  name: 'Competitive Ladders (Mercurial, Sodium & Transcontinental)',
-  subtitle: '2 & 3-Player Continuous Ladder Format',
-  formatBadge: 'Tiered Ladders',
-  summary:
-    'Perpetual rung-based ladders where competitors battle in 3-player and 2-player encounters to ascend through dynamic tier rankings.',
-  frequency: 'Continuous / Quarterly',
-  since: '2017',
-  era: '2017 – Present',
-  rules: [
-    'Mercurial Ladder: Rolling periodic element tiers (Hydrogen, Helium ... Neon, Sodium) with performance rung promotions.',
-    'Sodium Ladder: Continuous tiered metal ladders across ascending rungs.',
-    'Transcontinental Ladder (TCL): 100-stage continuous challenge ladder.',
-  ],
-  stories: [
-    {
-      player: 'wolvs',
-      badge: 'Ladder Legend',
-      title: 'All-Time Ladder Match Leader',
-      text: 'wolvs has compiled the highest match volume and victory counts across the competitive ladder circuits.',
-    },
-  ],
-  members: [
-    { slug: 'mercurial_ladder', name: 'Mercurial Ladder' },
-    { slug: 'sodium_ladder', name: 'Sodium Ladder' },
-    { slug: 'transcontinental_ladder', name: 'Transcontinental Ladder' },
-  ],
-};
-
-/** The circuits, in the series bar's order. */
-export const CIRCUITS: SeriesContent[] = [GRAND_SLAMS, LADDERS];
-
-/** seriesEra returns a series' "Historical Era": its static text, or computed from the latest season. */
-export function seriesEra(content: SeriesContent, season: number): string {
-  return content.era ?? era(content.since, season);
+/** circuitTitle is a circuit page's document title, by the circuit's name. */
+export function circuitTitle(name: string): string {
+  return `${name} | Tournaments Circuit`;
 }
 
 /** medalCells returns a board row's gold, silver, bronze and total cells; a board without medals leaves them empty, as upstream. */
@@ -190,11 +104,6 @@ export function boardCells(rows: readonly BoardRow[]): { headings: string[]; cla
     classes: ['medal-gold', 'medal-silver', 'medal-bronze', 'medal-total'],
     rows: rows.map(medalCells),
   };
-}
-
-/** era returns upstream's "Historical Era" for a series running since a year, at its latest season. */
-export function era(since: string, season: number): string {
-  return `${since} – Present (Current: Season ${season})`;
 }
 
 /** leaguePoints writes a season's points with one decimal, as upstream's "%.1f pts". */

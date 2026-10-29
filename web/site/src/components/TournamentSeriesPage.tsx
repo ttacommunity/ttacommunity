@@ -7,18 +7,11 @@ import StoriesPanel, { type StoryView } from './StoriesPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { catalogueHref } from '../lib/catalogue-view';
-import { circuitCard } from '../lib/tournament-card';
+import { cardView } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
 import PlayerLink from './PlayerLink';
 import { waitingText } from '../lib/waiting';
-import {
-  leaguePoints,
-  seriesEra,
-  seriesRecord,
-  showsWorldChampion,
-  type Major,
-  type SeriesContent,
-} from '../lib/tournament-series';
+import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, showsWorldChampion, type Circuit, type Major } from '../lib/tournament-series';
 import { count } from '@ttac/shared/numbers';
 
 
@@ -33,41 +26,47 @@ function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
   return row.title ? <span className={`badge badge-${row.title.toLowerCase()} trophy-mark`}>{row.title}</span> : null;
 }
 
-/** TournamentSeriesPage loads the current run's results for a series and shows them as upstream's page does. */
-export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: string; content: SeriesContent }) {
+/** TournamentSeriesPage loads the current run's results for a circuit, with its card, rules and stories as admin writes them. */
+export default function TournamentSeriesPage({ apiUrl, slug }: { apiUrl: string; slug: Circuit }) {
   const [load, setLoad] = useState<Load<TournamentSeries>>({ kind: 'loading' });
 
   useEffect(() => {
     currentRun(apiUrl)
-      .then((r) => tournamentSeries(apiUrl, r.run_id, content.slug))
+      .then((r) => tournamentSeries(apiUrl, r.run_id, slug))
       .then((data) => setLoad({ kind: 'ready', data }))
       .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl, content.slug]);
+  }, [apiUrl, slug]);
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the records') ?? '';
+  const card = cardView(data?.card);
+  const name = data?.name ?? '';
+  useEffect(() => {
+    if (data !== null) document.title = circuitTitle(data.name);
+  }, [data]);
+  const box = data === null ? null : circuitBox(data.members);
 
   return (
     <>
       <TournamentHero
-        card={circuitCard(content)}
-        title={content.name}
-        subtitle={content.subtitle}
+        card={card}
+        title={name}
+        subtitle={card.subtitle}
         facts={[
           { label: 'Recorded Matches', value: data ? count(data.games) : '…' },
           { label: 'Seasons / Editions', value: data ? `${data.seasons} Editions` : '…' },
-          { label: 'Cadence & Schedule', value: content.frequency, words: true },
-          { label: 'Historical Era', value: content.era ?? (data ? seriesEra(content, data.seasons) : '…'), words: true },
+          { label: 'Cadence & Schedule', value: data ? (card.cadence ?? '') : '…', words: true },
+          { label: 'Historical Era', value: data ? circuitEra(data.first_game) : '…', words: true },
         ]}
       />
 
-      {content.members.length > 0 && (
+      {data !== null && data.members.length > 0 && (
         <div className="panel-card series-members">
           <h2 className="panel-header">
-            <span>{content.icon}</span> Tournaments in the {content.name}
+            <span>{card.icon}</span> Tournaments in the {name}
           </h2>
           <div className="series-members-list">
-            {content.members.map((m) => (
+            {data.members.map((m) => (
               <a key={m.slug} href={catalogueHref(m.slug)} className="btn-antique">
                 {m.name} &rarr;
               </a>
@@ -76,11 +75,11 @@ export default function TournamentSeriesPage({ apiUrl, content }: { apiUrl: stri
         </div>
       )}
       <SeriesSections
-        content={content}
+        content={{ slug, name }}
         data={data}
         waiting={waiting}
-        regulations={<RegulationsPanel box={{ lines: content.rules, source: null }} rated />}
-        stories={content.stories}
+        regulations={box === null ? null : <RegulationsPanel box={box} rated />}
+        stories={data?.stories ?? []}
       />
     </>
   );

@@ -18,6 +18,7 @@ describe('admin requests', () => {
     ['clearing a podium', req.clearPodium('worlds', '2023 Play Off'), '/api/tournaments/worlds/seasons/2023%20Play%20Off', 'PATCH', { clear_podium: true }],
     ['a card', req.setCard('worlds', { icon: '🏆', tagline: '', summary: '', subtitle: '', cadence: '' }), '/api/tournaments/worlds', 'PATCH', { card: { icon: '🏆', tagline: '', summary: '', subtitle: '', cadence: '' } }],
     ['regulations', req.setRegulations('worlds', 'Best of three.'), '/api/tournaments/worlds', 'PATCH', { regulations: 'Best of three.' }],
+    ['format in brief', req.setFormatSummary('wimbledon', ' Knockout duels. '), '/api/tournaments/wimbledon', 'PATCH', { format_summary: 'Knockout duels.' }],
     ['stories', req.setStories('worlds', []), '/api/tournaments/worlds', 'PATCH', { stories: [] }],
     ['a new season, trimmed', req.addSeason('worlds', ' 2028 '), '/api/tournaments/worlds/seasons', 'POST', { label: '2028' }],
     ['removing a season', req.removeSeason('worlds', '2028 B'), '/api/tournaments/worlds/seasons/2028%20B', 'DELETE', undefined],
