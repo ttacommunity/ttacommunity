@@ -6,12 +6,14 @@ import {
   challengeSets,
   compareBests,
   compareHref,
+  entryDay,
   formatMeasure,
   groupLabel,
   measureOf,
   niceTicks,
   playNext,
   scopeLeaders,
+  setLabel,
   signed,
 } from './challenges';
 
@@ -147,5 +149,20 @@ describe('niceTicks', () => {
     ['a flat line', 0, 0, [0]],
   ])('runs %s', (_name, min, max, want) => {
     expect(niceTicks(min, max)).toEqual(want);
+  });
+});
+
+describe('entryDay', () => {
+  it.each([
+    ['in the zone given', '2025-02-24T23:30:00Z', 'UTC', '24 Feb 2025'],
+    ['the next day where it already is', '2025-02-24T23:30:00Z', 'Europe/Berlin', '25 Feb 2025'],
+  ])('writes the day %s', (_name, instant, zone, want) => {
+    expect(entryDay(instant, zone)).toBe(want);
+  });
+});
+
+describe('setLabel', () => {
+  it('names a set as the game does', () => {
+    expect(setLabel('mix')).toBe('Random Mix');
   });
 });
