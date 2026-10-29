@@ -100,10 +100,10 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 		 FROM x_added a JOIN x_seats x ON x.session = a.session AND x.idx = 0`,
 		`INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place, starting_position,
 		                    cge_score, cge_standing)
-		 SELECT g.game_id, x.idx + 1, ` + seatPlayer + `, ` + seatPlayerName + `, nullif(x.player_id, 0), x.outcome, ` + cgeCulture + `,
-		        x.place, x.starting_position, x.score, x.standing
+		 SELECT g.game_id, row_number() OVER (PARTITION BY g.game_id ORDER BY x.idx), a.player_id, pl.name, x.player_id,
+		        x.outcome, ` + cgeCulture + `, x.place, x.starting_position, x.score, x.standing
 		 FROM x_added ad JOIN games g ON g.cge_session = ad.session JOIN x_seats x ON x.session = ad.session
-		 LEFT JOIN player_accounts a ON a.cge_user = x.player_id LEFT JOIN players pl ON pl.player_id = a.player_id`,
+		 JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id`,
 		`INSERT INTO group_members (group_id, player_id)
 		 SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)
 		 WHERE g.cge_session IS NOT NULL AND g.group_id IS NOT NULL
@@ -173,9 +173,18 @@ func placeGroup(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cge
 	if stage == 0 {
 		return 0, nil
 	}
+	var unlinked int64
+	err = tx.QueryRow(ctx, `SELECT group_id FROM groups WHERE stage_id = $1 AND name = $2 AND cge_tournament = $3
+		AND cge_stage_number = $4 AND cge_group IS NULL LIMIT 1`, stage, g.GroupName, g.TournamentID, g.StageNumber).Scan(&unlinked)
+	if err == nil {
+		return 0, fmt.Errorf("group %d is CGE tournament %d stage %d's %q but has no CGE group: link it in the data first",
+			unlinked, g.TournamentID, g.StageNumber, g.GroupName)
+	}
+	if err != pgx.ErrNoRows {
+		return 0, err
+	}
 	err = tx.QueryRow(ctx, `
 		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number, cge_group) VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET cge_group = coalesce(groups.cge_group, excluded.cge_group)
 		RETURNING group_id`, stage, g.GroupName, g.TournamentID, g.StageNumber, g.GroupID).Scan(&group)
 	return group, err
 }

@@ -79,7 +79,7 @@ func heldGame(tb testing.TB, pool *pgxpool.Pool, t, s int, seats ...seat) {
 		st AS (INSERT INTO stages (tournament_id, label) SELECT tournament_id, $4 FROM t
 		       ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id)
 		INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number) SELECT stage_id, '', $1, $2 FROM st
-		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number) DO UPDATE SET name = excluded.name RETURNING group_id`,
+		ON CONFLICT (stage_id, name, cge_tournament, cge_stage_number, cge_group) DO UPDATE SET name = excluded.name RETURNING group_id`,
 		t, s, strconv.Itoa(t), strconv.Itoa(s)).Scan(&group)
 	if err != nil {
 		tb.Fatalf("finding CGE stage %d/%d: %v", t, s, err)
