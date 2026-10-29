@@ -5,8 +5,7 @@ import { viewerZone } from '@ttac/shared/time';
 import { challengePlayer, RatingsApiError, type ChallengePlayer, type ChallengePlayerBest, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
-import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice } from './ChallengeParts';
-import { useLoad } from './useLoad';
+import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -26,7 +25,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
   const [set, setSet] = useState<SetId>('mix');
   useEffect(() => setName(nameParam(window.location.search)), []);
   const counting: Counting = verified === 'all' ? 'all' : asIf ? 'as-if' : 'verified';
-  const load = useLoad(
+  const load = useKeptLoad(
     `player-${name}-${counting}`,
     name === null || name === ''
       ? null

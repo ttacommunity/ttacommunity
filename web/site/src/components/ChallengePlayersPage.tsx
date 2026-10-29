@@ -5,9 +5,8 @@ import type { SortColumns } from '@ttac/shared/sort';
 import { viewerZone } from '@ttac/shared/time';
 import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import { byMeasure, entryDay, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
-import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import FilterInput from './FilterInput';
-import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
@@ -31,7 +30,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
   const [verified, setVerified] = useChoice('verified');
   const [measure, setMeasure] = useChoice('measure');
   const [query, setQuery] = useState('');
-  const load = useLoad(`players-${verified}`, () => challengePlayers(apiUrl, verified === 'verified'));
+  const load = useKeptLoad(`players-${verified}`, () => challengePlayers(apiUrl, verified === 'verified'));
   const players = load.kind === 'ready' ? matchingPlayers(byMeasure(load.data.players, measure), query) : [];
   const [rows, sort, onSort] = useSort(players, columns(measure));
   const zone = viewerZone();

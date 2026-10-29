@@ -4,8 +4,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { challengePlayer, challengePlayers, RatingsApiError, type ChallengePlayer, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeSets, compareBests, formatMeasure, measureOf, setLabel, signed, type Measure, type SetId } from '../lib/challenges';
-import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
-import { useLoad } from './useLoad';
+import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -27,13 +26,13 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
     setB(params.get('b') ?? '');
   }, []);
   const v = verified === 'verified';
-  const players = useLoad(`players-${verified}`, () => challengePlayers(apiUrl, v));
+  const players = useKeptLoad(`players-${verified}`, () => challengePlayers(apiUrl, v));
   const known = players.kind === 'ready' ? players.data.players : [];
   const find = (name: string) => known.find((p) => p.player.toLowerCase() === name.trim().toLowerCase());
   const pa = find(a);
   const pb = find(b);
-  const sideA = useLoad(`cmp-${pa?.player}-${verified}`, pa ? () => challengePlayer(apiUrl, pa.player, v).catch(missing) : null);
-  const sideB = useLoad(`cmp-${pb?.player}-${verified}`, pb ? () => challengePlayer(apiUrl, pb.player, v).catch(missing) : null);
+  const sideA = useKeptLoad(`cmp-${pa?.player}-${verified}`, pa ? () => challengePlayer(apiUrl, pa.player, v).catch(missing) : null);
+  const sideB = useKeptLoad(`cmp-${pb?.player}-${verified}`, pb ? () => challengePlayer(apiUrl, pb.player, v).catch(missing) : null);
 
   const choose = (which: 'a' | 'b', value: string) => {
     (which === 'a' ? setA : setB)(value);

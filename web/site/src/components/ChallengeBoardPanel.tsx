@@ -4,14 +4,13 @@ import { viewerZone } from '@ttac/shared/time';
 import { challengeBoard, type ChallengeBoard, type ChallengeRecordStep } from '@ttac/shared/ratings';
 import { entryDay } from '../lib/challenges';
 import { CHART, notCounted, recordChart } from '../lib/record-chart';
-import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
-import { useLoad } from './useLoad';
+import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
 export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id: string }) {
   const [verified, setVerified] = useChoice('verified');
-  const load = useLoad(`board-${id}-${verified}`, () => challengeBoard(apiUrl, id, verified === 'verified'));
+  const load = useKeptLoad(`board-${id}-${verified}`, () => challengeBoard(apiUrl, id, verified === 'verified'));
   const zone = viewerZone();
   const day = (instant: string) => entryDay(instant, zone);
 

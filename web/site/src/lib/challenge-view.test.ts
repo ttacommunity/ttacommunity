@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recallChoice, rememberChoice } from './challenge-view';
+import { recallChoice, rememberChoice, shownLoad } from './challenge-view';
 
 /** memory is a Storage holding what it is given. */
 function memory(): Storage {
@@ -52,5 +52,19 @@ describe('rememberChoice', () => {
 
   it('ignores a store that refuses', () => {
     expect(() => rememberChoice(refusing, 'view', 'compact')).not.toThrow();
+  });
+});
+
+describe('shownLoad', () => {
+  const ready = { kind: 'ready' as const, data: 1 };
+  const loading = { kind: 'loading' as const };
+  const failed = { kind: 'error' as const, message: 'down' };
+  it.each([
+    ['the last data while loading again', ready, loading, ready],
+    ['loading the first time', null, loading, loading],
+    ['new data once it is here', ready, { kind: 'ready' as const, data: 2 }, { kind: 'ready', data: 2 }],
+    ['a failure, not old data', ready, failed, failed],
+  ])('shows %s', (_name, last, next, want) => {
+    expect(shownLoad(last, next)).toEqual(want);
   });
 });

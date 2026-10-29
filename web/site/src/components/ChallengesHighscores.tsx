@@ -4,8 +4,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { challengeEntries, challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
 import { downloadName, downloadRows, toCsv } from '../lib/challenge-download';
 import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
-import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
-import { useLoad } from './useLoad';
+import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -20,7 +19,7 @@ export default function ChallengesHighscores({ apiUrl }: { apiUrl: string }) {
   const [measure, setMeasure] = useChoice('measure');
   const [view, setView] = useChoice('view');
   const [set, setSet] = useState<SetId>('mix');
-  const load = useLoad(`highscores-${verified}`, () => challengeHighscores(apiUrl, verified === 'verified'));
+  const load = useKeptLoad(`highscores-${verified}`, () => challengeHighscores(apiUrl, verified === 'verified'));
 
   return (
     <>
