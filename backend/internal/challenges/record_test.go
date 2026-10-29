@@ -10,7 +10,7 @@ import (
 func TestRecord(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 1, d, 12, 0, 0, 0, time.UTC) }
 	entry := func(id int64, player string, domination int, verified bool, at time.Time) challenges.Entry {
-		return challenges.Entry{ID: id, Player: player, Domination: domination, Verified: verified, At: at}
+		return challenges.Entry{ID: id, Challenge: "c", Player: player, Domination: domination, Verified: verified, At: at}
 	}
 	bugged := func(e challenges.Entry) challenges.Entry {
 		e.Bugged = true
@@ -40,11 +40,11 @@ func TestRecord(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := int64(0)
-			if i := challenges.Record(tt.entries, tt.verifiedOnly); i >= 0 {
-				got = tt.entries[i].ID
+			if board := challenges.Compute([]challenges.Listed{{ID: "c", Set: "mix"}}, tt.entries, tt.verifiedOnly, "").Boards["c"]; len(board) > 0 {
+				got = board[0].ID
 			}
 			if got != tt.want {
-				t.Errorf("Record (verified only %v) holder = entry %d, want entry %d", tt.verifiedOnly, got, tt.want)
+				t.Errorf("record (verified only %v) holder = entry %d, want entry %d", tt.verifiedOnly, got, tt.want)
 			}
 		})
 	}

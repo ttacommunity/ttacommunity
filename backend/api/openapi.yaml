@@ -1053,22 +1053,115 @@ paths:
   /v1/challenges:
     get:
       operationId: getChallenges
-      summary: The game's challenges, each with its verified record
+      summary: The challenges' highscores page
       description: |
-        Every challenge in the game's order, with the entry that holds its
-        record among verified entries (those linking a Discord proof): the
-        highest domination, a bugged entry never counting. Cached for a
-        minute, as entries change it.
+        Every challenge in the game's order with its record and how many
+        players have a counted entry; the pooled records and best players of
+        every set, every group and everything; and the players holding the
+        most records. A player's best on each challenge counts: their
+        highest domination, a verified one winning their own tie. A bugged
+        entry never counts, and a negative domination counts as 0 in sums
+        and ratings. Cached for a minute, as entries change it.
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVerified"
       responses:
         "200":
-          description: The challenges, in the game's order
+          description: The highscores
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChallengeList"
+                $ref: "#/components/schemas/ChallengeHighscores"
+  /v1/challenges/players:
+    get:
+      operationId: getChallengePlayers
+      summary: Every player with a counted challenge entry, with their results
+      description: |
+        Each player's challenges played, verified bests, records, total
+        domination and rating, overall and by set. A rating averages each
+        best as a percentage of the record over every challenge, an unplayed
+        one counting 0. Cached for a minute.
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVerified"
+      responses:
+        "200":
+          description: The players, by total domination
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePlayers"
+  /v1/challenges/players/{name}:
+    get:
+      operationId: getChallengePlayer
+      summary: One player's challenge results, for their page
+      description: |
+        The player's results, their best on each challenge with its rank and
+        share of the record, and their ten newest entries. The name is matched
+        ignoring case. With as_if_verified (and verified), the player's
+        unproven entries count for them too, against the boards as they are.
+        A name with no entry, counted or not, is 404. Cached for a minute.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - $ref: "#/components/parameters/ChallengeVerified"
+        - name: as_if_verified
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The player
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePlayer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/challenges/{challenge}:
+    get:
+      operationId: getChallengeBoard
+      summary: One challenge's ranking, record history and entries
+      description: |
+        Each player's best on the challenge, ranked; each time its record went
+        up; and every entry not hidden, newest first, bugged ones included.
+        An unknown challenge is 404. Cached for a minute.
+      parameters:
+        - name: challenge
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9_]{1,40}$"
+        - $ref: "#/components/parameters/ChallengeVerified"
+      responses:
+        "200":
+          description: The challenge's board
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeBoard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/blitz:
     get:
       operationId: getBlitzEditions
@@ -3815,6 +3908,14 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    ChallengeVerified:
+      name: verified
+      in: query
+      required: false
+      description: Count only entries that link a Discord proof (the official records), or every entry
+      schema:
+        type: boolean
+        default: true
     BlitzEditionLabel:
       name: edition
       in: path
@@ -5012,18 +5113,268 @@ components:
         entrants:
           description: How many entrants are still in
           type: integer
-    ChallengeList:
+    ChallengeHighscores:
       type: object
-      required: [challenges]
+      required: [challenges, scopes, record_holders]
       properties:
         challenges:
           type: array
           items:
             $ref: "#/components/schemas/Challenge"
-    Challenge:
-      description: One of the game's challenges, with its verified record
+        scopes:
+          description: Every set, every group of each set, and everything (set all)
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScope"
+        record_holders:
+          description: The ten players holding the most records, most first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeRecordHolder"
+    ChallengeScope:
+      description: A set of challenges summed up
       type: object
-      required: [id, set, group, slot, difficulty, players, name, record]
+      required: [set, group, pooled, covered, size, by_total, by_rating]
+      properties:
+        set:
+          type: string
+          enum: [original, expansion, mix, all]
+        group:
+          description: The group within the set, empty for the whole set
+          type: string
+        pooled:
+          description: Every record in the scope added up
+          type: integer
+        covered:
+          description: Challenges in the scope with a record
+          type: integer
+        size:
+          description: Challenges in the scope
+          type: integer
+        by_total:
+          description: The four best players by the sum of their own bests here
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScopePlayer"
+        by_rating:
+          description: The four best players by their rating here
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScopePlayer"
+    ChallengeScopePlayer:
+      type: object
+      required: [player, total, played, rating]
+      properties:
+        player:
+          type: string
+        total:
+          type: integer
+        played:
+          type: integer
+        rating:
+          description: Each best as a percentage of the record, averaged over the scope's challenges
+          type: number
+    ChallengeRecordHolder:
+      type: object
+      required: [player, records]
+      properties:
+        player:
+          type: string
+        records:
+          type: integer
+    ChallengeBest:
+      description: A player's best entry on a challenge, ranked
+      type: object
+      required: [player, domination, proof_url, entered_at, rank]
+      properties:
+        player:
+          description: The member's TTA username, or the name the entry was made under when it is not linked to a member
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          description: The Discord message proving it, null for an unproven entry
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        rank:
+          description: Its rank among the players' bests, equal dominations sharing one
+          type: integer
+    ChallengeSubmission:
+      description: One entry as it was made
+      type: object
+      required: [player, domination, proof_url, entered_at, bugged]
+      properties:
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          description: Made through a since-fixed game bug, listed but never counted
+          type: boolean
+    ChallengeRecordStep:
+      description: A time a challenge's record went up
+      type: object
+      required: [player, domination, proof_url, entered_at, gain]
+      properties:
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        gain:
+          description: The gain on the record before, null for the first
+          type: integer
+          nullable: true
+    ChallengeBoard:
+      type: object
+      required: [ranking, history, entries]
+      properties:
+        ranking:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeBest"
+        history:
+          description: Each time the record went up, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeRecordStep"
+        entries:
+          description: Every entry not hidden, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeSubmission"
+    ChallengeSetFigures:
+      description: A figure for each set
+      type: object
+      required: [original, expansion, mix]
+      properties:
+        original:
+          type: number
+        expansion:
+          type: number
+        mix:
+          type: number
+    ChallengePlayerSummary:
+      description: A player's challenge results
+      type: object
+      required: [player, played, verified, records, total, totals, rating, ratings, last_entry]
+      properties:
+        player:
+          type: string
+        played:
+          description: Challenges with a counted entry
+          type: integer
+        verified:
+          description: Bests that link a proof
+          type: integer
+        records:
+          type: integer
+        total:
+          description: Their bests added up
+          type: integer
+        totals:
+          $ref: "#/components/schemas/ChallengeSetFigures"
+        rating:
+          description: Each best as a percentage of the record, averaged over every challenge
+          type: number
+        ratings:
+          $ref: "#/components/schemas/ChallengeSetFigures"
+        last_entry:
+          description: Their newest entry, counted or not
+          type: string
+          format: date-time
+    ChallengePlayers:
+      type: object
+      required: [players]
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerSummary"
+    ChallengePlayerBest:
+      description: The player's best on a challenge, against its record
+      type: object
+      required: [challenge, domination, proof_url, rank, entrants, share, record, record_holder]
+      properties:
+        challenge:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        rank:
+          type: integer
+        entrants:
+          description: Players ranked on the challenge, this player included
+          type: integer
+        share:
+          description: The best as a percentage of the record
+          type: number
+        record:
+          description: The record's domination, from the board as it is
+          type: integer
+        record_holder:
+          type: string
+    ChallengePlayerEntry:
+      description: One of the player's entries
+      type: object
+      required: [challenge, domination, proof_url, entered_at, bugged]
+      properties:
+        challenge:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          type: boolean
+    ChallengePlayer:
+      type: object
+      required: [player, unproven, summary, bests, recent]
+      properties:
+        player:
+          description: The name shown for the player
+          type: string
+        unproven:
+          description: Their unproven entries that are not bugged
+          type: integer
+        summary:
+          description: Their results, null when none of their entries counts
+          allOf:
+            - $ref: "#/components/schemas/ChallengePlayerSummary"
+          nullable: true
+        bests:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerBest"
+        recent:
+          description: Their ten newest entries, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerEntry"
+    Challenge:
+      description: One of the game's challenges, with its record
+      type: object
+      required: [id, set, group, slot, difficulty, players, name, record, entrants]
       properties:
         id:
           type: string
@@ -5045,26 +5396,13 @@ components:
         name:
           type: string
         record:
-          description: The verified entry holding the record, null when no verified entry counts
+          description: The best holding the record, null when no entry counts
           allOf:
-            - $ref: "#/components/schemas/ChallengeRecord"
+            - $ref: "#/components/schemas/ChallengeBest"
           nullable: true
-    ChallengeRecord:
-      description: The entry holding a challenge's record
-      type: object
-      required: [player, domination, proof_url, entered_at]
-      properties:
-        player:
-          description: The member's TTA username, or the name the entry was made under when it is not linked to a member
-          type: string
-        domination:
+        entrants:
+          description: Players with a counted entry
           type: integer
-        proof_url:
-          description: The Discord message proving it
-          type: string
-        entered_at:
-          type: string
-          format: date-time
     AdminChallengeEntries:
       type: object
       required: [total, page, page_size, entries]

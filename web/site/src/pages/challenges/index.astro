@@ -1,10 +1,12 @@
 ---
-/** The Challenges section: the game's challenges with their verified records. */
+/** The Challenges section's home: the domination highscores. */
 import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import ChallengesPage from '../../components/ChallengesPage';
-import '../../components/HallOfFame.css';
+import ChallengesNav from '../../components/ChallengesNav.astro';
+import ChallengesHighscores from '../../components/ChallengesHighscores';
+import '../../components/Challenges.css';
 ---
-<SiteLayout title="Challenges | Through the Ages community" description="The game's single-player challenges and the highest verified domination for each.">
-  <ChallengesPage client:only="react" apiUrl={PUBLIC_API_URL} />
+<SiteLayout title="Domination Highscores | Challenges" description="The highest domination entered for each of the Through the Ages app's challenges, verified by a screenshot in the TtA Discord.">
+  <ChallengesNav page="highscores" />
+  <ChallengesHighscores client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>

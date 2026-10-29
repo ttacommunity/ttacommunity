@@ -752,13 +752,85 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The game's challenges, each with its verified record
-         * @description Every challenge in the game's order, with the entry that holds its
-         *     record among verified entries (those linking a Discord proof): the
-         *     highest domination, a bugged entry never counting. Cached for a
-         *     minute, as entries change it.
+         * The challenges' highscores page
+         * @description Every challenge in the game's order with its record and how many
+         *     players have a counted entry; the pooled records and best players of
+         *     every set, every group and everything; and the players holding the
+         *     most records. A player's best on each challenge counts: their
+         *     highest domination, a verified one winning their own tie. A bugged
+         *     entry never counts, and a negative domination counts as 0 in sums
+         *     and ratings. Cached for a minute, as entries change it.
          */
         get: operations["getChallenges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/challenges/players": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every player with a counted challenge entry, with their results
+         * @description Each player's challenges played, verified bests, records, total
+         *     domination and rating, overall and by set. A rating averages each
+         *     best as a percentage of the record over every challenge, an unplayed
+         *     one counting 0. Cached for a minute.
+         */
+        get: operations["getChallengePlayers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/challenges/players/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One player's challenge results, for their page
+         * @description The player's results, their best on each challenge with its rank and
+         *     share of the record, and their ten newest entries. The name is matched
+         *     ignoring case. With as_if_verified (and verified), the player's
+         *     unproven entries count for them too, against the boards as they are.
+         *     A name with no entry, counted or not, is 404. Cached for a minute.
+         */
+        get: operations["getChallengePlayer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/challenges/{challenge}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One challenge's ranking, record history and entries
+         * @description Each player's best on the challenge, ranked; each time its record went
+         *     up; and every entry not hidden, newest first, bugged ones included.
+         *     An unknown challenge is 404. Cached for a minute.
+         */
+        get: operations["getChallengeBoard"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3150,10 +3222,144 @@ export interface components {
             /** @description How many entrants are still in */
             entrants: number;
         };
-        ChallengeList: {
+        ChallengeHighscores: {
             challenges: components["schemas"]["Challenge"][];
+            /** @description Every set, every group of each set, and everything (set all) */
+            scopes: components["schemas"]["ChallengeScope"][];
+            /** @description The ten players holding the most records, most first */
+            record_holders: components["schemas"]["ChallengeRecordHolder"][];
         };
-        /** @description One of the game's challenges, with its verified record */
+        /** @description A set of challenges summed up */
+        ChallengeScope: {
+            /** @enum {string} */
+            set: "original" | "expansion" | "mix" | "all";
+            /** @description The group within the set, empty for the whole set */
+            group: string;
+            /** @description Every record in the scope added up */
+            pooled: number;
+            /** @description Challenges in the scope with a record */
+            covered: number;
+            /** @description Challenges in the scope */
+            size: number;
+            /** @description The four best players by the sum of their own bests here */
+            by_total: components["schemas"]["ChallengeScopePlayer"][];
+            /** @description The four best players by their rating here */
+            by_rating: components["schemas"]["ChallengeScopePlayer"][];
+        };
+        ChallengeScopePlayer: {
+            player: string;
+            total: number;
+            played: number;
+            /** @description Each best as a percentage of the record, averaged over the scope's challenges */
+            rating: number;
+        };
+        ChallengeRecordHolder: {
+            player: string;
+            records: number;
+        };
+        /** @description A player's best entry on a challenge, ranked */
+        ChallengeBest: {
+            /** @description The member's TTA username, or the name the entry was made under when it is not linked to a member */
+            player: string;
+            domination: number;
+            /** @description The Discord message proving it, null for an unproven entry */
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            /** @description Its rank among the players' bests, equal dominations sharing one */
+            rank: number;
+        };
+        /** @description One entry as it was made */
+        ChallengeSubmission: {
+            player: string;
+            domination: number;
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            /** @description Made through a since-fixed game bug, listed but never counted */
+            bugged: boolean;
+        };
+        /** @description A time a challenge's record went up */
+        ChallengeRecordStep: {
+            player: string;
+            domination: number;
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            /** @description The gain on the record before, null for the first */
+            gain: number | null;
+        };
+        ChallengeBoard: {
+            ranking: components["schemas"]["ChallengeBest"][];
+            /** @description Each time the record went up, oldest first */
+            history: components["schemas"]["ChallengeRecordStep"][];
+            /** @description Every entry not hidden, newest first */
+            entries: components["schemas"]["ChallengeSubmission"][];
+        };
+        /** @description A figure for each set */
+        ChallengeSetFigures: {
+            original: number;
+            expansion: number;
+            mix: number;
+        };
+        /** @description A player's challenge results */
+        ChallengePlayerSummary: {
+            player: string;
+            /** @description Challenges with a counted entry */
+            played: number;
+            /** @description Bests that link a proof */
+            verified: number;
+            records: number;
+            /** @description Their bests added up */
+            total: number;
+            totals: components["schemas"]["ChallengeSetFigures"];
+            /** @description Each best as a percentage of the record, averaged over every challenge */
+            rating: number;
+            ratings: components["schemas"]["ChallengeSetFigures"];
+            /**
+             * Format: date-time
+             * @description Their newest entry, counted or not
+             */
+            last_entry: string;
+        };
+        ChallengePlayers: {
+            players: components["schemas"]["ChallengePlayerSummary"][];
+        };
+        /** @description The player's best on a challenge, against its record */
+        ChallengePlayerBest: {
+            challenge: string;
+            domination: number;
+            proof_url: string | null;
+            rank: number;
+            /** @description Players ranked on the challenge, this player included */
+            entrants: number;
+            /** @description The best as a percentage of the record */
+            share: number;
+            /** @description The record's domination, from the board as it is */
+            record: number;
+            record_holder: string;
+        };
+        /** @description One of the player's entries */
+        ChallengePlayerEntry: {
+            challenge: string;
+            domination: number;
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            bugged: boolean;
+        };
+        ChallengePlayer: {
+            /** @description The name shown for the player */
+            player: string;
+            /** @description Their unproven entries that are not bugged */
+            unproven: number;
+            /** @description Their results, null when none of their entries counts */
+            summary: components["schemas"]["ChallengePlayerSummary"] | null;
+            bests: components["schemas"]["ChallengePlayerBest"][];
+            /** @description Their ten newest entries, newest first */
+            recent: components["schemas"]["ChallengePlayerEntry"][];
+        };
+        /** @description One of the game's challenges, with its record */
         Challenge: {
             /** @example epic1_exp */
             id: string;
@@ -3167,18 +3373,10 @@ export interface components {
             /** @description Players in the game, the player's own seat included */
             players: number;
             name: string;
-            /** @description The verified entry holding the record, null when no verified entry counts */
-            record: components["schemas"]["ChallengeRecord"] | null;
-        };
-        /** @description The entry holding a challenge's record */
-        ChallengeRecord: {
-            /** @description The member's TTA username, or the name the entry was made under when it is not linked to a member */
-            player: string;
-            domination: number;
-            /** @description The Discord message proving it */
-            proof_url: string;
-            /** Format: date-time */
-            entered_at: string;
+            /** @description The best holding the record, null when no entry counts */
+            record: components["schemas"]["ChallengeBest"] | null;
+            /** @description Players with a counted entry */
+            entrants: number;
         };
         AdminChallengeEntries: {
             /** @description Every entry, on every page */
@@ -5463,6 +5661,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Count only entries that link a Discord proof (the official records), or every entry */
+        ChallengeVerified: boolean;
         /** @description The edition's label, as admin lists it (a season) */
         BlitzEditionLabel: string;
         BlitzEntrantId: number;
@@ -6451,23 +6651,106 @@ export interface operations {
     };
     getChallenges: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Count only entries that link a Discord proof (the official records), or every entry */
+                verified?: components["parameters"]["ChallengeVerified"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The challenges, in the game's order */
+            /** @description The highscores */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChallengeList"];
+                    "application/json": components["schemas"]["ChallengeHighscores"];
                 };
             };
+        };
+    };
+    getChallengePlayers: {
+        parameters: {
+            query?: {
+                /** @description Count only entries that link a Discord proof (the official records), or every entry */
+                verified?: components["parameters"]["ChallengeVerified"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The players, by total domination */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengePlayers"];
+                };
+            };
+        };
+    };
+    getChallengePlayer: {
+        parameters: {
+            query?: {
+                /** @description Count only entries that link a Discord proof (the official records), or every entry */
+                verified?: components["parameters"]["ChallengeVerified"];
+                as_if_verified?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengePlayer"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getChallengeBoard: {
+        parameters: {
+            query?: {
+                /** @description Count only entries that link a Discord proof (the official records), or every entry */
+                verified?: components["parameters"]["ChallengeVerified"];
+            };
+            header?: never;
+            path: {
+                challenge: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge's board */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeBoard"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     getBlitzEditions: {
@@ -9182,6 +9465,7 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
+export const challengeScopeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ChallengeScope"]["set"]> = ["original", "expansion", "mix", "all"];
 export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];
 export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
