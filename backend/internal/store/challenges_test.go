@@ -148,31 +148,96 @@ func TestTheSiteLoginCannotReadAnEntrysAdminOnlyColumns(t *testing.T) {
 	}
 }
 
-func TestAdminPagesThroughEveryEntryNewestFirst(t *testing.T) {
+// adminLines lists every entry as admin sees it, newest first, as "player domination hidden=reason checked bugged".
+func adminLines(t *testing.T, a *AdminStore) string {
+	t.Helper()
+	entries, err := a.ChallengeEntriesForAdmin(context.Background())
+	if err != nil {
+		t.Fatalf("ChallengeEntriesForAdmin: %v", err)
+	}
+	var lines []string
+	for _, e := range entries {
+		lines = append(lines, fmt.Sprintf("%s %s %d hidden=%q checked=%v bugged=%v", e.Player, e.ChallengeName, e.Domination, e.HiddenReason, e.Checked, e.Bugged))
+	}
+	return strings.Join(lines, ", ")
+}
+
+func TestAdminListsEveryEntryNewestFirst(t *testing.T) {
 	pool := migrated(t)
 	hidden := imported(2, "Bob", 90, 2)
 	hidden.Hidden, hidden.HiddenReason, hidden.Checked = true, "a duplicate", true
 	withChallengeEntries(t, pool, imported(1, "Ann", 50, 1), hidden, imported(3, "Cy", 70, 3))
+	want := `Cy First 70 hidden="" checked=false bugged=false, Bob First 90 hidden="a duplicate" checked=true bugged=false, Ann First 50 hidden="" checked=false bugged=false`
+	if got := adminLines(t, NewAdminStore(asAdminLogin(t, pool))); got != want {
+		t.Errorf("entries = %q, want %q", got, want)
+	}
+}
+
+func TestAdminChangesAnEntry(t *testing.T) {
+	pool := migrated(t)
+	withChallengeEntries(t, pool, imported(1, "Ann", 50, 1))
 	a := NewAdminStore(asAdminLogin(t, pool))
 	ctx := context.Background()
-	first, err := a.ChallengeEntryPage(ctx, 1, 2)
+	entries, err := a.ChallengeEntriesForAdmin(ctx)
 	if err != nil {
-		t.Fatalf("ChallengeEntryPage(1): %v", err)
+		t.Fatalf("ChallengeEntriesForAdmin: %v", err)
 	}
-	second, err := a.ChallengeEntryPage(ctx, 2, 2)
-	if err != nil {
-		t.Fatalf("ChallengeEntryPage(2): %v", err)
+	id := entries[0].ID
+	d, yes, reason := 60, true, "a typo"
+	if err := a.SetChallengeEntry(ctx, id, ChallengeEntryChange{Domination: &d, Checked: &yes, Bugged: &yes, Hidden: &yes, HiddenReason: &reason}); err != nil {
+		t.Fatalf("SetChallengeEntry: %v", err)
 	}
-	var lines []string
-	for _, e := range append(first.Entries, second.Entries...) {
-		lines = append(lines, fmt.Sprintf("%s %s %d hidden=%q checked=%v", e.Player, e.ChallengeName, e.Domination, e.HiddenReason, e.Checked))
+	if got, want := adminLines(t, a), `Ann First 60 hidden="a typo" checked=true bugged=true`; got != want {
+		t.Errorf("entry = %q, want %q", got, want)
 	}
-	want := `Cy First 70 hidden="" checked=false, Bob First 90 hidden="a duplicate" checked=true, Ann First 50 hidden="" checked=false`
-	if got := strings.Join(lines, ", "); got != want {
-		t.Errorf("pages = %q, want %q", got, want)
+	no := false
+	if err := a.SetChallengeEntry(ctx, id, ChallengeEntryChange{Hidden: &no}); err != nil {
+		t.Fatalf("SetChallengeEntry (shown again): %v", err)
 	}
-	if first.Total != 3 || second.Total != 3 {
-		t.Errorf("totals = %d and %d, want 3", first.Total, second.Total)
+	if got, want := adminLines(t, a), `Ann First 60 hidden="" checked=true bugged=true`; got != want {
+		t.Errorf("shown again = %q, want %q: showing clears the reason", got, want)
+	}
+	tests := []struct {
+		name string
+		id   int64
+		c    ChallengeEntryChange
+		want error
+	}{
+		{"no such entry", id + 99, ChallengeEntryChange{Checked: &yes}, ErrNoChallengeEntry},
+		{"hidden without a reason", id, ChallengeEntryChange{Hidden: &yes}, ErrBadChallengeEntry},
+		{"a domination out of bounds", id, ChallengeEntryChange{Domination: new(10000)}, ErrBadChallengeEntry},
+		{"a proof that is not a link", id, ChallengeEntryChange{ProofURL: new("not a link")}, ErrBadChallengeEntry},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := a.SetChallengeEntry(ctx, tt.id, tt.c); !errors.Is(err, tt.want) {
+				t.Errorf("SetChallengeEntry = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestAdminMergesANameIntoAnotherOrAMember(t *testing.T) {
+	pool := migrated(t)
+	withChallengeEntries(t, pool, imported(1, "Anne", 50, 1), imported(2, "anne", 55, 2), imported(3, "Cy", 70, 3))
+	a := NewAdminStore(asAdminLogin(t, pool))
+	ctx := context.Background()
+	got, err := a.MergeChallengeName(ctx, "ANNE", "Ann")
+	if err != nil || got.Moved != 2 || got.Member {
+		t.Fatalf("MergeChallengeName = %+v, %v, want 2 moved to a name", got, err)
+	}
+	if _, err := a.AddMember(ctx, Member{Name: "cyrus", Zone: "UTC"}); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	got, err = a.MergeChallengeName(ctx, "cy", "Cyrus")
+	if err != nil || got.Moved != 1 || !got.Member {
+		t.Fatalf("MergeChallengeName to a member = %+v, %v, want 1 linked", got, err)
+	}
+	if lines, want := adminLines(t, a), "cyrus First 70"; !strings.HasPrefix(lines, want) || !strings.Contains(lines, "Ann First 55") {
+		t.Errorf("entries = %q, want Cy linked to cyrus and both Anne entries as Ann", lines)
+	}
+	if _, err := a.MergeChallengeName(ctx, "nobody", "Ann"); !errors.Is(err, ErrNoChallengeEntry) {
+		t.Errorf("merging a name with no entries = %v, want ErrNoChallengeEntry", err)
 	}
 }
 
