@@ -88,6 +88,12 @@
   font-family: var(--font-stats);
   font-size: var(--size-body-short);
 }
+/* A player named inside a line of figures is set in that line's font, not the tables' larger one. */
+.challenges-totals-line .player-link,
+.challenge-grid-extra .player-link {
+  font-family: inherit;
+  font-size: inherit;
+}
 .challenges-totals-line strong,
 .challenges-score {
   color: var(--accent-gold-light);
