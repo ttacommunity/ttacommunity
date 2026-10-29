@@ -40,6 +40,39 @@ func (e AdminChallengeEntrySource) Valid() bool {
 	}
 }
 
+// Defines values for AdminChallengeView.
+const (
+	AdminChallengeViewAll        AdminChallengeView = "all"
+	AdminChallengeViewBugged     AdminChallengeView = "bugged"
+	AdminChallengeViewChecked    AdminChallengeView = "checked"
+	AdminChallengeViewFlagged    AdminChallengeView = "flagged"
+	AdminChallengeViewHidden     AdminChallengeView = "hidden"
+	AdminChallengeViewUnchecked  AdminChallengeView = "unchecked"
+	AdminChallengeViewUnverified AdminChallengeView = "unverified"
+)
+
+// Valid indicates whether the value is a known member of the AdminChallengeView enum.
+func (e AdminChallengeView) Valid() bool {
+	switch e {
+	case AdminChallengeViewAll:
+		return true
+	case AdminChallengeViewBugged:
+		return true
+	case AdminChallengeViewChecked:
+		return true
+	case AdminChallengeViewFlagged:
+		return true
+	case AdminChallengeViewHidden:
+		return true
+	case AdminChallengeViewUnchecked:
+		return true
+	case AdminChallengeViewUnverified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AdminRunStatus.
 const (
 	AdminRunStatusComplete AdminRunStatus = "complete"
@@ -177,22 +210,22 @@ func (e BlitzPairingOrder) Valid() bool {
 
 // Defines values for BlitzReport.
 const (
-	Confirmed BlitzReport = "confirmed"
-	Flagged   BlitzReport = "flagged"
-	Reported  BlitzReport = "reported"
-	Resolved  BlitzReport = "resolved"
+	BlitzReportConfirmed BlitzReport = "confirmed"
+	BlitzReportFlagged   BlitzReport = "flagged"
+	BlitzReportReported  BlitzReport = "reported"
+	BlitzReportResolved  BlitzReport = "resolved"
 )
 
 // Valid indicates whether the value is a known member of the BlitzReport enum.
 func (e BlitzReport) Valid() bool {
 	switch e {
-	case Confirmed:
+	case BlitzReportConfirmed:
 		return true
-	case Flagged:
+	case BlitzReportFlagged:
 		return true
-	case Reported:
+	case BlitzReportReported:
 		return true
-	case Resolved:
+	case BlitzReportResolved:
 		return true
 	default:
 		return false
@@ -1160,11 +1193,13 @@ type AdminBlitzRound struct {
 
 // AdminChallengeEntries defines model for AdminChallengeEntries.
 type AdminChallengeEntries struct {
-	Entries  []AdminChallengeEntry `json:"entries"`
-	Page     int                   `json:"page"`
-	PageSize int                   `json:"page_size"`
+	// Counts How many entries each view holds
+	Counts   []AdminChallengeViewCount `json:"counts"`
+	Entries  []AdminChallengeEntry     `json:"entries"`
+	Page     int                       `json:"page"`
+	PageSize int                       `json:"page_size"`
 
-	// Total Every entry, on every page
+	// Total Every entry in the view, on every page
 	Total int `json:"total"`
 }
 
@@ -1183,11 +1218,14 @@ type AdminChallengeEntry struct {
 	Domination int  `json:"domination"`
 
 	// EnteredAs The name it was entered under
-	EnteredAs    string    `json:"entered_as"`
-	EnteredAt    time.Time `json:"entered_at"`
-	Hidden       bool      `json:"hidden"`
-	HiddenReason string    `json:"hidden_reason"`
-	Id           int64     `json:"id"`
+	EnteredAs string    `json:"entered_as"`
+	EnteredAt time.Time `json:"entered_at"`
+
+	// Flags What looks wrong about it, for an admin to look at
+	Flags        []string `json:"flags"`
+	Hidden       bool     `json:"hidden"`
+	HiddenReason string   `json:"hidden_reason"`
+	Id           int64    `json:"id"`
 
 	// Member The linked member's id, null when not linked
 	Member *int64 `json:"member"`
@@ -1204,6 +1242,44 @@ type AdminChallengeEntry struct {
 
 // AdminChallengeEntrySource Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
 type AdminChallengeEntrySource string
+
+// AdminChallengeEntryChange defines model for AdminChallengeEntryChange.
+type AdminChallengeEntryChange struct {
+	Bugged       *bool   `json:"bugged,omitempty"`
+	Checked      *bool   `json:"checked,omitempty"`
+	Domination   *int    `json:"domination,omitempty"`
+	Hidden       *bool   `json:"hidden,omitempty"`
+	HiddenReason *string `json:"hidden_reason,omitempty"`
+	ProofUrl     *string `json:"proof_url,omitempty"`
+}
+
+// AdminChallengeNameMerge defines model for AdminChallengeNameMerge.
+type AdminChallengeNameMerge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// AdminChallengeNameMerged defines model for AdminChallengeNameMerged.
+type AdminChallengeNameMerged struct {
+	// Member Whether they moved to a member, rather than a name
+	Member bool `json:"member"`
+
+	// Moved How many entries moved
+	Moved int `json:"moved"`
+}
+
+// AdminChallengeView Which entries: all; verified ones not yet or already checked; unverified; flagged (something looks wrong);
+// bugged; hidden. Every view but all and hidden leaves hidden entries out.
+type AdminChallengeView string
+
+// AdminChallengeViewCount defines model for AdminChallengeViewCount.
+type AdminChallengeViewCount struct {
+	Entries int `json:"entries"`
+
+	// View Which entries: all; verified ones not yet or already checked; unverified; flagged (something looks wrong);
+	// bugged; hidden. Every view but all and hidden leaves hidden entries out.
+	View AdminChallengeView `json:"view"`
+}
 
 // AdminLinkRefused An account's last request to be linked, when it was refused and neither a new request nor a link has followed
 type AdminLinkRefused struct {
@@ -4402,7 +4478,9 @@ type GetAdminBlitzCandidatesParams struct {
 
 // GetAdminChallengeEntriesParams defines parameters for GetAdminChallengeEntries.
 type GetAdminChallengeEntriesParams struct {
-	Page *int `form:"page,omitempty" json:"page,omitempty"`
+	Page *int                `form:"page,omitempty" json:"page,omitempty"`
+	View *AdminChallengeView `form:"view,omitempty" json:"view,omitempty"`
+	Q    *string             `form:"q,omitempty" json:"q,omitempty"`
 }
 
 // GetAdminPeopleParams defines parameters for GetAdminPeople.
@@ -4665,6 +4743,12 @@ type PutAdminBlitzMatchRulingJSONRequestBody = BlitzRuling
 // PostAdminBlitzRoundPairingJSONRequestBody defines body for PostAdminBlitzRoundPairing for application/json ContentType.
 type PostAdminBlitzRoundPairingJSONRequestBody = BlitzPairing
 
+// PatchAdminChallengeEntryJSONRequestBody defines body for PatchAdminChallengeEntry for application/json ContentType.
+type PatchAdminChallengeEntryJSONRequestBody = AdminChallengeEntryChange
+
+// PostAdminChallengeNameJSONRequestBody defines body for PostAdminChallengeName for application/json ContentType.
+type PostAdminChallengeNameJSONRequestBody = AdminChallengeNameMerge
+
 // PostAdminCommunityEditionJSONRequestBody defines body for PostAdminCommunityEdition for application/json ContentType.
 type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
 
@@ -4850,9 +4934,15 @@ type ServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
-	// GetAdminChallengeEntries A page of every challenge entry, newest first (admins and organisers)
+	// GetAdminChallengeEntries A page of the challenge entries in a view, newest first (admins and organisers)
 	// (GET /v1/admin/challenges/entries)
 	GetAdminChallengeEntries(w http.ResponseWriter, r *http.Request, params GetAdminChallengeEntriesParams)
+	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
+	// (PATCH /v1/admin/challenges/entries/{entry})
+	PatchAdminChallengeEntry(w http.ResponseWriter, r *http.Request, entry int64)
+	// PostAdminChallengeName Merge a name's challenge entries into another name or a member (admins and organisers)
+	// (POST /v1/admin/challenges/names)
+	PostAdminChallengeName(w http.ResponseWriter, r *http.Request)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(w http.ResponseWriter, r *http.Request)
@@ -6607,8 +6697,74 @@ func (siw *ServerInterfaceWrapper) GetAdminChallengeEntries(w http.ResponseWrite
 		return
 	}
 
+	// ------------- Optional query parameter "view" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "view", r.URL.Query(), &params.View, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "view"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "view", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminChallengeEntries(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdminChallengeEntry operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdminChallengeEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "entry" -------------
+	var entry int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entry", r.PathValue("entry"), &entry, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entry", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdminChallengeEntry(w, r, entry)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminChallengeName operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminChallengeName(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminChallengeName(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9943,6 +10099,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/admins/{discord_id}", wrapper.PutAdminAdmin)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/audit", wrapper.GetAdminAudit)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/challenges/entries", wrapper.GetAdminChallengeEntries)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/challenges/entries/{entry}", wrapper.PatchAdminChallengeEntry)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/challenges/names", wrapper.PostAdminChallengeName)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/members", wrapper.GetAdminMembers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/members", wrapper.PostAdminMember)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/members/{member}", wrapper.DeleteAdminMember)
@@ -13294,6 +13452,165 @@ func (response GetAdminChallengeEntries403JSONResponse) VisitGetAdminChallengeEn
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminChallengeEntryRequestObject struct {
+	Entry int64 `json:"entry"`
+	Body  *PatchAdminChallengeEntryJSONRequestBody
+}
+
+type PatchAdminChallengeEntryResponseObject interface {
+	VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error
+}
+
+type PatchAdminChallengeEntry204Response struct {
+}
+
+func (response PatchAdminChallengeEntry204Response) VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchAdminChallengeEntry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PatchAdminChallengeEntry400JSONResponse) VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminChallengeEntry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PatchAdminChallengeEntry401JSONResponse) VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminChallengeEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PatchAdminChallengeEntry403JSONResponse) VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminChallengeEntry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PatchAdminChallengeEntry404JSONResponse) VisitPatchAdminChallengeEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminChallengeNameRequestObject struct {
+	Body *PostAdminChallengeNameJSONRequestBody
+}
+
+type PostAdminChallengeNameResponseObject interface {
+	VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error
+}
+
+type PostAdminChallengeName200JSONResponse AdminChallengeNameMerged
+
+func (response PostAdminChallengeName200JSONResponse) VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminChallengeName400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminChallengeName400JSONResponse) VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminChallengeName401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminChallengeName401JSONResponse) VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminChallengeName403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminChallengeName403JSONResponse) VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminChallengeName404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminChallengeName404JSONResponse) VisitPostAdminChallengeNameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -19461,9 +19778,15 @@ type StrictServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(ctx context.Context, request DeleteAdminBlitzRoundResultsRequestObject) (DeleteAdminBlitzRoundResultsResponseObject, error)
-	// GetAdminChallengeEntries A page of every challenge entry, newest first (admins and organisers)
+	// GetAdminChallengeEntries A page of the challenge entries in a view, newest first (admins and organisers)
 	// (GET /v1/admin/challenges/entries)
 	GetAdminChallengeEntries(ctx context.Context, request GetAdminChallengeEntriesRequestObject) (GetAdminChallengeEntriesResponseObject, error)
+	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
+	// (PATCH /v1/admin/challenges/entries/{entry})
+	PatchAdminChallengeEntry(ctx context.Context, request PatchAdminChallengeEntryRequestObject) (PatchAdminChallengeEntryResponseObject, error)
+	// PostAdminChallengeName Merge a name's challenge entries into another name or a member (admins and organisers)
+	// (POST /v1/admin/challenges/names)
+	PostAdminChallengeName(ctx context.Context, request PostAdminChallengeNameRequestObject) (PostAdminChallengeNameResponseObject, error)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
 	// (GET /v1/admin/community/editions)
 	GetAdminCommunityEditions(ctx context.Context, request GetAdminCommunityEditionsRequestObject) (GetAdminCommunityEditionsResponseObject, error)
@@ -20981,6 +21304,70 @@ func (sh *strictHandler) GetAdminChallengeEntries(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminChallengeEntriesResponseObject); ok {
 		if err := validResponse.VisitGetAdminChallengeEntriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdminChallengeEntry operation middleware
+func (sh *strictHandler) PatchAdminChallengeEntry(w http.ResponseWriter, r *http.Request, entry int64) {
+	var request PatchAdminChallengeEntryRequestObject
+
+	request.Entry = entry
+
+	var body PatchAdminChallengeEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdminChallengeEntry(ctx, request.(PatchAdminChallengeEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdminChallengeEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdminChallengeEntryResponseObject); ok {
+		if err := validResponse.VisitPatchAdminChallengeEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminChallengeName operation middleware
+func (sh *strictHandler) PostAdminChallengeName(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminChallengeNameRequestObject
+
+	var body PostAdminChallengeNameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminChallengeName(ctx, request.(PostAdminChallengeNameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminChallengeName")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminChallengeNameResponseObject); ok {
+		if err := validResponse.VisitPostAdminChallengeNameResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

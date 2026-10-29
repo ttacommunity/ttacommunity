@@ -1637,13 +1637,61 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A page of every challenge entry, newest first (admins and organisers)
+         * A page of the challenge entries in a view, newest first (admins and organisers)
          * @description Every entry, hidden ones included, with what only admin sees: who
-         *     submitted it, why it is hidden and whether its proof was checked.
+         *     submitted it, why it is hidden, whether its proof was checked, and
+         *     what looks wrong about it. A view narrows them (verified and not yet
+         *     checked, flagged, hidden, ...) and q to those whose player, challenge
+         *     id or name holds it, ignoring case; counts are each view's, before q.
          */
         get: operations["getAdminChallengeEntries"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/challenges/entries/{entry}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a challenge entry (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A field left out stays as
+         *     it is. An empty proof_url removes the proof; any other is a message
+         *     link in the TtA Discord. Hiding needs a reason; showing again clears it.
+         */
+        patch: operations["patchAdminChallengeEntry"];
+        trace?: never;
+    };
+    "/v1/admin/challenges/names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a name's challenge entries into another name or a member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Every entry not linked to
+         *     a member whose name is from, ignoring case, moves to the member whose
+         *     TTA username is to, ignoring case, or else to the name to: to fix a
+         *     typo, or to give imported entries to the member they belong to.
+         */
+        post: operations["postAdminChallengeName"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3486,9 +3534,40 @@ export interface components {
             /** @description Players with a counted entry */
             entrants: number;
         };
+        /**
+         * @description Which entries: all; verified ones not yet or already checked; unverified; flagged (something looks wrong);
+         *     bugged; hidden. Every view but all and hidden leaves hidden entries out.
+         * @default all
+         * @enum {string}
+         */
+        AdminChallengeView: "all" | "unchecked" | "checked" | "unverified" | "flagged" | "bugged" | "hidden";
+        AdminChallengeViewCount: {
+            view: components["schemas"]["AdminChallengeView"];
+            entries: number;
+        };
+        AdminChallengeEntryChange: {
+            domination?: number;
+            proof_url?: string;
+            checked?: boolean;
+            bugged?: boolean;
+            hidden?: boolean;
+            hidden_reason?: string;
+        };
+        AdminChallengeNameMerge: {
+            from: string;
+            to: string;
+        };
+        AdminChallengeNameMerged: {
+            /** @description How many entries moved */
+            moved: number;
+            /** @description Whether they moved to a member, rather than a name */
+            member: boolean;
+        };
         AdminChallengeEntries: {
-            /** @description Every entry, on every page */
+            /** @description Every entry in the view, on every page */
             total: number;
+            /** @description How many entries each view holds */
+            counts: components["schemas"]["AdminChallengeViewCount"][];
             page: number;
             page_size: number;
             entries: components["schemas"]["AdminChallengeEntry"][];
@@ -3529,6 +3608,8 @@ export interface components {
             bugged: boolean;
             /** @description An admin has looked at the proof */
             checked: boolean;
+            /** @description What looks wrong about it, for an admin to look at */
+            flags: string[];
         };
         BlitzEditions: {
             editions: components["schemas"]["BlitzEditionRow"][];
@@ -7795,6 +7876,8 @@ export interface operations {
         parameters: {
             query?: {
                 page?: number;
+                view?: components["schemas"]["AdminChallengeView"];
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -7815,6 +7898,62 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    patchAdminChallengeEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminChallengeEntryChange"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminChallengeName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminChallengeNameMerge"];
+            };
+        };
+        responses: {
+            /** @description Merged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminChallengeNameMerged"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAdminMembers: {
@@ -9581,6 +9720,7 @@ export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequire
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const challengeScopeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ChallengeScope"]["set"]> = ["original", "expansion", "mix", "all"];
 export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];
+export const adminChallengeViewValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeView"]> = ["all", "unchecked", "checked", "unverified", "flagged", "bugged", "hidden"];
 export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web", "site"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatOutcome"]> = ["finished", "resigned", "timed_out"];

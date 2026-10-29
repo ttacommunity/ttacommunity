@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -59,12 +60,6 @@ type AdminChallengeEntry struct {
 	Hidden        bool
 	HiddenReason  string
 	Checked       bool
-}
-
-// AdminChallengeEntries is one page of entries and how many there are in all.
-type AdminChallengeEntries struct {
-	Total   int
-	Entries []AdminChallengeEntry
 }
 
 // ReplaceChallenges makes the challenges list, in its order, in one transaction. It refuses to remove a
@@ -231,30 +226,100 @@ func (r *RatingsReader) ChallengeEntries(ctx context.Context) ([]ChallengeEntry,
 	return got, nil
 }
 
-// ChallengeEntryPage returns page (from 1) of every entry, size to a page, newest first, and how many there are.
-func (a *AdminStore) ChallengeEntryPage(ctx context.Context, page, size int) (AdminChallengeEntries, error) {
-	var got AdminChallengeEntries
-	if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM challenge_entries").Scan(&got.Total); err != nil {
-		return AdminChallengeEntries{}, fmt.Errorf("counting challenge entries: %w", err)
-	}
+// ChallengeEntriesForAdmin lists every entry, hidden ones too, newest first.
+func (a *AdminStore) ChallengeEntriesForAdmin(ctx context.Context) ([]AdminChallengeEntry, error) {
 	rows, err := a.pool.Query(ctx, `
 		SELECT e.entry_id, e.challenge_id, e.member_id, coalesce(m.tta_name, e.name), e.domination, coalesce(e.proof_url, ''),
 		       e.bugged, e.created_at, c.name, e.name, e.account_id, e.source, e.hidden, e.hidden_reason, e.checked
 		FROM challenge_entries e JOIN challenges c USING (challenge_id) LEFT JOIN members m USING (member_id)
-		ORDER BY e.created_at DESC, e.entry_id DESC LIMIT $1 OFFSET $2`, size, (max(page, 1)-1)*size)
+		ORDER BY e.created_at DESC, e.entry_id DESC`)
 	if err != nil {
-		return AdminChallengeEntries{}, fmt.Errorf("listing challenge entries: %w", err)
+		return nil, fmt.Errorf("listing challenge entries: %w", err)
 	}
-	got.Entries, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminChallengeEntry, error) {
+	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminChallengeEntry, error) {
 		var e AdminChallengeEntry
 		err := row.Scan(&e.ID, &e.Challenge, &e.Member, &e.Player, &e.Domination, &e.ProofURL, &e.Bugged, &e.At,
 			&e.ChallengeName, &e.EnteredAs, &e.Account, &e.Source, &e.Hidden, &e.HiddenReason, &e.Checked)
 		return e, err
 	})
 	if err != nil {
-		return AdminChallengeEntries{}, fmt.Errorf("listing challenge entries: %w", err)
+		return nil, fmt.Errorf("listing challenge entries: %w", err)
 	}
 	return got, nil
+}
+
+// ErrNoChallengeEntry means no entry has the id, or no unlinked entry has the name.
+var ErrNoChallengeEntry = errors.New("no such challenge entry")
+
+// ErrBadChallengeEntry means a change the entry cannot take: a domination out of bounds, a proof that is not an https
+// link of at most 500 characters, or hiding it without a reason.
+var ErrBadChallengeEntry = errors.New("a domination is -9999 to 9999, a proof an https link of at most 500 characters, and hiding needs a reason")
+
+// ChallengeEntryChange is what an admin changes on an entry; nil leaves a field as it is. An empty ProofURL removes
+// the proof. Showing a hidden entry again clears its reason.
+type ChallengeEntryChange struct {
+	Domination              *int
+	ProofURL, HiddenReason  *string
+	Checked, Bugged, Hidden *bool
+}
+
+// SetChallengeEntry changes the entry id. It returns ErrNoChallengeEntry or ErrBadChallengeEntry.
+func (a *AdminStore) SetChallengeEntry(ctx context.Context, id int64, c ChallengeEntryChange) error {
+	switch {
+	case c.Domination != nil && (*c.Domination < challenges.MinDomination || *c.Domination > challenges.MaxDomination),
+		c.ProofURL != nil && *c.ProofURL != "" && (!strings.HasPrefix(*c.ProofURL, "https://") || len(*c.ProofURL) > 500),
+		c.Hidden != nil && *c.Hidden && (c.HiddenReason == nil || strings.TrimSpace(*c.HiddenReason) == ""),
+		c.HiddenReason != nil && len([]rune(*c.HiddenReason)) > 500:
+		return ErrBadChallengeEntry
+	}
+	var reason *string
+	if c.HiddenReason != nil {
+		r := strings.TrimSpace(*c.HiddenReason)
+		reason = &r
+	}
+	tag, err := a.pool.Exec(ctx, `
+		UPDATE challenge_entries SET domination = coalesce($2, domination),
+		    proof_url = CASE WHEN $3::text IS NULL THEN proof_url ELSE nullif($3, '') END,
+		    checked = coalesce($4, checked), bugged = coalesce($5, bugged), hidden = coalesce($6, hidden),
+		    hidden_reason = CASE WHEN $6 IS FALSE THEN '' ELSE coalesce($7, hidden_reason) END
+		WHERE entry_id = $1`, id, c.Domination, c.ProofURL, c.Checked, c.Bugged, c.Hidden, reason)
+	if err != nil {
+		return fmt.Errorf("changing challenge entry %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoChallengeEntry
+	}
+	return nil
+}
+
+// ChallengeNameMerged is what MergeChallengeName did: how many entries it moved, and whether to a member.
+type ChallengeNameMerged struct {
+	Moved  int
+	Member bool
+}
+
+// MergeChallengeName moves every entry not linked to a member whose name is from, ignoring case, to the member whose
+// TTA username is to, ignoring case, or else to the name to. It returns ErrNoChallengeEntry when no such entry
+// exists, and ErrBadChallengeEntry for an empty name or one over 100 characters.
+func (a *AdminStore) MergeChallengeName(ctx context.Context, from, to string) (ChallengeNameMerged, error) {
+	to = strings.Join(strings.Fields(to), " ")
+	if to == "" || len([]rune(to)) > 100 {
+		return ChallengeNameMerged{}, ErrBadChallengeEntry
+	}
+	var member *int64
+	if err := a.pool.QueryRow(ctx, "SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)", to).Scan(&member); err != nil {
+		return ChallengeNameMerged{}, fmt.Errorf("finding member %q: %w", to, err)
+	}
+	tag, err := a.pool.Exec(ctx, `
+		UPDATE challenge_entries SET member_id = coalesce($3, member_id), name = CASE WHEN $3::bigint IS NULL THEN $2 ELSE name END
+		WHERE member_id IS NULL AND lower(name) = lower($1)`, strings.TrimSpace(from), to, member)
+	if err != nil {
+		return ChallengeNameMerged{}, fmt.Errorf("merging challenge name %q: %w", from, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ChallengeNameMerged{}, ErrNoChallengeEntry
+	}
+	return ChallengeNameMerged{Moved: int(tag.RowsAffected()), Member: member != nil}, nil
 }
 
 // ReplaceChallengeWeeks replaces every week of the weekly challenge with weeks, in one transaction, and returns how

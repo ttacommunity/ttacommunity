@@ -2255,10 +2255,13 @@ paths:
     get:
       operationId: getAdminChallengeEntries
       tags: [admin]
-      summary: A page of every challenge entry, newest first (admins and organisers)
+      summary: A page of the challenge entries in a view, newest first (admins and organisers)
       description: |
         Every entry, hidden ones included, with what only admin sees: who
-        submitted it, why it is hidden and whether its proof was checked.
+        submitted it, why it is hidden, whether its proof was checked, and
+        what looks wrong about it. A view narrows them (verified and not yet
+        checked, flagged, hidden, ...) and q to those whose player, challenge
+        id or name holds it, ignoring case; counts are each view's, before q.
       parameters:
         - name: page
           in: query
@@ -2267,6 +2270,17 @@ paths:
             type: integer
             minimum: 1
             default: 1
+        - name: view
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AdminChallengeView"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
       responses:
         "200":
           description: The page and how many entries there are
@@ -2283,6 +2297,71 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/challenges/entries/{entry}:
+    patch:
+      operationId: patchAdminChallengeEntry
+      tags: [admin]
+      summary: Change a challenge entry (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A field left out stays as
+        it is. An empty proof_url removes the proof; any other is a message
+        link in the TtA Discord. Hiding needs a reason; showing again clears it.
+      parameters:
+        - name: entry
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminChallengeEntryChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/challenges/names:
+    post:
+      operationId: postAdminChallengeName
+      tags: [admin]
+      summary: Merge a name's challenge entries into another name or a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Every entry not linked to
+        a member whose name is from, ignoring case, moves to the member whose
+        TTA username is to, ignoring case, or else to the name to: to fix a
+        typo, or to give imported entries to the member they belong to.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminChallengeNameMerge"
+      responses:
+        "200":
+          description: Merged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChallengeNameMerged"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/members:
     get:
       operationId: getAdminMembers
@@ -5558,13 +5637,74 @@ components:
         entrants:
           description: Players with a counted entry
           type: integer
+    AdminChallengeView:
+      description: |
+        Which entries: all; verified ones not yet or already checked; unverified; flagged (something looks wrong);
+        bugged; hidden. Every view but all and hidden leaves hidden entries out.
+      type: string
+      enum: [all, unchecked, checked, unverified, flagged, bugged, hidden]
+      default: all
+    AdminChallengeViewCount:
+      type: object
+      required: [view, entries]
+      properties:
+        view:
+          $ref: "#/components/schemas/AdminChallengeView"
+        entries:
+          type: integer
+    AdminChallengeEntryChange:
+      type: object
+      properties:
+        domination:
+          type: integer
+          minimum: -9999
+          maximum: 9999
+        proof_url:
+          type: string
+          maxLength: 500
+        checked:
+          type: boolean
+        bugged:
+          type: boolean
+        hidden:
+          type: boolean
+        hidden_reason:
+          type: string
+          maxLength: 500
+    AdminChallengeNameMerge:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          minLength: 1
+          maxLength: 100
+        to:
+          type: string
+          minLength: 1
+          maxLength: 100
+    AdminChallengeNameMerged:
+      type: object
+      required: [moved, member]
+      properties:
+        moved:
+          description: How many entries moved
+          type: integer
+        member:
+          description: Whether they moved to a member, rather than a name
+          type: boolean
     AdminChallengeEntries:
       type: object
-      required: [total, page, page_size, entries]
+      required: [total, page, page_size, entries, counts]
       properties:
         total:
-          description: Every entry, on every page
+          description: Every entry in the view, on every page
           type: integer
+        counts:
+          description: How many entries each view holds
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChallengeViewCount"
         page:
           type: integer
         page_size:
@@ -5577,7 +5717,7 @@ components:
       description: An entry as admin sees it
       type: object
       required: [id, challenge, challenge_name, player, member, entered_as, account, domination, proof_url, entered_at,
-        source, hidden, hidden_reason, bugged, checked]
+        source, hidden, hidden_reason, bugged, checked, flags]
       properties:
         id:
           type: integer
@@ -5625,6 +5765,11 @@ components:
         checked:
           description: An admin has looked at the proof
           type: boolean
+        flags:
+          description: What looks wrong about it, for an admin to look at
+          type: array
+          items:
+            type: string
     BlitzEditions:
       type: object
       required: [editions]
