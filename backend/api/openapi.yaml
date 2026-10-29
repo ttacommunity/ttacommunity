@@ -1095,6 +1095,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChallengePlayers"
+  /v1/challenges/weekly:
+    get:
+      operationId: getChallengeWeeks
+      summary: The weekly challenge's winners, a finished event
+      description: |
+        Each week of the weekly challenge (September 2024 to July 2025): its
+        Random Mix challenge, and the names that won and came second, with
+        their dominations, as the old site kept them. Cached for a day.
+      responses:
+        "200":
+          description: The weeks, in order
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeWeeks"
   /v1/challenges/players/{name}:
     get:
       operationId: getChallengePlayer
@@ -5268,6 +5286,44 @@ components:
           type: number
         mix:
           type: number
+    ChallengeWeeks:
+      type: object
+      required: [weeks]
+      properties:
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeWeek"
+    ChallengeWeek:
+      type: object
+      required: [week, week_of, challenge, winners, runners_up]
+      properties:
+        week:
+          type: integer
+        week_of:
+          description: The day the week started
+          type: string
+          format: date
+        challenge:
+          type: string
+        winners:
+          description: Who won, several when they tied
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlacing"
+        runners_up:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlacing"
+    ChallengePlacing:
+      type: object
+      required: [player, domination]
+      properties:
+        player:
+          description: The name as the old site kept it
+          type: string
+        domination:
+          type: integer
     ChallengePlayerSummary:
       description: A player's challenge results
       type: object

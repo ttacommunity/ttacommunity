@@ -1,4 +1,4 @@
-// The load job's challenges: the committed challenge list, and the old site's entries, imported once.
+// The load job's challenges: the committed challenge list, and the old site's entries and weekly challenge, imported once.
 
 package main
 
@@ -59,6 +59,31 @@ func importChallengeEntries(file string) error {
 			return err
 		}
 		reportChallengeEntries(os.Stdout, file, read, imported)
+		return nil
+	})
+}
+
+// loadChallengeWeeks replaces the weekly challenge's weeks with the old site's weekly.json in file, after applying any
+// pending migration.
+func loadChallengeWeeks(file string) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", file, err)
+	}
+	weeks, err := challenges.ReadWeeks(f)
+	f.Close()
+	if err != nil {
+		return fmt.Errorf("%s: %w", file, err)
+	}
+	return withPool(func(ctx context.Context, pool *pgxpool.Pool) error {
+		if err := store.MigrateRatings(ctx, pool); err != nil {
+			return err
+		}
+		stored, err := store.ReplaceChallengeWeeks(ctx, pool, weeks)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("file: %s\nweeks stored: %d\n", file, stored)
 		return nil
 	})
 }

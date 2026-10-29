@@ -1,5 +1,5 @@
 // The site's challenges: the highscores, each challenge's board, the players and each player's page, all worked
-// out from every entry not hidden.
+// out from every entry not hidden, and the weekly challenge's winners.
 package httpapi
 
 import (
@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/challenges"
 	"ttacommunity/backend/internal/store"
@@ -245,4 +247,25 @@ func (s *server) GetChallengePlayer(ctx context.Context, req GetChallengePlayerR
 			EnteredAt: e.At.UTC(), Bugged: e.Bugged})
 	}
 	return GetChallengePlayer200JSONResponse{Body: body, Headers: GetChallengePlayer200ResponseHeaders{CacheControl: cacheCurrent}}, nil
+}
+
+func challengePlacings(ps []challenges.Placing) []ChallengePlacing {
+	got := make([]ChallengePlacing, len(ps))
+	for i, p := range ps {
+		got[i] = ChallengePlacing{Player: p.Name, Domination: p.Domination}
+	}
+	return got
+}
+
+func (s *server) GetChallengeWeeks(ctx context.Context, _ GetChallengeWeeksRequestObject) (GetChallengeWeeksResponseObject, error) {
+	weeks, err := s.ratings.ChallengeWeeks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := ChallengeWeeks{Weeks: make([]ChallengeWeek, len(weeks))}
+	for i, w := range weeks {
+		body.Weeks[i] = ChallengeWeek{Week: w.Number, WeekOf: openapi_types.Date{Time: w.Of}, Challenge: w.Challenge,
+			Winners: challengePlacings(w.Winners), RunnersUp: challengePlacings(w.RunnersUp)}
+	}
+	return GetChallengeWeeks200JSONResponse{Body: body, Headers: GetChallengeWeeks200ResponseHeaders{CacheControl: cacheDay}}, nil
 }

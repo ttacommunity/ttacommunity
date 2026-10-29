@@ -61,10 +61,12 @@ var exportColumns = map[string][]string{"members": {"member_id", "tta_name", "cg
 // and what they did (Discord ids; a new database adds its admins with
 // load add-admin), the rows a load refused (load history, which no view
 // needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
-// members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and the challenges and
-// players' entries for them, which no rating needs. A backup restores them in this order, after ExportTables.
+// members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and the challenges,
+// players' entries for them and the weekly challenge's weeks, which no rating needs. A backup restores them in this
+// order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_rounds", "blitz_matches", "blitz_skips",
-	"accounts", "logins", "link_requests", "player_sessions", "email_links", "challenges", "challenge_entries"}
+	"accounts", "logins", "link_requests", "player_sessions", "email_links", "challenges", "challenge_entries", "challenge_weeks",
+	"challenge_week_places"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.
 var NotBackedUp = []string{"player_sessions", "email_links"}

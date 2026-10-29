@@ -2281,6 +2281,14 @@ type ChallengeHighscores struct {
 	Scopes []ChallengeScope `json:"scopes"`
 }
 
+// ChallengePlacing defines model for ChallengePlacing.
+type ChallengePlacing struct {
+	Domination int `json:"domination"`
+
+	// Player The name as the old site kept it
+	Player string `json:"player"`
+}
+
 // ChallengePlayer defines model for ChallengePlayer.
 type ChallengePlayer struct {
 	Bests []ChallengePlayerBest `json:"bests"`
@@ -2423,6 +2431,24 @@ type ChallengeSubmission struct {
 	EnteredAt  time.Time `json:"entered_at"`
 	Player     string    `json:"player"`
 	ProofUrl   *string   `json:"proof_url"`
+}
+
+// ChallengeWeek defines model for ChallengeWeek.
+type ChallengeWeek struct {
+	Challenge string             `json:"challenge"`
+	RunnersUp []ChallengePlacing `json:"runners_up"`
+	Week      int                `json:"week"`
+
+	// WeekOf The day the week started
+	WeekOf openapi_types.Date `json:"week_of"`
+
+	// Winners Who won, several when they tied
+	Winners []ChallengePlacing `json:"winners"`
+}
+
+// ChallengeWeeks defines model for ChallengeWeeks.
+type ChallengeWeeks struct {
+	Weeks []ChallengeWeek `json:"weeks"`
 }
 
 // Champion defines model for Champion.
@@ -4986,6 +5012,9 @@ type ServerInterface interface {
 	// GetChallengePlayer One player's challenge results, for their page
 	// (GET /v1/challenges/players/{name})
 	GetChallengePlayer(w http.ResponseWriter, r *http.Request, name string, params GetChallengePlayerParams)
+	// GetChallengeWeeks The weekly challenge's winners, a finished event
+	// (GET /v1/challenges/weekly)
+	GetChallengeWeeks(w http.ResponseWriter, r *http.Request)
 	// GetChallengeBoard One challenge's ranking, record history and entries
 	// (GET /v1/challenges/{challenge})
 	GetChallengeBoard(w http.ResponseWriter, r *http.Request, challenge string, params GetChallengeBoardParams)
@@ -7893,6 +7922,20 @@ func (siw *ServerInterfaceWrapper) GetChallengePlayer(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetChallengeWeeks operation middleware
+func (siw *ServerInterfaceWrapper) GetChallengeWeeks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChallengeWeeks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetChallengeBoard operation middleware
 func (siw *ServerInterfaceWrapper) GetChallengeBoard(w http.ResponseWriter, r *http.Request) {
 
@@ -9838,6 +9881,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges", wrapper.GetChallenges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players", wrapper.GetChallengePlayers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/weekly", wrapper.GetChallengeWeeks)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players/{name}", wrapper.GetChallengePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/{challenge}", wrapper.GetChallengeBoard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz", wrapper.GetBlitzEditions)
@@ -16378,6 +16422,35 @@ func (response GetChallengePlayer404JSONResponse) VisitGetChallengePlayerRespons
 	return err
 }
 
+type GetChallengeWeeksRequestObject struct {
+}
+
+type GetChallengeWeeksResponseObject interface {
+	VisitGetChallengeWeeksResponse(w http.ResponseWriter) error
+}
+
+type GetChallengeWeeks200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetChallengeWeeks200JSONResponse struct {
+	Body    ChallengeWeeks
+	Headers GetChallengeWeeks200ResponseHeaders
+}
+
+func (response GetChallengeWeeks200JSONResponse) VisitGetChallengeWeeksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetChallengeBoardRequestObject struct {
 	Challenge string `json:"challenge"`
 	Params    GetChallengeBoardParams
@@ -19417,6 +19490,9 @@ type StrictServerInterface interface {
 	// GetChallengePlayer One player's challenge results, for their page
 	// (GET /v1/challenges/players/{name})
 	GetChallengePlayer(ctx context.Context, request GetChallengePlayerRequestObject) (GetChallengePlayerResponseObject, error)
+	// GetChallengeWeeks The weekly challenge's winners, a finished event
+	// (GET /v1/challenges/weekly)
+	GetChallengeWeeks(ctx context.Context, request GetChallengeWeeksRequestObject) (GetChallengeWeeksResponseObject, error)
 	// GetChallengeBoard One challenge's ranking, record history and entries
 	// (GET /v1/challenges/{challenge})
 	GetChallengeBoard(ctx context.Context, request GetChallengeBoardRequestObject) (GetChallengeBoardResponseObject, error)
@@ -22117,6 +22193,30 @@ func (sh *strictHandler) GetChallengePlayer(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetChallengePlayerResponseObject); ok {
 		if err := validResponse.VisitGetChallengePlayerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChallengeWeeks operation middleware
+func (sh *strictHandler) GetChallengeWeeks(w http.ResponseWriter, r *http.Request) {
+	var request GetChallengeWeeksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChallengeWeeks(ctx, request.(GetChallengeWeeksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChallengeWeeks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChallengeWeeksResponseObject); ok {
+		if err := validResponse.VisitGetChallengeWeeksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

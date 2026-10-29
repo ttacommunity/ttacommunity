@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"ttacommunity/backend/internal/challenges"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -21,10 +22,11 @@ type Ratings interface {
 	ChallengeReads
 }
 
-// ChallengeReads are challenges.go's reads: the challenges, and every entry not hidden.
+// ChallengeReads are challenges.go's reads: the challenges, every entry not hidden, and the weekly challenge.
 type ChallengeReads interface {
 	Challenges(ctx context.Context) ([]store.ChallengeRow, error)
 	ChallengeEntries(ctx context.Context) ([]store.ChallengeEntry, error)
+	ChallengeWeeks(ctx context.Context) ([]challenges.Week, error)
 }
 
 // BlitzReads are the site's blitz tournament reads: the shown editions, and one with its active entrants.

@@ -175,3 +175,10 @@ export function matchingPlayers<P extends { player: string }>(players: readonly 
 export function nameParam(search: string): string {
   return (new URLSearchParams(search).get('name') ?? '').trim();
 }
+
+/** champions counts each name's weekly wins, most first, then by name. */
+export function champions(weeks: readonly { winners: readonly { player: string }[] }[]): [string, number][] {
+  const wins = new Map<string, number>();
+  for (const w of weeks) for (const p of w.winners) wins.set(p.player, (wins.get(p.player) ?? 0) + 1);
+  return [...wins].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/challenges"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -25,6 +26,28 @@ func (f *fakeRatings) ChallengeEntries(context.Context) ([]store.ChallengeEntry,
 		{ID: 3, Challenge: "1ai", Player: "Cy", Domination: 900, ProofURL: "https://discord.com/channels/1/2/4", Bugged: true, At: at},
 		{ID: 4, Challenge: "epic1_exp", Player: "Ann", Domination: 80, At: at},
 	}, nil
+}
+
+// ChallengeWeeks are two weeks, the first won by two tied names.
+func (f *fakeRatings) ChallengeWeeks(context.Context) ([]challenges.Week, error) {
+	of := time.Date(2024, 9, 22, 0, 0, 0, 0, time.UTC)
+	return []challenges.Week{
+		{Number: 1, Of: of, Challenge: "1ai", Winners: []challenges.Placing{{Name: "Ann", Domination: 90}, {Name: "Bob", Domination: 90}}},
+		{Number: 2, Of: of.AddDate(0, 0, 7), Challenge: "epic1_exp", RunnersUp: []challenges.Placing{{Name: "Cy", Domination: 40}}},
+	}, nil
+}
+
+func TestChallengeWeeks(t *testing.T) {
+	rec, _ := serve(t, &fakeRatings{}, "/v1/challenges/weekly")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "weeks", `[
+		{"week": 1, "week_of": "2024-09-22", "challenge": "1ai", "winners": [{"player": "Ann", "domination": 90}, {"player": "Bob"}], "runners_up": []},
+		{"week": 2, "winners": [], "runners_up": [{"player": "Cy", "domination": 40}]}]`)
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=86400" {
+		t.Errorf("Cache-Control = %q, want a day", got)
+	}
 }
 
 func TestChallengeHighscores(t *testing.T) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   challengeHref,
+  champions,
   challengePicture,
   challengePlayerHref,
   challengeSets,
@@ -199,5 +200,15 @@ describe('nameParam', () => {
     ['', ''],
   ])('reads %s as %s', (search, want) => {
     expect(nameParam(search)).toBe(want);
+  });
+});
+
+describe('champions', () => {
+  it('counts wins, tied winners each getting one', () => {
+    const weeks = [{ winners: [{ player: 'Bob' }] }, { winners: [{ player: 'Ann' }, { player: 'Bob' }] }, { winners: [{ player: 'Ann' }] }, { winners: [] }];
+    expect(champions(weeks)).toEqual([
+      ['Ann', 2],
+      ['Bob', 2],
+    ]);
   });
 });
