@@ -15,6 +15,7 @@ import (
 
 // refused are the store's answers to a change it will not make, each a request the admin can correct.
 var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrBadKind, store.ErrBadPodiumSource, store.ErrGroupCycle,
+	store.ErrBadLeagueRules,
 	store.ErrBadGroup, store.ErrNotAGroup, store.ErrBadPenalty, store.ErrBadPodium, store.ErrBadCard, store.ErrBadStory,
 	store.ErrSeasonHasGames, store.ErrSeasonExists}
 
@@ -78,14 +79,31 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 		Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...),
 		Points4p: append(PlacePoints{}, t.Points[4]...), SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card),
 		Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations,
-		CgeRegulations: t.CGERegulations, Seasons: seasons}
+		CgeRegulations: t.CGERegulations, Seasons: seasons, Divisions: leagueDivisions(t.Divisions), SuperGm: t.SuperGM,
+		RecordMinGames: t.RecordMinGames}
 	return GetAdminTournament200JSONResponse{Body: out, Headers: GetAdminTournament200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+// leagueDivisions returns a league's divisions as the API gives them.
+func leagueDivisions(list []store.Division) []LeagueDivision {
+	out := make([]LeagueDivision, len(list))
+	for i, d := range list {
+		out[i] = LeagueDivision{Name: d.Name, Tier: d.Tier}
+	}
+	return out
 }
 
 // tournamentSettings returns the store's settings from a patch, and whether it asks for any of them.
 func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) {
 	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz,
-		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name}
+		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name,
+		SuperGM: b.SuperGm, RecordMinGames: b.RecordMinGames}
+	if b.Divisions != nil {
+		settings.Divisions = make([]store.Division, len(*b.Divisions))
+		for i, d := range *b.Divisions {
+			settings.Divisions[i] = store.Division{Name: d.Name, Tier: d.Tier}
+		}
+	}
 	if b.PodiumSource != nil {
 		s := string(*b.PodiumSource)
 		settings.PodiumSource = &s
@@ -109,8 +127,13 @@ func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) 
 	}
 	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
 		b.PodiumSource != nil || b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil ||
-		b.Parent != nil || b.Description != nil || b.Name != nil
+		b.Parent != nil || b.Description != nil || b.Name != nil || leagueRules(b)
 	return settings, asked
+}
+
+// leagueRules reports whether a patch changes a league's rules, which only admins may.
+func leagueRules(b *TournamentSettings) bool {
+	return b.Divisions != nil || b.SuperGm != nil || b.RecordMinGames != nil
 }
 
 func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournamentRequestObject) (PatchAdminTournamentResponseObject, error) {
@@ -121,6 +144,9 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	b := req.Body
 	if b == nil {
 		return PatchAdminTournament400JSONResponse{badRequest400("nothing to change")}, nil
+	}
+	if leagueRules(b) && a.Role != store.RoleAdmin {
+		return PatchAdminTournament403JSONResponse{forbidden("only admins change a league's divisions, Super GM and season record games")}, nil
 	}
 	settings, anySetting := tournamentSettings(b)
 	if !anySetting && b.Card == nil && b.Regulations == nil && b.Stories == nil && b.Members == nil {

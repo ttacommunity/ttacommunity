@@ -81,6 +81,16 @@ def template_db():
                 "('worlds', 'World Championship', '{Final}', 'worlds', 'recorded')"
             )
             c.execute(
+                "UPDATE series SET divisions = '{Grandmaster,Diamond,Master,Platinum,Gold,Silver,Bronze,Wood}', "
+                "division_tiers = '{1,1,2,3,4,5,6,7}', super_gm = true, record_min_games = 6 "
+                "WHERE slug IN ('international', 'intermezzo')"
+            )
+            c.execute(
+                "UPDATE series SET divisions = '{Emperor,King,Prince,Duke,Marquess,Count,Viscount,Baron,Knight}', "
+                "division_tiers = '{1,2,3,4,5,6,7,7,7}', super_gm = true, record_min_games = 5 "
+                "WHERE slug = 'royal_league'"
+            )
+            c.execute(
                 "INSERT INTO settings (series_id, points_2p, points_3p, points_4p) "
                 "SELECT series_id, p2, p3, p4 FROM series JOIN (VALUES "
                 "('international', NULL, '{5,2,0}'::float8[], '{6,3,1,0}'::float8[]), "

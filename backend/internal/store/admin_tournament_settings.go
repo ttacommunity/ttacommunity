@@ -32,7 +32,32 @@ type TournamentSettings struct {
 	Parent, Description, Name *string
 	// PodiumSource is how its podium is derived: top_divisions, final_stage, recorded, or none (nil unchanged).
 	PodiumSource *string
+	// Divisions replace a league's divisions and their title tiers, highest first (nil unchanged, empty none);
+	// SuperGM and RecordMinGames set whether a top-division win makes a Super GM and the fewest games a season
+	// record needs (nil unchanged).
+	Divisions      []Division
+	SuperGM        *bool
+	RecordMinGames *int
 }
+
+// Division is one of a league's divisions and the title tier its players earn, 1 (GM) to 7 (W).
+type Division struct {
+	Name string
+	Tier int
+}
+
+// divisions pairs a league's division names with their tiers, as the series table holds them.
+func divisions(names []string, tiers []int16) []Division {
+	out := make([]Division, len(names))
+	for i, n := range names {
+		out[i] = Division{Name: n, Tier: int(tiers[i])}
+	}
+	return out
+}
+
+// ErrBadLeagueRules means a division without a name, listed twice or with a tier outside 1 to 7, or a negative
+// number of games for a season record.
+var ErrBadLeagueRules = errors.New("each division has a name, appears once and has a tier from 1 to 7; a season record needs zero or more games")
 
 // ErrBadPodiumSource means a podium source other than top_divisions, final_stage, recorded, or none.
 var ErrBadPodiumSource = errors.New("podium source is top_divisions, final_stage, recorded, or none")
@@ -109,6 +134,20 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			return ErrBadGroup
 		}
 	}
+	if s.Divisions != nil {
+		clean := make([]Division, 0, len(s.Divisions))
+		for _, d := range s.Divisions {
+			d.Name = strings.TrimSpace(d.Name)
+			if d.Name == "" || d.Tier < 1 || d.Tier > 7 || slices.ContainsFunc(clean, func(c Division) bool { return c.Name == d.Name }) {
+				return ErrBadLeagueRules
+			}
+			clean = append(clean, d)
+		}
+		s.Divisions = clean
+	}
+	if s.RecordMinGames != nil && (*s.RecordMinGames < 0 || *s.RecordMinGames > 100) {
+		return ErrBadLeagueRules
+	}
 	if s.PodiumSource != nil && *s.PodiumSource != "" && !slices.Contains([]string{"top_divisions", "final_stage", "recorded", "none"}, *s.PodiumSource) {
 		return ErrBadPodiumSource
 	}
@@ -176,6 +215,25 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.TopDivisions != nil {
 			if _, err := tx.Exec(ctx, "UPDATE series SET top_divisions = $2 WHERE series_id = $1", id, s.TopDivisions); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.Divisions != nil {
+			names, tiers := make([]string, len(s.Divisions)), make([]int16, len(s.Divisions))
+			for i, d := range s.Divisions {
+				names[i], tiers[i] = d.Name, int16(d.Tier)
+			}
+			if _, err := tx.Exec(ctx, "UPDATE series SET divisions = $2, division_tiers = $3 WHERE series_id = $1", id, names, tiers); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.SuperGM != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET super_gm = $2 WHERE series_id = $1", id, *s.SuperGM); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.RecordMinGames != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET record_min_games = $2 WHERE series_id = $1", id, *s.RecordMinGames); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}

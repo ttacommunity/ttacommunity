@@ -250,6 +250,17 @@
 .move-season-input {
   width: 6rem;
 }
+/* A league's divisions: the label above, the box the rest of the line beside its Save. */
+.league-tiers-setting {
+  flex-wrap: wrap;
+}
+.league-tiers-setting label {
+  flex-basis: 100%;
+}
+.league-tiers-input {
+  flex: 1;
+  min-width: 0;
+}
 .runs-actions {
   margin-bottom: 0.75rem;
 }

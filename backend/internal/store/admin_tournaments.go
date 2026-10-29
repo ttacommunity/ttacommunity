@@ -31,6 +31,11 @@ type AdminTournament struct {
 	Kind              string
 	PodiumSource      string
 	TopDivisions      []string
+	// Divisions are a league's divisions, highest first, with their title tiers; SuperGM is whether a top-division
+	// win makes a Super GM, and RecordMinGames the fewest games a season record needs.
+	Divisions      []Division
+	SuperGM        bool
+	RecordMinGames int
 	// Points are the points per place, by player count (2, 3 and 4), empty for a count it does not score.
 	Points map[int][]float64
 	// SeasonName and StageName are what the tournament calls its seasons and stages, empty for the default.
@@ -141,7 +146,8 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 		       t.rated_player_counts, t.kind, coalesce(t.podium_source, ''), t.top_divisions, t.original_name,
 		       coalesce(sp.points_2p, '{}'), coalesce(sp.points_3p, '{}'), coalesce(sp.points_4p, '{}'), t.tournament_noun, t.stage_noun,
 		       coalesce((SELECT r.timeout_penalty FROM settings r WHERE r.tournament_id = se.tournament_id), 0),
-		       coalesce((SELECT p.slug FROM series p WHERE p.series_id = t.parent_id), ''), t.description, t.is_group
+		       coalesce((SELECT p.slug FROM series p WHERE p.series_id = t.parent_id), ''), t.description, t.is_group,
+		       t.divisions, t.division_tiers, t.super_gm, t.record_min_games
 		FROM series t
 		LEFT JOIN settings sp ON sp.series_id = t.series_id
 		LEFT JOIN tournament_cards k ON k.tournament = t.slug
@@ -170,16 +176,21 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var seasonName, stageName string
 	var penalty float64
 	var parent, description string
-	var isGroup bool
+	var isGroup, superGM bool
+	var divisionNames []string
+	var divisionTiers []int16
+	var recordMinGames int16
 	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
-		&seasonRated, &inChampions, &inCommunity, &runHere, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup}, func() error {
+		&seasonRated, &inChampions, &inCommunity, &runHere, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup,
+		&divisionNames, &divisionTiers, &superGM, &recordMinGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
 			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz,
 				Regulations: regulations, CGERegulations: cgeRegulations, Card: card, RatedPlayerCounts: counts,
 				Kind: kind, PodiumSource: podiumSource, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4},
 				SeasonName: seasonName, StageName: stageName, OriginalName: original, Parent: parent, Description: description,
-				IsGroup: isGroup, Seasons: []AdminSeason{}})
+				IsGroup: isGroup, Divisions: divisions(divisionNames, divisionTiers), SuperGM: superGM,
+				RecordMinGames: int(recordMinGames), Seasons: []AdminSeason{}})
 		}
 		t := &out[len(out)-1]
 		if season == nil {

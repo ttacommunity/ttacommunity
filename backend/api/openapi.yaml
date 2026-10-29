@@ -1929,9 +1929,10 @@ paths:
       tags: [admin]
       summary: Change a tournament's settings, card, regulations, stories, description, group, or a group's members
       description: |
-        Only the settings given change. Admins and organisers may change them;
-        each change is audited. The Origin must be the admin site. Rating
-        takes effect on the next engine run.
+        Only the settings given change. Admins and organisers may change them,
+        apart from a league's rules (divisions, super_gm, record_min_games),
+        which only admins may; each change is audited. The Origin must be the
+        admin site. Rating takes effect on the next engine run.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
       requestBody:
@@ -4453,7 +4454,7 @@ components:
           $ref: "#/components/schemas/Role"
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
@@ -4504,6 +4505,17 @@ components:
           type: array
           items:
             type: string
+        divisions:
+          description: A league's divisions, highest first, each with its title tier; empty for none
+          type: array
+          items:
+            $ref: "#/components/schemas/LeagueDivision"
+        super_gm:
+          description: Whether a win in its top divisions makes a Super GM
+          type: boolean
+        record_min_games:
+          description: The fewest games a player's season needs to count for its season records
+          type: integer
         rated_player_counts:
           description: The player counts whose games count towards ratings
           type: array
@@ -4834,6 +4846,34 @@ components:
           description: What it calls a stage on its pages; empty for the default, Stage
           type: string
           maxLength: 32
+        divisions:
+          description: A league's divisions, highest first, each with its title tier; empty for none (admins only)
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/LeagueDivision"
+        super_gm:
+          description: Whether a win in its top divisions makes a Super GM (admins only)
+          type: boolean
+        record_min_games:
+          description: The fewest games a player's season needs to count for its season records (admins only)
+          type: integer
+          minimum: 0
+          maximum: 100
+    LeagueDivision:
+      description: One of a league's divisions and the title its players earn, tier 1 (GM) to 7 (W)
+      type: object
+      additionalProperties: false
+      required: [name, tier]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+        tier:
+          type: integer
+          minimum: 1
+          maximum: 7
     PlacePoints:
       description: >
         Points for each place in a game of that many players, best place first, from the next run;

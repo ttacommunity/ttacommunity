@@ -449,6 +449,25 @@ def test_season_records_split_a_tied_places_points(conn, add_match, run_id):
     ]
 
 
+def test_season_records_need_the_fewest_games_the_series_sets(conn, add_match, run_id):
+    conn.execute("UPDATE series SET record_min_games = 7 WHERE slug = 'international'")
+    for n in range(1, 7):
+        add_match(
+            ("ann", 90),
+            ("bob", 80),
+            ("cat", 70),
+            tournament=gm(n),
+            day=date(2025, 7, n),
+        )
+    add_match(
+        ("ann", 90), ("bob", 80), ("dan", 70), tournament=gm(7), day=date(2025, 7, 9)
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    assert [r[0] for r in season_records(conn, run_id)] == ["ann", "bob"]
+
+
 def test_season_records_take_a_recorded_top_division(conn, add_match, run_id, record):
     record(20, "Grandmaster", "ann", "bob", "cat")
     record(20, "Platinum", "dan", "eve", "fay")
@@ -1059,6 +1078,7 @@ def test_the_world_championship_final_is_scored_from_its_settings(
     [
         "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'intermezzo')",
         "UPDATE series SET top_divisions = '{}' WHERE slug = 'royal_league'",
+        "UPDATE series SET divisions = '{}', division_tiers = '{}' WHERE slug = 'intermezzo'",
         "DELETE FROM settings WHERE series_id = (SELECT series_id FROM series WHERE slug = 'worlds')",
         "DELETE FROM series WHERE slug = 'international'",
         "UPDATE series SET results_rules = NULL WHERE slug = 'intermezzo'",

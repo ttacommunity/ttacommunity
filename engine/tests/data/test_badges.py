@@ -3,88 +3,35 @@ from datetime import UTC, date, datetime
 import pytest
 
 from tta_ratings_engine.data.badges import (
+    Leagues,
     badge_titles,
-    classify_division_tier,
     derive_tournament_badges,
-    parse_badge_reason,
 )
 from tta_ratings_engine.data.db import RunNotRunning
 from tta_ratings_engine.data.tournaments import derive_tournaments
-
-
-def test_badge_classification():
-    """Tests tournament division to badge tier classification."""
-    # Royal League
-    assert classify_division_tier("RL_s08 - Emperor") == 1  # GM
-    assert classify_division_tier("RL_s08 - King") == 2  # M
-    assert classify_division_tier("RL_s08 - Prince A") == 3  # Platinum
-    assert classify_division_tier("RL_s08 - Duke B") == 4  # Gold
-    assert classify_division_tier("RL_s08 - Marquess C") == 5  # Silver
-    assert classify_division_tier("RL_s08 - Count D") == 6  # Bronze
-    assert classify_division_tier("RL_s08 - Viscount") == 7  # Wood
-    assert classify_division_tier("RL_s09 - Baron 2 game 19") == 7  # Wood (Baron)
-
-    # International Championship
-    assert classify_division_tier("International S33 - Diamond") == 1  # GM
-    assert classify_division_tier("International S33 - Grandmaster") == 1  # GM
-    assert classify_division_tier("International S33 - Master") == 2  # M
-    assert classify_division_tier("International S33 - Master 1") == 2  # M
-    assert classify_division_tier("International S33 - Master 2") == 2  # M
-    assert classify_division_tier("International S33 - Platinum") == 3  # P
-    assert classify_division_tier("International S33 - Gold") == 4  # G
-    assert classify_division_tier("International S33 - Silver") == 5  # S
-    assert classify_division_tier("International S34 - Bronze 28") == 6  # B
-    assert classify_division_tier("International S33 - Wood 5") == 7  # W
-
-    # Intermezzo
-    assert classify_division_tier("Intermezzo S30 - Grandmaster") == 1  # GM
-    assert classify_division_tier("Intermezzo S30 - Master 1") == 2  # M
-    assert classify_division_tier("Intermezzo S30 - Platinum 1") == 3  # P
-    assert classify_division_tier("Intermezzo S30 - Gold 2") == 4  # G
-    assert classify_division_tier("Intermezzo S30 - Silver 3") == 5  # S
-    assert classify_division_tier("Intermezzo S30 - Bronze 4") == 6  # B
-    assert classify_division_tier("Intermezzo S30 - Wood 5") == 7  # W
-
-
-def test_royal_league_reasons_name_the_lower_ranks():
-    assert (
-        parse_badge_reason("RL_s09 - Baron 2 game 19", 7)
-        == "Played in Royal League Baron Season 9"
-    )
-    assert (
-        parse_badge_reason("RL_s09 - Knight", 7)
-        == "Played in Royal League Knight Season 9"
-    )
-    assert (
-        parse_badge_reason("RL_s09 - Viscount", 7)
-        == "Played in Royal League Viscount Season 9"
-    )
-    assert (
-        parse_badge_reason("RL_s09 - Emperor", 1)
-        == "Played in Royal League Emperor Season 9"
-    )
-
 
 # The rules, on the games, records and overrides the run reads.
 
 CUTOFF = "2023-06-01"  # a year before the newest game, 2024-06-01
 
 
-def game(
-    day,
-    tournament,
-    *players,
-    series=None,
-    division=None,
-    finished_at=None,
-    game_id=0,
-):
-    """Returns a played game as badge_titles reads it."""
+def rl(season, division):
+    return ("royal_league", season, division)
+
+
+def intl(season, division):
+    return ("international", season, division)
+
+
+def game(day, league, *players, finished_at=None, game_id=0):
+    """Returns a played game as badge_titles reads it; league is the (series, season, division) the run recorded,
+    None for a game in no league."""
+    series, season, division = league or (None, None, None)
     return {
-        "tournament": tournament,
         "date": day,
         "players": list(players),
         "series": series,
+        "season": season,
         "division": division,
         "finished_at": finished_at,
         "game_id": game_id,
@@ -95,7 +42,10 @@ def newest_first(*games):
     return sorted(games, key=lambda g: g["date"], reverse=True)
 
 
-def season_record(player, tournament, season, division, placement, medal, finish):
+def season_record(
+    player, tournament, season, division, placement, medal, finish, league=(None, None)
+):
+    """Returns a season record; league is the series and division its games were in."""
     return {
         "player_name": player,
         "tournament": tournament,
@@ -104,6 +54,8 @@ def season_record(player, tournament, season, division, placement, medal, finish
         "placement": placement,
         "medal": medal,
         "finish_date": finish,
+        "series": league[0],
+        "series_division": league[1],
     }
 
 
@@ -111,9 +63,35 @@ def override(player, title, reason="r"):
     return {"player_name": player, "title": title, "reason": reason}
 
 
-def rule_titles(games, records=(), overrides=(), champions=()):
+CHAMPIONSHIP = (
+    "Grandmaster",
+    "Diamond",
+    "Master",
+    "Platinum",
+    "Gold",
+    "Silver",
+    "Bronze",
+    "Wood",
+)
+LEAGUES = Leagues(
+    tiers={
+        **{(s, d): t for s in ("international", "intermezzo") for d, t in zip(CHAMPIONSHIP, (1, 1, 2, 3, 4, 5, 6, 7))},
+        **{("royal_league", d): t for d, t in zip(("Emperor", "King", "Prince", "Duke", "Marquess", "Count", "Viscount",
+                                                   "Baron", "Knight"), (1, 2, 3, 4, 5, 6, 7, 7, 7))},
+    },
+    super_gm={"international": frozenset({"Grandmaster", "Diamond"}), "intermezzo": frozenset({"Grandmaster", "Diamond"}),
+              "royal_league": frozenset({"Emperor"})},
+)  # fmt: skip
+
+
+def rule_titles(games, records=(), overrides=(), champions=(), leagues=LEAGUES):
     return badge_titles(
-        newest_first(*games), CUTOFF, list(champions), list(records), list(overrides)
+        newest_first(*games),
+        CUTOFF,
+        list(champions),
+        list(records),
+        list(overrides),
+        leagues,
     )
 
 
@@ -127,8 +105,8 @@ def active(t):
 def test_a_player_gets_the_title_of_their_best_recent_division():
     t = rule_titles(
         [
-            game("2024-05-01", "RL_s08 - Emperor", "Ann", "Bob"),
-            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
+            game("2024-05-01", rl(8, "Emperor"), "Ann", "Bob"),
+            game("2024-06-01", rl(9, "King"), "Ann", "Cat"),
         ]
     )
 
@@ -139,39 +117,43 @@ def test_a_player_gets_the_title_of_their_best_recent_division():
 def test_only_the_last_year_counts():
     t = rule_titles(
         [
-            game("2023-05-31", "RL_s01 - Emperor", "Old", "Bob"),
-            game(CUTOFF, "RL_s02 - Duke", "Edge", "Eve"),
-            game("2023-07-01", "RL_s02 - Duke", "Recent", "Dan"),
-            game("2024-06-01", "RL_s09 - Duke", "Ann", "Cat"),
+            game("2023-05-31", rl(1, "Emperor"), "Old", "Bob"),
+            game(CUTOFF, rl(2, "Duke"), "Edge", "Eve"),
+            game("2023-07-01", rl(2, "Duke"), "Recent", "Dan"),
+            game("2024-06-01", rl(9, "Duke"), "Ann", "Cat"),
         ]
     )
 
     assert set(t.active) == {"Ann", "Cat", "Recent", "Dan", "Edge", "Eve"}
 
 
-def test_a_division_the_run_recorded_gives_a_title():
-    t = rule_titles(
-        [
-            game(
-                "2024-06-01",
-                "International S27",
-                "Ann",
-                "Bob",
-                series="international",
-                division="Grandmaster",
-            )
-        ]
-    )
+@pytest.mark.parametrize(
+    ("league", "want"),
+    [
+        (intl(27, "Grandmaster"), ("GM", 1, "Played in International Championship Grandmaster Season 27")),
+        (("intermezzo", 30, "Platinum"), ("P", 0, "Played in Intermezzo Championship Platinum Season 30")),
+        (rl(9, "Baron"), ("W", 0, "Played in Royal League Baron Season 9")),
+        (rl(9, "Viscount"), ("W", 0, "Played in Royal League Viscount Season 9")),
+        (rl(None, "Duke"), ("G", 0, "Played in Royal League Duke")),
+        (intl(27, "Promotion"), None),
+        (("nations_league", 3, "Apple"), None),
+    ],
+)  # fmt: skip
+def test_a_games_title_comes_from_the_division_the_run_recorded(league, want):
+    t = rule_titles([game("2024-06-01", league, "Ann", "Bob")])
 
-    assert active(t)["Ann"] == (
-        "GM",
-        1,
-        "Played in International Championship Grandmaster Season 27",
-    )
+    assert active(t).get("Ann") == want
+
+
+def test_a_divisions_tier_is_its_setting():
+    t = rule_titles([game("2024-06-01", intl(27, "Gold"), "Ann", "Bob")],
+                    leagues=Leagues(tiers={("international", "Gold"): 2}, super_gm={}))  # fmt: skip
+
+    assert active(t)["Ann"][0] == "M"
 
 
 def test_games_outside_the_championships_earn_no_title():
-    t = rule_titles([game("2024-06-01", "Friendly Cup", "Ann", "Bob")])
+    t = rule_titles([game("2024-06-01", None, "Ann", "Bob")])
 
     assert t.active == {}
 
@@ -179,9 +161,9 @@ def test_games_outside_the_championships_earn_no_title():
 def test_a_player_keeps_their_career_peak_title():
     t = rule_titles(
         [
-            game("2021-03-01", "RL_s03 - Emperor", "Ann", "Bob"),
-            game("2022-03-01", "RL_s04 - Emperor", "Ann", "Bob"),
-            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
+            game("2021-03-01", rl(3, "Emperor"), "Ann", "Bob"),
+            game("2022-03-01", rl(4, "Emperor"), "Ann", "Bob"),
+            game("2024-06-01", rl(9, "King"), "Ann", "Cat"),
         ]
     )
 
@@ -193,10 +175,10 @@ def test_a_player_keeps_their_career_peak_title():
 def test_each_year_keeps_the_best_division_played():
     t = rule_titles(
         [
-            game("2021-03-01", "RL_s03 - Duke", "Ann", "Bob"),
-            game("2021-09-01", "RL_s04 - Emperor", "Ann", "Cat"),
-            game("2022-03-01", "RL_s05 - King", "Ann", "Bob"),
-            game("2023-03-01", "Friendly Cup", "Ann", "Dan"),
+            game("2021-03-01", rl(3, "Duke"), "Ann", "Bob"),
+            game("2021-09-01", rl(4, "Emperor"), "Ann", "Cat"),
+            game("2022-03-01", rl(5, "King"), "Ann", "Bob"),
+            game("2023-03-01", None, "Ann", "Dan"),
         ]
     )
 
@@ -210,7 +192,7 @@ def test_each_year_keeps_the_best_division_played():
 
 def test_a_recent_top_division_win_is_super_gm():
     t = rule_titles(
-        [game("2024-06-01", "RL_s09 - Emperor", "Ann", "Bob")],
+        [game("2024-06-01", rl(9, "Emperor"), "Ann", "Bob")],
         records=[
             season_record(
                 "Ann",
@@ -220,6 +202,7 @@ def test_a_recent_top_division_win_is_super_gm():
                 "1 / 8",
                 "gold",
                 "2024-05-27",
+                league=("royal_league", "Emperor"),
             ),
             season_record(
                 "Bob",
@@ -229,6 +212,7 @@ def test_a_recent_top_division_win_is_super_gm():
                 "2 / 8",
                 "silver",
                 "2024-05-27",
+                league=("royal_league", "Emperor"),
             ),
         ],
     )
@@ -241,19 +225,37 @@ def test_a_recent_top_division_win_is_super_gm():
 def test_an_older_top_division_win_is_a_super_gm_peak():
     ic = "International Championship"
     t = rule_titles(
-        [
-            game("2024-06-01", "Friendly Cup", p, "Bob")
-            for p in ("Cat", "Dan", "Eve", "Fay")
-        ],
+        [game("2024-06-01", None, p, "Bob") for p in ("Cat", "Dan", "Eve", "Fay")],
         records=[
             season_record(
-                "Cat", ic, "Season 20", "Grandmaster", "1 / 7", "gold", "2022-12-04"
+                "Cat",
+                ic,
+                "Season 20",
+                "Grandmaster",
+                "1 / 7",
+                "gold",
+                "2022-12-04",
+                league=("international", "Grandmaster"),
             ),
             season_record(
-                "Eve", ic, "Season 20", "Grandmaster", "3 / 7", "bronze", "2022-12-04"
+                "Eve",
+                ic,
+                "Season 20",
+                "Grandmaster",
+                "3 / 7",
+                "bronze",
+                "2022-12-04",
+                league=("international", "Grandmaster"),
             ),
             season_record(
-                "Fay", ic, "Season 30", "Master 1", "1 / 4", "gold", "2025-08-14"
+                "Fay",
+                ic,
+                "Season 30",
+                "Master 1",
+                "1 / 4",
+                "gold",
+                "2025-08-14",
+                league=("international", "Master"),
             ),
         ],
     )
@@ -273,7 +275,7 @@ def test_an_older_top_division_win_is_a_super_gm_peak():
 )
 def test_only_a_gold_medal_makes_a_top_division_win(placement, medal, want):
     t = rule_titles(
-        [game("2024-06-01", "RL_s09 - Emperor", "Ann", "Bob")],
+        [game("2024-06-01", rl(9, "Emperor"), "Ann", "Bob")],
         records=[
             season_record(
                 "Ann",
@@ -283,6 +285,7 @@ def test_only_a_gold_medal_makes_a_top_division_win(placement, medal, want):
                 placement,
                 medal,
                 "2024-05-27",
+                league=("royal_league", "Emperor"),
             )
         ],
     )
@@ -293,8 +296,8 @@ def test_only_a_gold_medal_makes_a_top_division_win(placement, medal, want):
 def test_records_add_super_gm_years_and_untitled_seasons():
     t = rule_titles(
         [
-            game("2024-06-01", "RL_s09 - King", "Ann", "Cat"),
-            game("2021-03-01", "RL_s03 - Duke", "Bob", "Cat"),
+            game("2024-06-01", rl(9, "King"), "Ann", "Cat"),
+            game("2021-03-01", rl(3, "Duke"), "Bob", "Cat"),
         ],
         records=[
             # a season named without its division: the record gives the year's title
@@ -306,6 +309,7 @@ def test_records_add_super_gm_years_and_untitled_seasons():
                 "5 / 7",
                 None,
                 "2020-12-06",
+                league=("international", "Grandmaster"),
             ),
             season_record(
                 "Ann",
@@ -315,6 +319,7 @@ def test_records_add_super_gm_years_and_untitled_seasons():
                 "2 / 8",
                 "silver",
                 "2024-05-27",
+                league=("royal_league", "Emperor"),
             ),
             season_record(
                 "Bob",
@@ -324,6 +329,7 @@ def test_records_add_super_gm_years_and_untitled_seasons():
                 "1 / 5",
                 "gold",
                 "2021-11-30",
+                league=("intermezzo", "Grandmaster"),
             ),
         ],
     )
@@ -360,7 +366,7 @@ def test_records_add_super_gm_years_and_untitled_seasons():
 )
 def test_a_title_set_in_admin(overrides, player, want):
     t = rule_titles(
-        [game("2024-06-01", "RL_s09 - Duke", "Ann", "Bob")], overrides=overrides
+        [game("2024-06-01", rl(9, "Duke"), "Ann", "Bob")], overrides=overrides
     )
 
     assert active(t).get(player) == want
@@ -411,7 +417,7 @@ def test_deriving_again_replaces_the_runs_titles_peaks_and_years(
 ):
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
 
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     derive_tournament_badges(conn=conn, run_id=run_id)
 
     assert len(titles(conn, run_id)) == 2
@@ -542,7 +548,7 @@ def test_the_reigning_champion_comes_from_admin_then_recorded(
 def test_same_day_games_pick_later_reason_by_finish_time():
     g1 = game(
         "2024-06-01",
-        "International S35 - Bronze 28",
+        intl(35, "Bronze"),
         "Ann",
         "Bob",
         finished_at=datetime(2024, 6, 1, 10, 0, tzinfo=UTC),
@@ -550,38 +556,38 @@ def test_same_day_games_pick_later_reason_by_finish_time():
     )
     g2 = game(
         "2024-06-01",
-        "RL_s09 - Count D",
+        rl(9, "Count"),
         "Ann",
         "Cat",
         finished_at=datetime(2024, 6, 1, 15, 0, tzinfo=UTC),
         game_id=2,
     )
-    t1 = badge_titles([g1, g2], CUTOFF, [], [], [])
+    t1 = badge_titles([g1, g2], CUTOFF, [], [], [], LEAGUES)
     assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
 
-    t2 = badge_titles([g2, g1], CUTOFF, [], [], [])
+    t2 = badge_titles([g2, g1], CUTOFF, [], [], [], LEAGUES)
     assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
 
 
 def test_same_day_games_tiebreak_by_game_id_when_finish_time_equal_or_missing():
     g1 = game(
         "2024-06-01",
-        "International S35 - Bronze 28",
+        intl(35, "Bronze"),
         "Ann",
         "Bob",
         game_id=10,
     )
     g2 = game(
         "2024-06-01",
-        "RL_s09 - Count D",
+        rl(9, "Count"),
         "Ann",
         "Cat",
         game_id=20,
     )
-    t1 = badge_titles([g1, g2], CUTOFF, [], [], [])
+    t1 = badge_titles([g1, g2], CUTOFF, [], [], [], LEAGUES)
     assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
 
-    t2 = badge_titles([g2, g1], CUTOFF, [], [], [])
+    t2 = badge_titles([g2, g1], CUTOFF, [], [], [], LEAGUES)
     assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
 
 
@@ -601,7 +607,7 @@ def test_derive_tournament_badges_picks_later_same_day_game(conn, add_match, run
         tournament="RL_s09 - Count D",
     )
 
-    derive_tournament_badges(conn=conn, run_id=run_id)
+    derive(conn, run_id)
     got = titles(conn, run_id)
     assert got["Ann"][2] == "Played in Royal League Count Season 9"
 

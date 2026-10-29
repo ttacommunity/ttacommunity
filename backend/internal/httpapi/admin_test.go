@@ -178,6 +178,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
+		Divisions:         []store.Division{{Name: "Final", Tier: 1}, {Name: "Semi-final", Tier: 2}}, SuperGM: true, RecordMinGames: 3,
 		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, RunHere: true, TimeoutPenalty: -1, Games: 3, Finished: 2, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE",
 			Suggested: []store.PodiumEntry{{Place: 1, Name: "birch550"}}, SuggestedFrom: "final_stage"}}}, nil
@@ -198,6 +199,9 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	}
 	if s.Kind == "tour" {
 		return store.ErrBadKind
+	}
+	if slices.ContainsFunc(s.Divisions, func(d store.Division) bool { return d.Tier > 7 }) {
+		return store.ErrBadLeagueRules
 	}
 	if len(s.Points[3]) == 2 {
 		return store.ErrBadScoring

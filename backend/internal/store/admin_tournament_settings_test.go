@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -262,6 +263,50 @@ func TestAdminSetsATournamentsKindAndTopDivisions(t *testing.T) {
 	}
 	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Kind: "tour"}); !errors.Is(err, ErrBadKind) {
 		t.Errorf("an unknown kind = %v, want ErrBadKind", err)
+	}
+}
+
+func TestAdminSetsALeaguesRules(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	yes, four := true, 4
+	rules := func() (string, bool, int) {
+		t.Helper()
+		w := adminTournament(t, a, "wimbledon")
+		return fmt.Sprint(w.Divisions), w.SuperGM, w.RecordMinGames
+	}
+
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Divisions: []Division{{" Gold ", 1}, {"Silver", 2}, {"Bronze", 2}},
+		SuperGM: &yes, RecordMinGames: &four}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if divisions, sgm, games := rules(); divisions != "[{Gold 1} {Silver 2} {Bronze 2}]" || !sgm || games != 4 {
+		t.Errorf("rules = %s, Super GM %v, %d games; want Gold 1, Silver 2, Bronze 2, Super GM, 4 games", divisions, sgm, games)
+	}
+	for _, tt := range []struct {
+		name string
+		s    TournamentSettings
+	}{
+		{"a tier above 7", TournamentSettings{Divisions: []Division{{"Gold", 8}}}},
+		{"a tier below 1", TournamentSettings{Divisions: []Division{{"Gold", 0}}}},
+		{"a division listed twice", TournamentSettings{Divisions: []Division{{"Gold", 1}, {" Gold", 2}}}},
+		{"a division without a name", TournamentSettings{Divisions: []Division{{" ", 1}}}},
+		{"negative games", TournamentSettings{RecordMinGames: new(-1)}},
+	} {
+		if err := a.SetTournament(ctx, "wimbledon", tt.s); !errors.Is(err, ErrBadLeagueRules) {
+			t.Errorf("%s: %v, want ErrBadLeagueRules", tt.name, err)
+		}
+	}
+	if divisions, _, games := rules(); divisions != "[{Gold 1} {Silver 2} {Bronze 2}]" || games != 4 {
+		t.Errorf("after refusals, rules = %s, %d games; want them unchanged", divisions, games)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Divisions: []Division{}}); err != nil {
+		t.Fatalf("SetTournament(no divisions): %v", err)
+	}
+	if divisions, _, _ := rules(); divisions != "[]" {
+		t.Errorf("after clearing, divisions = %s, want none", divisions)
 	}
 }
 

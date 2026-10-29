@@ -207,10 +207,11 @@ def records():
         ("royal_league", 1): "2024-08-11",
         ("worlds", 2024): "2024-12-15",
     }
-    got = player_records(group_of={}, group_standings={}, rows=rows, top_divisions=TOP, standings=standings, official=official, boards=boards,
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=rows, top_divisions=TOP, standings=standings, official=official, boards=boards,
                          honours=honours, dates=dates)  # fmt: skip
     by_player = {}
     for r in got:
+        del r["series"], r["series_division"]
         by_player.setdefault(r.pop("player_name"), []).append(r)
     return by_player
 
@@ -320,6 +321,7 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
     got = player_records(
         group_of={},
         group_standings={},
+        division_of={},
         rows=[],
         top_divisions=TOP,
         standings={},
@@ -354,6 +356,7 @@ def test_player_records_give_a_cup_one_row_each_ranked_by_the_furthest_stage():
     got = player_records(
         group_of={},
         group_standings={},
+        division_of={},
         rows=rows,
         top_divisions=TOP,
         standings={},
@@ -428,6 +431,7 @@ def test_slow_burn_records_take_its_edition_and_stage_from_the_catalogue():
     got = player_records(
         group_of={},
         group_standings={},
+        division_of={},
         rows=rows,
         top_divisions=TOP,
         standings={},
@@ -480,7 +484,7 @@ def test_a_standings_record_keeps_its_division_whatever_its_games_are_named(
         ]
     }
 
-    got = player_records(group_of={}, group_standings={}, rows=rows, top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=rows, top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
                          dates={})  # fmt: skip
 
     ann = next(
@@ -509,6 +513,7 @@ def test_player_records_unnamed_international_season_does_not_award_gold_or_gran
     got = player_records(
         group_of={},
         group_standings={},
+        division_of={},
         rows=rows,
         top_divisions=TOP,
         standings={},
@@ -533,7 +538,7 @@ def test_a_royal_league_season_without_official_placements_takes_its_podium_from
     }  # fmt: skip
     official = {("royal_league", 1, "Emperor"): [placed("ann", 1), placed("bob", 2)]}
 
-    got = player_records(group_of={}, group_standings={}, rows=[], top_divisions=TOP, standings=standings, official=official, boards={},
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=[], top_divisions=TOP, standings=standings, official=official, boards={},
                          honours=[], dates={})  # fmt: skip
 
     assert sorted((r["season"], r["player_name"], r["medal"]) for r in got if r["tournament"] == "Royal League") == [
@@ -549,7 +554,7 @@ def test_career_points_add_the_seasons_points_not_their_rounded_text():
         for season in (1, 2)
     }
 
-    got = player_records(group_of={}, group_standings={}, rows=[], top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=[], top_divisions=TOP, standings=standings, official={}, boards={}, honours=[],
                          dates={})  # fmt: skip
 
     career = next(r for r in got if r["career"])
@@ -565,7 +570,7 @@ def test_a_world_championship_row_gives_its_finals_field_when_known():
         ("worlds", 2022, "Final"): [placed("bob", 1)],
     }
 
-    got = player_records(group_of={}, group_standings={}, rows=[], top_divisions=TOP, standings={}, official=official, boards={}, honours=[],
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=[], top_divisions=TOP, standings={}, official=official, boards={}, honours=[],
                          dates={})  # fmt: skip
 
     assert {r["player_name"]: r["placement"] for r in got} == {
@@ -602,7 +607,7 @@ def test_a_lower_division_row_takes_its_groups_standings_place_and_points(
               day=date(2025, 8, 2), match_id=2),
     ]  # fmt: skip
 
-    got = player_records(group_of=group_of, group_standings={MASTER_1: standings}, rows=rows, top_divisions=TOP,
+    got = player_records(group_of=group_of, group_standings={MASTER_1: standings}, division_of={}, rows=rows, top_divisions=TOP,
                          standings={}, official={}, boards={}, honours=[], dates={})  # fmt: skip
 
     dan = next(r for r in got if r["player_name"] == "dan")
@@ -621,7 +626,7 @@ def test_a_cup_ranks_by_the_scores_it_was_given_not_their_text():
               day=date(2026, 3, 1), match_id=2),
     ]  # fmt: skip
 
-    got = player_records(group_of={}, group_standings={}, rows=rows, top_divisions=TOP, standings={}, official={},
+    got = player_records(group_of={}, group_standings={}, division_of={}, rows=rows, top_divisions=TOP, standings={}, official={},
                          boards={}, honours=[], dates={})  # fmt: skip
 
     assert [(r["player_name"], r["points"]) for r in got][:2] == [
@@ -638,9 +643,31 @@ def test_a_top_division_row_without_official_placements_keeps_the_wins_order():
     ]  # fmt: skip
 
     got = player_records(group_of={1: grandmaster, 2: grandmaster},
-                         group_standings={grandmaster: [placed("eve", 1, 4.0), placed("dan", 2, 2.0)]},
+                         group_standings={grandmaster: [placed("eve", 1, 4.0), placed("dan", 2, 2.0)]}, division_of={},
                          rows=rows, top_divisions=TOP, standings={}, official={}, boards={}, honours=[],
                          dates={})  # fmt: skip
 
     dan = next(r for r in got if r["player_name"] == "dan")
     assert (dan["placement"], dan["points"]) == ("1 / 2", "2W - 0L (100.0%)")
+
+
+def test_a_season_row_says_which_series_and_division_its_games_were_in():
+    rows = [
+        match("RL_s05 - Duke 2 game 1", ("ann", 90), ("bob", 80), day=date(2023, 3, 1), match_id=1),
+        match("RL_s05 - Duke 2 game 2", ("bob", 90), ("ann", 80), day=date(2023, 3, 2), match_id=2),
+        match("Friendly S1 - Main game 1", ("ann", 90), ("bob", 80), day=date(2023, 3, 3), match_id=3),
+        match("Friendly S1 - Main game 2", ("bob", 90), ("ann", 80), day=date(2023, 3, 4), match_id=4),
+    ]  # fmt: skip
+    standings = {("international", 30, "Grandmaster"): [placed("cat", 1, 9.0)]}
+
+    got = player_records(group_of={}, group_standings={}, division_of={1: ("royal_league", "Duke"), 2: ("royal_league", "Duke"),
+                         3: ("royal_league", "Duke")}, rows=rows, top_divisions=TOP, standings=standings, official={},
+                         boards={}, honours=[], dates={})  # fmt: skip
+
+    assert {(r["player_name"], r["tournament"], r["series"], r["series_division"]) for r in got if not r["career"]} == {
+        ("ann", "Royal League", "royal_league", "Duke"),
+        ("bob", "Royal League", "royal_league", "Duke"),
+        ("ann", "Friendly S1", None, None),
+        ("bob", "Friendly S1", None, None),
+        ("cat", "International Championship", "international", "Grandmaster"),
+    }  # fmt: skip

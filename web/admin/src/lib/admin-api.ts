@@ -9,6 +9,7 @@ export type AdminTournamentRow = components['schemas']['AdminTournamentRow'];
 /** TournamentBrief is what a list row and a whole tournament share. */
 export type TournamentBrief = Omit<AdminTournamentRow, 'cge_about'>;
 export type TournamentSettings = components['schemas']['TournamentSettings'];
+export type LeagueDivision = components['schemas']['LeagueDivision'];
 export type AdminPerson = components['schemas']['AdminPerson'];
 export type AdminAuditPage = components['schemas']['AdminAuditPage'];
 export type AdminRun = components['schemas']['AdminRun'];

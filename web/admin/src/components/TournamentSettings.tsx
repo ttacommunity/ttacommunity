@@ -9,6 +9,7 @@ import PageError from './PageError';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
 import SettingsCard from './SettingsCard';
+import LeagueRulesCard from './LeagueRulesCard';
 import CardSettings from './CardSettings';
 import RegulationsCard from './RegulationsCard';
 import StoriesSettings from './StoriesSettings';
@@ -68,6 +69,9 @@ export default function TournamentSettings() {
           ) : (
             <>
               <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
+              {me.kind === 'ready' && me.data.role === 'admin' && (
+                <LeagueRulesCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
+              )}
               <CardSettings t={t.data} onReload={load} />
               <RegulationsCard t={t.data} onReload={load} />
               <StoriesSettings t={t.data} onReload={load} />

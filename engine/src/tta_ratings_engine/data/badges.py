@@ -17,7 +17,6 @@ Implements the official badge award rules:
 - Hover Reason: Shows the latest tournament division and season (e.g. 'Played in International Championship Grandmaster Season 6').
 """
 
-import re
 from datetime import UTC, date, datetime
 from typing import Any, NamedTuple
 
@@ -42,16 +41,6 @@ def _finish_key(dt: Any) -> datetime:
 # Tournament division tier rankings (1 = Highest / GM, 2 = M, 3 = P, 4 = G, 5 = S, 6 = B, 7 = W)
 TIER_TITLE_MAP = {1: "GM", 2: "M", 3: "P", 4: "G", 5: "S", 6: "B", 7: "W"}
 
-TIER_NAMES = {
-    1: "Grandmaster",
-    2: "Master",
-    3: "Platinum",
-    4: "Gold",
-    5: "Silver",
-    6: "Bronze",
-    7: "Wood",
-}
-
 TITLE_ORDER = {
     "WC": 0,
     "SGM": 1,
@@ -66,15 +55,7 @@ TITLE_ORDER = {
     "W": 10,
 }
 
-# The leagues and divisions whose win makes a Super GM, as the records name them
-SGM_TOURNAMENTS = (
-    "International Championship",
-    "Intermezzo Championship",
-    "Royal League",
-)
-SGM_DIVISIONS = ("Grandmaster", "Diamond", "Emperor")
-
-# The league series whose recorded divisions give a badge, as classify_division_tier names them
+# The leagues' names in a badge's hover text
 SERIES_NAMES = {
     "international": "International Championship",
     "intermezzo": "Intermezzo Championship",
@@ -105,154 +86,33 @@ def world_champions(conn, run_id) -> list[tuple[str, int]]:
     return [(p, yr) for p, yr, pl in world_podiums(conn, run_id) if pl == 1]
 
 
-def classify_division_tier(tournament_name: str) -> int | None:
-    """Classifies a match's tournament/division string into a tier from 1 (highest) to 7 (wood).
+class Leagues(NamedTuple):
+    """The league settings titles read: each (series, division)'s tier, 1 the highest, and the top divisions whose
+    win makes a Super GM, by series."""
 
-    Strictly restricted to:
-    - International Championship (4P)
-    - Intermezzo Championship (3P)
-    - Royal League (2P)
-
-    Returns None if the tournament is not one of these three, or if no valid division tier is present.
-    """
-    t_lower = tournament_name.lower().strip()
-
-    # 1. Royal League (2P)
-    # Tier 1: Emperor
-    # Tier 2: King
-    # Tier 3: Prince
-    # Tier 4: Duke
-    # Tier 5: Marquess
-    # Tier 6: Count
-    # Tier 7: Viscount / Baron / Knight
-    if "rl_" in t_lower or "royal league" in t_lower:
-        if "emperor" in t_lower:
-            return 1
-        elif "king" in t_lower:
-            return 2
-        elif "prince" in t_lower:
-            return 3
-        elif "duke" in t_lower:
-            return 4
-        elif "marquess" in t_lower:
-            return 5
-        elif "viscount" in t_lower or "baron" in t_lower or "knight" in t_lower:
-            return 7
-        elif "count" in t_lower:
-            return 6
-
-        m_div = re.search(r"div(?:ision)?\s*(\d+)", t_lower)
-        if m_div:
-            d_num = int(m_div.group(1))
-            return min(7, max(1, d_num))
-        return None
-
-    # 2. International Championship (4P)
-    # Tier 1: Grandmaster (GM) / Diamond / Tier 1
-    # Tier 2: Master (M) / Master 1 / Master 2 / Div 2 / Division 2 / Tier 2
-    # Tier 3: Platinum (P) / Div 3 / Division 3 / Tier 3
-    # Tier 4: Gold (G) / Div 4 / Division 4 / Tier 4
-    # Tier 5: Silver (S) / Div 5 / Division 5 / Tier 5
-    # Tier 6: Bronze (B) / Div 6 / Division 6 / Tier 6
-    # Tier 7: Wood (W) / Div 7 / Division 7 / Tier 7
-    if "international" in t_lower:
-        return _championship_tier(t_lower)
-
-    # 3. Intermezzo Championship (3P), with the same divisions
-    if "intermezzo" in t_lower:
-        return _championship_tier(t_lower)
-
-    return None
+    tiers: dict[tuple[str, str], int]
+    super_gm: dict[str, frozenset[str]]
 
 
-def _championship_tier(t_lower: str) -> int | None:
-    """Returns the tier of an International or Intermezzo division, or None."""
-    if "grandmaster" in t_lower or "diamond" in t_lower or "tier 1" in t_lower:
-        return 1
-    elif (
-        "master" in t_lower
-        or "tier 2" in t_lower
-        or "div 2" in t_lower
-        or "division 2" in t_lower
-    ):
-        return 2
-    elif (
-        "platinum" in t_lower
-        or "tier 3" in t_lower
-        or "div 3" in t_lower
-        or "division 3" in t_lower
-    ):
-        return 3
-    elif (
-        "gold" in t_lower
-        or "tier 4" in t_lower
-        or "div 4" in t_lower
-        or "division 4" in t_lower
-    ):
-        return 4
-    elif (
-        "silver" in t_lower
-        or "tier 5" in t_lower
-        or "div 5" in t_lower
-        or "division 5" in t_lower
-    ):
-        return 5
-    elif (
-        "bronze" in t_lower
-        or "tier 6" in t_lower
-        or "div 6" in t_lower
-        or "division 6" in t_lower
-    ):
-        return 6
-    elif (
-        "wood" in t_lower
-        or "tier 7" in t_lower
-        or "div 7" in t_lower
-        or "division 7" in t_lower
-    ):
-        return 7
-    return None
+def league_settings(conn) -> Leagues:
+    """Returns the divisions' tiers and the Super GM top divisions of every series that has division tiers."""
+    rows = conn.execute(
+        "SELECT slug, divisions, division_tiers, super_gm, top_divisions FROM series WHERE cardinality(divisions) > 0"
+    ).fetchall()
+    return Leagues(
+        {
+            (r["slug"], d): t
+            for r in rows
+            for d, t in zip(r["divisions"], r["division_tiers"], strict=True)
+        },
+        {r["slug"]: frozenset(r["top_divisions"]) for r in rows if r["super_gm"]},
+    )
 
 
-def parse_badge_reason(tournament_name: str, tier: int) -> str:
-    """Parses tournament string into a clean, human-readable reason message."""
-    t = tournament_name.strip()
-    t_lower = t.lower()
-
-    # Extract season number
-    season_match = re.search(r"(?:s|season|edition)\s*0*(\d+)", t_lower)
-    season_num = season_match.group(1) if season_match else None
-
-    tier_name = TIER_NAMES.get(tier, "Wood")
-
-    if "rl_" in t_lower or "royal league" in t_lower:
-        if "baron" in t_lower:
-            rl_title = "Baron"
-        elif "knight" in t_lower:
-            rl_title = "Knight"
-        elif "viscount" in t_lower:
-            rl_title = "Viscount"
-        else:
-            rl_title = {
-                1: "Emperor",
-                2: "King",
-                3: "Prince",
-                4: "Duke",
-                5: "Marquess",
-                6: "Count",
-            }.get(tier, "Viscount")
-        s_part = f"Season {season_num}" if season_num else ""
-        return f"Played in Royal League {rl_title} {s_part}".strip()
-
-    elif "international" in t_lower:
-        s_part = f"Season {season_num}" if season_num else ""
-        return f"Played in International Championship {tier_name} {s_part}".strip()
-
-    elif "intermezzo" in t_lower:
-        s_part = f"Season {season_num}" if season_num else ""
-        return f"Played in Intermezzo Championship {tier_name} {s_part}".strip()
-
-    return f"Played in {t}"
+def _badge_reason(r) -> str:
+    """Returns a game's hover text: its league, division and season, as the run recorded them."""
+    season = f" Season {r['season']}" if r.get("season") is not None else ""
+    return f"Played in {SERIES_NAMES.get(r['series'], r['series'])} {r['division']}{season}"
 
 
 class Titles(NamedTuple):
@@ -282,11 +142,11 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         max_date = date.fromisoformat(max_row["max_date"])
         cutoff_date = (max_date - relativedelta(years=1)).strftime("%Y-%m-%d")
 
-        # All tournament matches, with the division the run recorded for a name that has none
+        # All played games, with the series, division and season the run recorded
         rows = conn.execute(
             """
             SELECT m.game_id, m.name AS tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
-                   m.finished_at, m.players, tg.series, tg.division
+                   m.finished_at, m.players, tg.series, tg.division, tg.season
             FROM game_lines m
             LEFT JOIN tournament_games tg ON tg.match_id = m.game_id AND tg.run_id = %s
             WHERE m.state = 'played'
@@ -297,7 +157,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         podiums = world_podiums(conn, run_id)
         records = conn.execute(
             """
-            SELECT player_name, tournament, season, division, medal, finish_date
+            SELECT player_name, tournament, season, division, medal, finish_date, series, series_division
             FROM tournament_records WHERE run_id = %s AND NOT career ORDER BY position
         """,
             (run_id,),
@@ -305,7 +165,9 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         overrides = conn.execute(
             "SELECT player_name, title, reason FROM player_title_overrides"
         ).fetchall()
-        titles = badge_titles(rows, cutoff_date, podiums, records, overrides)
+        titles = badge_titles(
+            rows, cutoff_date, podiums, records, overrides, league_settings(conn)
+        )
         _write_titles(conn, run_id, titles, podiums)
 
     return titles.active
@@ -363,19 +225,24 @@ def _write_titles(conn: DictConnection, run_id: int, titles: Titles, podiums) ->
         )
 
 
-def badge_titles(rows, cutoff_date, champions, records, overrides) -> Titles:
+def badge_titles(
+    rows, cutoff_date, champions, records, overrides, leagues: Leagues
+) -> Titles:
     """Returns the titles the games, World Championship podiums, records and admin's overrides give.
 
-    rows are the played games newest first (tournament, date as YYYY-MM-DD, players, and the series and division
-    the run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are the World Championship's
-    podiums as world_podiums gives them, (player, season, place); records are the run's season records; overrides are
-    admin's titles ('' takes one away).
+    rows are the played games newest first (date as YYYY-MM-DD, players, and the series, division and season the
+    run recorded); cutoff_date (YYYY-MM-DD) starts the active window; champions are the World Championship's
+    podiums as world_podiums gives them, (player, season, place); records are the run's season records, each with
+    the series and division its games were in; overrides are admin's titles ('' takes one away); leagues are the
+    divisions' tiers and the Super GM top divisions.
     """
-    best = _best_tiers(rows, cutoff_date)
-    active_sgm, career_sgm = _super_gm(records, cutoff_date)
+    best = _best_tiers(rows, cutoff_date, leagues.tiers)
+    active_sgm, career_sgm = _super_gm(records, cutoff_date, leagues.super_gm)
     derived_data = _active_titles(best, champions, active_sgm, overrides)
     peaks = _peak_titles(best.career, champions, career_sgm)
-    return Titles(derived_data, peaks, _yearly_titles(best.yearly, records, peaks))
+    return Titles(
+        derived_data, peaks, _yearly_titles(best.yearly, records, peaks, leagues)
+    )
 
 
 class _BestTiers(NamedTuple):
@@ -387,21 +254,16 @@ class _BestTiers(NamedTuple):
     yearly: dict[tuple[str, int], int]
 
 
-def _best_tiers(rows, cutoff_date) -> _BestTiers:
+def _best_tiers(rows, cutoff_date, tiers) -> _BestTiers:
     """Returns each player's best tiers over rows, the latest game winning a tie; tier_counts counts
-    their tier-1 games since cutoff_date."""
+    their tier-1 games since cutoff_date. tiers map a (series, division) to its tier."""
     player_best: dict[str, dict[str, Any]] = {}
     player_career_best: dict[str, dict[str, Any]] = {}
     player_tier_counts: dict[str, int] = {}
     player_year_best: dict[tuple[str, int], int] = {}
 
     for r in rows:
-        tourney = r["tournament"]
-        tier = classify_division_tier(tourney)
-        if tier is None and r["division"] and r["series"] in SERIES_NAMES:
-            tier = classify_division_tier(
-                f"{SERIES_NAMES[r['series']]} {r['division']}"
-            )
+        tier = tiers.get((r["series"], r["division"]))
         if tier is None:
             continue
 
@@ -434,10 +296,9 @@ def _best_tiers(rows, cutoff_date) -> _BestTiers:
                 ):
                     player_best[p] = {
                         "tier": tier,
-                        "tournament": tourney,
                         "date": d_str,
                         "key": game_key,
-                        "reason": parse_badge_reason(tourney, tier),
+                        "reason": _badge_reason(r),
                     }
 
                 if tier == 1:
@@ -536,10 +397,12 @@ def _peak_titles(
     return peaks
 
 
-def _yearly_titles(player_year_best, records, peaks) -> dict[tuple[str, int], str]:
+def _yearly_titles(
+    player_year_best, records, peaks, leagues
+) -> dict[tuple[str, int], str]:
     """Returns each (player, year)'s title: the best division played, then the records, then the career peak."""
     yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}
-    for key, code in _record_years(records).items():
+    for key, code in _record_years(records, leagues).items():
         if code == "SGM" or key not in yearly:
             yearly[key] = code
     for p, (peak, yr) in peaks.items():
@@ -550,22 +413,21 @@ def _yearly_titles(player_year_best, records, peaks) -> dict[tuple[str, int], st
     return yearly
 
 
-def _is_super_gm_win(r) -> bool:
-    """Reports whether a season record is a league top-division win: a gold medal there, which only a podium has."""
-    return (
-        r["medal"] == "gold"
-        and r["tournament"] in SGM_TOURNAMENTS
-        and r["division"] in SGM_DIVISIONS
+def _is_super_gm_win(r, super_gm) -> bool:
+    """Reports whether a season record is a top-division win in a series whose win makes a Super GM (super_gm maps
+    those series to their top divisions): a gold medal there, which only a podium has."""
+    return r["medal"] == "gold" and r["series_division"] in super_gm.get(
+        r["series"], ()
     )
 
 
-def _super_gm(records, cutoff_date):
+def _super_gm(records, cutoff_date, super_gm):
     """Returns the Super GM wins in the records: each player's latest within the
     active window, and their latest ever, with its year and badge reason.
     """
     active, career = {}, {}
     for r in records:
-        if not _is_super_gm_win(r):
+        if not _is_super_gm_win(r, super_gm):
             continue
         p, finish = r["player_name"], r["finish_date"]
         year = int(finish[:4]) if finish[:4].isdigit() else None
@@ -577,7 +439,7 @@ def _super_gm(records, cutoff_date):
     return active, career
 
 
-def _record_years(records):
+def _record_years(records, leagues):
     """Returns the titles the records give each (player, year), as upstream's
     player page reads them: SGM for a top-division win, else the division's
     tier for a year no match titled (the caller keeps a match's title).
@@ -588,10 +450,10 @@ def _record_years(records):
         if not finish[:4].isdigit():
             continue
         key = (r["player_name"], int(finish[:4]))
-        if _is_super_gm_win(r):
+        if _is_super_gm_win(r, leagues.super_gm):
             got[key] = "SGM"
         elif key not in got:
-            tier = classify_division_tier(f"{r['tournament']} {r['division']}")
+            tier = leagues.tiers.get((r["series"], r["series_division"]))
             if tier is not None:
                 got[key] = TIER_TITLE_MAP.get(tier, "W")
     return got
