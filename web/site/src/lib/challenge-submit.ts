@@ -65,8 +65,8 @@ export function reviewNotes(e: Reviewed): Note[] {
   const notes: Note[] = [];
   if (e.domination < 0) notes.push({ kind: 'warn', text: 'Negative dominations count as 0 in sums and ratings' });
   else if (e.record === undefined || e.domination > e.record) {
-    notes.push({ kind: 'good', text: e.proof !== '' ? '★ New record!' : '★ Beats the record (add proof to make it official)' });
-    notes.push({ kind: 'good', text: 'Please post many more screenshots in Discord' });
+    const more = 'Please post more screenshots than the required ones in Discord.';
+    notes.push({ kind: 'good', text: e.proof !== '' ? `★ New record! ${more}` : `★ Beats the record (add proof to make it official). ${more}` });
   }
   if (e.best === undefined) notes.push({ kind: 'good', text: 'First entry for this challenge' });
   else if (e.domination > e.best) notes.push({ kind: 'good', text: `↑ +${e.domination - e.best} on your best` });
