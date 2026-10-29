@@ -30,3 +30,10 @@ export function rememberChoice<C extends Choice>(store: Storage | null, choice: 
     // As in recallChoice.
   }
 }
+
+type LoadLike<T> = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: T };
+
+/** shownLoad is what a page shows of next: while it loads again, the last ready data, so the page keeps its height and scroll. */
+export function shownLoad<T>(last: LoadLike<T> | null, next: LoadLike<T>): LoadLike<T> {
+  return next.kind === 'loading' && last !== null && last.kind === 'ready' ? last : next;
+}
