@@ -1,66 +1,281 @@
-/* The Challenges section: a card per set, a table per group, in the site's card and table look. */
-.challenges-card {
-  max-width: 56rem;
-  margin: 0 auto 1.5rem;
-  padding: 1.5rem 1.75rem;
+/* The challenge pages: the highscores' tiles and group backgrounds, the compact grid, the boards' tables and marks, in the site's tokens. */
+.challenges-hero {
+  margin-bottom: 1.25rem;
 }
-.challenges-card .muted {
-  color: var(--text-muted);
-}
-.challenges-table-wrap {
-  overflow-x: auto;
-  margin-top: 1rem;
-}
-.challenges-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.95rem;
-}
-.challenges-table caption {
-  caption-side: top;
-  padding-bottom: 0.5rem;
-  text-align: left;
+.challenges-hero a {
   color: var(--accent-gold);
-  font-family: var(--font-subheading);
-  font-size: 1.1rem;
 }
-.challenges-table th,
-.challenges-table td {
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border-subtle);
-  text-align: left;
-  vertical-align: middle;
+.challenges-submit {
+  margin-left: auto;
+  color: var(--text-bright);
+  background: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
+  border-color: var(--loss);
 }
-.challenges-table thead th {
+.challenges-submit:hover,
+.challenges-submit.active {
+  background: linear-gradient(180deg, var(--crimson-hover) 0%, var(--accent-crimson) 100%);
+  color: var(--text-bright);
+}
+
+.challenges-card,
+.challenges-group {
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.5rem;
+}
+.challenges-card .muted,
+.challenges-group .muted,
+.challenges-bar .muted {
   color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.85rem;
-  white-space: nowrap;
 }
-.challenges-table tbody th {
-  font-weight: 600;
+.challenges-lead {
+  color: var(--text-soft);
+  font-size: var(--size-body-short);
 }
-.challenges-table .num {
+.challenges-card .num,
+.challenges-group .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.challenges-picture {
-  width: 4.5rem;
-}
-.challenges-picture img {
-  display: block;
-  width: 4.25rem;
-  height: auto;
+
+/* The switches stay in reach while scrolling. */
+.challenges-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-header);
   border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenges-bar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+.challenges-set-totals {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenges-totals-line {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+}
+.challenges-totals-line strong,
+.challenges-score {
+  color: var(--accent-gold-light);
+}
+
+/* A group's card shows the game's picture for the group behind a dark wash. */
+.challenges-group {
+  background-size: cover;
+  background-position: center;
+}
+.challenges-group[data-group='classic'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/classic.jpg'); }
+.challenges-group[data-group='cheap'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/cheap.jpg'); }
+.challenges-group[data-group='immortals'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/immortals.jpg'); }
+.challenges-group[data-group='epic'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/epic.jpg'); }
+.challenges-group[data-group='impacts'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/impacts.jpg'); }
+.challenges-group[data-group='time_travellers'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/time_travellers.jpg'); }
+.challenges-group[data-group='fate'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/fate.jpg'); }
+.challenges-group[data-group='wonders'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/wonders.jpg'); }
+.challenges-group[data-group='kidnappers'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/kidnappers.jpg'); }
+.challenges-group[data-group='mix'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/mix.jpg'); }
+.challenges-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.challenges-group-head .rating-card-heading {
+  margin: 0;
+}
+
+.challenges-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.challenges-tile {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenges-tile > a {
+  line-height: 0;
+}
+.challenges-tile-img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 340 / 284;
+  object-fit: cover;
+  transition: filter 0.15s;
+}
+.challenges-tile > a:hover .challenges-tile-img {
+  filter: brightness(1.12);
+}
+.challenges-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.65rem 0.65rem;
+  font-family: var(--font-stats);
+}
+.challenges-tile-title {
+  color: var(--text-main);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+.challenges-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: var(--size-table-compact);
+}
+.challenges-tile-record {
+  font-size: var(--size-table-cell);
+}
+.challenges-score {
+  font-size: 1.1rem;
+}
+
+.challenge-difficulty {
+  display: inline-flex;
+  gap: 2px;
+}
+.challenge-difficulty .pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-subtle);
+}
+.challenge-difficulty .pip.on {
+  background: var(--accent-gold);
+}
+.challenge-proof,
+.challenge-proof-mark {
+  color: var(--win);
+  text-decoration: none;
+}
+.challenge-proof-mark {
+  margin-left: 0.25rem;
+}
+.challenge-unverified {
+  color: var(--text-muted);
+  font-size: var(--size-table-compact);
+}
+.challenge-bug {
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border: 1px solid var(--loss);
   border-radius: 4px;
+  color: var(--loss-light);
+  font-size: var(--size-label);
+  text-transform: uppercase;
+}
+
+.challenges-podium {
+  max-width: 40rem;
+  columns: 2;
+  font-family: var(--font-stats);
+}
+
+/* The compact grid: a row per group, the game's slots as columns. */
+.challenge-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-family: var(--font-stats);
+}
+.challenge-grid-row {
+  display: grid;
+  grid-template-columns: 9rem repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.challenge-grid-label {
+  align-self: center;
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: var(--size-body-short);
+}
+.challenge-grid-extra {
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+}
+.challenge-grid-cell {
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenge-grid-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-main);
+  font-size: var(--size-label);
+  text-decoration: none;
+}
+.challenge-grid-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.challenge-grid-name img {
+  flex: none;
+  border-radius: 3px;
+}
+.challenge-grid-value {
+  margin-top: 0.25rem;
+  font-size: var(--size-table-compact);
+  font-variant-numeric: tabular-nums;
+}
+.challenge-grid-value .muted {
+  color: var(--text-muted);
+  font-size: var(--size-label);
+}
+
+@media (max-width: 900px) {
+  .challenges-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .challenge-grid-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .challenge-grid-label {
+    grid-column: 1 / -1;
+  }
 }
 @media (max-width: 600px) {
-  .challenges-card {
+  .challenges-card,
+  .challenges-group {
     padding: 1rem;
   }
-  .challenges-picture,
-  .challenges-table thead th:first-child {
-    display: none;
+  .challenges-podium {
+    columns: 1;
+  }
+  .challenges-submit {
+    margin-left: 0;
   }
 }

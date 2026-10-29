@@ -37,7 +37,7 @@ export const sections: readonly NavSection[] = [
   },
   {
     label: 'Challenges',
-    pages: [{ label: 'Challenges', href: '/challenges/', description: 'Every challenge and its verified record' }],
+    pages: [{ label: 'Highscores', href: '/challenges/', description: 'Every challenge and its record, by set' }],
   },
 ];
 
