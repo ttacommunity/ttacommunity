@@ -42,6 +42,7 @@ export const sections: readonly NavSection[] = [
       { label: 'Players', href: '/challenges/players/', description: 'Everyone with a counted domination' },
       { label: 'Compare', href: '/challenges/compare/', description: 'Two players side by side' },
       { label: 'Weekly winners', href: '/challenges/weekly/', description: 'The weekly challenge, 2024 to 2025' },
+      { label: 'Submit domination', href: '/challenges/submit/', description: 'Enter your results, with a Discord proof' },
     ],
   },
 ];

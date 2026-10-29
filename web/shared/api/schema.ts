@@ -1380,6 +1380,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/challenges/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit your challenge dominations
+         * @description Audited. The Origin must be the site. For a signed-in player whose
+         *     account is linked to a TTA username, and not banned: saves each entry
+         *     under that name, at once. An entry with a proof links a message in the
+         *     TtA Discord and counts as verified; one without counts only among all
+         *     entries. At most one entry per challenge in a submission, and 120 in
+         *     all. Nothing is saved when any entry is refused.
+         */
+        post: operations["postMyChallengeEntries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/blitz/{tournament}/{edition}": {
         parameters: {
             query?: never;
@@ -3361,6 +3386,21 @@ export interface components {
             entered_at: string;
             bugged: boolean;
         };
+        /** @description The entries a player submits */
+        MyChallengeEntries: {
+            entries: components["schemas"]["MyChallengeEntry"][];
+        };
+        MyChallengeEntry: {
+            challenge: string;
+            /** @description The final score minus the second-placed player's */
+            domination: number;
+            /** @description A message link in the TtA Discord with the screenshots, or empty for none */
+            proof_url?: string;
+        };
+        ChallengeSubmitted: {
+            /** @description How many entries were saved */
+            saved: number;
+        };
         ChallengeWeeks: {
             weeks: components["schemas"]["ChallengeWeek"][];
         };
@@ -3490,10 +3530,10 @@ export interface components {
             /** Format: date-time */
             entered_at: string;
             /**
-             * @description Where it came from, sheet for the old spreadsheet and web for the old site
+             * @description Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
              * @enum {string}
              */
-            source: "sheet" | "web";
+            source: "sheet" | "web" | "site";
             hidden: boolean;
             hidden_reason: string;
             /** @description Made through a since-fixed game bug, listed but never counted */
@@ -5647,6 +5687,18 @@ export interface components {
         };
         /**
          * @description A change that did not come from the site, or a player who may not
+         *     make it: not linked to a member, or banned
+         */
+        NotLinked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description A change that did not come from the site, or a player who may not
          *     change this match: not linked to a member, banned, or not one of its
          *     players
          */
@@ -7433,6 +7485,33 @@ export interface operations {
             403: components["responses"]["NotFromSite"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    postMyChallengeEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyChallengeEntries"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeSubmitted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
         };
     };
     getMyBlitzMatch: {
@@ -9588,7 +9667,7 @@ export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequire
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const challengeScopeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ChallengeScope"]["set"]> = ["original", "expansion", "mix", "all"];
 export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];
-export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web"];
+export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web", "site"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];

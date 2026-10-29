@@ -22,6 +22,7 @@ import (
 // Defines values for AdminChallengeEntrySource.
 const (
 	Sheet AdminChallengeEntrySource = "sheet"
+	Site  AdminChallengeEntrySource = "site"
 	Web   AdminChallengeEntrySource = "web"
 )
 
@@ -29,6 +30,8 @@ const (
 func (e AdminChallengeEntrySource) Valid() bool {
 	switch e {
 	case Sheet:
+		return true
+	case Site:
 		return true
 	case Web:
 		return true
@@ -1195,11 +1198,11 @@ type AdminChallengeEntry struct {
 	// ProofUrl The proof link, null for an unverified entry
 	ProofUrl *string `json:"proof_url"`
 
-	// Source Where it came from, sheet for the old spreadsheet and web for the old site
+	// Source Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
 	Source AdminChallengeEntrySource `json:"source"`
 }
 
-// AdminChallengeEntrySource Where it came from, sheet for the old spreadsheet and web for the old site
+// AdminChallengeEntrySource Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
 type AdminChallengeEntrySource string
 
 // AdminLinkRefused An account's last request to be linked, when it was refused and neither a new request nor a link has followed
@@ -2449,6 +2452,12 @@ type ChallengeSubmission struct {
 	ProofUrl   *string   `json:"proof_url"`
 }
 
+// ChallengeSubmitted defines model for ChallengeSubmitted.
+type ChallengeSubmitted struct {
+	// Saved How many entries were saved
+	Saved int `json:"saved"`
+}
+
 // ChallengeWeek defines model for ChallengeWeek.
 type ChallengeWeek struct {
 	Challenge string             `json:"challenge"`
@@ -3192,6 +3201,22 @@ type MyBlitzMatch struct {
 
 // MyBlitzMatchActions defines model for MyBlitzMatch.Actions.
 type MyBlitzMatchActions string
+
+// MyChallengeEntries The entries a player submits
+type MyChallengeEntries struct {
+	Entries []MyChallengeEntry `json:"entries"`
+}
+
+// MyChallengeEntry defines model for MyChallengeEntry.
+type MyChallengeEntry struct {
+	Challenge string `json:"challenge"`
+
+	// Domination The final score minus the second-placed player's
+	Domination int `json:"domination"`
+
+	// ProofUrl A message link in the TtA Discord with the screenshots, or empty for none
+	ProofUrl *string `json:"proof_url,omitempty"`
+}
 
 // MyData Everything we keep about the signed-in player
 type MyData struct {
@@ -4394,6 +4419,9 @@ type NotFound = Error
 // NotFromSite defines model for NotFromSite.
 type NotFromSite = Error
 
+// NotLinked defines model for NotLinked.
+type NotLinked = Error
+
 // NotSetUp defines model for NotSetUp.
 type NotSetUp = Error
 
@@ -4747,6 +4775,9 @@ type PostMyBlitzFlagJSONRequestBody = BlitzFlag
 // PutMyBlitzGameJSONRequestBody defines body for PutMyBlitzGame for application/json ContentType.
 type PutMyBlitzGameJSONRequestBody = BlitzGameRecord
 
+// PostMyChallengeEntriesJSONRequestBody defines body for PostMyChallengeEntries for application/json ContentType.
+type PostMyChallengeEntriesJSONRequestBody = MyChallengeEntries
+
 // PatchMyDetailsJSONRequestBody defines body for PatchMyDetails for application/json ContentType.
 type PatchMyDetailsJSONRequestBody = MyDetailsChange
 
@@ -5064,6 +5095,9 @@ type ServerInterface interface {
 	// PutMyBlitzGame Report your match's game, or correct your report
 	// (PUT /v1/me/blitz/{tournament}/{edition}/matches/{match}/game)
 	PutMyBlitzGame(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, match BlitzMatchId)
+	// PostMyChallengeEntries Submit your challenge dominations
+	// (POST /v1/me/challenges/entries)
+	PostMyChallengeEntries(w http.ResponseWriter, r *http.Request)
 	// GetMyData Everything we keep about the signed-in player
 	// (GET /v1/me/data)
 	GetMyData(w http.ResponseWriter, r *http.Request)
@@ -8248,6 +8282,20 @@ func (siw *ServerInterfaceWrapper) PutMyBlitzGame(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// PostMyChallengeEntries operation middleware
+func (siw *ServerInterfaceWrapper) PostMyChallengeEntries(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostMyChallengeEntries(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMyData operation middleware
 func (siw *ServerInterfaceWrapper) GetMyData(w http.ResponseWriter, r *http.Request) {
 
@@ -9939,6 +9987,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/me/details", wrapper.PatchMyDetails)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/logins/email", wrapper.PostMyEmailLogin)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/logins/{provider}", wrapper.DeleteMyLogin)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/challenges/entries", wrapper.PostMyChallengeEntries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/blitz/{tournament}/{edition}", wrapper.GetMyBlitzMatch)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/blitz/{tournament}/{edition}/matches/{match}/game", wrapper.PutMyBlitzGame)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/blitz/{tournament}/{edition}/matches/{match}/confirm", wrapper.PostMyBlitzConfirm)
@@ -10066,6 +10115,8 @@ type NotFoundJSONResponse struct {
 }
 
 type NotFromSiteJSONResponse Error
+
+type NotLinkedJSONResponse Error
 
 type NotSetUpResponseHeaders struct {
 	CacheControl string
@@ -17149,6 +17200,72 @@ func (response PutMyBlitzGame409JSONResponse) VisitPutMyBlitzGameResponse(w http
 	return err
 }
 
+type PostMyChallengeEntriesRequestObject struct {
+	Body *PostMyChallengeEntriesJSONRequestBody
+}
+
+type PostMyChallengeEntriesResponseObject interface {
+	VisitPostMyChallengeEntriesResponse(w http.ResponseWriter) error
+}
+
+type PostMyChallengeEntries201JSONResponse ChallengeSubmitted
+
+func (response PostMyChallengeEntries201JSONResponse) VisitPostMyChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyChallengeEntries400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostMyChallengeEntries400JSONResponse) VisitPostMyChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyChallengeEntries401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response PostMyChallengeEntries401JSONResponse) VisitPostMyChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostMyChallengeEntries403JSONResponse struct{ NotLinkedJSONResponse }
+
+func (response PostMyChallengeEntries403JSONResponse) VisitPostMyChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMyDataRequestObject struct {
 }
 
@@ -19589,6 +19706,9 @@ type StrictServerInterface interface {
 	// PutMyBlitzGame Report your match's game, or correct your report
 	// (PUT /v1/me/blitz/{tournament}/{edition}/matches/{match}/game)
 	PutMyBlitzGame(ctx context.Context, request PutMyBlitzGameRequestObject) (PutMyBlitzGameResponseObject, error)
+	// PostMyChallengeEntries Submit your challenge dominations
+	// (POST /v1/me/challenges/entries)
+	PostMyChallengeEntries(ctx context.Context, request PostMyChallengeEntriesRequestObject) (PostMyChallengeEntriesResponseObject, error)
 	// GetMyData Everything we keep about the signed-in player
 	// (GET /v1/me/data)
 	GetMyData(ctx context.Context, request GetMyDataRequestObject) (GetMyDataResponseObject, error)
@@ -22586,6 +22706,37 @@ func (sh *strictHandler) PutMyBlitzGame(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutMyBlitzGameResponseObject); ok {
 		if err := validResponse.VisitPutMyBlitzGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostMyChallengeEntries operation middleware
+func (sh *strictHandler) PostMyChallengeEntries(w http.ResponseWriter, r *http.Request) {
+	var request PostMyChallengeEntriesRequestObject
+
+	var body PostMyChallengeEntriesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostMyChallengeEntries(ctx, request.(PostMyChallengeEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostMyChallengeEntries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostMyChallengeEntriesResponseObject); ok {
+		if err := validResponse.VisitPostMyChallengeEntriesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
