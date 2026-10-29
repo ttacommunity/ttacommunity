@@ -37,10 +37,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The switches stay in reach while scrolling. */
+/* The switches stay in reach while scrolling, just below the site header. */
 .challenges-bar {
   position: sticky;
-  top: 0;
+  top: var(--header-height, 68px);
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
@@ -56,7 +56,22 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
+  gap: 0.5rem 1.5rem;
+}
+/* Each switch is one control: its buttons share a dark track, and only the chosen one stands out. */
+.challenges-bar [role='group'] {
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+.challenges-bar [role='group'] .format-btn.raised:not(.active) {
+  border-color: transparent;
+  background: transparent;
+}
+.challenges-bar [role='group'] .format-btn.raised:not(.active):hover {
+  background: var(--gold-wash-faint);
 }
 .challenges-set-totals {
   margin: 0 0 1rem;
