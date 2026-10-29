@@ -1,5 +1,5 @@
 // The site's challenges: the highscores, each challenge's board, the players and each player's page, all worked
-// out from every entry not hidden, and the weekly challenge's winners.
+// out from every entry not hidden, those entries to download, and the weekly challenge's winners.
 package httpapi
 
 import (
@@ -268,4 +268,17 @@ func (s *server) GetChallengeWeeks(ctx context.Context, _ GetChallengeWeeksReque
 			Winners: challengePlacings(w.Winners), RunnersUp: challengePlacings(w.RunnersUp)}
 	}
 	return GetChallengeWeeks200JSONResponse{Body: body, Headers: GetChallengeWeeks200ResponseHeaders{CacheControl: cacheDay}}, nil
+}
+
+func (s *server) GetChallengeEntries(ctx context.Context, _ GetChallengeEntriesRequestObject) (GetChallengeEntriesResponseObject, error) {
+	stored, err := s.ratings.ChallengeEntries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := ChallengeEntries{Entries: make([]ChallengeEntry, len(stored))}
+	for i, e := range stored {
+		body.Entries[i] = ChallengeEntry{Id: e.ID, Challenge: e.Challenge, Player: e.Player, Domination: e.Domination,
+			ProofUrl: nullableText(e.ProofURL), EnteredAt: e.At.UTC(), Bugged: e.Bugged}
+	}
+	return GetChallengeEntries200JSONResponse{Body: body, Headers: GetChallengeEntries200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }

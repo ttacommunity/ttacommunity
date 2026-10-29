@@ -2258,6 +2258,22 @@ type ChallengeBoard struct {
 	Ranking []ChallengeBest       `json:"ranking"`
 }
 
+// ChallengeEntries defines model for ChallengeEntries.
+type ChallengeEntries struct {
+	Entries []ChallengeEntry `json:"entries"`
+}
+
+// ChallengeEntry One entry, with its challenge
+type ChallengeEntry struct {
+	Bugged     bool      `json:"bugged"`
+	Challenge  string    `json:"challenge"`
+	Domination int       `json:"domination"`
+	EnteredAt  time.Time `json:"entered_at"`
+	Id         int64     `json:"id"`
+	Player     string    `json:"player"`
+	ProofUrl   *string   `json:"proof_url"`
+}
+
 // ChallengeHighscores defines model for ChallengeHighscores.
 type ChallengeHighscores struct {
 	Challenges []Challenge `json:"challenges"`
@@ -4947,6 +4963,9 @@ type ServerInterface interface {
 	// GetChallenges The challenges' highscores page
 	// (GET /v1/challenges)
 	GetChallenges(w http.ResponseWriter, r *http.Request, params GetChallengesParams)
+	// GetChallengeEntries Every challenge entry not hidden, for download
+	// (GET /v1/challenges/entries)
+	GetChallengeEntries(w http.ResponseWriter, r *http.Request)
 	// GetChallengePlayers Every player with a counted challenge entry, with their results
 	// (GET /v1/challenges/players)
 	GetChallengePlayers(w http.ResponseWriter, r *http.Request, params GetChallengePlayersParams)
@@ -7775,6 +7794,20 @@ func (siw *ServerInterfaceWrapper) GetChallenges(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetChallengeEntries operation middleware
+func (siw *ServerInterfaceWrapper) GetChallengeEntries(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChallengeEntries(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetChallengePlayers operation middleware
 func (siw *ServerInterfaceWrapper) GetChallengePlayers(w http.ResponseWriter, r *http.Request) {
 
@@ -9822,6 +9855,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges", wrapper.GetChallenges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players", wrapper.GetChallengePlayers)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/entries", wrapper.GetChallengeEntries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/weekly", wrapper.GetChallengeWeeks)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players/{name}", wrapper.GetChallengePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/{challenge}", wrapper.GetChallengeBoard)
@@ -16287,6 +16321,35 @@ func (response GetChallenges200JSONResponse) VisitGetChallengesResponse(w http.R
 	return err
 }
 
+type GetChallengeEntriesRequestObject struct {
+}
+
+type GetChallengeEntriesResponseObject interface {
+	VisitGetChallengeEntriesResponse(w http.ResponseWriter) error
+}
+
+type GetChallengeEntries200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetChallengeEntries200JSONResponse struct {
+	Body    ChallengeEntries
+	Headers GetChallengeEntries200ResponseHeaders
+}
+
+func (response GetChallengeEntries200JSONResponse) VisitGetChallengeEntriesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetChallengePlayersRequestObject struct {
 	Params GetChallengePlayersParams
 }
@@ -19425,6 +19488,9 @@ type StrictServerInterface interface {
 	// GetChallenges The challenges' highscores page
 	// (GET /v1/challenges)
 	GetChallenges(ctx context.Context, request GetChallengesRequestObject) (GetChallengesResponseObject, error)
+	// GetChallengeEntries Every challenge entry not hidden, for download
+	// (GET /v1/challenges/entries)
+	GetChallengeEntries(ctx context.Context, request GetChallengeEntriesRequestObject) (GetChallengeEntriesResponseObject, error)
 	// GetChallengePlayers Every player with a counted challenge entry, with their results
 	// (GET /v1/challenges/players)
 	GetChallengePlayers(ctx context.Context, request GetChallengePlayersRequestObject) (GetChallengePlayersResponseObject, error)
@@ -22081,6 +22147,30 @@ func (sh *strictHandler) GetChallenges(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetChallengesResponseObject); ok {
 		if err := validResponse.VisitGetChallengesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChallengeEntries operation middleware
+func (sh *strictHandler) GetChallengeEntries(w http.ResponseWriter, r *http.Request) {
+	var request GetChallengeEntriesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChallengeEntries(ctx, request.(GetChallengeEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChallengeEntries")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChallengeEntriesResponseObject); ok {
+		if err := validResponse.VisitGetChallengeEntriesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

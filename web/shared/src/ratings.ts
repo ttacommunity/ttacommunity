@@ -92,6 +92,7 @@ export type ChallengePlayer = components['schemas']['ChallengePlayer'];
 export type ChallengePlayerBest = components['schemas']['ChallengePlayerBest'];
 export type ChallengePlayerEntry = components['schemas']['ChallengePlayerEntry'];
 export type ChallengeWeeks = components['schemas']['ChallengeWeeks'];
+export type ChallengeEntries = components['schemas']['ChallengeEntries'];
 export type ChallengePlacing = components['schemas']['ChallengePlacing'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
@@ -414,6 +415,11 @@ export async function challengeBoard(base: string, id: string, verified: boolean
 /** Returns every player with a counted challenge entry, by total domination. */
 export async function challengePlayers(base: string, verified: boolean, fetchFn: typeof fetch = fetch): Promise<ChallengePlayers> {
   return get<ChallengePlayers>(fetchFn, base, `/v1/challenges/players${challengeQuery(verified)}`);
+}
+
+/** Returns every challenge entry not hidden, for download. */
+export async function challengeEntries(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeEntries> {
+  return get<ChallengeEntries>(fetchFn, base, '/v1/challenges/entries');
 }
 
 /** Returns the weekly challenge's weeks, each with its winners and runners-up. */
