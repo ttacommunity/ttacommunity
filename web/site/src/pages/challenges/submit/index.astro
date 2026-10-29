@@ -1,0 +1,13 @@
+---
+/** Submitting dominations, for a signed-in player linked to a TTA username. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengeSubmitPage from '../../../components/ChallengeSubmitPage';
+import { challengeTiles } from '../../../lib/challenge-list';
+import '../../../components/Challenges.css';
+---
+<SiteLayout title="Submit domination | Challenges" description="Submit your challenge dominations, with a Discord proof to make them official.">
+  <ChallengesNav page="submit" />
+  <ChallengeSubmitPage client:only="react" apiUrl={PUBLIC_API_URL} list={challengeTiles()} />
+</SiteLayout>

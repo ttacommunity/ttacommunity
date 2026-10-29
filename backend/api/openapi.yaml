@@ -1853,6 +1853,37 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/me/challenges/entries:
+    post:
+      operationId: postMyChallengeEntries
+      tags: [players]
+      summary: Submit your challenge dominations
+      description: |
+        Audited. The Origin must be the site. For a signed-in player whose
+        account is linked to a TTA username, and not banned: saves each entry
+        under that name, at once. An entry with a proof links a message in the
+        TtA Discord and counts as verified; one without counts only among all
+        entries. At most one entry per challenge in a submission, and 120 in
+        all. Nothing is saved when any entry is refused.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyChallengeEntries"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeSubmitted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
   /v1/me/blitz/{tournament}/{edition}:
     get:
       operationId: getMyBlitzMatch
@@ -4115,6 +4146,14 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    NotLinked:
+      description: |
+        A change that did not come from the site, or a player who may not
+        make it: not linked to a member, or banned
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     NotYourMatch:
       description: |
         A change that did not come from the site, or a player who may not
@@ -5313,6 +5352,39 @@ components:
           format: date-time
         bugged:
           type: boolean
+    MyChallengeEntries:
+      description: The entries a player submits
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 120
+          items:
+            $ref: "#/components/schemas/MyChallengeEntry"
+    MyChallengeEntry:
+      type: object
+      required: [challenge, domination]
+      properties:
+        challenge:
+          type: string
+        domination:
+          description: The final score minus the second-placed player's
+          type: integer
+          minimum: -9999
+          maximum: 9999
+        proof_url:
+          description: A message link in the TtA Discord with the screenshots, or empty for none
+          type: string
+          maxLength: 500
+    ChallengeSubmitted:
+      type: object
+      required: [saved]
+      properties:
+        saved:
+          description: How many entries were saved
+          type: integer
     ChallengeWeeks:
       type: object
       required: [weeks]
@@ -5540,9 +5612,9 @@ components:
           type: string
           format: date-time
         source:
-          description: Where it came from, sheet for the old spreadsheet and web for the old site
+          description: Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
           type: string
-          enum: [sheet, web]
+          enum: [sheet, web, site]
         hidden:
           type: boolean
         hidden_reason:
