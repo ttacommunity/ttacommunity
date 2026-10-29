@@ -375,16 +375,16 @@ export is the next baseline.
 player per game) is the most complete record. `-cge-extract` matches its
 games to ours (by share code, else by players and finished scores), fills in
 what CGE recorded (each seat's account, outcome and place, the game's times
-and share code; CGE's finish date becomes the game's date), adds the games we
-lack (a CGE tournament we do not link becomes a hidden, unrated series) and
+and share code; CGE's finish date becomes the game's date; the game moves
+into our group for its CGE group), adds the games we lack (a CGE tournament
+we do not link becomes a hidden, unrated series) and
 the settings we lack from the settings files beside it. A game that may be a
 copy of ours is held back; a file of pairs checked by hand (`share_code,
 game_id,reason`) matches them, and a game an earlier load added for a
 session the file gives to another game of ours is removed as a copy. A seat
-CGE holds no account for (an empty seat that timed out) is kept as the
-player "Unknown player", who is nobody and is never rated; the load counts
-those in rated tournaments, each worth looking up (the older match files
-may hold the player, as for the pair above). A season ticked "Run on this
+CGE holds no player for (player id 0) is a player removed from the game: the
+game is the others', so the load never adds that seat and drops our seat
+paired with it, and counts what it drops. A season ticked "Run on this
 site" in admin (a blitz tournament CGE only advertises) takes its CGE
 tournament's page and nothing else: this load leaves out its games and
 settings, so it gets no stages from CGE either. It prints the plan and writes

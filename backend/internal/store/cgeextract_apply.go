@@ -32,12 +32,14 @@ type CGEApplied struct {
 	TournamentsMerged int
 	// CopiesRemoved counts the games an earlier load added that the pairs file now matches to a game of ours.
 	CopiesRemoved int
-	// UnknownSeatsRated counts the seats held by nobody in rated tournaments, after the load: each is worth looking up.
-	UnknownSeatsRated int
+	// SeatsRemoved counts our seats dropped because CGE shows their player was removed from the game.
+	SeatsRemoved int
+	// GamesMoved counts the matched games moved into their CGE group.
+	GamesMoved int
 }
 
-// UnknownPlayer holds every seat CGE has no account for: an empty seat that timed out. It is nobody, so the
-// engine rates no pair with it (engine data/pairwise.py knows the name too).
+// UnknownPlayer is the name the site leaves out: an earlier load gave it the seats CGE holds no player for. No
+// account may take it (engine data/pairwise.py knows the name too).
 const UnknownPlayer = "Unknown player"
 
 // The file the extract's rows come from, as games and refusals name it.
@@ -51,8 +53,9 @@ const scrapeFile = "cge"
 // CGE's score and standing, and place as cgeextract.Places gives it), the seats CGE holds and we lack, the
 // games only CGE has in their groups (each unlinked CGE tournament a hidden series of its own; a possible
 // copy is held back), every account, the catalogue's organisers and moderators, special rules, and the
-// settings we lack. Matched games take CGE's finish date. A seat CGE holds no account for is UnknownPlayer's,
-// unless the game is matched to one of ours that has the seat (removeCopies says what a pair by hand removes).
+// settings we lack. Matched games take CGE's finish date and group. A seat CGE holds no player for (player id 0)
+// is a player removed from the game: it is never added, and our seat paired with it is dropped (removeCopies says
+// what a pair by hand removes).
 func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in CGEInput) (CGEApplied, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -70,7 +73,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"staging the extract", stageExtract},
 		{"removing the copies an earlier load added of games paired by hand", removeCopies},
 		{"merging the tournaments an earlier load split off hidden series", mergeHiddenSeries},
-		{"keeping the player who holds the seats CGE has no account for", keepUnknownPlayer},
+		{"refusing an account named like the name the site leaves out", keepUnknownPlayer},
 		{"writing accounts", writeAccounts},
 		{"writing matched games", writeMatched},
 		{"naming the seats of games only CGE has by their accounts", followAccounts},
@@ -79,7 +82,6 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"writing settings", writeSettings},
 		{"writing refusals", writeRefusals},
 		{"reading outcomes from the files' scores", fileOutcomes},
-		{"counting the seats held by nobody in rated tournaments", countUnknownSeats},
 	}
 	for _, s := range steps {
 		if err := s.run(ctx, tx, plan, in, &got); err != nil {
@@ -176,8 +178,7 @@ func removeCopies(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 	return nil
 }
 
-// keepUnknownPlayer makes sure UnknownPlayer exists when a seat needs it, and refuses to go on if a CGE account
-// is named like it: the name must stay nobody's.
+// keepUnknownPlayer refuses to go on if a CGE account is named UnknownPlayer: the name must stay nobody's.
 func keepUnknownPlayer(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
 	var named bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT FROM x_seats WHERE player_name = $1)
@@ -185,25 +186,9 @@ func keepUnknownPlayer(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ 
 		return err
 	}
 	if named {
-		return fmt.Errorf("a CGE account is named %q, the name kept for seats CGE holds no account for", UnknownPlayer)
+		return fmt.Errorf("a CGE account is named %q, the name the site leaves out", UnknownPlayer)
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO players (name) SELECT $1 WHERE EXISTS (SELECT FROM x_seats WHERE player_id = 0)
-		ON CONFLICT (name) DO NOTHING`, UnknownPlayer)
-	return err
-}
-
-// The player a staged seat belongs to: its account's, or UnknownPlayer for a seat CGE holds no account for.
-const seatPlayer = `coalesce(a.player_id, (SELECT player_id FROM players WHERE name = '` + UnknownPlayer + `'))`
-const seatPlayerName = `coalesce(pl.name, '` + UnknownPlayer + `')`
-
-// countUnknownSeats counts UnknownPlayer's seats in rated tournaments of a ranking's series, each one worth
-// looking up by hand.
-func countUnknownSeats(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
-	return tx.QueryRow(ctx, `
-		SELECT count(*) FROM seats s JOIN players p USING (player_id) JOIN game_lines l ON l.game_id = s.game_id
-		JOIN tournaments t ON t.tournament_id = l.tournament_id
-		WHERE p.name = $1 AND t.rated AND EXISTS (SELECT FROM ranking_series r WHERE r.series_id = l.series_id)`,
-		UnknownPlayer).Scan(&got.UnknownSeatsRated)
+	return nil
 }
 
 // writeAccounts adds every account the extract names and refreshes the ones we hold (name, ban, deletion). A
@@ -251,8 +236,9 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO player_accounts (cge_user, player_id, name, banned, deleted)
-		SELECT a.player_id, coalesce(p.our_player, pl.player_id), a.player_name, a.banned, a.player_name ~ '^deleted_user_[0-9]+$'
-		FROM x_accounts a LEFT JOIN x_paired p USING (player_id) LEFT JOIN players pl ON pl.name = a.player_name
+		SELECT a.player_id, coalesce(p.our_player, pa.player_id, pl.player_id), a.player_name, a.banned, a.player_name ~ '^deleted_user_[0-9]+$'
+		FROM x_accounts a LEFT JOIN x_paired p USING (player_id) LEFT JOIN player_accounts pa ON pa.cge_user = a.player_id
+		LEFT JOIN players pl ON pl.name = a.player_name
 		ON CONFLICT (cge_user) DO UPDATE SET name = excluded.name, banned = excluded.banned, deleted = excluded.deleted`)
 	return err
 }
@@ -282,8 +268,16 @@ func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CG
 // The culture CGE records for a seat: its score when finished, else none.
 const cgeCulture = `CASE x.outcome WHEN 'finished' THEN x.score ELSE 0 END`
 
-// writeMatched writes CGE's facts on our matched games and seats, and adds the seats only CGE holds.
-func writeMatched(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
+// writeMatched writes CGE's facts on our matched games and seats, drops our seats of players CGE removed, adds the
+// seats only CGE holds, and moves each matched game into our group for its CGE group (moveMatched).
+func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
+	tag, err := tx.Exec(ctx, `
+		DELETE FROM seats s USING x_pairs p JOIN x_seats x USING (session, idx)
+		WHERE s.game_id = p.game_id AND s.seat = p.seat AND x.player_id = 0`)
+	if err != nil {
+		return err
+	}
+	got.SeatsRemoved = int(tag.RowsAffected())
 	for _, q := range []string{
 		`UPDATE games g SET share_code = x.share_code, cge_session = x.session, started_at = x.started_at,
 		        finished_at = x.finished_at, speed = x.speed, timer = x.timer, cge_players_in_game = x.players_in_game,
@@ -292,7 +286,7 @@ func writeMatched(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 		        state = CASE WHEN x.state = 'cancelled' THEN 'never_played' ELSE g.state END
 		 FROM x_match m JOIN x_seats x ON x.session = m.session AND x.idx = 0
 		 WHERE g.game_id = m.game_id`,
-		`UPDATE seats s SET cge_user = nullif(x.player_id, 0), starting_position = x.starting_position, cge_score = x.score,
+		`UPDATE seats s SET cge_user = x.player_id, starting_position = x.starting_position, cge_score = x.score,
 		        cge_standing = x.standing, outcome = coalesce(x.outcome, s.outcome),
 		        culture = CASE WHEN x.outcome IS NULL THEN s.culture ELSE ` + cgeCulture + ` END,
 		        place = CASE WHEN x.state = 'finished' THEN x.place ELSE s.place END
@@ -304,35 +298,96 @@ func writeMatched(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 		}
 	}
 	// A seat only CGE holds joins its game, never past the fourth (a seat we could not pair stays ours).
-	tag, err := tx.Exec(ctx, `
+	tag, err = tx.Exec(ctx, `
 		INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place, starting_position,
 		                   cge_score, cge_standing)
 		SELECT * FROM (
 			SELECT m.game_id,
 			       (SELECT max(seat) FROM seats WHERE game_id = m.game_id) + row_number() OVER (PARTITION BY m.game_id ORDER BY x.idx) AS seat,
-			       `+seatPlayer+`, `+seatPlayerName+`, nullif(x.player_id, 0), x.outcome, `+cgeCulture+`, x.place, x.starting_position,
-			       x.score, x.standing
+			       a.player_id, pl.name, x.player_id, x.outcome, `+cgeCulture+`, x.place, x.starting_position, x.score, x.standing
 			FROM x_match m JOIN x_seats x USING (session)
-			LEFT JOIN player_accounts a ON a.cge_user = x.player_id LEFT JOIN players pl ON pl.player_id = a.player_id
+			JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id
 			WHERE NOT EXISTS (SELECT FROM x_pairs p WHERE p.session = x.session AND p.idx = x.idx)) s
 		WHERE s.seat <= 4`)
 	if err != nil {
 		return err
 	}
 	got.SeatsAdded = int(tag.RowsAffected())
-	// A CGE group that is one of ours, and ours only that one, takes its id.
+	// A group of ours with a CGE group's name, holding only that CGE group's matched games, takes its id.
 	_, err = tx.Exec(ctx, `
 		WITH pairs AS (
-			SELECT DISTINCT x.group_id AS cge_group, g.group_id
+			SELECT DISTINCT x.group_id AS cge_group, x.group_name, g.group_id
 			FROM x_match m JOIN games g USING (game_id) JOIN x_seats x ON x.session = m.session AND x.idx = 0
 			WHERE g.group_id IS NOT NULL),
 		one AS (
 			SELECT cge_group, min(group_id) AS group_id FROM pairs GROUP BY cge_group HAVING count(*) = 1)
-		UPDATE groups gr SET cge_group = o.cge_group FROM one o
-		WHERE gr.group_id = o.group_id AND gr.cge_group IS NULL
-		  AND (SELECT count(*) FROM pairs p WHERE p.group_id = o.group_id) = 1
+		UPDATE groups gr SET cge_group = o.cge_group FROM one o JOIN pairs p USING (cge_group)
+		WHERE gr.group_id = o.group_id AND gr.cge_group IS NULL AND gr.name = p.group_name
+		  AND (SELECT count(*) FROM pairs q WHERE q.group_id = o.group_id) = 1
 		  AND NOT EXISTS (SELECT FROM groups g2 WHERE g2.cge_group = o.cge_group)`)
-	return err
+	if err != nil {
+		return err
+	}
+	return moveMatched(ctx, tx, plan, in, got)
+}
+
+// moveMatched moves each matched game that is not in our group for its CGE group into it (placeGroup's, made when
+// there is none), and deletes the groups that leaves empty.
+func moveMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
+	rows, err := tx.Query(ctx, `
+		SELECT m.game_id, m.session FROM x_match m JOIN games g USING (game_id)
+		JOIN x_seats x ON x.session = m.session AND x.idx = 0 LEFT JOIN groups gr ON gr.group_id = g.group_id
+		WHERE gr.cge_group IS DISTINCT FROM x.group_id ORDER BY m.session`)
+	if err != nil {
+		return err
+	}
+	type move struct {
+		game    int64
+		session int
+	}
+	var moves []move
+	for rows.Next() {
+		var mv move
+		if err := rows.Scan(&mv.game, &mv.session); err != nil {
+			return err
+		}
+		moves = append(moves, mv)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	bySession := map[int]cgeextract.Game{}
+	for _, g := range plan.Games {
+		bySession[g.SessionID] = g
+	}
+	groups := map[int]int64{}
+	stageOf := map[[2]int]int64{}
+	for _, mv := range moves {
+		g := bySession[mv.session]
+		group, ok := groups[g.GroupID]
+		if !ok {
+			if group, err = placeGroup(ctx, tx, plan, in, g, got, stageOf); err != nil {
+				return err
+			}
+			groups[g.GroupID] = group
+		}
+		if group == 0 {
+			continue
+		}
+		var from *int64
+		if err := tx.QueryRow(ctx, "UPDATE games g SET group_id = $2 FROM games old WHERE old.game_id = g.game_id AND g.game_id = $1 RETURNING old.group_id",
+			mv.game, group).Scan(&from); err != nil {
+			return err
+		}
+		got.GamesMoved++
+		if from != nil {
+			if _, err := tx.Exec(ctx, `DELETE FROM groups gr WHERE gr.group_id = $1
+				AND NOT EXISTS (SELECT FROM games g WHERE g.group_id = gr.group_id)`, *from); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // writeCatalogue adds the CGE tournaments the catalogue lacks and records each one's organiser, moderators

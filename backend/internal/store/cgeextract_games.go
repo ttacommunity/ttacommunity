@@ -100,10 +100,10 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 		 FROM x_added a JOIN x_seats x ON x.session = a.session AND x.idx = 0`,
 		`INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place, starting_position,
 		                    cge_score, cge_standing)
-		 SELECT g.game_id, x.idx + 1, ` + seatPlayer + `, ` + seatPlayerName + `, nullif(x.player_id, 0), x.outcome, ` + cgeCulture + `,
-		        x.place, x.starting_position, x.score, x.standing
+		 SELECT g.game_id, row_number() OVER (PARTITION BY g.game_id ORDER BY x.idx), a.player_id, pl.name, x.player_id,
+		        x.outcome, ` + cgeCulture + `, x.place, x.starting_position, x.score, x.standing
 		 FROM x_added ad JOIN games g ON g.cge_session = ad.session JOIN x_seats x ON x.session = ad.session
-		 LEFT JOIN player_accounts a ON a.cge_user = x.player_id LEFT JOIN players pl ON pl.player_id = a.player_id`,
+		 JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id`,
 		`INSERT INTO group_members (group_id, player_id)
 		 SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)
 		 WHERE g.cge_session IS NOT NULL AND g.group_id IS NOT NULL
