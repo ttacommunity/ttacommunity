@@ -91,6 +91,8 @@ export type ChallengePlayerSummary = components['schemas']['ChallengePlayerSumma
 export type ChallengePlayer = components['schemas']['ChallengePlayer'];
 export type ChallengePlayerBest = components['schemas']['ChallengePlayerBest'];
 export type ChallengePlayerEntry = components['schemas']['ChallengePlayerEntry'];
+export type ChallengeWeeks = components['schemas']['ChallengeWeeks'];
+export type ChallengePlacing = components['schemas']['ChallengePlacing'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
 export function isSlug(s: string): boolean {
@@ -412,6 +414,11 @@ export async function challengeBoard(base: string, id: string, verified: boolean
 /** Returns every player with a counted challenge entry, by total domination. */
 export async function challengePlayers(base: string, verified: boolean, fetchFn: typeof fetch = fetch): Promise<ChallengePlayers> {
   return get<ChallengePlayers>(fetchFn, base, `/v1/challenges/players${challengeQuery(verified)}`);
+}
+
+/** Returns the weekly challenge's weeks, each with its winners and runners-up. */
+export async function challengeWeeks(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeWeeks> {
+  return get<ChallengeWeeks>(fetchFn, base, '/v1/challenges/weekly');
 }
 
 /** Returns one player's challenge results; asIfVerified counts their unproven entries too. */

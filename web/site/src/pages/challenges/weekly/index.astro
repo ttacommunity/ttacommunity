@@ -1,0 +1,13 @@
+---
+/** The weekly challenge's winners, a finished event. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengeWeeklyPage from '../../../components/ChallengeWeeklyPage';
+import { challengeTiles } from '../../../lib/challenge-list';
+import '../../../components/Challenges.css';
+---
+<SiteLayout title="Weekly winners | Challenges" description="The weekly Random Mix challenge, September 2024 to July 2025: each week's winner and runner-up.">
+  <ChallengesNav page="weekly" />
+  <ChallengeWeeklyPage client:only="react" apiUrl={PUBLIC_API_URL} list={challengeTiles()} />
+</SiteLayout>

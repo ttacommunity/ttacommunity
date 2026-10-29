@@ -175,3 +175,42 @@ func TestAdminPagesThroughEveryEntryNewestFirst(t *testing.T) {
 		t.Errorf("totals = %d and %d, want 3", first.Total, second.Total)
 	}
 }
+
+func TestReplaceChallengeWeeksKeepsTheLatestFile(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	withChallengeEntries(t, pool)
+	of := time.Date(2024, 9, 22, 0, 0, 0, 0, time.UTC)
+	first := []challenges.Week{
+		{Number: 1, Of: of, Challenge: "1ai", Winners: []challenges.Placing{{Name: "Ann", Domination: 90}}},
+		{Number: 2, Of: of.AddDate(0, 0, 7), Challenge: "2ai"},
+	}
+	if _, err := ReplaceChallengeWeeks(ctx, pool, first); err != nil {
+		t.Fatalf("ReplaceChallengeWeeks: %v", err)
+	}
+	second := []challenges.Week{{Number: 1, Of: of, Challenge: "2ai", Winners: []challenges.Placing{{Name: "Bob", Domination: 80}, {Name: "Cy", Domination: 80}},
+		RunnersUp: []challenges.Placing{{Name: "Ann", Domination: 70}}}}
+	got, err := ReplaceChallengeWeeks(ctx, pool, second)
+	if err != nil {
+		t.Fatalf("ReplaceChallengeWeeks again: %v", err)
+	}
+	if got != 1 {
+		t.Errorf("ReplaceChallengeWeeks = %d weeks, want 1", got)
+	}
+	weeks, err := NewRatingsReader(asReader(t, pool)).ChallengeWeeks(ctx)
+	if err != nil {
+		t.Fatalf("ChallengeWeeks: %v", err)
+	}
+	if len(weeks) != 1 || weeks[0].Challenge != "2ai" || len(weeks[0].Winners) != 2 || weeks[0].Winners[1].Name != "Cy" || weeks[0].RunnersUp[0].Name != "Ann" {
+		t.Errorf("weeks = %+v, want week 1 on 2ai won by Bob and Cy, Ann second", weeks)
+	}
+}
+
+func TestReplaceChallengeWeeksRefusesAnUnknownChallenge(t *testing.T) {
+	pool := migrated(t)
+	withChallengeEntries(t, pool)
+	_, err := ReplaceChallengeWeeks(context.Background(), pool, []challenges.Week{{Number: 1, Of: time.Now(), Challenge: "nope"}})
+	if err == nil {
+		t.Error("ReplaceChallengeWeeks took a week of an unknown challenge")
+	}
+}

@@ -256,3 +256,70 @@ func (a *AdminStore) ChallengeEntryPage(ctx context.Context, page, size int) (Ad
 	}
 	return got, nil
 }
+
+// ReplaceChallengeWeeks replaces every week of the weekly challenge with weeks, in one transaction, and returns how
+// many it stored. A week of a challenge not in the list is refused, and so is the whole file.
+func ReplaceChallengeWeeks(ctx context.Context, pool *pgxpool.Pool, weeks []challenges.Week) (int, error) {
+	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, "DELETE FROM challenge_weeks"); err != nil {
+			return err
+		}
+		for _, w := range weeks {
+			if _, err := tx.Exec(ctx, "INSERT INTO challenge_weeks (week, week_of, challenge_id) VALUES ($1, $2, $3)", w.Number, w.Of, w.Challenge); err != nil {
+				return fmt.Errorf("week %d: %w", w.Number, err)
+			}
+			for place, ps := range map[string][]challenges.Placing{"winner": w.Winners, "runner_up": w.RunnersUp} {
+				for i, p := range ps {
+					if _, err := tx.Exec(ctx, `
+						INSERT INTO challenge_week_places (week, place, position, name, domination) VALUES ($1, $2, $3, $4, $5)`,
+						w.Number, place, i, p.Name, p.Domination); err != nil {
+						return fmt.Errorf("week %d: %w", w.Number, err)
+					}
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("replacing the challenge weeks: %w", err)
+	}
+	return len(weeks), nil
+}
+
+// ChallengeWeeks lists the weeks of the weekly challenge in order, each with its winners and runners-up as listed.
+func (r *RatingsReader) ChallengeWeeks(ctx context.Context) ([]challenges.Week, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT w.week, w.week_of, w.challenge_id, p.place, p.name, p.domination
+		FROM challenge_weeks w LEFT JOIN challenge_week_places p USING (week)
+		ORDER BY w.week, p.place DESC, p.position`)
+	if err != nil {
+		return nil, fmt.Errorf("listing challenge weeks: %w", err)
+	}
+	defer rows.Close()
+	var weeks []challenges.Week
+	for rows.Next() {
+		var (
+			w           challenges.Week
+			place, name *string
+			domination  *int
+		)
+		if err := rows.Scan(&w.Number, &w.Of, &w.Challenge, &place, &name, &domination); err != nil {
+			return nil, fmt.Errorf("listing challenge weeks: %w", err)
+		}
+		if len(weeks) == 0 || weeks[len(weeks)-1].Number != w.Number {
+			weeks = append(weeks, w)
+		}
+		last := &weeks[len(weeks)-1]
+		switch {
+		case place == nil:
+		case *place == "winner":
+			last.Winners = append(last.Winners, challenges.Placing{Name: *name, Domination: *domination})
+		default:
+			last.RunnersUp = append(last.RunnersUp, challenges.Placing{Name: *name, Domination: *domination})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("listing challenge weeks: %w", err)
+	}
+	return weeks, nil
+}

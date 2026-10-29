@@ -157,6 +157,12 @@ var commands = []command{
 		}
 		return importChallengeEntries(fs.Arg(0))
 	}},
+	{"challenge-weeks", "<JSON file>", "replace every week of the weekly challenge with the old site's weekly.json", func(fs *flag.FlagSet, args []string) error {
+		if err := parse(fs, args, 1); err != nil {
+			return err
+		}
+		return loadChallengeWeeks(fs.Arg(0))
+	}},
 	{"input-tables", "", "print the tables that hold inputs, one per line, and touch no database", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {
 			return err

@@ -493,3 +493,21 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The weekly winners. */
+.challenges-champions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1rem;
+  font-family: var(--font-stats);
+}
+.challenges-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-main);
+}
+.challenges-inline img {
+  border-radius: 3px;
+}

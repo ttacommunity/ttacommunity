@@ -792,6 +792,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/challenges/weekly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The weekly challenge's winners, a finished event
+         * @description Each week of the weekly challenge (September 2024 to July 2025): its
+         *     Random Mix challenge, and the names that won and came second, with
+         *     their dominations, as the old site kept them. Cached for a day.
+         */
+        get: operations["getChallengeWeeks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/challenges/players/{name}": {
         parameters: {
             query?: never;
@@ -3290,6 +3312,26 @@ export interface components {
             original: number;
             expansion: number;
             mix: number;
+        };
+        ChallengeWeeks: {
+            weeks: components["schemas"]["ChallengeWeek"][];
+        };
+        ChallengeWeek: {
+            week: number;
+            /**
+             * Format: date
+             * @description The day the week started
+             */
+            week_of: string;
+            challenge: string;
+            /** @description Who won, several when they tied */
+            winners: components["schemas"]["ChallengePlacing"][];
+            runners_up: components["schemas"]["ChallengePlacing"][];
+        };
+        ChallengePlacing: {
+            /** @description The name as the old site kept it */
+            player: string;
+            domination: number;
         };
         /** @description A player's challenge results */
         ChallengePlayerSummary: {
@@ -6607,6 +6649,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChallengePlayers"];
+                };
+            };
+        };
+    };
+    getChallengeWeeks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The weeks, in order */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeWeeks"];
                 };
             };
         };
