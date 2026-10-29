@@ -37,8 +37,8 @@ describe('submission', () => {
 describe('reviewNotes', () => {
   const base = { domination: 100, proof: 'p', best: undefined, record: undefined, othersBest: undefined, reusedBy: [] as string[] };
   it.each([
-    ['a new record with proof, and a first entry', base, ['good:★ New record!', 'good:Please post many more screenshots in Discord', 'good:First entry for this challenge']],
-    ['a record without proof', { ...base, proof: '' }, ['good:★ Beats the record (add proof to make it official)', 'good:Please post many more screenshots in Discord', 'good:First entry for this challenge']],
+    ['a new record with proof, and a first entry', base, ['good:★ New record! Please post more screenshots than the required ones in Discord.', 'good:First entry for this challenge']],
+    ['a record without proof', { ...base, proof: '' }, ['good:★ Beats the record (add proof to make it official). Please post more screenshots than the required ones in Discord.', 'good:First entry for this challenge']],
     ['a gain on their best', { ...base, best: 80, record: 150 }, ['good:↑ +20 on your best']],
     ['not above their best', { ...base, best: 100, record: 150 }, ['warn:Not higher than your best']],
     ['a negative domination', { ...base, domination: -5, record: 150 }, ['warn:Negative dominations count as 0 in sums and ratings', 'good:First entry for this challenge']],
