@@ -221,6 +221,12 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
         Saving <strong>{chosen.length}</strong> {chosen.length === 1 ? 'entry' : 'entries'} as <strong>{name}</strong>.
         {newRecords > 0 && ` ★ ${newRecords} ${newRecords === 1 ? 'beats a record' : 'beat records'}.`}
       </p>
+      {newRecords > 0 && (
+        <p className="challenges-record-hint">
+          <strong>Setting a record?</strong> Please post many more screenshots of the game in Discord than the two needed, so others can check it and
+          learn how you did it.
+        </p>
+      )}
       <div className="table-responsive">
         <table className="leaderboard-table">
           <thead>
@@ -320,7 +326,8 @@ function Examples() {
               ?
             </div>
             <figcaption>
-              <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion!
+              <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion! <strong>Setting a record?</strong> Then
+              please post many more, so others can check it and learn how you did it.
             </figcaption>
           </figure>
         </div>

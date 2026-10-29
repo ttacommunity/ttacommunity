@@ -635,3 +635,10 @@
     grid-template-columns: 1fr;
   }
 }
+.challenges-record-hint {
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--accent-gold);
+  border-radius: 6px;
+  background: var(--gold-wash-faint);
+  color: var(--text-main);
+}
