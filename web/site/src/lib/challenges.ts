@@ -159,3 +159,19 @@ export function entryDay(instant: string, timeZone: string): string {
 export function setLabel(set: SetId): string {
   return SETS.find((s) => s.id === set)?.label ?? set;
 }
+
+/** byMeasure orders players best first in the measure. */
+export function byMeasure<P extends Figures>(players: readonly P[], measure: Measure): P[] {
+  return [...players].sort((a, b) => measureOf(b, measure) - measureOf(a, measure));
+}
+
+/** matchingPlayers keeps the players whose name holds query, ignoring case; every player for a blank one. */
+export function matchingPlayers<P extends { player: string }>(players: readonly P[], query: string): P[] {
+  const q = query.trim().toLowerCase();
+  return q === '' ? [...players] : players.filter((p) => p.player.toLowerCase().includes(q));
+}
+
+/** nameParam is the player a page's address names (?name=), or '' for none. */
+export function nameParam(search: string): string {
+  return (new URLSearchParams(search).get('name') ?? '').trim();
+}

@@ -7,6 +7,9 @@ import {
   compareBests,
   compareHref,
   entryDay,
+  byMeasure,
+  matchingPlayers,
+  nameParam,
   formatMeasure,
   groupLabel,
   measureOf,
@@ -164,5 +167,37 @@ describe('entryDay', () => {
 describe('setLabel', () => {
   it('names a set as the game does', () => {
     expect(setLabel('mix')).toBe('Random Mix');
+  });
+});
+
+describe('byMeasure', () => {
+  it.each([
+    ['total', ['T', 'R']],
+    ['rating', ['R', 'T']],
+  ] as const)('puts the best by %s first', (measure, want) => {
+    const players = [
+      { ...summary, player: 'T', total: 900, rating: 10 },
+      { ...summary, player: 'R', total: 100, rating: 60 },
+    ];
+    expect(byMeasure(players, measure).map((p) => p.player)).toEqual(want);
+  });
+});
+
+describe('matchingPlayers', () => {
+  it.each([
+    ['everyone for no search', '  ', ['Ann Lee', 'bob']],
+    ['part of a name, ignoring case', 'LEE', ['Ann Lee']],
+  ])('keeps %s', (_name, query, want) => {
+    expect(matchingPlayers([{ player: 'Ann Lee' }, { player: 'bob' }], query).map((p) => p.player)).toEqual(want);
+  });
+});
+
+describe('nameParam', () => {
+  it.each([
+    ['?name=Ann+B', 'Ann B'],
+    ['?name=%20Ann%20', 'Ann'],
+    ['', ''],
+  ])('reads %s as %s', (search, want) => {
+    expect(nameParam(search)).toBe(want);
   });
 });

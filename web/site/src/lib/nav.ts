@@ -37,7 +37,11 @@ export const sections: readonly NavSection[] = [
   },
   {
     label: 'Challenges',
-    pages: [{ label: 'Highscores', href: '/challenges/', description: 'Every challenge and its record, by set' }],
+    pages: [
+      { label: 'Highscores', href: '/challenges/', description: 'Every challenge and its record, by set' },
+      { label: 'Players', href: '/challenges/players/', description: 'Everyone with a counted domination' },
+      { label: 'Compare', href: '/challenges/compare/', description: 'Two players side by side' },
+    ],
   },
 ];
 

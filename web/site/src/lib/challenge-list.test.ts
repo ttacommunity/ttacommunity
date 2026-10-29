@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHALLENGE_LIST, opponentLabel, previewText, type ChallengeInfo } from './challenge-list';
+import { CHALLENGE_LIST, challengeTiles, opponentLabel, previewText, type ChallengeInfo } from './challenge-list';
 
 describe('opponentLabel', () => {
   it.each([
@@ -24,5 +24,11 @@ describe('CHALLENGE_LIST', () => {
   it('names each challenge once', () => {
     const ids = CHALLENGE_LIST.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('challengeTiles', () => {
+  it('keeps only what a tile needs', () => {
+    expect(Object.keys(challengeTiles()[0]).sort()).toEqual(['group', 'id', 'name', 'players', 'set']);
   });
 });

@@ -406,3 +406,90 @@
     max-width: 20rem;
   }
 }
+
+/* A player's page and comparing two: the figures, the what-if note, what to play next. */
+.challenges-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.challenges-stat {
+  padding: 0.75rem 1rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  text-align: center;
+}
+.challenges-stat-value {
+  color: var(--accent-gold-light);
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+}
+.challenges-stat-label {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  text-transform: uppercase;
+}
+.challenges-what-if {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-color: var(--draw);
+  color: var(--text-soft);
+}
+.challenges-record strong {
+  color: var(--accent-gold-light);
+}
+.challenges-play-next {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+.challenges-subhead {
+  margin: 0 0 0.25rem;
+  color: var(--accent-gold);
+  font-family: var(--font-subheading);
+  font-size: var(--size-subheading);
+}
+.challenges-latest {
+  padding-left: 1.25rem;
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+  line-height: 1.8;
+}
+.challenges-latest a,
+.challenges-play-next a {
+  color: var(--text-main);
+}
+.challenges-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.challenges-pickers label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+}
+.challenges-side-a,
+.challenges-side-a .player-link {
+  color: var(--accent-gold-light);
+}
+.challenges-side-b,
+.challenges-side-b .player-link {
+  color: var(--loss-light);
+}
+
+@media (max-width: 700px) {
+  .challenges-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .challenges-play-next {
+    grid-template-columns: 1fr;
+  }
+}

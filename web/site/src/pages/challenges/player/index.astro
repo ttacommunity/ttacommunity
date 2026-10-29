@@ -1,0 +1,13 @@
+---
+/** A player's challenge page; the address names the player (?name=). */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengePlayerPage from '../../../components/ChallengePlayerPage';
+import { challengeTiles } from '../../../lib/challenge-list';
+import '../../../components/Challenges.css';
+---
+<SiteLayout title="Player | Challenges" description="A player's challenge dominations: records, their best on each challenge, and what to play next.">
+  <ChallengesNav />
+  <ChallengePlayerPage client:only="react" apiUrl={PUBLIC_API_URL} list={challengeTiles()} />
+</SiteLayout>
