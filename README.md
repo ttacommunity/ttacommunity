@@ -387,6 +387,9 @@ curl.exe -sSf -o $env:TEMP\entries.json https://tta-challenges.olesch.workers.de
 go run ./cmd/load challenge-entries $env:TEMP\entries.json
 ```
 
+The weekly challenge's winners are in the data repo as `weekly.json`:
+`go run ./cmd/load challenge-weeks <weekly.json>` loads them.
+
 Each prints what it did; an entry it refuses is named by its id on the old
 site, with the reason. Loading the entries again replaces every imported
 entry, admins' marks on them included.
