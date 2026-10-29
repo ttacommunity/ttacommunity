@@ -511,3 +511,15 @@
 .challenges-inline img {
   border-radius: 3px;
 }
+
+.challenges-download {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-soft);
+  font-family: var(--font-stats);
+}
+.challenges-download-failed {
+  color: var(--loss-light);
+}

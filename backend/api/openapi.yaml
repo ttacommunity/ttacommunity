@@ -1095,6 +1095,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChallengePlayers"
+  /v1/challenges/entries:
+    get:
+      operationId: getChallengeEntries
+      summary: Every challenge entry not hidden, for download
+      description: |
+        Each entry as it was made, in the order they were entered, bugged ones
+        included: what the site offers to download as CSV or JSON. Cached for
+        a minute.
+      responses:
+        "200":
+          description: The entries
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeEntries"
   /v1/challenges/weekly:
     get:
       operationId: getChallengeWeeks
@@ -5286,6 +5304,36 @@ components:
           type: number
         mix:
           type: number
+    ChallengeEntries:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeEntry"
+    ChallengeEntry:
+      description: One entry, with its challenge
+      type: object
+      required: [id, challenge, player, domination, proof_url, entered_at, bugged]
+      properties:
+        id:
+          type: integer
+          format: int64
+        challenge:
+          type: string
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          type: boolean
     ChallengeWeeks:
       type: object
       required: [weeks]

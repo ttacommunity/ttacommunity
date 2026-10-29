@@ -50,6 +50,16 @@ func TestChallengeWeeks(t *testing.T) {
 	}
 }
 
+func TestChallengeEntriesForDownload(t *testing.T) {
+	rec, _ := serve(t, &fakeRatings{}, "/v1/challenges/entries")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "entries", `[
+		{"id": 1, "challenge": "1ai", "player": "Ann", "domination": 120, "proof_url": "https://discord.com/channels/1/2/3", "bugged": false},
+		{"id": 2, "player": "Bob", "proof_url": null}, {"id": 3, "bugged": true}, {"id": 4, "challenge": "epic1_exp"}]`)
+}
+
 func TestChallengeHighscores(t *testing.T) {
 	tests := []struct {
 		name, path, check, want string

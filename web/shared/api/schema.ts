@@ -793,6 +793,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/challenges/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every challenge entry not hidden, for download
+         * @description Each entry as it was made, in the order they were entered, bugged ones
+         *     included: what the site offers to download as CSV or JSON. Cached for
+         *     a minute.
+         */
+        get: operations["getChallengeEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/challenges/weekly": {
         parameters: {
             query?: never;
@@ -3323,6 +3345,21 @@ export interface components {
             original: number;
             expansion: number;
             mix: number;
+        };
+        ChallengeEntries: {
+            entries: components["schemas"]["ChallengeEntry"][];
+        };
+        /** @description One entry, with its challenge */
+        ChallengeEntry: {
+            /** Format: int64 */
+            id: number;
+            challenge: string;
+            player: string;
+            domination: number;
+            proof_url: string | null;
+            /** Format: date-time */
+            entered_at: string;
+            bugged: boolean;
         };
         ChallengeWeeks: {
             weeks: components["schemas"]["ChallengeWeek"][];
@@ -6735,6 +6772,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChallengePlayers"];
+                };
+            };
+        };
+    };
+    getChallengeEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeEntries"];
                 };
             };
         };
