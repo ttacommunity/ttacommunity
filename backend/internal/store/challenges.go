@@ -308,13 +308,13 @@ func (a *AdminStore) MergeChallengeName(ctx context.Context, from, to string) (C
 	}
 	var member *int64
 	if err := a.pool.QueryRow(ctx, "SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)", to).Scan(&member); err != nil {
-		return ChallengeNameMerged{}, fmt.Errorf("finding member %q: %w", to, err)
+		return ChallengeNameMerged{}, fmt.Errorf("finding the member to merge into: %w", err)
 	}
 	tag, err := a.pool.Exec(ctx, `
 		UPDATE challenge_entries SET member_id = coalesce($3, member_id), name = CASE WHEN $3::bigint IS NULL THEN $2 ELSE name END
 		WHERE member_id IS NULL AND lower(name) = lower($1)`, strings.TrimSpace(from), to, member)
 	if err != nil {
-		return ChallengeNameMerged{}, fmt.Errorf("merging challenge name %q: %w", from, err)
+		return ChallengeNameMerged{}, fmt.Errorf("merging a challenge name: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ChallengeNameMerged{}, ErrNoChallengeEntry
