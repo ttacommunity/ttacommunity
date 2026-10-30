@@ -10,22 +10,24 @@ $have = & $names (Join-Path $root '.env')
 $missing = @(& $names (Join-Path $root '.env.example') | Where-Object { $_ -notin $have })
 if ($missing) { Write-Warning "dev.ps1: .env has no $($missing -join ', '), which .env.example sets; copy those lines across" }
 
+# Login-Sql prints SQL that creates role $Role (no login) and login $Login in it when missing, and sets the
+# login's password to psql's variable $PwVar: scripts/lib.sh's login_sql.
+function Login-Sql($Role, $Login, $PwVar) {
+    @"
+DO `$`$ BEGIN CREATE ROLE $Role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
+DO `$`$ BEGIN CREATE ROLE $Login LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
+SELECT format('ALTER ROLE %I PASSWORD %L', '$Login', :'$PwVar') \gexec
+GRANT $Role TO $Login;
+"@
+}
+
 # The api's read-only, admin and player logins, joining the roles the
 # migrations grant to. Created or updated as the database's owner.
-$sql = @"
-DO `$`$ BEGIN CREATE ROLE ratings_read NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-DO `$`$ BEGIN CREATE ROLE ratings_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-SELECT format('ALTER ROLE ratings_api PASSWORD %L', :'read_pw') \gexec
-GRANT ratings_read TO ratings_api;
-DO `$`$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-DO `$`$ BEGIN CREATE ROLE ratings_admin_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-SELECT format('ALTER ROLE ratings_admin_api PASSWORD %L', :'admin_pw') \gexec
-GRANT ratings_admin TO ratings_admin_api;
-DO `$`$ BEGIN CREATE ROLE ratings_player NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-DO `$`$ BEGIN CREATE ROLE ratings_player_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END `$`$;
-SELECT format('ALTER ROLE ratings_player_api PASSWORD %L', :'player_pw') \gexec
-GRANT ratings_player TO ratings_player_api;
-"@
+$sql = @(
+    Login-Sql ratings_read ratings_api read_pw
+    Login-Sql ratings_admin ratings_admin_api admin_pw
+    Login-Sql ratings_player ratings_player_api player_pw
+) -join "`n"
 $sql | psql -X -q -v ON_ERROR_STOP=1 -v "read_pw=$env:RATINGS_READ_DB_PASSWORD" -v "admin_pw=$env:RATINGS_ADMIN_DB_PASSWORD" -v "player_pw=$env:RATINGS_PLAYER_DB_PASSWORD" $env:RATINGS_DATABASE_URL
 if ($LASTEXITCODE -ne 0) { throw 'dev.ps1: could not create the api logins (is the Postgres service running?)' }
 
@@ -35,6 +37,17 @@ corepack pnpm install --frozen-lockfile --silent
 $installed = $LASTEXITCODE
 Pop-Location
 if ($installed -ne 0) { throw 'dev.ps1: pnpm install failed' }
+
+# Whether Google Fonts has newer fonts than the committed ones, checked beside the start as scripts/dev.sh does;
+# shown once everything answers. Offline, it says nothing.
+$fonts = if (Get-Command node -ErrorAction SilentlyContinue) {
+    Start-Job -ArgumentList (Join-Path $root 'web\site') -ScriptBlock {
+        param($Dir)
+        Set-Location $Dir
+        $out = @(node scripts/fonts.mjs check 2>$null)
+        if ($LASTEXITCODE -ne 0 -and $out) { "dev.ps1: $($out[0])" }
+    }
+}
 
 $procs = @(
     Start-Process go -ArgumentList 'run', './cmd/api' -WorkingDirectory (Join-Path $root 'backend') -NoNewWindow -PassThru
@@ -62,6 +75,7 @@ try {
     $siteUp = Wait-Up 'site' 'http://127.0.0.1:4321/'
     $adminUp = Wait-Up 'admin' 'http://127.0.0.1:4322/'
     if (-not ($apiUp -and $siteUp -and $adminUp)) { throw 'dev.ps1: something did not start' }
+    if ($fonts) { Wait-Job $fonts -Timeout 20 | Out-Null; Receive-Job $fonts | Write-Host; Remove-Job $fonts -Force }
     Write-Host 'dev.ps1: running. Ctrl-C stops api, site and admin.'
     Wait-Process -Id ($procs | ForEach-Object Id)
 } finally {

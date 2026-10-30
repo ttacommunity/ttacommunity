@@ -5,6 +5,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/lib.sh
+. scripts/lib.sh
 
 usage() {
   cat >&2 <<'EOF'
@@ -51,14 +53,7 @@ else
 fi
 
 if [ -z "$dump" ]; then
-  if docker compose version >/dev/null 2>&1; then
-    compose=(docker compose)
-  elif podman compose version >/dev/null 2>&1; then
-    compose=(podman compose)
-  else
-    echo "seed-cluster-db.sh: needs --dump, or docker/podman compose to dump the local database" >&2
-    exit 1
-  fi
+  find_compose || { echo "seed-cluster-db.sh: or pass --dump" >&2; exit 1; }
   dump=$work/ratings.dump
   echo "dumping the local database"
   "${compose[@]}" exec -T ratings-db pg_dump -U ratings -d ratings -Fc > "$dump"
@@ -73,23 +68,20 @@ fi
 
 # Roles are per server, so a dump does not carry them. Passwords never go on
 # a command line.
-roles="DO \$\$ BEGIN CREATE ROLE ratings_read NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
-DO \$\$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
-DO \$\$ BEGIN CREATE ROLE ratings_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
-GRANT ratings_read TO ratings_api;"
+roles="DO \$\$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
+$(login_sql ratings_read ratings_api)"
 echo "creating roles"
 if [ "$mode" = direct ]; then
   sql <<SQL
-$roles
 \getenv pw RATINGS_API_PASSWORD
-SELECT format('ALTER ROLE ratings_api PASSWORD %L', :'pw') \gexec
+$roles
 SQL
 else
   pw=$(kubectl "${ns[@]}" get secret ratings-api -o jsonpath='{.data.password}' | base64 -d)
   [[ $pw =~ ^[0-9a-f]{32,}$ ]] || { echo "seed-cluster-db.sh: ratings-api's password must be hex" >&2; exit 1; }
   sql <<SQL
+\set pw '$pw'
 $roles
-ALTER ROLE ratings_api PASSWORD '$pw';
 SQL
   unset pw
 fi

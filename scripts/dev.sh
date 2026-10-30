@@ -8,27 +8,10 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
 
-if docker compose version >/dev/null 2>&1; then
-  compose=(docker compose)
-elif podman compose version >/dev/null 2>&1; then
-  compose=(podman compose)
-  if ! podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; then
-    echo "dev.sh: podman's API socket is off. Start it: systemctl --user enable --now podman.socket" >&2
-    exit 1
-  fi
-else
-  echo "dev.sh: needs docker compose, or podman with a compose provider" >&2
-  exit 1
-fi
-
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "dev.sh: created .env from .env.example (local-only values)"
-fi
-set -a
-# shellcheck disable=SC1091
-. ./.env
-set +a
+# shellcheck source=scripts/lib.sh
+. scripts/lib.sh
+find_compose || exit 1
+load_env
 # .env is made once, so a setting added to .env.example since is missing from an older one.
 missing=$(LC_ALL=C comm -23 \
   <(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' .env.example | LC_ALL=C sort -u) \
@@ -37,43 +20,18 @@ if [ -n "$missing" ]; then
   echo "dev.sh: .env has no ${missing//,/, }, which .env.example sets; copy those lines across" >&2
 fi
 
-# ratings_read_login creates or updates the api's read-only login, ratings_api.
-# The ratings_read role it joins is the one migration 00004 grants SELECT to.
-ratings_read_login() {
+# api_login creates or updates the api's login $2 with password $3, in role $1, which the migrations grant to.
+api_login() {
   # shellcheck disable=SC2016 # $PW expands inside the container, not here
-  "${compose[@]}" exec -T -e PW="$RATINGS_READ_DB_PASSWORD" ratings-db \
-    sh -c 'psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d ratings' <<'SQL' || { echo "dev.sh: could not create the ratings_api login" >&2; return 1; }
-DO $$ BEGIN CREATE ROLE ratings_read NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE ROLE ratings_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-SELECT format('ALTER ROLE ratings_api PASSWORD %L', :'pw') \gexec
-GRANT ratings_read TO ratings_api;
-SQL
+  login_sql "$1" "$2" | "${compose[@]}" exec -T -e PW="$3" ratings-db \
+    sh -c 'psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d ratings' || { echo "dev.sh: could not create the $2 login" >&2; return 1; }
 }
 
-# ratings_admin_login creates or updates the api's admin login, ratings_admin_api.
-# The ratings_admin role it joins is the one migration 00029 grants admin's writes to.
-ratings_admin_login() {
-  # shellcheck disable=SC2016 # $PW expands inside the container, not here
-  "${compose[@]}" exec -T -e PW="$RATINGS_ADMIN_DB_PASSWORD" ratings-db \
-    sh -c 'psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d ratings' <<'SQL' || { echo "dev.sh: could not create the ratings_admin_api login" >&2; return 1; }
-DO $$ BEGIN CREATE ROLE ratings_admin NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE ROLE ratings_admin_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-SELECT format('ALTER ROLE ratings_admin_api PASSWORD %L', :'pw') \gexec
-GRANT ratings_admin TO ratings_admin_api;
-SQL
-}
-
-# ratings_player_login creates or updates the api's player login, ratings_player_api.
-# The ratings_player role it joins is the one migration 00027 grants sign-in's reads and writes to.
-ratings_player_login() {
-  # shellcheck disable=SC2016 # $PW expands inside the container, not here
-  "${compose[@]}" exec -T -e PW="$RATINGS_PLAYER_DB_PASSWORD" ratings-db \
-    sh -c 'psql -q -v ON_ERROR_STOP=1 -v pw="$PW" -U ratings -d ratings' <<'SQL' || { echo "dev.sh: could not create the ratings_player_api login" >&2; return 1; }
-DO $$ BEGIN CREATE ROLE ratings_player NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE ROLE ratings_player_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-SELECT format('ALTER ROLE ratings_player_api PASSWORD %L', :'pw') \gexec
-GRANT ratings_player TO ratings_player_api;
-SQL
+# api_logins creates the api's read-only, admin and player logins.
+api_logins() {
+  api_login ratings_read ratings_api "$RATINGS_READ_DB_PASSWORD" &&
+    api_login ratings_admin ratings_admin_api "$RATINGS_ADMIN_DB_PASSWORD" &&
+    api_login ratings_player ratings_player_api "$RATINGS_PLAYER_DB_PASSWORD"
 }
 
 # wait_for polls URL $2 for up to 90s and reports it under name $1.
@@ -102,10 +60,8 @@ case "${1:-}" in
     exit $?
     ;;
   --native)
-    "${compose[@]}" up -d --wait ratings-db app-db || exit 1
-    ratings_read_login || exit 1
-    ratings_admin_login || exit 1
-    ratings_player_login || exit 1
+    "${compose[@]}" up -d --wait ratings-db || exit 1
+    api_logins || exit 1
     # Each process gets its own group, so stopping it also stops what it spawned.
     # --ignore-lock stops astro detaching into a daemon when an AI agent runs this.
     groups=()
@@ -124,10 +80,8 @@ case "${1:-}" in
     wait
     ;;
   "")
-    "${compose[@]}" up -d --wait ratings-db app-db || exit 1
-    ratings_read_login || exit 1
-    ratings_admin_login || exit 1
-    ratings_player_login || exit 1
+    "${compose[@]}" up -d --wait ratings-db || exit 1
+    api_logins || exit 1
     "${compose[@]}" up -d --build --wait api || exit 1
     "${compose[@]}" up -d site || exit 1
     ok=0

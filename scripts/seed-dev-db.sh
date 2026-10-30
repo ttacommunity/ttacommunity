@@ -4,6 +4,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/lib.sh
+. scripts/lib.sh
 usage() {
   cat >&2 <<'EOF'
 Usage: scripts/seed-dev-db.sh [--replace] [--latest-run | --no-runs | --all-runs] [--prewarm]
@@ -56,10 +58,9 @@ done
 echo "creating roles and the database"
 sql -d ratings <<SQL
 DO \$\$ BEGIN CREATE ROLE ratings_dev LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
-DO \$\$ BEGIN CREATE ROLE ratings_dev_api LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;
-GRANT ratings_read TO ratings_dev_api;
 ALTER ROLE ratings_dev PASSWORD '$owner_pw';
-ALTER ROLE ratings_dev_api PASSWORD '$api_pw';
+\set pw '$api_pw'
+$(login_sql ratings_read ratings_dev_api)
 CREATE DATABASE ratings_dev OWNER ratings_dev;
 SQL
 unset owner_url owner_pw api_pw pw

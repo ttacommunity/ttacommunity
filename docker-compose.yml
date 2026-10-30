@@ -1,4 +1,4 @@
-# Everything in containers: both databases, api, the engine and the
+# Everything in containers: the ratings database, api, the engine and the
 # site's dev server. Start it with scripts/dev.sh. Ports bind to localhost only.
 name: ttacommunity
 
@@ -13,19 +13,6 @@ services:
     volumes: [ratings-db:/var/lib/postgresql]
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "ratings", "-d", "ratings"]
-      interval: 2s
-      retries: 30
-
-  app-db:
-    image: docker.io/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_DB: app
-      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
-    ports: ["127.0.0.1:55433:5432"]
-    volumes: [app-db:/var/lib/postgresql]
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
       interval: 2s
       retries: 30
 
@@ -46,11 +33,9 @@ services:
       # api with sign-in failing at Discord.
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-100000000000000099}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-local-only-no-discord-app}
-      APP_DATABASE_URL: postgres://app:${APP_DB_PASSWORD}@app-db:5432/app?sslmode=disable
     ports: ["127.0.0.1:8080:8080", "127.0.0.1:8081:8081"]
     depends_on:
       ratings-db: { condition: service_healthy }
-      app-db: { condition: service_healthy }
 
   # Seeds the ratings DB: restores a baseline export, or loads match CSVs. scripts/ratings-db.sh mounts the directory.
   load:
@@ -89,5 +74,4 @@ services:
 
 volumes:
   ratings-db:
-  app-db:
   pnpm-store:

@@ -35,23 +35,10 @@ if [ -f "$dir/manifest.json" ]; then
   fi
 fi
 
-if docker compose version >/dev/null 2>&1; then
-  compose=(docker compose)
-elif podman compose version >/dev/null 2>&1; then
-  compose=(podman compose)
-else
-  echo "ratings-db.sh: needs docker compose, or podman with a compose provider" >&2
-  exit 1
-fi
-
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "ratings-db.sh: created .env from .env.example (local-only values)"
-fi
-set -a
-# shellcheck disable=SC1091
-. ./.env
-set +a
+# shellcheck source=scripts/lib.sh
+. scripts/lib.sh
+find_compose || exit 1
+load_env
 
 "${compose[@]}" up -d --wait ratings-db || exit 1
 if [ "$native" = 1 ]; then

@@ -98,18 +98,16 @@ if ($Service) {
 # CREATEROLE role may not do since PostgreSQL 16.
 $env:PGPASSWORD = $superPlain
 $sql = @"
-SELECT format('CREATE ROLE %I LOGIN', r) FROM unnest(ARRAY['ratings','app','ttac']) r
+SELECT format('CREATE ROLE %I LOGIN', r) FROM unnest(ARRAY['ratings','ttac']) r
   WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = r) \gexec
 ALTER ROLE ratings SUPERUSER;
-ALTER ROLE app SUPERUSER;
 ALTER ROLE ttac SUPERUSER;
 SELECT format('ALTER ROLE ratings PASSWORD %L', :'ratings_pw') \gexec
-SELECT format('ALTER ROLE app PASSWORD %L', :'app_pw') \gexec
 ALTER ROLE ttac PASSWORD 'local-only';
-SELECT format('CREATE DATABASE %I OWNER %I', d, o) FROM (VALUES ('ratings','ratings'),('app','app'),('ttac_test','ttac')) v(d, o)
+SELECT format('CREATE DATABASE %I OWNER %I', d, o) FROM (VALUES ('ratings','ratings'),('ttac_test','ttac')) v(d, o)
   WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = d) \gexec
 "@
-$sql | psql -X -q -v ON_ERROR_STOP=1 -v "ratings_pw=$env:RATINGS_DB_PASSWORD" -v "app_pw=$env:APP_DB_PASSWORD" -h 127.0.0.1 -p $Port -U postgres -d postgres
+$sql | psql -X -q -v ON_ERROR_STOP=1 -v "ratings_pw=$env:RATINGS_DB_PASSWORD" -h 127.0.0.1 -p $Port -U postgres -d postgres
 $failed = $LASTEXITCODE
 Remove-Item Env:PGPASSWORD
 $superPlain = $null
