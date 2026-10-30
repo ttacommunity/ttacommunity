@@ -619,3 +619,104 @@ func TestAdminsEditionListCountsTheFlaggedReports(t *testing.T) {
 		t.Errorf("flagged once resolved = %d, want 0", got)
 	}
 }
+
+// linkedToCGE links the member named name to a new CGE account cgeUser, with the player of that name, as the
+// extract load and an admin's link would; the admin login cannot add accounts.
+func linkedToCGE(t *testing.T, a *AdminStore, name string, cgeUser int) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
+	cfg.AfterConnect = nil
+	owner, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening the owner's pool: %v", err)
+	}
+	defer owner.Close()
+	if _, err := owner.Exec(ctx, "INSERT INTO players (name) SELECT $1 WHERE NOT EXISTS (SELECT FROM players WHERE name = $1)", name); err != nil {
+		t.Fatalf("adding player %s: %v", name, err)
+	}
+	if _, err := owner.Exec(ctx, `
+		WITH acc AS (INSERT INTO player_accounts (cge_user, player_id, name) SELECT $2, player_id, $1 FROM players WHERE name = $1 RETURNING cge_user, player_id)
+		UPDATE members m SET cge_user = acc.cge_user, player_id = acc.player_id FROM acc WHERE m.tta_name = $1`, name, cgeUser); err != nil {
+		t.Fatalf("linking %s to CGE account %d: %v", name, cgeUser, err)
+	}
+}
+
+func TestABlitzGamesSeatsCarryTheirPlayersCGEAccount(t *testing.T) {
+	tests := []struct {
+		name   string
+		record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
+	}{
+		{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
+			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, g)
+		}},
+		{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
+			return p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, p, reader, _, matches := reportsFixture(t)
+			seats := func() string {
+				t.Helper()
+				var got []string
+				m := matchNow(t, reader, matches[0])
+				if err := a.pool.QueryRow(context.Background(), "SELECT array_agg(player_name || '=' || coalesce(cge_user::text, '-') ORDER BY seat) FROM seats WHERE game_id = $1", m.GameID).Scan(&got); err != nil {
+					t.Fatalf("reading the seats: %v", err)
+				}
+				return strings.Join(got, " ")
+			}
+			linkedToCGE(t, a, "Ann", 1001)
+			if err := tt.record(a, p, matches[0], reported("CGE-1")); err != nil {
+				t.Fatalf("recording the game: %v", err)
+			}
+			if got, want := seats(), "Ann=1001 Bob=-"; got != want {
+				t.Errorf("the new game's seats = %q, want %q", got, want)
+			}
+			linkedToCGE(t, a, "Bob", 1002)
+			if err := tt.record(a, p, matches[0], reported("CGE-2")); err != nil {
+				t.Fatalf("correcting the game: %v", err)
+			}
+			if got, want := seats(), "Ann=1001 Bob=1002"; got != want {
+				t.Errorf("the corrected game's seats = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestMigration63GivesTheBlitzSeatsAlreadyRecordedTheirCGEAccounts(t *testing.T) {
+	a, p, reader, _, matches := reportsFixture(t)
+	ctx := context.Background()
+	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
+	cfg.AfterConnect = nil // the owner migrates, not the admin login
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening the owner's pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 62); return err }); err != nil {
+		t.Fatalf("migrating down to 62: %v", err)
+	}
+	linkedToCGE(t, a, "Ann", 1001)
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
+		t.Fatalf("ReportBlitzGame after the Down: %v", err)
+	}
+	seats := func() string {
+		t.Helper()
+		var got []string
+		if err := pool.QueryRow(ctx, "SELECT array_agg(player_name || '=' || coalesce(cge_user::text, '-') ORDER BY seat) FROM seats WHERE game_id = $1",
+			matchNow(t, reader, matches[0]).GameID).Scan(&got); err != nil {
+			t.Fatalf("reading the seats: %v", err)
+		}
+		return strings.Join(got, " ")
+	}
+	if got, want := seats(), "Ann=- Bob=-"; got != want {
+		t.Fatalf("the seats after the Down = %q, want %q", got, want)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up: %v", err)
+	}
+	if got, want := seats(), "Ann=1001 Bob=-"; got != want {
+		t.Errorf("the seats after migration 63 = %q, want %q", got, want)
+	}
+}

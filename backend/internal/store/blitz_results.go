@@ -115,7 +115,7 @@ func blitzOutcome(g BlitzGame) (result string, a, b BlitzSide, placeA, placeB in
 }
 
 // blitzMatchRow is a match as recording a result needs it: its round and the round's kind, each side's entry,
-// name and knockout seed, its game.
+// name, CGE account and knockout seed, its game.
 type blitzMatchRow struct {
 	Round      int
 	Kind       string
@@ -125,6 +125,8 @@ type blitzMatchRow struct {
 	B          *int64
 	NameA      string
 	NameB      string
+	CGEUserA   *int32
+	CGEUserB   *int32
 	GameID     *int64
 	SeriesName string
 }
@@ -142,12 +144,14 @@ func pairedMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMa
 func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMatchRow, error) {
 	var m blitzMatchRow
 	err := tx.QueryRow(ctx, `
-		SELECT r.number, r.kind, m.seed_a, m.seed_b, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''), m.game_id, s.name
+		SELECT r.number, r.kind, m.seed_a, m.seed_b, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''), ma.cge_user, mb.cge_user,
+		       m.game_id, s.name
 		FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
 		JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
 		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
 		LEFT JOIN blitz_entries b ON b.entry_id = m.entry_b LEFT JOIN members mb ON mb.member_id = b.member_id
-		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.Kind, &m.SeedA, &m.SeedB, &m.A, &m.B, &m.NameA, &m.NameB, &m.GameID, &m.SeriesName)
+		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.Kind, &m.SeedA, &m.SeedB, &m.A, &m.B, &m.NameA, &m.NameB, &m.CGEUserA, &m.CGEUserB,
+		&m.GameID, &m.SeriesName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNoBlitzMatch
 	}
@@ -256,9 +260,10 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		seats := []struct {
 			player int64
 			name   string
+			cge    *int32
 			side   BlitzSide
 			place  int
-		}{{playerA, nameA, sideA, placeA}, {playerB, nameB, sideB, placeB}}
+		}{{playerA, nameA, m.CGEUserA, sideA, placeA}, {playerB, nameB, m.CGEUserB, sideB, placeB}}
 		gameID := m.GameID
 		if gameID == nil {
 			var batch int64
@@ -274,9 +279,9 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			}
 			for seat, s := range seats {
 				if _, err := tx.Exec(ctx, `
-					INSERT INTO seats (game_id, seat, player_id, player_name, outcome, culture, place, starting_position)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1); err != nil {
+					INSERT INTO seats (game_id, seat, player_id, player_name, outcome, culture, place, starting_position, cge_user)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1, s.cge); err != nil {
 					return fmt.Errorf("recording a game's seats: %w", err)
 				}
 			}
@@ -287,9 +292,10 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			}
 			for seat, s := range seats {
 				if _, err := tx.Exec(ctx, `
-					UPDATE seats SET player_id = $3, player_name = $4, outcome = $5, culture = $6, place = $7, starting_position = $8
+					UPDATE seats SET player_id = $3, player_name = $4, outcome = $5, culture = $6, place = $7, starting_position = $8,
+					cge_user = $9
 					WHERE game_id = $1 AND seat = $2`,
-					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1); err != nil {
+					*gameID, seat+1, s.player, s.name, s.side.Outcome, s.side.Culture, s.place, s.side.Turn-1, s.cge); err != nil {
 					return fmt.Errorf("correcting a game's seats: %w", err)
 				}
 			}
