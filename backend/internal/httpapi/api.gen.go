@@ -1256,10 +1256,7 @@ type AdminChallengeNameMerge struct {
 
 // AdminChallengeNameMerged defines model for AdminChallengeNameMerged.
 type AdminChallengeNameMerged struct {
-	// Member Whether they moved to a member, rather than a name
-	Member bool `json:"member"`
-
-	// Moved How many entries moved
+	// Moved How many entries and weekly placings moved
 	Moved int `json:"moved"`
 }
 
@@ -4992,7 +4989,7 @@ type ServerInterface interface {
 	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
 	// (PATCH /v1/admin/challenges/entries/{entry})
 	PatchAdminChallengeEntry(w http.ResponseWriter, r *http.Request, entry int64)
-	// PostAdminChallengeName Merge a name's challenge entries into another name or a member (admins and organisers)
+	// PostAdminChallengeName Move a name's challenge entries to a member (admins and organisers)
 	// (POST /v1/admin/challenges/names)
 	PostAdminChallengeName(w http.ResponseWriter, r *http.Request)
 	// GetAdminCommunityEditions Every edition of the community leaderboard
@@ -19863,7 +19860,7 @@ type StrictServerInterface interface {
 	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
 	// (PATCH /v1/admin/challenges/entries/{entry})
 	PatchAdminChallengeEntry(ctx context.Context, request PatchAdminChallengeEntryRequestObject) (PatchAdminChallengeEntryResponseObject, error)
-	// PostAdminChallengeName Merge a name's challenge entries into another name or a member (admins and organisers)
+	// PostAdminChallengeName Move a name's challenge entries to a member (admins and organisers)
 	// (POST /v1/admin/challenges/names)
 	PostAdminChallengeName(ctx context.Context, request PostAdminChallengeNameRequestObject) (PostAdminChallengeNameResponseObject, error)
 	// GetAdminCommunityEditions Every edition of the community leaderboard

@@ -1708,11 +1708,14 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Merge a name's challenge entries into another name or a member (admins and organisers)
-         * @description Audited. The Origin must be the admin site. Every entry not linked to
-         *     a member whose name is from, ignoring case, moves to the member whose
-         *     TTA username is to, ignoring case, or else to the name to: to fix a
-         *     typo, or to give imported entries to the member they belong to.
+         * Move a name's challenge entries to a member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Every entry and weekly
+         *     challenge placing shown under the name from (its member's TTA
+         *     username, or the name it was entered under), ignoring case, moves to
+         *     the member whose TTA username is to, ignoring case: to give a
+         *     misspelt name's entries, or those the import put under a member of
+         *     their own, to the member they belong to. That member stays, empty,
+         *     for Members to remove.
          */
         post: operations["postAdminChallengeName"];
         delete?: never;
@@ -3591,10 +3594,8 @@ export interface components {
             to: string;
         };
         AdminChallengeNameMerged: {
-            /** @description How many entries moved */
+            /** @description How many entries and weekly placings moved */
             moved: number;
-            /** @description Whether they moved to a member, rather than a name */
-            member: boolean;
         };
         AdminChallengeEntries: {
             /** @description How many entries each view holds */

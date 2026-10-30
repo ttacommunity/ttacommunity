@@ -209,7 +209,7 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
   );
 }
 
-/** MergeNames moves every unlinked entry of one name to another name, or to the member of that TTA username. */
+/** MergeNames moves every entry and weekly placing under one name to the member of another TTA username. */
 function MergeNames({ onMerged }: { onMerged: () => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -220,7 +220,7 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
       setSaid(r.message);
       return;
     }
-    setSaid(`Moved ${r.data.moved} ${r.data.moved === 1 ? 'entry' : 'entries'} to ${r.data.member ? 'the member' : 'the name'} ${to.trim()}.`);
+    setSaid(`Moved ${r.data.moved} ${r.data.moved === 1 ? 'entry' : 'entries'} to the member ${to.trim()}.`);
     setFrom('');
     setTo('');
     onMerged();
@@ -229,13 +229,13 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
     <div className="admin-subsection">
       <h3>Merge a name</h3>
       <p className="muted">
-        Moves every entry of the first name not linked to a member to the second: to fix a typo, or, when the second is a member&apos;s TTA username, to link
-        them to that member.
+        Moves every entry and weekly placing under the first name to the member whose TTA username is the second: for a misspelt name, or a name the import
+        gave a member of its own. The first name&apos;s member stays, empty, for Members to remove.
       </p>
       <span className="note-actions">
         <input className="input-antique" aria-label="From name" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} />
         <span aria-hidden="true">→</span>
-        <input className="input-antique" aria-label="To name or member" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
+        <input className="input-antique" aria-label="To member" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
         <button type="button" className="btn-antique" disabled={from.trim() === '' || to.trim() === ''} onClick={() => void merge()}>
           Merge
         </button>

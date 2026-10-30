@@ -101,7 +101,7 @@ func reportChallengeEntries(w io.Writer, file string, read challenges.EntriesRea
 	fmt.Fprintf(w, "file: %s\n", file)
 	fmt.Fprintf(w, "entries read: %d\n", read.Rows)
 	fmt.Fprintf(w, "imported entries replaced: %d\n", imported.Replaced)
-	fmt.Fprintf(w, "imported: %d, linked to a member: %d\n", imported.Imported, imported.Linked)
+	fmt.Fprintf(w, "imported: %d, linked to a member: %d, members added for new names: %d\n", imported.Imported, imported.Linked, imported.Members)
 	fmt.Fprintf(w, "refused: %d\n", len(refused))
 	for _, r := range refused {
 		fmt.Fprintf(w, "  entry %d: %s\n", r.OldID, r.Reason)

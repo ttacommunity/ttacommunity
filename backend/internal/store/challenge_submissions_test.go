@@ -37,7 +37,7 @@ func TestALinkedPlayerSubmitsEntries(t *testing.T) {
 	}
 	var mine []ChallengeEntry
 	for _, e := range entries {
-		if e.Member != nil {
+		if e.Player == "Ann" && e.Member != nil {
 			mine = append(mine, e)
 		}
 	}

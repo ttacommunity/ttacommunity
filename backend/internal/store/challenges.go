@@ -27,8 +27,8 @@ type ChallengesReplaced struct {
 // ChallengeEntriesImported is what ImportChallengeEntries did: imported entries it replaced, entries it imported,
 // how many of those it linked to a member, and those it refused.
 type ChallengeEntriesImported struct {
-	Replaced, Imported, Linked int
-	Refused                    []challenges.Refusal
+	Replaced, Imported, Linked, Members int
+	Refused                             []challenges.Refusal
 }
 
 // ChallengeRow is a challenge as the site lists it.
@@ -122,8 +122,9 @@ func nonNil(s []string) []string {
 }
 
 // ImportChallengeEntries replaces every imported entry (from the sheet or the old site) with entries, in one
-// transaction, linking each to the member whose TTA username is its name, ignoring case. An entry for a challenge
-// not in the list is refused.
+// transaction, linking each to the member whose TTA username is its name, ignoring case. A name no member has gets
+// one, spelt as the player of that name is when there is one and that player is no one's yet. An entry for a
+// challenge not in the list is refused.
 func ImportChallengeEntries(ctx context.Context, pool *pgxpool.Pool, entries []challenges.ImportedEntry) (ChallengeEntriesImported, error) {
 	var got ChallengeEntriesImported
 	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
@@ -148,6 +149,19 @@ func ImportChallengeEntries(ctx context.Context, pool *pgxpool.Pool, entries []c
 			return err
 		}
 		got.Replaced = int(tag.RowsAffected())
+		tag, err = tx.Exec(ctx, `
+			INSERT INTO members (tta_name, player_id)
+			SELECT DISTINCT ON (lower(i.name)) coalesce(p.name, i.name), p.player_id
+			FROM unnest($1::text[]) AS i(name)
+			LEFT JOIN LATERAL (SELECT player_id, name FROM players WHERE lower(name) = lower(i.name)
+			                   AND NOT EXISTS (SELECT FROM members WHERE members.player_id = players.player_id)
+			                   ORDER BY player_id LIMIT 1) p ON true
+			WHERE NOT EXISTS (SELECT FROM members m WHERE lower(m.tta_name) = lower(i.name))
+			ORDER BY lower(i.name), i.name`, c.name)
+		if err != nil {
+			return fmt.Errorf("adding members for new names: %w", err)
+		}
+		got.Members = int(tag.RowsAffected())
 		return tx.QueryRow(ctx, `
 			WITH added AS (
 			    INSERT INTO challenge_entries (challenge_id, member_id, name, domination, proof_url, created_at, source,
@@ -303,38 +317,48 @@ func (a *AdminStore) SetChallengeEntry(ctx context.Context, id int64, c Challeng
 	return nil
 }
 
-// ChallengeNameMerged is what MergeChallengeName did: how many entries it moved, and whether to a member.
+// ChallengeNameMerged is what MergeChallengeName did: how many entries and weekly placings it moved.
 type ChallengeNameMerged struct {
-	Moved  int
-	Member bool
+	Moved int
 }
 
-// MergeChallengeName moves every entry not linked to a member whose name is from, ignoring case, to the member whose
-// TTA username is to, ignoring case, or else to the name to. It returns ErrNoChallengeEntry when no such entry
-// exists, and ErrBadChallengeEntry for an empty name or one over 100 characters.
+// MergeChallengeName moves every entry and weekly placing shown under the name from (its member's TTA username, or
+// the name it was entered under when unlinked), ignoring case, to the member whose TTA username is to, ignoring
+// case; the names they were entered under stay. It returns ErrNoMember when no member is named to,
+// ErrNoChallengeEntry when nothing is under from, and ErrBadChallengeEntry for an empty name or one over 100
+// characters.
 func (a *AdminStore) MergeChallengeName(ctx context.Context, from, to string) (ChallengeNameMerged, error) {
-	to = strings.Join(strings.Fields(to), " ")
-	if to == "" || len([]rune(to)) > 100 {
+	from, to = strings.TrimSpace(from), strings.Join(strings.Fields(to), " ")
+	if from == "" || to == "" || len([]rune(to)) > 100 {
 		return ChallengeNameMerged{}, ErrBadChallengeEntry
 	}
 	var member *int64
 	if err := a.pool.QueryRow(ctx, "SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)", to).Scan(&member); err != nil {
 		return ChallengeNameMerged{}, fmt.Errorf("finding the member to merge into: %w", err)
 	}
-	tag, err := a.pool.Exec(ctx, `
-		UPDATE challenge_entries SET member_id = coalesce($3, member_id), name = CASE WHEN $3::bigint IS NULL THEN $2 ELSE name END
-		WHERE member_id IS NULL AND lower(name) = lower($1)`, strings.TrimSpace(from), to, member)
-	if err != nil {
-		return ChallengeNameMerged{}, fmt.Errorf("merging a challenge name: %w", err)
+	if member == nil {
+		return ChallengeNameMerged{}, ErrNoMember
 	}
-	if tag.RowsAffected() == 0 {
+	moved := 0
+	for _, table := range []string{"challenge_entries", "challenge_week_places"} {
+		tag, err := a.pool.Exec(ctx, `
+			UPDATE `+table+` AS x SET member_id = $2
+			WHERE (x.member_id IS NULL OR x.member_id <> $2)
+			  AND lower(coalesce((SELECT m.tta_name FROM members m WHERE m.member_id = x.member_id), x.name)) = lower($1)`, from, *member)
+		if err != nil {
+			return ChallengeNameMerged{}, fmt.Errorf("merging a challenge name: %w", err)
+		}
+		moved += int(tag.RowsAffected())
+	}
+	if moved == 0 {
 		return ChallengeNameMerged{}, ErrNoChallengeEntry
 	}
-	return ChallengeNameMerged{Moved: int(tag.RowsAffected()), Member: member != nil}, nil
+	return ChallengeNameMerged{Moved: moved}, nil
 }
 
-// ReplaceChallengeWeeks replaces every week of the weekly challenge with weeks, in one transaction, and returns how
-// many it stored. A week of a challenge not in the list is refused, and so is the whole file.
+// ReplaceChallengeWeeks replaces every week of the weekly challenge with weeks, in one transaction, linking each
+// placing to the member whose TTA username is its name, ignoring case, and returns how many weeks it stored. A week
+// of a challenge not in the list is refused, and so is the whole file.
 func ReplaceChallengeWeeks(ctx context.Context, pool *pgxpool.Pool, weeks []challenges.Week) (int, error) {
 	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, "DELETE FROM challenge_weeks"); err != nil {
@@ -347,7 +371,8 @@ func ReplaceChallengeWeeks(ctx context.Context, pool *pgxpool.Pool, weeks []chal
 			for place, ps := range map[string][]challenges.Placing{"winner": w.Winners, "runner_up": w.RunnersUp} {
 				for i, p := range ps {
 					if _, err := tx.Exec(ctx, `
-						INSERT INTO challenge_week_places (week, place, position, name, domination) VALUES ($1, $2, $3, $4, $5)`,
+						INSERT INTO challenge_week_places (week, place, position, name, member_id, domination)
+						VALUES ($1, $2, $3, $4, (SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($4)), $5)`,
 						w.Number, place, i, p.Name, p.Domination); err != nil {
 						return fmt.Errorf("week %d: %w", w.Number, err)
 					}
@@ -362,11 +387,12 @@ func ReplaceChallengeWeeks(ctx context.Context, pool *pgxpool.Pool, weeks []chal
 	return len(weeks), nil
 }
 
-// ChallengeWeeks lists the weeks of the weekly challenge in order, each with its winners and runners-up as listed.
+// ChallengeWeeks lists the weeks of the weekly challenge in order, each with its winners and runners-up as listed: a
+// placing linked to a member is named as the member is, the rest as they were entered.
 func (r *RatingsReader) ChallengeWeeks(ctx context.Context) ([]challenges.Week, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT w.week, w.week_of, w.challenge_id, p.place, p.name, p.domination
-		FROM challenge_weeks w LEFT JOIN challenge_week_places p USING (week)
+		SELECT w.week, w.week_of, w.challenge_id, p.place, coalesce(m.tta_name, p.name), p.domination
+		FROM challenge_weeks w LEFT JOIN challenge_week_places p USING (week) LEFT JOIN members m ON m.member_id = p.member_id
 		ORDER BY w.week, p.place DESC, p.position`)
 	if err != nil {
 		return nil, fmt.Errorf("listing challenge weeks: %w", err)

@@ -115,15 +115,17 @@ func (s *server) PostAdminChallengeName(ctx context.Context, req PostAdminChalle
 		if got, err = tx.MergeChallengeName(ctx, req.Body.From, req.Body.To); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "challenge.name.merge", req.Body.From, map[string]any{"to": req.Body.To, "moved": got.Moved, "member": got.Member})
+		return tx.Audit(ctx, me.DiscordID, "challenge.name.merge", req.Body.From, map[string]any{"to": req.Body.To, "moved": got.Moved})
 	})
 	switch {
 	case errors.Is(err, store.ErrBadChallengeEntry):
 		return PostAdminChallengeName400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrNoMember):
+		return PostAdminChallengeName404JSONResponse{notFound404("no member has the TTA username to")}, nil
 	case errors.Is(err, store.ErrNoChallengeEntry):
-		return PostAdminChallengeName404JSONResponse{notFound404("no entry not linked to a member has that name")}, nil
+		return PostAdminChallengeName404JSONResponse{notFound404("no entry or weekly placing is under the name from")}, nil
 	case err != nil:
 		return nil, err
 	}
-	return PostAdminChallengeName200JSONResponse{Moved: got.Moved, Member: got.Member}, nil
+	return PostAdminChallengeName200JSONResponse{Moved: got.Moved}, nil
 }

@@ -88,18 +88,19 @@ func TestReplaceChallengesRefusesToRemoveAChallengeWithEntries(t *testing.T) {
 	}
 }
 
-func TestImportChallengeEntriesLinksMembersByNameIgnoringCase(t *testing.T) {
+func TestImportChallengeEntriesLinksMembersByNameAddingTheNewOnes(t *testing.T) {
 	pool := migrated(t)
-	if _, err := pool.Exec(context.Background(), "INSERT INTO members (tta_name) VALUES ('Ann')"); err != nil {
-		t.Fatalf("adding Ann: %v", err)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "INSERT INTO members (tta_name) VALUES ('Ann'); INSERT INTO players (name) VALUES ('Pat')"); err != nil {
+		t.Fatalf("adding Ann and the player Pat: %v", err)
 	}
-	unknown := imported(3, "Cy", 10, 3)
+	unknown := imported(5, "Cy", 10, 5)
 	unknown.Challenge = "9ai"
-	got := withChallengeEntries(t, pool, imported(1, "ann", 50, 1), imported(2, "Zed", 40, 2), unknown)
-	if got.Imported != 2 || got.Linked != 1 || len(got.Refused) != 1 || got.Refused[0].OldID != 3 {
-		t.Errorf("ImportChallengeEntries = %+v, want 2 imported, 1 linked, entry 3 refused", got)
+	got := withChallengeEntries(t, pool, imported(1, "ann", 50, 1), imported(2, "Zed", 40, 2), imported(3, "zed", 45, 3), imported(4, "pat", 30, 4), unknown)
+	if got.Imported != 4 || got.Linked != 4 || got.Members != 2 || len(got.Refused) != 1 || got.Refused[0].OldID != 5 {
+		t.Errorf("ImportChallengeEntries = %+v, want 4 imported, all linked, 2 members added, entry 5 refused", got)
 	}
-	entries, err := NewRatingsReader(asReader(t, pool)).ChallengeEntries(context.Background())
+	entries, err := NewRatingsReader(asReader(t, pool)).ChallengeEntries(ctx)
 	if err != nil {
 		t.Fatalf("ChallengeEntries: %v", err)
 	}
@@ -107,8 +108,12 @@ func TestImportChallengeEntriesLinksMembersByNameIgnoringCase(t *testing.T) {
 	for _, e := range entries {
 		lines = append(lines, fmt.Sprintf("%s linked=%v", e.Player, e.Member != nil))
 	}
-	if got, want := strings.Join(lines, ", "), "Ann linked=true, Zed linked=false"; got != want {
+	if got, want := strings.Join(lines, ", "), "Ann linked=true, Zed linked=true, Zed linked=true, Pat linked=true"; got != want {
 		t.Errorf("entries = %q, want %q (a linked entry shows the member's name)", got, want)
+	}
+	members := rowsOf(t, pool, "SELECT tta_name || ':' || coalesce(player_id::text, '-') FROM members ORDER BY tta_name")
+	if len(members) != 3 || members[0] != "Ann:-" || !strings.HasPrefix(members[1], "Pat:") || members[1] == "Pat:-" || members[2] != "Zed:-" {
+		t.Errorf("members = %q, want Ann as before, Pat added with the player of that name, Zed added without one", members)
 	}
 }
 
@@ -226,27 +231,40 @@ func TestAdminChangesAnEntry(t *testing.T) {
 	}
 }
 
-func TestAdminMergesANameIntoAnotherOrAMember(t *testing.T) {
+func TestAdminMergesANameIntoAMember(t *testing.T) {
 	pool := migrated(t)
 	withChallengeEntries(t, pool, imported(1, "Anne", 50, 1), imported(2, "anne", 55, 2), imported(3, "Cy", 70, 3))
 	a := NewAdminStore(asAdminLogin(t, pool))
 	ctx := context.Background()
-	got, err := a.MergeChallengeName(ctx, "ANNE", "Ann")
-	if err != nil || got.Moved != 2 || got.Member {
-		t.Fatalf("MergeChallengeName = %+v, %v, want 2 moved to a name", got, err)
-	}
 	if _, err := a.AddMember(ctx, Member{Name: "cyrus", Zone: "UTC"}); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
-	got, err = a.MergeChallengeName(ctx, "cy", "Cyrus")
-	if err != nil || got.Moved != 1 || !got.Member {
-		t.Fatalf("MergeChallengeName to a member = %+v, %v, want 1 linked", got, err)
+	week := []challenges.Week{{Number: 1, Of: time.Date(2024, 9, 22, 0, 0, 0, 0, time.UTC), Challenge: "1ai", Winners: []challenges.Placing{{Name: "CY", Domination: 70}}}}
+	if _, err := ReplaceChallengeWeeks(ctx, pool, week); err != nil {
+		t.Fatalf("ReplaceChallengeWeeks: %v", err)
 	}
-	if lines, want := adminLines(t, a), "cyrus First 70"; !strings.HasPrefix(lines, want) || !strings.Contains(lines, "Ann First 55") {
-		t.Errorf("entries = %q, want Cy linked to cyrus and both Anne entries as Ann", lines)
+	got, err := a.MergeChallengeName(ctx, " cy ", "Cyrus")
+	if err != nil || got.Moved != 2 {
+		t.Fatalf("MergeChallengeName = %+v, %v, want 2 moved: the entry and the week's placing, both under the member the import made", got, err)
 	}
-	if _, err := a.MergeChallengeName(ctx, "nobody", "Ann"); !errors.Is(err, ErrNoChallengeEntry) {
-		t.Errorf("merging a name with no entries = %v, want ErrNoChallengeEntry", err)
+	if lines, want := adminLines(t, a), "cyrus First 70"; !strings.HasPrefix(lines, want) || !strings.Contains(lines, "Anne First 55") {
+		t.Errorf("entries = %q, want Cy's entry under cyrus and both Anne entries under Anne", lines)
+	}
+	if weeks, err := NewRatingsReader(asReader(t, pool)).ChallengeWeeks(ctx); err != nil || len(weeks) != 1 || weeks[0].Winners[0].Name != "cyrus" {
+		t.Errorf("weeks = %+v, %v, want the placing shown as the member cyrus", weeks, err)
+	}
+	for _, tt := range []struct {
+		name, from, to string
+		want           error
+	}{
+		{"no member of the name to", "anne", "Ann", ErrNoMember},
+		{"nothing under from", "nobody", "Cyrus", ErrNoChallengeEntry},
+		{"already theirs", "cyrus", "Cyrus", ErrNoChallengeEntry},
+		{"an empty name", "", "Cyrus", ErrBadChallengeEntry},
+	} {
+		if _, err := a.MergeChallengeName(ctx, tt.from, tt.to); !errors.Is(err, tt.want) {
+			t.Errorf("%s: MergeChallengeName(%q, %q) = %v, want %v", tt.name, tt.from, tt.to, err, tt.want)
+		}
 	}
 }
 
@@ -277,6 +295,30 @@ func TestReplaceChallengeWeeksKeepsTheLatestFile(t *testing.T) {
 	}
 	if len(weeks) != 1 || weeks[0].Challenge != "2ai" || len(weeks[0].Winners) != 2 || weeks[0].Winners[1].Name != "Cy" || weeks[0].RunnersUp[0].Name != "Ann" {
 		t.Errorf("weeks = %+v, want week 1 on 2ai won by Bob and Cy, Ann second", weeks)
+	}
+}
+
+func TestReplaceChallengeWeeksLinksPlacingsToMembers(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	withChallengeEntries(t, pool)
+	if _, err := NewAdminStore(asAdminLogin(t, pool)).AddMember(ctx, Member{Name: "ann", Zone: "UTC"}); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+	week := []challenges.Week{{Number: 1, Of: time.Date(2024, 9, 22, 0, 0, 0, 0, time.UTC), Challenge: "1ai",
+		Winners: []challenges.Placing{{Name: "ANN", Domination: 90}}, RunnersUp: []challenges.Placing{{Name: "Zed", Domination: 80}}}}
+	if _, err := ReplaceChallengeWeeks(ctx, pool, week); err != nil {
+		t.Fatalf("ReplaceChallengeWeeks: %v", err)
+	}
+	weeks, err := NewRatingsReader(asReader(t, pool)).ChallengeWeeks(ctx)
+	if err != nil {
+		t.Fatalf("ChallengeWeeks: %v", err)
+	}
+	if len(weeks) != 1 || weeks[0].Winners[0].Name != "ann" || weeks[0].RunnersUp[0].Name != "Zed" {
+		t.Errorf("weeks = %+v, want the winner shown as the member ann and the runner-up as entered", weeks)
+	}
+	if linked := rowsOf(t, pool, "SELECT name || ':' || coalesce(member_id::text, '-') FROM challenge_week_places ORDER BY place DESC"); !slices.Equal(linked, []string{"ANN:" + linked[0][4:], "Zed:-"}) || linked[0] == "ANN:-" {
+		t.Errorf("placings = %q, want ANN linked to a member and Zed to none", linked)
 	}
 }
 

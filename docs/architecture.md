@@ -371,8 +371,9 @@ weekly winners and submitting, linked by a row of tabs under the header.
   admin links it), the account that submitted it, a proof link, when, and
   where it came from (`sheet` or `web`, the old site, or `site`, made
   here). Admins mark an entry hidden with a reason, bugged, or its proof
-  checked, correct its domination or proof, and merge a name into another or
-  into the member it belongs to; each change writes its audit row. A linked
+  checked, correct its domination or proof, and move everything under a name
+  (a misspelling, or a member the import made) to the member it belongs to;
+  each change writes its audit row. A linked
   player, not banned, submits their own through `submit_challenge_entries`,
   which checks their session as `report_blitz_game` does. A proof must be a
   message link in the TtA Discord server: `challenge_proof_url` in the
@@ -380,11 +381,14 @@ weekly winners and submitting, linked by a row of tabs under the header.
   way, for players' submissions and admins' corrections alike. The old site's entries
   are imported with `load challenge-entries <file>`, its admin list as
   JSON: it replaces every imported entry, and links each name to the member
-  of that TTA username, ignoring case only; it never touches entries made
-  here
+  of that TTA username, ignoring case only, adding a member for a name that
+  has none (spelt as the player of that name is, when there is one); it
+  never touches entries made here
 - **The weekly challenge** (September 2024 to July 2025) is a finished event:
   each week's challenge and the names that won or came second, loaded whole
-  with `load challenge-weeks <weekly.json>` from the data repo
+  with `load challenge-weeks <weekly.json>` from the data repo, each placing
+  linked to the member of that TTA username as entries are (admin's name
+  merge moves placings too)
 - **The rules** are in `internal/challenges`, with their tests. The score is
   a **domination** in everything players read, as in the game. An entry is
   **verified** when it links a message in the Through the Ages Discord. A

@@ -56,7 +56,7 @@ func (f *fakeAdmins) MergeChallengeName(_ context.Context, from, to string) (sto
 		return store.ChallengeNameMerged{}, store.ErrNoChallengeEntry
 	}
 	f.notes = append(f.notes, "merge "+from+" into "+to)
-	return store.ChallengeNameMerged{Moved: 2, Member: true}, nil
+	return store.ChallengeNameMerged{Moved: 2}, nil
 }
 
 func TestAnOrganiserListsChallengeEntriesByView(t *testing.T) {
@@ -119,7 +119,7 @@ func TestAnOrganiserChangesAnEntryAndMergesANameAudited(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST names = %d %s, want 200", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "", `{"moved": 2, "member": true}`)
+	wantJSON(t, rec.Body.Bytes(), "", `{"moved": 2}`)
 	want := "set entry 3: domination 30, proof https://discord.com/channels/358698681672925195/5/6, hidden true|merge anne into Ann"
 	if got := strings.Join(f.notes, "|"); got != want {
 		t.Errorf("what reached the store = %q, want %q", got, want)
