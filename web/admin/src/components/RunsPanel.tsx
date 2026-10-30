@@ -118,7 +118,7 @@ export default function RunsPanel() {
     const sure = await dialog.confirm(
       {
         heading: 'Start a rating run now?',
-        text: 'It usually takes 20 to 40 minutes, and is not shown on the site until you publish it.',
+        text: 'It is not shown on the site until you publish it.',
         action: 'Start run',
       },
       opener,

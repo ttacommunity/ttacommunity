@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"ttacommunity/backend/internal/cgeextract"
 )
 
@@ -136,10 +138,10 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 		{"a matched game takes CGE's share code, session and finish date",
 			`SELECT share_code || ' ' || cge_session || ' ' || date FROM games WHERE name LIKE '%game 2'`, "CODEBBBB 101 2024-02-03"},
 		{"a resignation the file scored 0 is CGE's, placed by order",
-			`SELECT outcome || ' ' || culture || ' ' || cge_score || ' ' || place FROM seats WHERE player_name = 'cy' AND cge_score IS NOT NULL
+			`SELECT outcome || ' ' || culture || ' ' || cge_score || ' ' || place FROM seats WHERE player_id = (SELECT player_id FROM players WHERE name = 'cy') AND cge_score IS NOT NULL
 			 AND game_id = (SELECT game_id FROM games WHERE share_code = 'CODEAAAA')`, "resigned 0 -9 3"},
 		{"a seat only CGE holds is added, timed out and last",
-			`SELECT s.player_name || ' ' || s.outcome || ' ' || s.place FROM seats s JOIN games g USING (game_id)
+			`SELECT sp.name || ' ' || s.outcome || ' ' || s.place FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id)
 			 WHERE g.share_code = 'CODEBBBB' AND s.seat = 3`, "dee timed_out 3"},
 		{"an account belongs to the player who played it",
 			`SELECT p.name FROM player_accounts a JOIN players p USING (player_id) WHERE a.cge_user = 1`, "ann"},
@@ -310,7 +312,7 @@ func TestApplyCGEExtractKeepsAnAccountsPlayerWhoGoesByAnotherName(t *testing.T) 
 		t.Fatalf("ApplyCGEExtract: %v", err)
 	}
 
-	got := rowsOf(t, pool, `SELECT s.player_name || ' ' || a.cge_user FROM seats s JOIN player_accounts a ON a.cge_user = s.cge_user
+	got := rowsOf(t, pool, `SELECT sp.name || ' ' || a.cge_user FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN player_accounts a ON a.cge_user = s.cge_user
 		JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD' ORDER BY a.cge_user`)
 	if want := []string{"ann 1", "bob 2"}; !slices.Equal(got, want) {
 		t.Errorf("seat player, account = %q, want %q: a deleted account keeps the player we know by their last name", got, want)
@@ -423,7 +425,7 @@ func TestApplyCGEExtractReadsOutcomesFromTheFilesScores(t *testing.T) {
 	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{}); err != nil {
 		t.Fatalf("ApplyCGEExtract: %v", err)
 	}
-	got := rowsOf(t, pool, "SELECT player_name || ' ' || outcome || ' ' || culture || ' ' || place FROM seats ORDER BY seat")
+	got := rowsOf(t, pool, "SELECT p.name || ' ' || s.outcome || ' ' || s.culture || ' ' || s.place FROM seats s JOIN players p USING (player_id) ORDER BY s.seat")
 	want := []string{"ann finished 120 1", "bob finished 0 2", "cy resigned 0 3", "dee timed_out 0 4"}
 	if !slices.Equal(got, want) {
 		t.Errorf("seats = %q, want %q", got, want)
@@ -478,7 +480,7 @@ func TestApplyCGEExtractCorrectsAnAccountAnEarlierLoadLinkedWrongly(t *testing.T
 				        linked_reason = '` + tt.reason + `' WHERE cge_user = 2`,
 				`UPDATE seats s SET cge_user = 3 - s.cge_user, place = 3 - s.place, culture = CASE s.place WHEN 1 THEN 150 ELSE 200 END
 				 FROM games g WHERE g.game_id = s.game_id AND g.share_code = 'CODEAAAA'`,
-				`UPDATE seats s SET player_id = (SELECT player_id FROM players WHERE name = 'ann'), player_name = 'ann'
+				`UPDATE seats s SET player_id = (SELECT player_id FROM players WHERE name = 'ann')
 				 FROM games g WHERE g.game_id = s.game_id AND g.share_code IN ('CODECCCC', 'CODEDDDD', 'CODEBBBB') AND s.cge_user = 2`,
 				`UPDATE games SET source_file = 'cge' WHERE share_code = 'CODEBBBB'`,
 			} {
@@ -494,14 +496,14 @@ func TestApplyCGEExtractCorrectsAnAccountAnEarlierLoadLinkedWrongly(t *testing.T
 			}
 			checks := []struct{ what, query, want string }{
 				{"bob's account", `SELECT p.name FROM player_accounts a JOIN players p USING (player_id) WHERE a.cge_user = 2`, tt.wantLinked},
-				{"the game only CGE has", `SELECT s.player_name FROM seats s JOIN games g USING (game_id)
+				{"the game only CGE has", `SELECT sp.name FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id)
 					WHERE g.share_code = 'CODECCCC' AND s.cge_user = 2`, tt.wantLinked},
-				{"the game only CGE has between the two", `SELECT string_agg(s.cge_user || ' ' || s.player_name, ', ' ORDER BY s.cge_user)
-					FROM seats s JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD'`, tt.wantBetween},
-				{"the game an earlier CGE scrape named", `SELECT string_agg(s.cge_user || ' ' || s.player_name, ', ' ORDER BY s.cge_user)
-					FROM seats s JOIN games g USING (game_id) WHERE g.share_code = 'CODEBBBB'`, tt.wantBetween},
+				{"the game only CGE has between the two", `SELECT string_agg(s.cge_user || ' ' || sp.name, ', ' ORDER BY s.cge_user)
+					FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD'`, tt.wantBetween},
+				{"the game an earlier CGE scrape named", `SELECT string_agg(s.cge_user || ' ' || sp.name, ', ' ORDER BY s.cge_user)
+					FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id) WHERE g.share_code = 'CODEBBBB'`, tt.wantBetween},
 				{"ann's seat in the shared game", `SELECT s.cge_user || ' ' || s.place || ' ' || s.culture FROM seats s
-					JOIN games g USING (game_id) WHERE g.share_code = 'CODEAAAA' AND s.player_name = 'ann'`, "1 1 200"},
+					JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id) WHERE g.share_code = 'CODEAAAA' AND sp.name = 'ann'`, "1 1 200"},
 			}
 			for _, c := range checks {
 				var v string
@@ -553,6 +555,7 @@ func TestApplyCGEExtractDropsTheSeatsOfPlayersCGERemoved(t *testing.T) {
 			UNION ALL SELECT 'p' || p::text FROM players p UNION ALL SELECT 'a' || a::text FROM player_accounts a ORDER BY 1`)
 	}
 
+	players := rowsOf(t, pool, "SELECT name FROM players")
 	got := load(nil)
 	if got.HeldBack != 1 || got.Added != 1 {
 		t.Errorf("held back %d, added %d; want the game with cy's seat held back and Snail Cup's added", got.HeldBack, got.Added)
@@ -572,14 +575,15 @@ func TestApplyCGEExtractDropsTheSeatsOfPlayersCGERemoved(t *testing.T) {
 
 	tests := []struct{ name, query, want string }{
 		{"the game only CGE has is its players' alone",
-			`SELECT string_agg(s.player_name || ' ' || s.outcome || ' ' || s.place || ' ' || coalesce(s.cge_user::text, '-'), ', ' ORDER BY s.seat)
-			 FROM seats s JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD'`,
+			`SELECT string_agg(sp.name || ' ' || s.outcome || ' ' || s.place || ' ' || coalesce(s.cge_user::text, '-'), ', ' ORDER BY s.seat)
+			 FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id) WHERE g.share_code = 'CODEDDDD'`,
 			"eve finished 1 5, fay finished 2 6"},
 		{"our game is the others': cy's seat is gone",
-			`SELECT string_agg(s.player_name || ' ' || s.place, ', ' ORDER BY s.seat) || ' ' || g.share_code
-			 FROM seats s JOIN games g USING (game_id) WHERE g.game_id = ` + strconv.FormatInt(gameID, 10) + ` GROUP BY g.share_code`,
+			`SELECT string_agg(sp.name || ' ' || s.place, ', ' ORDER BY s.seat) || ' ' || g.share_code
+			 FROM seats s JOIN players sp ON sp.player_id = s.player_id JOIN games g USING (game_id) WHERE g.game_id = ` + strconv.FormatInt(gameID, 10) + ` GROUP BY g.share_code`,
 			"ann 1, bob 2 CODEAAAA"},
-		{"no player holds seats for nobody", `SELECT count(*)::text FROM players WHERE name = 'Unknown player'`, "0"},
+		{"no player is added for an empty seat", `SELECT string_agg(name, ',' ORDER BY name) FROM players
+			WHERE name NOT IN ('` + strings.Join(players, "', '") + `')`, "eve,fay"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -632,23 +636,6 @@ func TestApplyCGEExtractFillsOnlyAnEmptyOrganiserName(t *testing.T) {
 	}
 }
 
-func TestApplyCGEExtractRefusesAnAccountNamedLikeThePlaceholder(t *testing.T) {
-	pool := migrated(t)
-	ctx := context.Background()
-	placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02")})
-	setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
-	seats := extractOf(999, 200, "CODEDDDD", cgeDone(5, "Unknown player", 1, 100), cgeEmpty())
-	in := CGEInput{Extract: cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 5}}}}
-	plan, err := PlanCGEExtract(ctx, pool, in.Extract, nil)
-	if err != nil {
-		t.Fatalf("PlanCGEExtract: %v", err)
-	}
-
-	if _, err := ApplyCGEExtract(ctx, pool, plan, in); err == nil || !strings.Contains(err.Error(), UnknownPlayer) {
-		t.Errorf("ApplyCGEExtract with a CGE account named Unknown player: err = %v, want one naming it", err)
-	}
-}
-
 func TestApplyCGEExtractRemovesTheCopyAnEarlierLoadAddedOfAGameConfirmedByHand(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
@@ -670,12 +657,13 @@ func TestApplyCGEExtractRemovesTheCopyAnEarlierLoadAddedOfAGameConfirmedByHand(t
 		{`INSERT INTO games (batch_id, source_file, source_line, name, date, state, group_id, share_code, cge_session)
 		  SELECT batch_id, 'tournaments_export.csv', 1, 'Intermezzo S24 - Bronze 1 game 2', '2024-02-03', 'played', $1, 'CODEAAAA', 100
 		  FROM import_batches ORDER BY batch_id LIMIT 1 RETURNING game_id`, &copyID},
-		{`INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place)
-		  SELECT $1, a.cge_user, a.player_id, a.name, a.cge_user, 'finished', 200 - 50 * (a.cge_user - 1), a.cge_user FROM player_accounts a RETURNING game_id`, nil},
+		{`INSERT INTO seats (game_id, seat, player_id, cge_user, outcome, culture, place)
+		  SELECT $1, a.cge_user, a.player_id, a.cge_user, 'finished', 200 - 50 * (a.cge_user - 1), a.cge_user FROM player_accounts a RETURNING game_id`, nil},
 		{"INSERT INTO group_members (group_id, player_id) SELECT $1, player_id FROM player_accounts RETURNING group_id", nil},
 		{"INSERT INTO rating_runs (engine_version, input_fingerprint) VALUES ('t', 't') RETURNING run_id", &runID},
 		{`INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
-		  VALUES ($1, $2, '2024-02-03', 'Intermezzo S24', 2, 'ann', 'bob', 200, 150, 1, 1, true) RETURNING run_id`, nil},
+		  SELECT $1, $2, '2024-02-03', 'Intermezzo S24', 2, (SELECT player_id FROM players WHERE name = 'ann'),
+		         (SELECT player_id FROM players WHERE name = 'bob'), 200, 150, 1, 1, true RETURNING run_id`, nil},
 		{"INSERT INTO tournament_games (run_id, match_id, series, name_season) VALUES ($1, $2, 'intermezzo', 24) RETURNING run_id", nil},
 	} {
 		var into int64
@@ -724,7 +712,7 @@ func TestApplyCGEExtractRemovesTheCopyAnEarlierLoadAddedOfAGameConfirmedByHand(t
 			"SELECT (SELECT count(*) FROM pairwise_matches WHERE match_id = $1)::text || ' ' || (SELECT count(*) FROM tournament_games WHERE match_id = $1)", copyID, "0 0"},
 		{"the run stays", "SELECT count(*)::text FROM rating_runs WHERE run_id = $1", runID, "1"},
 		{"our game takes CGE's code and is ann's and bob's: cy, removed from it, is gone",
-			`SELECT g.share_code || ' ' || string_agg(s.player_name, ',' ORDER BY s.seat) FROM games g JOIN seats s USING (game_id)
+			`SELECT g.share_code || ' ' || string_agg(sp.name, ',' ORDER BY s.seat) FROM games g JOIN seats s USING (game_id) JOIN players sp ON sp.player_id = s.player_id
 			 WHERE g.game_id = $1 GROUP BY g.share_code`, gameID, "CODEAAAA ann,bob"},
 	}
 	for _, tt := range tests {
@@ -813,5 +801,120 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 				t.Errorf("CGE's page = %q, want it kept and linked to 2031 either way", page)
 			}
 		})
+	}
+}
+
+// loadExtract plans and applies an extract of Snail Cup (CGE tournament 999) holding seats.
+func loadExtract(t *testing.T, pool *pgxpool.Pool, seats []cgeextract.Seat) (CGEApplied, error) {
+	t.Helper()
+	ctx := context.Background()
+	x := cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 2}}}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	return ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x})
+}
+
+// finishedOn moves seats' game to finish at the time given.
+func finishedOn(at time.Time, seats []cgeextract.Seat) []cgeextract.Seat {
+	for i := range seats {
+		seats[i].FinishedAt = &at
+	}
+	return seats
+}
+
+// namesSnapshot is every player, name, account, game and seat, to compare two moments by.
+const namesSnapshot = `SELECT 'p' || p::text FROM players p UNION ALL SELECT 'n' || n::text FROM player_names n
+	UNION ALL SELECT 'a' || a::text FROM player_accounts a UNION ALL SELECT 'g' || g::text FROM games g
+	UNION ALL SELECT 's' || s::text FROM seats s ORDER BY 1`
+
+func TestApplyCGEExtractNamesAPlayerAfterTheirAccount(t *testing.T) {
+	later := time.Date(2024, 5, 6, 23, 30, 0, 0, time.UTC)
+	tests := []struct {
+		name          string
+		first, second []cgeextract.Seat
+		wantPlayer    string
+		wantNames     []string
+		wantRenamed   int
+	}{
+		{"an account renamed renames its player, who keeps the old name",
+			extractOf(999, 200, "CODEDDDD", cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)),
+			finishedOn(later, extractOf(999, 201, "CODEEEEE", cgeDone(1, "annie", 1, 100), cgeDone(2, "bob", 2, 50))),
+			"annie", []string{"ann 2024-02-03 2024-02-03 cge_extract", "annie 2024-05-06 2024-05-06 cge_extract"}, 1},
+		{"a deleted account's name renames nobody",
+			extractOf(999, 200, "CODEDDDD", cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)),
+			finishedOn(later, extractOf(999, 201, "CODEEEEE", cgeDone(1, "deleted_user_1", 1, 100), cgeDone(2, "bob", 2, 50))),
+			"ann", []string{"ann 2024-02-03 2024-02-03 cge_extract", "deleted_user_1 2024-05-06 2024-05-06 cge_extract"}, 0},
+		{"a player with two live accounts of different names keeps their name",
+			extractOf(999, 200, "CODEDDDD", cgeDone(1, "ann", 1, 100), cgeDone(3, "ann", 2, 70), cgeDone(2, "bob", 3, 50)),
+			finishedOn(later, extractOf(999, 201, "CODEEEEE", cgeDone(1, "annie", 1, 100), cgeDone(3, "ann", 2, 70), cgeDone(2, "bob", 3, 50))),
+			"ann", []string{"ann 2024-02-03 2024-05-06 cge_extract", "annie 2024-05-06 2024-05-06 cge_extract"}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			for _, q := range []string{
+				"INSERT INTO players (name) VALUES ('ann'), ('bob')",
+				"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 1, player_id, 'ann' FROM players WHERE name = 'ann'",
+				"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 2, player_id, 'bob' FROM players WHERE name = 'bob'",
+			} {
+				if _, err := pool.Exec(context.Background(), q); err != nil {
+					t.Fatalf("%s: %v", q, err)
+				}
+			}
+			if _, err := loadExtract(t, pool, tt.first); err != nil {
+				t.Fatalf("the first load: %v", err)
+			}
+			got, err := loadExtract(t, pool, tt.second)
+			if err != nil {
+				t.Fatalf("the second load: %v", err)
+			}
+
+			if got.PlayersRenamed != tt.wantRenamed {
+				t.Errorf("players renamed = %d, want %d", got.PlayersRenamed, tt.wantRenamed)
+			}
+			player := rowsOf(t, pool, "SELECT p.name FROM player_accounts a JOIN players p USING (player_id) WHERE a.cge_user = 1")
+			if !slices.Equal(player, []string{tt.wantPlayer}) {
+				t.Errorf("account 1's player = %q, want %q", player, tt.wantPlayer)
+			}
+			names := rowsOf(t, pool, `SELECT n.name || ' ' || n.first_seen || ' ' || n.last_seen || ' ' || n.source FROM player_names n
+				JOIN player_accounts a USING (player_id) WHERE a.cge_user = 1 ORDER BY n.name COLLATE "C"`)
+			if !slices.Equal(names, tt.wantNames) {
+				t.Errorf("account 1's player's names = %q, want %q", names, tt.wantNames)
+			}
+
+			before := rowsOf(t, pool, namesSnapshot)
+			again, err := loadExtract(t, pool, tt.second)
+			if err != nil {
+				t.Fatalf("the second load again: %v", err)
+			}
+			if after := rowsOf(t, pool, namesSnapshot); !slices.Equal(after, before) || again.PlayersRenamed != 0 {
+				t.Errorf("loading the same extract again renamed %d and changed the data:\n%q\nwant\n%q", again.PlayersRenamed, after, before)
+			}
+		})
+	}
+}
+
+func TestApplyCGEExtractRefusesANameAnotherPlayerHas(t *testing.T) {
+	pool := migrated(t)
+	for _, q := range []string{
+		"INSERT INTO players (name) VALUES ('ann'), ('bob'), ('cy')",
+		"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 1, player_id, 'ann' FROM players WHERE name = 'ann'",
+		"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 2, player_id, 'bob' FROM players WHERE name = 'bob'",
+	} {
+		if _, err := pool.Exec(context.Background(), q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	before := rowsOf(t, pool, namesSnapshot)
+
+	_, err := loadExtract(t, pool, extractOf(999, 200, "CODEDDDD", cgeDone(1, "Cy", 1, 100), cgeDone(2, "bob", 2, 50)))
+
+	if err == nil || !strings.Contains(err.Error(), "1 player") || !strings.Contains(err.Error(), "CGE accounts 1") || strings.Contains(err.Error(), "Cy") {
+		t.Errorf("loading an account renamed to cy's name: err = %v, want one counting 1 player and giving account 1, naming nobody", err)
+	}
+	if after := rowsOf(t, pool, namesSnapshot); !slices.Equal(after, before) {
+		t.Errorf("the refused load changed the data:\n%q\nwant\n%q", after, before)
 	}
 }

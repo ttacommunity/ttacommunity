@@ -291,9 +291,10 @@ func TestCatalogueTournamentGivesLeagueChampions(t *testing.T) {
 		"Intermezzo S24 - Grandmaster game 1": day("2024-01-02"),
 		"Intermezzo S25 - Grandmaster game 1": day("2024-05-01"),
 	})
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings)
-		VALUES ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'ann', 1, 20, 6, '{}'), ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'bob', 2, 12, 6, '{}'),
-		       ($1, 'intermezzo', 24, 'Gold', 'Gold 1', 'cat', 1, 25, 6, '{}'), ($1, 'intermezzo', 25, 'Grandmaster', 'Grandmaster', 'ann', 1, 18, 6, '{}')`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_id, place, points, games, placings)
+		VALUES ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', $2, 1, 20, 6, '{}'), ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', $3, 2, 12, 6, '{}'),
+		       ($1, 'intermezzo', 24, 'Gold', 'Gold 1', $4, 1, 25, 6, '{}'), ($1, 'intermezzo', 25, 'Grandmaster', 'Grandmaster', $2, 1, 18, 6, '{}')`,
+		run, playerID(t, pool, "ann"), playerID(t, pool, "bob"), playerID(t, pool, "cat")); err != nil {
 		t.Fatalf("adding standings: %v", err)
 	}
 	addPlacements(t, pool, tournamentcsv.Placement{Series: "intermezzo", Season: 25, Division: "Grandmaster", Player: "dan",
@@ -610,6 +611,7 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 	placedOn(t, pool, map[string]time.Time{"Worlds 1 stage 8": day("2022-07-28")})
 	addPlacements(t, pool, tournamentcsv.Placement{Series: "worlds", Season: 2022, Division: "Final", Player: "Ember_Wolf",
 		Place: 1, Reason: "CGE final standings", Source: "CGE /tournaments/detail/3391/8"})
+	addPlayers(t, pool, "Linnet")
 	podium := []PodiumEntry{{Place: 1, Name: "Linnet"}, {Place: 2, Name: "Ember_Wolf"}}
 	if err := NewAdminStore(pool).SetPodium(ctx, "worlds", "2022 (Age A)", podium, "The organiser's ruling"); err != nil {
 		t.Fatalf("SetPodium: %v", err)
@@ -881,9 +883,9 @@ func TestRecentPodiumsGivesEachTournamentsLatestSeasonWithAPodium(t *testing.T) 
 	}); err != nil {
 		t.Fatalf("ReplacePodiums: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings)
-		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', 'ann', 2, 12, 6, '{}'),
-		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'ann', 1, 20, 6, '{}')`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_id, place, points, games, placings)
+		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', $2, 2, 12, 6, '{}'),
+		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', $2, 1, 20, 6, '{}')`, run, playerID(t, pool, "ann")); err != nil {
 		t.Fatalf("adding standings: %v", err)
 	}
 	if err := NewAdminStore(pool).AddSeason(ctx, "international", "3"); err != nil {
@@ -914,9 +916,9 @@ func TestRecentPodiumsLeavesOutASeasonStillBeingPlayed(t *testing.T) {
 		"Intermezzo S23 - Grandmaster game 1": day("2023-09-02"),
 		"Intermezzo S24 - Grandmaster game 1": day("2024-01-02"),
 	})
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_name, place, points, games, placings, finished)
-		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', 'ann', 1, 12, 6, '{}', true),
-		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', 'bob', 1, 20, 1, '{}', false)`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_id, place, points, games, placings, finished)
+		VALUES ($1, 'intermezzo', 23, 'Grandmaster', 'Grandmaster', $2, 1, 12, 6, '{}', true),
+		       ($1, 'intermezzo', 24, 'Grandmaster', 'Grandmaster', $3, 1, 20, 1, '{}', false)`, run, playerID(t, pool, "ann"), playerID(t, pool, "bob")); err != nil {
 		t.Fatalf("adding standings: %v", err)
 	}
 
@@ -1017,7 +1019,7 @@ func TestCatalogueTournamentMasksHiddenPlayersOnPodiums(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("ReplacePodiums: %v", err)
 	}
-	if err := NewAdminStore(pool).SetPodium(ctx, "wimbledon", "2024", []PodiumEntry{{Place: 1, Name: "DAN"}, {Place: 2, Name: "cat"}}, ""); err != nil {
+	if err := NewAdminStore(pool).SetPodium(ctx, "wimbledon", "2024", []PodiumEntry{{Place: 1, Name: "dan"}, {Place: 2, Name: "cat"}}, ""); err != nil {
 		t.Fatalf("SetPodium: %v", err)
 	}
 
@@ -1027,7 +1029,7 @@ func TestCatalogueTournamentMasksHiddenPlayersOnPodiums(t *testing.T) {
 		t.Fatalf("CatalogueTournament: %v", err)
 	}
 	if diff := cmp.Diff([][]string{{"Deleted player", "cat"}, {"Deleted player", "cat"}}, podiumNames(got.Seasons)); diff != "" {
-		t.Errorf("podiums, ann (deleted) and dan (banned, set in admin as DAN) masked (-want +got):\n%s", diff)
+		t.Errorf("podiums, ann (deleted) and dan (banned, set in admin) masked (-want +got):\n%s", diff)
 	}
 }
 
@@ -1046,7 +1048,7 @@ func TestCatalogueTournamentLeavesOutHiddenPlayersTopTierWinsAndStories(t *testi
 		t.Fatalf("ReplaceLadderWins: %v", err)
 	}
 	if err := NewAdminStore(pool).SetStories(ctx, "mercurial_ladder", []Story{
-		{Player: "Ann", Title: "First", Text: "A story."}, {Player: "cat", Title: "Second", Text: "Another."},
+		{Player: "ann", Title: "First", Text: "A story."}, {Player: "cat", Title: "Second", Text: "Another."},
 	}); err != nil {
 		t.Fatalf("SetStories: %v", err)
 	}
@@ -1060,7 +1062,7 @@ func TestCatalogueTournamentLeavesOutHiddenPlayersTopTierWinsAndStories(t *testi
 		t.Errorf("top-tier wins = %+v, want cat's only: ann's account is deleted", got.TopTierWins)
 	}
 	if len(got.Stories) != 1 || got.Stories[0].Player != "cat" {
-		t.Errorf("stories = %+v, want cat's only: ann's (written as Ann) left out", got.Stories)
+		t.Errorf("stories = %+v, want cat's only: ann's left out", got.Stories)
 	}
 }
 

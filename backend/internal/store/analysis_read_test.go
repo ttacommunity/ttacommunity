@@ -177,7 +177,7 @@ func TestActivityCountsPlayersGamesTitlesAndCountries(t *testing.T) {
 	addRating(t, pool, other, "glicko2_std", 0, "unrated", ptr(1), 1500)
 	// Active means a last game after the cutoff, in any model or format.
 	_, err := pool.Exec(ctx, `UPDATE player_ratings SET last_played = CASE WHEN player_count = 2 THEN '2025-06-01'::date
-		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_name IN ('gm1', 's1')`, run)
+		ELSE '2025-05-31'::date END WHERE run_id = $1 AND player_id IN (SELECT player_id FROM players WHERE name IN ('gm1', 's1'))`, run)
 	if err != nil {
 		t.Fatalf("setting last played: %v", err)
 	}

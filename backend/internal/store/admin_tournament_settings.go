@@ -386,7 +386,8 @@ func (a *AdminStore) SetCard(ctx context.Context, slug string, c Card) error {
 // ErrBadStory means more than 12 stories, or one without a player, title or story, or over its lengths.
 var ErrBadStory = errors.New("at most 12 stories, each with a player, a title (120) and the story (1,000), a badge of up to 60")
 
-// SetStories replaces a tournament's stories with these, in this order. It returns ErrNoTournament or ErrBadStory.
+// SetStories replaces a tournament's stories with these, in this order. It returns ErrNoTournament, ErrBadStory, or
+// ErrNoPlayer for a story whose player is no player's name.
 func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) error {
 	if len(list) > 12 {
 		return ErrBadStory
@@ -412,9 +413,13 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 			return fmt.Errorf("setting the stories of %s: %w", slug, err)
 		}
 		for i, s := range clean {
-			if _, err := tx.Exec(ctx, `INSERT INTO tournament_stories (tournament, position, player_name, badge, title, text)
-				VALUES ($1, $2, $3, $4, $5, $6)`, slug, i+1, s.Player, s.Badge, s.Title, s.Text); err != nil {
+			tag, err := tx.Exec(ctx, `INSERT INTO tournament_stories (tournament, position, player_id, badge, title, text)
+				SELECT $1, $2, player_id, $4, $5, $6 FROM players WHERE name = $3`, slug, i+1, s.Player, s.Badge, s.Title, s.Text)
+			if err != nil {
 				return fmt.Errorf("setting the stories of %s: %w", slug, err)
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrNoPlayer
 			}
 		}
 		return nil

@@ -256,8 +256,9 @@ def season(add_match):
 
 def ratings(conn, run_id, model_type, player_count):
     return conn.execute(
-        "SELECT player_name, rank, wins, losses, draws, opponents_count, last_played, rating, c_rating "
-        "FROM player_ratings WHERE run_id = %s AND model_type = %s AND player_count = %s ORDER BY rank",
+        "SELECT name AS player, rank, wins, losses, draws, opponents_count, last_played, rating, c_rating "
+        "FROM player_ratings JOIN players USING (player_id) "
+        "WHERE run_id = %s AND model_type = %s AND player_count = %s ORDER BY rank",
         (run_id, model_type, player_count),
     ).fetchall()
 
@@ -273,7 +274,7 @@ def test_ratings_are_ranked_by_conservative_rating(conn, add_match, run_id):
     assert [r["c_rating"] for r in rows] == sorted(
         (r["c_rating"] for r in rows), reverse=True
     )
-    regulars = [r["player_name"] for r in rows if r["player_name"] != "Dave"]
+    regulars = [r["player"] for r in rows if r["player"] != "Dave"]
     assert regulars == ["Alice", "Bob", "Carol"]
 
 
@@ -284,7 +285,7 @@ def test_player_stats_count_every_pair(conn, add_match, run_id):
     compute_glicko2_ratings(player_count=0, conn=conn, run_id=run_id)
 
     bob = next(
-        r for r in ratings(conn, run_id, "glicko2_std", 0) if r["player_name"] == "Bob"
+        r for r in ratings(conn, run_id, "glicko2_std", 0) if r["player"] == "Bob"
     )
     # 3 losses to Alice, 3 draws with Carol, and a 3-player game: beat Alice, lost to Dave.
     assert (bob["wins"], bob["losses"], bob["draws"], bob["opponents_count"]) == (
@@ -302,7 +303,7 @@ def test_a_format_only_ranks_players_who_played_it(conn, add_match, run_id):
 
     compute_glicko2_ratings(player_count=3, conn=conn, run_id=run_id)
 
-    names = {r["player_name"] for r in ratings(conn, run_id, "glicko2_std", 3)}
+    names = {r["player"] for r in ratings(conn, run_id, "glicko2_std", 3)}
     assert names == {"Alice", "Bob", "Dave"}
 
 
@@ -313,8 +314,8 @@ def test_history_has_a_point_per_player_per_month(conn, add_match, run_id):
     compute_glicko2_ratings(player_count=2, conn=conn, run_id=run_id)
 
     rows = conn.execute(
-        "SELECT player_name, period_date FROM rating_history "
-        "WHERE run_id = %s AND model_type = 'glicko2_std' AND player_count = 2 AND player_name = 'Alice' "
+        "SELECT period_date FROM rating_history JOIN players USING (player_id) "
+        "WHERE run_id = %s AND model_type = 'glicko2_std' AND player_count = 2 AND name = 'Alice' "
         "ORDER BY period_date",
         (run_id,),
     ).fetchall()
@@ -389,7 +390,7 @@ def test_ineligible_games_do_not_move_ratings(conn, add_match, run_id):
     compute_glicko2_ratings(conn=conn, run_id=run_id)
 
     alice, bob = ratings(conn, run_id, "glicko2_std", 0)
-    assert (alice["player_name"], bob["player_name"]) == ("Alice", "Bob")
+    assert (alice["player"], bob["player"]) == ("Alice", "Bob")
     assert alice["rating"] > 1500 > bob["rating"]
 
 

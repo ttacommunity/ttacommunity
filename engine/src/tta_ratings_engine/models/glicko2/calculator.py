@@ -634,22 +634,22 @@ def compute_glicko2_ratings(
 def _player_stats(
     conn: psycopg.Connection, run_id: int, player_count: int
 ) -> dict[str, Any]:
-    """Returns each player's pairs, wins, losses, draws and last game in the run's format, by name."""
+    """Returns each player's pairs, wins, losses, draws and last game in the run's format, by player id."""
     if player_count and player_count > 0:
         stats_rows = conn.execute(
             """
             SELECT
-                p.name,
+                p.player_id,
                 COUNT(pm.pairwise_id) as opps_count,
-                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
-                         WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
-                         WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN pm.player_a = p.player_id AND pm.outcome_a = 1.0 THEN 1
+                         WHEN pm.player_b = p.player_id AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.player_a = p.player_id AND pm.outcome_a = 0.0 THEN 1
+                         WHEN pm.player_b = p.player_id AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
                 SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
                 MAX(pm.date) as last_played
             FROM players p
-            INNER JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.player_count = %s AND pm.run_id = %s
-            GROUP BY p.name
+            INNER JOIN pairwise_matches pm ON (p.player_id = pm.player_a OR p.player_id = pm.player_b) AND pm.player_count = %s AND pm.run_id = %s
+            GROUP BY p.player_id
         """,
             (player_count, run_id),
         ).fetchall()
@@ -657,21 +657,21 @@ def _player_stats(
         stats_rows = conn.execute(
             """
             SELECT
-                p.name,
+                p.player_id,
                 COUNT(pm.pairwise_id) as opps_count,
-                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 1.0 THEN 1
-                         WHEN pm.player_b = p.name AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
-                SUM(CASE WHEN pm.player_a = p.name AND pm.outcome_a = 0.0 THEN 1
-                         WHEN pm.player_b = p.name AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN pm.player_a = p.player_id AND pm.outcome_a = 1.0 THEN 1
+                         WHEN pm.player_b = p.player_id AND pm.outcome_a = 0.0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN pm.player_a = p.player_id AND pm.outcome_a = 0.0 THEN 1
+                         WHEN pm.player_b = p.player_id AND pm.outcome_a = 1.0 THEN 1 ELSE 0 END) as losses,
                 SUM(CASE WHEN pm.outcome_a = 0.5 THEN 1 ELSE 0 END) as draws,
                 MAX(pm.date) as last_played
             FROM players p
-            LEFT JOIN pairwise_matches pm ON (p.name = pm.player_a OR p.name = pm.player_b) AND pm.run_id = %s
-            GROUP BY p.name
+            LEFT JOIN pairwise_matches pm ON (p.player_id = pm.player_a OR p.player_id = pm.player_b) AND pm.run_id = %s
+            GROUP BY p.player_id
         """,
             (run_id,),
         ).fetchall()
-    return {r["name"]: r for r in stats_rows}
+    return {r["player_id"]: r for r in stats_rows}
 
 
 def _rating_rows(
@@ -698,7 +698,7 @@ def _rating_rows(
 
         player_rankings.append(
             {
-                "name": p_name,
+                "player": p_name,
                 "rating": round(r_obj.rating, 2),
                 "rd": round(r_obj.rd, 2),
                 "sigma": round(r_obj.sigma, 4),
@@ -720,7 +720,7 @@ def _rating_rows(
             (
                 model_type,
                 player_count,
-                p_data["name"],
+                p_data["player"],
                 p_data["rating"],
                 p_data["rd"],
                 p_data["sigma"],

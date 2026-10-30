@@ -64,24 +64,25 @@ type PlayerSeatRow struct {
 // PlayerSeats calculates seat statistics for a player: by default rated games only,
 // or all games when unrated is true.
 func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string, unrated bool) (PlayerSeatStats, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return PlayerSeatStats{}, err
 	}
+	name := who.Name
 
 	// The games rated are counted by the run as it is made; every played game is counted here, from the player's seats.
 	query := `
 		SELECT player_count, seat, games, wins, draws, avg_culture, p1, p2, p3, p4
-		FROM player_seat_stats WHERE run_id = $1 AND player_name = $2
+		FROM player_seat_stats WHERE run_id = $1 AND player_id = $2
 		ORDER BY player_count, seat`
-	args := []any{run, name}
+	args := []any{run, who.ID}
 	if unrated {
 		query = `
 		WITH mine AS (
 			SELECT (SELECT count(*) FROM seats o WHERE o.game_id = s.game_id) AS player_count,
 				s.game_id, s.starting_position, s.seat, s.place, s.culture
 			FROM seats s JOIN games g ON g.game_id = s.game_id AND g.state = 'played'
-			WHERE s.player_name = $1),
+			WHERE s.player_id = $1),
 		player_seats AS (
 			SELECT
 				m.player_count,
@@ -105,7 +106,7 @@ func (r *RatingsReader) PlayerSeats(ctx context.Context, run int64, asked string
 		FROM player_seats
 		GROUP BY player_count, seat
 		ORDER BY player_count, seat`
-		args = []any{name}
+		args = []any{who.ID}
 	}
 
 	rows, err := r.pool.Query(ctx, query, args...)

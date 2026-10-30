@@ -23,6 +23,7 @@ from tta_ratings_engine.data.community import (
     wimbledon_round,
 )
 from tta_ratings_engine.data.db import RunNotRunning
+from tta_ratings_engine.data.players import Player
 
 POINTS = {
     ("international", 2024): {("Wood", 2): 15},
@@ -122,12 +123,12 @@ def test_eiffel_floor(group, want):
     assert eiffel_floor(group) == want
 
 
-def line(stage, group, place, name, points=10):
+def line(stage, group, place, player, points=10):
     return {
         "stage": stage,
         "group": group,
         "place": place,
-        "name": name,
+        "player": player,
         "points": points,
     }
 
@@ -255,21 +256,41 @@ def points_table(conn, slug, edition, cells):
 
 
 def cge_line(conn, t, s, group, place, player, user, games=6, points=10):
+    """Adds a row of CGE's standings for CGE account user, making the account, as player, when it is new."""
     conn.execute(
-        "INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, player_name, cge_user, "
-        "banned, games, points, source) VALUES (%s, %s, %s, %s, %s, %s, %s, false, %s, %s, 'CGE')",
-        (t, s, group, place, place, player, user, games, points),
+        "INSERT INTO players (name) SELECT %s WHERE NOT EXISTS (SELECT FROM player_accounts WHERE cge_user = %s) "
+        "ON CONFLICT DO NOTHING",
+        (player, user),
+    )
+    conn.execute(
+        "INSERT INTO player_accounts (cge_user, player_id, name) SELECT %s, player_id, name FROM players "
+        "WHERE name = %s ON CONFLICT DO NOTHING",
+        (user, player),
+    )
+    conn.execute(
+        "INSERT INTO cge_standings (cge_tournament, cge_season, group_name, row_number, place, cge_user, "
+        "banned, games, points, source) VALUES (%s, %s, %s, %s, %s, %s, false, %s, %s, 'CGE')",
+        (t, s, group, place, place, user, games, points),
     )
     conn.commit()
 
 
+def sheet_score(conn, edition, player, event, score):
+    """Adds the organisers' sheet score for a player."""
+    conn.execute(
+        "INSERT INTO community_scores (edition, player_id, event, score, source) "
+        "SELECT %s, player_id, %s, %s, 'sheet' FROM players WHERE name = %s",
+        (edition, event, score, player),
+    )
+
+
 def event_points(conn, run_id):
     rows = conn.execute(
-        "SELECT tournament, season, player_name, points FROM community_event_points WHERE run_id = %s "
-        "ORDER BY tournament, season, player_name",
+        "SELECT tournament, season, name AS player, points FROM community_event_points JOIN players USING (player_id) "
+        "WHERE run_id = %s ORDER BY tournament, season, name",
         (run_id,),
     ).fetchall()
-    return [(r["tournament"], r["season"], r["player_name"], r["points"]) for r in rows]
+    return [(r["tournament"], r["season"], r["player"], r["points"]) for r in rows]
 
 
 def test_a_league_season_scores_cge_places_by_division(conn, run_id, catalogue):
@@ -319,8 +340,11 @@ def test_a_league_season_without_cge_standings_takes_the_runs_own(
 ):
     catalogue("international", "33", [("", 21, 24)], quarter=(2026, 2))
     points_table(conn, "international", 2025, {("Master", 2): 410})
+    conn.execute("INSERT INTO players (name) VALUES ('ann')")
     conn.execute(
-        "INSERT INTO tournament_standings VALUES (%s, 'international', 33, 'Master', 'Master 1', 'ann', 2, 9, 6, '{0,0,0,0}')",
+        "INSERT INTO tournament_standings (run_id, series, season, division, group_label, player_id, place, points, "
+        "games, placings) SELECT %s, 'international', 33, 'Master', 'Master 1', player_id, 2, 9, 6, '{0,0,0,0}' "
+        "FROM players WHERE name = 'ann'",
         (run_id,),
     )
     conn.commit()
@@ -435,12 +459,15 @@ def test_an_event_the_sheet_has_no_column_for_comes_last():
     assert "ldrb" in counted({**filler, "zzz": 92, "ldrb": 92})
 
 
-def test_equal_points_share_a_rank():
-    assert ranked({"ann": 50, "bob": 70, "cy": 50, "dee": 10}) == [
-        (1, "bob"),
-        (2, "ann"),
-        (2, "cy"),
-        (4, "dee"),
+def test_equal_points_share_a_rank_in_name_order():
+    ann, bob, cy, dee = (
+        Player(n, i) for i, n in enumerate(("ann", "Bob", "cy", "dee"), start=1)
+    )
+    assert ranked({cy: 50, bob: 70, ann: 50, dee: 10}) == [
+        (1, bob),
+        (2, ann),
+        (2, cy),
+        (4, dee),
     ]
 
 
@@ -455,10 +482,11 @@ def test_event_code_is_the_series_code_with_its_season(code, season, want):
 
 def rankings(conn, run_id, edition):
     rows = conn.execute(
-        "SELECT rank, player_name, points, events FROM community_rankings WHERE run_id = %s AND edition = %s ORDER BY rank, player_name",
+        "SELECT rank, name AS player, points, events FROM community_rankings JOIN players USING (player_id) "
+        "WHERE run_id = %s AND edition = %s ORDER BY rank, name",
         (run_id, edition),
     ).fetchall()
-    return [(r["rank"], r["player_name"], r["points"], r["events"]) for r in rows]
+    return [(r["rank"], r["player"], r["points"], r["events"]) for r in rows]
 
 
 def test_an_edition_ranks_its_seasons_and_the_sheets_other_events(
@@ -473,13 +501,9 @@ def test_an_edition_ranks_its_seasons_and_the_sheets_other_events(
     cge_line(conn, 21, 22, "Wood 1", 1, "Bob", 2)
     cge_line(conn, 21, 20, "Wood 1", 1, "cy", 3)
     add_match(("Bob", 1), ("x", 0), day=date(2026, 1, 5), placed=None)
-    # Royal League is not computed: the sheet's points stand, under our spelling of the name.
-    conn.execute(
-        "INSERT INTO community_scores VALUES ('2025', 'BOB', 'rl_05', 30, 'sheet')"
-    )
-    conn.execute(
-        "INSERT INTO community_scores VALUES ('2025', 'BOB', 'ic_30', 999, 'sheet')"
-    )  # computed: ours win
+    # Royal League is not computed: the sheet's points stand.
+    sheet_score(conn, "2025", "Bob", "rl_05", 30)
+    sheet_score(conn, "2025", "Bob", "ic_30", 999)  # computed: ours win
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     assert rankings(conn, run_id, "2025") == [
@@ -574,9 +598,10 @@ def test_a_ladder_edition_ranks_its_rounds_totals_into_the_grid(
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     got = {
-        (r["player_name"], r["points"])
+        (r["player"], r["points"])
         for r in conn.execute(
-            "SELECT player_name, points FROM community_edition_points WHERE run_id = %s AND edition = '2025' AND event = 'ml'",
+            "SELECT name AS player, points FROM community_edition_points JOIN players USING (player_id) "
+            "WHERE run_id = %s AND edition = '2025' AND event = 'ml'",
             (run_id,),
         )
     }
@@ -604,9 +629,10 @@ def test_a_ladder_round_counts_in_the_year_cge_finished_it(
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     got = {
-        (r["edition"], r["player_name"])
+        (r["edition"], r["player"])
         for r in conn.execute(
-            "SELECT edition, player_name FROM community_edition_points WHERE run_id = %s AND event = 'sl'",
+            "SELECT edition, name AS player FROM community_edition_points JOIN players USING (player_id) "
+            "WHERE run_id = %s AND event = 'sl'",
             (run_id,),
         )
     }
@@ -635,9 +661,10 @@ def test_a_ladder_round_counts_in_the_year_the_organisers_recorded(
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     got = {
-        (r["edition"], r["player_name"])
+        (r["edition"], r["player"])
         for r in conn.execute(
-            "SELECT edition, player_name FROM community_edition_points WHERE run_id = %s AND event = 'sl'",
+            "SELECT edition, name AS player FROM community_edition_points JOIN players USING (player_id) "
+            "WHERE run_id = %s AND event = 'sl'",
             (run_id,),
         )
     }
@@ -661,15 +688,14 @@ def test_a_ladder_edition_before_its_first_rule_keeps_the_sheets_points(
         group="Mercurial Tier",
     )
     move_last_game("mercurial_ladder", "Mercurial Tier")
-    conn.execute(
-        "INSERT INTO community_scores VALUES ('2024', 'ann', 'ml', 640, 'sheet')"
-    )
+    sheet_score(conn, "2024", "ann", "ml", 640)
     conn.commit()
     derive_community(conn=conn, run_id=run_id)
     got = {
-        (r["player_name"], r["points"], r["source"])
+        (r["player"], r["points"], r["source"])
         for r in conn.execute(
-            "SELECT player_name, points, source FROM community_edition_points WHERE run_id = %s AND edition = '2024' AND event = 'ml'",
+            "SELECT name AS player, points, source FROM community_edition_points JOIN players USING (player_id) "
+            "WHERE run_id = %s AND edition = '2024' AND event = 'ml'",
             (run_id,),
         )
     }
@@ -698,7 +724,8 @@ def test_a_season_left_out_of_the_community_leaderboard_scores_nothing(
     derive_community(conn=conn, run_id=run_id)
 
     got = conn.execute(
-        "SELECT points FROM community_edition_points WHERE run_id = %s AND edition = '2023' AND player_name = 'ann' AND event = 'wrld'",
+        "SELECT points FROM community_edition_points JOIN players USING (player_id) "
+        "WHERE run_id = %s AND edition = '2023' AND name = 'ann' AND event = 'wrld'",
         (run_id,),
     ).fetchall()
     assert [r["points"] for r in got] == [115]

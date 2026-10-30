@@ -434,3 +434,24 @@ func TestARunsRowsGoInItsOwnPartition(t *testing.T) {
 		t.Errorf("run %d's rating is in %s, want %s", run, in, want)
 	}
 }
+
+func TestLoadMatchesRecordsTheNamesTheFileGives(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	early, late := match("s1.csv", 2, "ann", "bob"), match("s1.csv", 3, "ann", "Cat")
+	early.Date = time.Date(2023, 5, 6, 0, 0, 0, 0, time.UTC)
+	late.Date = time.Date(2024, 7, 8, 0, 0, 0, 0, time.UTC)
+	if _, err := LoadMatches(ctx, pool, []matchcsv.Match{early, late}, nil); err != nil {
+		t.Fatalf("LoadMatches: %v", err)
+	}
+
+	got := rowsOf(t, pool, `SELECT n.name || ' ' || n.first_seen || ' ' || n.last_seen || ' ' || n.source
+		FROM player_names n JOIN players p USING (player_id) WHERE p.name = n.name ORDER BY n.name COLLATE "C"`)
+	want := []string{"Cat 2024-07-08 2024-07-08 match_file", "ann 2023-05-06 2024-07-08 match_file", "bob 2023-05-06 2023-05-06 match_file"}
+	if !slices.Equal(got, want) {
+		t.Errorf("player_names after loading a match file = %q, want %q", got, want)
+	}
+	if n := count(t, pool, "player_names"); n != 3 {
+		t.Errorf("player_names = %d rows, want 3: one per player and name", n)
+	}
+}

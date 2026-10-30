@@ -40,7 +40,7 @@ var ErrUnlistedTable = errors.New("the input tables differ from the export's lis
 // holds no personal data: of members, only the columns in exportColumns. Every other table holds a run's results,
 // which the engine computes again, or is in NotExported.
 var ExportTables = []string{
-	"import_batches", "players", "player_accounts", "members",
+	"import_batches", "players", "player_accounts", "player_names", "members",
 	"series", "tournaments", "stages", "groups", "group_members", "settings",
 	"games", "seats",
 	"rankings", "ranking_series", "cge_tournaments", "cge_tournament_moderators", "cge_standings",

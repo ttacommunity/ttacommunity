@@ -76,6 +76,7 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
+	addPlayers(t, pool, "alder440", "kittiwake", "Eider")
 	a := NewAdminStore(asAdminLogin(t, pool))
 
 	first := []PodiumEntry{{Place: 1, Name: "alder440"}, {Place: 2, Name: "kittiwake"}, {Place: 3, Name: "Eider"}}

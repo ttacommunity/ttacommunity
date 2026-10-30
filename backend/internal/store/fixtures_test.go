@@ -284,22 +284,37 @@ func hideAccount(t *testing.T, pool *pgxpool.Pool, name, how string) {
 	}
 }
 
+// playerID returns the id of the player named name, adding the player first when there is none, as a run's rows
+// name players the games hold.
+func playerID(t *testing.T, pool *pgxpool.Pool, name string) int64 {
+	t.Helper()
+	var id int64
+	err := pool.QueryRow(context.Background(), `
+		WITH added AS (INSERT INTO players (name) VALUES ($1) ON CONFLICT (name) DO NOTHING RETURNING player_id)
+		SELECT player_id FROM added UNION ALL SELECT player_id FROM players WHERE name = $1`, name).Scan(&id)
+	if err != nil {
+		t.Fatalf("finding player %s: %v", name, err)
+	}
+	return id
+}
+
 func addRating(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name string, rank *int, cRating float64) {
 	t.Helper()
 	ctx := context.Background()
+	id := playerID(t, pool, name)
 	_, err := pool.Exec(ctx, `
-		INSERT INTO player_ratings (run_id, model_type, player_count, player_name, rating, rd, sigma, c_rating, rank,
+		INSERT INTO player_ratings (run_id, model_type, player_count, player_id, rating, rd, sigma, c_rating, rank,
 			rank_delta, games_played, opponents_count, wins, losses, draws, win_rate, last_played)
 		VALUES ($1, $2, $3, $4, $5::float8 + 100, 50, 0.06, $5::float8, $6, -2, 12, 9, 7, 4, 1, 58.3, '2025-02-17')`,
-		run, model, format, name, cRating, rank)
+		run, model, format, id, cRating, rank)
 	if err != nil {
 		t.Fatalf("inserting %s's rating in run %d: %v", name, run, err)
 	}
 	_, err = pool.Exec(ctx, `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
 		VALUES ($1, $2, $3, $4, '2025-01-01', $5::float8 + 100, 50, $5::float8)
-		ON CONFLICT (run_id, model_type, player_count, player_name, period_date) DO NOTHING`,
-		run, model, format, name, cRating)
+		ON CONFLICT (run_id, model_type, player_count, player_id, period_date) DO NOTHING`,
+		run, model, format, id, cRating)
 	if err != nil {
 		t.Fatalf("inserting %s's rating history in run %d: %v", name, run, err)
 	}
@@ -343,8 +358,8 @@ func setSeats(t *testing.T, pool *pgxpool.Pool, pattern string, seats ...Seat) {
 	}{
 		{"DELETE FROM seats WHERE game_id IN (SELECT game_id FROM games WHERE name LIKE $1)", []any{pattern}},
 		{"INSERT INTO players (name) SELECT unnest($1::text[]) ON CONFLICT (name) DO NOTHING", []any{names}},
-		{`INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
-		  SELECT g.game_id, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score,
+		{`INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, place)
+		  SELECT g.game_id, s.seat, p.player_id, greatest(s.score, 0), s.score,
 		         rank() OVER (PARTITION BY g.game_id ORDER BY s.score DESC)
 		  FROM games g CROSS JOIN unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat)
 		  JOIN players p ON p.name = s.name WHERE g.name LIKE $1`, []any{pattern, names, scores}},

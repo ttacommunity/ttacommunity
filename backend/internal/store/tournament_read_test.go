@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 // classified is a game as the engine classifies it.
@@ -56,7 +58,7 @@ func TestTournamentSeriesGivesTheBoardInTheEnginesOrder(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPeakTitle(t, pool, run, "cat", "WC", 2023)
-	insert := `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, title,
+	insert := `INSERT INTO tournament_boards (run_id, series, player_id, gold, silver, bronze, points, title,
 		first_season, position, details, games, wins, win_rate) VALUES ($1, 'x', $2, $3, $4, $5, 0, $6, NULL, $7, $8, $9, $10, $11)`
 	one, two := 1, 2
 	three, rate := 30, 66.7
@@ -72,7 +74,7 @@ func TestTournamentSeriesGivesTheBoardInTheEnginesOrder(t *testing.T) {
 		{name: "bob", gold: &two, silver: &one, bronze: &one, details: ptr("2025 Wimbledon TTA Champion"), position: 1},
 		{name: "ann", games: &three, wins: &two, rate: &rate, position: 3},
 	} {
-		if _, err := pool.Exec(ctx, insert, run, b.name, b.gold, b.silver, b.bronze, b.title, b.position, b.details, b.games, b.wins, b.rate); err != nil {
+		if _, err := pool.Exec(ctx, insert, run, playerID(t, pool, b.name), b.gold, b.silver, b.bronze, b.title, b.position, b.details, b.games, b.wins, b.rate); err != nil {
 			t.Fatalf("adding %s to the board: %v", b.name, err)
 		}
 	}
@@ -132,8 +134,9 @@ func TestTournamentSeriesGivesTheTenBestSeasons(t *testing.T) {
 			points = 29
 		}
 		_, err := pool.Exec(ctx, `
-			INSERT INTO tournament_season_records VALUES ($1, 'international', 30, 'Grandmaster', $2, $3, 7, $4, '2025-07-31', $5)`,
-			run, fmt.Sprintf("p%02d", i), points, []int{wins, 1, 1, 0}, first)
+			INSERT INTO tournament_season_records (run_id, series, season, division, player_id, points, games, placings, last_date, first_match_id)
+			VALUES ($1, 'international', 30, 'Grandmaster', $2, $3, 7, $4, '2025-07-31', $5)`,
+			run, playerID(t, pool, fmt.Sprintf("p%02d", i)), points, []int{wins, 1, 1, 0}, first)
 		if err != nil {
 			t.Fatalf("adding season record %d: %v", i, err)
 		}
@@ -209,9 +212,14 @@ func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "wc")
 	for _, q := range []string{
 		"INSERT INTO tournament_series VALUES ($1, 'worlds', 31121, 5), ($1, 'international', 31674, 34)",
-		"INSERT INTO tournament_legends VALUES ($1, 2, 'ann', 0, 2, 0, 0, 2, 1, 0), ($1, 1, 'wc', 1, 1, 0, 0, 2, 0, 1)",
+		`INSERT INTO tournament_legends (run_id, position, player_id, world_titles, international_titles, intermezzo_titles,
+		     royal_league_titles, gold, silver, bronze)
+		 SELECT $1, l.position, p.player_id, l.w, l.i, 0, 0, l.g, l.s, l.b
+		 FROM (VALUES (2, 'ann', 0, 2, 2, 1, 0), (1, 'wc', 1, 1, 2, 0, 1)) AS l(position, name, w, i, g, s, b)
+		 JOIN players p USING (name)`,
 	} {
 		if _, err := pool.Exec(ctx, q, run); err != nil {
 			t.Fatalf("%s: %v", q, err)
@@ -219,14 +227,14 @@ func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 	}
 	addPeakTitle(t, pool, run, "wc", "WC", 2025)
 	for i := range 12 {
-		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, gold, silver, bronze, points, position, details)
-			VALUES ($1, 'grand_slams', $2, 1, 0, 0, 0, $3, 'cup')`, run, fmt.Sprintf("g%02d", i), i+1)
+		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_id, gold, silver, bronze, points, position, details)
+			VALUES ($1, 'grand_slams', $2, 1, 0, 0, 0, $3, 'cup')`, run, playerID(t, pool, fmt.Sprintf("g%02d", i)), i+1)
 		if err != nil {
 			t.Fatalf("adding a cup row: %v", err)
 		}
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position, games, wins, win_rate)
-		VALUES ($1, 'ladders', 'lad', 0, 1, 91, 54, 59.3)`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_id, points, position, games, wins, win_rate)
+		VALUES ($1, 'ladders', $2, 0, 1, 91, 54, 59.3)`, run, playerID(t, pool, "lad")); err != nil {
 		t.Fatalf("adding a ladder row: %v", err)
 	}
 
@@ -254,9 +262,11 @@ func TestHallOfFameGivesCountsLegendsAndTheTopOfTwoBoards(t *testing.T) {
 func addRecord(t *testing.T, pool *pgxpool.Pool, run int64, player string, position int, finish string, career bool) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO tournament_records VALUES ($1, $2, $3, 'International Championship', 'Season 30', 'Grandmaster',
+		INSERT INTO tournament_records (run_id, player_id, position, tournament, season, division, placement, points, medal,
+		  details, finish_date, career)
+		VALUES ($1, $2, $3, 'International Championship', 'Season 30', 'Grandmaster',
 		  '1 / 7', '20 pts', CASE WHEN $3 = 1 THEN 'gold' END, $4, $5, $6)`,
-		run, player, position, fmt.Sprintf("%s #%d", player, position), finish, career)
+		run, playerID(t, pool, player), position, fmt.Sprintf("%s #%d", player, position), finish, career)
 	if err != nil {
 		t.Fatalf("adding record %d: %v", position, err)
 	}
@@ -276,8 +286,9 @@ func TestPlayerAchievementsGiveTheSummaryAndRecordsLatestFirst(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addPlayers(t, pool, "Ann", "Bob")
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_achievements VALUES ($1, 'Ann', 1, 2, 0, 0, 3, 1, 0,
-		ARRAY['2024 World Champion', '2x International Champion'])`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_achievements (run_id, player_id, world_titles, international_titles,
+		intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades)
+		VALUES ($1, $2, 1, 2, 0, 0, 3, 1, 0, ARRAY['2024 World Champion', '2x International Champion'])`, run, playerID(t, pool, "Ann")); err != nil {
 		t.Fatal(err)
 	}
 	addRecord(t, pool, run, "Ann", 1, "2024-12-15", false)
@@ -307,7 +318,7 @@ func TestPlayerAchievementsGiveTheSummaryAndRecordsLatestFirst(t *testing.T) {
 	}
 }
 
-func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
+func TestPlayerAchievementsAreThePlayersOwnUnderTheirNameNow(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
@@ -315,13 +326,16 @@ func TestPlayerAchievementsMatchRecordsIgnoringCase(t *testing.T) {
 	addPlayers(t, pool, "RowandeSable", "RowanDeSable")
 	addRecord(t, pool, run, "RowandeSable", 1, "2020-07-26", false)
 	addRecord(t, pool, run, "RowanDeSable", 2, "2023-09-25", false)
+	if _, err := pool.Exec(ctx, "UPDATE players SET name = 'Rowan' WHERE name = 'RowandeSable'"); err != nil {
+		t.Fatalf("renaming: %v", err)
+	}
 
-	name, summary, recs, err := r.PlayerAchievements(ctx, run, "RowandeSable")
+	name, summary, recs, err := r.PlayerAchievements(ctx, run, "rowan")
 	if err != nil {
 		t.Fatalf("PlayerAchievements: %v", err)
 	}
-	if got, want := recordIDs(recs), []string{"RowanDeSable #2", "RowandeSable #1"}; name != "RowandeSable" || summary != nil || !slices.Equal(got, want) {
-		t.Errorf("PlayerAchievements = %q, %+v, %q; want RowandeSable, no summary, %q", name, summary, got, want)
+	if got, want := recordIDs(recs), []string{"RowandeSable #1"}; name != "Rowan" || summary != nil || !slices.Equal(got, want) {
+		t.Errorf("PlayerAchievements = %q, %+v, %q; want Rowan, no summary, %q", name, summary, got, want)
 	}
 }
 
@@ -346,21 +360,24 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 	r := NewRatingsReader(asReader(t, pool))
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	addPlayers(t, pool, "ann", "RowandeSable", "RowanDeSable")
+	addPlayers(t, pool, "ann", "RowandeSable", "Marten Fisher", "zed")
 	setCountries(t, pool, map[string]string{"ann": "PL", "RowandeSable": "FR"})
-	for _, q := range []string{
-		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, 'ann', 'SGM', 1, 'r')",
-		`INSERT INTO community_standings VALUES ('2024', 2, 2, 'Marten Fisher', 6687, 13, 's'), ('2024', 1, 1, 'ANN', 7657, 11, 's'),
-		  ('2024', 4, 3, 'RowandeSable', 10, 1, 's'), ('2024', 3, 3, 'zed', 10, 1, 's'), ('2025', 1, 1, 'ann', 6600, 17, 's')`,
-		"INSERT INTO community_scores VALUES ('2024', 'ANN', 'wrld', 1600, 's'), ('2024', 'ANN', 'ic_24', 1000, 's'), ('2025', 'ann', 'wrld', 5, 's')",
-	} {
-		args := []any{}
-		if strings.Contains(q, "$1") {
-			args = append(args, run)
-		}
-		if _, err := pool.Exec(ctx, q, args...); err != nil {
-			t.Fatalf("%s: %v", q, err)
-		}
+	addTitle(t, pool, run, "ann", "SGM", 1, "r")
+	if _, err := ReplaceCommunityStandings(ctx, pool, []tournamentcsv.Standing{
+		{Edition: "2024", SheetRow: 2, Rank: 2, Player: "Marten Fisher", Points: 6687, Events: 13, Source: "s"},
+		{Edition: "2024", SheetRow: 1, Rank: 1, Player: "ANN", Points: 7657, Events: 11, Source: "s"},
+		{Edition: "2024", SheetRow: 4, Rank: 3, Player: "RowandeSable", Points: 10, Events: 1, Source: "s"},
+		{Edition: "2024", SheetRow: 3, Rank: 3, Player: "zed", Points: 10, Events: 1, Source: "s"},
+		{Edition: "2025", SheetRow: 1, Rank: 1, Player: "ann", Points: 6600, Events: 17, Source: "s"},
+	}); err != nil {
+		t.Fatalf("ReplaceCommunityStandings: %v", err)
+	}
+	if _, err := ReplaceCommunityScores(ctx, pool, []tournamentcsv.Score{
+		{Edition: "2024", Player: "ANN", Event: "wrld", Score: 1600, Source: "s"},
+		{Edition: "2024", Player: "ANN", Event: "ic_24", Score: 1000, Source: "s"},
+		{Edition: "2025", Player: "ann", Event: "wrld", Score: 5, Source: "s"},
+	}); err != nil {
+		t.Fatalf("ReplaceCommunityScores: %v", err)
 	}
 
 	got, err := r.CommunityLeaderboard(ctx, run, "2024")
@@ -372,7 +389,7 @@ func TestCommunityLeaderboardGivesAnEditionWithPlayersCountriesAndTitles(t *test
 		lines = append(lines, fmt.Sprintf("%d %s %s %s %g %d %v", row.Rank, row.Name, orDash(row.Country), orDash(row.Title), row.Points, row.Events, row.Scores))
 	}
 	want := []string{
-		"1 ANN PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
+		"1 ann PL SGM 7657 11 map[ic_24:1000 wrld:1600]",
 		"2 Marten Fisher - - 6687 13 map[]",
 		"3 zed - - 10 1 map[]", // equal ranks and points in the sheet's order
 		"3 RowandeSable FR - 10 1 map[]",
@@ -392,11 +409,17 @@ func TestCommunityLeaderboardExcludesDeletedAndBannedPlayers(t *testing.T) {
 		"INSERT INTO player_accounts (cge_user, player_id, name, deleted) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'",
 		"INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 2, player_id, 'bob', true FROM players WHERE name = 'bob'",
 		"INSERT INTO player_accounts (cge_user, player_id, name) SELECT 3, player_id, 'dan' FROM players WHERE name = 'dan'",
-		"INSERT INTO community_standings VALUES ('2024', 1, 1, 'ann', 7000, 10, 's'), ('2024', 2, 2, 'bob', 6000, 10, 's'), ('2024', 3, 3, 'dan', 5000, 10, 's')",
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
-			t.Fatalf("setting up community standings or accounts: %v", err)
+			t.Fatalf("setting up accounts: %v", err)
 		}
+	}
+	var standings []tournamentcsv.Standing
+	for i, name := range []string{"ann", "bob", "dan"} {
+		standings = append(standings, tournamentcsv.Standing{Edition: "2024", SheetRow: i + 1, Rank: i + 1, Player: name, Points: float64(7000 - 1000*i), Events: 10, Source: "s"})
+	}
+	if _, err := ReplaceCommunityStandings(ctx, pool, standings); err != nil {
+		t.Fatalf("ReplaceCommunityStandings: %v", err)
 	}
 
 	got, err := r.CommunityLeaderboard(ctx, run, "2024")
@@ -415,14 +438,16 @@ func TestHallOfFameLeavesOutHiddenPlayers(t *testing.T) {
 	addPlayers(t, pool, "ann", "bob", "cat")
 	hideAccount(t, pool, "ann", "deleted")
 	hideAccount(t, pool, "bob", "banned")
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_legends VALUES
-		($1, 1, 'ann', 1, 0, 0, 0, 1, 0, 0), ($1, 2, 'BOB', 1, 0, 0, 0, 1, 0, 0), ($1, 3, 'cat', 0, 1, 0, 0, 1, 0, 0)`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_legends (run_id, position, player_id, world_titles, international_titles,
+		    intermezzo_titles, royal_league_titles, gold, silver, bronze)
+		SELECT $1, l.position, p.player_id, l.w, l.i, 0, 0, 1, 0, 0
+		FROM (VALUES (1, 'ann', 1, 0), (2, 'bob', 1, 0), (3, 'cat', 0, 1)) AS l(position, name, w, i) JOIN players p USING (name)`, run); err != nil {
 		t.Fatalf("adding legends: %v", err)
 	}
 	board := []string{"ann", "bob", "g01", "g02", "g03", "g04", "g05", "g06", "g07", "g08", "g09", "g10"}
 	for i, name := range board {
-		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position)
-			VALUES ($1, 'grand_slams', $2, 0, $3), ($1, 'ladders', $2, 0, $3)`, run, name, i+1)
+		_, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_id, points, position)
+			VALUES ($1, 'grand_slams', $2, 0, $3), ($1, 'ladders', $2, 0, $3)`, run, playerID(t, pool, name), i+1)
 		if err != nil {
 			t.Fatalf("adding board rows: %v", err)
 		}
@@ -433,7 +458,7 @@ func TestHallOfFameLeavesOutHiddenPlayers(t *testing.T) {
 		t.Fatalf("HallOfFame: %v", err)
 	}
 	if len(got.Legends) != 1 || got.Legends[0].Name != "cat" {
-		t.Errorf("legends = %+v, want cat only: ann's account is deleted, bob's banned (named BOB)", got.Legends)
+		t.Errorf("legends = %+v, want cat only: ann's account is deleted, bob's banned", got.Legends)
 	}
 	for what, rows := range map[string][]TrophyRow{"grand slams": got.GrandSlams, "ladders": got.Ladders} {
 		if len(rows) != 10 || rows[0].Name != "g01" || rows[9].Name != "g10" {
@@ -450,13 +475,14 @@ func TestTournamentSeriesHidesHiddenPlayers(t *testing.T) {
 	hideAccount(t, pool, "ann", "deleted")
 	addPeakTitle(t, pool, run, "ann", "WC", 2024)
 	for i, name := range []string{"ann", "cat"} {
-		if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_name, points, position)
-			VALUES ($1, 'international', $2, 0, $3)`, run, name, i+1); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO tournament_boards (run_id, series, player_id, points, position)
+			VALUES ($1, 'international', $2, 0, $3)`, run, playerID(t, pool, name), i+1); err != nil {
 			t.Fatalf("adding %s's board row: %v", name, err)
 		}
-		if _, err := pool.Exec(ctx, `INSERT INTO tournament_season_records
+		if _, err := pool.Exec(ctx, `INSERT INTO tournament_season_records (run_id, series, season, division, player_id, points,
+			games, placings, last_date, first_match_id)
 			VALUES ($1, 'international', 30, 'Grandmaster', $2, $3, 7, '{3,1,1,0}', '2025-07-31', $4)`,
-			run, name, float64(30-i), i+1); err != nil {
+			run, playerID(t, pool, name), float64(30-i), i+1); err != nil {
 			t.Fatalf("adding %s's season: %v", name, err)
 		}
 	}
@@ -474,6 +500,33 @@ func TestTournamentSeriesHidesHiddenPlayers(t *testing.T) {
 	}
 	if want := []string{"Deleted player false 30", "cat false 29"}; !slices.Equal(seasons, want) {
 		t.Errorf("season records = %q, want %q: ann's season kept, its name and crown masked", seasons, want)
+	}
+}
+
+func TestTournamentSeriesListsTiedSeasonRecordsByName(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "zed", "amy")
+	for _, name := range []string{"zed", "amy"} {
+		if _, err := pool.Exec(ctx, `INSERT INTO tournament_season_records (run_id, series, season, division, player_id, points,
+			games, placings, last_date, first_match_id)
+			VALUES ($1, 'international', 30, 'Grandmaster', $2, 20, 7, '{3,1,1,0}', '2025-07-31', 1)`,
+			run, playerID(t, pool, name)); err != nil {
+			t.Fatalf("adding %s's season: %v", name, err)
+		}
+	}
+
+	got, err := NewRatingsReader(asReader(t, pool)).TournamentSeries(ctx, run, "international")
+	if err != nil {
+		t.Fatalf("TournamentSeries: %v", err)
+	}
+	var names []string
+	for _, s := range got.SeasonRecords {
+		names = append(names, s.Name)
+	}
+	if want := []string{"amy", "zed"}; !slices.Equal(names, want) {
+		t.Errorf("season records = %q, want %q: equal points, wins and first game, so by name", names, want)
 	}
 }
 

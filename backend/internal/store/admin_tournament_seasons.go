@@ -18,7 +18,8 @@ import (
 var ErrBadPodium = errors.New("a podium is 1st to 3rd, each place and player once")
 
 // SetPodium replaces a season's podium with the one given, which the site shows over a recorded or derived
-// one, with the note on its first place. It returns ErrNoTournament or ErrBadPodium.
+// one, with the note on its first place. It returns ErrNoTournament, ErrBadPodium, or ErrNoPlayer for a name that is
+// no player's.
 func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium []PodiumEntry, note string) error {
 	places, names := map[int]bool{}, map[string]bool{}
 	for _, e := range podium {
@@ -40,9 +41,13 @@ func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium 
 			if e.Place == podium[0].Place {
 				n = note
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO tournament_podium_overrides (tournament, season, place, player_name, note)
-				VALUES ($1, $2, $3, $4, $5)`, slug, season, e.Place, strings.TrimSpace(e.Name), n); err != nil {
+			tag, err := tx.Exec(ctx, `INSERT INTO tournament_podium_overrides (tournament, season, place, player_id, note)
+				SELECT $1, $2, $3, player_id, $5 FROM players WHERE name = $4`, slug, season, e.Place, strings.TrimSpace(e.Name), n)
+			if err != nil {
 				return fmt.Errorf("setting the podium of %s %s: %w", slug, season, err)
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrNoPlayer
 			}
 		}
 		return nil

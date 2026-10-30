@@ -8,6 +8,14 @@ from tta_ratings_engine.data.achievements import (
     player_achievements,
     player_records,
 )
+from tta_ratings_engine.data.players import Player
+
+IDS: dict[str, int] = {}
+
+
+def player(name):
+    """An invented player with this name."""
+    return Player(name, IDS.setdefault(name, len(IDS) + 1))
 
 
 def match(tournament, *players, day, match_id):
@@ -18,6 +26,7 @@ def match(tournament, *players, day, match_id):
         "date": day,
         "player_count": len(players),
         "players": [p for p, _ in players],
+        "player_ids": [player(p).id for p, _ in players],
         "places": [1 + sum(1 for _, o in players if o > s) for _, s in players],
         "cultures": [max(s, 0) for _, s in players],
         "outcomes": ["finished" if s >= 0 else "timed_out" for _, s in players],
@@ -32,12 +41,12 @@ TOP = {
 }
 
 
-def placed(player, place, points=None):
-    return {"player_name": player, "place": place, "points": points}
+def placed(name, place, points=None):
+    return {"player": player(name), "place": place, "points": points}
 
 
-def medals(player, gold=0, silver=0, bronze=0):
-    return {"player_name": player, "gold": gold, "silver": silver, "bronze": bronze}
+def medals(name, gold=0, silver=0, bronze=0):
+    return {"player": player(name), "gold": gold, "silver": silver, "bronze": bronze}
 
 
 @pytest.mark.parametrize(
@@ -122,18 +131,18 @@ def test_player_achievements_sum_the_four_circuits_boards():
         "royal_league": [medals("ann", gold=1)],
         "grand_slams": [medals("dan", gold=3)],
     }
-    worlds = {(2024, "ann"): 1, (2025, "bob"): 2}
+    worlds = {(2024, player("ann")): 1, (2025, player("bob")): 2}
 
     got = player_achievements(boards, worlds)
 
     assert got == [
-        {"player_name": "ann", "world_titles": 1, "international_titles": 0, "intermezzo_titles": 1,
+        {"player": player("ann"), "world_titles": 1, "international_titles": 0, "intermezzo_titles": 1,
          "royal_league_titles": 1, "gold": 3, "silver": 1, "bronze": 0,
          "accolades": ["2024 World Champion", "1x Intermezzo Champion", "1x Royal League Emperor Champion"]},
-        {"player_name": "bob", "world_titles": 0, "international_titles": 2, "intermezzo_titles": 0,
+        {"player": player("bob"), "world_titles": 0, "international_titles": 2, "intermezzo_titles": 0,
          "royal_league_titles": 0, "gold": 2, "silver": 1, "bronze": 1,
          "accolades": ["2025 Vice-Champion", "2x International Champion"]},
-        {"player_name": "cat", "world_titles": 0, "international_titles": 0, "intermezzo_titles": 0,
+        {"player": player("cat"), "world_titles": 0, "international_titles": 0, "intermezzo_titles": 0,
          "royal_league_titles": 0, "gold": 0, "silver": 1, "bronze": 0, "accolades": []},
     ]  # fmt: skip
 
@@ -141,7 +150,7 @@ def test_player_achievements_sum_the_four_circuits_boards():
 def test_player_achievements_feature_six_accolades_at_most():
     boards = {"international": [medals("ann", gold=1)], "intermezzo": [medals("ann", gold=1)],
               "royal_league": [medals("ann", gold=1)]}  # fmt: skip
-    worlds = {(y, "ann"): 1 for y in (2021, 2022, 2023, 2024)}
+    worlds = {(y, player("ann")): 1 for y in (2021, 2022, 2023, 2024)}
     got = player_achievements({**boards, "worlds": [medals("ann", gold=4)]}, worlds)
     assert got[0]["accolades"] == [
         "2024 World Champion", "2023 World Champion", "2022 World Champion", "2021 World Champion",
@@ -195,7 +204,7 @@ def records():
     honours = [
         {
             "series": "q_and_d",
-            "player_name": "ann",
+            "player": player("ann"),
             "gold": 2,
             "silver": 0,
             "bronze": 1,
@@ -212,7 +221,7 @@ def records():
     by_player = {}
     for r in got:
         del r["series"], r["series_division"]
-        by_player.setdefault(r.pop("player_name"), []).append(r)
+        by_player.setdefault(r.pop("player").name, []).append(r)
     return by_player
 
 
@@ -295,7 +304,7 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
     honours = [
         {
             "series": "mercurial_ladder",
-            "player_name": "ann",
+            "player": player("ann"),
             "gold": 0,
             "silver": 0,
             "bronze": 0,
@@ -303,7 +312,7 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
         },
         {
             "series": "sodium_ladder",
-            "player_name": "ann",
+            "player": player("ann"),
             "gold": 5,
             "silver": 2,
             "bronze": 0,
@@ -311,7 +320,7 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
         },
         {
             "series": "sodium_ladder",
-            "player_name": "bob",
+            "player": player("bob"),
             "gold": 0,
             "silver": 1,
             "bronze": 0,
@@ -330,7 +339,7 @@ def test_player_records_write_each_honour_series_in_upstreams_order():
         honours=honours,
         dates={},
     )
-    assert [(r["player_name"], r["tournament"], r["division"], r["placement"], r["points"], r["medal"], r["details"])
+    assert [(r["player"].name, r["tournament"], r["division"], r["placement"], r["points"], r["medal"], r["details"])
             for r in got] == [
         ("ann", "Sodium Ladder", "Tier 1", "5 Titles, 2 Runner-ups", "8,5 income tax pts", "gold",
          "Sodium Ladder Career Standings: 5 T1 wins, 2 2nd places"),
@@ -365,7 +374,7 @@ def test_player_records_give_a_cup_one_row_each_ranked_by_the_furthest_stage():
         honours=[],
         dates={},
     )
-    assert [(r["player_name"], r["season"], r["division"], r["placement"], r["points"], r["medal"]) for r in got] == [
+    assert [(r["player"].name, r["season"], r["division"], r["placement"], r["points"], r["medal"]) for r in got] == [
         ("bob", "2026", "Championship", "1 / 4", "170 pts", "gold"),
         ("dan", "2026", "Championship", "2 / 4", "10 pts", "silver"),
         ("ann", "2026", "Championship", "3 / 4", "70 pts", "bronze"),
@@ -490,7 +499,7 @@ def test_a_standings_record_keeps_its_division_whatever_its_games_are_named(
     ann = next(
         r
         for r in got
-        if r["player_name"] == "ann"
+        if r["player"].name == "ann"
         and r["tournament"] == tournament
         and not r["career"]
     )
@@ -522,7 +531,7 @@ def test_player_records_unnamed_international_season_does_not_award_gold_or_gran
         honours=[],
         dates={},
     )
-    ann_rec = next(r for r in got if r["player_name"] == "ann")
+    ann_rec = next(r for r in got if r["player"].name == "ann")
     assert ann_rec["tournament"] == "International Championship"
     assert ann_rec["season"] == "Season 14"
     assert ann_rec["division"] == "Division"
@@ -541,7 +550,7 @@ def test_a_royal_league_season_without_official_placements_takes_its_podium_from
     got = player_records(group_of={}, group_standings={}, division_of={}, rows=[], top_divisions=TOP, standings=standings, official=official, boards={},
                          honours=[], dates={})  # fmt: skip
 
-    assert sorted((r["season"], r["player_name"], r["medal"]) for r in got if r["tournament"] == "Royal League") == [
+    assert sorted((r["season"], r["player"].name, r["medal"]) for r in got if r["tournament"] == "Royal League") == [
         ("Season 1", "ann", "gold"), ("Season 1", "bob", "silver"),
         ("Season 9", "ann", "gold"), ("Season 9", "bob", "silver"), ("Season 9", "cat", "bronze"),
     ]  # fmt: skip
@@ -573,12 +582,12 @@ def test_a_world_championship_row_gives_its_finals_field_when_known():
     got = player_records(group_of={}, group_standings={}, division_of={}, rows=[], top_divisions=TOP, standings={}, official=official, boards={}, honours=[],
                          dates={})  # fmt: skip
 
-    assert {r["player_name"]: r["placement"] for r in got} == {
+    assert {r["player"].name: r["placement"] for r in got} == {
         "ann": "1 / 7",
         "bob": "1",
         "eve": "5 / 7",
     }
-    assert next(r["details"] for r in got if r["player_name"] == "eve").endswith(
+    assert next(r["details"] for r in got if r["player"].name == "eve").endswith(
         "2024 5th Place"
     )
 
@@ -610,7 +619,7 @@ def test_a_lower_division_row_takes_its_groups_standings_place_and_points(
     got = player_records(group_of=group_of, group_standings={MASTER_1: standings}, division_of={}, rows=rows, top_divisions=TOP,
                          standings={}, official={}, boards={}, honours=[], dates={})  # fmt: skip
 
-    dan = next(r for r in got if r["player_name"] == "dan")
+    dan = next(r for r in got if r["player"].name == "dan")
     assert (dan["placement"], dan["points"]) == want
     assert (
         dan["details"]
@@ -629,7 +638,7 @@ def test_a_cup_ranks_by_the_scores_it_was_given_not_their_text():
     got = player_records(group_of={}, group_standings={}, division_of={}, rows=rows, top_divisions=TOP, standings={}, official={},
                          boards={}, honours=[], dates={})  # fmt: skip
 
-    assert [(r["player_name"], r["points"]) for r in got][:2] == [
+    assert [(r["player"].name, r["points"]) for r in got][:2] == [
         ("ann", "213.5 pts"),
         ("bob", "100 pts"),
     ]
@@ -647,7 +656,7 @@ def test_a_top_division_row_without_official_placements_keeps_the_wins_order():
                          rows=rows, top_divisions=TOP, standings={}, official={}, boards={}, honours=[],
                          dates={})  # fmt: skip
 
-    dan = next(r for r in got if r["player_name"] == "dan")
+    dan = next(r for r in got if r["player"].name == "dan")
     assert (dan["placement"], dan["points"]) == ("1 / 2", "2W - 0L (100.0%)")
 
 
@@ -664,7 +673,7 @@ def test_a_season_row_says_which_series_and_division_its_games_were_in():
                          3: ("royal_league", "Duke")}, rows=rows, top_divisions=TOP, standings=standings, official={},
                          boards={}, honours=[], dates={})  # fmt: skip
 
-    assert {(r["player_name"], r["tournament"], r["series"], r["series_division"]) for r in got if not r["career"]} == {
+    assert {(r["player"].name, r["tournament"], r["series"], r["series_division"]) for r in got if not r["career"]} == {
         ("ann", "Royal League", "royal_league", "Duke"),
         ("bob", "Royal League", "royal_league", "Duke"),
         ("ann", "Friendly S1", None, None),

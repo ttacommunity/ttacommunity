@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/google/go-cmp/cmp"
+
+	"ttacommunity/backend/internal/cgeextract"
 )
 
 // addGame stores one game and, if run is not zero, the run's 1v1 pairs for it.
@@ -40,8 +42,8 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 		t.Fatalf("adding game %d's players: %v", id, err)
 	}
 	_, err = pool.Exec(ctx, `
-		INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
-		SELECT $1, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, rank() OVER (ORDER BY s.score DESC)
+		INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, place)
+		SELECT $1, s.seat, p.player_id, greatest(s.score, 0), s.score, rank() OVER (ORDER BY s.score DESC)
 		FROM unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat) JOIN players p USING (name)`,
 		id, names, scores)
 	if err != nil {
@@ -62,7 +64,7 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 				INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b,
 					score_a, score_b, outcome_a, weight, glicko_eligible)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, true)`,
-				run, id, date, tournament, len(seats), a.Name, b.Name, a.Score, b.Score, outcome)
+				run, id, date, tournament, len(seats), playerID(t, pool, a.Name), playerID(t, pool, b.Name), a.Score, b.Score, outcome)
 			if err != nil {
 				t.Fatalf("adding a pair for game %d: %v", id, err)
 			}
@@ -100,6 +102,56 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	}
 }
 
+// oldName records that player went by name until last, as the data does.
+func oldName(t *testing.T, pool *pgxpool.Pool, player, name, last string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `INSERT INTO player_names (player_id, name, first_seen, last_seen, source)
+		VALUES ($1, $2, $3, $3, 'match_file')`, playerID(t, pool, player), name, last); err != nil {
+		t.Fatalf("recording %s's old name %s: %v", player, name, err)
+	}
+}
+
+func TestPlayerFindsAnOldNameAndAnswersWithTheCurrentOne(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cat", "dee")
+	oldName(t, pool, "ann", "Annie", "2023-05-01")
+	oldName(t, pool, "bob", "Robert", "2022-01-01")
+	oldName(t, pool, "cat", "Robert", "2024-03-01")
+	oldName(t, pool, "cat", "bob", "2020-01-01")
+	oldName(t, pool, "dee", "Dora", "2025-01-01")
+	if _, err := pool.Exec(ctx, "INSERT INTO player_accounts (cge_user, player_id, name, deleted) VALUES (4, $1, 'dee', true)",
+		playerID(t, pool, "dee")); err != nil {
+		t.Fatalf("deleting dee's account: %v", err)
+	}
+
+	tests := []struct {
+		name, asked, want string
+		err               error
+	}{
+		{name: "an old name", asked: "Annie", want: "ann"},
+		{name: "an old name in another case", asked: "annie", want: "ann"},
+		{name: "two players' old name: the more recent", asked: "Robert", want: "cat"},
+		{name: "a current name before an old one", asked: "bob", want: "bob"},
+		{name: "a hidden player's old name", asked: "Dora", err: ErrPlayerNotFound},
+		{name: "nobody's name", asked: "zed", err: ErrPlayerNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := r.Player(ctx, run, tt.asked)
+			if !errors.Is(err, tt.err) || (tt.err == nil && got.Name != tt.want) {
+				t.Errorf("Player(%q) = %q, %v; want %q, %v", tt.asked, got.Name, err, tt.want, tt.err)
+			}
+		})
+	}
+	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert")
+	if err != nil || a != "ann" || b != "cat" {
+		t.Errorf("Versus(Annie, Robert) = %q, %q, %v; want ann, cat", a, b, err)
+	}
+}
+
 func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
@@ -126,69 +178,23 @@ func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
 	}
 }
 
-func TestUnknownPlayerIsNobodyToLookUp(t *testing.T) {
+func TestACGEAccountNamedUnknownPlayerIsAPlayerLikeAnyOther(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
-	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{UnknownPlayer, 0})
-	withSpans(t, pool, run)
-	r := NewRatingsReader(asReader(t, pool))
-	a := NewAdminStore(asAdminLogin(t, pool))
-	resolved := func(err error) ([]string, error) {
-		if errors.Is(err, ErrPlayerNotFound) {
-			return nil, nil
-		}
-		return []string{UnknownPlayer}, err
+	x := cgeextract.Extract{Seats: extractOf(999, 200, "CODEDDDD", cgeDone(5, "Unknown player", 1, 100), cgeDone(6, "fay", 2, 50)),
+		Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 5}}}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+		t.Fatalf("ApplyCGEExtract with an account named Unknown player: %v", err)
 	}
 
-	tests := []struct {
-		name  string
-		names func() ([]string, error)
-	}{
-		{"the player page", func() ([]string, error) {
-			_, err := r.Player(ctx, run, UnknownPlayer)
-			return resolved(err)
-		}},
-		{"the player's achievements", func() ([]string, error) {
-			_, _, _, err := r.PlayerAchievements(ctx, run, UnknownPlayer)
-			return resolved(err)
-		}},
-		{"the player's unrated seats", func() ([]string, error) {
-			_, err := r.PlayerSeats(ctx, run, UnknownPlayer, true)
-			return resolved(err)
-		}},
-		{"player search", func() ([]string, error) {
-			got, err := r.ComparedPlayers(ctx, run, 0, []string{"unknown"})
-			var names []string
-			for _, p := range got {
-				names = append(names, p.Name)
-			}
-			return names, err
-		}},
-		{"a tournament's players", func() ([]string, error) {
-			got, err := r.CatalogueTournament(ctx, run, "wimbledon")
-			return got.Players, err
-		}},
-		{"admin's people", func() ([]string, error) {
-			got, err := a.People(ctx, "unknown", 10)
-			var names []string
-			for _, c := range got {
-				names = append(names, c.Name)
-			}
-			return names, err
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			names, err := tt.names()
-			if err != nil {
-				t.Fatalf("%s: %v", tt.name, err)
-			}
-			if slices.Contains(names, UnknownPlayer) {
-				t.Errorf("%s = %q, want no %q", tt.name, names, UnknownPlayer)
-			}
-		})
+	got, err := NewRatingsReader(asReader(t, pool)).Player(ctx, run, "Unknown player")
+	if err != nil || got.Name != "Unknown player" {
+		t.Errorf("Player(Unknown player) = %q, %v; want the player of CGE account 5", got.Name, err)
 	}
 }
 
@@ -348,7 +354,7 @@ func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", fixed); err != nil {
 		t.Fatalf("moving the game after the run: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", fixed); err != nil {
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_id = (SELECT player_id FROM players WHERE name = 'cy')", fixed); err != nil {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 
@@ -386,7 +392,7 @@ func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", duel); err != nil {
 		t.Fatalf("moving the game after the run: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", trio); err != nil {
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_id = (SELECT player_id FROM players WHERE name = 'cy')", trio); err != nil {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 
@@ -446,11 +452,11 @@ func addHistoryWithRD(t *testing.T, pool *pgxpool.Pool, run int64, model string,
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
 		VALUES ($1, $2, $3, $4, $5, $6::float8, $7::float8, $6::float8 - 3 * $7::float8)
-		ON CONFLICT (run_id, model_type, player_count, player_name, period_date) DO UPDATE
+		ON CONFLICT (run_id, model_type, player_count, player_id, period_date) DO UPDATE
 		SET rating = EXCLUDED.rating, rd = EXCLUDED.rd, c_rating = EXCLUDED.c_rating`,
-		run, model, format, name, periodDate, rating, rd)
+		run, model, format, playerID(t, pool, name), periodDate, rating, rd)
 	if err != nil {
 		t.Fatalf("inserting rating_history: %v", err)
 	}
@@ -530,7 +536,7 @@ func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 func addYearlyTitle(t *testing.T, pool *pgxpool.Pool, run int64, name string, year int, title string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		"INSERT INTO player_yearly_titles (run_id, player_name, year, title) VALUES ($1, $2, $3, $4)", run, name, year, title)
+		"INSERT INTO player_yearly_titles (run_id, player_id, year, title) VALUES ($1, $2, $3, $4)", run, playerID(t, pool, name), year, title)
 	if err != nil {
 		t.Fatalf("adding %s's %d title: %v", name, year, err)
 	}
@@ -579,8 +585,8 @@ func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
 func addHistoryRow(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name, period string, rating, cRating float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
-		VALUES ($1, $2, $3, $4, $5, $6, 30, $7)`, run, model, format, name, period, rating, cRating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6, 30, $7)`, run, model, format, playerID(t, pool, name), period, rating, cRating)
 	if err != nil {
 		t.Fatalf("adding %s's history at %s: %v", name, period, err)
 	}

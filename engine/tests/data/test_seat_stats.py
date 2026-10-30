@@ -10,12 +10,12 @@ from tta_ratings_engine.data.seat_stats import derive_seat_stats
 def stats(conn, run_id):
     """The run's seat statistics by player, format and seat: games, wins, draws, culture and each place's count."""
     rows = conn.execute(
-        "SELECT player_name, player_count, seat, games, wins, draws, avg_culture, p1, p2, p3, p4 "
-        "FROM player_seat_stats WHERE run_id = %s",
+        "SELECT name AS player, player_count, seat, games, wins, draws, avg_culture, p1, p2, p3, p4 "
+        "FROM player_seat_stats JOIN players USING (player_id) WHERE run_id = %s",
         (run_id,),
     ).fetchall()
     return {
-        (r["player_name"], r["player_count"], r["seat"]): (
+        (r["player"], r["player_count"], r["seat"]): (
             r["games"], r["wins"], r["draws"], float(r["avg_culture"]), r["p1"], r["p2"], r["p3"], r["p4"],
         )
         for r in rows

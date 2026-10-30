@@ -85,8 +85,8 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	var seats []string
 	if err := a.pool.QueryRow(ctx, `
 		SELECT g.name, st.label, gr.name, g.state, g.share_code, g.date::text, to_char(g.finished_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI'),
-		       array_agg(s.player_name || ' ' || s.culture || ' ' || s.place || ' ' || s.outcome ORDER BY s.seat)
-		FROM games g JOIN groups gr USING (group_id) JOIN stages st USING (stage_id) JOIN seats s USING (game_id)
+		       array_agg(p.name || ' ' || s.culture || ' ' || s.place || ' ' || s.outcome ORDER BY s.seat)
+		FROM games g JOIN groups gr USING (group_id) JOIN stages st USING (stage_id) JOIN seats s USING (game_id) JOIN players p USING (player_id)
 		WHERE g.game_id = $1 GROUP BY 1, 2, 3, 4, 5, 6, 7`, gameID).Scan(&name, &stage, &group, &state, &code, &date, &finishedUTC, &seats); err != nil {
 		t.Fatalf("reading the game: %v", err)
 	}

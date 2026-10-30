@@ -231,8 +231,8 @@ def add_match(conn):
         conn.execute(
             "WITH s AS (SELECT s.*, CASE WHEN s.score >= 0 THEN 'finished' WHEN s.score IN (-1, -5) THEN 'timed_out' "
             "ELSE 'resigned' END AS outcome FROM unnest(%s::text[], %s::float8[]) WITH ORDINALITY AS s(name, score, seat)) "
-            "INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, outcome, place) "
-            "SELECT %s, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, s.outcome, "
+            "INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, outcome, place) "
+            "SELECT %s, s.seat, p.player_id, greatest(s.score, 0), s.score, s.outcome, "
             "CASE WHEN s.outcome = 'timed_out' THEN 1 + count(*) FILTER (WHERE s.outcome <> 'timed_out') OVER () "
             "ELSE rank() OVER (ORDER BY CASE s.outcome WHEN 'finished' THEN 0 WHEN 'resigned' THEN 1 ELSE 2 END, s.score DESC) END "
             "FROM s JOIN players p USING (name)",
@@ -242,6 +242,14 @@ def add_match(conn):
         return match_id
 
     return add
+
+
+@pytest.fixture
+def name_of(conn):
+    """Returns a function that gives a player's name by their id."""
+    return lambda player_id: conn.execute(
+        "SELECT name FROM players WHERE player_id = %s", (player_id,)
+    ).fetchone()["name"]
 
 
 @pytest.fixture
@@ -262,9 +270,12 @@ def place(conn):
     def add(series, season, division, *players, points=None):
         for i, p in enumerate(players, start=1):
             conn.execute(
-                "INSERT INTO tournament_official_placements "
-                "VALUES (%s, %s, %s, %s, %s, %s, 'test', 'sheet')",
-                (series, season, division, p, i, points[i - 1] if points else None),
+                "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING", (p,)
+            )
+            conn.execute(
+                "INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, "
+                "reason, source) SELECT %s, %s, %s, player_id, %s, %s, 'test', 'sheet' FROM players WHERE name = %s",
+                (series, season, division, i, points[i - 1] if points else None, p),
             )
         conn.commit()
 

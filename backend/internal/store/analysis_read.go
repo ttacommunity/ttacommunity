@@ -64,9 +64,9 @@ func (r *RatingsReader) AnalysisRatings(ctx context.Context, run int64, format i
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_name, model_type, rating, rank, opponents_count FROM player_ratings
-		WHERE run_id = $1 AND player_count = $2 AND model_type = ANY($3)
-		ORDER BY player_name, model_type`, run, format, PlayerPageModels)
+		SELECT p.name, r.model_type, r.rating, r.rank, r.opponents_count FROM player_ratings r JOIN players p USING (player_id)
+		WHERE r.run_id = $1 AND r.player_count = $2 AND r.model_type = ANY($3)
+		ORDER BY p.name, r.model_type`, run, format, PlayerPageModels)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's ratings: %w", run, err)
 	}
@@ -92,8 +92,8 @@ func (r *RatingsReader) ActivePlayers(ctx context.Context, run int64) (map[strin
 		WITH recent AS (
 			SELECT DISTINCT match_id FROM pairwise_matches
 			WHERE run_id = $1 AND date >= (SELECT max(date) FROM pairwise_matches WHERE run_id = $1) - 365)
-		SELECT s.player_name FROM recent r JOIN seats s ON s.game_id = r.match_id
-		GROUP BY s.player_name HAVING count(*) > 10`, run)
+		SELECT p.name FROM recent r JOIN seats s ON s.game_id = r.match_id JOIN players p USING (player_id)
+		GROUP BY p.player_id HAVING count(*) > 10`, run)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's active players: %w", run, err)
 	}
@@ -131,16 +131,15 @@ type ComparedRating struct {
 }
 
 // PlayerNamesLike returns up to limit names containing term, ignoring case, strongest first by GlickoD's all-format
-// C rating: the Discord bot's suggestions. Players with a deleted or banned CGE account, and UnknownPlayer, are left
-// out.
+// C rating: the Discord bot's suggestions. Players with a deleted or banned CGE account are left out.
 func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term string, limit int) ([]string, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.name FROM players p
-		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_name = p.name AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
-		WHERE strpos(lower(p.name), lower($2)) > 0 AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
+		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_id = p.player_id AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
+		WHERE strpos(lower(p.name), lower($2)) > 0 AND `+notHiddenPlayer+`
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT $3`, run, term, limit)
 	if err != nil {
 		return nil, fmt.Errorf("finding player names in run %d: %w", run, err)
@@ -155,7 +154,7 @@ func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term str
 // ComparedPlayers returns up to 15 players whose name contains a term or
 // whose country is one, ignoring case, strongest first by GlickoD's all-format
 // C rating; with no terms, the DefaultCompared players who exist, in order.
-// Players with a deleted or banned CGE account, and UnknownPlayer, are left out.
+// Players with a deleted or banned CGE account are left out.
 func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]ComparedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -163,18 +162,18 @@ func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format i
 	query := `
 		SELECT p.name, m.country_code, t.title FROM players p
 		LEFT JOIN members m ON m.player_id = p.player_id
-		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
-		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_name = p.name AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
+		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_id = p.player_id AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
 		WHERE EXISTS (SELECT 1 FROM unnest($2::text[]) term
 			WHERE strpos(lower(p.name), lower(term)) > 0 OR lower(m.country_code) = lower(term))
-		  AND ` + notUnknownPlayer + ` AND ` + notHiddenPlayer + `
+		  AND ` + notHiddenPlayer + `
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT 15`
 	args := []any{run, terms}
 	if len(terms) == 0 {
 		query = `
 			SELECT p.name, m.country_code, t.title FROM players p
 			LEFT JOIN members m ON m.player_id = p.player_id
-			LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
+			LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
 			WHERE p.name = ANY($2) AND ` + notHiddenPlayer + ` ORDER BY array_position($2, p.name)`
 		args = []any{run, DefaultCompared}
 	}
@@ -199,9 +198,10 @@ func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format i
 		names[i] = p.Name
 	}
 	rows, err = r.pool.Query(ctx, `
-		SELECT player_name, model_type, rank, rating, rd, c_rating, opponents_count, win_rate FROM player_ratings
-		WHERE run_id = $1 AND player_count = $2 AND player_name = ANY($3) AND model_type = ANY($4)
-		ORDER BY array_position($4, model_type)`, run, format, names, CompareModels)
+		SELECT p.name, r.model_type, r.rank, r.rating, r.rd, r.c_rating, r.opponents_count, r.win_rate
+		FROM player_ratings r JOIN players p USING (player_id)
+		WHERE r.run_id = $1 AND r.player_count = $2 AND p.name = ANY($3) AND r.model_type = ANY($4)
+		ORDER BY array_position($4, r.model_type)`, run, format, names, CompareModels)
 	if err != nil {
 		return nil, fmt.Errorf("reading compared ratings in run %d: %w", run, err)
 	}
@@ -259,8 +259,8 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 	}
 	err := r.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE last > $2), count(*) FILTER (WHERE last IS NULL OR last <= $2) FROM players p
-		LEFT JOIN (SELECT player_name, max(last_played) AS last FROM player_ratings WHERE run_id = $1 GROUP BY player_name) r
-			ON r.player_name = p.name`, run, inactiveOnOrBefore).Scan(&a.Active, &a.Inactive)
+		LEFT JOIN (SELECT player_id, max(last_played) AS last FROM player_ratings WHERE run_id = $1 GROUP BY player_id) r
+			ON r.player_id = p.player_id`, run, inactiveOnOrBefore).Scan(&a.Active, &a.Inactive)
 	if err != nil {
 		return a, fmt.Errorf("counting run %d's active players: %w", run, err)
 	}
@@ -291,8 +291,8 @@ func (r *RatingsReader) Activity(ctx context.Context, run int64, inactiveOnOrBef
 			avg(s.rating)
 		FROM members m
 		JOIN players p ON p.player_id = m.player_id
-		JOIN player_ratings s ON s.run_id = $1 AND s.player_name = p.name AND s.model_type = 'glicko2_std' AND s.player_count = 0
-		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
+		JOIN player_ratings s ON s.run_id = $1 AND s.player_id = p.player_id AND s.model_type = 'glicko2_std' AND s.player_count = 0
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
 		WHERE m.country_code IS NOT NULL
 		GROUP BY m.country_code ORDER BY 2 DESC, 1 DESC LIMIT 15`, run)
 	if err == nil {

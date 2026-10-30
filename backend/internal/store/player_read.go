@@ -14,9 +14,6 @@ import (
 // match would find and more than one player does.
 var ErrPlayerNotFound = errors.New("no player has this name")
 
-// notUnknownPlayer excludes UnknownPlayer: an empty seat, nobody to look up. Its seats still show by that name.
-const notUnknownPlayer = `p.name <> '` + UnknownPlayer + `'`
-
 // PlayerPageModels are the models the player page shows: the ones the engine computes, Glicko-D continuous and
 // with a season reset, and standard Glicko-2.
 var PlayerPageModels = []string{"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
@@ -90,7 +87,7 @@ type PlayerAt struct {
 	Month string
 }
 
-// playerRunGames selects each game run $1 rated for the player named $2, once, with its date and format as the
+// playerRunGames selects each game run $1 rated for the player with id $2, once, with its date and format as the
 // run took them. A run's own rows are read, not the games: they are few pages, and one game edited after the run
 // keeps what the run rated until the next.
 const playerRunGames = `
@@ -98,39 +95,61 @@ const playerRunGames = `
 	UNION
 	SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_b = $2`
 
-// resolve returns the stored name for asked in a published run: the exact
-// name, else the only one equal to it ignoring case. Players with deleted or
-// banned CGE accounts, and UnknownPlayer, are not resolved.
-func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (string, error) {
+// namedPlayer is a player a page asks for: their id, and their name now.
+type namedPlayer struct {
+	ID   int64
+	Name string
+}
+
+// resolve returns the player asked names in a published run: the exact
+// name, else the only one equal to it ignoring case; with neither, the player
+// who went by it most recently (player_names), ignoring case. Players with deleted or
+// banned CGE accounts are not resolved.
+func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (namedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
-		return "", err
+		return namedPlayer{}, err
 	}
-	rows, err := r.pool.Query(ctx, "SELECT p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notUnknownPlayer+" AND "+notHiddenPlayer, asked)
+	rows, err := r.pool.Query(ctx, "SELECT p.player_id, p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notHiddenPlayer, asked)
 	if err != nil {
-		return "", fmt.Errorf("looking up a player: %w", err)
+		return namedPlayer{}, fmt.Errorf("looking up a player: %w", err)
 	}
-	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	found, err := pgx.CollectRows(rows, pgx.RowToStructByPos[namedPlayer])
 	if err != nil {
-		return "", fmt.Errorf("looking up a player: %w", err)
+		return namedPlayer{}, fmt.Errorf("looking up a player: %w", err)
 	}
-	for _, n := range names {
-		if n == asked {
-			return n, nil
+	for _, p := range found {
+		if p.Name == asked {
+			return p, nil
 		}
 	}
-	if len(names) == 1 {
-		return names[0], nil
+	if len(found) == 1 {
+		return found[0], nil
 	}
-	return "", ErrPlayerNotFound
+	if len(found) > 1 {
+		return namedPlayer{}, ErrPlayerNotFound
+	}
+	var p namedPlayer
+	err = r.pool.QueryRow(ctx, `
+		SELECT p.player_id, p.name FROM player_names n JOIN players p USING (player_id)
+		WHERE lower(n.name) = lower($1) AND `+notHiddenPlayer+`
+		ORDER BY n.last_seen DESC, p.player_id LIMIT 1`, asked).Scan(&p.ID, &p.Name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return namedPlayer{}, ErrPlayerNotFound
+	}
+	if err != nil {
+		return namedPlayer{}, fmt.Errorf("looking up a player's old name: %w", err)
+	}
+	return p, nil
 }
 
 // Player returns a player's details, games per format (0 is all) and ratings
 // in PlayerPageModels, in a published run.
 func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Player, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return Player{}, err
 	}
+	name := who.Name
 	p := Player{Name: name, Games: map[int]int{0: 0}}
 
 	var title, reason, peak *string
@@ -140,9 +159,9 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 			(SELECT max(date) FROM pairwise_matches WHERE run_id = $1)
 		FROM players p
 		LEFT JOIN members m ON m.player_id = p.player_id
-		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
-		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_name = p.name
-		WHERE p.name = $2`, run, name).Scan(&p.Country, &title, &count, &reason, &peak, &peakYear, &p.NewestGame)
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
+		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_id = p.player_id
+		WHERE p.player_id = $2`, run, who.ID).Scan(&p.Country, &title, &count, &reason, &peak, &peakYear, &p.NewestGame)
 	if err != nil {
 		return Player{}, fmt.Errorf("reading a player in run %d: %w", run, err)
 	}
@@ -155,7 +174,7 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT player_count, count(*), max(date) FROM (`+playerRunGames+`) mine
-		GROUP BY player_count`, run, name)
+		GROUP BY player_count`, run, who.ID)
 	if err != nil {
 		return Player{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
 	}
@@ -178,8 +197,8 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	rows, err = r.pool.Query(ctx, `
 		SELECT model_type, player_count, rank, rating, rd, c_rating, opponents_count, win_rate
 		FROM player_ratings
-		WHERE run_id = $1 AND player_name = $2 AND model_type = ANY($3)
-		ORDER BY model_type, player_count`, run, name, PlayerPageModels)
+		WHERE run_id = $1 AND player_id = $2 AND model_type = ANY($3)
+		ORDER BY model_type, player_count`, run, who.ID, PlayerPageModels)
 	if err != nil {
 		return Player{}, fmt.Errorf("reading a player's ratings in run %d: %w", run, err)
 	}
@@ -197,15 +216,15 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 // PlayerHistory returns the stored name and a player's rating after each
 // period in PlayerPageModels for one format, by model, oldest first.
 func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked string, format int) (string, []HistoryPoint, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT model_type, period_date, rating, c_rating
 		FROM rating_history
-		WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = ANY($4)
-		ORDER BY model_type, period_date`, run, name, format, PlayerPageModels)
+		WHERE run_id = $1 AND player_id = $2 AND player_count = $3 AND model_type = ANY($4)
+		ORDER BY model_type, period_date`, run, who.ID, format, PlayerPageModels)
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 	}
@@ -217,7 +236,7 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 	}
-	return name, points, nil
+	return who.Name, points, nil
 }
 
 // PlayerMatches returns the stored name and one page of the games run rated
@@ -226,13 +245,13 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 // stored names, for rating estimates: the caller masks the HiddenNames before
 // answering.
 func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int) (string, MatchPage, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", MatchPage{}, err
 	}
 	const mine = `(` + playerRunGames + `) mine WHERE $3 = 0 OR player_count = $3`
 	var mp MatchPage
-	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM `+mine, run, name, format).Scan(&mp.Total)
+	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM `+mine, run, who.ID, format).Scan(&mp.Total)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("counting a player's games in run %d: %w", run, err)
 	}
@@ -242,7 +261,7 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	rows, err := r.pool.Query(ctx, `
 		SELECT match_id, date, player_count FROM `+mine+`
 		ORDER BY date DESC, match_id DESC
-		LIMIT $4 OFFSET $5`, run, name, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
+		LIMIT $4 OFFSET $5`, run, who.ID, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
 	}
@@ -250,7 +269,7 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
-	return name, mp, nil
+	return who.Name, mp, nil
 }
 
 // gamesAsRated reads rows of a run's games (id, date, format) and returns those games in their order, with
@@ -309,8 +328,8 @@ func (r *RatingsReader) RatingsOf(ctx context.Context, run int64, model string, 
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_name, rating, rd FROM player_ratings
-		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = ANY($4)`,
+		SELECT p.name, r.rating, r.rd FROM player_ratings r JOIN players p USING (player_id)
+		WHERE r.run_id = $1 AND r.model_type = $2 AND r.player_count = $3 AND p.name = ANY($4)`,
 		run, model, format, names)
 	if err != nil {
 		return nil, fmt.Errorf("reading ratings in run %d: %w", run, err)
@@ -359,11 +378,12 @@ func (r *RatingsReader) HistoricalRatingsOf(ctx context.Context, run int64, mode
 		FROM (
 			SELECT DISTINCT unnest($4::text[]) AS name, unnest($5::date[]) AS month_start
 		) u
+		JOIN players p ON p.name = u.name
 		JOIN LATERAL (
 			SELECT rating, rd
 			FROM rating_history
 			WHERE run_id = $1 AND model_type = $2 AND player_count = $3
-			  AND player_name = u.name AND period_date < u.month_start
+			  AND player_id = p.player_id AND period_date < u.month_start
 			ORDER BY period_date DESC
 			LIMIT 1
 		) h ON true`, run, model, format, names, monthStarts)

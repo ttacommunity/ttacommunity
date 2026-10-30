@@ -115,6 +115,7 @@ func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"another site", "/v1/admin/tournaments/worlds/seasons/2025", "https://evil.example", `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`, http.StatusForbidden},
 		{"no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`, http.StatusNotFound},
 		{"not a podium", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "twice"}], "note": ""}}`, http.StatusBadRequest},
+		{"no such player", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "ghost"}], "note": ""}}`, http.StatusBadRequest},
 		{"nobody on it", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [], "note": ""}}`, http.StatusBadRequest},
 		{"four places", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}, {"place": 2, "name": "b"}, {"place": 3, "name": "c"}, {"place": 4, "name": "d"}], "note": ""}}`, http.StatusBadRequest},
 		{"a long note", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": "` + strings.Repeat("x", 501) + `"}}`, http.StatusBadRequest},

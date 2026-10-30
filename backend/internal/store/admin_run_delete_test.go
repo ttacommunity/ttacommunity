@@ -17,9 +17,9 @@ func withRatings(t *testing.T, pool *pgxpool.Pool, run int64, n int) {
 	t.Helper()
 	for i := range n {
 		if _, err := pool.Exec(context.Background(), `
-			INSERT INTO player_ratings (run_id, model_type, player_count, player_name, rating, rd, sigma, c_rating, rank,
+			INSERT INTO player_ratings (run_id, model_type, player_count, player_id, rating, rd, sigma, c_rating, rank,
 			                            games_played, opponents_count, wins, losses, draws, win_rate)
-			VALUES ($1, 'glicko2', 0, $2, 1500, 50, 0.06, 1350, $3, 1, 1, 1, 0, 0, 1)`, run, "player"+string(rune('a'+i)), i+1); err != nil {
+			VALUES ($1, 'glicko2', 0, $2, 1500, 50, 0.06, 1350, $3, 1, 1, 1, 0, 0, 1)`, run, playerID(t, pool, "player"+string(rune('a'+i))), i+1); err != nil {
 			t.Fatalf("adding ratings: %v", err)
 		}
 	}

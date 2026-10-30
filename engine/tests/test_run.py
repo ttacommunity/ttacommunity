@@ -109,7 +109,7 @@ def test_a_run_writes_tournament_results(conn, add_match):
         count(conn, "tournament_games", run_id) == 3
     )  # and season()'s two Royal League games
     ann = conn.execute(
-        "SELECT details FROM tournament_records WHERE run_id = %s AND player_name = 'Ann' "
+        "SELECT details FROM tournament_records JOIN players USING (player_id) WHERE run_id = %s AND name = 'Ann' "
         "AND tournament = 'International Championship' ORDER BY position",
         (run_id,),
     ).fetchall()
@@ -118,8 +118,8 @@ def test_a_run_writes_tournament_results(conn, add_match):
         "Season 30 International Championship Standing (1 of 3) • Record: 1W - 0L (100.0% win rate)",
     ]
     medals = conn.execute(
-        "SELECT player_name, international_titles, gold, silver, bronze, accolades "
-        "FROM tournament_achievements WHERE run_id = %s ORDER BY player_name",
+        "SELECT name AS player, international_titles, gold, silver, bronze, accolades "
+        "FROM tournament_achievements JOIN players USING (player_id) WHERE run_id = %s ORDER BY name",
         (run_id,),
     ).fetchall()
     # season()'s Royal League games give Ann a title and Bob a silver too
@@ -141,12 +141,13 @@ def test_a_run_writes_tournament_results(conn, add_match):
     "fact",
     [
         (
-            "INSERT INTO tournament_group_divisions "
-            "VALUES ('international', 3, 'Grandmaster', 'Ann', 'sheet')"
+            "INSERT INTO tournament_group_divisions (series, season, division, player_id, source) "
+            "SELECT 'international', 3, 'Grandmaster', player_id, 'sheet' FROM players WHERE name = 'Ann'"
         ),
         (
-            "INSERT INTO tournament_official_placements "
-            "VALUES ('royal_league', 1, 'Emperor', 'Ann', 1, NULL, 'r', 's')"
+            "INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, "
+            "reason, source) SELECT 'royal_league', 1, 'Emperor', player_id, 1, NULL, 'r', 's' FROM players "
+            "WHERE name = 'Ann'"
         ),
         (
             "INSERT INTO tournament_season_corrections "
@@ -154,14 +155,20 @@ def test_a_run_writes_tournament_results(conn, add_match):
         ),
         "INSERT INTO tournament_finish_dates VALUES ('intermezzo', 8, '2020-08-31', 's')",
         (
-            "INSERT INTO tournament_career_honours "
-            "VALUES ('q_and_d', 'Ann', 1, 0, 0, NULL, 's')"
+            "INSERT INTO tournament_career_honours (series, player_id, gold, silver, bronze, points, source) "
+            "SELECT 'q_and_d', player_id, 1, 0, 0, NULL, 's' FROM players WHERE name = 'Ann'"
         ),
         "INSERT INTO settings (series_id, timeout_penalty) SELECT series_id, -1 FROM series WHERE slug = 'rated'",
-        "INSERT INTO tournament_cup_podiums VALUES ('wimbledon', '2024', '', 1, 'Ann', 's', '2025-02-24')",
-        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'Ann')",
+        (
+            "INSERT INTO tournament_cup_podiums (cup, season, final, place, player_id, source, finished) "
+            "SELECT 'wimbledon', '2024', '', 1, player_id, 's', '2025-02-24' FROM players WHERE name = 'Ann'"
+        ),
+        (
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_id) "
+            "SELECT 'worlds', '2025', 1, player_id FROM players WHERE name = 'Ann'"
+        ),
         "INSERT INTO cge_tournaments (cge_tournament, name, status) VALUES (5204, 'World Championship 2025', 'finished')",
-        "INSERT INTO player_title_overrides VALUES ('Ann', 'GM', 'r')",
+        "INSERT INTO player_title_overrides (player_id, title, reason) SELECT player_id, 'GM', 'r' FROM players WHERE name = 'Ann'",
         "UPDATE tournaments SET rated = false",
         "UPDATE series SET rated_player_counts = '{2,3}'",
     ],
@@ -360,7 +367,8 @@ def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
     season(add_match)
     full = run(conn, "v1", formats=[0, 2], log=lambda _: None, make_current=True)
     conn.execute(
-        "INSERT INTO tournament_official_placements VALUES ('royal_league', 1, 'Emperor', 'Bob', 1, NULL, 'r', 's')"
+        "INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, reason, "
+        "source) SELECT 'royal_league', 1, 'Emperor', player_id, 1, NULL, 'r', 's' FROM players WHERE name = 'Bob'"
     )
     conn.commit()
 
@@ -372,10 +380,11 @@ def test_a_tournaments_only_run_copies_the_ratings_and_recomputes_tournaments(
     for table in runner.COPIED_TABLES + ["pairwise_matches"]:
         assert rows_of(conn, table, fast) == rows_of(conn, table, full), table
     boards = conn.execute(
-        "SELECT player_name, gold FROM tournament_boards WHERE run_id = %s AND series = 'royal_league' ORDER BY player_name",
+        "SELECT name AS player, gold FROM tournament_boards JOIN players USING (player_id) "
+        "WHERE run_id = %s AND series = 'royal_league' ORDER BY name",
         (fast,),
     ).fetchall()
-    assert [(r["player_name"], r["gold"]) for r in boards] == [
+    assert [(r["player"], r["gold"]) for r in boards] == [
         ("Bob", 1)
     ]  # the recorded place replaces the derived one
     assert count(conn, "player_titles", fast) == count(conn, "player_titles", full)
@@ -556,10 +565,10 @@ def test_a_run_rates_the_ranking_it_names_and_publishes_it_alone(conn, add_match
     )
 
     players = conn.execute(
-        "SELECT DISTINCT player_name FROM player_ratings WHERE run_id = %s ORDER BY 1",
+        "SELECT DISTINCT name AS player FROM player_ratings JOIN players USING (player_id) WHERE run_id = %s ORDER BY 1",
         (blitz,),
     ).fetchall()
-    assert [p["player_name"] for p in players] == ["Eve", "Fay"]
+    assert [p["player"] for p in players] == ["Eve", "Fay"]
     currents = conn.execute(
         "SELECT k.slug, c.run_id FROM current_run c JOIN rankings k USING (ranking_id) ORDER BY 1"
     ).fetchall()
@@ -816,7 +825,7 @@ def test_a_run_counts_its_players_seats(conn, db_url, add_match, kind):
         run_id = run(conn, "v2", tournaments_only=True, log=lambda _: None)
 
     got = conn.execute(
-        "SELECT games, wins FROM player_seat_stats WHERE run_id = %s AND player_name = 'Ann' "
+        "SELECT games, wins FROM player_seat_stats JOIN players USING (player_id) WHERE run_id = %s AND name = 'Ann' "
         "AND player_count = 2 AND seat = 1",
         (run_id,),
     ).fetchone()
@@ -863,8 +872,8 @@ def table_bytes(conn, table, run_id):
     """Returns the bytes of the run's rows in table, and what the run's partition of it takes on disk."""
     r = conn.execute(
         f"SELECT coalesce(sum(pg_column_size(t.*)), 0) AS b, pg_total_relation_size(%s::regclass) AS disk "
-        f"FROM {table} t WHERE run_id = %s",
-        (f"{table}_run{run_id}", run_id),
+        f"FROM {table}_run{run_id} t",
+        (f"{table}_run{run_id}",),
     ).fetchone()
     return r["b"], r["disk"]
 
@@ -1062,12 +1071,12 @@ def test_ratings_converge_on_true_strength(
     wrong = []
     for model in sorted(KEPT):
         rows = conn.execute(
-            "SELECT player_name, rating, rd FROM player_ratings "
+            "SELECT name AS player, rating, rd FROM player_ratings JOIN players USING (player_id) "
             "WHERE run_id = %s AND model_type = %s AND player_count = 2",
             (run_id, model),
         ).fetchall()
         got = rank_correlation(
-            [strength[r["player_name"]] for r in rows], [r["rating"] for r in rows]
+            [strength[r["player"]] for r in rows], [r["rating"] for r in rows]
         )
         widest = max(r["rd"] for r in rows)
         if len(rows) != len(strength) or got < min_correlation or widest > max_rd:

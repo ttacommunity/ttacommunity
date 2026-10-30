@@ -480,16 +480,16 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 func (r *RatingsReader) editionChampion(ctx context.Context, run int64, year int) (string, string, error) {
 	var name, season string
 	err := r.pool.QueryRow(ctx, `
-		SELECT player_name, season FROM tournament_records
-		WHERE run_id = $1 AND tournament = 'World Championship' AND medal = 'gold'
-		  AND substring(season from '^[0-9]+')::int <= $2
-		ORDER BY substring(season from '^[0-9]+')::int DESC LIMIT 1`, run, year).Scan(&name, &season)
+		SELECT p.name, r.season FROM tournament_records r JOIN players p USING (player_id)
+		WHERE r.run_id = $1 AND r.tournament = 'World Championship' AND r.medal = 'gold'
+		  AND substring(r.season from '^[0-9]+')::int <= $2
+		ORDER BY substring(r.season from '^[0-9]+')::int DESC LIMIT 1`, run, year).Scan(&name, &season)
 	desc := "Reigning World Champion (%s)"
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = r.pool.QueryRow(ctx, `
-			SELECT player_name, substring(season from '^[0-9]+') FROM tournament_cup_podiums
-			WHERE cup = 'worlds' AND place = 1 AND substring(season from '^[0-9]+')::int <= $1
-			ORDER BY finished DESC LIMIT 1`, year).Scan(&name, &season)
+			SELECT p.name, substring(c.season from '^[0-9]+') FROM tournament_cup_podiums c JOIN players p USING (player_id)
+			WHERE c.cup = 'worlds' AND c.place = 1 AND substring(c.season from '^[0-9]+')::int <= $1
+			ORDER BY c.finished DESC LIMIT 1`, year).Scan(&name, &season)
 		desc = "World Champion (%s)"
 	}
 	if errors.Is(err, pgx.ErrNoRows) {

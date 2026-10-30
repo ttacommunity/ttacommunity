@@ -101,7 +101,7 @@ scripts\ratings-db.ps1 ..\ttac-ratings-data\baseline
 uv run python -m tta_ratings_engine.run --make-current
 ```
 
-A full run takes about 20 minutes. `--formats 2` rates two-player games only,
+A full run takes a few minutes. `--formats 2` rates two-player games only,
 for a quicker look. More in [Load ratings data](#load-ratings-data) and
 [Compute ratings](#compute-ratings).
 
@@ -656,8 +656,8 @@ go run ./cmd/load facts placements ~/tta-data/new/official_placements.csv
 ```
 
 **Compute a rating run** with the image `deploy/engine.yaml` pins. The
-CronJob is suspended, so a run is started by hand as a Job from it. It takes
-about 25 minutes, and ends `complete` or `failed` but **never published**:
+CronJob is suspended, so a run is started by hand as a Job from it. It ends
+`complete` or `failed` but **never published**:
 the site keeps showing the current run.
 
 ```bash

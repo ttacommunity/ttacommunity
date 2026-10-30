@@ -125,6 +125,7 @@ func TestSetStoriesReplacesATournamentsStoriesInOrder(t *testing.T) {
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	addPlayers(t, pool, "sora", "wheatear")
 	a := NewAdminStore(asAdminLogin(t, pool))
 	r := NewRatingsReader(asReader(t, pool))
 	stories := func() ([]Story, []Story) {
@@ -443,6 +444,37 @@ func TestChangeTournamentRefusedChangesNothing(t *testing.T) {
 			}
 			if p := listed(t, a, "international").Parent; p != g {
 				t.Errorf("international's parent = %q after a refused change, want %q", p, g)
+			}
+		})
+	}
+}
+
+func TestStoriesAndPodiumsRefuseANameThatIsNoPlayers(t *testing.T) {
+	tests := []struct {
+		name string
+		set  func(context.Context, *AdminStore, string) error
+	}{
+		{"a story", func(ctx context.Context, a *AdminStore, player string) error {
+			return a.SetStories(ctx, "worlds", []Story{{Player: player, Title: "Won", Text: "Won it."}})
+		}},
+		{"a podium", func(ctx context.Context, a *AdminStore, player string) error {
+			return a.SetPodium(ctx, "worlds", "2025", []PodiumEntry{{Place: 1, Name: player}}, "")
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
+			addPlayers(t, pool, "kittiwake")
+			a := NewAdminStore(asAdminLogin(t, pool))
+			if err := tt.set(ctx, a, "kittiwake"); err != nil {
+				t.Fatalf("setting a player's: %v", err)
+			}
+			for _, name := range []string{"ghost", "Kittiwake"} {
+				if err := tt.set(ctx, a, name); !errors.Is(err, ErrNoPlayer) {
+					t.Errorf("setting %s naming %q = %v, want ErrNoPlayer", tt.name, name, err)
+				}
 			}
 		})
 	}

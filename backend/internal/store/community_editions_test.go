@@ -101,7 +101,8 @@ func addEdition(t *testing.T, pool *pgxpool.Pool, slug string, year int, scores 
 		t.Fatalf("CreateCommunityEdition(%s): %v", slug, err)
 	}
 	for i := 0; i+2 < len(scores); i += 3 {
-		if _, err := pool.Exec(ctx, "INSERT INTO community_scores VALUES ($1, $2, $3, $4, 'sheet')", slug, scores[i], scores[i+1], scores[i+2]); err != nil {
+		if _, err := pool.Exec(ctx, "INSERT INTO community_scores (edition, player_id, event, score, source) VALUES ($1, $2, $3, $4, 'sheet')",
+			slug, playerID(t, pool, scores[i].(string)), scores[i+1], scores[i+2]); err != nil {
 			t.Fatalf("adding a score to %s: %v", slug, err)
 		}
 	}
@@ -131,8 +132,8 @@ func TestCommunityLeaderboardLayoutHasAColumnForEachEventItsRowsScored(t *testin
 	ctx := context.Background()
 	run := publishedRun(t, pool)
 	addEdition(t, pool, "e25", 2025, "ann", "wrld", 2000.0, "bob", "ic_30", 500.0)
-	if _, err := pool.Exec(ctx, `INSERT INTO community_edition_points VALUES
-		($1, 'e25', 'ann', 'im_20', 300, 'computed', true), ($1, '2025', 'ann', 'rl_05', 300, 'computed', true)`, run); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO community_edition_points (run_id, edition, player_id, event, points, source, counted) VALUES
+		($1, 'e25', $2, 'im_20', 300, 'computed', true), ($1, '2025', $2, 'rl_05', 300, 'computed', true)`, run, playerID(t, pool, "ann")); err != nil {
 		t.Fatalf("adding computed points: %v", err)
 	}
 
@@ -208,8 +209,9 @@ func TestCommunityLeaderboardLayoutNamesTheChampionReigningInItsYear(t *testing.
 			hideAccount(t, pool, "dan", "banned")
 			for i, rec := range tt.records {
 				name, season, _ := strings.Cut(rec, "|")
-				_, err := pool.Exec(ctx, `INSERT INTO tournament_records VALUES ($1, $2, $3, 'World Championship', $4, 'Final',
-					'1 / 4', '', 'gold', '', '', false)`, run, name, i+1, season)
+				_, err := pool.Exec(ctx, `INSERT INTO tournament_records (run_id, player_id, position, tournament, season, division,
+					placement, points, medal, details, finish_date, career)
+					VALUES ($1, $2, $3, 'World Championship', $4, 'Final', '1 / 4', '', 'gold', '', '', false)`, run, playerID(t, pool, name), i+1, season)
 				if err != nil {
 					t.Fatalf("adding %s's record: %v", rec, err)
 				}
@@ -239,9 +241,11 @@ func TestCommunityLeaderboardLayoutFallsBackToTheRecordedPodiumOfItsYear(t *test
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_cup_podiums (cup, season, place, player_name, source, finished) VALUES
-		('worlds', '2023', 1, 'ann', 's', '2023-12-01'), ('worlds', '2024', 1, 'bob', 's', '2024-12-01'),
-		('worlds', '2026', 1, 'cat', 's', '2026-12-01')`); err != nil {
+	addPlayers(t, pool, "ann", "bob", "cat")
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_cup_podiums (cup, season, place, player_id, source, finished)
+		SELECT 'worlds', x.season, 1, p.player_id, 's', x.finished::date
+		FROM (VALUES ('2023', 'ann', '2023-12-01'), ('2024', 'bob', '2024-12-01'), ('2026', 'cat', '2026-12-01')) AS x(season, name, finished)
+		JOIN players p USING (name)`); err != nil {
 		t.Fatalf("adding podiums: %v", err)
 	}
 	addEdition(t, pool, "e25", 2025, "ann", "wrld", 100.0)

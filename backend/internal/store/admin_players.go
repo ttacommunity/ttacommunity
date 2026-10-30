@@ -23,6 +23,8 @@ var AdminTitles = []string{"SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "
 var (
 	// ErrNoPlayer means no player has that name.
 	ErrNoPlayer = errors.New("no player has that name")
+	// ErrAmbiguousName means more than one player has that name, ignoring case.
+	ErrAmbiguousName = errors.New("more than one player has that name, ignoring case")
 	// ErrBadTitle means a title admin cannot set, or no reason.
 	ErrBadTitle = errors.New("a title the engine gives (not WC), or none, with a reason")
 	// ErrNoTitle means admin has set no title for that player.
@@ -31,7 +33,8 @@ var (
 
 // TitleOverrides returns every title set in admin, by player name.
 func (a *AdminStore) TitleOverrides(ctx context.Context) ([]TitleOverride, error) {
-	rows, err := a.pool.Query(ctx, "SELECT player_name, title, reason FROM player_title_overrides ORDER BY lower(player_name), player_name")
+	rows, err := a.pool.Query(ctx, `SELECT p.name, o.title, o.reason FROM player_title_overrides o JOIN players p USING (player_id)
+		ORDER BY lower(p.name), p.name`)
 	if err != nil {
 		return nil, fmt.Errorf("reading title overrides: %w", err)
 	}
@@ -53,17 +56,14 @@ func (a *AdminStore) SetTitle(ctx context.Context, o TitleOverride) error {
 		return ErrBadTitle
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		var exists bool
-		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM players WHERE name = $1)", o.Name).Scan(&exists); err != nil {
-			return fmt.Errorf("setting a title: %w", err)
-		}
-		if !exists {
-			return ErrNoPlayer
-		}
-		_, err := tx.Exec(ctx, `INSERT INTO player_title_overrides (player_name, title, reason) VALUES ($1, $2, $3)
-			ON CONFLICT (player_name) DO UPDATE SET title = excluded.title, reason = excluded.reason`, o.Name, o.Title, o.Reason)
+		tag, err := tx.Exec(ctx, `INSERT INTO player_title_overrides (player_id, title, reason)
+			SELECT player_id, $2, $3 FROM players WHERE name = $1
+			ON CONFLICT (player_id) DO UPDATE SET title = excluded.title, reason = excluded.reason`, o.Name, o.Title, o.Reason)
 		if err != nil {
 			return fmt.Errorf("setting a title: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNoPlayer
 		}
 		return nil
 	})
@@ -71,7 +71,8 @@ func (a *AdminStore) SetTitle(ctx context.Context, o TitleOverride) error {
 
 // ClearTitle removes a player's title set in admin, so the next run derives it again, or returns ErrNoTitle.
 func (a *AdminStore) ClearTitle(ctx context.Context, name string) error {
-	tag, err := a.pool.Exec(ctx, "DELETE FROM player_title_overrides WHERE player_name = $1", name)
+	tag, err := a.pool.Exec(ctx, `DELETE FROM player_title_overrides o USING players p
+		WHERE p.player_id = o.player_id AND p.name = $1`, name)
 	if err != nil {
 		return fmt.Errorf("clearing a title: %w", err)
 	}

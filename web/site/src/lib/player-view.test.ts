@@ -14,6 +14,7 @@ import {
   playerParams,
   profileHref,
   ratingIn,
+  renamedView,
   searchHref,
   signedDelta,
   runYears,
@@ -46,11 +47,22 @@ describe('searchHref', () => {
   });
 });
 
+describe('renamedView', () => {
+  const view = { name: 'Annie', engine: 'glicko2_daneo', format: 0 };
+  it.each([
+    ['the name asked for', 'Annie', null],
+    ['an old name', 'ann', { ...view, name: 'ann' }],
+    ['another case', 'ANNIE', { ...view, name: 'ANNIE' }],
+  ])('takes the name the player has now when the address asked by another: %s', (_name, answered, want) => {
+    expect(renamedView(view, answered)).toEqual(want);
+  });
+});
+
 describe('hasPlayerPage', () => {
   it.each([
     ['a player', 'alder440', true],
     ['a deleted or banned player', 'Deleted player', false],
-    ['an empty seat', 'Unknown player', false],
+    ['a player whatever their name', 'Unknown player', true],
   ])('%s', (_name, name, want) => {
     expect(hasPlayerPage(name)).toBe(want);
   });

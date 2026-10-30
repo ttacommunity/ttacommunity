@@ -29,6 +29,8 @@ func beforeGameStructure(t *testing.T) *pgxpool.Pool {
 		 SELECT 21, 'International Championship', 'running', tournament_id, '10' FROM tournaments`,
 		`INSERT INTO cge_tournaments (cge_tournament, name, status, tournament_id, season)
 		 SELECT 22, 'International Championship 11', 'prepared', tournament_id, '11' FROM tournaments`,
+		// The seeded stories name players this database lacks, which would stop the migration to players by id.
+		`DELETE FROM tournament_stories`,
 		`INSERT INTO players (name) VALUES ('ann'), ('bob'), ('cy'), ('deleted_user_1')`,
 		`INSERT INTO matches (batch_id, source_file, source_line, tournament, date, player_count,
 		     player1, score1, player2, score2, player3, score3, replay_code, stage_id, group_label, game_number,

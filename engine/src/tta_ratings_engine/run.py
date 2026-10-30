@@ -114,8 +114,8 @@ class SchemaOutOfDate(Exception):
 
 
 def check_schema(conn):
-    """Raises SchemaOutOfDate naming every input and run table, every RUN_STATS column, run_progress and the
-    seasons' rated column, that does not exist."""
+    """Raises SchemaOutOfDate naming every input and run table, every RUN_STATS column, run_progress, the
+    seasons' rated column and the games' player ids, that does not exist."""
     missing = [
         t
         for t in INPUT_TABLES + COPIED_TABLES + RECOMPUTED_TABLES
@@ -131,6 +131,8 @@ def check_schema(conn):
             missing.append("run_progress")
         if "rated" not in _columns(conn, "tournaments", leave_out=()):
             missing.append("tournaments.rated")
+        if "player_ids" not in _columns(conn, "game_lines", leave_out=()):
+            missing.append("game_lines.player_ids")
     if missing:
         raise SchemaOutOfDate(
             f"missing {', '.join(missing)}: apply the ratings migrations first"
@@ -150,7 +152,7 @@ def input_fingerprint(conn, ranking_id):
         """
         WITH m AS (
             SELECT md5(string_agg(
-                (name, date, players, scores, places, cultures, outcomes, game_points, glicko_eligible, group_id, state)::text,
+                (name, date, player_ids, scores, places, cultures, outcomes, game_points, glicko_eligible, group_id, state)::text,
                 E'\\n' ORDER BY game_id)) AS md5
             FROM game_lines
         ), f AS (

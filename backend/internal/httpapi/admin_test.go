@@ -400,6 +400,8 @@ func (f *fakeAdmins) SetPodium(_ context.Context, slug, season string, podium []
 		return store.ErrNoTournament
 	case len(podium) > 0 && podium[0].Name == "twice":
 		return store.ErrBadPodium
+	case len(podium) > 0 && podium[0].Name == "ghost":
+		return store.ErrNoPlayer
 	}
 	f.notes = append(f.notes, fmt.Sprintf("podium %s %v %s", season, podium, note))
 	return nil

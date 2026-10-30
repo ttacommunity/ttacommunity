@@ -58,7 +58,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 		}
 	}
 	rows, err = pool.Query(ctx, `
-		SELECT player_name, cge_user FROM seats WHERE cge_user IS NOT NULL
+		SELECT p.name, s.cge_user FROM seats s JOIN players p USING (player_id) WHERE s.cge_user IS NOT NULL
 		UNION SELECT name, cge_user FROM player_accounts`)
 	if err != nil {
 		return CGEPlan{}, fmt.Errorf("reading the names accounts played under: %w", err)
@@ -98,9 +98,9 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	}
 
 	rows, err = pool.Query(ctx, `
-		SELECT g.game_id, coalesce(l.series_id, 0), coalesce(g.share_code, ''), s.seat, s.player_name,
+		SELECT g.game_id, coalesce(l.series_id, 0), coalesce(g.share_code, ''), s.seat, p.name,
 		       coalesce(s.cge_user, 0), coalesce(s.recorded_score, s.culture)
-		FROM games g JOIN game_lines l USING (game_id) JOIN seats s USING (game_id)
+		FROM games g JOIN game_lines l USING (game_id) JOIN seats s USING (game_id) JOIN players p USING (player_id)
 		ORDER BY g.game_id, s.seat`)
 	if err != nil {
 		return CGEPlan{}, fmt.Errorf("reading our games: %w", err)

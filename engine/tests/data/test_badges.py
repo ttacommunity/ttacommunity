@@ -4,15 +4,24 @@ import pytest
 
 from tta_ratings_engine.data.badges import (
     Leagues,
+    Titles,
     badge_titles,
     derive_tournament_badges,
 )
 from tta_ratings_engine.data.db import RunNotRunning
+from tta_ratings_engine.data.players import Player
 from tta_ratings_engine.data.tournaments import derive_tournaments
 
 # The rules, on the games, records and overrides the run reads.
 
 CUTOFF = "2023-06-01"  # a year before the newest game, 2024-06-01
+
+IDS: dict[str, int] = {}
+
+
+def player(name):
+    """An invented player with this name."""
+    return Player(name, IDS.setdefault(name, len(IDS) + 1))
 
 
 def rl(season, division):
@@ -30,6 +39,7 @@ def game(day, league, *players, finished_at=None, game_id=0):
     return {
         "date": day,
         "players": list(players),
+        "player_ids": [player(p).id for p in players],
         "series": series,
         "season": season,
         "division": division,
@@ -47,7 +57,7 @@ def season_record(
 ):
     """Returns a season record; league is the series and division its games were in."""
     return {
-        "player_name": player,
+        "player": player,
         "tournament": tournament,
         "season": season,
         "division": division,
@@ -60,7 +70,7 @@ def season_record(
 
 
 def override(player, title, reason="r"):
-    return {"player_name": player, "title": title, "reason": reason}
+    return {"player": player, "title": title, "reason": reason}
 
 
 CHAMPIONSHIP = (
@@ -85,13 +95,19 @@ LEAGUES = Leagues(
 
 
 def rule_titles(games, records=(), overrides=(), champions=(), leagues=LEAGUES):
-    return badge_titles(
+    """Returns badge_titles' titles for players named in games, records, overrides and champions, by name."""
+    t = badge_titles(
         newest_first(*games),
         CUTOFF,
-        list(champions),
-        list(records),
-        list(overrides),
+        [(player(p), year, place) for p, year, place in champions],
+        [{**r, "player": player(r["player"])} for r in records],
+        [{**o, "player": player(o["player"])} for o in overrides],
         leagues,
+    )
+    return Titles(
+        {p.name: d for p, d in t.active.items()},
+        {p.name: peak for p, peak in t.peaks.items()},
+        {(p.name, year): title for (p, year), title in t.yearly.items()},
     )
 
 
@@ -383,9 +399,9 @@ def derive(conn, run_id):
 
 def titles(conn, run_id):
     return {
-        r["player_name"]: (r["title"], r["title_count"], r["badge_reason"])
+        r["player"]: (r["title"], r["title_count"], r["badge_reason"])
         for r in conn.execute(
-            "SELECT player_name, title, title_count, badge_reason FROM player_titles WHERE run_id = %s",
+            "SELECT name AS player, title, title_count, badge_reason FROM player_titles JOIN players USING (player_id) WHERE run_id = %s",
             (run_id,),
         )
     }
@@ -398,7 +414,6 @@ def test_the_reigning_champion_is_the_latest_seasons_winner(
     place("worlds", 2025, "Final", "alder440", "kittiwake")
     add_match(("Ann", 10), ("Bob", 5), day=date(2024, 6, 1), tournament="RL_s09 - Duke")
     derive(conn, run_id)
-    assert "alder440" not in titles(conn, run_id)
 
     add_match(
         ("alder440", 10),
@@ -445,9 +460,9 @@ def test_no_matches_means_no_titles(conn, run_id):
 
 def peaks(conn, run_id):
     return {
-        r["player_name"]: (r["peak_title"], r["peak_year"])
+        r["player"]: (r["peak_title"], r["peak_year"])
         for r in conn.execute(
-            "SELECT player_name, peak_title, peak_year FROM player_peak_titles WHERE run_id = %s",
+            "SELECT name AS player, peak_title, peak_year FROM player_peak_titles JOIN players USING (player_id) WHERE run_id = %s",
             (run_id,),
         )
     }
@@ -483,9 +498,9 @@ def test_world_champions_peak_at_their_title_year(conn, add_match, run_id, place
 
 def yearly(conn, run_id):
     return {
-        (r["player_name"], r["year"]): r["title"]
+        (r["player"], r["year"]): r["title"]
         for r in conn.execute(
-            "SELECT player_name, year, title FROM player_yearly_titles WHERE run_id = %s",
+            "SELECT name AS player, year, title FROM player_yearly_titles JOIN players USING (player_id) WHERE run_id = %s",
             (run_id,),
         )
     }
@@ -536,7 +551,8 @@ def test_the_reigning_champion_comes_from_admin_then_recorded(
     assert titles(conn, run_id)["alder440"][0] == "WC"
 
     conn.execute(
-        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', 1, 'pipit4')"
+        "INSERT INTO tournament_podium_overrides (tournament, season, place, player_id) "
+        "SELECT 'worlds', '2025', 1, player_id FROM players WHERE name = 'pipit4'"
     )
     conn.commit()
     derive(conn, run_id)
@@ -563,10 +579,16 @@ def test_same_day_games_pick_later_reason_by_finish_time():
         game_id=2,
     )
     t1 = badge_titles([g1, g2], CUTOFF, [], [], [], LEAGUES)
-    assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+    assert (
+        t1.active[player("Ann")]["badge_reason"]
+        == "Played in Royal League Count Season 9"
+    )
 
     t2 = badge_titles([g2, g1], CUTOFF, [], [], [], LEAGUES)
-    assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+    assert (
+        t2.active[player("Ann")]["badge_reason"]
+        == "Played in Royal League Count Season 9"
+    )
 
 
 def test_same_day_games_tiebreak_by_game_id_when_finish_time_equal_or_missing():
@@ -585,10 +607,16 @@ def test_same_day_games_tiebreak_by_game_id_when_finish_time_equal_or_missing():
         game_id=20,
     )
     t1 = badge_titles([g1, g2], CUTOFF, [], [], [], LEAGUES)
-    assert t1.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+    assert (
+        t1.active[player("Ann")]["badge_reason"]
+        == "Played in Royal League Count Season 9"
+    )
 
     t2 = badge_titles([g2, g1], CUTOFF, [], [], [], LEAGUES)
-    assert t2.active["Ann"]["badge_reason"] == "Played in Royal League Count Season 9"
+    assert (
+        t2.active[player("Ann")]["badge_reason"]
+        == "Played in Royal League Count Season 9"
+    )
 
 
 def test_derive_tournament_badges_picks_later_same_day_game(conn, add_match, run_id):

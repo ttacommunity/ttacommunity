@@ -23,6 +23,8 @@ from typing import Any, NamedTuple
 from dateutil.relativedelta import relativedelta
 
 from tta_ratings_engine.data.db import DictConnection, require_running
+from tta_ratings_engine.data.players import Player
+from tta_ratings_engine.data.seats import players_of
 
 _EPOCH = datetime.min.replace(tzinfo=UTC)
 
@@ -63,25 +65,25 @@ SERIES_NAMES = {
 }
 
 
-def world_podiums(conn, run_id) -> list[tuple[str, int, int]]:
+def world_podiums(conn, run_id) -> list[tuple[Player, int, int]]:
     """Returns each World Championship season's podium finishes (place 1, 2, 3), oldest first: (player, season, place).
 
     They are the medals of the run's World Championship records, whose podium tournaments.worlds_podium chose.
     """
     rows = conn.execute(
         """
-        SELECT player_name, season::int AS season,
-               CASE medal WHEN 'gold' THEN 1 WHEN 'silver' THEN 2 ELSE 3 END AS place
-        FROM tournament_records
-        WHERE run_id = %s AND NOT career AND tournament = 'World Championship' AND medal IS NOT NULL
-        ORDER BY season, place, player_name
+        SELECT r.player_id, p.name, r.season::int AS season,
+               CASE r.medal WHEN 'gold' THEN 1 WHEN 'silver' THEN 2 ELSE 3 END AS place
+        FROM tournament_records r JOIN players p USING (player_id)
+        WHERE r.run_id = %s AND NOT r.career AND r.tournament = 'World Championship' AND r.medal IS NOT NULL
+        ORDER BY season, place, p.name
         """,
         (run_id,),
     ).fetchall()
-    return [(r["player_name"], r["season"], r["place"]) for r in rows]
+    return [(Player(r["name"], r["player_id"]), r["season"], r["place"]) for r in rows]
 
 
-def world_champions(conn, run_id) -> list[tuple[str, int]]:
+def world_champions(conn, run_id) -> list[tuple[Player, int]]:
     """Returns each World Championship season's winner, oldest first: (player, season)."""
     return [(p, yr) for p, yr, pl in world_podiums(conn, run_id) if pl == 1]
 
@@ -119,12 +121,12 @@ class Titles(NamedTuple):
     """A run's titles: active (each recently active player's title, count and reason), peaks (each player's
     career peak and its year) and yearly (each (player, year)'s best title)."""
 
-    active: dict[str, dict[str, Any]]
-    peaks: dict[str, tuple[str, int | None]]
-    yearly: dict[tuple[str, int], str]
+    active: dict[Player, dict[str, Any]]
+    peaks: dict[Player, tuple[str, int | None]]
+    yearly: dict[tuple[Player, int], str]
 
 
-def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, Any]:
+def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[Player, Any]:
     """Derives tournament badges for players active within the last year, and returns them.
 
     Replaces the run's player_titles (active titles), player_peak_titles
@@ -146,7 +148,7 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         rows = conn.execute(
             """
             SELECT m.game_id, m.name AS tournament, to_char(m.date, 'YYYY-MM-DD') AS date,
-                   m.finished_at, m.players, tg.series, tg.division, tg.season
+                   m.finished_at, m.players, m.player_ids, tg.series, tg.division, tg.season
             FROM game_lines m
             LEFT JOIN tournament_games tg ON tg.match_id = m.game_id AND tg.run_id = %s
             WHERE m.state = 'played'
@@ -157,14 +159,18 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
         podiums = world_podiums(conn, run_id)
         records = conn.execute(
             """
-            SELECT player_name, tournament, season, division, medal, finish_date, series, series_division
-            FROM tournament_records WHERE run_id = %s AND NOT career ORDER BY position
+            SELECT r.player_id, p.name, r.tournament, r.season, r.division, r.medal, r.finish_date, r.series,
+                   r.series_division
+            FROM tournament_records r JOIN players p USING (player_id)
+            WHERE r.run_id = %s AND NOT r.career ORDER BY r.position
         """,
             (run_id,),
         ).fetchall()
         overrides = conn.execute(
-            "SELECT player_name, title, reason FROM player_title_overrides"
+            "SELECT o.player_id, p.name, o.title, o.reason FROM player_title_overrides o JOIN players p USING (player_id)"
         ).fetchall()
+        for r in records + overrides:
+            r["player"] = Player(r.pop("name"), r.pop("player_id"))
         titles = badge_titles(
             rows, cutoff_date, podiums, records, overrides, league_settings(conn)
         )
@@ -176,15 +182,15 @@ def derive_tournament_badges(*, conn: DictConnection, run_id: int) -> dict[str, 
 def _write_titles(conn: DictConnection, run_id: int, titles: Titles, podiums) -> None:
     """Replaces the run's active, peak and yearly titles; World Championship podiums hold their title in its year."""
     derived_data, peaks, yearly = titles
-    # Replace the run's titles and peaks; unknown names are skipped, as upstream's UPDATE did
+    # Replace the run's titles and peaks; unknown players are skipped, as upstream's UPDATE did
     conn.execute("DELETE FROM player_titles WHERE run_id = %s", (run_id,))
     conn.execute("DELETE FROM player_peak_titles WHERE run_id = %s", (run_id,))
     conn.execute("DELETE FROM player_yearly_titles WHERE run_id = %s", (run_id,))
     with conn.cursor() as cur:
         cur.executemany(
             """
-            INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason)
-            SELECT %s, name, %s, %s, %s FROM players WHERE name = %s
+            INSERT INTO player_titles (run_id, player_id, title, title_count, badge_reason)
+            SELECT %s, player_id, %s, %s, %s FROM players WHERE player_id = %s
         """,
             [
                 (
@@ -192,34 +198,34 @@ def _write_titles(conn: DictConnection, run_id: int, titles: Titles, podiums) ->
                     data["title"],
                     data["title_count"],
                     data["badge_reason"],
-                    p,
+                    p.id,
                 )
                 for p, data in derived_data.items()
             ],
         )
         cur.executemany(
             """
-            INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year)
-            SELECT %s, name, %s, %s FROM players WHERE name = %s
+            INSERT INTO player_peak_titles (run_id, player_id, peak_title, peak_year)
+            SELECT %s, player_id, %s, %s FROM players WHERE player_id = %s
         """,
-            [(run_id, peak, yr, p) for p, (peak, yr) in peaks.items()],
+            [(run_id, peak, yr, p.id) for p, (peak, yr) in peaks.items()],
         )
         cur.executemany(
             """
-            INSERT INTO player_yearly_titles (run_id, player_name, year, title)
-            SELECT %s, name, %s, %s FROM players WHERE name = %s
+            INSERT INTO player_yearly_titles (run_id, player_id, year, title)
+            SELECT %s, player_id, %s, %s FROM players WHERE player_id = %s
         """,
-            [(run_id, yr, code, p) for (p, yr), code in yearly.items()],
+            [(run_id, yr, code, p.id) for (p, yr), code in yearly.items()],
         )
         # World Championship podium finishers hold their title (WC, WCS, WCB) in their title year
         cur.executemany(
             """
-            INSERT INTO player_yearly_titles (run_id, player_name, year, title)
-            SELECT %s, name, %s, %s FROM players WHERE name = %s
-            ON CONFLICT (run_id, player_name, year) DO UPDATE SET title = EXCLUDED.title
+            INSERT INTO player_yearly_titles (run_id, player_id, year, title)
+            SELECT %s, player_id, %s, %s FROM players WHERE player_id = %s
+            ON CONFLICT (run_id, player_id, year) DO UPDATE SET title = EXCLUDED.title
         """,
             [
-                (run_id, yr, "WC" if pl == 1 else "WCS" if pl == 2 else "WCB", p)
+                (run_id, yr, "WC" if pl == 1 else "WCS" if pl == 2 else "WCB", p.id)
                 for p, yr, pl in podiums
             ],
         )
@@ -248,19 +254,19 @@ def badge_titles(
 class _BestTiers(NamedTuple):
     """Each player's best division tier: in the active window (with its game), ever, and each year."""
 
-    active: dict[str, dict[str, Any]]
-    career: dict[str, dict[str, Any]]
-    tier_counts: dict[str, int]
-    yearly: dict[tuple[str, int], int]
+    active: dict[Player, dict[str, Any]]
+    career: dict[Player, dict[str, Any]]
+    tier_counts: dict[Player, int]
+    yearly: dict[tuple[Player, int], int]
 
 
 def _best_tiers(rows, cutoff_date, tiers) -> _BestTiers:
     """Returns each player's best tiers over rows, the latest game winning a tie; tier_counts counts
     their tier-1 games since cutoff_date. tiers map a (series, division) to its tier."""
-    player_best: dict[str, dict[str, Any]] = {}
-    player_career_best: dict[str, dict[str, Any]] = {}
-    player_tier_counts: dict[str, int] = {}
-    player_year_best: dict[tuple[str, int], int] = {}
+    player_best: dict[Player, dict[str, Any]] = {}
+    player_career_best: dict[Player, dict[str, Any]] = {}
+    player_tier_counts: dict[Player, int] = {}
+    player_year_best: dict[tuple[Player, int], int] = {}
 
     for r in rows:
         tier = tiers.get((r["series"], r["division"]))
@@ -270,7 +276,7 @@ def _best_tiers(rows, cutoff_date, tiers) -> _BestTiers:
         d_str = r["date"]
         yr = int(d_str[:4])
 
-        participants = list(r["players"])
+        participants = players_of(r)
 
         game_key = (
             d_str,
@@ -279,9 +285,6 @@ def _best_tiers(rows, cutoff_date, tiers) -> _BestTiers:
         )
 
         for p in participants:
-            if not p:
-                continue
-
             if tier < player_year_best.get((p, yr), 8):
                 player_year_best[(p, yr)] = tier
 
@@ -325,7 +328,7 @@ def _best_tiers(rows, cutoff_date, tiers) -> _BestTiers:
 
 def _active_titles(
     best: _BestTiers, champions, active_sgm, overrides
-) -> dict[str, dict[str, Any]]:
+) -> dict[Player, dict[str, Any]]:
     """Returns each recently active player's title, count and reason: SGM, the latest World Champion's WC,
     else their best tier's, with admin's overrides on top."""
     player_best, player_tier_counts = best.active, best.tier_counts
@@ -357,7 +360,7 @@ def _active_titles(
 
     # A title set in admin replaces the derived one for a recently active player; '' takes it away
     for r in overrides:
-        p = r["player_name"]
+        p = r["player"]
         if p not in derived_data:
             continue
         if r["title"] == "":
@@ -373,7 +376,7 @@ def _active_titles(
 
 def _peak_titles(
     player_career_best, champions, career_sgm
-) -> dict[str, tuple[str, int | None]]:
+) -> dict[Player, tuple[str, int | None]]:
     """Returns each player's career peak title and its year: their best tier, outranked by a Worlds podium or SGM."""
     peaks = {}
     for p, c_info in player_career_best.items():
@@ -399,7 +402,7 @@ def _peak_titles(
 
 def _yearly_titles(
     player_year_best, records, peaks, leagues
-) -> dict[tuple[str, int], str]:
+) -> dict[tuple[Player, int], str]:
     """Returns each (player, year)'s title: the best division played, then the records, then the career peak."""
     yearly = {k: TIER_TITLE_MAP.get(t, "W") for k, t in player_year_best.items()}
     for key, code in _record_years(records, leagues).items():
@@ -429,7 +432,7 @@ def _super_gm(records, cutoff_date, super_gm):
     for r in records:
         if not _is_super_gm_win(r, super_gm):
             continue
-        p, finish = r["player_name"], r["finish_date"]
+        p, finish = r["player"], r["finish_date"]
         year = int(finish[:4]) if finish[:4].isdigit() else None
         reason = f"Champion of {r['tournament']} {r['division']} ({r['season']})"
         if finish >= cutoff_date and (p not in active or finish > active[p]["date"]):
@@ -449,7 +452,7 @@ def _record_years(records, leagues):
         finish = r["finish_date"]
         if not finish[:4].isdigit():
             continue
-        key = (r["player_name"], int(finish[:4]))
+        key = (r["player"], int(finish[:4]))
         if _is_super_gm_win(r, leagues.super_gm):
             got[key] = "SGM"
         elif key not in got:

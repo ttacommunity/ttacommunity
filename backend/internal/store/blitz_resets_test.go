@@ -204,7 +204,7 @@ func TestAGameInARatingsRunIsResetToo(t *testing.T) {
 			classifyGame(t, pool, run, game, classified{season: 2026, nameSeason: 2026})
 			if _, err := pool.Exec(ctx, `
 				INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
-				VALUES ($1, $2, '2026-10-15', 'US Open', 2, 'Ann', 'Bob', 250, 200, 1, 1, false)`, run, game); err != nil {
+				VALUES ($1, $2, '2026-10-15', 'US Open', 2, $3, $4, 250, 200, 1, 1, false)`, run, game, playerID(t, pool, "Ann"), playerID(t, pool, "Bob")); err != nil {
 				t.Fatalf("pairing the game in the run: %v", err)
 			}
 			if err := tt.reset(a, r.Matches[0].ID, r.ID); err != nil {

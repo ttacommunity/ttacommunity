@@ -262,8 +262,8 @@ func addRatingIfRun(t *testing.T, pool *pgxpool.Pool, run int64) {
 func addTitle(t *testing.T, pool *pgxpool.Pool, run int64, name, title string, count int, reason string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		"INSERT INTO player_titles (run_id, player_name, title, title_count, badge_reason) VALUES ($1, $2, $3, $4, $5)",
-		run, name, title, count, reason)
+		"INSERT INTO player_titles (run_id, player_id, title, title_count, badge_reason) VALUES ($1, $2, $3, $4, $5)",
+		run, playerID(t, pool, name), title, count, reason)
 	if err != nil {
 		t.Fatalf("adding %s's title in run %d: %v", name, run, err)
 	}
@@ -283,7 +283,7 @@ func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
 	other := addRun(t, pool, "complete", at)
 	addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1900)
 	addRating(t, pool, run, "glicko2_daneo", 0, "bob", ptr(2), 1700)
-	addRating(t, pool, run, "glicko2_daneo", 0, "not-a-player", ptr(3), 1500)
+	addRating(t, pool, run, "glicko2_daneo", 0, "cy", ptr(3), 1500)
 	addTitle(t, pool, run, "ann", "GM", 3, "Played in Royal League Grandmaster Season 16")
 	addTitle(t, pool, other, "bob", "M", 1, "from another run")
 
@@ -294,7 +294,7 @@ func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
 	if len(got) != 3 {
 		t.Fatalf("Leaderboard has %d rows, want 3", len(got))
 	}
-	ann, bob, stray := got[0], got[1], got[2]
+	ann, bob, cy := got[0], got[1], got[2]
 	if ann.Country == nil || *ann.Country != "PL" {
 		t.Errorf("ann's country = %v, want PL", ann.Country)
 	}
@@ -305,16 +305,16 @@ func TestLeaderboardJoinsPlayerCountryAndTheRunsTitle(t *testing.T) {
 	if bob.Country != nil || bob.Title != nil {
 		t.Errorf("bob = country %v, title %+v; want neither (his title is another run's)", bob.Country, bob.Title)
 	}
-	if stray.Name != "not-a-player" || stray.Country != nil || stray.Title != nil {
-		t.Errorf("row without a player = %+v, want it kept with no country or title", stray)
+	if cy.Name != "cy" || cy.Country != nil || cy.Title != nil {
+		t.Errorf("a player with no member = %+v, want kept with no country or title", cy)
 	}
 }
 
 func addHistory(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name, period string, cRating float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
-		VALUES ($1, $2, $3, $4, $5, $6::float8 + 90, 30, $6::float8)`, run, model, format, name, period, cRating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6::float8 + 90, 30, $6::float8)`, run, model, format, playerID(t, pool, name), period, cRating)
 	if err != nil {
 		t.Fatalf("adding %s's history at %s: %v", name, period, err)
 	}
@@ -477,7 +477,7 @@ func giveBadges(t *testing.T, pool *pgxpool.Pool, name string, labels ...string)
 		if _, err := pool.Exec(context.Background(), `
 			WITH b AS (INSERT INTO badges (label, description) VALUES ($1, $1 || ' description')
 			           ON CONFLICT (label) DO UPDATE SET label = excluded.label RETURNING badge_id)
-			INSERT INTO player_badges (player_name, badge_id) SELECT $2, badge_id FROM b`, l, name); err != nil {
+			INSERT INTO player_badges (player_id, badge_id) SELECT $2, badge_id FROM b`, l, playerID(t, pool, name)); err != nil {
 			t.Fatalf("giving %s the %s badge: %v", name, l, err)
 		}
 	}
