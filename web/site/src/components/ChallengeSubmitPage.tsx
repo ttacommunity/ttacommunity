@@ -4,7 +4,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { challengeEntries, challengeHighscores, type ChallengeEntries, type ChallengeHighscores } from '@ttac/shared/ratings';
 import { change, sharedMe, signInHref, type Me } from '../lib/account';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { bestsOf, proofOwners, reviewNotes, submission, type Row } from '../lib/challenge-submit';
+import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission, type Row } from '../lib/challenge-submit';
 import { challengePicture, challengePlayerHref, challengeSets, setLabel, type SetId } from '../lib/challenges';
 import { ProofLink } from './ChallengeParts';
 import { useLoad } from './useLoad';
@@ -211,7 +211,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
   const others = bestsOf(entries.entries, name, true);
   const usedBy = proofOwners(entries.entries);
   const record = new Map(records.challenges.flatMap((c) => (c.record === null ? [] : [[c.id, c.record] as const])));
-  const newRecords = chosen.filter((e) => e.domination >= 0 && e.domination > (record.get(e.challenge)?.domination ?? -Infinity)).length;
+  const newRecords = recordsBeaten(chosen, new Map([...record].map(([id, r]) => [id, r.domination])));
   return (
     <section className="rating-card challenges-card" aria-labelledby="review">
       <h2 id="review" className="rating-card-heading">

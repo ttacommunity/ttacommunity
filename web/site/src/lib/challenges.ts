@@ -182,3 +182,22 @@ export function champions(weeks: readonly { winners: readonly { player: string }
   for (const w of weeks) for (const p of w.winners) wins.set(p.player, (wins.get(p.player) ?? 0) + 1);
   return [...wins].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 }
+
+/** leader says which side of a compared cell is ahead: the one that played alone, or the higher; '' for a tie or neither. */
+export function leader(a: number | undefined, b: number | undefined): 'a' | 'b' | '' {
+  if (a === undefined && b === undefined) return '';
+  if (a === undefined) return 'b';
+  if (b === undefined) return 'a';
+  return a > b ? 'a' : b > a ? 'b' : '';
+}
+
+/** placingSeparators is what goes before each placing in a list: nothing, " & " joining a tie with the one before, or ", ". */
+export function placingSeparators(list: readonly { domination: number }[]): string[] {
+  return list.map((p, i) => (i === 0 ? '' : list[i - 1].domination === p.domination ? ' & ' : ', '));
+}
+
+/** playedInSet counts the bests on a set's challenges, and how many challenges the set has. */
+export function playedInSet(bests: readonly { challenge: string }[], list: readonly { id: string; set: SetId }[], set: SetId): { played: number; of: number } {
+  const ids = new Set(list.filter((c) => c.set === set).map((c) => c.id));
+  return { played: bests.filter((b) => ids.has(b.challenge)).length, of: ids.size };
+}

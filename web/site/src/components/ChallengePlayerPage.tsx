@@ -4,7 +4,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { viewerZone } from '@ttac/shared/time';
 import { challengePlayer, RatingsApiError, type ChallengePlayer, type ChallengePlayerBest, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
+import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
 import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
@@ -62,7 +62,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
           {p.summary && (
             <span className="muted">
               {measure === 'rating' ? 'Rating' : 'Total'} <strong>{formatMeasure(measureOf(p.summary, measure, set), measure)}</strong> ·{' '}
-              {p.bests.filter((b) => list.find((c) => c.id === b.challenge)?.set === set).length} / {list.filter((c) => c.set === set).length} played
+              {playedInSet(p.bests, list, set).played} / {playedInSet(p.bests, list, set).of} played
             </span>
           )}
         </div>

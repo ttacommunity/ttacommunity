@@ -2,7 +2,7 @@
 import { formatDay } from '@ttac/shared/time';
 import { challengeWeeks, type ChallengePlacing } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeHref, challengePicture, champions } from '../lib/challenges';
+import { challengeHref, challengePicture, champions, placingSeparators } from '../lib/challenges';
 import { ChallengePlayerLink } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
@@ -78,11 +78,12 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
 /** Placings lists names with their dominations, "&" joining a tie. */
 function Placings({ list }: { list: ChallengePlacing[] }) {
   if (list.length === 0) return <span className="muted">—</span>;
+  const before = placingSeparators(list);
   return (
     <>
       {list.map((p, i) => (
         <span key={p.player}>
-          {i > 0 && (list[i - 1].domination === p.domination ? ' & ' : ', ')}
+          {before[i]}
           <ChallengePlayerLink name={p.player} /> <span className="muted">{p.domination}</span>
         </span>
       ))}

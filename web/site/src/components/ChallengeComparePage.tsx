@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengePlayer, challengePlayers, RatingsApiError, type ChallengePlayer, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeSets, compareBests, formatMeasure, measureOf, setLabel, signed, type Measure, type SetId } from '../lib/challenges';
+import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, signed, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 
@@ -188,7 +188,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
             const x = bestA.get(c.id);
             const y = bestB.get(c.id);
             if (x === undefined && y === undefined) return <span className="muted">—</span>;
-            const lead = x === undefined ? 'b' : y === undefined ? 'a' : x > y ? 'a' : y > x ? 'b' : '';
+            const lead = leader(x, y);
             return (
               <span className={lead ? `challenges-lead-${lead}` : undefined}>
                 <span className="challenges-side-a">{x ?? '—'}</span>

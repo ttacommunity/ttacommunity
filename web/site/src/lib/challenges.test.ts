@@ -13,8 +13,11 @@ import {
   nameParam,
   formatMeasure,
   groupLabel,
+  leader,
   measureOf,
   niceTicks,
+  placingSeparators,
+  playedInSet,
   playNext,
   scopeLeaders,
   setLabel,
@@ -210,5 +213,39 @@ describe('champions', () => {
       ['Ann', 2],
       ['Bob', 2],
     ]);
+  });
+});
+
+describe('leader', () => {
+  it.each([
+    ['a ahead', 10, 5, 'a'],
+    ['b ahead', 5, 10, 'b'],
+    ['a tie', 7, 7, ''],
+    ['only a played', 7, undefined, 'a'],
+    ['only b played', undefined, 7, 'b'],
+    ['neither played', undefined, undefined, ''],
+  ])('says who leads with %s', (_name, a, b, want) => {
+    expect(leader(a, b)).toBe(want);
+  });
+});
+
+describe('placingSeparators', () => {
+  it.each([
+    ['nothing before the first', [100], ['']],
+    ['a comma between different dominations', [100, 90], ['', ', ']],
+    ['an ampersand joining a tie', [100, 100, 90], ['', ' & ', ', ']],
+  ])('writes %s', (_name, dominations, want) => {
+    expect(placingSeparators(dominations.map((domination) => ({ domination })))).toEqual(want);
+  });
+});
+
+describe('playedInSet', () => {
+  const list = [challenge('a', 'original', 'g'), challenge('b', 'original', 'g'), challenge('c', 'mix', 'g')];
+  it.each([
+    ['the set with one of two played', 'original', { played: 1, of: 2 }],
+    ['the set with its one challenge played', 'mix', { played: 1, of: 1 }],
+    ['a set with no challenge', 'expansion', { played: 0, of: 0 }],
+  ] as const)('counts %s', (_name, set, want) => {
+    expect(playedInSet([{ challenge: 'a' }, { challenge: 'c' }, { challenge: 'gone' }], list, set)).toEqual(want);
   });
 });
