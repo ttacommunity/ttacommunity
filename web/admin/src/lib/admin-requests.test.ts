@@ -13,6 +13,7 @@ describe('admin requests', () => {
     ['a group\'s members', req.setMembers('swiss_open', ['cge_1817']), '/api/tournaments/swiss_open', 'PATCH', { members: ['cge_1817'] }],
     ['a season note, trimmed', req.setNote('worlds', '2024', '', ' Replayed '), '/api/tournaments/worlds/seasons/2024', 'PATCH', { note: 'Replayed' }],
     ['a stage note, trimmed, to a season to escape', req.setNote('worlds', '2023 Play/Off', 'Stage 1', ' Best of three '), '/api/tournaments/worlds/seasons/2023%20Play%2FOff', 'PATCH', { stage_notes: { 'Stage 1': 'Best of three' } }],
+    ['a season organiser, trimmed', req.setOrganiser('worlds', '2024', ' Ember_Wolf '), '/api/tournaments/worlds/seasons/2024', 'PATCH', { organiser: 'Ember_Wolf' }],
     ['a time-out penalty', req.setPenalty('international', '30', -1), '/api/tournaments/international/seasons/30', 'PATCH', { timeout_penalty: -1 }],
     ['a podium', req.setPodium('worlds', '2024', { podium: [{ place: 1, name: 'ann' }], note: '' }), '/api/tournaments/worlds/seasons/2024', 'PATCH', { podium: { podium: [{ place: 1, name: 'ann' }], note: '' } }],
     ['clearing a podium', req.clearPodium('worlds', '2023 Play Off'), '/api/tournaments/worlds/seasons/2023%20Play%20Off', 'PATCH', { clear_podium: true }],

@@ -179,7 +179,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},
 		RatedPlayerCounts: []int{3, 4},
 		Divisions:         []store.Division{{Name: "Final", Tier: 1}, {Name: "Semi-final", Tier: 2}}, SuperGM: true, RecordMinGames: 3,
-		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, RunHere: true, TimeoutPenalty: -1, Games: 3, Finished: 2, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
+		Seasons: []store.AdminSeason{{Label: "2025", OriginalName: "2025 Edition", Rated: true, InChampions: true, InCommunity: true, RunHere: true, Organiser: "Ember_Wolf", CGEOrganiser: "Lantern_Keeper", TimeoutPenalty: -1, Games: 3, Finished: 2, Players: 5, Stages: []store.AdminStage{{Label: "Stage 1", OriginalName: "Groups", Note: "n", Number: 1, Games: 2, Finished: 1, Players: 5}},
 			Podium: []store.PodiumEntry{{Place: 1, Name: "alder440"}}, PodiumNote: "CGE",
 			Suggested: []store.PodiumEntry{{Place: 1, Name: "birch550"}}, SuggestedFrom: "final_stage"}}}, nil
 }
@@ -266,6 +266,13 @@ func (f *fakeAdmins) ChangeSeason(ctx context.Context, slug, season string, c st
 		{c.InCommunity != nil, func() error { return f.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
 		{c.RunHere != nil, func() error {
 			f.notes = append(f.notes, fmt.Sprintf("season %s run here %v", season, *c.RunHere))
+			return nil
+		}},
+		{c.Organiser != nil, func() error {
+			if season == "1999" {
+				return store.ErrNoTournament
+			}
+			f.notes = append(f.notes, fmt.Sprintf("season %s organiser %s", season, *c.Organiser))
 			return nil
 		}},
 		{c.TimeoutPenalty != nil, func() error { return f.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},

@@ -17,6 +17,19 @@ const notHiddenPlayer = `NOT EXISTS (
 	WHERE pa.player_id = p.player_id AND (pa.deleted OR pa.banned)
 )`
 
+// cgeOrganiser is the name of CGE tournament c's organiser: the name held, else that of their account a.
+const cgeOrganiser = `coalesce(nullif(c.organiser, ''), a.name, '')`
+
+// organiserHidden is true when the player of a CGE tournament's organiser account a has a deleted or banned
+// CGE account.
+const organiserHidden = `EXISTS (SELECT 1 FROM player_accounts pa WHERE pa.player_id = a.player_id AND (pa.deleted OR pa.banned))`
+
+// seasonCGEOrganiser is the organiser, as name gives it from c and a, of season se's latest CGE tournament, or ”.
+func seasonCGEOrganiser(name string) string {
+	return `coalesce((SELECT ` + name + ` FROM cge_tournaments c LEFT JOIN player_accounts a ON a.cge_user = c.organiser_user
+	WHERE c.tournament_id = se.tournament_id ORDER BY c.cge_tournament DESC LIMIT 1), '')`
+}
+
 // hiddenName is true when the name in column is, ignoring case, a player with any deleted or banned CGE account.
 func hiddenName(column string) string {
 	return `EXISTS (

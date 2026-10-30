@@ -629,6 +629,90 @@ func TestCatalogueTournamentShowsAnAdminPodiumOverAnyOther(t *testing.T) {
 	}
 }
 
+func TestCatalogueTournamentNamesEachSeasonsOrganiser(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2021 Stage 1 - group 1 game 1": day("2021-07-01"),
+		"Wimbledon 2022 Stage 1 - group 1 game 1": day("2022-07-01"),
+		"Wimbledon 2023 Stage 1 - group 1 game 1": day("2023-07-01"),
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2025 Stage 1 - group 1 game 1": day("2025-07-01"),
+	})
+	for _, q := range []string{
+		"INSERT INTO players (name) VALUES ('Lantern_Keeper'), ('Quiet_Heron')",
+		`INSERT INTO player_accounts (cge_user, player_id, name, banned)
+		 SELECT x.cge_user, p.player_id, x.name, x.banned FROM (VALUES
+		     (501, 'Lantern_Keeper', 'Lantern_Keeper', false), (503, 'Quiet_Heron', 'Quiet_Heron', true))
+		     AS x(cge_user, player, name, banned) JOIN players p ON p.name = x.player`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	addCGETournaments(t, pool,
+		tournamentcsv.CGETournament{ID: 72, Name: "Wimbledon 2022", Status: "finished", Tournament: "wimbledon", Season: "2022"},
+		tournamentcsv.CGETournament{ID: 74, Name: "Wimbledon 2024", Status: "finished", Organiser: "Lantern_Keeper", Tournament: "wimbledon", Season: "2024"},
+		tournamentcsv.CGETournament{ID: 75, Name: "Wimbledon 2025", Status: "finished", Organiser: "Lantern_Keeper", Tournament: "wimbledon", Season: "2025"},
+	)
+	if _, err := pool.Exec(ctx, "UPDATE cge_tournaments SET organiser_user = 503 WHERE cge_tournament = 72"); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAdminStore(asAdminLogin(t, pool))
+	for season, name := range map[string]string{"2021": "Quiet_Heron", "2024": "Ember_Wolf"} {
+		if err := a.ChangeSeason(ctx, "wimbledon", season, SeasonChange{Organiser: &name}); err != nil {
+			t.Fatalf("ChangeSeason(%s): %v", season, err)
+		}
+	}
+
+	withSpans(t, pool, run)
+	got, err := NewRatingsReader(asReader(t, pool)).CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+	tests := []struct{ name, season, want string }{
+		{"set in admin", "2024", "Ember_Wolf"},
+		{"CGE's when none is set", "2025", "Lantern_Keeper"},
+		{"none without CGE's", "2023", ""},
+		{"CGE's banned account is masked", "2022", DeletedPlayer},
+		{"a name set in admin is masked by its player", "2021", DeletedPlayer},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := slices.IndexFunc(got.Seasons, func(s CatalogueSeason) bool { return s.Label == tt.season })
+			if i < 0 {
+				t.Fatalf("no season %s", tt.season)
+			}
+			if o := got.Seasons[i].Organiser; o != tt.want {
+				t.Errorf("season %s organiser = %q, want %q", tt.season, o, tt.want)
+			}
+		})
+	}
+}
+
+func TestCatalogueNamesACGETournamentBySeasonsOrganiserSetInAdmin(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	addCGETournaments(t, pool, tournamentcsv.CGETournament{ID: 74, Name: "Wimbledon 2024", Status: "finished",
+		Organiser: "Lantern_Keeper", Finished: date("2024-08-01"), Tournament: "wimbledon", Season: "2024"})
+	name := "Ember_Wolf"
+	if err := NewAdminStore(asAdminLogin(t, pool)).ChangeSeason(ctx, "wimbledon", "2024", SeasonChange{Organiser: &name}); err != nil {
+		t.Fatalf("ChangeSeason: %v", err)
+	}
+
+	withSpans(t, pool, run)
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(ctx, run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	if len(view.CGE) != 1 || view.CGE[0].Organiser != name {
+		t.Errorf("CGE tournaments = %+v, want Wimbledon 2024 organised by %s", view.CGE, name)
+	}
+}
+
 func TestCatalogueTournamentGivesTheRegulationsWrittenInAdmin(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

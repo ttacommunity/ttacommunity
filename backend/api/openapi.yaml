@@ -2539,8 +2539,8 @@ paths:
       summary: Change a season's settings, notes or podium
       description: |
         Only what is given changes: whether it is rated, among the champions or in the community
-        leaderboard, its time-out penalty, its note and its stages' notes (an empty note removes
-        one), and its podium set by hand (clear_podium removes it, so the recorded or derived one
+        leaderboard, its time-out penalty, its organiser, its note and its stages' notes (an empty
+        note removes one), and its podium set by hand (clear_podium removes it, so the recorded or derived one
         shows). Audited. The Origin must be the admin site.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -4558,7 +4558,7 @@ components:
             $ref: "#/components/schemas/AdminSeason"
     AdminSeason:
       type: object
-      required: [label, original_name, note, has_games, rated, in_champions, in_community, run_here, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
+      required: [label, original_name, note, has_games, rated, in_champions, in_community, run_here, organiser, cge_organiser, timeout_penalty, stages, podium, podium_note, suggested_podium, suggested_from, games, finished, players]
       properties:
         games:
           description: Its games, across its stages (a season without stages keeps them in one, unnamed, that stages leaves out)
@@ -4578,6 +4578,12 @@ components:
         run_here:
           description: It is run on this site, CGE only advertising it; its CGE tournament gives its page, never its stages, games or settings
           type: boolean
+        organiser:
+          description: Who organised it, as admin set it; empty for none
+          type: string
+        cge_organiser:
+          description: Its latest CGE tournament's organiser, which the site shows while admin sets none; empty for none
+          type: string
         timeout_penalty:
           description: The points a player loses in its standings for each game they time out of, 0 or below
           type: number
@@ -4697,6 +4703,10 @@ components:
         run_here:
           description: It is run on this site, so CGE's loads take its CGE tournament's page and never its stages, games or settings
           type: boolean
+        organiser:
+          description: Who organised it, trimmed; empty removes it, so the site shows its CGE tournament's organiser
+          type: string
+          maxLength: 100
         timeout_penalty:
           description: The points a player loses in its standings for each game they time out of, from the next run
           type: number
@@ -7619,7 +7629,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/SeasonSpan"
         - type: object
-          required: [label, in_champions, stages, podium, cge_pages, note]
+          required: [label, in_champions, stages, podium, cge_pages, note, organiser]
           properties:
             label:
               type: string
@@ -7628,6 +7638,10 @@ components:
               type: boolean
             note:
               description: A note shown beside the season, such as what a special season was, or null
+              type: string
+              nullable: true
+            organiser:
+              description: Who organised it, as admin set it, else its latest CGE tournament's organiser; Deleted player for a deleted or banned account; null for none
               type: string
               nullable: true
             stages:

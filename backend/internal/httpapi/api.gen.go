@@ -1221,6 +1221,9 @@ type AdminRunStatus string
 
 // AdminSeason defines model for AdminSeason.
 type AdminSeason struct {
+	// CgeOrganiser Its latest CGE tournament's organiser, which the site shows while admin sets none; empty for none
+	CgeOrganiser string `json:"cge_organiser"`
+
 	// Finished Its games that were played, counted as games is
 	Finished int `json:"finished"`
 
@@ -1237,6 +1240,9 @@ type AdminSeason struct {
 	InCommunity bool   `json:"in_community"`
 	Label       string `json:"label"`
 	Note        string `json:"note"`
+
+	// Organiser Who organised it, as admin set it; empty for none
+	Organiser string `json:"organiser"`
 
 	// OriginalName The label it came in with, kept when it is renamed
 	OriginalName string `json:"original_name"`
@@ -2034,8 +2040,11 @@ type CatalogueSeason struct {
 	LastGame    *openapi_types.Date `json:"last_game"`
 
 	// Note A note shown beside the season, such as what a special season was, or null
-	Note    *string `json:"note"`
-	Players int     `json:"players"`
+	Note *string `json:"note"`
+
+	// Organiser Who organised it, as admin set it, else its latest CGE tournament's organiser; Deleted player for a deleted or banned account; null for none
+	Organiser *string `json:"organiser"`
+	Players   int     `json:"players"`
 
 	// Podium The season's top three: a cup's recorded podium, or a league's
 	// recorded placements or else its top division's standings in
@@ -3462,8 +3471,11 @@ type SeasonChange struct {
 	NewSeason *string `json:"new_season,omitempty"`
 
 	// Note Its own note; empty removes it
-	Note   *string        `json:"note,omitempty"`
-	Podium *PodiumSetting `json:"podium,omitempty"`
+	Note *string `json:"note,omitempty"`
+
+	// Organiser Who organised it, trimmed; empty removes it, so the site shows its CGE tournament's organiser
+	Organiser *string        `json:"organiser,omitempty"`
+	Podium    *PodiumSetting `json:"podium,omitempty"`
 
 	// Rated Its games count towards ratings, from the next run
 	Rated *bool `json:"rated,omitempty"`

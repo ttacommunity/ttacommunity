@@ -47,6 +47,8 @@ export function setNote(slug: string, label: string, stage: string, note: string
   const change: Schemas['SeasonChange'] = stage === '' ? { note: note.trim() } : { stage_notes: { [stage]: note.trim() } };
   return to(season(slug, label), 'PATCH', change);
 }
+/** setOrganiser saves who organised a season, trimmed; an empty name removes it. */
+export const setOrganiser = (slug: string, label: string, name: string) => to(season(slug, label), 'PATCH', { organiser: name.trim() });
 /** setPenalty sets a season's time-out penalty. */
 export const setPenalty = (slug: string, label: string, penalty: number) => to(season(slug, label), 'PATCH', { timeout_penalty: penalty });
 /** setPodium sets a season's podium by hand. */

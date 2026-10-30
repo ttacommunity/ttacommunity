@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
+	"ttacommunity/backend/internal/tournamentcsv"
 )
 
 func TestSetNoteReplacesAndAnEmptyNoteRemoves(t *testing.T) {
@@ -201,6 +203,42 @@ func TestASeasonCanBeRunOnThisSite(t *testing.T) {
 		}
 	}
 	if err := a.ChangeSeason(ctx, "wimbledon", "1999", SeasonChange{RunHere: &run}); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("no such season = %v, want ErrNoTournament", err)
+	}
+}
+
+func TestAdminSetsASeasonsOrganiser(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2025 Stage 1 - group 1 game 1": day("2025-07-01"),
+	})
+	addCGETournaments(t, pool, tournamentcsv.CGETournament{ID: 71, Name: "Wimbledon 2025", Status: "finished",
+		Organiser: "Lantern_Keeper", Tournament: "wimbledon", Season: "2025"})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	set := func(season, name string) {
+		t.Helper()
+		if err := a.ChangeSeason(ctx, "wimbledon", season, SeasonChange{Organiser: &name}); err != nil {
+			t.Fatalf("ChangeSeason(%s, organiser %q): %v", season, name, err)
+		}
+	}
+
+	set("2024", "Quiet_Heron")
+	set("2025", "Quiet_Heron")
+	set("2025", "")
+	tests := []struct{ season, organiser, cge string }{
+		{"2024", "Quiet_Heron", ""},
+		{"2025", "", "Lantern_Keeper"},
+	}
+	for _, tt := range tests {
+		se := wimbledonSeason(t, a, tt.season)
+		if se.Organiser != tt.organiser || se.CGEOrganiser != tt.cge {
+			t.Errorf("season %s organiser = %q, CGE's %q; want %q, %q", tt.season, se.Organiser, se.CGEOrganiser, tt.organiser, tt.cge)
+		}
+	}
+	name := "Quiet_Heron"
+	if err := a.ChangeSeason(ctx, "wimbledon", "1999", SeasonChange{Organiser: &name}); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("no such season = %v, want ErrNoTournament", err)
 	}
 }

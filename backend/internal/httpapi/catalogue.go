@@ -126,6 +126,9 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 		if season.Note != "" {
 			out.Note = &season.Note
 		}
+		if season.Organiser != "" {
+			out.Organiser = &season.Organiser
+		}
 		for _, l := range season.CGE {
 			page := fmt.Sprintf("%s/tournaments/detail/%d", cgeSite, l.Tournament)
 			if l.Season > 0 {
