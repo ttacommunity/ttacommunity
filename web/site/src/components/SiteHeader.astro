@@ -1,5 +1,5 @@
 ---
-/** The site's header, the same on every page: brand, the sections (a menu of pages each, opened by click), player search and sign-in; a drawer on phones. */
+/** The site's header, the same on every page: brand with sign-in beside it, then the sections (a menu of pages each, opened by click) and player search; a drawer on phones, sign-in inside it. */
 import { PUBLIC_ADMIN_URL, PUBLIC_API_URL } from 'astro:env/client';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { placeOf, sections } from '../lib/nav';
@@ -20,6 +20,9 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
         <span class="brand-subtitle">Competitive Community Hub</span>
       </div>
     </a>
+    <div class="header-controls header-controls-bar">
+      <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={adminHref(PUBLIC_ADMIN_URL, path)} current={path.startsWith('/account/')} />
+    </div>
     <button type="button" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="site-menu">
       <span class="hamburger-bar"></span>
       <span class="hamburger-bar"></span>
@@ -73,7 +76,7 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
           ))}
         </ul>
       </nav>
-      <div class="header-controls">
+      <div class="header-controls header-controls-drawer">
         <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={adminHref(PUBLIC_ADMIN_URL, path)} current={path.startsWith('/account/')} />
       </div>
     </div>

@@ -147,11 +147,16 @@
   font-size: 0.78rem;
 }
 
-/* Controls at the bar's end, set apart from the sections: Sign in, the account, Community Hub. */
+/* Controls set apart from the sections: Sign in, the account, Community Hub. The site renders them twice, at the
+   brand row's end for wide screens and in the drawer for phones; each width shows one. */
 .header-controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.header-controls-bar {
+  margin-left: auto;
 }
 
 .header-controls a {
@@ -174,11 +179,16 @@
 }
 
 @media (min-width: 821px) {
+  /* The sections and search take a row of their own under the brand, so the account never runs off the edge. */
   .site-menu {
     display: flex;
-    flex: 1;
+    flex: 1 0 100%;
     align-items: center;
     gap: 1rem;
+  }
+
+  .header-controls-drawer {
+    display: none;
   }
 
   /* First, whatever its place in the drawer, pushing what follows to the bar's end. */
@@ -292,6 +302,10 @@
 
   .nav-toggle {
     display: flex;
+  }
+
+  .header-controls-bar {
+    display: none;
   }
 
   .nav-drawer {
