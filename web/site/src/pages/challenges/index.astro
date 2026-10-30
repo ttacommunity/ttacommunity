@@ -1,0 +1,12 @@
+---
+/** The Challenges section's home: the domination highscores. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../components/ChallengesNav.astro';
+import ChallengesHighscores from '../../components/ChallengesHighscores';
+import '../../components/Challenges.css';
+---
+<SiteLayout title="Domination Highscores | Challenges" description="The highest domination entered for each of the Through the Ages app's challenges, verified by a screenshot in the TtA Discord.">
+  <ChallengesNav page="highscores" />
+  <ChallengesHighscores client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

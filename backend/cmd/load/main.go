@@ -145,6 +145,24 @@ var commands = []command{
 		}
 		return loadCGEExtract(fs.Arg(0), *settings, *pairs, *apply)
 	}},
+	{"challenges", "<JSON file>", "replace the challenges with the JSON list (web/site/src/data/challenges.json)", func(fs *flag.FlagSet, args []string) error {
+		if err := parse(fs, args, 1); err != nil {
+			return err
+		}
+		return loadChallenges(fs.Arg(0))
+	}},
+	{"challenge-entries", "<JSON file>", "replace every entry imported from the old challenges site with its JSON list of entries", func(fs *flag.FlagSet, args []string) error {
+		if err := parse(fs, args, 1); err != nil {
+			return err
+		}
+		return importChallengeEntries(fs.Arg(0))
+	}},
+	{"challenge-weeks", "<JSON file>", "replace every week of the weekly challenge with the old site's weekly.json", func(fs *flag.FlagSet, args []string) error {
+		if err := parse(fs, args, 1); err != nil {
+			return err
+		}
+		return loadChallengeWeeks(fs.Arg(0))
+	}},
 	{"input-tables", "", "print the tables that hold inputs, one per line, and touch no database", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {
 			return err

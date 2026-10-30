@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
+import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'members', 'data', 'titles', 'admins', 'audit']],
-    ['organiser', ['tournaments', 'blitz', 'members', 'data']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'members', 'data', 'titles', 'admins', 'audit']],
+    ['organiser', ['tournaments', 'blitz', 'challenges', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
@@ -21,6 +21,7 @@ describe('admin tabs', () => {
     ['#audit', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
+    ['#challenges', 'organiser', 'challenges'],
     ['#signins', 'organiser', 'members'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
@@ -34,6 +35,7 @@ describe('admin tabs', () => {
     ['titles', 'admin', ['titles', 'badges']],
     ['tournaments', 'organiser', ['tournaments']],
     ['blitz', 'organiser', ['blitz']],
+    ['challenges', 'organiser', ['challenges']],
     ['members', 'organiser', ['members']],
     ['admins', 'admin', ['admins']],
     ['audit', 'admin', ['audit']],
@@ -62,10 +64,14 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
-    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Players', ['members']], ['Site', ['data']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz', 'challenges']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz', 'challenges']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
+  });
+
+  it('puts every tab in a menu, so each has a link', () => {
+    expect(groupsFor(TABS, {}).flatMap((g) => g.tabs.map((t) => t.key)).sort()).toEqual(TABS.map((t) => t.key).sort());
   });
 
   it('drops a group with no tab left', () => {

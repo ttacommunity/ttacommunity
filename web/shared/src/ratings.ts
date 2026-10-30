@@ -79,6 +79,22 @@ export type BlitzEditions = components['schemas']['BlitzEditions'];
 export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
 export type BlitzEdition = components['schemas']['BlitzEdition'];
 export type BlitzEntrant = components['schemas']['BlitzEntrant'];
+export type ChallengeHighscores = components['schemas']['ChallengeHighscores'];
+export type Challenge = components['schemas']['Challenge'];
+export type ChallengeBest = components['schemas']['ChallengeBest'];
+export type ChallengeScope = components['schemas']['ChallengeScope'];
+export type ChallengeScopePlayer = components['schemas']['ChallengeScopePlayer'];
+export type ChallengeBoard = components['schemas']['ChallengeBoard'];
+export type ChallengeSubmission = components['schemas']['ChallengeSubmission'];
+export type ChallengeRecordStep = components['schemas']['ChallengeRecordStep'];
+export type ChallengePlayers = components['schemas']['ChallengePlayers'];
+export type ChallengePlayerSummary = components['schemas']['ChallengePlayerSummary'];
+export type ChallengePlayer = components['schemas']['ChallengePlayer'];
+export type ChallengePlayerBest = components['schemas']['ChallengePlayerBest'];
+export type ChallengePlayerEntry = components['schemas']['ChallengePlayerEntry'];
+export type ChallengeWeeks = components['schemas']['ChallengeWeeks'];
+export type ChallengeEntries = components['schemas']['ChallengeEntries'];
+export type ChallengePlacing = components['schemas']['ChallengePlacing'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
 export function isSlug(s: string): boolean {
@@ -377,6 +393,51 @@ export async function blitzEditions(base: string, fetchFn: typeof fetch = fetch)
 /** Returns how many visits the site had in its last days, as Cloudflare Web Analytics counts them. */
 export async function siteVisits(base: string, fetchFn: typeof fetch = fetch): Promise<SiteVisits> {
   return get<SiteVisits>(fetchFn, base, '/v1/site/visits');
+}
+
+/** challengeQuery is a challenge route's query: verified only unless told otherwise. */
+function challengeQuery(verified: boolean, extra: Record<string, string> = {}): string {
+  const q = new URLSearchParams(extra);
+  if (!verified) q.set('verified', 'false');
+  const text = q.toString();
+  return text === '' ? '' : `?${text}`;
+}
+
+/** Returns the challenges' highscores: every challenge with its record, every scope's totals, and the most records held. */
+export async function challengeHighscores(base: string, verified: boolean, fetchFn: typeof fetch = fetch): Promise<ChallengeHighscores> {
+  return get<ChallengeHighscores>(fetchFn, base, `/v1/challenges${challengeQuery(verified)}`);
+}
+
+/** Returns one challenge's ranking, record history and entries. */
+export async function challengeBoard(base: string, id: string, verified: boolean, fetchFn: typeof fetch = fetch): Promise<ChallengeBoard> {
+  return get<ChallengeBoard>(fetchFn, base, `/v1/challenges/${encodeURIComponent(id)}${challengeQuery(verified)}`);
+}
+
+/** Returns every player with a counted challenge entry, by total domination. */
+export async function challengePlayers(base: string, verified: boolean, fetchFn: typeof fetch = fetch): Promise<ChallengePlayers> {
+  return get<ChallengePlayers>(fetchFn, base, `/v1/challenges/players${challengeQuery(verified)}`);
+}
+
+/** Returns every challenge entry not hidden, for download. */
+export async function challengeEntries(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeEntries> {
+  return get<ChallengeEntries>(fetchFn, base, '/v1/challenges/entries');
+}
+
+/** Returns the weekly challenge's weeks, each with its winners and runners-up. */
+export async function challengeWeeks(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeWeeks> {
+  return get<ChallengeWeeks>(fetchFn, base, '/v1/challenges/weekly');
+}
+
+/** Returns one player's challenge results; asIfVerified counts their unproven entries too. */
+export async function challengePlayer(
+  base: string,
+  name: string,
+  verified: boolean,
+  asIfVerified = false,
+  fetchFn: typeof fetch = fetch,
+): Promise<ChallengePlayer> {
+  const extra: Record<string, string> = asIfVerified ? { as_if_verified: 'true' } : {};
+  return get<ChallengePlayer>(fetchFn, base, `/v1/challenges/players/${encodeURIComponent(name)}${challengeQuery(verified, extra)}`);
 }
 
 /** Returns a blitz edition's format and the entrants still in. */

@@ -33,6 +33,7 @@ import {
   withoutSignInParam,
   zoneOptions,
   type Me,
+  adminHref,
 } from './account';
 
 const discord = { provider: 'discord' as const, username: 'player_one', display_name: '', email: '' };
@@ -464,5 +465,15 @@ describe('saveOutcome', () => {
     ['nothing sent', null, null, { kind: 'refused', heading: 'Not done', text: 'Nothing to save.' }],
   ] as const)('%s', (_name, asked, details, want) => {
     expect(saveOutcome(asked, details)).toEqual(want);
+  });
+});
+
+describe('adminHref', () => {
+  it.each([
+    ['a challenge page, to its tab', '/challenges/epic1_exp/', 'https://admin.example/#challenges'],
+    ['the highscores, to its tab', '/challenges/', 'https://admin.example/#challenges'],
+    ["any other page, to admin's home", '/ratings/', 'https://admin.example'],
+  ])('leads from %s', (_name, path, want) => {
+    expect(adminHref('https://admin.example/', path)).toBe(want);
   });
 });

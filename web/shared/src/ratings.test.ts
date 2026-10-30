@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   catalogueGames,
+  challengeBoard,
+  challengeEntries,
+  challengeHighscores,
+  challengePlayer,
+  challengePlayers,
+  challengeWeeks,
   isSlug,
   RatingsApiError,
   siteVisits,
@@ -324,5 +330,22 @@ describe('titleName', () => {
     ['W', 'Wood'],
   ] as const)('names %s as upstream does', (code, name) => {
     expect(titleName(code)).toBe(name);
+  });
+});
+
+describe('the challenge routes', () => {
+  it.each([
+    ['highscores, verified only', (f: typeof fetch) => challengeHighscores('https://api.example', true, f), '/v1/challenges'],
+    ['highscores, all entries', (f: typeof fetch) => challengeHighscores('https://api.example', false, f), '/v1/challenges?verified=false'],
+    ['a board', (f: typeof fetch) => challengeBoard('https://api.example', 'epic1_exp', true, f), '/v1/challenges/epic1_exp'],
+    ['the players', (f: typeof fetch) => challengePlayers('https://api.example', false, f), '/v1/challenges/players?verified=false'],
+    ['a player, as if verified', (f: typeof fetch) => challengePlayer('https://api.example', 'Ann B', true, true, f), '/v1/challenges/players/Ann%20B?as_if_verified=true'],
+    ['every entry', (f: typeof fetch) => challengeEntries('https://api.example', f), '/v1/challenges/entries'],
+    ['the weekly winners', (f: typeof fetch) => challengeWeeks('https://api.example', f), '/v1/challenges/weekly'],
+    ['a player, all entries', (f: typeof fetch) => challengePlayer('https://api.example', 'Ann', false, false, f), '/v1/challenges/players/Ann?verified=false'],
+  ])('asks for %s', async (_name, call, path) => {
+    const f = fakeFetch(200, '{}');
+    await call(f.fetch);
+    expect(f.calls[0]?.url).toBe(`https://api.example${path}`);
   });
 });

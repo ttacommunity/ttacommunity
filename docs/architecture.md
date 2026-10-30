@@ -313,7 +313,7 @@ its standings, the published Swiss pairings with their results, and who is
 in, each with their country's flag. A ruling's reason stays in admin.
 
 Blitz belongs to the root site, not to the ratings: the header on the home
-page and `/blitz` lists the root site's sections (Ratings, Blitz), and
+page and `/blitz` lists the root site's sections (Ratings, Blitz, Challenges), and
 everything under `/ratings/` keeps the ratings' own menu and footer.
 
 ### Members
@@ -346,7 +346,79 @@ only the edition, the status and a `member_id`.
 
 **Personal data never leaves admin**: the public role has no `SELECT` on a
 member's Discord name, email or ban, so no public route can read them, and
-the export leaves `members` and the blitz tables out.
+the export holds only a member's name, ids and country, and leaves the blitz
+tables out.
+
+### Challenges
+
+The game's single-player challenges and the dominations players enter for
+them, at `/challenges/`. They came from the community's Challenge
+Highscores site, whose pages they keep: the highscores (`/challenges/`),
+a page per challenge (`/challenges/<id>/`, built with its link preview),
+the players, a player (`/challenges/player/?name=`), comparing two, the
+weekly winners and submitting, linked by a row of tabs under the header.
+
+- **The challenge list is committed**: `web/site/src/data/challenges.json`,
+  in the game's order, with each challenge's picture in
+  `web/site/public/img/challenges/<id>.jpg` and each group's background in
+  `img/groups/<group>.jpg`. They are CGE's material, made from an installed
+  copy of the game and shown with CGE's agreement. The load job copies the
+  list into `challenges` (`load challenges <file>`); a challenge that has
+  entries cannot be removed
+- **An entry** (`challenge_entries`) is one domination for one challenge:
+  the member it belongs to (by TTA username), the name it was entered under
+  (an imported entry whose name matches no member keeps only that until an
+  admin links it), the account that submitted it, a proof link, when, and
+  where it came from (`sheet` or `web`, the old site, or `site`, made
+  here). Admins mark an entry hidden with a reason, bugged, or its proof
+  checked, correct its domination or proof, and move everything under a name
+  (a misspelling, or a member the import made) to the member it belongs to;
+  each change writes its audit row. A linked
+  player, not banned, submits their own through `submit_challenge_entries`,
+  which checks their session as `report_blitz_game` does. A proof must be a
+  message link in the TtA Discord server: `challenge_proof_url` in the
+  database is the one place that rule lives, and writes the link the one
+  way, for players' submissions and admins' corrections alike. The old site's entries
+  are imported with `load challenge-entries <file>`, its admin list as
+  JSON: it replaces every imported entry, and links each name to the member
+  of that TTA username, ignoring case only, adding a member for a name that
+  has none (spelt as the player of that name is, when there is one); it
+  never touches entries made here
+- **The weekly challenge** (September 2024 to July 2025) is a finished event:
+  each week's challenge and the names that won or came second, loaded whole
+  with `load challenge-weeks <weekly.json>` from the data repo, each placing
+  linked to the member of that TTA username as entries are (admin's name
+  merge moves placings too)
+- **The rules** are in `internal/challenges`, with their tests. The score is
+  a **domination** in everything players read, as in the game. An entry is
+  **verified** when it links a message in the Through the Ages Discord. A
+  **bugged** entry, made through a since-fixed game bug, is listed but never
+  counts. A negative domination ranks as it is but counts as 0 in sums and
+  percentages. A challenge's **record**: each player's best counts (their
+  highest, a verified one winning their own tie, then the earlier); of
+  those, the highest holds it, and of equal ones the earliest. A player's
+  **rating** averages each best as a percentage of the record over every
+  challenge, an unplayed one counting 0; their **total** adds their bests up
+- **Routes**, each public one cached a minute and taking `verified=false` to
+  count every entry: `GET /v1/challenges` (the highscores),
+  `/v1/challenges/{id}` (a board), `/v1/challenges/players`,
+  `/v1/challenges/players/{name}` (with `as_if_verified`),
+  `/v1/challenges/weekly` and `/v1/challenges/entries` (to download, and
+  `/v1/challenges/entries.csv` as a CSV file);
+  `POST /v1/me/challenges/entries` to submit; and for admins and organisers
+  `GET /v1/admin/challenges/entries?view=` with what looks wrong
+  about each entry, `PATCH /v1/admin/challenges/entries/{id}` and
+  `POST /v1/admin/challenges/names`. Pages ask for what they show; the
+  rules run in Go, never in the browser
+- **Personal data**: the public role cannot read an entry's account, hidden
+  reason, checked flag or source, and the site never sees a hidden entry.
+  The export holds the challenges, the weeks and every entry, but never an
+  entry's account or hidden reason; a backup holds them whole
+
+The site's pages are the `Challenge*.tsx` components under
+`pages/challenges/`, their decisions in `lib/challenges.ts`,
+`lib/challenge-*.ts` and `lib/record-chart.ts`; admin's is the Challenges
+tab (`ChallengesPanel.tsx`).
 
 ### Player sign-in
 

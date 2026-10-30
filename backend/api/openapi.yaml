@@ -1050,6 +1050,176 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/challenges:
+    get:
+      operationId: getChallenges
+      summary: The challenges' highscores page
+      description: |
+        Every challenge in the game's order with its record and how many
+        players have a counted entry; the pooled records and best players of
+        every set, every group and everything; and the players holding the
+        most records. A player's best on each challenge counts: their
+        highest domination, a verified one winning their own tie. A bugged
+        entry never counts, and a negative domination counts as 0 in sums
+        and ratings. Cached for a minute, as entries change it.
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVerified"
+      responses:
+        "200":
+          description: The highscores
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeHighscores"
+  /v1/challenges/players:
+    get:
+      operationId: getChallengePlayers
+      summary: Every player with a counted challenge entry, with their results
+      description: |
+        Each player's challenges played, verified bests, records, total
+        domination and rating, overall and by set. A rating averages each
+        best as a percentage of the record over every challenge, an unplayed
+        one counting 0. Cached for a minute.
+      parameters:
+        - $ref: "#/components/parameters/ChallengeVerified"
+      responses:
+        "200":
+          description: The players, by total domination
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePlayers"
+  /v1/challenges/entries:
+    get:
+      operationId: getChallengeEntries
+      summary: Every challenge entry not hidden, for download
+      description: |
+        Each entry as it was made, in the order they were entered, bugged ones
+        included: what the site offers to download as CSV or JSON. Cached for
+        a minute.
+      responses:
+        "200":
+          description: The entries
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeEntries"
+  /v1/challenges/entries.csv:
+    get:
+      operationId: getChallengeEntriesCsv
+      summary: Every challenge entry not hidden, as a CSV file
+      description: |
+        The entries `/v1/challenges/entries` lists, one row each with the
+        challenge's set, group and name beside it, for spreadsheets. Cached
+        for a minute.
+      responses:
+        "200":
+          description: The CSV file, UTF-8 with a byte-order mark
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
+  /v1/challenges/weekly:
+    get:
+      operationId: getChallengeWeeks
+      summary: The weekly challenge's winners, a finished event
+      description: |
+        Each week of the weekly challenge (September 2024 to July 2025): its
+        Random Mix challenge, and the names that won and came second, with
+        their dominations, as the old site kept them. Cached for a day.
+      responses:
+        "200":
+          description: The weeks, in order
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeWeeks"
+  /v1/challenges/players/{name}:
+    get:
+      operationId: getChallengePlayer
+      summary: One player's challenge results, for their page
+      description: |
+        The player's results, their best on each challenge with its rank and
+        share of the record, and their ten newest entries. The name is matched
+        ignoring case. With as_if_verified (and verified), the player's
+        unproven entries count for them too, against the boards as they are.
+        A name with no entry, counted or not, is 404. Cached for a minute.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - $ref: "#/components/parameters/ChallengeVerified"
+        - name: as_if_verified
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: The player
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengePlayer"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/challenges/{challenge}:
+    get:
+      operationId: getChallengeBoard
+      summary: One challenge's ranking, record history and entries
+      description: |
+        Each player's best on the challenge, ranked; each time its record went
+        up; and every entry not hidden, newest first, bugged ones included.
+        An unknown challenge is 404. Cached for a minute.
+      parameters:
+        - name: challenge
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z0-9_]{1,40}$"
+        - $ref: "#/components/parameters/ChallengeVerified"
+      responses:
+        "200":
+          description: The challenge's board
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeBoard"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/blitz:
     get:
       operationId: getBlitzEditions
@@ -1706,6 +1876,37 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/me/challenges/entries:
+    post:
+      operationId: postMyChallengeEntries
+      tags: [players]
+      summary: Submit your challenge dominations
+      description: |
+        Audited. The Origin must be the site. For a signed-in player whose
+        account is linked to a TTA username, and not banned: saves each entry
+        under that name, at once. An entry with a proof links a message in the
+        TtA Discord and counts as verified; one without counts only among all
+        entries. At most one entry per challenge in a submission, and 120 in
+        all. Nothing is saved when any entry is refused.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MyChallengeEntries"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeSubmitted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
   /v1/me/blitz/{tournament}/{edition}:
     get:
       operationId: getMyBlitzMatch
@@ -2073,6 +2274,107 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/challenges/entries:
+    get:
+      operationId: getAdminChallengeEntries
+      tags: [admin]
+      summary: The challenge entries in a view, newest first (admins and organisers)
+      description: |
+        Every entry, hidden ones included, with what only admin sees: who
+        submitted it, why it is hidden, whether its proof was checked, and
+        what looks wrong about it. A view narrows them (verified and not yet
+        checked, flagged, hidden, ...): every entry of the view is returned,
+        with how many each view holds.
+      parameters:
+        - name: view
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AdminChallengeView"
+      responses:
+        "200":
+          description: The view's entries and each view's count
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChallengeEntries"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/challenges/entries/{entry}:
+    patch:
+      operationId: patchAdminChallengeEntry
+      tags: [admin]
+      summary: Change a challenge entry (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A field left out stays as
+        it is. An empty proof_url removes the proof; any other is a message
+        link in the TtA Discord. Hiding needs a reason; showing again clears it.
+      parameters:
+        - name: entry
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminChallengeEntryChange"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/challenges/names:
+    post:
+      operationId: postAdminChallengeName
+      tags: [admin]
+      summary: Move a name's challenge entries to a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Every entry and weekly
+        challenge placing shown under the name from (its member's TTA
+        username, or the name it was entered under), ignoring case, moves to
+        the member whose TTA username is to, ignoring case: to give a
+        misspelt name's entries, or those the import put under a member of
+        their own, to the member they belong to. That member stays, empty,
+        for Members to remove.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminChallengeNameMerge"
+      responses:
+        "200":
+          description: Merged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminChallengeNameMerged"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/members:
     get:
       operationId: getAdminMembers
@@ -3764,6 +4066,14 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    ChallengeVerified:
+      name: verified
+      in: query
+      required: false
+      description: Count only entries that link a Discord proof (the official records), or every entry
+      schema:
+        type: boolean
+        default: true
     BlitzEditionLabel:
       name: edition
       in: path
@@ -3927,6 +4237,14 @@ components:
             $ref: "#/components/schemas/Error"
     NotFromSite:
       description: A change that did not come from the site
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotLinked:
+      description: |
+        A change that did not come from the site, or a player who may not
+        make it: not linked to a member, or banned
       content:
         application/json:
           schema:
@@ -4961,6 +5279,520 @@ components:
         entrants:
           description: How many entrants are still in
           type: integer
+    ChallengeHighscores:
+      type: object
+      required: [challenges, scopes, record_holders]
+      properties:
+        challenges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Challenge"
+        scopes:
+          description: Every set, every group of each set, and everything (set all)
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScope"
+        record_holders:
+          description: The ten players holding the most records, most first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeRecordHolder"
+    ChallengeScope:
+      description: A set of challenges summed up
+      type: object
+      required: [set, group, pooled, covered, size, by_total, by_rating]
+      properties:
+        set:
+          type: string
+          enum: [original, expansion, mix, all]
+        group:
+          description: The group within the set, empty for the whole set
+          type: string
+        pooled:
+          description: Every record in the scope added up
+          type: integer
+        covered:
+          description: Challenges in the scope with a record
+          type: integer
+        size:
+          description: Challenges in the scope
+          type: integer
+        by_total:
+          description: The four best players by the sum of their own bests here
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScopePlayer"
+        by_rating:
+          description: The four best players by their rating here
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeScopePlayer"
+    ChallengeScopePlayer:
+      type: object
+      required: [player, total, played, rating]
+      properties:
+        player:
+          type: string
+        total:
+          type: integer
+        played:
+          type: integer
+        rating:
+          description: Each best as a percentage of the record, averaged over the scope's challenges
+          type: number
+    ChallengeRecordHolder:
+      type: object
+      required: [player, records]
+      properties:
+        player:
+          type: string
+        records:
+          type: integer
+    ChallengeBest:
+      description: A player's best entry on a challenge, ranked
+      type: object
+      required: [player, domination, proof_url, entered_at, rank]
+      properties:
+        player:
+          description: The member's TTA username, or the name the entry was made under when it is not linked to a member
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          description: The Discord message proving it, null for an unproven entry
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        rank:
+          description: Its rank among the players' bests, equal dominations sharing one
+          type: integer
+    ChallengeSubmission:
+      description: One entry as it was made
+      type: object
+      required: [player, domination, proof_url, entered_at, bugged]
+      properties:
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          description: Made through a since-fixed game bug, listed but never counted
+          type: boolean
+    ChallengeRecordStep:
+      description: A time a challenge's record went up
+      type: object
+      required: [player, domination, proof_url, entered_at, gain]
+      properties:
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        gain:
+          description: The gain on the record before, null for the first
+          type: integer
+          nullable: true
+    ChallengeBoard:
+      type: object
+      required: [ranking, history, entries]
+      properties:
+        ranking:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeBest"
+        history:
+          description: Each time the record went up, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeRecordStep"
+        entries:
+          description: Every entry not hidden, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeSubmission"
+    ChallengeSetFigures:
+      description: A figure for each set
+      type: object
+      required: [original, expansion, mix]
+      properties:
+        original:
+          type: number
+        expansion:
+          type: number
+        mix:
+          type: number
+    ChallengeEntries:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeEntry"
+    ChallengeEntry:
+      description: One entry, with its challenge
+      type: object
+      required: [id, challenge, player, domination, proof_url, entered_at, bugged]
+      properties:
+        id:
+          type: integer
+          format: int64
+        challenge:
+          type: string
+        player:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          type: boolean
+    MyChallengeEntries:
+      description: The entries a player submits
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          minItems: 1
+          maxItems: 120
+          items:
+            $ref: "#/components/schemas/MyChallengeEntry"
+    MyChallengeEntry:
+      type: object
+      required: [challenge, domination]
+      properties:
+        challenge:
+          type: string
+        domination:
+          description: The final score minus the second-placed player's
+          type: integer
+          minimum: -9999
+          maximum: 9999
+        proof_url:
+          description: A message link in the TtA Discord with the screenshots, or empty for none
+          type: string
+          maxLength: 500
+    ChallengeSubmitted:
+      type: object
+      required: [saved]
+      properties:
+        saved:
+          description: How many entries were saved
+          type: integer
+    ChallengeWeeks:
+      type: object
+      required: [weeks]
+      properties:
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengeWeek"
+    ChallengeWeek:
+      type: object
+      required: [week, week_of, challenge, winners, runners_up]
+      properties:
+        week:
+          type: integer
+        week_of:
+          description: The day the week started
+          type: string
+          format: date
+        challenge:
+          type: string
+        winners:
+          description: Who won, several when they tied
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlacing"
+        runners_up:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlacing"
+    ChallengePlacing:
+      type: object
+      required: [player, domination]
+      properties:
+        player:
+          description: The name as the old site kept it
+          type: string
+        domination:
+          type: integer
+    ChallengePlayerSummary:
+      description: A player's challenge results
+      type: object
+      required: [player, played, verified, records, total, totals, rating, ratings, last_entry]
+      properties:
+        player:
+          type: string
+        played:
+          description: Challenges with a counted entry
+          type: integer
+        verified:
+          description: Bests that link a proof
+          type: integer
+        records:
+          type: integer
+        total:
+          description: Their bests added up
+          type: integer
+        totals:
+          $ref: "#/components/schemas/ChallengeSetFigures"
+        rating:
+          description: Each best as a percentage of the record, averaged over every challenge
+          type: number
+        ratings:
+          $ref: "#/components/schemas/ChallengeSetFigures"
+        last_entry:
+          description: Their newest entry, counted or not
+          type: string
+          format: date-time
+    ChallengePlayers:
+      type: object
+      required: [players]
+      properties:
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerSummary"
+    ChallengePlayerBest:
+      description: The player's best on a challenge, against its record
+      type: object
+      required: [challenge, domination, proof_url, rank, entrants, share, record, record_holder]
+      properties:
+        challenge:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        rank:
+          type: integer
+        entrants:
+          description: Players ranked on the challenge, this player included
+          type: integer
+        share:
+          description: The best as a percentage of the record
+          type: number
+        record:
+          description: The record's domination, from the board as it is
+          type: integer
+        record_holder:
+          type: string
+    ChallengePlayerEntry:
+      description: One of the player's entries
+      type: object
+      required: [challenge, domination, proof_url, entered_at, bugged]
+      properties:
+        challenge:
+          type: string
+        domination:
+          type: integer
+        proof_url:
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        bugged:
+          type: boolean
+    ChallengePlayer:
+      type: object
+      required: [player, unproven, summary, bests, recent]
+      properties:
+        player:
+          description: The name shown for the player
+          type: string
+        unproven:
+          description: Their unproven entries that are not bugged
+          type: integer
+        summary:
+          description: Their results, null when none of their entries counts
+          allOf:
+            - $ref: "#/components/schemas/ChallengePlayerSummary"
+          nullable: true
+        bests:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerBest"
+        recent:
+          description: Their ten newest entries, newest first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChallengePlayerEntry"
+    Challenge:
+      description: One of the game's challenges, with its record
+      type: object
+      required: [id, set, group, slot, difficulty, players, name, record, entrants]
+      properties:
+        id:
+          type: string
+          example: epic1_exp
+        set:
+          type: string
+          enum: [original, expansion, mix]
+        group:
+          description: The group the game lists it under, such as classic or epic
+          type: string
+        slot:
+          description: Its place in the group
+          type: integer
+        difficulty:
+          type: integer
+        players:
+          description: Players in the game, the player's own seat included
+          type: integer
+        name:
+          type: string
+        record:
+          description: The best holding the record, null when no entry counts
+          allOf:
+            - $ref: "#/components/schemas/ChallengeBest"
+          nullable: true
+        entrants:
+          description: Players with a counted entry
+          type: integer
+    AdminChallengeView:
+      description: |
+        Which entries: all; verified ones not yet or already checked; unverified; flagged (something looks wrong);
+        bugged; hidden. Every view but all and hidden leaves hidden entries out.
+      type: string
+      enum: [all, unchecked, checked, unverified, flagged, bugged, hidden]
+      default: all
+    AdminChallengeViewCount:
+      type: object
+      required: [view, entries]
+      properties:
+        view:
+          $ref: "#/components/schemas/AdminChallengeView"
+        entries:
+          type: integer
+    AdminChallengeEntryChange:
+      type: object
+      properties:
+        domination:
+          type: integer
+          minimum: -9999
+          maximum: 9999
+        proof_url:
+          type: string
+          maxLength: 500
+        checked:
+          type: boolean
+        bugged:
+          type: boolean
+        hidden:
+          type: boolean
+        hidden_reason:
+          type: string
+          maxLength: 500
+    AdminChallengeNameMerge:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          minLength: 1
+          maxLength: 100
+        to:
+          type: string
+          minLength: 1
+          maxLength: 100
+    AdminChallengeNameMerged:
+      type: object
+      required: [moved]
+      properties:
+        moved:
+          description: How many entries and weekly placings moved
+          type: integer
+    AdminChallengeEntries:
+      type: object
+      required: [entries, counts]
+      properties:
+        counts:
+          description: How many entries each view holds
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChallengeViewCount"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminChallengeEntry"
+    AdminChallengeEntry:
+      description: An entry as admin sees it
+      type: object
+      required: [id, challenge, challenge_name, player, member, entered_as, account, domination, proof_url, entered_at,
+        source, hidden, hidden_reason, bugged, checked, flags]
+      properties:
+        id:
+          type: integer
+          format: int64
+        challenge:
+          type: string
+        challenge_name:
+          type: string
+        player:
+          description: The linked member's TTA username, else the name it was entered under
+          type: string
+        member:
+          description: The linked member's id, null when not linked
+          type: integer
+          format: int64
+          nullable: true
+        entered_as:
+          description: The name it was entered under
+          type: string
+        account:
+          description: The account that submitted it, null for an imported entry
+          type: integer
+          format: int64
+          nullable: true
+        domination:
+          type: integer
+        proof_url:
+          description: The proof link, null for an unverified entry
+          type: string
+          nullable: true
+        entered_at:
+          type: string
+          format: date-time
+        source:
+          description: Where it came from, sheet for the old spreadsheet, web for the old site, site for this one
+          type: string
+          enum: [sheet, web, site]
+        hidden:
+          type: boolean
+        hidden_reason:
+          type: string
+        bugged:
+          description: Made through a since-fixed game bug, listed but never counted
+          type: boolean
+        checked:
+          description: An admin has looked at the proof
+          type: boolean
+        flags:
+          description: What looks wrong about it, for an admin to look at
+          type: array
+          items:
+            type: string
     BlitzEditions:
       type: object
       required: [editions]

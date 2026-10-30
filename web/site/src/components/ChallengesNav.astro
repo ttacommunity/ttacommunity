@@ -1,0 +1,26 @@
+---
+/** The challenge pages' nav: the highscores, the players, comparing two, the weekly winners, and submitting a domination. */
+interface Props {
+  page?: 'highscores' | 'players' | 'compare' | 'weekly' | 'submit';
+}
+
+const { page } = Astro.props;
+const links = [
+  { id: 'highscores', href: '/challenges/', label: 'Highscores' },
+  { id: 'players', href: '/challenges/players/', label: 'Players' },
+  { id: 'compare', href: '/challenges/compare/', label: 'Compare' },
+  { id: 'weekly', href: '/challenges/weekly/', label: 'Weekly winners' },
+  { id: 'submit', href: '/challenges/submit/', label: 'Submit domination' },
+];
+---
+<nav class="subpage-nav" aria-label="Challenge pages">
+  {links.map((l) => (
+    <a
+      href={l.href}
+      class:list={l.id === 'submit' ? ['btn-antique', 'challenges-submit'] : ['subpage-btn', { active: l.id === page }]}
+      aria-current={l.id === page ? 'page' : undefined}
+    >
+      {l.label}
+    </a>
+  ))}
+</nav>

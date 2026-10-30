@@ -33,6 +33,7 @@ type Admins interface {
 	BlitzAdmin
 	MemberAdmin
 	AccountAdmin
+	ChallengeAdmin
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.
@@ -174,6 +175,14 @@ type AccountAdmin interface {
 	RefuseLink(ctx context.Context, request int64, reason string, now time.Time) error
 	UnlinkAccount(ctx context.Context, account int64) error
 	RemoveAccount(ctx context.Context, account int64) error
+}
+
+// ChallengeAdmin is the challenge entries: every one listed, newest first; one changed; a name's merged into another
+// name or a member.
+type ChallengeAdmin interface {
+	ChallengeEntriesForAdmin(ctx context.Context) ([]store.AdminChallengeEntry, error)
+	SetChallengeEntry(ctx context.Context, id int64, c store.ChallengeEntryChange) error
+	MergeChallengeName(ctx context.Context, from, to string) (store.ChallengeNameMerged, error)
 }
 
 type adminKey struct{}

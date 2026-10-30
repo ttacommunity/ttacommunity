@@ -1,0 +1,45 @@
+/* What a save did, as admin shows an action's outcome: its word in colour on a dark panel, bordered green when done, red when not. */
+.save-outcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--win);
+  border-radius: 6px;
+  background: var(--surface-well);
+  font-size: var(--size-body-short);
+  scroll-margin: 5.5rem 0 1rem;
+}
+.save-outcome > div {
+  flex: 1;
+  min-width: 0;
+}
+.save-outcome-heading,
+.save-outcome-text {
+  display: block;
+}
+.save-outcome-heading {
+  color: var(--win);
+}
+.save-outcome-refused {
+  border-left-color: var(--loss);
+}
+.save-outcome-refused .save-outcome-heading {
+  color: var(--loss);
+}
+.save-outcome-close {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.save-outcome-close:hover {
+  color: var(--text-main);
+}

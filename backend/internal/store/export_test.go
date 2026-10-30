@@ -51,6 +51,13 @@ func filled(t *testing.T) *pgxpool.Pool {
 		 and another', 's')`,
 		`INSERT INTO members (tta_name, cge_user, player_id, discord_name, email, country_code, zone)
 		 SELECT 'swift', cge_user, player_id, 'swift#2222', 'swift@example.test', 'NZ', 'Pacific/Auckland' FROM player_accounts WHERE cge_user = 42`,
+		`INSERT INTO challenges (challenge_id, position, challenge_set, challenge_group, slot, difficulty, players, name, description, rules)
+		 VALUES ('2ai', 0, 'original', 'classic', 0, 1, 2, 'Second', '{"A line"}', '{"No wonders"}')`,
+		`INSERT INTO challenge_entries (challenge_id, member_id, name, domination, proof_url, created_at, source, hidden, hidden_reason, checked)
+		 VALUES ('2ai', (SELECT member_id FROM members WHERE tta_name = 'swift'), 'swift', 120, 'https://discord.com/channels/1/2/3', '2025-03-01T10:00:00Z', 'sheet', false, '', true),
+		        ('2ai', NULL, 'Old, "quoted"', 80, NULL, '2025-03-02T10:00:00Z', 'web', true, 'Duplicate of an earlier entry', false)`,
+		`INSERT INTO challenge_weeks (week, week_of, challenge_id) VALUES (1, '2024-09-22', '2ai')`,
+		`INSERT INTO challenge_week_places (week, place, position, name, domination) VALUES (1, 'winner', 0, 'swift', 90), (1, 'runner_up', 0, 'Old', 70)`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling: %v", err)
@@ -61,6 +68,9 @@ func filled(t *testing.T) *pgxpool.Pool {
 
 // memberPublicColumns are the columns of members an export holds: what the site shows beside a name.
 const memberPublicColumns = "member_id,tta_name,cge_user,player_id,country_code"
+
+// entryPublicColumns are the columns of challenge_entries an export holds: what the site and admin's marks show.
+const entryPublicColumns = "entry_id,challenge_id,member_id,name,domination,proof_url,created_at,source,hidden,bugged,checked"
 
 func readDir(t *testing.T, dir string) map[string][]byte {
 	t.Helper()
@@ -379,6 +389,9 @@ func TestExportHoldsNoPersonalDataOrLoadHistory(t *testing.T) {
 	files := readDir(t, dir)
 	if header := strings.SplitN(string(files["members.csv"]), "\n", 2)[0]; header != memberPublicColumns {
 		t.Errorf("the export's members.csv has the columns %q, want %q: a name, its ids and a flag, as the site shows", header, memberPublicColumns)
+	}
+	if header := strings.SplitN(string(files["challenge_entries.csv"]), "\n", 2)[0]; header != entryPublicColumns {
+		t.Errorf("the export's challenge_entries.csv has the columns %q, want %q: not the account that submitted it or an admin's reason", header, entryPublicColumns)
 	}
 	for name, body := range files {
 		for _, left := range []string{"admins.csv", "admin_audit.csv", "refused_rows.csv", "blitz_editions.csv", "blitz_entries.csv", "blitz_rounds.csv", "blitz_matches.csv"} {

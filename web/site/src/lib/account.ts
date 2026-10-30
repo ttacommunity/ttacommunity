@@ -58,6 +58,12 @@ export function showsAdminLink(me: Me | null): boolean {
   return me !== null && me.admin_role !== null;
 }
 
+/** adminHref is where the nav's admin link leads from the page at path: on a challenge page, admin's Challenges tab; elsewhere its home. */
+export function adminHref(adminUrl: string, path: string): string {
+  const home = adminUrl.replace(/\/+$/, '');
+  return path.startsWith('/challenges/') ? `${home}/#challenges` : home;
+}
+
 /** signedInAs heads the account page: how this browser signed in and as whom, with the Discord username under a display name. */
 export function signedInAs(me: Me): { heading: string; detail: string } {
   if (me.provider === 'email') return { heading: `Signed in by email as ${me.username}`, detail: '' };

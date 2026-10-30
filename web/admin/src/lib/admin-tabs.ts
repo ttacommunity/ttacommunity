@@ -1,13 +1,14 @@
 /** The admin page's tabs: which a role sees, and which one the address opens. Rating runs sit in Data. */
 
 export type Role = 'admin' | 'organiser';
-export type TabKey = 'tournaments' | 'community' | 'blitz' | 'members' | 'data' | 'titles' | 'admins' | 'audit';
+export type TabKey = 'tournaments' | 'community' | 'blitz' | 'challenges' | 'members' | 'data' | 'titles' | 'admins' | 'audit';
 
 /** TABS are admin's tabs in order; adminOnly ones an organiser does not see. */
 export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
   { key: 'tournaments', label: 'Tournaments', adminOnly: false },
   { key: 'community', label: 'Community', adminOnly: true },
   { key: 'blitz', label: 'Blitz', adminOnly: false },
+  { key: 'challenges', label: 'Challenges', adminOnly: false },
   { key: 'members', label: 'Members', adminOnly: false },
   { key: 'data', label: 'Data', adminOnly: false },
   { key: 'titles', label: 'Titles & badges', adminOnly: true },
@@ -17,7 +18,7 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
 
 /** GROUPS are the header's menus, each holding tabs in TABS's order. */
 const GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz'] },
+  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz', 'challenges'] },
   { label: 'Players', tabs: ['members', 'titles'] },
   { label: 'Site', tabs: ['data', 'admins', 'audit'] },
 ];
@@ -44,7 +45,7 @@ export function tabFrom(hash: string, role: Role): TabKey {
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
 
-export type Panel = 'tournaments' | 'community' | 'blitz' | 'members' | 'data' | 'runs' | 'standings' | 'titles' | 'badges' | 'admins' | 'audit';
+export type Panel = 'tournaments' | 'community' | 'blitz' | 'challenges' | 'members' | 'data' | 'runs' | 'standings' | 'titles' | 'badges' | 'admins' | 'audit';
 
 /** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. */
 export function panelsFor(tab: TabKey, role: Role): Panel[] {

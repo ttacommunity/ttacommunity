@@ -1,0 +1,12 @@
+---
+/** The challenge players: everyone with a counted entry, by rating or total. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengePlayersPage from '../../../components/ChallengePlayersPage';
+import '../../../components/Challenges.css';
+---
+<SiteLayout title="Players | Challenges" description="Every player with a counted challenge domination: records, challenges played, rating and total by set.">
+  <ChallengesNav page="players" />
+  <ChallengePlayersPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

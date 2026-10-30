@@ -1,0 +1,43 @@
+---
+/** A challenge's page, one for each in the committed list: its story, rules and opponents, then its board. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import ChallengesNav from '../../../components/ChallengesNav.astro';
+import ChallengeBoardPanel from '../../../components/ChallengeBoardPanel';
+import { CHALLENGE_LIST, opponentLabel, previewText, type ChallengeInfo } from '../../../lib/challenge-list';
+import { challengePicture, groupLabel, setLabel } from '../../../lib/challenges';
+import '../../../components/Challenges.css';
+
+export function getStaticPaths() {
+  return CHALLENGE_LIST.map((c) => ({ params: { challenge: c.id }, props: { c } }));
+}
+
+const { c } = Astro.props as { c: ChallengeInfo };
+const title = `${c.name} | Challenges`;
+const preview = previewText(c);
+---
+<SiteLayout title={title} description={preview}>
+  <ChallengesNav />
+  <div class="analysis-hero-card challenges-head challenges-group" data-group={c.group}>
+    <img class="challenges-head-img" src={challengePicture(c.id)} alt="" width="340" height="284" />
+    <div>
+      <p class="challenges-crumbs"><a href="/challenges/">Highscores</a> / {setLabel(c.set)} / {groupLabel(c.group)}</p>
+      <h1 class="analysis-hero-title">{c.name}</h1>
+      <p class="challenges-tile-meta">
+        {setLabel(c.set)} · {c.players} players
+        <span class="challenge-difficulty" role="img" aria-label={`Difficulty ${c.difficulty} of 6`} title={`Difficulty ${c.difficulty} of 6`}>
+          {Array.from({ length: 6 }, (_, i) => <span class={i < c.difficulty ? 'pip on' : 'pip'} />)}
+        </span>
+      </p>
+      {c.description.map((d) => <p class="challenges-flavour">{d}</p>)}
+      <ul class="challenges-rules">
+        {c.rules.map((r) => <li>{r}</li>)}
+      </ul>
+      <p class="challenges-opponents">
+        Opponents:
+        {c.opponents.map((o) => <span class:list={['challenges-chip', o.level]}>{opponentLabel(o)}</span>)}
+      </p>
+    </div>
+  </div>
+  <ChallengeBoardPanel client:only="react" apiUrl={PUBLIC_API_URL} id={c.id} />
+</SiteLayout>
