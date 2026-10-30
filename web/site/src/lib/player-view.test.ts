@@ -14,6 +14,7 @@ import {
   playerParams,
   profileHref,
   ratingIn,
+  renamedView,
   searchHref,
   signedDelta,
   runYears,
@@ -43,6 +44,17 @@ describe('searchHref', () => {
     ['a name not rated', 'nobody', '/ratings/?search=nobody'],
   ])('leads %s to its page', (_name, term, want) => {
     expect(searchHref(names, term)).toBe(want);
+  });
+});
+
+describe('renamedView', () => {
+  const view = { name: 'Annie', engine: 'glicko2_daneo', format: 0 };
+  it.each([
+    ['the name asked for', 'Annie', null],
+    ['an old name', 'ann', { ...view, name: 'ann' }],
+    ['another case', 'ANNIE', { ...view, name: 'ANNIE' }],
+  ])('takes the name the player has now when the address asked by another: %s', (_name, answered, want) => {
+    expect(renamedView(view, answered)).toEqual(want);
   });
 });
 

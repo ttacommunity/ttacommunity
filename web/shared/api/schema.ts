@@ -161,7 +161,9 @@ export interface paths {
          * @description The player's ratings in the ten continuous and season-reset models,
          *     each format, with their title, career peak, country and game counts.
          *     A name that matches no player exactly is looked up ignoring case,
-         *     if only one player matches. Players whose CGE accounts are deleted
+         *     if only one player matches; a name no player has now finds the
+         *     player who went by it most recently, and the answer gives their
+         *     current name. Players whose CGE accounts are deleted
          *     or banned return 404, as does "Unknown player", the name games give
          *     a seat CGE has no account for. Country and titles can change
          *     without a new run, so this is cached for five minutes.
@@ -5365,7 +5367,11 @@ export interface components {
         AdminSeasonLabel: string;
         Model: components["schemas"]["Model"];
         Format: components["schemas"]["Format"];
-        /** @description The player's name, as the leaderboard gives it */
+        /**
+         * @description The player's name, as the leaderboard gives it. A name they went by
+         *     before also finds them (the one who used it most recently, when
+         *     several did); the answer carries the name they have now.
+         */
         PlayerName: string;
         /** @description A published run's id, from `/v1/runs/current` */
         RunId: number;
@@ -5583,7 +5589,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5613,7 +5623,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5645,7 +5659,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5675,7 +5693,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5706,7 +5728,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5734,7 +5760,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5762,9 +5792,13 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
-                /** @description The other player's name */
+                /** @description The other player's name, or a name they went by before */
                 other: string;
             };
             cookie?: never;
@@ -5795,7 +5829,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;
@@ -5826,7 +5864,11 @@ export interface operations {
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */
                 run: components["parameters"]["RunId"];
-                /** @description The player's name, as the leaderboard gives it */
+                /**
+                 * @description The player's name, as the leaderboard gives it. A name they went by
+                 *     before also finds them (the one who used it most recently, when
+                 *     several did); the answer carries the name they have now.
+                 */
                 name: components["parameters"]["PlayerName"];
             };
             cookie?: never;

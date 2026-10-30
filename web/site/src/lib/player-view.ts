@@ -30,6 +30,11 @@ export function searchHref(names: readonly string[], term: string): string {
   return exact !== undefined ? playerHref(exact) : `/ratings/?${new URLSearchParams({ search: t })}`;
 }
 
+/** renamedView returns view under the name the API answered with, when the address asked by another (an old name, or another case); else null. */
+export function renamedView<V extends { name: string }>(view: V, answered: string): V | null {
+  return answered === view.name ? null : { ...view, name: answered };
+}
+
 /** hasPlayerPage is false for the names the API gives no page: a deleted or banned player, and an empty seat. */
 export function hasPlayerPage(name: string): boolean {
   return name !== 'Deleted player' && name !== 'Unknown player';

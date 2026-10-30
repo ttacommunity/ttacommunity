@@ -100,6 +100,56 @@ func TestPlayerFindsANameExactlyOrByAUniqueCase(t *testing.T) {
 	}
 }
 
+// oldName records that player went by name until last, as the data does.
+func oldName(t *testing.T, pool *pgxpool.Pool, player, name, last string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `INSERT INTO player_names (player_id, name, first_seen, last_seen, source)
+		VALUES ($1, $2, $3, $3, 'match_file')`, playerID(t, pool, player), name, last); err != nil {
+		t.Fatalf("recording %s's old name %s: %v", player, name, err)
+	}
+}
+
+func TestPlayerFindsAnOldNameAndAnswersWithTheCurrentOne(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cat", "dee")
+	oldName(t, pool, "ann", "Annie", "2023-05-01")
+	oldName(t, pool, "bob", "Robert", "2022-01-01")
+	oldName(t, pool, "cat", "Robert", "2024-03-01")
+	oldName(t, pool, "cat", "bob", "2020-01-01")
+	oldName(t, pool, "dee", "Dora", "2025-01-01")
+	if _, err := pool.Exec(ctx, "INSERT INTO player_accounts (cge_user, player_id, name, deleted) VALUES (4, $1, 'dee', true)",
+		playerID(t, pool, "dee")); err != nil {
+		t.Fatalf("deleting dee's account: %v", err)
+	}
+
+	tests := []struct {
+		name, asked, want string
+		err               error
+	}{
+		{name: "an old name", asked: "Annie", want: "ann"},
+		{name: "an old name in another case", asked: "annie", want: "ann"},
+		{name: "two players' old name: the more recent", asked: "Robert", want: "cat"},
+		{name: "a current name before an old one", asked: "bob", want: "bob"},
+		{name: "a hidden player's old name", asked: "Dora", err: ErrPlayerNotFound},
+		{name: "nobody's name", asked: "zed", err: ErrPlayerNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := r.Player(ctx, run, tt.asked)
+			if !errors.Is(err, tt.err) || (tt.err == nil && got.Name != tt.want) {
+				t.Errorf("Player(%q) = %q, %v; want %q, %v", tt.asked, got.Name, err, tt.want, tt.err)
+			}
+		})
+	}
+	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert")
+	if err != nil || a != "ann" || b != "cat" {
+		t.Errorf("Versus(Annie, Robert) = %q, %q, %v; want ann, cat", a, b, err)
+	}
+}
+
 func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))

@@ -105,7 +105,8 @@ type namedPlayer struct {
 }
 
 // resolve returns the player asked names in a published run: the exact
-// name, else the only one equal to it ignoring case. Players with deleted or
+// name, else the only one equal to it ignoring case; with neither, the player
+// who went by it most recently (player_names), ignoring case. Players with deleted or
 // banned CGE accounts, and UnknownPlayer, are not resolved.
 func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (namedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
@@ -127,7 +128,21 @@ func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (n
 	if len(found) == 1 {
 		return found[0], nil
 	}
-	return namedPlayer{}, ErrPlayerNotFound
+	if len(found) > 1 {
+		return namedPlayer{}, ErrPlayerNotFound
+	}
+	var p namedPlayer
+	err = r.pool.QueryRow(ctx, `
+		SELECT p.player_id, p.name FROM player_names n JOIN players p USING (player_id)
+		WHERE lower(n.name) = lower($1) AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
+		ORDER BY n.last_seen DESC, p.player_id LIMIT 1`, asked).Scan(&p.ID, &p.Name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return namedPlayer{}, ErrPlayerNotFound
+	}
+	if err != nil {
+		return namedPlayer{}, fmt.Errorf("looking up a player's old name: %w", err)
+	}
+	return p, nil
 }
 
 // Player returns a player's details, games per format (0 is all) and ratings

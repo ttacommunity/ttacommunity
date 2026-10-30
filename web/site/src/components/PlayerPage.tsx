@@ -34,6 +34,7 @@ import {
   pageModel,
   parsePlayerView,
   playerParams,
+  renamedView,
   formatCards,
   signedDelta,
   seatName,
@@ -117,6 +118,15 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     document.title = `${view.name || 'Player'} - Player Profile | Through the Ages`;
   }, [view.name]);
+
+  // Reached by an old name, the address takes the name the player has now.
+  useEffect(() => {
+    if (profile.kind !== 'ready') return;
+    const renamed = renamedView(view, profile.data.name);
+    if (renamed === null) return;
+    window.history.replaceState(null, '', `?${playerParams(renamed)}`);
+    setView(renamed);
+  }, [profile, view]);
 
   if (view.name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
   if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
