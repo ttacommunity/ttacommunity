@@ -52,16 +52,25 @@ func TestSubmittingIsRefusedWhenItShouldBe(t *testing.T) {
 		name    string
 		session string
 		entries []challenges.Submission
+		before  func(t *testing.T, pool *pgxpool.Pool)
 		want    error
 	}{
-		{"no session", "nobody", ok, ErrNoSession},
-		{"not linked", "bob", ok, ErrNotLinked},
-		{"an unknown challenge", "ann", []challenges.Submission{{Challenge: "9ai", Domination: 1}}, ErrBadChallengeEntries},
-		{"a challenge twice", "ann", []challenges.Submission{ok[0], ok[0]}, ErrBadChallengeEntries},
+		{"no session", "nobody", ok, nil, ErrNoSession},
+		{"not linked", "bob", ok, nil, ErrNotLinked},
+		{"banned", "ann", ok, func(t *testing.T, pool *pgxpool.Pool) {
+			if _, err := pool.Exec(context.Background(), "UPDATE members SET banned = true, banned_at = now(), ban_reason = 'cheating' WHERE tta_name = 'Ann'"); err != nil {
+				t.Fatalf("banning Ann: %v", err)
+			}
+		}, ErrMemberBanned},
+		{"an unknown challenge", "ann", []challenges.Submission{{Challenge: "9ai", Domination: 1}}, nil, ErrBadChallengeEntries},
+		{"a challenge twice", "ann", []challenges.Submission{ok[0], ok[0]}, nil, ErrBadChallengeEntries},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, p, r := submitting(t)
+			pool, p, r := submitting(t)
+			if tt.before != nil {
+				tt.before(t, pool)
+			}
 			_, err := p.SubmitChallengeEntries(context.Background(), tokenHash(tt.session), tt.entries, signInAt)
 			if !errors.Is(err, tt.want) {
 				t.Errorf("SubmitChallengeEntries = %v, want %v", err, tt.want)
