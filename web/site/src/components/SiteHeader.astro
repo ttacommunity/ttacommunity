@@ -3,6 +3,7 @@
 import { PUBLIC_ADMIN_URL, PUBLIC_API_URL } from 'astro:env/client';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { placeOf, sections } from '../lib/nav';
+import { adminHref } from '../lib/account';
 import HeaderSearch from './HeaderSearch';
 import NavAccount from './NavAccount';
 
@@ -73,7 +74,7 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
         </ul>
       </nav>
       <div class="header-controls">
-        <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={PUBLIC_ADMIN_URL} current={path.startsWith('/account/')} />
+        <NavAccount client:only="react" apiUrl={PUBLIC_API_URL} adminUrl={adminHref(PUBLIC_ADMIN_URL, path)} current={path.startsWith('/account/')} />
       </div>
     </div>
   </div>

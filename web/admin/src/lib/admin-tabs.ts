@@ -18,7 +18,7 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
 
 /** GROUPS are the header's menus, each holding tabs in TABS's order. */
 const GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz'] },
+  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz', 'challenges'] },
   { label: 'Players', tabs: ['members', 'titles'] },
   { label: 'Site', tabs: ['data', 'admins', 'audit'] },
 ];
