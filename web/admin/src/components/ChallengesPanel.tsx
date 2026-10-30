@@ -5,7 +5,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest } from '../lib/admin-api';
-import { entriesPath, entryFlags, pageCount, viewLabel, type View } from '../lib/challenge-entries';
+import { entriesPath, pageCount, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice } from './Notice';
 import './ChallengesPanel.css';
 
@@ -147,7 +147,7 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
         )}
       </td>
       <td>
-        {entryFlags(e).join(' · ')}
+        {e.hidden && `Hidden: ${e.hidden_reason}`}
         {e.flags.map((f) => (
           <span key={f} className="row-detail">
             ⚠ {f}
