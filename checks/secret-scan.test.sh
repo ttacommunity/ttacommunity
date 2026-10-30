@@ -3,10 +3,9 @@
 # built here at run time, so no credential-shaped string is ever committed.
 set -uo pipefail
 
-cd "$(dirname "$0")/.." || exit 1
-root=$PWD
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+# shellcheck source=checks/testlib.sh
+. "$(dirname "$0")/testlib.sh"
+testlib_start secret-scan.test
 
 # rep prints the character $1 repeated $2 times.
 rep() { printf "%${2}s" '' | tr ' ' "$1"; }
@@ -21,13 +20,6 @@ repo() {
   echo "$dir"
 }
 
-commit() { git -C "$1" -c user.name=test -c user.email=test@example.invalid commit -q --no-verify -m "$2"; }
-
-failed=0
-fail() {
-  echo "  $1" >&2
-  failed=1
-}
 
 pg=postgres://u
 # case: name, the file's one line, the exit wanted.
@@ -70,7 +62,7 @@ out=$(cd "$dir" && bash checks/secret-scan.sh --staged 2>&1)
 dir=$(repo pushed)
 echo "$token" >"$dir/f.txt"
 git -C "$dir" add f.txt
-commit "$dir" token
+commit_in "$dir" --no-verify -m token
 echo clean >"$dir/f.txt"
 zero=0000000000000000000000000000000000000000
 out=$(cd "$dir" && echo "refs/heads/b $(git rev-parse HEAD) refs/heads/b $zero" | bash .githooks/pre-push 2>&1)
@@ -79,7 +71,7 @@ out=$(cd "$dir" && echo "refs/heads/b $(git rev-parse HEAD) refs/heads/b $zero" 
 dir=$(repo pushed-deleted)
 echo "$token" >"$dir/f.txt"
 git -C "$dir" add f.txt
-commit "$dir" token
+commit_in "$dir" --no-verify -m token
 rm "$dir/f.txt"
 out=$(cd "$dir" && echo "refs/heads/b $(git rev-parse HEAD) refs/heads/b $zero" | bash .githooks/pre-push 2>&1)
 [ $? -eq 1 ] || fail "pushed token, file deleted on disk: pre-push passed; output: $out"
@@ -94,8 +86,4 @@ echo "$token" >"$dir/../f.txt"
 out=$(GIT_CEILING_DIRECTORIES=$work bash "$dir/secret-scan.sh" --all 2>&1)
 [ $? -eq 1 ] || fail "--all outside a git repo: passed; output: $out"
 
-if [ "$failed" -ne 0 ]; then
-  echo "secret-scan.test: failed" >&2
-  exit 1
-fi
-echo "secret-scan.test: every case as expected"
+testlib_finish
