@@ -64,7 +64,8 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 				Finished: st.Finished, Players: st.Players}
 		}
 		seasons[j] = AdminSeason{Label: se.Label, OriginalName: se.OriginalName, Note: se.Note, HasGames: se.HasGames, Rated: se.Rated,
-			InChampions: se.InChampions, InCommunity: se.InCommunity, RunHere: se.RunHere, TimeoutPenalty: se.TimeoutPenalty, Stages: stages,
+			InChampions: se.InChampions, InCommunity: se.InCommunity, RunHere: se.RunHere, Organiser: se.Organiser, CgeOrganiser: se.CGEOrganiser,
+			TimeoutPenalty: se.TimeoutPenalty, Stages: stages,
 			Podium: podiumEntries(se.Podium), PodiumNote: se.PodiumNote, SuggestedPodium: podiumEntries(se.Suggested),
 			SuggestedFrom: AdminSeasonSuggestedFrom(se.SuggestedFrom), Games: se.Games, Finished: se.Finished, Players: se.Players}
 	}
@@ -205,6 +206,8 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 		return store.SeasonChange{}, "a podium has one to three places and a note of at most 500 characters"
 	case b.Note != nil && len(*b.Note) > 2000:
 		return store.SeasonChange{}, "a note is at most 2,000 characters"
+	case b.Organiser != nil && len(strings.TrimSpace(*b.Organiser)) > 100:
+		return store.SeasonChange{}, "an organiser's name is at most 100 characters"
 	}
 	c := store.SeasonChange{Rated: b.Rated, InChampions: b.InChampions, InCommunity: b.InCommunity, RunHere: b.RunHere,
 		TimeoutPenalty: b.TimeoutPenalty, Note: b.Note, ClearPodium: b.ClearPodium != nil && *b.ClearPodium}
@@ -217,6 +220,10 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 			podium[i] = store.PodiumEntry{Place: e.Place, Name: e.Name}
 		}
 		c.Podium, c.PodiumNote = &podium, strings.TrimSpace(p.Note)
+	}
+	if b.Organiser != nil {
+		o := strings.TrimSpace(*b.Organiser)
+		c.Organiser = &o
 	}
 	if b.StageNotes != nil {
 		for stage, note := range *b.StageNotes {
@@ -235,7 +242,7 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 		}
 	}
 	if c.Podium == nil && !c.ClearPodium && c.Rated == nil && c.InChampions == nil && c.InCommunity == nil && c.RunHere == nil &&
-		c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 && c.MoveToTournament == nil {
+		c.Organiser == nil && c.TimeoutPenalty == nil && c.Note == nil && len(c.StageNotes) == 0 && c.MoveToTournament == nil {
 		return store.SeasonChange{}, "nothing to change"
 	}
 	return c, ""

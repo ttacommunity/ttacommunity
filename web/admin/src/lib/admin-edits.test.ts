@@ -9,7 +9,7 @@ import {
   isRemoval,
   movedStory,
   regulationsSavable,
-  regulationsSource,
+  shownSource,
   regulationsStart,
   removedStory,
   storiesChanged,
@@ -97,7 +97,7 @@ describe('admin edits', () => {
     ['nothing, when neither is set', '', '', '', 'none'],
   ] as const)('starts regulations from %s', (_, ours, cge, text, source) => {
     expect(regulationsStart(ours, cge)).toBe(text);
-    expect(regulationsSource(ours, cge)).toBe(source);
+    expect(shownSource(ours, cge)).toBe(source);
   });
 
   it('edits one field of one story', () => {

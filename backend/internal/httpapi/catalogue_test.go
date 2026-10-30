@@ -90,7 +90,7 @@ func TestCatalogueTournament(t *testing.T) {
 		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24"), Note: "Played at the club."}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "sora", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
-		Note:   "The first held in two halves.",
+		Note:   "The first held in two halves.", Organiser: "Ember_Wolf",
 	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wren", Wins: 10, Source: "Hall of Fame"}, {Name: "Grebe", Wins: 3.5, Source: "Hall of Fame"}},
 		Players: []string{"Grebe", "sora"}, Rules: []store.EditionRules{{CGETournament: 4991, Name: "Wimbledon 2024", Description: "2p knock-out."}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
@@ -106,7 +106,7 @@ func TestCatalogueTournament(t *testing.T) {
 	wantJSON(t, body, "rules", `[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024",
 		"url":"https://account.czechgames.com/tournaments/detail/4991"}]`)
 	wantJSON(t, body, "seasons.0", `{"label":"2024","first_game":"2024-07-01","last_game":"2025-02-24","games":632,"players":128,
-		"note":"The first held in two halves.",
+		"note":"The first held in two halves.", "organiser":"Ember_Wolf",
 		"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"]}`)
 	wantJSON(t, body, "seasons.0.podium", `[{"final":"","finished":"2025-02-24","name":"sora","place":1,"source":"CGE /tournaments/detail/4991/7"}]`)
 	wantJSON(t, body, "seasons.0.stages", `[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24",
@@ -237,8 +237,8 @@ func TestCatalogueTournamentSendsNoDatesForASeasonWithoutGames(t *testing.T) {
 		Label: "1", Stages: []store.CatalogueStage{}, Podium: []store.PodiumPlace{}, CGE: []store.CGELink{}, Note: "Before the app.",
 	}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/international")
-	if !strings.Contains(rec.Body.String(), `"first_game":null,"games":0,"in_champions":false,"label":"1","last_game":null,"note":"Before the app."`) {
-		t.Errorf("a season without games = %s, want null dates and its note", rec.Body)
+	if !strings.Contains(rec.Body.String(), `"first_game":null,"games":0,"in_champions":false,"label":"1","last_game":null,"note":"Before the app.","organiser":null`) {
+		t.Errorf("a season without games = %s, want null dates, its note and no organiser", rec.Body)
 	}
 }
 

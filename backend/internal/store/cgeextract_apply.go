@@ -391,7 +391,7 @@ func moveMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got 
 }
 
 // writeCatalogue adds the CGE tournaments the catalogue lacks and records each one's organiser, moderators
-// (named, as the extract gives them) and dates.
+// (named, as the extract gives them) and dates. An organiser's name already held is kept.
 func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *CGEApplied) error {
 	for _, t := range in.Extract.Tournaments {
 		status := "running"
@@ -407,6 +407,7 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _
 			VALUES ($1, $2, $3, $4, $5::timestamptz::date, $6::timestamptz::date, $7::timestamptz::date, $8,
 			        (SELECT cge_user FROM player_accounts WHERE cge_user = $9))
 			ON CONFLICT (cge_tournament) DO UPDATE SET
+			    organiser = coalesce(nullif(cge_tournaments.organiser, ''), excluded.organiser),
 			    organiser_user = excluded.organiser_user, series_id = coalesce(cge_tournaments.series_id, excluded.series_id),
 			    created = coalesce(cge_tournaments.created, excluded.created),
 			    started = coalesce(cge_tournaments.started, excluded.started),

@@ -1,5 +1,5 @@
 /** A tournament's format and regulations, as the site shows them. */
-import { isRemoval, regulationsSavable, regulationsSource, regulationsStart } from '../lib/admin-edits';
+import { isRemoval, regulationsSavable, shownSource, regulationsStart } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
@@ -18,7 +18,7 @@ export default function RegulationsCard({ t, onReload }: { t: AdminTournament; o
   const [text, setText] = useState(regulationsStart(t.regulations, t.cge_regulations));
   const [status, setStatus] = useState('');
   const [refusal, setRefusal] = useState<Outcome | null>(null);
-  const source = regulationsSource(t.regulations, t.cge_regulations);
+  const source = shownSource(t.regulations, t.cge_regulations);
   const save = async (value: string) => {
     setStatus('Saving…');
     setRefusal(null);

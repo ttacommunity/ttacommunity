@@ -88,6 +88,8 @@ type CatalogueSeason struct {
 	Podium      []PodiumPlace
 	CGE         []CGELink
 	Note        string
+	// Organiser is who organised it: as admin set it, else its latest CGE tournament's organiser.
+	Organiser string
 }
 
 // leadingNumber is the number a season label starts with.
@@ -150,7 +152,9 @@ type EditionRules struct {
 // the rankings it is in, and CGE's shown tournaments, newest first, for a
 // published run. Shown is rated or made visible; the games are counted as the
 // run counted them (its catalogue spans), and unplaced games count nowhere.
-// An organiser with a deleted or banned CGE account is named DeletedPlayer.
+// A CGE tournament's organiser is its season's as admin set it, else the name held, else its organiser's
+// account's. An organiser whose account's player, or whose name's, has a deleted or banned CGE account is named
+// DeletedPlayer.
 func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueView{}, err
@@ -182,11 +186,14 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT c.cge_tournament, c.name, c.status, c.organiser, coalesce(c.started, c.created), c.finished,
+		SELECT c.cge_tournament, c.name, c.status,
+		       CASE WHEN coalesce(se.organiser, '') <> '' THEN se.organiser WHEN `+organiserHidden+` THEN $1 ELSE `+cgeOrganiser+` END,
+		       coalesce(c.started, c.created), c.finished,
 		       coalesce(t.slug, ''), EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = c.series_id)
 		FROM cge_tournaments c LEFT JOIN series t ON t.series_id = c.series_id
+		LEFT JOIN player_accounts a ON a.cge_user = c.organiser_user LEFT JOIN tournaments se ON se.tournament_id = c.tournament_id
 		WHERE c.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = c.series_id)
-		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`)
+		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`, DeletedPlayer)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
 	}
@@ -380,6 +387,29 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	})
 	if err != nil {
 		return fail("season notes", err)
+	}
+
+	rows, err = r.pool.Query(ctx, `
+		SELECT se.label, CASE WHEN se.organiser <> '' THEN se.organiser
+		                      ELSE `+seasonCGEOrganiser(`CASE WHEN `+organiserHidden+` THEN $2 ELSE `+cgeOrganiser+` END`)+` END
+		FROM tournaments se JOIN series t USING (series_id) WHERE t.slug = $1`, slug, DeletedPlayer)
+	if err != nil {
+		return fail("season organisers", err)
+	}
+	var organiser string
+	var organisers []*string
+	_, err = pgx.ForEachRow(rows, []any{&label, &organiser}, func() error {
+		if i, ok := byLabel[label]; ok && organiser != "" {
+			got.Seasons[i].Organiser = organiser
+			organisers = append(organisers, &got.Seasons[i].Organiser)
+		}
+		return nil
+	})
+	if err != nil {
+		return fail("season organisers", err)
+	}
+	if err := r.maskNames(ctx, organisers); err != nil {
+		return fail("season organisers", err)
 	}
 
 	rows, err = r.pool.Query(ctx, `

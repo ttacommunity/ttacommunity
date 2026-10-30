@@ -273,6 +273,7 @@ function Champions({
                   <button type="button" className="season-pick" onClick={() => onPick(s.label)} title={`Show the games of ${seasonName(s.label, word)}`}>
                     {seasonName(s.label, word)}
                   </button>
+                  {s.organiser !== null && <div className="season-note">Organised by {s.organiser}</div>}
                   {s.note !== null && <div className="season-note">{s.note}</div>}
                 </td>
                 {podium && (
@@ -334,6 +335,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
       </div>
       <p className="records-intro">
         {seasonName(s.label, seasonWord)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
+        {s.organiser !== null && ` · organised by ${s.organiser}`}
       </p>
       {s.note !== null && <p className="records-intro">{s.note}</p>}
       <div className="trophy-table-container">

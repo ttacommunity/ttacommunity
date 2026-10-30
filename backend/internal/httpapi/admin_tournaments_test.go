@@ -120,6 +120,8 @@ func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a long note", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": "` + strings.Repeat("x", 501) + `"}}`, http.StatusBadRequest},
 		{"set and cleared at once", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}, "clear_podium": true}`, http.StatusBadRequest},
 		{"clearing no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"clear_podium": true}`, http.StatusNotFound},
+		{"a long organiser", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"organiser": "` + strings.Repeat("x", 101) + `"}`, http.StatusBadRequest},
+		{"an organiser for no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"organiser": "Ember_Wolf"}`, http.StatusNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -370,6 +372,8 @@ func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
 		{"out of the champions", `{"in_champions": false}`, "season 2023 Play Off champions false"},
 		{"run on this site", `{"run_here": true}`, "season 2023 Play Off run here true"},
 		{"its note", `{"note": "Replayed."}`, "2023 Play Off||Replayed."},
+		{"its organiser, trimmed", `{"organiser": " Ember_Wolf "}`, "season 2023 Play Off organiser Ember_Wolf"},
+		{"its organiser removed", `{"organiser": ""}`, "season 2023 Play Off organiser "},
 		{"several at once, the podium first", `{"rated": true, "in_champions": true, "podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}}`,
 			"podium 2023 Play Off [{1 a}] |season 2023 Play Off rated true|season 2023 Play Off champions true"},
 	}
@@ -385,5 +389,6 @@ func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
 		})
 	}
 	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/tournaments/worlds", "", "")
-	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true, "run_here": true}`)
+	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true, "run_here": true,
+		"organiser": "Ember_Wolf", "cge_organiser": "Lantern_Keeper"}`)
 }

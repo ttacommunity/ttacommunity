@@ -1773,8 +1773,8 @@ export interface paths {
         /**
          * Change a season's settings, notes or podium
          * @description Only what is given changes: whether it is rated, among the champions or in the community
-         *     leaderboard, its time-out penalty, its note and its stages' notes (an empty note removes
-         *     one), and its podium set by hand (clear_podium removes it, so the recorded or derived one
+         *     leaderboard, its time-out penalty, its organiser, its note and its stages' notes (an empty
+         *     note removes one), and its podium set by hand (clear_podium removes it, so the recorded or derived one
          *     shows). Audited. The Origin must be the admin site.
          */
         patch: operations["patchAdminSeason"];
@@ -2917,6 +2917,10 @@ export interface components {
             in_community: boolean;
             /** @description It is run on this site, CGE only advertising it; its CGE tournament gives its page, never its stages, games or settings */
             run_here: boolean;
+            /** @description Who organised it, as admin set it; empty for none */
+            organiser: string;
+            /** @description Its latest CGE tournament's organiser, which the site shows while admin sets none; empty for none */
+            cge_organiser: string;
             /**
              * Format: double
              * @description The points a player loses in its standings for each game they time out of, 0 or below
@@ -2989,6 +2993,8 @@ export interface components {
             in_community?: boolean;
             /** @description It is run on this site, so CGE's loads take its CGE tournament's page and never its stages, games or settings */
             run_here?: boolean;
+            /** @description Who organised it, trimmed; empty removes it, so the site shows its CGE tournament's organiser */
+            organiser?: string;
             /**
              * Format: double
              * @description The points a player loses in its standings for each game they time out of, from the next run
@@ -4652,6 +4658,8 @@ export interface components {
             in_champions: boolean;
             /** @description A note shown beside the season, such as what a special season was, or null */
             note: string | null;
+            /** @description Who organised it, as admin set it, else its latest CGE tournament's organiser; Deleted player for a deleted or banned account; null for none */
+            organiser: string | null;
             stages: components["schemas"]["CatalogueStage"][];
             /**
              * @description The season's top three: a cup's recorded podium, or a league's

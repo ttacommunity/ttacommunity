@@ -180,6 +180,7 @@ type SeasonChange struct {
 	InChampions      *bool
 	InCommunity      *bool
 	RunHere          *bool
+	Organiser        *string
 	TimeoutPenalty   *float64
 	Note             *string
 	StageNotes       map[string]string
@@ -201,6 +202,7 @@ func (a *AdminStore) ChangeSeason(ctx context.Context, slug, season string, c Se
 			{c.InChampions != nil, func() error { return tx.SetSeasonInChampions(ctx, slug, season, *c.InChampions) }},
 			{c.InCommunity != nil, func() error { return tx.SetSeasonInCommunity(ctx, slug, season, *c.InCommunity) }},
 			{c.RunHere != nil, func() error { return tx.SetSeasonRunHere(ctx, slug, season, *c.RunHere) }},
+			{c.Organiser != nil, func() error { return tx.SetSeasonOrganiser(ctx, slug, season, *c.Organiser) }},
 			{c.TimeoutPenalty != nil, func() error { return tx.SetSeasonPenalty(ctx, slug, season, *c.TimeoutPenalty) }},
 			{c.Note != nil, func() error { return tx.SetNote(ctx, slug, season, "", *c.Note) }},
 			{c.MoveToTournament != nil, func() error {
@@ -262,6 +264,20 @@ func (a *AdminStore) SetSeasonRunHere(ctx context.Context, slug, season string, 
 		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, here)
 	if err != nil {
 		return fmt.Errorf("setting whether %s %s is run on this site: %w", slug, season, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoTournament
+	}
+	return nil
+}
+
+// SetSeasonOrganiser sets who organised a season, empty for none, or returns ErrNoTournament for a season that
+// does not exist.
+func (a *AdminStore) SetSeasonOrganiser(ctx context.Context, slug, season, name string) error {
+	tag, err := a.pool.Exec(ctx, `UPDATE tournaments se SET organiser = $3 FROM series t
+		WHERE t.series_id = se.series_id AND t.slug = $1 AND se.label = $2`, slug, season, name)
+	if err != nil {
+		return fmt.Errorf("setting who organised %s %s: %w", slug, season, err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNoTournament

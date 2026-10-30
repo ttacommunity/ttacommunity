@@ -37,8 +37,8 @@ export function regulationsStart(ours: string, cge: string): string {
   return ours === '' ? cge : ours;
 }
 
-/** regulationsSource says which regulations the site shows: ours, CGE's, or none. */
-export function regulationsSource(ours: string, cge: string): 'ours' | 'cge' | 'none' {
+/** shownSource says which text the site shows, such as regulations or an organiser: ours, CGE's, or none. */
+export function shownSource(ours: string, cge: string): 'ours' | 'cge' | 'none' {
   if (ours !== '') return 'ours';
   return cge !== '' ? 'cge' : 'none';
 }

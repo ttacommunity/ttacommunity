@@ -8,6 +8,7 @@ import { fieldId, hasPenalty, renamedFrom, toggled } from '../lib/tournament-pag
 import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
 import MoveSeasonButton from './MoveSeasonButton';
 import NoteBox from './NoteBox';
+import OrganiserBox from './OrganiserBox';
 import Notice from './Notice';
 import PenaltyBox from './PenaltyBox';
 import PodiumBox from './PodiumBox';
@@ -141,6 +142,7 @@ export default function SeasonsCard({
             )}
             <Notice outcome={shownAt(refusal, `season ${se.label}`)} onClose={close} />
             {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
+            <OrganiserBox slug={t.slug} season={se.label} initial={se.organiser} cge={se.cge_organiser} />
             <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
             <PodiumBox
               slug={t.slug}
