@@ -107,51 +107,6 @@
   color: var(--text-muted);
   transform: none;
 }
-/* What a save did, as admin shows an action's outcome: its word in colour on a dark panel, bordered green when done, red when not. */
-.account-outcome {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--win);
-  border-radius: 6px;
-  background: var(--surface-well);
-  font-size: var(--size-body-short);
-  scroll-margin: 5.5rem 0 1rem;
-}
-.account-outcome > div {
-  flex: 1;
-  min-width: 0;
-}
-.account-outcome-heading,
-.account-outcome-text {
-  display: block;
-}
-.account-outcome-heading {
-  color: var(--win);
-}
-.account-outcome-refused {
-  border-left-color: var(--loss);
-}
-.account-outcome-refused .account-outcome-heading {
-  color: var(--loss);
-}
-.account-outcome-close {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  padding: 0 0.3rem;
-  border: 0;
-  background: none;
-  color: var(--text-soft);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.account-outcome-close:hover {
-  color: var(--text-main);
-}
 .account-notice-failed {
   border-color: var(--accent-crimson);
 }

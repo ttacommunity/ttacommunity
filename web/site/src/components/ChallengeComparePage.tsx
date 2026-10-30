@@ -5,6 +5,7 @@ import { challengePlayer, challengePlayers, RatingsApiError, type ChallengePlaye
 import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, signed, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -28,6 +29,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
   const v = verified === 'verified';
   const players = useKeptLoad(`players-${verified}`, () => challengePlayers(apiUrl, v));
   const known = players.kind === 'ready' ? players.data.players : [];
+  const names = known.map((p) => ({ name: p.player }));
   const find = (name: string) => known.find((p) => p.player.toLowerCase() === name.trim().toLowerCase());
   const pa = find(a);
   const pb = find(b);
@@ -47,20 +49,15 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
       <div className="analysis-hero-card challenges-hero">
         <h1 className="analysis-hero-title">Compare players</h1>
         <div className="challenges-pickers">
-          <label>
-            <span className="challenges-side-a">Player A</span>
-            <input className="input-antique" list="cmp-names" value={a} placeholder="Name…" autoComplete="off" onChange={(e) => choose('a', e.target.value)} />
-          </label>
+          <div>
+            <label htmlFor="cmp-a">Player A</label>
+            <SearchBox id="cmp-a" players={names} value={a} placeholder="Name…" onChange={(v) => choose('a', v)} />
+          </div>
           <span className="muted">vs</span>
-          <label>
-            <span className="challenges-side-b">Player B</span>
-            <input className="input-antique" list="cmp-names" value={b} placeholder="Name…" autoComplete="off" onChange={(e) => choose('b', e.target.value)} />
-          </label>
-          <datalist id="cmp-names">
-            {known.map((p) => (
-              <option key={p.player} value={p.player} />
-            ))}
-          </datalist>
+          <div>
+            <label htmlFor="cmp-b">Player B</label>
+            <SearchBox id="cmp-b" players={names} value={b} placeholder="Name…" onChange={(v) => choose('b', v)} />
+          </div>
         </div>
       </div>
       <div className="challenges-bar">

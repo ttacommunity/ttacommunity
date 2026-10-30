@@ -1,6 +1,7 @@
 /** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; the data we keep, signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
+import SaveNotice from './SaveNotice';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
@@ -469,26 +470,6 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
         <SaveNotice outcome={outcome} onClose={() => setOutcome(null)} />
       </div>
     </form>
-  );
-}
-
-/** SaveNotice shows what a save did, as admin shows an action's outcome: Done or Not done on a panel bordered green or red, scrolled into view. */
-function SaveNotice({ outcome, onClose }: { outcome: SaveOutcome | null; onClose: () => void }) {
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (outcome !== null) box.current?.scrollIntoView({ block: 'nearest' });
-  }, [outcome]);
-  if (outcome === null) return null;
-  return (
-    <div ref={box} className={`account-outcome account-outcome-${outcome.kind}`}>
-      <div>
-        <strong className="account-outcome-heading">{outcome.heading}</strong>
-        <span className="account-outcome-text">{outcome.text}</span>
-      </div>
-      <button type="button" className="account-outcome-close" aria-label="Close" onClick={onClose}>
-        ×
-      </button>
-    </div>
   );
 }
 

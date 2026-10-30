@@ -5,16 +5,9 @@
 .challenges-hero a {
   color: var(--accent-gold);
 }
+/* The one action in the tab row, the site's button rather than a tab. */
 .challenges-submit {
   margin-left: auto;
-  color: var(--text-bright);
-  background: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
-  border-color: var(--loss);
-}
-.challenges-submit:hover,
-.challenges-submit.active {
-  background: linear-gradient(180deg, var(--crimson-hover) 0%, var(--accent-crimson) 100%);
-  color: var(--text-bright);
 }
 
 .challenges-card,
@@ -490,7 +483,7 @@
   gap: 0.75rem;
   margin-top: 0.75rem;
 }
-.challenges-pickers label {
+.challenges-pickers > div {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -584,10 +577,6 @@
 .challenges-errors {
   margin: 0.25rem 0 0;
   color: var(--loss-light);
-}
-.challenges-ok {
-  margin: 0.25rem 0 0;
-  color: var(--win);
 }
 .challenges-note {
   display: inline-block;

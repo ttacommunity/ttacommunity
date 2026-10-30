@@ -2,52 +2,55 @@
 import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengeEntries, challengeHighscores, type ChallengeEntries, type ChallengeHighscores } from '@ttac/shared/ratings';
-import { change, sharedMe, signInHref, type Me } from '../lib/account';
+import { change, sharedMe, signInHref, type Me, type SaveOutcome } from '../lib/account';
 import type { ChallengeTile } from '../lib/challenge-list';
 import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission, type Row } from '../lib/challenge-submit';
 import { challengePicture, challengePlayerHref, challengeSets, setLabel, type SetId } from '../lib/challenges';
 import { ProofLink } from './ChallengeParts';
+import SaveNotice from './SaveNotice';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
-/** ChallengeSubmitPage asks who is signed in, then shows what they may do: sign in, get linked, or submit. */
+/** ChallengeSubmitPage asks who is signed in, then shows what they may do: the form for a linked player, else what to do first. */
 export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; list: ChallengeTile[] }) {
   const me = useLoad('me', () => sharedMe(apiUrl));
   return (
     <>
-      <Examples />
+      <Examples apiUrl={apiUrl} me={me.kind === 'ready' ? me.data : undefined} />
       {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
     </>
   );
 }
 
 function Gate({ apiUrl, list, me }: { apiUrl: string; list: ChallengeTile[]; me: Me | null }) {
-  if (me === null) {
-    return (
-      <div className="rating-card challenges-card">
-        <p>Sign in to submit your dominations: they are saved under your TTA username.</p>
-        <a className="btn-antique" href={signInHref(apiUrl, 'discord', '/challenges/submit/')}>
-          Sign in with Discord
-        </a>
-      </div>
-    );
-  }
-  if (me.member === null) {
-    return (
-      <div className="rating-card challenges-card">
-        <p>Your account is not linked to a TTA username yet. Ask to be linked on your account page; once an organiser approves it, you can submit here.</p>
-        <a className="btn-antique" href="/account/">
-          Your account
-        </a>
-      </div>
-    );
-  }
+  if (me === null || me.member === null) return null;
   if (me.member.banned) {
     return <div className="rating-card waiting-message">Your account may not submit dominations.</div>;
   }
   return <Form apiUrl={apiUrl} list={list} name={me.member.name} />;
+}
+
+/** FirstStep says, in the page's introduction, what a visitor must do before submitting: sign in, or get linked. */
+function FirstStep({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
+  if (me === undefined) return null;
+  if (me === null) {
+    return (
+      <p className="analysis-hero-desc">
+        <a href={signInHref(apiUrl, 'discord', '/challenges/submit/')}>Sign in</a> to submit: your entries are saved under your TTA username.
+      </p>
+    );
+  }
+  if (me.member === null) {
+    return (
+      <p className="analysis-hero-desc">
+        Your account is not linked to a TTA username yet: <a href="/account/">ask to be linked</a> on your account page, and once an organiser approves it
+        you can submit here.
+      </p>
+    );
+  }
+  return null;
 }
 
 function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; name: string }) {
@@ -59,7 +62,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
   const [shared, setShared] = useState('');
   const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [status, setStatus] = useState<SaveOutcome | null>(null);
   useEffect(() => setStatus(null), [rows, shared]);
 
   if (entries.kind !== 'ready') return <Waiting load={entries} what="the entries" />;
@@ -74,10 +77,10 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
     const done = await change(fetch, apiUrl, 'POST', '/v1/me/challenges/entries', { entries: chosen });
     setBusy(false);
     if (!done.ok) {
-      setStatus({ ok: false, text: done.message });
+      setStatus({ kind: 'refused', heading: 'Not done', text: done.message });
       return;
     }
-    setStatus({ ok: true, text: `Saved ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}.` });
+    setStatus({ kind: 'done', heading: 'Done', text: `Saved ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}.` });
     setRows({});
     setShared('');
     setReviewing(false);
@@ -163,18 +166,14 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
               ))}
             </ul>
           )}
-          {status && (
-            <p className={status.ok ? 'challenges-ok' : 'challenges-errors'} role="status">
-              {status.text}
-            </p>
-          )}
+          <SaveNotice outcome={status} onClose={() => setStatus(null)} />
         </div>
         {reviewing ? (
           <div className="challenges-bar-group">
             <button type="button" className="btn-antique" disabled={busy} onClick={() => setReviewing(false)}>
               ← Back to editing
             </button>
-            <button type="button" className="btn-antique btn-danger" disabled={busy || chosen.length === 0 || errors.length > 0} onClick={() => void save()}>
+            <button type="button" className="btn-antique" disabled={busy || chosen.length === 0 || errors.length > 0} onClick={() => void save()}>
               {busy ? 'Saving…' : 'Confirm & submit'}
             </button>
           </div>
@@ -279,8 +278,8 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
   );
 }
 
-/** Examples shows what to post in Discord for a verified entry. */
-function Examples() {
+/** Examples introduces the page, with the visitor's first step when they have one, and shows what to post in Discord for a verified entry. */
+function Examples({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
   return (
     <>
       <div className="analysis-hero-card challenges-hero">
@@ -292,6 +291,7 @@ function Examples() {
             then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
             the official highscores.
           </p>
+          <FirstStep apiUrl={apiUrl} me={me} />
         </div>
       </div>
       <section className="rating-card challenges-card" aria-labelledby="examples">

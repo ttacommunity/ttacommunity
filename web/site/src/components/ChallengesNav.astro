@@ -15,7 +15,11 @@ const links = [
 ---
 <nav class="subpage-nav" aria-label="Challenge pages">
   {links.map((l) => (
-    <a href={l.href} class:list={['subpage-btn', { active: l.id === page, 'challenges-submit': l.id === 'submit' }]} aria-current={l.id === page ? 'page' : undefined}>
+    <a
+      href={l.href}
+      class:list={l.id === 'submit' ? ['btn-antique', 'challenges-submit'] : ['subpage-btn', { active: l.id === page }]}
+      aria-current={l.id === page ? 'page' : undefined}
+    >
       {l.label}
     </a>
   ))}
