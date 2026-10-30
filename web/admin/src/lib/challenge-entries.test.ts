@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryFlags, pageCount, entriesPath, viewLabel } from './challenge-entries';
+import { pageCount, entriesPath, viewLabel } from './challenge-entries';
 
 describe('pageCount', () => {
   it.each([
@@ -12,19 +12,6 @@ describe('pageCount', () => {
   });
 });
 
-describe('entryFlags', () => {
-  const entry = { hidden: false, hidden_reason: '', bugged: false, checked: false, proof_url: null as string | null };
-  it.each([
-    ['nothing for a plain unproven entry', entry, []],
-    ['hidden with its reason', { ...entry, hidden: true, hidden_reason: 'a duplicate' }, ['Hidden: a duplicate']],
-    ['hidden without a reason', { ...entry, hidden: true }, ['Hidden']],
-    ['bugged', { ...entry, bugged: true }, ['Bugged']],
-    ['a proof not yet looked at', { ...entry, proof_url: 'https://discord.com/channels/1/2/3' }, ['Proof not checked']],
-    ['a checked proof', { ...entry, proof_url: 'https://discord.com/channels/1/2/3', checked: true }, ['Proof checked']],
-  ])('says %s', (_name, e, want) => {
-    expect(entryFlags(e)).toEqual(want);
-  });
-});
 
 describe('entriesPath', () => {
   it.each([
