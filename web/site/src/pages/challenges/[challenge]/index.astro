@@ -1,7 +1,6 @@
 ---
-/** A challenge's page, one for each in the committed list: its story, rules and opponents, built in with its link preview, then its board. */
+/** A challenge's page, one for each in the committed list: its story, rules and opponents, then its board. */
 import { PUBLIC_API_URL } from 'astro:env/client';
-import { PUBLIC_SITE_URL } from 'astro:env/server';
 import SiteLayout from '../../../layouts/SiteLayout.astro';
 import ChallengesNav from '../../../components/ChallengesNav.astro';
 import ChallengeBoardPanel from '../../../components/ChallengeBoardPanel';
@@ -16,18 +15,8 @@ export function getStaticPaths() {
 const { c } = Astro.props as { c: ChallengeInfo };
 const title = `${c.name} | Challenges`;
 const preview = previewText(c);
-const picture = new URL(challengePicture(c.id), PUBLIC_SITE_URL).href;
 ---
 <SiteLayout title={title} description={preview}>
-  <Fragment slot="head">
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content={`${c.name}: Through the Ages challenge`} />
-    <meta property="og:description" content={preview} />
-    <meta property="og:image" content={picture} />
-    <meta property="og:image:width" content="340" />
-    <meta property="og:image:height" content="284" />
-    <meta name="twitter:card" content="summary" />
-  </Fragment>
   <ChallengesNav />
   <div class="analysis-hero-card challenges-head challenges-group" data-group={c.group}>
     <img class="challenges-head-img" src={challengePicture(c.id)} alt="" width="340" height="284" />

@@ -414,8 +414,7 @@ weekly winners and submitting, linked by a row of tabs under the header.
 The site's pages are the `Challenge*.tsx` components under
 `pages/challenges/`, their decisions in `lib/challenges.ts`,
 `lib/challenge-*.ts` and `lib/record-chart.ts`; admin's is the Challenges
-tab (`ChallengesPanel.tsx`). The site's own address, for a challenge
-page's link preview, is `PUBLIC_SITE_URL` at build.
+tab (`ChallengesPanel.tsx`).
 
 ### Player sign-in
 
