@@ -3,10 +3,10 @@
 # checked as authored by someone with the given author association.
 set -uo pipefail
 
-cd "$(dirname "$0")/.." || exit 1
-check=$PWD/checks/dco.sh
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+# shellcheck source=checks/testlib.sh
+. "$(dirname "$0")/testlib.sh"
+testlib_start dco.test
+check=$root/checks/dco.sh
 
 author=(-c user.name=Outsider -c user.email=outsider@example.invalid)
 
@@ -63,23 +63,17 @@ cases=(
   "no-commits|CONTRIBUTOR||2"
 )
 
-failed=0
 for c in "${cases[@]}"; do
   IFS='|' read -r name association commits want <<<"$c"
   if ! dir=$(repo "$name" "$commits"); then
-    echo "  $name: could not build the repo" >&2
-    failed=1; continue
+    fail "$name: could not build the repo"
+    continue
   fi
   out=$(cd "$dir" && bash checks/dco.sh base HEAD "$association" 2>&1)
   got=$?
   if [ "$got" -ne "$want" ]; then
-    echo "  $name: exit = $got, want $want; output: $out" >&2
-    failed=1
+    fail "$name: exit = $got, want $want; output: $out"
   fi
 done
 
-if [ "$failed" -ne 0 ]; then
-  echo "dco.test: failed" >&2
-  exit 1
-fi
-echo "dco.test: every case as expected"
+testlib_finish

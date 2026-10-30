@@ -208,18 +208,22 @@ if full && area checks; then
     run bash checks/deploy-env-strings.sh
   fi
   run bash checks/deploy-current.test.sh
+  run bash checks/ci-changes.test.sh
   run bash checks/dco.test.sh
   if [ "${GITHUB_EVENT_NAME:-}" = pull_request ]; then
     run bash checks/dco.sh "${PR_BASE_SHA:-}" "${PR_HEAD_SHA:-}" "${PR_AUTHOR_ASSOCIATION:-}"
   else
     not_covered+=("sign-offs on an outsider's pull request (checks/dco.sh): CI checks each pull request")
   fi
-  if need jq "the engine's golden hashes"; then
+  if need jq "the engine's golden hashes and the image digests"; then
     run bash checks/engine-golden.test.sh
     run bash checks/engine-golden.sh
+    run bash checks/verify-digests.test.sh
   fi
   # Locally, red means something to fix here: a gh login that cannot read our packages leaves our images to CI.
-  if [ -z "${CI:-}" ] && [ -z "${GITHUB_TOKEN:-}" ] && ! gh auth status 2>&1 | grep -qE 'read:packages|write:packages'; then
+  # The API names the token's scopes in a header; a login it refuses has none.
+  if [ -z "${CI:-}" ] && [ -z "${GITHUB_TOKEN:-}" ] &&
+    ! [[ $(gh api -i user 2>/dev/null | tr -d '\r' | sed -n 's/^x-oauth-scopes: *//Ip') =~ (read|write):packages ]]; then
     run bash checks/verify-digests.sh --skip-own
     not_covered+=("our own GHCR images' digests: your gh login cannot read them (gh auth refresh -s read:packages); CI checks them")
   else

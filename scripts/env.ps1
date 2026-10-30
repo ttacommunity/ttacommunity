@@ -1,16 +1,11 @@
 # Load .env into this PowerShell session, creating it from .env.example first.
-# On Windows both databases live in one Postgres server, so the app database's
-# port becomes the ratings one. Usage: . scripts\env.ps1   (dot-sourced)
+# Usage: . scripts\env.ps1   (dot-sourced)
 
 $root = Split-Path -Parent $PSScriptRoot
 $onWindows = $env:OS -eq 'Windows_NT'   # also true in Windows PowerShell 5.1, which has no $IsWindows
 $envFile = Join-Path $root '.env'
 if (-not (Test-Path $envFile)) {
-    $example = Get-Content (Join-Path $root '.env.example') -Raw
-    if ($onWindows) {
-        $example = $example -replace '127\.0\.0\.1:55433/', '127.0.0.1:55432/'
-    }
-    Set-Content -Path $envFile -Value $example -NoNewline
+    Copy-Item (Join-Path $root '.env.example') $envFile
     Write-Host 'env.ps1: created .env from .env.example (local-only values)'
 }
 

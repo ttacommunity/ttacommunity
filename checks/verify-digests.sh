@@ -68,6 +68,11 @@ while IFS= read -r ref; do
   fi
   checked=$((checked + 1))
   code=$(status "$ref")
+  # A rate limit, a server error or no answer is asked again once, a few seconds later.
+  if [[ -z $code || $code == 429 || $code == 5?? ]]; then
+    sleep 5
+    code=$(status "$ref")
+  fi
   case $code in
     200) printf '  ok       %s\n' "$ref" ;;
     404) printf '  MISSING  %s\n           if any part was typed rather than resolved, it is invented\n' "$ref"
