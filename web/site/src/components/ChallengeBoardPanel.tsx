@@ -84,6 +84,15 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
           </p>
           <div className="table-responsive">
             <table className="leaderboard-table">
+              <caption className="visually-hidden">Entries made through a game bug, not counted</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Player</th>
+                  <th scope="col">Domination</th>
+                  <th scope="col">Proof</th>
+                  <th scope="col">Date</th>
+                </tr>
+              </thead>
               <tbody>
                 {bugged.map((e) => (
                   <tr key={`${e.player}-${e.entered_at}-${e.domination}`}>
@@ -111,6 +120,15 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
           <summary>All {board.entries.length} submissions</summary>
           <div className="table-responsive">
             <table className="leaderboard-table">
+              <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Date</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Domination</th>
+                  <th scope="col">Proof</th>
+                </tr>
+              </thead>
               <tbody>
                 {board.entries.map((e, i) => (
                   <tr key={i}>

@@ -35,6 +35,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
           <section className="rating-card challenges-card" aria-label="Weeks">
             <div className="table-responsive">
               <table className="leaderboard-table">
+                <caption className="visually-hidden">Each week of the weekly challenge, its challenge and who won</caption>
                 <thead>
                   <tr>
                     <th scope="col" className="num">

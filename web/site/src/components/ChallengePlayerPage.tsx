@@ -202,6 +202,14 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
               Where {p.player}&apos;s best is closest to the record{measure === 'rating' ? ' (in % of the record)' : ' (fewest points to beat it)'}.
             </p>
             <table className="leaderboard-table">
+              <caption className="visually-hidden">The challenges where {p.player}&apos;s best is closest to the record</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Challenge</th>
+                  <th scope="col">{measure === 'rating' ? 'Of the record' : 'Best / record'}</th>
+                  <th scope="col">To beat</th>
+                </tr>
+              </thead>
               <tbody>
                 {closest.map((b) => (
                   <tr key={b.challenge}>
@@ -224,6 +232,14 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
             </p>
             {lowest.length > 0 && (
               <table className="leaderboard-table">
+                <caption className="visually-hidden">{p.player}&apos;s lowest results</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Challenge</th>
+                    {measure === 'rating' && <th scope="col">Of the record</th>}
+                    <th scope="col">Best / record</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {lowest.map((b) => (
                     <tr key={b.challenge}>

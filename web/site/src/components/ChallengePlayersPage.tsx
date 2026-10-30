@@ -59,6 +59,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
         <section className="rating-card challenges-card" aria-label="Players">
           <div className="table-responsive">
             <table className="leaderboard-table">
+              <caption className="visually-hidden">Every player with a challenge entry, with their figures</caption>
               <thead>
                 <tr>
                   <SortHeader col="player" sort={sort} onSort={onSort}>

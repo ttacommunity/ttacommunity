@@ -127,6 +127,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
       <section className="rating-card challenges-card" aria-label="Totals">
         <div className="table-responsive">
           <table className="leaderboard-table">
+            <caption className="visually-hidden">The two players' totals, by set and all together</caption>
             <thead>
               <tr>
                 <th scope="col">

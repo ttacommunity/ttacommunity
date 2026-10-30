@@ -166,6 +166,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
         </p>
         <div className="table-responsive">
           <table className="leaderboard-table">
+            <caption className="visually-hidden">The pooled record and the best single player, for each set and all together</caption>
             <thead>
               <tr>
                 <th scope="col">Scope</th>
