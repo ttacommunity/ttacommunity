@@ -1,8 +1,8 @@
 # Accepted gitleaks findings, by fingerprint: Cloudflare Access's AUD (an identifier carried in every
 # token, not a credential), a test's lookup key, and the TtA Discord server's id (public, in every
 # message link there; it now lives in the database only). A new finding still fails the secrets job.
-fb7c4ccd3586702d20b4dab1b68b8e257e561327:backend/internal/challenges/submit.go:discord-client-id:10
-fb7c4ccd3586702d20b4dab1b68b8e257e561327:web/site/src/lib/challenge-submit.ts:discord-client-id:4
+aec3d8d9a6582bb877d77b36c29e9a7ae157e8f4:backend/internal/challenges/submit.go:discord-client-id:10
+aec3d8d9a6582bb877d77b36c29e9a7ae157e8f4:web/site/src/lib/challenge-submit.ts:discord-client-id:4
 23fb5b91d69403a9878755df35599e440682d649:web/admin/wrangler.jsonc:generic-api-key:28
 c27a04a5bf9770990d94fda2c96a07b5ec938173:web/admin/wrangler.jsonc:generic-api-key:17
 a1669e4855b40b5126badd6fcd15611aaaeeb9e1:web/site/src/lib/analysis.test.ts:generic-api-key:57
