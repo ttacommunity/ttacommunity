@@ -373,7 +373,10 @@ weekly winners and submitting, linked by a row of tabs under the header.
   checked, correct its domination or proof, and merge a name into another or
   into the member it belongs to; each change writes its audit row. A linked
   player, not banned, submits their own through `submit_challenge_entries`,
-  which checks their session as `report_blitz_game` does. The old site's entries
+  which checks their session as `report_blitz_game` does. A proof must be a
+  message link in the TtA Discord server: `challenge_proof_url` in the
+  database is the one place that rule lives, and writes the link the one
+  way, for players' submissions and admins' corrections alike. The old site's entries
   are imported with `load challenge-entries <file>`, its admin list as
   JSON: it replaces every imported entry, and links each name to the member
   of that TTA username, ignoring case only; it never touches entries made

@@ -14,13 +14,15 @@ import (
 	"ttacommunity/backend/internal/challenges"
 )
 
-// ErrBadChallengeEntries means a submission the database refused: a challenge not in the list, one challenge twice,
-// or a proof that is not a message in the TtA Discord.
-var ErrBadChallengeEntries = errors.New("an entry names a challenge not in the list, or one twice, or links a proof from elsewhere")
+// ErrBadChallengeEntries means a submission the database refused: a challenge not in the list, or one challenge twice.
+var ErrBadChallengeEntries = errors.New("an entry names a challenge not in the list, or one twice")
+
+// ErrBadProofURL means a proof the database refused: not a message link in the TtA Discord.
+var ErrBadProofURL = errors.New("the proof must be a message link in the TtA Discord")
 
 // SubmitChallengeEntries saves entries, checked by challenges.CheckSubmissions, as the member the session hashing to
 // tokenHash is linked to, at now, and returns how many it saved. It returns ErrNoSession, ErrNotLinked,
-// ErrMemberBanned or ErrBadChallengeEntries, saving none.
+// ErrMemberBanned, ErrBadChallengeEntries or ErrBadProofURL, saving none.
 func (s *PlayerStore) SubmitChallengeEntries(ctx context.Context, tokenHash []byte, entries []challenges.Submission, now time.Time) (int, error) {
 	type entry struct {
 		Challenge  string  `json:"challenge"`
@@ -54,6 +56,8 @@ func (s *PlayerStore) SubmitChallengeEntries(ctx context.Context, tokenHash []by
 		return 0, ErrMemberBanned
 	case "bad":
 		return 0, ErrBadChallengeEntries
+	case "bad-proof":
+		return 0, ErrBadProofURL
 	}
 	return 0, fmt.Errorf("submitting challenge entries: unexpected answer %q", got)
 }

@@ -98,10 +98,7 @@ func (s *server) PatchAdminChallengeEntry(ctx context.Context, req PatchAdminCha
 	}
 	c := store.ChallengeEntryChange{Domination: b.Domination, Checked: b.Checked, Bugged: b.Bugged, Hidden: b.Hidden, HiddenReason: b.HiddenReason}
 	if b.ProofUrl != nil {
-		proof, ok := challenges.ProofURL(*b.ProofUrl)
-		if !ok {
-			return PatchAdminChallengeEntry400JSONResponse{badRequest400("the proof must be a message link in the TtA Discord, or empty for none")}, nil
-		}
+		proof := strings.TrimSpace(*b.ProofUrl)
 		c.ProofURL = &proof
 	}
 	set, err := fieldsSet(b)

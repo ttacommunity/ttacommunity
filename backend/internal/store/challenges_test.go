@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -197,6 +198,12 @@ func TestAdminChangesAnEntry(t *testing.T) {
 	if got, want := adminLines(t, a), `Ann First 60 hidden="" checked=true bugged=true`; got != want {
 		t.Errorf("shown again = %q, want %q: showing clears the reason", got, want)
 	}
+	if err := a.SetChallengeEntry(ctx, id, ChallengeEntryChange{ProofURL: new(" https://canary.discordapp.com/channels/358698681672925195/5/6 ")}); err != nil {
+		t.Fatalf("SetChallengeEntry (proof): %v", err)
+	}
+	if got, want := rowsOf(t, pool, "SELECT proof_url FROM challenge_entries"), []string{"https://discord.com/channels/358698681672925195/5/6"}; !slices.Equal(got, want) {
+		t.Errorf("proof = %q, want %q: written the one way", got, want)
+	}
 	tests := []struct {
 		name string
 		id   int64
@@ -207,6 +214,8 @@ func TestAdminChangesAnEntry(t *testing.T) {
 		{"hidden without a reason", id, ChallengeEntryChange{Hidden: &yes}, ErrBadChallengeEntry},
 		{"a domination out of bounds", id, ChallengeEntryChange{Domination: new(10000)}, ErrBadChallengeEntry},
 		{"a proof that is not a link", id, ChallengeEntryChange{ProofURL: new("not a link")}, ErrBadChallengeEntry},
+		{"a proof from elsewhere", id, ChallengeEntryChange{ProofURL: new("https://example.com/channels/358698681672925195/5/6")}, ErrBadChallengeEntry},
+		{"a channel, not a message", id, ChallengeEntryChange{ProofURL: new("https://discord.com/channels/358698681672925195/5")}, ErrBadChallengeEntry},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

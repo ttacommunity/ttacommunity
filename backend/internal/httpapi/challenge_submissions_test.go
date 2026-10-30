@@ -25,7 +25,7 @@ func (f *fakeSignIns) SubmitChallengeEntries(_ context.Context, hash []byte, ent
 func TestAPlayerSubmitsEntries(t *testing.T) {
 	f := newFakeSignIns()
 	cookie := sessionFor(f, "token", member(1007, "ann"))
-	body := `{"entries": [{"challenge": "1ai", "domination": 90, "proof_url": " https://discordapp.com/channels/358698681672925195/1/2 "},
+	body := `{"entries": [{"challenge": "1ai", "domination": 90, "proof_url": " https://discord.com/channels/358698681672925195/1/2 "},
 		{"challenge": "2ai", "domination": -5}]}`
 	rec := playerDo(t, f, http.MethodPost, "/v1/me/challenges/entries", siteOrigin, body, cookie)
 	if rec.Code != http.StatusCreated {
@@ -45,7 +45,7 @@ func TestSubmittingEntriesIsRefusedWithTheStatusItNeeds(t *testing.T) {
 		err                error
 		want               int
 	}{
-		{"a proof from elsewhere", `{"entries": [{"challenge": "1ai", "domination": 90, "proof_url": "https://example.com/x"}]}`, siteOrigin, nil, http.StatusBadRequest},
+		{"a proof from elsewhere", `{"entries": [{"challenge": "1ai", "domination": 90, "proof_url": "https://example.com/x"}]}`, siteOrigin, store.ErrBadProofURL, http.StatusBadRequest},
 		{"one challenge twice", `{"entries": [{"challenge": "1ai", "domination": 1}, {"challenge": "1ai", "domination": 2}]}`, siteOrigin, nil, http.StatusBadRequest},
 		{"no entries", `{"entries": []}`, siteOrigin, nil, http.StatusBadRequest},
 		{"a challenge the database does not know", good, siteOrigin, store.ErrBadChallengeEntries, http.StatusBadRequest},

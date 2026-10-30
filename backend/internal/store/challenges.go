@@ -263,14 +263,25 @@ type ChallengeEntryChange struct {
 	Checked, Bugged, Hidden *bool
 }
 
-// SetChallengeEntry changes the entry id. It returns ErrNoChallengeEntry or ErrBadChallengeEntry.
+// SetChallengeEntry changes the entry id. A proof is kept as the database's challenge_proof_url writes it. It returns
+// ErrNoChallengeEntry or ErrBadChallengeEntry.
 func (a *AdminStore) SetChallengeEntry(ctx context.Context, id int64, c ChallengeEntryChange) error {
 	switch {
 	case c.Domination != nil && (*c.Domination < challenges.MinDomination || *c.Domination > challenges.MaxDomination),
-		c.ProofURL != nil && *c.ProofURL != "" && (!strings.HasPrefix(*c.ProofURL, "https://") || len(*c.ProofURL) > 500),
 		c.Hidden != nil && *c.Hidden && (c.HiddenReason == nil || strings.TrimSpace(*c.HiddenReason) == ""),
 		c.HiddenReason != nil && len([]rune(*c.HiddenReason)) > 500:
 		return ErrBadChallengeEntry
+	}
+	proof := c.ProofURL
+	if proof != nil && strings.TrimSpace(*proof) != "" {
+		var canonical *string
+		if err := a.pool.QueryRow(ctx, "SELECT challenge_proof_url($1)", *proof).Scan(&canonical); err != nil {
+			return fmt.Errorf("checking a proof: %w", err)
+		}
+		if canonical == nil {
+			return ErrBadChallengeEntry
+		}
+		proof = canonical
 	}
 	var reason *string
 	if c.HiddenReason != nil {
@@ -279,10 +290,10 @@ func (a *AdminStore) SetChallengeEntry(ctx context.Context, id int64, c Challeng
 	}
 	tag, err := a.pool.Exec(ctx, `
 		UPDATE challenge_entries SET domination = coalesce($2, domination),
-		    proof_url = CASE WHEN $3::text IS NULL THEN proof_url ELSE nullif($3, '') END,
+		    proof_url = CASE WHEN $3::text IS NULL THEN proof_url ELSE nullif(btrim($3), '') END,
 		    checked = coalesce($4, checked), bugged = coalesce($5, bugged), hidden = coalesce($6, hidden),
 		    hidden_reason = CASE WHEN $6 IS FALSE THEN '' ELSE coalesce($7, hidden_reason) END
-		WHERE entry_id = $1`, id, c.Domination, c.ProofURL, c.Checked, c.Bugged, c.Hidden, reason)
+		WHERE entry_id = $1`, id, c.Domination, proof, c.Checked, c.Bugged, c.Hidden, reason)
 	if err != nil {
 		return fmt.Errorf("changing challenge entry %d: %w", id, err)
 	}

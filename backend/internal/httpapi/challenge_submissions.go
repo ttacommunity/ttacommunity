@@ -29,7 +29,7 @@ func (s *server) PostMyChallengeEntries(ctx context.Context, req PostMyChallenge
 	switch {
 	case err == nil:
 		return PostMyChallengeEntries201JSONResponse{Saved: saved}, nil
-	case errors.Is(err, store.ErrBadChallengeEntries):
+	case errors.Is(err, store.ErrBadChallengeEntries), errors.Is(err, store.ErrBadProofURL):
 		return PostMyChallengeEntries400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoSession):
 		return PostMyChallengeEntries401JSONResponse{signedOut401("not signed in")}, nil

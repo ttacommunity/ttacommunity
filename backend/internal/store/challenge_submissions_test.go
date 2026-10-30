@@ -90,3 +90,39 @@ func TestReimportingKeepsEntriesMadeHere(t *testing.T) {
 		t.Errorf("entries = %+v, want Ann's kept and the old one replaced", entries)
 	}
 }
+
+func TestAProofIsKeptAsTheOneLinkOrRefused(t *testing.T) {
+	const message = "https://discord.com/channels/358698681672925195/111/222"
+	tests := []struct {
+		name, raw, want string
+		err             error
+	}{
+		{"a message in the TtA server", message, message, nil},
+		{"spaces and a trailing slash", "  " + message + "/ ", message, nil},
+		{"the old domain and the canary app", "https://canary.discordapp.com/channels/358698681672925195/111/222", message, nil},
+		{"none", "", "", nil},
+		{"another server", "https://discord.com/channels/1/111/222", "", ErrBadProofURL},
+		{"a channel, not a message", "https://discord.com/channels/358698681672925195/111", "", ErrBadProofURL},
+		{"another site", "https://example.com/channels/358698681672925195/111/222", "", ErrBadProofURL},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, p, r := submitting(t)
+			ctx := context.Background()
+			_, err := p.SubmitChallengeEntries(ctx, tokenHash("ann"), []challenges.Submission{{Challenge: "1ai", Domination: 90, ProofURL: tt.raw}}, signInAt)
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("SubmitChallengeEntries(%q) = %v, want %v", tt.raw, err, tt.err)
+			}
+			entries, _ := r.ChallengeEntries(ctx)
+			if tt.err != nil {
+				if len(entries) != 1 {
+					t.Errorf("%d entries kept, want only the old one", len(entries))
+				}
+				return
+			}
+			if len(entries) != 2 || entries[1].ProofURL != tt.want {
+				t.Errorf("the proof kept for %q = %q, want %q", tt.raw, entries[len(entries)-1].ProofURL, tt.want)
+			}
+		})
+	}
+}

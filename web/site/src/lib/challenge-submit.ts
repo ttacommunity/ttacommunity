@@ -1,19 +1,5 @@
 /** Submitting dominations: the form's rows as entries, what is wrong with them, and the notes the review shows. */
 
-/** DISCORD_GUILD is the TtA Discord server: an entry is verified when it links a message there. */
-export const DISCORD_GUILD = '358698681672925195';
-
-const MESSAGE = /^https?:\/\/(?:www\.|ptb\.|canary\.)?discord(?:app)?\.com\/channels\/(\d+)\/(\d+)\/(\d+)\/?$/;
-
-/** proofURL writes a Discord message link in the TtA server the one way the api keeps it, '' for none, or null for anything else. */
-export function proofURL(raw: string): string | null {
-  const s = raw.trim();
-  if (s === '') return '';
-  const m = MESSAGE.exec(s);
-  if (m === null || m[1] !== DISCORD_GUILD) return null;
-  return `https://discord.com/channels/${m[1]}/${m[2]}/${m[3]}`;
-}
-
 /** Row is what the form holds for a challenge: the domination and proof as typed. */
 export interface Row {
   domination: string;
@@ -27,7 +13,7 @@ export interface Entry {
   proof_url: string;
 }
 
-/** submission turns the filled rows, in the list's order, into entries, a row without its own proof taking shared; errors say what is wrong. */
+/** submission turns the filled rows, in the list's order, into entries, a row without its own proof taking shared, as typed: the api checks the proof. */
 export function submission(list: readonly { id: string; name: string }[], rows: Record<string, Row>, shared: string): { entries: Entry[]; errors: string[] } {
   const entries: Entry[] = [];
   const errors: string[] = [];
@@ -35,10 +21,9 @@ export function submission(list: readonly { id: string; name: string }[], rows: 
     const row = rows[c.id];
     if (row === undefined || row.domination.trim() === '') continue;
     const domination = Number(row.domination.trim());
-    const proof = proofURL(row.proof.trim() === '' ? shared : row.proof);
+    const proof = (row.proof.trim() === '' ? shared : row.proof).trim();
     if (!Number.isInteger(domination)) errors.push(`${c.name}: the domination must be a whole number.`);
     else if (domination < -9999 || domination > 9999) errors.push(`${c.name}: the domination must be between -9999 and 9999.`);
-    else if (proof === null) errors.push(`${c.name}: the proof must be a message link in the TtA Discord.`);
     else entries.push({ challenge: c.id, domination, proof_url: proof });
   }
   return { entries, errors };
@@ -105,4 +90,9 @@ export function proofOwners(entries: readonly { player: string; proof_url: strin
     owners.set(e.proof_url, (owners.get(e.proof_url) ?? new Set()).add(e.player));
   }
   return (proof, player) => [...(owners.get(proof) ?? [])].filter((p) => p.toLowerCase() !== player.toLowerCase());
+}
+
+/** recordsBeaten counts the chosen entries above their challenge's record, a challenge with none counting; a negative domination never does. */
+export function recordsBeaten(chosen: readonly { challenge: string; domination: number }[], records: ReadonlyMap<string, number>): number {
+  return chosen.filter((e) => e.domination >= 0 && e.domination > (records.get(e.challenge) ?? -Infinity)).length;
 }

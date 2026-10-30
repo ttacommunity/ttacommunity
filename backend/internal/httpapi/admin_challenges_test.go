@@ -39,6 +39,9 @@ func (f *fakeAdmins) SetChallengeEntry(_ context.Context, id int64, c store.Chal
 		set = append(set, fmt.Sprint("domination ", *c.Domination))
 	}
 	if c.ProofURL != nil {
+		if *c.ProofURL != "" && !strings.HasPrefix(*c.ProofURL, "https://discord.com/channels/358698681672925195/") {
+			return store.ErrBadChallengeEntry
+		}
 		set = append(set, "proof "+*c.ProofURL)
 	}
 	if c.Hidden != nil {
@@ -111,7 +114,7 @@ func TestChallengeEntriesAreRefusedWhenTheyShouldBe(t *testing.T) {
 func TestAnOrganiserChangesAnEntryAndMergesANameAudited(t *testing.T) {
 	f := &fakeAdmins{}
 	rec := adminDo(t, f, http.MethodPatch, "/v1/admin/challenges/entries/3", challengeAdminSite,
-		`{"domination": 30, "proof_url": " https://discordapp.com/channels/358698681672925195/5/6 ", "hidden": true, "hidden_reason": "a typo"}`)
+		`{"domination": 30, "proof_url": " https://discord.com/channels/358698681672925195/5/6 ", "hidden": true, "hidden_reason": "a typo"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PATCH = %d %s, want 204", rec.Code, rec.Body)
 	}

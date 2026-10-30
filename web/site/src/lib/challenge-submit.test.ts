@@ -1,36 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { bestsOf, proofOwners, proofURL, reviewNotes, submission } from './challenge-submit';
+import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission } from './challenge-submit';
 
 const list = [
   { id: 'a', name: 'Alpha' },
   { id: 'b', name: 'Beta' },
 ];
 
-describe('proofURL', () => {
-  const message = 'https://discord.com/channels/358698681672925195/111/222';
-  it.each([
-    ['a message in the TtA server', message, message],
-    ['the old domain, with spaces and a slash', ' https://discordapp.com/channels/358698681672925195/111/222/ ', message],
-    ['nothing as no proof', '  ', ''],
-    ['another server as wrong', 'https://discord.com/channels/1/111/222', null],
-    ['another site as wrong', 'https://example.com', null],
-  ])('reads %s', (_name, raw, want) => {
-    expect(proofURL(raw)).toBe(want);
-  });
-});
-
 describe('submission', () => {
-  it('takes each filled row, the shared proof filling an empty one', () => {
-    const got = submission(list, { a: { domination: '90', proof: '' }, b: { domination: ' ', proof: '' } }, 'https://discord.com/channels/358698681672925195/1/2');
+  it('takes each filled row, the shared proof filling an empty one, as typed', () => {
+    const got = submission(list, { a: { domination: '90', proof: '' }, b: { domination: ' ', proof: '' } }, ' https://discord.com/channels/358698681672925195/1/2 ');
     expect(got.entries).toEqual([{ challenge: 'a', domination: 90, proof_url: 'https://discord.com/channels/358698681672925195/1/2' }]);
     expect(got.errors).toEqual([]);
+  });
+  it("keeps a row's own proof over the shared one", () => {
+    expect(submission(list, { a: { domination: '1', proof: ' own ' } }, 'shared').entries[0].proof_url).toBe('own');
   });
   it.each([
     ['a domination that is not a whole number', { a: { domination: '9.5', proof: '' } }, 'Alpha: the domination must be a whole number.'],
     ['one out of bounds', { a: { domination: '10000', proof: '' } }, 'Alpha: the domination must be between -9999 and 9999.'],
-    ['a proof from elsewhere', { a: { domination: '5', proof: 'https://example.com' } }, 'Alpha: the proof must be a message link in the TtA Discord.'],
   ])('refuses %s', (_name, rows, error) => {
     expect(submission(list, rows, '').errors).toEqual([error]);
+  });
+});
+
+describe('recordsBeaten', () => {
+  const records = new Map([
+    ['a', 100],
+    ['b', 50],
+  ]);
+  it.each([
+    ['one above the record', [{ challenge: 'a', domination: 101 }], 1],
+    ['one equal to it', [{ challenge: 'a', domination: 100 }], 0],
+    ['a challenge with no record', [{ challenge: 'c', domination: 1 }], 1],
+    ['a negative domination, even with no record', [{ challenge: 'c', domination: -1 }], 0],
+    ['two of three', [{ challenge: 'a', domination: 200 }, { challenge: 'b', domination: 51 }, { challenge: 'b', domination: 2 }], 2],
+  ])('counts %s', (_name, chosen, want) => {
+    expect(recordsBeaten(chosen, records)).toBe(want);
   });
 });
 
