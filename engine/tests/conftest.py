@@ -231,8 +231,8 @@ def add_match(conn):
         conn.execute(
             "WITH s AS (SELECT s.*, CASE WHEN s.score >= 0 THEN 'finished' WHEN s.score IN (-1, -5) THEN 'timed_out' "
             "ELSE 'resigned' END AS outcome FROM unnest(%s::text[], %s::float8[]) WITH ORDINALITY AS s(name, score, seat)) "
-            "INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, outcome, place) "
-            "SELECT %s, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, s.outcome, "
+            "INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, outcome, place) "
+            "SELECT %s, s.seat, p.player_id, greatest(s.score, 0), s.score, s.outcome, "
             "CASE WHEN s.outcome = 'timed_out' THEN 1 + count(*) FILTER (WHERE s.outcome <> 'timed_out') OVER () "
             "ELSE rank() OVER (ORDER BY CASE s.outcome WHEN 'finished' THEN 0 WHEN 'resigned' THEN 1 ELSE 2 END, s.score DESC) END "
             "FROM s JOIN players p USING (name)",

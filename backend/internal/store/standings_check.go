@@ -181,10 +181,10 @@ func differenceKind(onCGE, held, otherGames bool, cge, ours Places, timeout bool
 const standingsCheckQuery = `
 WITH ours AS (
 	SELECT gr.cge_tournament AS t, gr.cge_stage_number AS s, m.game_id,
-	       k.n, x.cge_user, x.player_name,
+	       k.n, x.cge_user, p.name AS player_name,
 	       CASE WHEN m.state = 'played' THEN x.place END AS place,
 	       m.state <> 'played' OR k.timed_out AS timeout
-	FROM games m JOIN groups gr USING (group_id) JOIN seats x USING (game_id)
+	FROM games m JOIN groups gr USING (group_id) JOIN seats x USING (game_id) JOIN players p USING (player_id)
 	-- Each game's seats counted once, not once per mention of n.
 	JOIN (SELECT game_id, count(*) AS n, bool_or(outcome = 'timed_out') AS timed_out FROM seats GROUP BY game_id) k USING (game_id)
 	WHERE gr.cge_tournament IS NOT NULL AND x.cge_user IS NOT NULL

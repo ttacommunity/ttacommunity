@@ -76,7 +76,7 @@ func setOutcome(t *testing.T, pool *pgxpool.Pool, pattern, player, outcome strin
 	t.Helper()
 	if _, err := pool.Exec(context.Background(), `
 		UPDATE seats s SET outcome = $3, culture = CASE WHEN $3 = 'timed_out' THEN 0 ELSE s.culture END
-		FROM games g WHERE g.game_id = s.game_id AND g.name LIKE $1 AND s.player_name = $2`, pattern, player, outcome); err != nil {
+		FROM games g, players p WHERE g.game_id = s.game_id AND g.name LIKE $1 AND p.player_id = s.player_id AND p.name = $2`, pattern, player, outcome); err != nil {
 		t.Fatalf("setting %s's outcome in %s: %v", player, pattern, err)
 	}
 }

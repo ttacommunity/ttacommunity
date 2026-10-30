@@ -35,9 +35,9 @@ export function renamedView<V extends { name: string }>(view: V, answered: strin
   return answered === view.name ? null : { ...view, name: answered };
 }
 
-/** hasPlayerPage is false for the names the API gives no page: a deleted or banned player, and an empty seat. */
+/** hasPlayerPage is false for the name the API gives a player with no page: a deleted or banned player. */
 export function hasPlayerPage(name: string): boolean {
-  return name !== 'Deleted player' && name !== 'Unknown player';
+  return name !== 'Deleted player';
 }
 
 /** parsePlayerView reads the page's choices from its address, then remembered choices, then the defaults. */

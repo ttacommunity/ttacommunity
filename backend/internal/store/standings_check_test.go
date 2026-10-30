@@ -137,8 +137,8 @@ func heldGame(tb testing.TB, pool *pgxpool.Pool, t, s int, seats ...seat) {
 			}
 		}
 		_, err := pool.Exec(ctx, `
-			INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, recorded_score, place)
-			SELECT $1, $2, player_id, $3, $5, $4, CASE WHEN $4 = 'finished' THEN greatest($6::float8, 0) ELSE 0 END, $6,
+			INSERT INTO seats (game_id, seat, player_id, cge_user, outcome, culture, recorded_score, place)
+			SELECT $1, $2, player_id, $5, $4, CASE WHEN $4 = 'finished' THEN greatest($6::float8, 0) ELSE 0 END, $6,
 			       1 + (SELECT count(*) FROM unnest($7::float8[]) AS o(score) WHERE o.score > $6)
 			FROM players WHERE name = $3`,
 			id, i+1, st.name, st.outcome, st.user, st.score, scoresOf(seats))

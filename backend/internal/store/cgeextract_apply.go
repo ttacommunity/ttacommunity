@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,11 +37,9 @@ type CGEApplied struct {
 	SeatsRemoved int
 	// GamesMoved counts the matched games moved into their CGE group.
 	GamesMoved int
+	// PlayersRenamed counts the players who took their account's new name.
+	PlayersRenamed int
 }
-
-// UnknownPlayer is the name the site leaves out: an earlier load gave it the seats CGE holds no player for. No
-// account may take it (engine data/pairwise.py knows the name too).
-const UnknownPlayer = "Unknown player"
 
 // The file the extract's rows come from, as games and refusals name it.
 const extractFile = "tournaments_export.csv"
@@ -73,8 +72,9 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"staging the extract", stageExtract},
 		{"removing the copies an earlier load added of games paired by hand", removeCopies},
 		{"merging the tournaments an earlier load split off hidden series", mergeHiddenSeries},
-		{"refusing an account named like the name the site leaves out", keepUnknownPlayer},
 		{"writing accounts", writeAccounts},
+		{"naming players after their accounts", renamePlayers},
+		{"recording the names the extract shows", recordNames},
 		{"writing matched games", writeMatched},
 		{"naming the seats of games only CGE has by their accounts", followAccounts},
 		{"adding games only CGE has", addGames},
@@ -178,19 +178,6 @@ func removeCopies(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 	return nil
 }
 
-// keepUnknownPlayer refuses to go on if a CGE account is named UnknownPlayer: the name must stay nobody's.
-func keepUnknownPlayer(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
-	var named bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT FROM x_seats WHERE player_name = $1)
-		OR EXISTS (SELECT FROM player_accounts a JOIN players p USING (player_id) WHERE p.name = $1)`, UnknownPlayer).Scan(&named); err != nil {
-		return err
-	}
-	if named {
-		return fmt.Errorf("a CGE account is named %q, the name the site leaves out", UnknownPlayer)
-	}
-	return nil
-}
-
 // writeAccounts adds every account the extract names and refreshes the ones we hold (name, ban, deletion). A
 // new account belongs to the player who played its seats in our games, else the player of its name, else a
 // new player of that name.
@@ -243,15 +230,64 @@ func writeAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *C
 	return err
 }
 
+// renamePlayers gives each player whose live accounts all bear one name, not theirs, that name; a deleted account's
+// name renames nobody. It refuses, counting them and giving one account of each, when a new name is another
+// player's, ignoring case.
+func renamePlayers(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
+	if _, err := tx.Exec(ctx, `
+		CREATE TEMPORARY TABLE x_renamed ON COMMIT DROP AS
+		SELECT a.player_id, min(a.cge_user) AS account, min(a.name) AS name
+		FROM player_accounts a JOIN players p USING (player_id) WHERE NOT a.deleted
+		GROUP BY a.player_id, p.name HAVING count(DISTINCT a.name) = 1 AND min(a.name) <> p.name`); err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT r.account::text FROM x_renamed r
+		WHERE EXISTS (SELECT FROM players p WHERE lower(p.name) = lower(r.name) AND p.player_id <> r.player_id)
+		   OR EXISTS (SELECT FROM x_renamed o WHERE lower(o.name) = lower(r.name) AND o.player_id <> r.player_id)
+		ORDER BY r.account`)
+	if err != nil {
+		return err
+	}
+	taken, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	if len(taken) > 0 {
+		return fmt.Errorf("%d player(s) could not take their account's name, which another player has: CGE accounts %s",
+			len(taken), strings.Join(taken, ", "))
+	}
+	tag, err := tx.Exec(ctx, "UPDATE players p SET name = r.name FROM x_renamed r WHERE p.player_id = r.player_id")
+	if err != nil {
+		return err
+	}
+	got.PlayersRenamed = int(tag.RowsAffected())
+	return nil
+}
+
+// recordNames records each name the extract shows on a seat of an account we hold, for its player, over the UTC
+// days of the games' finishes; a seat with no finish shows no day.
+func recordNames(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO player_names (player_id, name, first_seen, last_seen, source)
+		SELECT a.player_id, x.player_name, min((x.finished_at AT TIME ZONE 'UTC')::date), max((x.finished_at AT TIME ZONE 'UTC')::date),
+		       'cge_extract'
+		FROM x_seats x JOIN player_accounts a ON a.cge_user = x.player_id
+		WHERE x.finished_at IS NOT NULL AND x.player_name <> ''
+		GROUP BY a.player_id, x.player_name
+		`+widenNames)
+	return err
+}
+
 // followAccounts names each seat of a game CGE named (one only CGE has, or one an earlier scrape loaded) after its
 // account's player, so its seats follow a relinked account, once matched seats have their accounts; a group's
 // members are the players with a seat in its games.
 func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEApplied) error {
 	for _, q := range []string{
-		`UPDATE seats s SET player_id = a.player_id, player_name = pl.name
-		 FROM games g, player_accounts a, players pl
+		`UPDATE seats s SET player_id = a.player_id
+		 FROM games g, player_accounts a
 		 WHERE g.game_id = s.game_id AND g.source_file IN ('` + extractFile + `', '` + scrapeFile + `') AND a.cge_user = s.cge_user
-		   AND pl.player_id = a.player_id AND s.player_id <> a.player_id`,
+		   AND s.player_id <> a.player_id`,
 		`INSERT INTO group_members (group_id, player_id)
 		 SELECT DISTINCT g.group_id, s.player_id FROM games g JOIN seats s USING (game_id)
 		 WHERE g.group_id IS NOT NULL ON CONFLICT DO NOTHING`,
@@ -299,14 +335,14 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 	}
 	// A seat only CGE holds joins its game, never past the fourth (a seat we could not pair stays ours).
 	tag, err = tx.Exec(ctx, `
-		INSERT INTO seats (game_id, seat, player_id, player_name, cge_user, outcome, culture, place, starting_position,
+		INSERT INTO seats (game_id, seat, player_id, cge_user, outcome, culture, place, starting_position,
 		                   cge_score, cge_standing)
 		SELECT * FROM (
 			SELECT m.game_id,
 			       (SELECT max(seat) FROM seats WHERE game_id = m.game_id) + row_number() OVER (PARTITION BY m.game_id ORDER BY x.idx) AS seat,
-			       a.player_id, pl.name, x.player_id, x.outcome, `+cgeCulture+`, x.place, x.starting_position, x.score, x.standing
+			       a.player_id, x.player_id, x.outcome, `+cgeCulture+`, x.place, x.starting_position, x.score, x.standing
 			FROM x_match m JOIN x_seats x USING (session)
-			JOIN player_accounts a ON a.cge_user = x.player_id JOIN players pl ON pl.player_id = a.player_id
+			JOIN player_accounts a ON a.cge_user = x.player_id
 			WHERE NOT EXISTS (SELECT FROM x_pairs p WHERE p.session = x.session AND p.idx = x.idx)) s
 		WHERE s.seat <= 4`)
 	if err != nil {

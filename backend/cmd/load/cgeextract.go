@@ -131,7 +131,7 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refu
 	fmt.Fprintf(w, "batch %d: %d games added (%d with no place to go), %d seats added, %d accounts and %d players added, "+
 		"%d accounts relinked to the player their seats show, %d hidden series added, %d split tournaments merged, "+
 		"%d copies an earlier load added removed, %d settings rows checked, %d seats of players CGE removed dropped, "+
-		"%d games moved into their CGE group\n",
+		"%d games moved into their CGE group, %d players renamed after their account\n",
 		a.BatchID, a.Added, a.Unplaced, a.SeatsAdded, a.AccountsAdded, a.PlayersAdded, a.Relinked, a.SeriesAdded,
-		a.TournamentsMerged, a.CopiesRemoved, a.SettingsWritten, a.SeatsRemoved, a.GamesMoved)
+		a.TournamentsMerged, a.CopiesRemoved, a.SettingsWritten, a.SeatsRemoved, a.GamesMoved, a.PlayersRenamed)
 }

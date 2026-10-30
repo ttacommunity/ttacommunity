@@ -32,7 +32,7 @@ func filled(t *testing.T) *pgxpool.Pool {
 		"Wimbledon 2024 Stage 7 - Final game 1": day("2025-02-24"),
 	})
 	for _, q := range []string{
-		`INSERT INTO player_accounts (cge_user, player_id, name) SELECT 42, player_id, player_name FROM seats ORDER BY game_id, seat LIMIT 1`,
+		`INSERT INTO player_accounts (cge_user, player_id, name) SELECT 42, s.player_id, p.name FROM seats s JOIN players p USING (player_id) ORDER BY s.game_id, s.seat LIMIT 1`,
 		`UPDATE seats SET cge_user = 42, outcome = 'finished' WHERE (game_id, seat) = (SELECT game_id, seat FROM seats ORDER BY game_id, seat LIMIT 1)`,
 		`INSERT INTO players (name) VALUES ('Dahlia'), ('swift') ON CONFLICT (name) DO NOTHING`,
 		`INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, reason, source)

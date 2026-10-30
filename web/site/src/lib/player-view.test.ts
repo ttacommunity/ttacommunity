@@ -62,7 +62,7 @@ describe('hasPlayerPage', () => {
   it.each([
     ['a player', 'alder440', true],
     ['a deleted or banned player', 'Deleted player', false],
-    ['an empty seat', 'Unknown player', false],
+    ['a player whatever their name', 'Unknown player', true],
   ])('%s', (_name, name, want) => {
     expect(hasPlayerPage(name)).toBe(want);
   });

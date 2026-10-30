@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +21,11 @@ import (
 
 // ErrNotEmpty is returned when a load would add to matches already loaded.
 var ErrNotEmpty = errors.New("the ratings database already has matches")
+
+// widenNames ends an insert into player_names: a name already recorded for its player keeps its source and
+// widens its days to cover the new ones.
+const widenNames = `ON CONFLICT (player_id, name) DO UPDATE SET first_seen = least(player_names.first_seen, excluded.first_seen),
+	last_seen = greatest(player_names.last_seen, excluded.last_seen)`
 
 // Loaded counts what one load wrote.
 type Loaded struct {
@@ -169,10 +175,11 @@ func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Mat
 	var files, names []string
 	var lines, seatNos []int32
 	var scores []float64
+	var dates []time.Time
 	for _, m := range matches {
 		for i, p := range m.Players {
 			files, lines, seatNos = append(files, m.File), append(lines, int32(m.Line)), append(seatNos, int32(i+1))
-			names, scores = append(names, p.Name), append(scores, p.Score)
+			names, scores, dates = append(names, p.Name), append(scores, p.Score), append(dates, m.Date)
 		}
 	}
 
@@ -198,14 +205,22 @@ func LoadMatches(ctx context.Context, pool *pgxpool.Pool, matches []matchcsv.Mat
 
 	// The file says only the score: culture is never negative, and place keeps the score's order.
 	if _, err := tx.Exec(ctx, `
-		INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
-		SELECT g.game_id, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score,
+		INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, place)
+		SELECT g.game_id, s.seat, p.player_id, greatest(s.score, 0), s.score,
 		       rank() OVER (PARTITION BY g.game_id ORDER BY s.score DESC)
 		FROM unnest($2::text[], $3::int[], $4::int[], $5::text[], $6::float8[]) AS s(file, line, seat, name, score)
 		JOIN games g ON g.batch_id = $1 AND g.source_file = s.file AND g.source_line = s.line
 		JOIN players p ON p.name = s.name`,
 		got.BatchID, files, lines, seatNos, names, scores); err != nil {
 		return Loaded{}, fmt.Errorf("writing seats: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO player_names (player_id, name, first_seen, last_seen, source)
+		SELECT p.player_id, p.name, min(s.date), max(s.date), 'match_file'
+		FROM unnest($1::text[], $2::date[]) AS s(name, date) JOIN players p ON p.name = s.name
+		GROUP BY p.player_id, p.name
+		`+widenNames, names, dates); err != nil {
+		return Loaded{}, fmt.Errorf("recording the names the file gives: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

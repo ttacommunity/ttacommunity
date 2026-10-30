@@ -14,9 +14,6 @@ import (
 // match would find and more than one player does.
 var ErrPlayerNotFound = errors.New("no player has this name")
 
-// notUnknownPlayer excludes UnknownPlayer: an empty seat, nobody to look up. Its seats still show by that name.
-const notUnknownPlayer = `p.name <> '` + UnknownPlayer + `'`
-
 // PlayerPageModels are the models the player page shows: the ones the engine computes, Glicko-D continuous and
 // with a season reset, and standard Glicko-2.
 var PlayerPageModels = []string{"glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"}
@@ -107,12 +104,12 @@ type namedPlayer struct {
 // resolve returns the player asked names in a published run: the exact
 // name, else the only one equal to it ignoring case; with neither, the player
 // who went by it most recently (player_names), ignoring case. Players with deleted or
-// banned CGE accounts, and UnknownPlayer, are not resolved.
+// banned CGE accounts are not resolved.
 func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (namedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return namedPlayer{}, err
 	}
-	rows, err := r.pool.Query(ctx, "SELECT p.player_id, p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notUnknownPlayer+" AND "+notHiddenPlayer, asked)
+	rows, err := r.pool.Query(ctx, "SELECT p.player_id, p.name FROM players p WHERE lower(p.name) = lower($1) AND "+notHiddenPlayer, asked)
 	if err != nil {
 		return namedPlayer{}, fmt.Errorf("looking up a player: %w", err)
 	}
@@ -134,7 +131,7 @@ func (r *RatingsReader) resolve(ctx context.Context, run int64, asked string) (n
 	var p namedPlayer
 	err = r.pool.QueryRow(ctx, `
 		SELECT p.player_id, p.name FROM player_names n JOIN players p USING (player_id)
-		WHERE lower(n.name) = lower($1) AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
+		WHERE lower(n.name) = lower($1) AND `+notHiddenPlayer+`
 		ORDER BY n.last_seen DESC, p.player_id LIMIT 1`, asked).Scan(&p.ID, &p.Name)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return namedPlayer{}, ErrPlayerNotFound

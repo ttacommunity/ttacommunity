@@ -37,14 +37,14 @@ func TestReportCGEExtractCountsAndNamesNoPlayer(t *testing.T) {
 }
 
 func TestReportCGEExtractSaysWhatWasWritten(t *testing.T) {
-	applied := store.CGEApplied{BatchID: 9, Added: 2, SeatsAdded: 3, CopiesRemoved: 1, SeatsRemoved: 2, GamesMoved: 4}
+	applied := store.CGEApplied{BatchID: 9, Added: 2, SeatsAdded: 3, CopiesRemoved: 1, SeatsRemoved: 2, GamesMoved: 4, PlayersRenamed: 5}
 	var b strings.Builder
 
 	reportCGEExtract(&b, store.CGEPlan{}, nil, &applied)
 
 	got := b.String()
 	for _, want := range []string{"batch 9: 2 games added", "3 seats added", "1 copies an earlier load added removed",
-		"2 seats of players CGE removed dropped", "4 games moved into their CGE group"} {
+		"2 seats of players CGE removed dropped", "4 games moved into their CGE group", "5 players renamed after their account"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("report lacks %q:\n%s", want, got)
 		}

@@ -164,8 +164,7 @@ export interface paths {
          *     if only one player matches; a name no player has now finds the
          *     player who went by it most recently, and the answer gives their
          *     current name. Players whose CGE accounts are deleted
-         *     or banned return 404, as does "Unknown player", the name games give
-         *     a seat CGE has no account for. Country and titles can change
+         *     or banned return 404. Country and titles can change
          *     without a new run, so this is cached for five minutes.
          */
         get: operations["getPlayer"];

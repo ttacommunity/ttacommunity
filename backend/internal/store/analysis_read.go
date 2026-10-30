@@ -131,8 +131,7 @@ type ComparedRating struct {
 }
 
 // PlayerNamesLike returns up to limit names containing term, ignoring case, strongest first by GlickoD's all-format
-// C rating: the Discord bot's suggestions. Players with a deleted or banned CGE account, and UnknownPlayer, are left
-// out.
+// C rating: the Discord bot's suggestions. Players with a deleted or banned CGE account are left out.
 func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term string, limit int) ([]string, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -140,7 +139,7 @@ func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term str
 	rows, err := r.pool.Query(ctx, `
 		SELECT p.name FROM players p
 		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_id = p.player_id AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
-		WHERE strpos(lower(p.name), lower($2)) > 0 AND `+notUnknownPlayer+` AND `+notHiddenPlayer+`
+		WHERE strpos(lower(p.name), lower($2)) > 0 AND `+notHiddenPlayer+`
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT $3`, run, term, limit)
 	if err != nil {
 		return nil, fmt.Errorf("finding player names in run %d: %w", run, err)
@@ -155,7 +154,7 @@ func (r *RatingsReader) PlayerNamesLike(ctx context.Context, run int64, term str
 // ComparedPlayers returns up to 15 players whose name contains a term or
 // whose country is one, ignoring case, strongest first by GlickoD's all-format
 // C rating; with no terms, the DefaultCompared players who exist, in order.
-// Players with a deleted or banned CGE account, and UnknownPlayer, are left out.
+// Players with a deleted or banned CGE account are left out.
 func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format int, terms []string) ([]ComparedPlayer, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
@@ -167,7 +166,7 @@ func (r *RatingsReader) ComparedPlayers(ctx context.Context, run int64, format i
 		LEFT JOIN player_ratings g ON g.run_id = $1 AND g.player_id = p.player_id AND g.model_type = 'glicko2_daneo' AND g.player_count = 0
 		WHERE EXISTS (SELECT 1 FROM unnest($2::text[]) term
 			WHERE strpos(lower(p.name), lower(term)) > 0 OR lower(m.country_code) = lower(term))
-		  AND ` + notUnknownPlayer + ` AND ` + notHiddenPlayer + `
+		  AND ` + notHiddenPlayer + `
 		ORDER BY g.c_rating DESC NULLS LAST, p.name LIMIT 15`
 	args := []any{run, terms}
 	if len(terms) == 0 {

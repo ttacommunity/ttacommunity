@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/google/go-cmp/cmp"
+
+	"ttacommunity/backend/internal/cgeextract"
 )
 
 // addGame stores one game and, if run is not zero, the run's 1v1 pairs for it.
@@ -40,8 +42,8 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 		t.Fatalf("adding game %d's players: %v", id, err)
 	}
 	_, err = pool.Exec(ctx, `
-		INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
-		SELECT $1, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score, rank() OVER (ORDER BY s.score DESC)
+		INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, place)
+		SELECT $1, s.seat, p.player_id, greatest(s.score, 0), s.score, rank() OVER (ORDER BY s.score DESC)
 		FROM unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat) JOIN players p USING (name)`,
 		id, names, scores)
 	if err != nil {
@@ -176,69 +178,23 @@ func TestPlayerHidesDeletedAndBannedAccounts(t *testing.T) {
 	}
 }
 
-func TestUnknownPlayerIsNobodyToLookUp(t *testing.T) {
+func TestACGEAccountNamedUnknownPlayerIsAPlayerLikeAnyOther(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	run := publishedRun(t, pool)
-	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
-	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{UnknownPlayer, 0})
-	withSpans(t, pool, run)
-	r := NewRatingsReader(asReader(t, pool))
-	a := NewAdminStore(asAdminLogin(t, pool))
-	resolved := func(err error) ([]string, error) {
-		if errors.Is(err, ErrPlayerNotFound) {
-			return nil, nil
-		}
-		return []string{UnknownPlayer}, err
+	x := cgeextract.Extract{Seats: extractOf(999, 200, "CODEDDDD", cgeDone(5, "Unknown player", 1, 100), cgeDone(6, "fay", 2, 50)),
+		Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 5}}}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+		t.Fatalf("ApplyCGEExtract with an account named Unknown player: %v", err)
 	}
 
-	tests := []struct {
-		name  string
-		names func() ([]string, error)
-	}{
-		{"the player page", func() ([]string, error) {
-			_, err := r.Player(ctx, run, UnknownPlayer)
-			return resolved(err)
-		}},
-		{"the player's achievements", func() ([]string, error) {
-			_, _, _, err := r.PlayerAchievements(ctx, run, UnknownPlayer)
-			return resolved(err)
-		}},
-		{"the player's unrated seats", func() ([]string, error) {
-			_, err := r.PlayerSeats(ctx, run, UnknownPlayer, true)
-			return resolved(err)
-		}},
-		{"player search", func() ([]string, error) {
-			got, err := r.ComparedPlayers(ctx, run, 0, []string{"unknown"})
-			var names []string
-			for _, p := range got {
-				names = append(names, p.Name)
-			}
-			return names, err
-		}},
-		{"a tournament's players", func() ([]string, error) {
-			got, err := r.CatalogueTournament(ctx, run, "wimbledon")
-			return got.Players, err
-		}},
-		{"admin's people", func() ([]string, error) {
-			got, err := a.People(ctx, "unknown", 10)
-			var names []string
-			for _, c := range got {
-				names = append(names, c.Name)
-			}
-			return names, err
-		}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			names, err := tt.names()
-			if err != nil {
-				t.Fatalf("%s: %v", tt.name, err)
-			}
-			if slices.Contains(names, UnknownPlayer) {
-				t.Errorf("%s = %q, want no %q", tt.name, names, UnknownPlayer)
-			}
-		})
+	got, err := NewRatingsReader(asReader(t, pool)).Player(ctx, run, "Unknown player")
+	if err != nil || got.Name != "Unknown player" {
+		t.Errorf("Player(Unknown player) = %q, %v; want the player of CGE account 5", got.Name, err)
 	}
 }
 
@@ -398,7 +354,7 @@ func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", fixed); err != nil {
 		t.Fatalf("moving the game after the run: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", fixed); err != nil {
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_id = (SELECT player_id FROM players WHERE name = 'cy')", fixed); err != nil {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 
@@ -436,7 +392,7 @@ func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", duel); err != nil {
 		t.Fatalf("moving the game after the run: %v", err)
 	}
-	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_name = 'cy'", trio); err != nil {
+	if _, err := pool.Exec(ctx, "DELETE FROM seats WHERE game_id = $1 AND player_id = (SELECT player_id FROM players WHERE name = 'cy')", trio); err != nil {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 

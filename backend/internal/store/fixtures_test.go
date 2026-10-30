@@ -358,8 +358,8 @@ func setSeats(t *testing.T, pool *pgxpool.Pool, pattern string, seats ...Seat) {
 	}{
 		{"DELETE FROM seats WHERE game_id IN (SELECT game_id FROM games WHERE name LIKE $1)", []any{pattern}},
 		{"INSERT INTO players (name) SELECT unnest($1::text[]) ON CONFLICT (name) DO NOTHING", []any{names}},
-		{`INSERT INTO seats (game_id, seat, player_id, player_name, culture, recorded_score, place)
-		  SELECT g.game_id, s.seat, p.player_id, s.name, greatest(s.score, 0), s.score,
+		{`INSERT INTO seats (game_id, seat, player_id, culture, recorded_score, place)
+		  SELECT g.game_id, s.seat, p.player_id, greatest(s.score, 0), s.score,
 		         rank() OVER (PARTITION BY g.game_id ORDER BY s.score DESC)
 		  FROM games g CROSS JOIN unnest($2::text[], $3::float8[]) WITH ORDINALITY AS s(name, score, seat)
 		  JOIN players p ON p.name = s.name WHERE g.name LIKE $1`, []any{pattern, names, scores}},

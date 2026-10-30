@@ -642,26 +642,67 @@ func linkedToCGE(t *testing.T, a *AdminStore, name string, cgeUser int) {
 	}
 }
 
-func TestABlitzGamesSeatsCarryTheirPlayersCGEAccount(t *testing.T) {
-	tests := []struct {
-		name   string
-		record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
-	}{
-		{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
-			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, g)
-		}},
-		{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
-			return p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
-		}},
+// blitzRecordings are the two ways a blitz game reaches the ratings: an organiser records it, or Ann reports it.
+var blitzRecordings = []struct {
+	name   string
+	record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
+}{
+	{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
+		return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, g)
+	}},
+	{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
+		return p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
+	}},
+}
+
+// linkedToPlayer links the member named member to a new player named player, as a member who renamed on CGE is.
+func linkedToPlayer(t *testing.T, a *AdminStore, member, player string) {
+	t.Helper()
+	ctx := context.Background()
+	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
+	cfg.AfterConnect = nil
+	owner, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening the owner's pool: %v", err)
 	}
-	for _, tt := range tests {
+	defer owner.Close()
+	if _, err := owner.Exec(ctx, `
+		WITH p AS (INSERT INTO players (name) VALUES ($2) RETURNING player_id)
+		UPDATE members m SET player_id = p.player_id FROM p WHERE m.tta_name = $1`, member, player); err != nil {
+		t.Fatalf("linking %s to player %s: %v", member, player, err)
+	}
+}
+
+func TestABlitzGameSeatsEachSidesMembersPlayer(t *testing.T) {
+	for _, tt := range blitzRecordings {
+		t.Run(tt.name, func(t *testing.T) {
+			a, p, reader, _, matches := reportsFixture(t)
+			linkedToPlayer(t, a, "Ann", "Annabel")
+			if err := tt.record(a, p, matches[0], reported("CGE-1")); err != nil {
+				t.Fatalf("recording the game: %v", err)
+			}
+			var got []string
+			if err := a.pool.QueryRow(context.Background(), `SELECT array_agg(p.name ORDER BY s.seat) FROM seats s JOIN players p USING (player_id)
+				WHERE s.game_id = $1`, matchNow(t, reader, matches[0]).GameID).Scan(&got); err != nil {
+				t.Fatalf("reading the seats: %v", err)
+			}
+			if want := []string{"Annabel", "Bob"}; !slices.Equal(got, want) {
+				t.Errorf("the seats' players = %q, want %q: Ann's member plays as Annabel", got, want)
+			}
+		})
+	}
+}
+
+func TestABlitzGamesSeatsCarryTheirPlayersCGEAccount(t *testing.T) {
+	for _, tt := range blitzRecordings {
 		t.Run(tt.name, func(t *testing.T) {
 			a, p, reader, _, matches := reportsFixture(t)
 			seats := func() string {
 				t.Helper()
 				var got []string
 				m := matchNow(t, reader, matches[0])
-				if err := a.pool.QueryRow(context.Background(), "SELECT array_agg(player_name || '=' || coalesce(cge_user::text, '-') ORDER BY seat) FROM seats WHERE game_id = $1", m.GameID).Scan(&got); err != nil {
+				if err := a.pool.QueryRow(context.Background(), `SELECT array_agg(p.name || '=' || coalesce(s.cge_user::text, '-') ORDER BY s.seat)
+					FROM seats s JOIN players p USING (player_id) WHERE s.game_id = $1`, m.GameID).Scan(&got); err != nil {
 					t.Fatalf("reading the seats: %v", err)
 				}
 				return strings.Join(got, " ")
@@ -704,7 +745,8 @@ func TestMigration63GivesTheBlitzSeatsAlreadyRecordedTheirCGEAccounts(t *testing
 	seats := func() string {
 		t.Helper()
 		var got []string
-		if err := pool.QueryRow(ctx, "SELECT array_agg(player_name || '=' || coalesce(cge_user::text, '-') ORDER BY seat) FROM seats WHERE game_id = $1",
+		if err := pool.QueryRow(ctx, `SELECT array_agg(p.name || '=' || coalesce(s.cge_user::text, '-') ORDER BY s.seat)
+			FROM seats s JOIN players p USING (player_id) WHERE s.game_id = $1`,
 			matchNow(t, reader, matches[0]).GameID).Scan(&got); err != nil {
 			t.Fatalf("reading the seats: %v", err)
 		}
