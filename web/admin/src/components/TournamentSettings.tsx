@@ -1,5 +1,6 @@
-/** A tournament's or group's page: the groups it is in; a group's settings and members, or a tournament's settings, format and regulations, and seasons. */
+/** A tournament's or group's page: the groups it is in; a group's settings and members (and a circuit's card and stories), or a tournament's settings, format and regulations (and, in a circuit, its format in brief), and seasons. */
 import { useEffect, useState } from 'react';
+import { isCircuit } from '@ttac/shared/circuits';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
@@ -12,6 +13,7 @@ import SettingsCard from './SettingsCard';
 import LeagueRulesCard from './LeagueRulesCard';
 import CardSettings from './CardSettings';
 import RegulationsCard from './RegulationsCard';
+import FormatSummaryCard from './FormatSummaryCard';
 import StoriesSettings from './StoriesSettings';
 import SeasonsCard from './SeasonsCard';
 import './AdminApp.css';
@@ -65,7 +67,21 @@ export default function TournamentSettings() {
             )}
           </section>
           {t.data.is_group ? (
-            <GroupPage g={t.data} all={all} onReload={load} />
+            <>
+              <GroupPage g={t.data} all={all} onReload={load} />
+              {isCircuit(t.data.slug) && (
+                <>
+                  <section className="rating-card admin-card" aria-label="This group's Hall of Fame page">
+                    <p className="muted">
+                      This group has a Hall of Fame page: its card and stories are set here. Its Format &amp; Regulations
+                      box lists each tournament&apos;s format in brief, set on the tournament&apos;s own page.
+                    </p>
+                  </section>
+                  <CardSettings t={t.data} onReload={load} />
+                  <StoriesSettings t={t.data} onReload={load} />
+                </>
+              )}
+            </>
           ) : (
             <>
               <SettingsCard t={t.data} onChange={(next) => setT({ kind: 'ready', data: next })} />
@@ -74,6 +90,9 @@ export default function TournamentSettings() {
               )}
               <CardSettings t={t.data} onReload={load} />
               <RegulationsCard t={t.data} onReload={load} />
+              {isCircuit(t.data.parent) && (
+                <FormatSummaryCard t={t.data} group={all.find((r) => r.slug === t.data.parent)?.name ?? t.data.parent} onReload={load} />
+              )}
               <StoriesSettings t={t.data} onReload={load} />
               <SeasonsCard t={t.data} all={all} onReload={load} />
             </>

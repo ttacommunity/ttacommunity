@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { catalogue, catalogueTournament, currentRun, hallOfFame, type CatalogueEntry, type CatalogueSeason, type HallOfFame } from '@ttac/shared/ratings';
 import TournamentCard from './TournamentCard';
-import { cardView, circuitCard } from '../lib/tournament-card';
+import { cardView } from '../lib/tournament-card';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
 import PlayerLink from './PlayerLink';
 import {
@@ -11,8 +11,9 @@ import {
   majorMedals,
   majorTitles,
   CIRCUITS,
+  circuitEra,
   MAJORS,
-  seriesEra,
+  SERIES_NAV,
   seriesGames,
   seriesHref,
   titleCell,
@@ -139,17 +140,18 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             />
           );
         })}
-        {CIRCUITS.map((s) => {
-          const c = count(s.slug);
+        {CIRCUITS.map((slug) => {
+          const c = count(slug);
+          const circuit = data?.circuits.find((x) => x.series === slug);
           return (
             <TournamentCard
-              key={s.slug}
-              href={seriesHref(s.slug)}
-              name={s.name}
-              card={circuitCard(s)}
+              key={slug}
+              href={seriesHref(slug)}
+              name={circuit?.name ?? SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug}
+              card={cardView(circuit?.card)}
               rows={[
-                ['Structure & Cadence', s.frequency],
-                ['Active History', s.era ?? (c ? seriesEra(s, c.seasons) : '…')],
+                ['Structure & Cadence', circuit ? circuit.card.cadence : '…'],
+                ['Active History', circuit ? circuitEra(circuit.first_game) : '…'],
                 ['Recorded Database Matches', c ? seriesGames(c) : '…'],
               ]}
               cta="View Board & Tournaments"

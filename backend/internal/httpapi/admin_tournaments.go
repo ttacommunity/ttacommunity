@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
@@ -79,7 +80,7 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 		Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...),
 		Points4p: append(PlacePoints{}, t.Points[4]...), SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card),
 		Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations,
-		CgeRegulations: t.CGERegulations, Seasons: seasons, Divisions: leagueDivisions(t.Divisions), SuperGm: t.SuperGM,
+		CgeRegulations: t.CGERegulations, FormatSummary: t.FormatSummary, Seasons: seasons, Divisions: leagueDivisions(t.Divisions), SuperGm: t.SuperGM,
 		RecordMinGames: t.RecordMinGames}
 	return GetAdminTournament200JSONResponse{Body: out, Headers: GetAdminTournament200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
@@ -97,7 +98,7 @@ func leagueDivisions(list []store.Division) []LeagueDivision {
 func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) {
 	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz,
 		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name,
-		SuperGM: b.SuperGm, RecordMinGames: b.RecordMinGames}
+		FormatSummary: b.FormatSummary, SuperGM: b.SuperGm, RecordMinGames: b.RecordMinGames}
 	if b.Divisions != nil {
 		settings.Divisions = make([]store.Division, len(*b.Divisions))
 		for i, d := range *b.Divisions {
@@ -127,7 +128,7 @@ func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) 
 	}
 	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
 		b.PodiumSource != nil || b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil ||
-		b.Parent != nil || b.Description != nil || b.Name != nil || leagueRules(b)
+		b.Parent != nil || b.Description != nil || b.Name != nil || b.FormatSummary != nil || leagueRules(b)
 	return settings, asked
 }
 
@@ -154,6 +155,9 @@ func (s *server) PatchAdminTournament(ctx context.Context, req PatchAdminTournam
 	}
 	if b.Regulations != nil && len(*b.Regulations) > 10000 {
 		return PatchAdminTournament400JSONResponse{badRequest400("regulations are at most 10,000 characters")}, nil
+	}
+	if b.FormatSummary != nil && utf8.RuneCountInString(*b.FormatSummary) > 300 {
+		return PatchAdminTournament400JSONResponse{badRequest400("a format in brief is at most 300 characters")}, nil
 	}
 	if b.Stories != nil && len(*b.Stories) > 12 {
 		return PatchAdminTournament400JSONResponse{badRequest400("at most 12 stories")}, nil

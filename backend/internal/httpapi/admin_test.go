@@ -173,7 +173,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 		return store.AdminTournament{}, store.ErrNoTournament
 	}
 	return store.AdminTournament{Slug: "worlds", Name: "World Championship", Visible: true, Rated: true, Community: true, Blitz: true,
-		Regulations: "Mine.", CGERegulations: "CGE's.",
+		Regulations: "Mine.", CGERegulations: "CGE's.", FormatSummary: "Knockout.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
 		Stories:           []store.Story{{Player: "alder440", Badge: "Reigning World Champion", Title: "2025", Text: "Won."}},

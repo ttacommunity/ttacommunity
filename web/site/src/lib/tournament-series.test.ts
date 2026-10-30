@@ -9,15 +9,15 @@ import {
   majorMedals,
   seriesGames,
   titleCell,
-  era,
   CIRCUITS,
-  GRAND_SLAMS,
+  circuitEra,
+  circuitBox,
+  circuitTitle,
   MAJORS,
   boardCells,
   leaguePoints,
   medalCells,
   opponentsLine,
-  seriesEra,
   SERIES_NAV,
   seriesHref,
   seriesRecord,
@@ -49,10 +49,6 @@ describe('the series nav', () => {
 });
 
 describe('the series figures', () => {
-  it('names the era by its latest season', () => {
-    expect(era('2016', 34)).toBe('2016 – Present (Current: Season 34)');
-  });
-
   it('writes points and scores as upstream does', () => {
     expect(leaguePoints(36)).toBe('36.0 pts');
     expect(leaguePoints(22.5)).toBe('22.5 pts');
@@ -82,13 +78,30 @@ describe('the series figures', () => {
 
   it('has a page for each series built so far', () => {
     const series = ['international', 'intermezzo', 'royal_league', 'worlds', 'grand_slams', 'ladders'];
-    expect([...MAJORS, ...CIRCUITS].map((c) => c.slug)).toEqual(series);
+    expect([...MAJORS.map((m) => m.slug), ...CIRCUITS]).toEqual(series);
     expect([...BUILT].sort()).toEqual(['overview', ...series].sort());
   });
 
-  it('states a static era where upstream does, else the latest season', () => {
-    expect(seriesEra({ ...GRAND_SLAMS, era: undefined }, 34)).toBe('2023 – Present (Current: Season 34)');
-    expect(seriesEra(GRAND_SLAMS, 5)).toBe('2023 – Present');
+  it.each([
+    ['from the year of its first game', '2017-09-25', '2017 – Present'],
+    ['that it has none before its first game', null, 'No games yet'],
+  ] as const)("states a circuit's era %s", (_name, firstGame, want) => {
+    expect(circuitEra(firstGame)).toBe(want);
+  });
+
+  it.each([
+    [
+      "each tournament's format in brief, after its name",
+      [{ slug: 'cup', name: 'Cup', format: 'Knockout.' }, { slug: 'open', name: 'Open' }, { slug: 'slam', name: 'Slam', format: 'Open.' }],
+      { lines: ['Cup: Knockout.', 'Slam: Open.'], source: null },
+    ],
+    ['no box when none has a format in brief', [{ slug: 'open', name: 'Open', format: ' ' }], null],
+  ] as const)("builds a circuit's format and regulations from %s", (_name, members, want) => {
+    expect(circuitBox(members)).toEqual(want);
+  });
+
+  it("titles a circuit's page by its name", () => {
+    expect(circuitTitle('Competitive Ladders')).toBe('Competitive Ladders | Tournaments Circuit');
   });
 
   it('leaves a board’s medal cells empty where the board has no medals, as upstream', () => {

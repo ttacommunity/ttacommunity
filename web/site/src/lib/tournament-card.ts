@@ -16,8 +16,3 @@ export function cardView(card: Card | undefined): CardView {
     cadence: card?.cadence || null,
   };
 }
-
-/** circuitCard is a circuit's card (Grand Slams, Ladders: not one tournament, so not edited in admin), from its page's own description. */
-export function circuitCard(c: { icon: string; formatBadge: string; summary: string; subtitle: string; frequency: string }): CardView {
-  return cardView({ icon: c.icon, tagline: c.formatBadge, summary: c.summary, subtitle: c.subtitle, cadence: c.frequency });
-}

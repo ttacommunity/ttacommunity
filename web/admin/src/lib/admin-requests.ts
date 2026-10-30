@@ -31,6 +31,8 @@ export const setMembers = (slug: string, members: string[]) => to(tournament(slu
 export const setCard = (slug: string, card: Schemas['TournamentCard']) => to(tournament(slug), 'PATCH', { card });
 /** setRegulations saves the format and regulations text; an empty one shows CGE's again. */
 export const setRegulations = (slug: string, text: string) => to(tournament(slug), 'PATCH', { regulations: text });
+/** setFormatSummary saves a tournament's format in brief, trimmed; an empty one removes it. */
+export const setFormatSummary = (slug: string, text: string) => to(tournament(slug), 'PATCH', { format_summary: text.trim() });
 /** setStories saves the story cards, in order. */
 export const setStories = (slug: string, stories: Schemas['Story'][]) => to(tournament(slug), 'PATCH', { stories });
 /** addSeason adds a season with no games yet, its label trimmed. */

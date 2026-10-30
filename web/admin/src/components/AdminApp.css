@@ -883,3 +883,7 @@
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
 }
+.format-summary {
+  box-sizing: border-box;
+  width: 100%;
+}

@@ -1310,6 +1310,9 @@ type AdminTournament struct {
 	// FirstGame The date of its first game; null for none
 	FirstGame *openapi_types.Date `json:"first_game"`
 
+	// FormatSummary Its format in brief, which its group's Hall of Fame page lists as its format and regulations; empty for none
+	FormatSummary string `json:"format_summary"`
+
 	// Games How many games it holds
 	Games int `json:"games"`
 
@@ -2103,6 +2106,21 @@ type Champion struct {
 	Reigning bool `json:"reigning"`
 }
 
+// Circuit How a series of several tournaments presents itself on the Hall of Fame overview
+type Circuit struct {
+	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
+	Card TournamentCard `json:"card"`
+
+	// FirstGame The day of the first game in a tournament in it, of those the catalogue shows
+	FirstGame *openapi_types.Date `json:"first_game"`
+
+	// Name Its name, as admin writes it; empty when the database has no such series
+	Name string `json:"name"`
+
+	// Series A tournament series
+	Series Series `json:"series"`
+}
+
 // CommunityCategory defines model for CommunityCategory.
 type CommunityCategory struct {
 	BadgeClass string                 `json:"badge_class"`
@@ -2514,6 +2532,9 @@ type GameState string
 
 // HallOfFame defines model for HallOfFame.
 type HallOfFame struct {
+	// Circuits The Grand Slams and the Competitive Ladders, in that order
+	Circuits []Circuit `json:"circuits"`
+
 	// GrandSlams The first ten rows of the Grand Slams board
 	GrandSlams []TrophyRow `json:"grand_slams"`
 
@@ -3555,6 +3576,14 @@ type SeriesCount struct {
 	Series Series `json:"series"`
 }
 
+// SeriesMember A tournament in a series of several, by its catalogue slug and name
+type SeriesMember struct {
+	// Format Its format in brief, as admin writes it, which the series' page lists as its format and regulations; plain text, absent for none
+	Format *string `json:"format,omitempty"`
+	Name   string  `json:"name"`
+	Slug   string  `json:"slug"`
+}
+
 // SiteVisits defines model for SiteVisits.
 type SiteVisits struct {
 	// AsOf When the visits were counted
@@ -3714,12 +3743,24 @@ type TournamentSeries struct {
 	// Board The series' board in the original site's order (for leagues, most golds first, then silvers, bronzes and career points)
 	Board []TrophyRow `json:"board"`
 
+	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
+	Card TournamentCard `json:"card"`
+
+	// FirstGame The day of the first game in the series or a tournament in it, of those the catalogue shows
+	FirstGame *openapi_types.Date `json:"first_game"`
+
 	// GameRecords The ten highest winning scores in the games a series page lists (top-division or World Championship playoff games)
 	GameRecords []GameRecord `json:"game_records"`
 
 	// Games The games the original site counts for the series, by its name patterns
-	Games int   `json:"games"`
-	RunId int64 `json:"run_id"`
+	Games int `json:"games"`
+
+	// Members The tournaments in it that the catalogue shows, in the order they were added
+	Members []SeriesMember `json:"members"`
+
+	// Name The series' name, as admin writes it; empty when the database has no such series
+	Name  string `json:"name"`
+	RunId int64  `json:"run_id"`
 
 	// SeasonRecords The ten best top-division seasons by points, then wins
 	SeasonRecords []SeasonRecord `json:"season_records"`
@@ -3732,6 +3773,9 @@ type TournamentSeries struct {
 
 	// Series A tournament series
 	Series Series `json:"series"`
+
+	// Stories Its stories, as admin writes them, in order
+	Stories []Story `json:"stories"`
 }
 
 // TournamentSettings defines model for TournamentSettings.
@@ -3746,6 +3790,9 @@ type TournamentSettings struct {
 
 	// Divisions A league's divisions, highest first, each with its title tier; empty for none (admins only)
 	Divisions *[]LeagueDivision `json:"divisions,omitempty"`
+
+	// FormatSummary Its format in brief, in plain text; empty for none
+	FormatSummary *string `json:"format_summary,omitempty"`
 
 	// Kind A league ranks divisions over a season, a cup plays stages to a final, a ladder has no podium; only a group is also a series (editions of one event) or a group (of groups)
 	Kind *TournamentKind `json:"kind,omitempty"`

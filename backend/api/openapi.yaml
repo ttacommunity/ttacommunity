@@ -4454,7 +4454,7 @@ components:
           $ref: "#/components/schemas/Role"
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, format_summary, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
@@ -4529,6 +4529,9 @@ components:
           $ref: "#/components/schemas/TournamentCard"
         regulations:
           description: The format and regulations written in admin, empty for none
+          type: string
+        format_summary:
+          description: Its format in brief, which its group's Hall of Fame page lists as its format and regulations; empty for none
           type: string
         cge_regulations:
           description: The latest edition's description on CGE, shown when admin has written none; empty for none
@@ -4775,6 +4778,10 @@ components:
           description: Plain text; empty shows CGE's description again
           type: string
           maxLength: 10000
+        format_summary:
+          description: Its format in brief, in plain text; empty for none
+          type: string
+          maxLength: 300
         stories:
           type: array
           maxItems: 12
@@ -7809,13 +7816,33 @@ components:
       enum: [international, intermezzo, royal_league, worlds, grand_slams, ladders]
     TournamentSeries:
       type: object
-      required: [run_id, series, games, seasons, board, season_records, game_records]
+      required: [run_id, series, name, card, first_game, stories, members, games, seasons, board, season_records, game_records]
       properties:
         run_id:
           type: integer
           format: int64
         series:
           $ref: "#/components/schemas/Series"
+        name:
+          description: The series' name, as admin writes it; empty when the database has no such series
+          type: string
+        card:
+          $ref: "#/components/schemas/TournamentCard"
+        first_game:
+          description: The day of the first game in the series or a tournament in it, of those the catalogue shows
+          type: string
+          format: date
+          nullable: true
+        stories:
+          description: Its stories, as admin writes them, in order
+          type: array
+          items:
+            $ref: "#/components/schemas/Story"
+        members:
+          description: The tournaments in it that the catalogue shows, in the order they were added
+          type: array
+          items:
+            $ref: "#/components/schemas/SeriesMember"
         games:
           description: The games the original site counts for the series, by its name patterns
           type: integer
@@ -7841,6 +7868,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GameRecord"
+    SeriesMember:
+      description: A tournament in a series of several, by its catalogue slug and name
+      type: object
+      additionalProperties: false
+      required: [slug, name]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        format:
+          description: Its format in brief, as admin writes it, which the series' page lists as its format and regulations; plain text, absent for none
+          type: string
+    Circuit:
+      description: How a series of several tournaments presents itself on the Hall of Fame overview
+      type: object
+      additionalProperties: false
+      required: [series, name, card, first_game]
+      properties:
+        series:
+          $ref: "#/components/schemas/Series"
+        name:
+          description: Its name, as admin writes it; empty when the database has no such series
+          type: string
+        card:
+          $ref: "#/components/schemas/TournamentCard"
+        first_game:
+          description: The day of the first game in a tournament in it, of those the catalogue shows
+          type: string
+          format: date
+          nullable: true
     TrophyRow:
       description: |
         One player on a series' board: medals and a title for the leagues
@@ -7935,7 +7993,7 @@ components:
           format: date
     HallOfFame:
       type: object
-      required: [run_id, series, legends, grand_slams, ladders]
+      required: [run_id, series, legends, grand_slams, ladders, circuits]
       properties:
         run_id:
           type: integer
@@ -7959,6 +8017,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TrophyRow"
+        circuits:
+          description: The Grand Slams and the Competitive Ladders, in that order
+          type: array
+          items:
+            $ref: "#/components/schemas/Circuit"
     SeriesCount:
       type: object
       required: [series, games, seasons]

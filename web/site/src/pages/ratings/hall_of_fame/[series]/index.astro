@@ -1,19 +1,19 @@
 ---
-/** A Hall of Fame circuit page (Grand Slams, Ladders): one for each series of several tournaments. */
+/** A Hall of Fame circuit page (Grand Slams, Ladders): one for each group of several tournaments; its text comes from the API. */
 import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../../../../layouts/SiteLayout.astro';
 import SeriesNav from '../../../../components/SeriesNav.astro';
 import TournamentSeriesPage from '../../../../components/TournamentSeriesPage';
-import { CIRCUITS, type SeriesContent } from '../../../../lib/tournament-series';
+import { CIRCUITS, SERIES_NAV, circuitTitle, type Circuit } from '../../../../lib/tournament-series';
 import '../../../../components/TournamentSeries.css';
 
 export function getStaticPaths() {
-  return CIRCUITS.map((content) => ({ params: { series: content.slug }, props: { content } }));
+  return CIRCUITS.map((slug) => ({ params: { series: slug }, props: { slug, label: SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug } }));
 }
 
-const { content } = Astro.props as { content: SeriesContent };
+const { slug, label } = Astro.props as { slug: Circuit; label: string };
 ---
-<SiteLayout title={`${content.name} | Tournaments Circuit`} description={`${content.name} Hall of Fame: format and rules, the trophyboard, and the best seasons and games.`}>
-  <SeriesNav current={content.slug} />
-  <TournamentSeriesPage client:only="react" apiUrl={PUBLIC_API_URL} content={content} />
+<SiteLayout title={circuitTitle(label)} description={`${label} Hall of Fame: format and rules, the trophyboard, and the best seasons and games.`}>
+  <SeriesNav current={slug} />
+  <TournamentSeriesPage client:only="react" apiUrl={PUBLIC_API_URL} slug={slug} />
 </SiteLayout>
