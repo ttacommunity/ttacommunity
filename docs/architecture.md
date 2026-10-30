@@ -346,7 +346,8 @@ only the edition, the status and a `member_id`.
 
 **Personal data never leaves admin**: the public role has no `SELECT` on a
 member's Discord name, email or ban, so no public route can read them, and
-the export leaves `members` and the blitz tables out.
+the export holds only a member's name, ids and country, and leaves the blitz
+tables out.
 
 ### Challenges
 
@@ -407,7 +408,8 @@ weekly winners and submitting, linked by a row of tabs under the header.
   rules run in Go, never in the browser
 - **Personal data**: the public role cannot read an entry's account, hidden
   reason, checked flag or source, and the site never sees a hidden entry.
-  Both tables are in the backups and left out of the shared export
+  The export holds the challenges, the weeks and every entry, but never an
+  entry's account or hidden reason; a backup holds them whole
 
 The site's pages are the `Challenge*.tsx` components under
 `pages/challenges/`, their decisions in `lib/challenges.ts`,

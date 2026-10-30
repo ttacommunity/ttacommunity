@@ -368,10 +368,12 @@ cd backend && set -a && . ../.env && set +a && go run ./cmd/load migrate
 
 ### Load the challenges
 
-The baseline holds no challenges or entries. Load the committed challenge
-list, then the old challenges site's entries. Until its export is in the
-data repo, its public list will do for local work: it has every entry but
-the hidden ones, none marked checked.
+An export holds the challenges, their entries and the weekly challenge's
+weeks, so a baseline restored from one exported after they reached
+production needs none of this. Until then, or to refresh them from the old
+challenges site, load the committed challenge list, then the old site's
+entries. Until its admin export is in the data repo, its public list will do
+for local work: it has every entry but the hidden ones, none marked checked.
 
 ```bash
 cd backend && set -a && . ../.env && set +a

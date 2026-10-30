@@ -39,7 +39,7 @@ var ErrUnlistedTable = errors.New("the input tables differ from the export's lis
 // for the engine to recompute every view. An export may be shared, so it
 // holds no personal data: of members, only the columns in exportColumns. Every other table holds a run's results,
 // which the engine computes again, or is in NotExported.
-var ExportTables = []string{
+var ExportTables = slices.Concat([]string{
 	"import_batches", "players", "player_accounts", "player_names", "members",
 	"series", "tournaments", "stages", "groups", "group_members", "settings",
 	"games", "seats",
@@ -50,29 +50,34 @@ var ExportTables = []string{
 	"tournament_season_corrections", "tournament_season_notes",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
 	"badges", "player_badges", "tournament_cards", "tournament_stories",
-}
+}, challengeTables)
+
+// challengeTables are the challenges, their entries and the weekly challenge's weeks. They come last in a backup,
+// since an entry can name the account that submitted it, which only a backup holds.
+var challengeTables = []string{"challenges", "challenge_entries", "challenge_weeks", "challenge_week_places"}
 
 // exportColumns are the columns an export writes of a table it does not hold whole; a backup holds every column.
 // Of a member: the name, its ids and the country, which the site shows beside the name; never the Discord name,
-// email, zone or ban.
-var exportColumns = map[string][]string{"members": {"member_id", "tta_name", "cge_user", "player_id", "country_code"}}
+// email, zone or ban. Of a challenge entry: never the account that submitted it or an admin's hidden reason.
+var exportColumns = map[string][]string{
+	"members":           {"member_id", "tta_name", "cge_user", "player_id", "country_code"},
+	"challenge_entries": {"entry_id", "challenge_id", "member_id", "name", "domination", "proof_url", "created_at", "source", "hidden", "bugged", "checked"},
+}
 
 // NotExported are the input tables an export leaves out: who the admins are
 // and what they did (Discord ids; a new database adds its admins with
 // load add-admin), the rows a load refused (load history, which no view
 // needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
-// members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and the challenges,
-// players' entries for them and the weekly challenge's weeks, which no rating needs. A backup restores them in this
-// order, after ExportTables.
+// members, and players' accounts, sign-ins, sessions, requests to be linked and emailed links. A backup restores
+// them in this order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_rounds", "blitz_matches", "blitz_skips",
-	"accounts", "logins", "link_requests", "player_sessions", "email_links", "challenges", "challenge_entries", "challenge_weeks",
-	"challenge_week_places"}
+	"accounts", "logins", "link_requests", "player_sessions", "email_links"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.
 var NotBackedUp = []string{"player_sessions", "email_links"}
 
 // BackupTables are every input table but NotBackedUp, in an order a restore can load them. A backup holds personal data.
-var BackupTables = slices.DeleteFunc(append(slices.Clone(ExportTables), NotExported...), func(t string) bool {
+var BackupTables = slices.DeleteFunc(slices.Concat(ExportTables[:len(ExportTables)-len(challengeTables)], NotExported, challengeTables), func(t string) bool {
 	return slices.Contains(NotBackedUp, t)
 })
 
