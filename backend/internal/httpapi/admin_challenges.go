@@ -1,5 +1,5 @@
-// Admin's challenges: every entry by view, a page at a time, with what looks wrong about it; an entry changed; a
-// name merged into another or into a member. Changes are audited.
+// Admin's challenges: every entry by view, with what looks wrong about it; an entry changed; a name merged into
+// another or into a member. Changes are audited.
 package httpapi
 
 import (
@@ -11,9 +11,6 @@ import (
 	"ttacommunity/backend/internal/challenges"
 	"ttacommunity/backend/internal/store"
 )
-
-// challengeEntriesPage is how many entries a page of admin's list holds.
-const challengeEntriesPage = 100
 
 // challengeViews are admin's views in the order its tabs show them, each with the entries it holds.
 var challengeViews = []struct {
@@ -37,18 +34,9 @@ func adminChallengeEntry(e store.AdminChallengeEntry, flags []string) AdminChall
 }
 
 func (s *server) GetAdminChallengeEntries(ctx context.Context, req GetAdminChallengeEntriesRequestObject) (GetAdminChallengeEntriesResponseObject, error) {
-	page, view, q := 1, AdminChallengeViewAll, ""
-	if req.Params.Page != nil {
-		page = *req.Params.Page
-	}
+	view := AdminChallengeViewAll
 	if req.Params.View != nil {
 		view = *req.Params.View
-	}
-	if req.Params.Q != nil {
-		q = strings.ToLower(strings.TrimSpace(*req.Params.Q))
-	}
-	if page < 1 {
-		return GetAdminChallengeEntries400JSONResponse{badRequest400("page is a whole number from 1")}, nil
 	}
 	if !view.Valid() {
 		return GetAdminChallengeEntries400JSONResponse{badRequest400("view is all, unchecked, checked, unverified, flagged, bugged or hidden")}, nil
@@ -64,8 +52,7 @@ func (s *server) GetAdminChallengeEntries(ctx context.Context, req GetAdminChall
 		}
 	}
 	flags := challenges.Flags(shown)
-	body := AdminChallengeEntries{Page: page, PageSize: challengeEntriesPage, Entries: []AdminChallengeEntry{}}
-	var in []store.AdminChallengeEntry
+	body := AdminChallengeEntries{Entries: []AdminChallengeEntry{}}
 	for _, v := range challengeViews {
 		n := 0
 		for _, e := range all {
@@ -73,16 +60,11 @@ func (s *server) GetAdminChallengeEntries(ctx context.Context, req GetAdminChall
 				continue
 			}
 			n++
-			if v.view == view && (q == "" || strings.Contains(strings.ToLower(e.Player), q) || strings.Contains(e.Challenge, q) ||
-				strings.Contains(strings.ToLower(e.ChallengeName), q)) {
-				in = append(in, e)
+			if v.view == view {
+				body.Entries = append(body.Entries, adminChallengeEntry(e, flags[e.ID]))
 			}
 		}
 		body.Counts = append(body.Counts, AdminChallengeViewCount{View: v.view, Entries: n})
-	}
-	body.Total = len(in)
-	for _, e := range in[min((page-1)*challengeEntriesPage, len(in)):min(page*challengeEntriesPage, len(in))] {
-		body.Entries = append(body.Entries, adminChallengeEntry(e, flags[e.ID]))
 	}
 	return GetAdminChallengeEntries200JSONResponse{Body: body, Headers: GetAdminChallengeEntries200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

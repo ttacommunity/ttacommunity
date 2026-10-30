@@ -1660,12 +1660,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A page of the challenge entries in a view, newest first (admins and organisers)
+         * The challenge entries in a view, newest first (admins and organisers)
          * @description Every entry, hidden ones included, with what only admin sees: who
          *     submitted it, why it is hidden, whether its proof was checked, and
          *     what looks wrong about it. A view narrows them (verified and not yet
-         *     checked, flagged, hidden, ...) and q to those whose player, challenge
-         *     id or name holds it, ignoring case; counts are each view's, before q.
+         *     checked, flagged, hidden, ...): every entry of the view is returned,
+         *     with how many each view holds.
          */
         get: operations["getAdminChallengeEntries"];
         put?: never;
@@ -3597,12 +3597,8 @@ export interface components {
             member: boolean;
         };
         AdminChallengeEntries: {
-            /** @description Every entry in the view, on every page */
-            total: number;
             /** @description How many entries each view holds */
             counts: components["schemas"]["AdminChallengeViewCount"][];
-            page: number;
-            page_size: number;
             entries: components["schemas"]["AdminChallengeEntry"][];
         };
         /** @description An entry as admin sees it */
@@ -8005,9 +8001,7 @@ export interface operations {
     getAdminChallengeEntries: {
         parameters: {
             query?: {
-                page?: number;
                 view?: components["schemas"]["AdminChallengeView"];
-                q?: string;
             };
             header?: never;
             path?: never;
@@ -8015,7 +8009,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The page and how many entries there are */
+            /** @description The view's entries and each view's count */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];

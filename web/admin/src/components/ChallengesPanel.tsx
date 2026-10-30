@@ -1,11 +1,11 @@
-/** The Challenges tab: the entries by view, searched, a page at a time; each one corrected, checked, marked bugged, hidden or shown; and a name merged into another or a member. */
+/** The Challenges tab: the entries by view, searched as you type; each one corrected, checked, marked bugged, hidden or shown; and a name merged into another or a member. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import Segmented from '@ttac/shared/Segmented';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest } from '../lib/admin-api';
-import { entriesPath, pageCount, viewLabel, type View } from '../lib/challenge-entries';
+import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice } from './Notice';
 import './ChallengesPanel.css';
 
@@ -14,20 +14,19 @@ type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
 type Change = components['schemas']['AdminChallengeEntryChange'];
 type Merged = components['schemas']['AdminChallengeNameMerged'];
 
-/** ChallengesPanel loads the page of the view asked for, and reloads it after each change. */
+/** ChallengesPanel loads the view asked for, filters it as the search is typed, and reloads it after each change. */
 export default function ChallengesPanel() {
-  const [page, setPage] = useState(1);
   const [view, setView] = useState<View>('all');
-  const [q, setQ] = useState('');
+  const [search, setSearch] = useState('');
   const [round, setRound] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [entries, setEntries] = useState<Load<AdminChallengeEntries>>({ kind: 'loading' });
   useEffect(() => {
-    void adminRequest<AdminChallengeEntries>(entriesPath(page, view, q), {}).then((r) =>
+    void adminRequest<AdminChallengeEntries>(entriesPath(view), {}).then((r) =>
       setEntries(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
     );
-  }, [page, view, q, round]);
-  const pages = entries.kind === 'ready' ? pageCount(entries.data.total, entries.data.page_size) : 1;
+  }, [view, round]);
+  const shown = entries.kind === 'ready' ? entriesMatching(entries.data.entries, search) : [];
   const zone = viewerZone();
 
   /** change sends a change to entry id and reloads, saying what went wrong if it was refused. */
@@ -51,34 +50,40 @@ export default function ChallengesPanel() {
           label="Which entries"
           look="records"
           value={view}
-          onChange={(v) => {
-            setView(v);
-            setPage(1);
-          }}
+          onChange={setView}
           options={entries.data.counts.map((c) => ({ value: c.view, label: viewLabel(c.view, c.entries) }))}
         />
       )}
-      <p>
-        <input
-          className="input-antique"
-          type="search"
-          aria-label="Search by player or challenge"
-          placeholder="Search by player or challenge…"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-        />
-      </p>
+      {entries.kind === 'ready' && entries.data.entries.length > 0 && (
+        <div className="admin-add member-search">
+          <label>
+            Search
+            <input
+              className="input-antique"
+              type="search"
+              value={search}
+              placeholder="Player or challenge"
+              title="Separate several with commas."
+              autoComplete="off"
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          {shown.length < entries.data.entries.length && (
+            <span className="muted pick-note" role="status">
+              {shown.length} of {entries.data.entries.length} entries
+            </span>
+          )}
+        </div>
+      )}
       {status !== null && <LoadNotice message={status} />}
       {entries.kind === 'loading' && <p className="muted">Loading…</p>}
       {entries.kind === 'error' && <LoadNotice message={entries.message} />}
-      {entries.kind === 'ready' && (
+      {entries.kind === 'ready' && entries.data.entries.length > 0 && shown.length === 0 && <p className="muted">No entry matches.</p>}
+      {entries.kind === 'ready' && shown.length > 0 && (
         <>
           <div className="table-responsive">
             <table className="leaderboard-table admin-table">
-              <caption className="visually-hidden">Challenge entries, newest first</caption>
+              <caption className="visually-hidden">{shown.length < entries.data.entries.length ? 'The entries matching the search, newest first' : 'Every entry in the view, newest first'}</caption>
               <thead>
                 <tr>
                   <th scope="col">Entered</th>
@@ -91,22 +96,11 @@ export default function ChallengesPanel() {
                 </tr>
               </thead>
               <tbody>
-                {entries.data.entries.map((e) => (
+                {shown.map((e) => (
                   <EntryRow key={e.id} entry={e} zone={zone} onChange={(c) => void change(e.id, c)} />
                 ))}
               </tbody>
             </table>
-          </div>
-          <div className="note-actions">
-            <button type="button" className="btn-antique" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-              Newer
-            </button>
-            <span className="note-status" role="status">
-              Page {page} of {pages} · {entries.data.total.toLocaleString()} entries
-            </span>
-            <button type="button" className="btn-antique" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-              Older
-            </button>
           </div>
         </>
       )}

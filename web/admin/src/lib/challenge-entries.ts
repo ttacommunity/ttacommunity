@@ -1,9 +1,5 @@
-/** Admin's list of challenge entries: how many pages it has, its views and their addresses. */
-
-/** pageCount is how many pages total entries fill at size a page; an empty list is one empty page. */
-export function pageCount(total: number, size: number): number {
-  return Math.max(1, Math.ceil(total / size));
-}
+/** Admin's list of challenge entries: its views and their addresses, and which entries the text typed matches. */
+import { matchRank } from './match';
 
 /** View is one of admin's views of the entries. */
 export type View = 'all' | 'unchecked' | 'checked' | 'unverified' | 'flagged' | 'bugged' | 'hidden';
@@ -23,10 +19,18 @@ export function viewLabel(view: View, entries: number): string {
   return `${VIEW_LABELS[view]} (${entries})`;
 }
 
-/** entriesPath is the address of a page of a view's entries, narrowed to q when it is not blank. */
-export function entriesPath(page: number, view: View, q: string): string {
-  const params = new URLSearchParams({ page: String(page) });
-  if (view !== 'all') params.set('view', view);
-  if (q.trim() !== '') params.set('q', q.trim());
-  return `/api/challenges/entries?${params}`;
+/** entriesPath is the address of a view's entries. */
+export function entriesPath(view: View): string {
+  return view === 'all' ? '/api/challenges/entries' : `/api/challenges/entries?view=${view}`;
+}
+
+/** entriesMatching keeps, in their order, the entries matching any of the comma-separated terms typed: by player, challenge id or challenge name as matchRank matches; every entry for no text. */
+export function entriesMatching<E extends { player: string; challenge: string; challenge_name: string }>(entries: readonly E[], typed: string): E[] {
+  const terms = typed
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t !== '');
+  if (terms.length === 0) return [...entries];
+  const matches = (e: E, t: string) => [e.player, e.challenge, e.challenge_name].some((f) => f !== '' && matchRank(f, t) !== null);
+  return entries.filter((e) => terms.some((t) => matches(e, t)));
 }

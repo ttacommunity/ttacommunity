@@ -2278,35 +2278,22 @@ paths:
     get:
       operationId: getAdminChallengeEntries
       tags: [admin]
-      summary: A page of the challenge entries in a view, newest first (admins and organisers)
+      summary: The challenge entries in a view, newest first (admins and organisers)
       description: |
         Every entry, hidden ones included, with what only admin sees: who
         submitted it, why it is hidden, whether its proof was checked, and
         what looks wrong about it. A view narrows them (verified and not yet
-        checked, flagged, hidden, ...) and q to those whose player, challenge
-        id or name holds it, ignoring case; counts are each view's, before q.
+        checked, flagged, hidden, ...): every entry of the view is returned,
+        with how many each view holds.
       parameters:
-        - name: page
-          in: query
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
         - name: view
           in: query
           required: false
           schema:
             $ref: "#/components/schemas/AdminChallengeView"
-        - name: q
-          in: query
-          required: false
-          schema:
-            type: string
-            maxLength: 100
       responses:
         "200":
-          description: The page and how many entries there are
+          description: The view's entries and each view's count
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -5738,20 +5725,13 @@ components:
           type: boolean
     AdminChallengeEntries:
       type: object
-      required: [total, page, page_size, entries, counts]
+      required: [entries, counts]
       properties:
-        total:
-          description: Every entry in the view, on every page
-          type: integer
         counts:
           description: How many entries each view holds
           type: array
           items:
             $ref: "#/components/schemas/AdminChallengeViewCount"
-        page:
-          type: integer
-        page_size:
-          type: integer
         entries:
           type: array
           items:

@@ -402,7 +402,7 @@ weekly winners and submitting, linked by a row of tabs under the header.
   `/v1/challenges/weekly` and `/v1/challenges/entries` (to download, and
   `/v1/challenges/entries.csv` as a CSV file);
   `POST /v1/me/challenges/entries` to submit; and for admins and organisers
-  `GET /v1/admin/challenges/entries?view=&q=&page=` with what looks wrong
+  `GET /v1/admin/challenges/entries?view=` with what looks wrong
   about each entry, `PATCH /v1/admin/challenges/entries/{id}` and
   `POST /v1/admin/challenges/names`. Pages ask for what they show; the
   rules run in Go, never in the browser

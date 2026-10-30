@@ -1,24 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { pageCount, entriesPath, viewLabel } from './challenge-entries';
-
-describe('pageCount', () => {
-  it.each([
-    ['no entries', 0, 1],
-    ['one short page', 99, 1],
-    ['exactly a page', 100, 1],
-    ['one over a page', 101, 2],
-  ])('gives %s its pages', (_name, total, want) => {
-    expect(pageCount(total, 100)).toBe(want);
-  });
-});
-
+import { entriesMatching, entriesPath, viewLabel } from './challenge-entries';
 
 describe('entriesPath', () => {
   it.each([
-    ['the first page of every entry', 1, 'all', '', '/api/challenges/entries?page=1'],
-    ['a view, searched', 2, 'flagged', ' Ann B ', '/api/challenges/entries?page=2&view=flagged&q=Ann+B'],
-  ] as const)('asks for %s', (_name, page, view, q, want) => {
-    expect(entriesPath(page, view, q)).toBe(want);
+    ['every entry', 'all', '/api/challenges/entries'],
+    ['a view', 'flagged', '/api/challenges/entries?view=flagged'],
+  ] as const)('asks for %s', (_name, view, want) => {
+    expect(entriesPath(view)).toBe(want);
+  });
+});
+
+describe('entriesMatching', () => {
+  const entry = (id: number, player: string, challenge: string, challenge_name: string) => ({ id, player, challenge, challenge_name });
+  const entries = [entry(1, 'anna', '1ai', 'First'), entry(2, 'Bob', '2ai', 'Second'), entry(3, 'Hannah', '1ai', 'First'), entry(4, 'zed_77', '3ai', 'Third')];
+  it.each([
+    ['everyone for no text', ' ', [1, 2, 3, 4]],
+    ['a player holding the text, in the list order', 'ANN', [1, 3]],
+    ['a challenge id', '2ai', [2]],
+    ["a challenge's name", 'third', [4]],
+    ['several, separated by commas', 'bob, zed', [2, 4]],
+    ['nobody', 'quill', []],
+  ])('%s', (_, typed, want) => {
+    expect(entriesMatching(entries, typed).map((e) => e.id)).toEqual(want);
   });
 });
 

@@ -68,7 +68,6 @@ func TestAnOrganiserListsChallengeEntriesByView(t *testing.T) {
 		{"verified, not yet checked", "?view=unchecked", `[{"id": 1}]`},
 		{"flagged", "?view=flagged", `[{"id": 3, "flags": ["no proof, over 2× everyone else's best (120 by Cy)"]}]`},
 		{"hidden", "?view=hidden", `[{"id": 4}]`},
-		{"a search, ignoring case", "?q=BOB", `[{"id": 3}]`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -82,8 +81,8 @@ func TestAnOrganiserListsChallengeEntriesByView(t *testing.T) {
 			}
 		})
 	}
-	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/challenges/entries?q=bob", "", "")
-	wantJSON(t, rec.Body.Bytes(), "", `{"total": 1, "page": 1, "page_size": 100, "counts": [{"view": "all", "entries": 4}, {"view": "unchecked", "entries": 1},
+	rec := adminDo(t, &fakeAdmins{}, http.MethodGet, "/v1/admin/challenges/entries?view=bugged", "", "")
+	wantJSON(t, rec.Body.Bytes(), "", `{"entries": [], "counts": [{"view": "all", "entries": 4}, {"view": "unchecked", "entries": 1},
 		{"view": "checked", "entries": 1}, {"view": "unverified", "entries": 1}, {"view": "flagged", "entries": 1}, {"view": "bugged", "entries": 0},
 		{"view": "hidden", "entries": 1}]}`)
 }
@@ -94,8 +93,6 @@ func TestChallengeEntriesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		want            int
 	}{
 		{"someone not in admin", "333333333333333333", "/v1/admin/challenges/entries", http.StatusForbidden},
-		{"page 0", "222222222222222222", "/v1/admin/challenges/entries?page=0", http.StatusBadRequest},
-		{"a page that is not a number", "222222222222222222", "/v1/admin/challenges/entries?page=two", http.StatusBadRequest},
 		{"a view there is not", "222222222222222222", "/v1/admin/challenges/entries?view=odd", http.StatusBadRequest},
 	}
 	for _, tt := range tests {

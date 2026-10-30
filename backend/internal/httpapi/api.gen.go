@@ -1194,13 +1194,8 @@ type AdminBlitzRound struct {
 // AdminChallengeEntries defines model for AdminChallengeEntries.
 type AdminChallengeEntries struct {
 	// Counts How many entries each view holds
-	Counts   []AdminChallengeViewCount `json:"counts"`
-	Entries  []AdminChallengeEntry     `json:"entries"`
-	Page     int                       `json:"page"`
-	PageSize int                       `json:"page_size"`
-
-	// Total Every entry in the view, on every page
-	Total int `json:"total"`
+	Counts  []AdminChallengeViewCount `json:"counts"`
+	Entries []AdminChallengeEntry     `json:"entries"`
 }
 
 // AdminChallengeEntry An entry as admin sees it
@@ -4537,9 +4532,7 @@ type GetAdminBlitzCandidatesParams struct {
 
 // GetAdminChallengeEntriesParams defines parameters for GetAdminChallengeEntries.
 type GetAdminChallengeEntriesParams struct {
-	Page *int                `form:"page,omitempty" json:"page,omitempty"`
 	View *AdminChallengeView `form:"view,omitempty" json:"view,omitempty"`
-	Q    *string             `form:"q,omitempty" json:"q,omitempty"`
 }
 
 // GetAdminPeopleParams defines parameters for GetAdminPeople.
@@ -4993,7 +4986,7 @@ type ServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, edition BlitzEditionLabel, round BlitzRoundId)
-	// GetAdminChallengeEntries A page of the challenge entries in a view, newest first (admins and organisers)
+	// GetAdminChallengeEntries The challenge entries in a view, newest first (admins and organisers)
 	// (GET /v1/admin/challenges/entries)
 	GetAdminChallengeEntries(w http.ResponseWriter, r *http.Request, params GetAdminChallengeEntriesParams)
 	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
@@ -6746,19 +6739,6 @@ func (siw *ServerInterfaceWrapper) GetAdminChallengeEntries(w http.ResponseWrite
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAdminChallengeEntriesParams
 
-	// ------------- Optional query parameter "page" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
-		}
-		return
-	}
-
 	// ------------- Optional query parameter "view" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "view", r.URL.Query(), &params.View, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -6768,19 +6748,6 @@ func (siw *ServerInterfaceWrapper) GetAdminChallengeEntries(w http.ResponseWrite
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "view"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "view", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "q" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
 		}
 		return
 	}
@@ -19890,7 +19857,7 @@ type StrictServerInterface interface {
 	// DeleteAdminBlitzRoundResults Reset every result of the latest round, its pairing kept
 	// (DELETE /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/results)
 	DeleteAdminBlitzRoundResults(ctx context.Context, request DeleteAdminBlitzRoundResultsRequestObject) (DeleteAdminBlitzRoundResultsResponseObject, error)
-	// GetAdminChallengeEntries A page of the challenge entries in a view, newest first (admins and organisers)
+	// GetAdminChallengeEntries The challenge entries in a view, newest first (admins and organisers)
 	// (GET /v1/admin/challenges/entries)
 	GetAdminChallengeEntries(ctx context.Context, request GetAdminChallengeEntriesRequestObject) (GetAdminChallengeEntriesResponseObject, error)
 	// PatchAdminChallengeEntry Change a challenge entry (admins and organisers)
