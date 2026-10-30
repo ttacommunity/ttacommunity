@@ -120,6 +120,15 @@ Both private to the `ttacommunity` organisation; ask a maintainer for access.
   enum, Go, TypeScript and the database's CHECK constraints (a
   migration). Search for an existing value to find them all
   (`git grep -n "'SGM'"`), and test that the store accepts the new one
+- **A rule about data lives in one place.** Where the database can check
+  it (a `SECURITY DEFINER` function, a CHECK), it does; Go and the browser
+  pass the input through and show the answer. Never the same regex in Go,
+  SQL and TypeScript
+- **A new section copies the site's patterns, not its old home's.** Before
+  writing a download, a search or a page's meta tags, find how a sibling
+  page does it (the leaderboard's CSV, the Members tab's search) and do
+  the same. A section adds no build variable or environment setting: the
+  sites know the API's and each other's addresses, and nothing else
 - **A move that should change nothing proves it.** Save the API's JSON
   for every case before and after, and compare
 - **Ask before building when something is unclear.** A question answered
@@ -249,7 +258,8 @@ agent runs them itself.
   `backend/migrations/<db>/`. `00001_schema.sql` is the ratings schema at
   its start; a change is the next number after it. One that has reached
   `main` is never edited; fix forward. Write the `-- +goose Down`, or mark it
-  `-- irreversible` with why. The schema's shape:
+  `-- irreversible` with why, and test it: a test migrates down past it and
+  back up (`internal/store/catalogue_test.go` shows how). The schema's shape:
   `docs/architecture.md#the-ratings-database`
 - Errors: wrap with `%w` and context. An error crossing a trust boundary is
   rewritten, not wrapped (a database error can carry hosts and users)
@@ -328,6 +338,12 @@ agent runs them itself.
   never inlined
 - Accessibility: semantic HTML, keyboard reachable, table headers and
   captions, a text alternative for every chart
+- **Downloads come from the API.** Go writes the CSV
+  (`/v1/runs/{run}/leaderboard.csv`) and the page links to it; the browser
+  never builds or parses one
+- **A list is asked for once and narrowed in the page.** An admin tab loads
+  the list it shows and filters it as the search is typed, as the Members
+  tab does (`membersMatching`): no request per keystroke, no search form
 - Cloudflare builds and hosts both sites from `main`. CI building both sites
   is the real gate
 - **Coverage, by hand.** `dlx` fetches the coverage package for this run
@@ -363,6 +379,9 @@ agent runs them itself.
   a pull request whose commits lack it. A maintainer is exempt once their
   membership of the ttacommunity organisation is public (its People page):
   GitHub reports a private member as a contributor
+- **Open a draft pull request as soon as the branch exists.** CI runs on
+  pull requests, not on branches, so a branch without one is never checked
+  until the end
 - **Pull requests have two sections only**: **What it does** and **How to
   test it** (commands and URLs). Merging needs a maintainer
 - **One issue per pull request.** Work for another issue goes on its own
