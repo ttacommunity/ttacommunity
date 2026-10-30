@@ -1,5 +1,5 @@
 /** The pieces every challenge page shares: its remembered switches, links to players and proofs, difficulty pips and the compact set grid. */
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Load } from '@ttac/shared/load';
 import Segmented from '@ttac/shared/Segmented';
 import { recallChoice, rememberChoice, shownLoad, type Choice, type ChoiceValue } from '../lib/challenge-view';
@@ -154,8 +154,9 @@ export function SetGrid<C extends Gridded>({
 /** useKeptLoad loads as useLoad does, but while it loads again shows the last data, so a switch keeps the page's height and scroll. */
 export function useKeptLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
   const next = useLoad(key, load);
-  const last = useRef<Load<T> | null>(null);
-  const shown = shownLoad(last.current, next) as Load<T>;
-  last.current = shown;
-  return shown;
+  const [last, setLast] = useState<Load<T> | null>(null);
+  useEffect(() => {
+    if (next.kind === 'ready') setLast(next);
+  }, [next]);
+  return shownLoad(last, next) as Load<T>;
 }
