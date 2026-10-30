@@ -21,7 +21,7 @@ coding agents: [`AGENTS.md`](AGENTS.md).
 
 | Directory | What | Language |
 |---|---|---|
-| `backend/` | `cmd/api` (the JSON API), `cmd/load` (the data load job), `internal/`, `migrations/`, and `api/openapi.yaml` (the API contract) | Go |
+| `backend/` | `cmd/api` (the JSON API), `cmd/load` (the data load job), `cmd/discord-commands` (registers the Discord bot's slash commands), `internal/`, `migrations/`, and `api/openapi.yaml` (the API contract) | Go |
 | `engine/` | The rating engine, run as a job | Python (uv) |
 | `web/` | `site` (public), `admin`, and `shared` (theme, components, generated API types) | Astro, React, TypeScript (pnpm) |
 | `infra/access-oidc/` | The Worker that signs admins in to Cloudflare Access with Discord | JavaScript |
@@ -402,7 +402,7 @@ New games and facts are loaded on top of a restored baseline, and the next
 export is the next baseline.
 
 **CGE's data extract.** CGE's export of every tournament game (one row per
-player per game) is the most complete record. `-cge-extract` matches its
+player per game) is the most complete record. `load cge-extract` matches its
 games to ours (by share code, else by players and finished scores), fills in
 what CGE recorded (each seat's account, outcome and place, the game's times
 and share code; CGE's finish date becomes the game's date; the game moves
@@ -898,7 +898,7 @@ stopped engine marks its run failed as it ends; a run left running by an
 engine that was killed outright shows as failed once no engine Job is going. The engine writes
 its latest progress line to `run_progress` as it goes. To start a run, the API
 creates a Job from the CronJob named by `ENGINE_CRONJOB`, in its own namespace,
-using its service account (`deploy/dev/api-rbac.yaml`: read that CronJob, and
+using its service account (`deploy/api-rbac.yaml`: read that CronJob, and
 list, create and delete Jobs); stopping deletes that CronJob's unfinished Jobs. Without `ENGINE_CRONJOB`, as when run locally, starting a run
 answers 503; the rest of admin works.
 

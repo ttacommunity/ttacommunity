@@ -17,7 +17,7 @@ backend:
 
 | Path | What |
 |---|---|
-| `backend/` | Go: `cmd/api` (JSON API), `cmd/load` (the data load job), `internal/`, `migrations/` |
+| `backend/` | Go: `cmd/api` (JSON API), `cmd/load` (the data load job), `cmd/discord-commands` (the bot's slash commands), `internal/`, `migrations/` |
 | `backend/api/openapi.yaml` | The API contract. The TS types are generated from it |
 | `engine/` | Python (uv): the rating engine. Runs as a job, not a server |
 | `web/` | Astro + React + TypeScript (pnpm): `site` (public), `admin`, `shared` |

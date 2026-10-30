@@ -13,8 +13,8 @@ drawn dashed below and marked *(planned)* in the text.
 ```mermaid
 flowchart LR
     subgraph cf["Cloudflare"]
-        site["site (Astro, static)<br/>ttacommunity.*: /ratings, /blitz, /tournaments, /pulse"]
-        admin["admin (Astro + Worker proxy)<br/>ttac-admin.*"]
+        site["site (Astro, static)<br/>ttacommunity.org: /ratings, /blitz, /tournaments, /pulse"]
+        admin["admin (Astro + Worker proxy)<br/>admin.ttacommunity.org"]
         access["Access + Discord OIDC Worker<br/>(admin only)"]
     end
     subgraph cluster["k3s: namespace ttacommunity (default-deny)"]
@@ -26,7 +26,7 @@ flowchart LR
         adb[("app DB")]
     end
     browser["Browser"] --> site
-    browser -->|"ttac-api.* (CORS, Origin-checked)"| api
+    browser -->|"api.ttacommunity.org (CORS, Origin-checked)"| api
     browser --> access --> admin
     admin -->|"/api/* + Access JWT"| api
     api -->|"SELECT; admin's writes"| rdb
@@ -47,11 +47,11 @@ flowchart LR
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
+| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord, Microsoft, Google or an emailed link: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
 | **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
 | **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
 | **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
-| **worker** *(planned)* | Everything that happens *at a time*: reminders, kick-offs, rounds, the outbox. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice. A stub today | app DB |
+| **worker** *(planned)* | Everything that happens *at a time*: reminders, kick-offs, rounds, the outbox. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice | app DB |
 
 **Separate roles per purpose.** Public routes read the ratings DB through a
 `SELECT`-only login, so a bug in a public endpoint cannot write ratings.
@@ -158,7 +158,7 @@ together: `stage_settings` (each stage's settings, resolved) and
 points). The engine rates who placed above whom, and scores standings from
 game points.
 
-The tables fall into five groups:
+The tables fall into these groups:
 
 | Group | What it holds | Tables (examples) | Written by |
 |---|---|---|---|
@@ -167,6 +167,9 @@ The tables fall into five groups:
 | **Runs** | One row per computation: its ranking, engine version, input fingerprint, status, progress, whether it is protected; and which run each ranking publishes | `rating_runs`, `run_progress`, `current_run` | engine, admin |
 | **Run results** | Everything a run computes, each row keyed by `run_id`: ratings and history per model and format, the 1v1 pairs, each player's record per format and year and seat statistics, the analysis pages' counts, calibration, titles, tournament standings, boards, records and achievements, the community leaderboard | `player_ratings`, `rating_history`, `pairwise_matches`, `player_year_records`, `player_seat_stats`, `seat_tier_stats`, `run_format_counts`, `player_titles`, `tournament_standings`, `tournament_records`, `community_rankings` | engine |
 | **Admin** | Who may use admin and with which role; an audit of every admin change and of players' changes to their own sign-ins and blitz games, which names members and accounts by id and a change by the fields it set, never a member's details; admins read it on admin's Audit tab | `admins`, `admin_audit` | admin |
+| **Members and sign-in** | Everyone who takes part in what the community runs, and how players sign in: their accounts, each way in to one, sessions, requests to be linked to a member, and emailed sign-in links | `members`, `accounts`, `logins`, `player_sessions`, `link_requests`, `email_links` | load job, admin, players |
+| **Blitz** | Each blitz edition, its entrants, rounds and games, and the Swiss rounds an entrant skips | `blitz_editions`, `blitz_entries`, `blitz_rounds`, `blitz_matches`, `blitz_skips` | admin, players |
+| **Challenges** | The single-player challenges, the dominations entered for them, and the weekly challenge's winners | `challenges`, `challenge_entries`, `challenge_weeks`, `challenge_week_places` | load job, admin, players |
 
 Patterns that hold across the schema:
 
@@ -195,7 +198,7 @@ Patterns that hold across the schema:
   blitz tables, players' sign-ins, sessions and requests) and
   `refused_rows` are left out, and of `members` only the name, its ids and
   the country are written (the manifest names the columns); a test
-  enforces it. A backup (`-backup`, the nightly job) holds every input
+  enforces it. A backup (`load backup-to`, the nightly job) holds every input
   table whole, members included, and is encrypted
 - **Roles:** `ratings` owns the schema (load job, engine); `ratings_read`
   may only `SELECT` (the api's public routes); `ratings_admin` may write
@@ -422,8 +425,9 @@ tab (`ChallengesPanel.tsx`).
 
 ### Player sign-in
 
-A player signs in on the site with Discord (scope `identify`: their id,
-username and display name, never their email). Each way a player signs in
+A player signs in on the site with Discord, Microsoft, Google or an
+emailed link. Discord's scope is `identify`: their id, username and
+display name, never their email. Each way a player signs in
 is a **login** (`logins`): the provider, its id for them, their names
 there, and the member it is linked to. A login is linked to a member in
 one of two ways:
@@ -455,7 +459,14 @@ id, and keeps its name, and its email when Google has verified it
 (`email_verified`).
 Either email is for writing to the player: it never links a login to a
 member, though it fills a linked member's empty email like an email
-login's address. Sessions (`player_sessions`) are server-side: the
+login's address.
+A player can also sign in with **a link emailed to them** (`email_links`),
+sent through Resend once a Turnstile check shows a person asked. The link
+opens a site page that posts its token to the api only when the player
+asks, so a mail scanner opening it spends nothing. A link works once,
+within the hour, and a newer one replaces it; an address is sent at most
+5 a day, and all addresses 90 between them. Only the token's hash is
+stored. A signed-in player adds an address to their account the same way. Sessions (`player_sessions`) are server-side: the
 browser holds an opaque token in a cookie on the API host, and the database
 only its hash; a session ends at sign-out or after 30 days unused. A
 player sets their own country and time zone: on their member once linked,
@@ -545,10 +556,12 @@ TTA community server and email via `mail-relay`.
   our own OIDC Worker; the api verifies the Access JWT on every admin
   request, and an admin's role (admin, organiser) is checked there. The
   public site and API need no sign-in
-- **Player sign-in proves a Discord identity**: the authorization code
-  flow with `state` and PKCE; anything wrong leaves the player signed out.
-  The session cookie is opaque, host-only, `HttpOnly`, `Secure` and
-  `SameSite=Lax`, and the Discord token is not kept. **The TTA username is
+- **Player sign-in proves a Discord, Microsoft or Google identity, or an
+  email address**: the authorization code flow with `state` and PKCE (and
+  a checked ID token for Microsoft and Google), or a one-time link to the
+  address; anything wrong leaves the player signed out. The session cookie
+  is opaque, host-only, `HttpOnly`, `Secure` and `SameSite=Lax`, and no
+  provider's token is kept. **The TTA username is
   linked by name or by approval** (above), not proven: a proof by email to
   the address CGE holds waits on CGE's API.
 - **The player routes answer the site alone**: CORS with credentials for
@@ -566,9 +579,9 @@ TTA community server and email via `mail-relay`.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
 - **Egress:** default-deny. The api reaches only public HTTPS (Cloudflare
-  Access's signing keys, Discord's OAuth, Cloudflare's GraphQL API for the
-  visit count) and the Kubernetes API (to start
-  engine Jobs); the worker
+  Access's signing keys; Discord's, Microsoft's and Google's sign-in;
+  Resend for sign-in emails; Turnstile; Cloudflare's GraphQL API for the
+  visit count) and the Kubernetes API (to start engine Jobs); the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**. A reported error is found by
@@ -671,10 +684,24 @@ and the README say where each is set.
 
 ## What it sits on
 
-A home k3s cluster: four Pi 4s (arm64) and two amd64 machines, with
-Longhorn storage, Flux, and the GitHub Actions runners CI uses. Flux applies
-`deploy/` from `main`, as an account that can change only the `ttacommunity`
-namespace. The database and the engine run on the larger amd64 machine. TLS
-terminates at Cloudflare, and traffic arrives through a cloudflared tunnel.
-Images are built by CI into GitHub's container registry and pinned by
-digest in `deploy/`.
+A small Kubernetes cluster (k3s) with replicated storage (Longhorn) and
+Flux. Flux applies `deploy/` from `main`, and `deploy/dev/` from `dev`, as
+an account that can change only the `ttacommunity` namespace. Images are
+built for amd64 and arm64 by CI, on GitHub's hosted runners, into GitHub's
+container registry, and pinned by digest in `deploy/`. TLS terminates at
+Cloudflare, and traffic arrives through a cloudflared tunnel.
+
+The nodes are labelled by size (`workload-size`: small, medium, large).
+The api's two replicas run on any sized node, spread across nodes, and a
+disruption budget keeps one up while a node is drained. The engine's Job
+runs on the large node.
+
+### Failover
+
+The ratings database runs on the large node when it is up, and otherwise
+on a medium one, where its volume keeps replicas (`deploy/ratings-db.yaml`).
+Kubernetes gives up an unreachable or not-ready node after 60 seconds
+rather than its default five minutes, and starts the database on a medium
+node, which attaches the volume's replica there. Longhorn writes every
+replica before it answers, so a committed write survives; the api answers
+again once it reconnects.
