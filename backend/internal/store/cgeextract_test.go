@@ -594,6 +594,44 @@ func TestApplyCGEExtractDropsTheSeatsOfPlayersCGERemoved(t *testing.T) {
 	}
 }
 
+func TestApplyCGEExtractFillsOnlyAnEmptyOrganiserName(t *testing.T) {
+	tests := []struct{ name, held, want string }{
+		{"an empty name is filled", "", "eve"},
+		{"a held name is kept", "Lantern_Keeper", "Lantern_Keeper"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02")})
+			setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
+			if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, organiser)
+				VALUES (999, 'Snail Cup', 'running', $1)`, tt.held); err != nil {
+				t.Fatal(err)
+			}
+			seats := extractOf(999, 200, "CODEDDDD", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50))
+			in := CGEInput{Extract: cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{
+				999: {ID: 999, Name: "Snail Cup", OrganiserID: 5, OrganiserName: "eve"},
+			}}}
+			plan, err := PlanCGEExtract(ctx, pool, in.Extract, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
+				t.Fatalf("ApplyCGEExtract: %v", err)
+			}
+
+			var got string
+			if err := pool.QueryRow(ctx, "SELECT organiser FROM cge_tournaments WHERE cge_tournament = 999").Scan(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("organiser held %q = %q, want %q", tt.held, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestApplyCGEExtractRefusesAnAccountNamedLikeThePlaceholder(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

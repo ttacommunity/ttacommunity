@@ -150,7 +150,8 @@ type EditionRules struct {
 // the rankings it is in, and CGE's shown tournaments, newest first, for a
 // published run. Shown is rated or made visible; the games are counted as the
 // run counted them (its catalogue spans), and unplaced games count nowhere.
-// An organiser with a deleted or banned CGE account is named DeletedPlayer.
+// A CGE tournament with no organiser's name is named by its organiser's account. An organiser whose account's
+// player, or whose name's, has a deleted or banned CGE account is named DeletedPlayer.
 func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return CatalogueView{}, err
@@ -182,11 +183,16 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT c.cge_tournament, c.name, c.status, c.organiser, coalesce(c.started, c.created), c.finished,
+		SELECT c.cge_tournament, c.name, c.status,
+		       CASE WHEN EXISTS (SELECT 1 FROM player_accounts pa WHERE pa.player_id = a.player_id AND (pa.deleted OR pa.banned)) THEN $1
+		            WHEN c.organiser <> '' THEN c.organiser
+		            ELSE coalesce(a.name, '') END,
+		       coalesce(c.started, c.created), c.finished,
 		       coalesce(t.slug, ''), EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = c.series_id)
 		FROM cge_tournaments c LEFT JOIN series t ON t.series_id = c.series_id
+		LEFT JOIN player_accounts a ON a.cge_user = c.organiser_user
 		WHERE c.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = c.series_id)
-		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`)
+		ORDER BY c.finished DESC NULLS FIRST, coalesce(c.started, c.created) DESC NULLS LAST, c.cge_tournament DESC`, DeletedPlayer)
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading CGE's catalogue: %w", err)
 	}

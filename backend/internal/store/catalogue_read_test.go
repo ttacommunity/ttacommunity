@@ -150,6 +150,69 @@ func TestCatalogueListsOnlyRatedCGETournaments(t *testing.T) {
 	}
 }
 
+func TestCatalogueNamesAndMasksAnOrganiserByTheirAccount(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	tests := []struct {
+		name      string
+		id        int
+		organiser string
+		account   int
+		want      string
+	}{
+		{"a held name is kept", 61, "an organiser", 501, "an organiser"},
+		{"an empty name comes from the account", 62, "", 501, "Lantern_Keeper"},
+		{"a deleted account is masked", 63, "", 502, DeletedPlayer},
+		{"a player with a banned account is masked", 64, "", 503, DeletedPlayer},
+		{"no account leaves it empty", 65, "", 0, ""},
+		{"a held name is masked by its banned account", 66, "Heron_of_old", 503, DeletedPlayer},
+	}
+	for _, q := range []string{
+		"INSERT INTO players (name) VALUES ('Lantern_Keeper'), ('deleted_user_9'), ('Quiet_Heron')",
+		`INSERT INTO player_accounts (cge_user, player_id, name, deleted, banned)
+		 SELECT x.cge_user, p.player_id, x.name, x.deleted, x.banned FROM (VALUES
+		     (501, 'Lantern_Keeper', 'Lantern_Keeper', false, false), (502, 'deleted_user_9', 'deleted_user_9', true, false),
+		     (503, 'Quiet_Heron', 'Quiet_Heron', false, false), (504, 'Quiet_Heron', 'Quiet_Heron_old', false, true))
+		     AS x(cge_user, player, name, deleted, banned) JOIN players p ON p.name = x.player`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	var rows []tournamentcsv.CGETournament
+	for _, tt := range tests {
+		rows = append(rows, tournamentcsv.CGETournament{ID: tt.id, Name: tt.name, Status: "finished", Organiser: tt.organiser, Finished: date("2024-08-01")})
+	}
+	addCGETournaments(t, pool, rows...)
+	for _, tt := range tests {
+		showCGETournament(t, pool, tt.id)
+		if tt.account != 0 {
+			if _, err := pool.Exec(ctx, "UPDATE cge_tournaments SET organiser_user = $2 WHERE cge_tournament = $1", tt.id, tt.account); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	withSpans(t, pool, run)
+	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(ctx, run)
+	if err != nil {
+		t.Fatalf("Catalogue: %v", err)
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := slices.IndexFunc(view.CGE, func(c CGEEntry) bool { return c.ID == tt.id })
+			if i < 0 {
+				t.Fatalf("CGE tournament %d not listed", tt.id)
+			}
+			if got := view.CGE[i].Organiser; got != tt.want {
+				t.Errorf("organiser = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCatalogueShowsAnUnratedTournamentOnlyWhenMadeVisible(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
