@@ -398,7 +398,8 @@ weekly winners and submitting, linked by a row of tabs under the header.
   count every entry: `GET /v1/challenges` (the highscores),
   `/v1/challenges/{id}` (a board), `/v1/challenges/players`,
   `/v1/challenges/players/{name}` (with `as_if_verified`),
-  `/v1/challenges/weekly` and `/v1/challenges/entries` (to download);
+  `/v1/challenges/weekly` and `/v1/challenges/entries` (to download, and
+  `/v1/challenges/entries.csv` as a CSV file);
   `POST /v1/me/challenges/entries` to submit; and for admins and organisers
   `GET /v1/admin/challenges/entries?view=&q=&page=` with what looks wrong
   about each entry, `PATCH /v1/admin/challenges/entries/{id}` and

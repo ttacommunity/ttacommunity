@@ -151,3 +151,27 @@ func TestChallengePlayer(t *testing.T) {
 		})
 	}
 }
+
+func TestChallengeEntriesAsCSV(t *testing.T) {
+	rec, _ := serve(t, &fakeRatings{}, "/v1/challenges/entries.csv")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	for header, want := range map[string]string{
+		"Content-Type":        "text/csv",
+		"Cache-Control":       cacheCurrent,
+		"Content-Disposition": `attachment; filename="tta_challenge_entries.csv"`,
+	} {
+		if got := rec.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
+	}
+	want := "\ufeffid,entered_at,player,set,group,challenge_id,challenge,players,domination,verified,proof_url,bugged\r\n" +
+		"1,2025-03-01T10:00:00Z,Ann,original,classic,1ai,First,2,120,yes,https://discord.com/channels/1/2/3,no\r\n" +
+		"2,2025-03-01T11:00:00Z,Bob,original,classic,1ai,First,2,150,no,,no\r\n" +
+		"3,2025-03-01T10:00:00Z,Cy,original,classic,1ai,First,2,900,yes,https://discord.com/channels/1/2/4,yes\r\n" +
+		"4,2025-03-01T10:00:00Z,Ann,expansion,epic,epic1_exp,Long Road,3,80,no,,no\r\n"
+	if got := rec.Body.String(); got != want {
+		t.Errorf("body =\n%q\nwant\n%q", got, want)
+	}
+}

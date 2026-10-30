@@ -1,8 +1,8 @@
 /** The challenges' highscores: every challenge's record by set as cards or a compact grid, the totals of each scope, and the most records held. */
 import { useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { challengeEntries, challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
-import { downloadName, downloadRows, toCsv } from '../lib/challenge-download';
+import { challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
+import { downloadUrls } from '../lib/challenge-download';
 import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
@@ -59,7 +59,7 @@ export default function ChallengesHighscores({ apiUrl }: { apiUrl: string }) {
       ) : (
         <>
           <Highscores challenges={load.data.challenges} scopes={load.data.scopes} holders={load.data.record_holders} set={set} measure={measure} view={view} />
-          <Download apiUrl={apiUrl} challenges={load.data.challenges} />
+          <Download apiUrl={apiUrl} />
         </>
       )}
     </>
@@ -278,40 +278,18 @@ function TotalsLine({ scope, measure }: { scope: ChallengeScope; measure: Measur
   );
 }
 
-/** Download offers every entry as a file: CSV for spreadsheets, or JSON. */
-function Download({ apiUrl, challenges }: { apiUrl: string; challenges: Challenge[] }) {
-  const [failed, setFailed] = useState<string | null>(null);
-  const save = async (ext: 'csv' | 'json') => {
-    setFailed(null);
-    try {
-      const rows = downloadRows((await challengeEntries(apiUrl)).entries, challenges);
-      const blob =
-        ext === 'csv' ? new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }) : new Blob([JSON.stringify(rows, null, 1)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = downloadName(new Date(), ext);
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (e: unknown) {
-      setFailed(e instanceof Error ? e.message : String(e));
-    }
-  };
+/** Download offers every entry as a file the API serves: CSV for spreadsheets, or JSON. */
+function Download({ apiUrl }: { apiUrl: string }) {
+  const urls = downloadUrls(apiUrl);
   return (
     <p className="challenges-download">
       Download all data:{' '}
-      <button type="button" className="btn-antique" onClick={() => void save('csv')}>
+      <a href={urls.csv} className="btn-antique download" download title="Download every entry as a CSV file">
         CSV (Excel)
-      </button>{' '}
-      <button type="button" className="btn-antique" onClick={() => void save('json')}>
+      </a>{' '}
+      <a href={urls.json} className="btn-antique download" download title="Download every entry as JSON">
         JSON
-      </button>
-      {failed !== null && (
-        <span className="challenges-download-failed" role="alert">
-          {' '}
-          Could not download: {failed}
-        </span>
-      )}
+      </a>
     </p>
   );
 }

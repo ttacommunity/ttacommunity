@@ -541,9 +541,6 @@
   color: var(--text-soft);
   font-family: var(--font-stats);
 }
-.challenges-download-failed {
-  color: var(--loss-light);
-}
 
 /* Submitting dominations. */
 .challenges-field {

@@ -815,6 +815,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/challenges/entries.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every challenge entry not hidden, as a CSV file
+         * @description The entries `/v1/challenges/entries` lists, one row each with the
+         *     challenge's set, group and name beside it, for spreadsheets. Cached
+         *     for a minute.
+         */
+        get: operations["getChallengeEntriesCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/challenges/weekly": {
         parameters: {
             query?: never;
@@ -6926,6 +6948,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChallengeEntries"];
+                };
+            };
+        };
+    };
+    getChallengeEntriesCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The CSV file, UTF-8 with a byte-order mark */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    "Content-Disposition": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
         };

@@ -5146,6 +5146,9 @@ type ServerInterface interface {
 	// GetChallengeEntries Every challenge entry not hidden, for download
 	// (GET /v1/challenges/entries)
 	GetChallengeEntries(w http.ResponseWriter, r *http.Request)
+	// GetChallengeEntriesCsv Every challenge entry not hidden, as a CSV file
+	// (GET /v1/challenges/entries.csv)
+	GetChallengeEntriesCsv(w http.ResponseWriter, r *http.Request)
 	// GetChallengePlayers Every player with a counted challenge entry, with their results
 	// (GET /v1/challenges/players)
 	GetChallengePlayers(w http.ResponseWriter, r *http.Request, params GetChallengePlayersParams)
@@ -8057,6 +8060,20 @@ func (siw *ServerInterfaceWrapper) GetChallengeEntries(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetChallengeEntriesCsv operation middleware
+func (siw *ServerInterfaceWrapper) GetChallengeEntriesCsv(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetChallengeEntriesCsv(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetChallengePlayers operation middleware
 func (siw *ServerInterfaceWrapper) GetChallengePlayers(w http.ResponseWriter, r *http.Request) {
 
@@ -10119,6 +10136,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges", wrapper.GetChallenges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players", wrapper.GetChallengePlayers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/entries", wrapper.GetChallengeEntries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/entries.csv", wrapper.GetChallengeEntriesCsv)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/weekly", wrapper.GetChallengeWeeks)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/players/{name}", wrapper.GetChallengePlayer)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/challenges/{challenge}", wrapper.GetChallengeBoard)
@@ -16777,6 +16795,41 @@ func (response GetChallengeEntries200JSONResponse) VisitGetChallengeEntriesRespo
 	return err
 }
 
+type GetChallengeEntriesCsvRequestObject struct {
+}
+
+type GetChallengeEntriesCsvResponseObject interface {
+	VisitGetChallengeEntriesCsvResponse(w http.ResponseWriter) error
+}
+
+type GetChallengeEntriesCsv200ResponseHeaders struct {
+	CacheControl       string
+	ContentDisposition string
+}
+
+type GetChallengeEntriesCsv200TextcsvResponse struct {
+	Body          io.Reader
+	Headers       GetChallengeEntriesCsv200ResponseHeaders
+	ContentLength int64
+}
+
+func (response GetChallengeEntriesCsv200TextcsvResponse) VisitGetChallengeEntriesCsvResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.Header().Set("Content-Disposition", fmt.Sprint(response.Headers.ContentDisposition))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
 type GetChallengePlayersRequestObject struct {
 	Params GetChallengePlayersParams
 }
@@ -19990,6 +20043,9 @@ type StrictServerInterface interface {
 	// GetChallengeEntries Every challenge entry not hidden, for download
 	// (GET /v1/challenges/entries)
 	GetChallengeEntries(ctx context.Context, request GetChallengeEntriesRequestObject) (GetChallengeEntriesResponseObject, error)
+	// GetChallengeEntriesCsv Every challenge entry not hidden, as a CSV file
+	// (GET /v1/challenges/entries.csv)
+	GetChallengeEntriesCsv(ctx context.Context, request GetChallengeEntriesCsvRequestObject) (GetChallengeEntriesCsvResponseObject, error)
 	// GetChallengePlayers Every player with a counted challenge entry, with their results
 	// (GET /v1/challenges/players)
 	GetChallengePlayers(ctx context.Context, request GetChallengePlayersRequestObject) (GetChallengePlayersResponseObject, error)
@@ -22737,6 +22793,30 @@ func (sh *strictHandler) GetChallengeEntries(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetChallengeEntriesResponseObject); ok {
 		if err := validResponse.VisitGetChallengeEntriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChallengeEntriesCsv operation middleware
+func (sh *strictHandler) GetChallengeEntriesCsv(w http.ResponseWriter, r *http.Request) {
+	var request GetChallengeEntriesCsvRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChallengeEntriesCsv(ctx, request.(GetChallengeEntriesCsvRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChallengeEntriesCsv")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetChallengeEntriesCsvResponseObject); ok {
+		if err := validResponse.VisitGetChallengeEntriesCsvResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

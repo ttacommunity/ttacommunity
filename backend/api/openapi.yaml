@@ -1113,6 +1113,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChallengeEntries"
+  /v1/challenges/entries.csv:
+    get:
+      operationId: getChallengeEntriesCsv
+      summary: Every challenge entry not hidden, as a CSV file
+      description: |
+        The entries `/v1/challenges/entries` lists, one row each with the
+        challenge's set, group and name beside it, for spreadsheets. Cached
+        for a minute.
+      responses:
+        "200":
+          description: The CSV file, UTF-8 with a byte-order mark
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
   /v1/challenges/weekly:
     get:
       operationId: getChallengeWeeks
