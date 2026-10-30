@@ -93,8 +93,8 @@ func setShareCode(t *testing.T, pool *pgxpool.Pool, name, code string) {
 func addPeakTitle(t *testing.T, pool *pgxpool.Pool, run int64, name, title string, year int) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
-		"INSERT INTO player_peak_titles (run_id, player_name, peak_title, peak_year) VALUES ($1, $2, $3, $4)",
-		run, name, title, year); err != nil {
+		"INSERT INTO player_peak_titles (run_id, player_id, peak_title, peak_year) VALUES ($1, $2, $3, $4)",
+		run, playerID(t, pool, name), title, year); err != nil {
 		t.Fatalf("adding %s's peak title: %v", name, err)
 	}
 }

@@ -62,7 +62,7 @@ func addGame(t *testing.T, pool *pgxpool.Pool, run int64, date, tournament strin
 				INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b,
 					score_a, score_b, outcome_a, weight, glicko_eligible)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, true)`,
-				run, id, date, tournament, len(seats), a.Name, b.Name, a.Score, b.Score, outcome)
+				run, id, date, tournament, len(seats), playerID(t, pool, a.Name), playerID(t, pool, b.Name), a.Score, b.Score, outcome)
 			if err != nil {
 				t.Fatalf("adding a pair for game %d: %v", id, err)
 			}
@@ -446,11 +446,11 @@ func addHistoryWithRD(t *testing.T, pool *pgxpool.Pool, run int64, model string,
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx, `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
 		VALUES ($1, $2, $3, $4, $5, $6::float8, $7::float8, $6::float8 - 3 * $7::float8)
-		ON CONFLICT (run_id, model_type, player_count, player_name, period_date) DO UPDATE
+		ON CONFLICT (run_id, model_type, player_count, player_id, period_date) DO UPDATE
 		SET rating = EXCLUDED.rating, rd = EXCLUDED.rd, c_rating = EXCLUDED.c_rating`,
-		run, model, format, name, periodDate, rating, rd)
+		run, model, format, playerID(t, pool, name), periodDate, rating, rd)
 	if err != nil {
 		t.Fatalf("inserting rating_history: %v", err)
 	}
@@ -530,7 +530,7 @@ func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 func addYearlyTitle(t *testing.T, pool *pgxpool.Pool, run int64, name string, year int, title string) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		"INSERT INTO player_yearly_titles (run_id, player_name, year, title) VALUES ($1, $2, $3, $4)", run, name, year, title)
+		"INSERT INTO player_yearly_titles (run_id, player_id, year, title) VALUES ($1, $2, $3, $4)", run, playerID(t, pool, name), year, title)
 	if err != nil {
 		t.Fatalf("adding %s's %d title: %v", name, year, err)
 	}
@@ -579,8 +579,8 @@ func TestPlayerCareerGivesEachYearsRecordPeakAndTitle(t *testing.T) {
 func addHistoryRow(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, name, period string, rating, cRating float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO rating_history (run_id, model_type, player_count, player_name, period_date, rating, rd, c_rating)
-		VALUES ($1, $2, $3, $4, $5, $6, 30, $7)`, run, model, format, name, period, rating, cRating)
+		INSERT INTO rating_history (run_id, model_type, player_count, player_id, period_date, rating, rd, c_rating)
+		VALUES ($1, $2, $3, $4, $5, $6, 30, $7)`, run, model, format, playerID(t, pool, name), period, rating, cRating)
 	if err != nil {
 		t.Fatalf("adding %s's history at %s: %v", name, period, err)
 	}

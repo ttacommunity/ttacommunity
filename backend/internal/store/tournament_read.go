@@ -120,11 +120,12 @@ func (r *RatingsReader) TournamentSeries(ctx context.Context, run int64, series 
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT s.player_name, p.player_name IS NOT NULL, s.points, s.games, s.placings, s.season, s.division, s.last_date
+		SELECT n.name, p.player_id IS NOT NULL, s.points, s.games, s.placings, s.season, s.division, s.last_date
 		FROM tournament_season_records s
-		LEFT JOIN player_peak_titles p ON p.run_id = s.run_id AND p.player_name = s.player_name AND p.peak_title = 'WC'
+		JOIN players n ON n.player_id = s.player_id
+		LEFT JOIN player_peak_titles p ON p.run_id = s.run_id AND p.player_id = s.player_id AND p.peak_title = 'WC'
 		WHERE s.run_id = $1 AND s.series = $2
-		ORDER BY s.points DESC, s.placings[1] DESC, s.first_match_id
+		ORDER BY s.points DESC, s.placings[1] DESC, s.first_match_id, n.name
 		LIMIT $3`, run, series, recordsShown)
 	if err != nil {
 		return fail("season records", err)
@@ -190,7 +191,7 @@ func (r *RatingsReader) circuit(ctx context.Context, run int64, slug string) (Ci
 // markWorldChampions sets WorldChampion on each game record whose winner the
 // run holds as a World Champion.
 func (r *RatingsReader) markWorldChampions(ctx context.Context, run int64, games []GameRecord) error {
-	rows, err := r.pool.Query(ctx, "SELECT player_name FROM player_peak_titles WHERE run_id = $1 AND peak_title = 'WC'", run)
+	rows, err := r.pool.Query(ctx, "SELECT p.name FROM player_peak_titles k JOIN players p USING (player_id) WHERE k.run_id = $1 AND k.peak_title = 'WC'", run)
 	if err != nil {
 		return fmt.Errorf("reading run %d's World Champions: %w", run, err)
 	}
@@ -244,11 +245,12 @@ func (r *RatingsReader) maskGameRecords(ctx context.Context, games []GameRecord)
 // if limit is not nil, without players who have a deleted or banned CGE account.
 func (r *RatingsReader) board(ctx context.Context, run int64, series string, limit *int) ([]TrophyRow, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT b.player_name, p.player_name IS NOT NULL, b.title, b.gold, b.silver, b.bronze,
+		SELECT n.name, p.player_id IS NOT NULL, b.title, b.gold, b.silver, b.bronze,
 		       b.details, b.games, b.wins, b.win_rate
 		FROM tournament_boards b
-		LEFT JOIN player_peak_titles p ON p.run_id = b.run_id AND p.player_name = b.player_name AND p.peak_title = 'WC'
-		WHERE b.run_id = $1 AND b.series = $2 AND NOT `+hiddenName("b.player_name")+`
+		JOIN players n ON n.player_id = b.player_id
+		LEFT JOIN player_peak_titles p ON p.run_id = b.run_id AND p.player_id = b.player_id AND p.peak_title = 'WC'
+		WHERE b.run_id = $1 AND b.series = $2 AND NOT `+hiddenName("n.name")+`
 		ORDER BY b.position
 		LIMIT $3`, run, series, limit)
 	if err != nil {
@@ -313,11 +315,12 @@ func (r *RatingsReader) HallOfFame(ctx context.Context, run int64) (HallOfFame, 
 		return fail("counts", err)
 	}
 	rows, err = r.pool.Query(ctx, `
-		SELECT l.player_name, p.player_name IS NOT NULL, l.world_titles, l.international_titles,
+		SELECT n.name, p.player_id IS NOT NULL, l.world_titles, l.international_titles,
 		       l.intermezzo_titles, l.royal_league_titles, l.gold, l.silver, l.bronze
 		FROM tournament_legends l
-		LEFT JOIN player_peak_titles p ON p.run_id = l.run_id AND p.player_name = l.player_name AND p.peak_title = 'WC'
-		WHERE l.run_id = $1 AND NOT `+hiddenName("l.player_name")+`
+		JOIN players n ON n.player_id = l.player_id
+		LEFT JOIN player_peak_titles p ON p.run_id = l.run_id AND p.player_id = l.player_id AND p.peak_title = 'WC'
+		WHERE l.run_id = $1 AND NOT `+hiddenName("n.name")+`
 		ORDER BY l.position`, run)
 	if err != nil {
 		return fail("legends", err)
@@ -375,11 +378,10 @@ type TournamentRecord struct {
 }
 
 // PlayerAchievements returns the stored name, a player's achievement summary
-// (nil without a medal) and their records in a published run. Records match
-// the name ignoring case, as upstream's page does; latest finish first, by
-// byte order, so a career total's label sorts after every date.
+// (nil without a medal) and their records in a published run: latest finish
+// first, by byte order, so a career total's label sorts after every date.
 func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked string) (string, *AchievementSummary, []TournamentRecord, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -389,8 +391,7 @@ func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked
 	var s AchievementSummary
 	err = r.pool.QueryRow(ctx, `
 		SELECT world_titles, international_titles, intermezzo_titles, royal_league_titles, gold, silver, bronze, accolades
-		FROM tournament_achievements WHERE run_id = $1 AND lower(player_name) = lower($2)
-		ORDER BY player_name = $2 DESC LIMIT 1`, run, name).
+		FROM tournament_achievements WHERE run_id = $1 AND player_id = $2`, run, who.ID).
 		Scan(&s.WorldTitles, &s.InternationalTitles, &s.IntermezzoTitles, &s.RoyalLeagueTitles, &s.Gold, &s.Silver, &s.Bronze, &s.Accolades)
 	summary := &s
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -400,8 +401,8 @@ func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT tournament, season, division, placement, points, medal, details, finish_date, career
-		FROM tournament_records WHERE run_id = $1 AND lower(player_name) = lower($2)
-		ORDER BY finish_date COLLATE "C" DESC, position DESC`, run, name)
+		FROM tournament_records WHERE run_id = $1 AND player_id = $2
+		ORDER BY finish_date COLLATE "C" DESC, position DESC`, run, who.ID)
 	if err != nil {
 		return fail("tournament records", err)
 	}
@@ -412,11 +413,11 @@ func (r *RatingsReader) PlayerAchievements(ctx context.Context, run int64, asked
 	if err != nil {
 		return fail("tournament records", err)
 	}
-	return name, summary, recs, nil
+	return who.Name, summary, recs, nil
 }
 
 // CommunityRow is one player in an edition of the community leaderboard, with
-// their country and the run's title when the name is a player here.
+// their country and the run's title.
 type CommunityRow struct {
 	Rank    int
 	Name    string
@@ -428,23 +429,19 @@ type CommunityRow struct {
 }
 
 // CommunityLeaderboard returns an edition of the community leaderboard in a
-// published run, best rank first. A name is matched to a player ignoring
-// case, the exact spelling first. Equal ranks keep the sheet's order.
+// published run, best rank first. Equal ranks keep the sheet's order.
 func (r *RatingsReader) CommunityLeaderboard(ctx context.Context, run int64, edition string) ([]CommunityRow, error) {
 	if err := r.requirePublished(ctx, run); err != nil {
 		return nil, err
 	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT s.rank, s.player_name, m.country_code, t.title, s.points, s.events,
+		SELECT s.rank, p.name, m.country_code, t.title, s.points, s.events,
 		       coalesce((SELECT jsonb_object_agg(c.event, c.score) FROM community_scores c
-		                 WHERE c.edition = s.edition AND c.player_name = s.player_name), '{}')
+		                 WHERE c.edition = s.edition AND c.player_id = s.player_id), '{}')
 		FROM community_standings s
-		LEFT JOIN LATERAL (
-		    SELECT player_id, name FROM players WHERE lower(name) = lower(s.player_name)
-		    ORDER BY name = s.player_name DESC, name LIMIT 1
-		) p ON true
+		JOIN players p ON p.player_id = s.player_id
 		LEFT JOIN members m ON m.player_id = p.player_id
-		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = p.name
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
 		WHERE s.edition = $2
 		  AND `+notHiddenPlayer+`
 		ORDER BY s.rank, s.points DESC, s.sheet_row`, run, edition)

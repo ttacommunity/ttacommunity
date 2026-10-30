@@ -21,7 +21,7 @@ type Rival struct {
 // 200 opponents they met most in a format (0 is all), most games first, then
 // most wins. Opponents with a deleted or banned CGE account are left out.
 func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked string, format int) (string, []Rival, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, err
 	}
@@ -32,13 +32,14 @@ func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked strin
 			UNION ALL
 			SELECT player_a, 1 - outcome_a FROM pairwise_matches
 			WHERE run_id = $1 AND player_b = $2 AND ($3 = 0 OR player_count = $3))
-		SELECT opponent, count(*), count(*) FILTER (WHERE outcome = 1),
-			count(*) FILTER (WHERE outcome = 0), count(*) FILTER (WHERE outcome = 0.5)
-		FROM mine
-		GROUP BY opponent
-		HAVING NOT `+hiddenName("opponent")+`
-		ORDER BY 2 DESC, 3 DESC, opponent
-		LIMIT 200`, run, name, format)
+		SELECT o.name, g.games, g.wins, g.losses, g.draws
+		FROM (SELECT opponent, count(*) AS games, count(*) FILTER (WHERE outcome = 1) AS wins,
+				count(*) FILTER (WHERE outcome = 0) AS losses, count(*) FILTER (WHERE outcome = 0.5) AS draws
+			FROM mine GROUP BY opponent) g
+		JOIN players o ON o.player_id = g.opponent
+		WHERE NOT `+hiddenName("o.name")+`
+		ORDER BY g.games DESC, g.wins DESC, o.name
+		LIMIT 200`, run, who.ID, format)
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's rivals in run %d: %w", run, err)
 	}
@@ -50,7 +51,7 @@ func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked strin
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's rivals in run %d: %w", run, err)
 	}
-	return name, rivals, nil
+	return who.Name, rivals, nil
 }
 
 // sharedGames is how many of two players' shared games Versus returns.
@@ -85,19 +86,19 @@ type CareerPeak struct {
 // format (all formats when the format has none), and their peak in model, or
 // nil without history there.
 func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked string, format int, model string) (string, []CareerYear, *CareerPeak, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	years, err := r.careerYears(ctx, run, name, format)
+	years, err := r.careerYears(ctx, run, who.ID, format)
 	if err == nil && len(years) == 0 && format != 0 {
-		years, err = r.careerYears(ctx, run, name, 0)
+		years, err = r.careerYears(ctx, run, who.ID, 0)
 	}
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	yearPeak, yearEnd, peak, err := r.modelPeaks(ctx, run, name, format, model)
+	yearPeak, yearEnd, peak, err := r.modelPeaks(ctx, run, who.ID, format, model)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -117,18 +118,18 @@ func (r *RatingsReader) PlayerCareer(ctx context.Context, run int64, asked strin
 		years[i].CareerLosses = prev.CareerLosses + years[i].Losses
 		years[i].CareerDraws = prev.CareerDraws + years[i].Draws
 	}
-	return name, years, peak, nil
+	return who.Name, years, peak, nil
 }
 
 // modelPeaks reads a player's history in one model and format, all to 0.1:
 // each year's highest and last rating, and the career peak (the first period
 // with the highest), ranked by conservative rating among that period's
 // ratings. The peak is nil without history.
-func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, name string, format int, model string) (map[int]float64, map[int]float64, *CareerPeak, error) {
+func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, player int64, format int, model string) (map[int]float64, map[int]float64, *CareerPeak, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT period_date, rating, c_rating FROM rating_history
-		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = $4
-		ORDER BY period_date`, run, model, format, name)
+		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_id = $4
+		ORDER BY period_date`, run, model, format, player)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading a player's history in run %d: %w", run, err)
 	}
@@ -166,7 +167,7 @@ func (r *RatingsReader) modelPeaks(ctx context.Context, run int64, name string, 
 	return yearPeak, yearEnd, peak, nil
 }
 
-func (r *RatingsReader) careerYears(ctx context.Context, run int64, name string, format int) ([]CareerYear, error) {
+func (r *RatingsReader) careerYears(ctx context.Context, run int64, player int64, format int) ([]CareerYear, error) {
 	rows, err := r.pool.Query(ctx, `
 		WITH mine AS (
 			SELECT date, outcome_a AS outcome FROM pairwise_matches
@@ -180,8 +181,8 @@ func (r *RatingsReader) careerYears(ctx context.Context, run int64, name string,
 				count(*) FILTER (WHERE outcome = 1) AS wins, count(*) FILTER (WHERE outcome = 0) AS losses,
 				count(*) FILTER (WHERE outcome = 0.5) AS draws
 			FROM mine GROUP BY 1) y
-		LEFT JOIN player_yearly_titles t ON t.run_id = $1 AND t.player_name = $2 AND t.year = y.year
-		ORDER BY y.year`, run, name, format)
+		LEFT JOIN player_yearly_titles t ON t.run_id = $1 AND t.player_id = $2 AND t.year = y.year
+		ORDER BY y.year`, run, player, format)
 	if err != nil {
 		return nil, fmt.Errorf("reading a player's years in run %d: %w", run, err)
 	}
@@ -213,7 +214,7 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 			UNION
 			SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared
 		ORDER BY date DESC, match_id DESC
-		LIMIT $4`, run, a, b, sharedGames)
+		LIMIT $4`, run, a.ID, b.ID, sharedGames)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
@@ -224,7 +225,7 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 	if err := r.maskMatchSeats(ctx, games); err != nil {
 		return "", "", nil, err
 	}
-	return a, b, games, nil
+	return a.Name, b.Name, games, nil
 }
 
 // PlayerMatrix returns the stored name and the player's rating in each page
@@ -233,7 +234,7 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 // ranked by conservative rating that period. A model the player has no
 // rating in, or no row in on that period, is left out.
 func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked string, format int, year *int) (string, []MatrixCell, error) {
-	name, err := r.resolve(ctx, run, asked)
+	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, err
 	}
@@ -241,8 +242,8 @@ func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked strin
 	if year == nil {
 		rows, err = r.pool.Query(ctx, `
 			SELECT model_type, rating, rd, c_rating, rank FROM player_ratings
-			WHERE run_id = $1 AND player_name = $2 AND player_count = $3 AND model_type = ANY($4)
-			ORDER BY model_type`, run, name, format, PlayerPageModels)
+			WHERE run_id = $1 AND player_id = $2 AND player_count = $3 AND model_type = ANY($4)
+			ORDER BY model_type`, run, who.ID, format, PlayerPageModels)
 	} else {
 		rows, err = r.pool.Query(ctx, `
 			WITH last AS (
@@ -255,8 +256,8 @@ func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked strin
 				 WHERE o.run_id = $1 AND o.model_type = h.model_type AND o.player_count = $3
 					AND o.period_date = h.period_date AND o.c_rating > h.c_rating)::int
 			FROM rating_history h JOIN last USING (model_type, period_date)
-			WHERE h.run_id = $1 AND h.player_name = $2 AND h.player_count = $3
-			ORDER BY h.model_type`, run, name, format, PlayerPageModels, *year)
+			WHERE h.run_id = $1 AND h.player_id = $2 AND h.player_count = $3
+			ORDER BY h.model_type`, run, who.ID, format, PlayerPageModels, *year)
 	}
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's matrix in run %d: %w", run, err)
@@ -270,5 +271,5 @@ func (r *RatingsReader) PlayerMatrix(ctx context.Context, run int64, asked strin
 	if err != nil {
 		return "", nil, fmt.Errorf("reading a player's matrix in run %d: %w", run, err)
 	}
-	return name, cells, nil
+	return who.Name, cells, nil
 }

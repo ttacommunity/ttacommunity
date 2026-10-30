@@ -20,6 +20,7 @@ func groupedSeries(t *testing.T) *AdminStore {
 		"Intermezzo S24 - Bronze 1 game 1":       day("2024-09-16"),
 		"NL_s10":                                 day("2024-09-17"),
 	})
+	addPlayers(t, pool, "Player One")
 	return NewAdminStore(asAdminLogin(t, pool))
 }
 

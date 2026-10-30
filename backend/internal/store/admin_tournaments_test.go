@@ -144,8 +144,9 @@ func TestAdminTournamentsSuggestASeasonsPodium(t *testing.T) {
 			t.Fatalf("%s: %v", q, err)
 		}
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_name, place, reason, source)
-		VALUES ('worlds', 2026, 'Final', 'fay', 1, 'test', 'test'), ('worlds', 2026, 'Final', 'eve', 2, 'test', 'test')`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tournament_official_placements (series, season, division, player_id, place, reason, source)
+		VALUES ('worlds', 2026, 'Final', $1, 1, 'test', 'test'), ('worlds', 2026, 'Final', $2, 2, 'test', 'test')`,
+		playerID(t, pool, "fay"), playerID(t, pool, "eve")); err != nil {
 		t.Fatal(err)
 	}
 	a := NewAdminStore(asAdminLogin(t, pool))

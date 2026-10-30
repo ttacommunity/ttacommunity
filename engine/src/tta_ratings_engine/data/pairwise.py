@@ -8,9 +8,6 @@ PAIR_COLUMNS = (
     "player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible"
 )
 
-# The player the load job gives a seat CGE holds no account for: nobody, so no pair is rated with it.
-UNKNOWN_PLAYER = "Unknown player"
-
 
 def expand_pairwise(conn: DictConnection, run_id: int) -> int:
     """Rebuilds the run's pairwise_matches from the played matches of its ranking's tournaments, in rated seasons
@@ -31,7 +28,7 @@ def _expand(conn, run_id):
     rows = conn.execute(
         """
         SELECT m.game_id AS match_id, m.name AS tournament, m.date, m.finished_at, m.glicko_eligible,
-               m.players, m.places, m.cultures, m.outcomes
+               m.player_ids, m.places, m.cultures, m.outcomes
         FROM game_lines m
         JOIN tournaments s ON s.tournament_id = m.tournament_id
         JOIN series t ON t.series_id = m.series_id
@@ -46,9 +43,9 @@ def _expand(conn, run_id):
 
     pairwise_to_insert = []
     for row in rows:
-        p_count = len(row["players"])
+        p_count = len(row["player_ids"])
         for pa, pb, sa, sb, out_a, weight in pairs_of(
-            row["players"], row["places"], row["cultures"], row["outcomes"]
+            row["player_ids"], row["places"], row["cultures"], row["outcomes"]
         ):
             pairwise_to_insert.append(
                 (
@@ -82,14 +79,11 @@ def _expand(conn, run_id):
 def pairs_of(players, places, cultures, outcomes=None):
     """Returns a game's pairs, one for each two seats in seat order, as (player_a, player_b, culture_a, culture_b,
     outcome_a, weight): the better place wins (1.0), a shared place draws (0.5), each weighted 1/(N-1).
-    A pair between two players who both timed out is omitted, and a seat held by nobody (UNKNOWN_PLAYER) is
-    neither paired nor counted.
+    A pair between two players who both timed out is omitted.
     """
     if outcomes is None:
         outcomes = [None] * len(players)
-    seats = [
-        s for s in zip(players, places, cultures, outcomes) if s[0] != UNKNOWN_PLAYER
-    ]
+    seats = list(zip(players, places, cultures, outcomes))
     if len(seats) < 2:
         return []
     weight = 1.0 / float(len(seats) - 1)

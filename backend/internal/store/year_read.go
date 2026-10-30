@@ -81,10 +81,10 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 	b.Snapshot = *snapshot
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT y.player_name, false FROM player_yearly_titles y
+		SELECT p.name, false FROM player_yearly_titles y JOIN players p USING (player_id)
 		WHERE y.run_id = $1 AND y.year = $2 AND y.title = 'WC'
 		UNION ALL
-		SELECT t.player_name, true FROM player_titles t
+		SELECT p.name, true FROM player_titles t JOIN players p USING (player_id)
 		WHERE t.run_id = $1 AND t.title = 'WC'
 			AND $2 = (SELECT extract(year FROM max(date))::int FROM pairwise_matches WHERE run_id = $1)
 		ORDER BY 2, 1`, run, year)
@@ -109,33 +109,33 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 
 	rows, err = r.pool.Query(ctx, `
 		WITH rec AS (
-			SELECT player_name AS name,
+			SELECT player_id,
 				sum(opponents) FILTER (WHERE year = $5) AS s_opps, sum(wins) FILTER (WHERE year = $5) AS s_wins,
 				sum(losses) FILTER (WHERE year = $5) AS s_losses, sum(draws) FILTER (WHERE year = $5) AS s_draws,
 				max(last_played) FILTER (WHERE year = $5) AS last_played,
 				sum(opponents) AS c_opps, sum(wins) AS c_wins, sum(losses) AS c_losses, sum(draws) AS c_draws
 			FROM player_year_records
 			WHERE run_id = $1 AND ($3 = 0 OR player_count = $3) AND year <= $5
-			GROUP BY player_name)
-		SELECT h.player_name, h.rating, h.rd, h.c_rating, m.country_code, t.title, t.title_count, t.badge_reason,
+			GROUP BY player_id)
+		SELECT p.name, h.rating, h.rd, h.c_rating, m.country_code, t.title, t.title_count, t.badge_reason,
 			k.peak_title, k.peak_year,
 			coalesce(rec.s_opps, 0), coalesce(rec.s_wins, 0), coalesce(rec.s_losses, 0), coalesce(rec.s_draws, 0),
 			rec.last_played,
 			coalesce(rec.c_opps, 0), coalesce(rec.c_wins, 0), coalesce(rec.c_losses, 0), coalesce(rec.c_draws, 0),
 			prev.rating, prev.rd, prev.c_rating
-		FROM (SELECT DISTINCT ON (player_name) * FROM rating_history
+		FROM (SELECT DISTINCT ON (player_id) * FROM rating_history
 			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4 AND extract(year FROM period_date) = $5
-			ORDER BY player_name, period_date DESC) h
-		LEFT JOIN players p ON p.name = h.player_name
+			ORDER BY player_id, period_date DESC) h
+		JOIN players p ON p.player_id = h.player_id
 		LEFT JOIN members m ON m.player_id = p.player_id
-		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_name = h.player_name
-		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_name = h.player_name
-		LEFT JOIN rec ON rec.name = h.player_name
+		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = h.player_id
+		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_id = h.player_id
+		LEFT JOIN rec ON rec.player_id = h.player_id
 		LEFT JOIN LATERAL (SELECT rating, rd, c_rating FROM rating_history
-			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_name = h.player_name AND period_date <= $6
+			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND player_id = h.player_id AND period_date <= $6
 			ORDER BY period_date DESC LIMIT 1) prev ON true
 		WHERE `+notHiddenPlayer+`
-		ORDER BY h.c_rating DESC, h.player_name`, run, model, format, b.Snapshot, year, b.Previous)
+		ORDER BY h.c_rating DESC, p.name`, run, model, format, b.Snapshot, year, b.Previous)
 	if err != nil {
 		return YearBoard{}, fmt.Errorf("reading run %d's %d board: %w", run, year, err)
 	}

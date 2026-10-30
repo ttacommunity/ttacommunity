@@ -27,11 +27,21 @@ type FactsReplaced struct {
 // replaceAll empties table and runs insert with args in one transaction,
 // returning how many rows the insert wrote.
 func replaceAll(ctx context.Context, pool *pgxpool.Pool, table, insert string, args ...any) (int, error) {
+	return replaceChecked(ctx, pool, table, nil, insert, args...)
+}
+
+// replaceChecked is replaceAll, first running check (when not nil) in the transaction: its error writes nothing.
+func replaceChecked(ctx context.Context, pool *pgxpool.Pool, table string, check func(pgx.Tx) error, insert string, args ...any) (int, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("starting the %s load: %w", table, err)
 	}
 	defer tx.Rollback(ctx)
+	if check != nil {
+		if err := check(tx); err != nil {
+			return 0, err
+		}
+	}
 	if _, err := tx.Exec(ctx, "DELETE FROM "+pgx.Identifier{table}.Sanitize()); err != nil {
 		return 0, fmt.Errorf("clearing %s: %w", table, err)
 	}
@@ -55,8 +65,8 @@ func ReplaceDivisions(ctx context.Context, pool *pgxpool.Pool, divs []tournament
 		players, sources = append(players, d.Player), append(sources, d.Source)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_group_divisions", `
-		INSERT INTO tournament_group_divisions (series, season, division, player_name, source)
-		SELECT d.series, d.season, d.division, p.name, d.source
+		INSERT INTO tournament_group_divisions (series, season, division, player_id, source)
+		SELECT d.series, d.season, d.division, p.player_id, d.source
 		FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::text[])
 		     AS d(series, season, division, player, source)
 		JOIN players p ON p.name = d.player`,
@@ -76,8 +86,8 @@ func ReplacePlacements(ctx context.Context, pool *pgxpool.Pool, places []tournam
 		reasons, sources = append(reasons, p.Reason), append(sources, p.Source)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_official_placements", `
-		INSERT INTO tournament_official_placements (series, season, division, player_name, place, points, reason, source)
-		SELECT o.series, o.season, o.division, p.name, o.place, o.points, o.reason, o.source
+		INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, reason, source)
+		SELECT o.series, o.season, o.division, p.player_id, o.place, o.points, o.reason, o.source
 		FROM unnest($1::text[], $2::int[], $3::text[], $4::text[], $5::int[], $6::float8[], $7::text[], $8::text[])
 		     AS o(series, season, division, player, place, points, reason, source)
 		JOIN players p ON p.name = o.player`,
@@ -160,8 +170,8 @@ func ReplacePodiums(ctx context.Context, pool *pgxpool.Pool, podiums []tournamen
 		players, sources, finished = append(players, p.Player), append(sources, p.Source), append(finished, p.Finished)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_cup_podiums", `
-		INSERT INTO tournament_cup_podiums (cup, season, final, place, player_name, source, finished)
-		SELECT x.cup, x.season, x.final, x.place, p.name, x.source, x.finished
+		INSERT INTO tournament_cup_podiums (cup, season, final, place, player_id, source, finished)
+		SELECT x.cup, x.season, x.final, x.place, p.player_id, x.source, x.finished
 		FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::text[], $6::text[], $7::date[])
 		     AS x(cup, season, final, place, player, source, finished)
 		JOIN players p ON p.name = x.player`,
@@ -193,8 +203,8 @@ func ReplaceLadderWins(ctx context.Context, pool *pgxpool.Pool, wins []tournamen
 		ladders, players, counts, sources = append(ladders, w.Ladder), append(players, w.Player), append(counts, w.Wins), append(sources, w.Source)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_ladder_wins", `
-		INSERT INTO tournament_ladder_wins (ladder, player_name, wins, source)
-		SELECT x.ladder, p.name, x.wins, x.source
+		INSERT INTO tournament_ladder_wins (ladder, player_id, wins, source)
+		SELECT x.ladder, p.player_id, x.wins, x.source
 		FROM unnest($1::text[], $2::text[], $3::numeric[], $4::text[]) AS x(ladder, player, wins, source)
 		JOIN players p ON p.name = x.player
 		JOIN series t ON t.slug = x.ladder AND t.kind = 'ladder'`,
@@ -342,8 +352,8 @@ func ReplaceHonours(ctx context.Context, pool *pgxpool.Pool, honours []tournamen
 		points = append(points, h.Points)
 	}
 	n, err := replaceAll(ctx, pool, "tournament_career_honours", `
-		INSERT INTO tournament_career_honours (series, player_name, gold, silver, bronze, points, source)
-		SELECT h.series, p.name, h.gold, h.silver, h.bronze, h.points, h.source
+		INSERT INTO tournament_career_honours (series, player_id, gold, silver, bronze, points, source)
+		SELECT h.series, p.player_id, h.gold, h.silver, h.bronze, h.points, h.source
 		FROM unnest($1::text[], $2::text[], $3::int[], $4::int[], $5::int[], $6::text[], $7::text[])
 		     AS h(series, player, gold, silver, bronze, points, source)
 		JOIN players p ON p.name = h.player`,
@@ -352,7 +362,8 @@ func ReplaceHonours(ctx context.Context, pool *pgxpool.Pool, honours []tournamen
 }
 
 // ReplaceCommunityStandings replaces every community leaderboard standing, in
-// one transaction. Names are kept as written, players or not.
+// one transaction. Each sheet name is the player whose name it is, ignoring case: a name that is no player's
+// (ErrNoPlayer), or more than one's (ErrAmbiguousName), refuses the load.
 func ReplaceCommunityStandings(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.Standing) (FactsReplaced, error) {
 	var editions, players, sources []string
 	var sheetRows, ranks, events []int32
@@ -362,15 +373,19 @@ func ReplaceCommunityStandings(ctx context.Context, pool *pgxpool.Pool, rows []t
 		players, points, events = append(players, r.Player), append(points, r.Points), append(events, int32(r.Events))
 		sources = append(sources, r.Source)
 	}
-	n, err := replaceAll(ctx, pool, "community_standings", `
-		INSERT INTO community_standings (edition, sheet_row, rank, player_name, points, events, source)
-		SELECT * FROM unnest($1::text[], $2::int[], $3::int[], $4::text[], $5::float8[], $6::int[], $7::text[])`,
+	n, err := replaceChecked(ctx, pool, "community_standings", onePlayerEach(ctx, "community standings", players), `
+		INSERT INTO community_standings (edition, sheet_row, rank, player_id, points, events, source)
+		SELECT x.edition, x.sheet_row, x.rank, p.player_id, x.points, x.events, x.source
+		FROM unnest($1::text[], $2::int[], $3::int[], $4::text[], $5::float8[], $6::int[], $7::text[])
+		     AS x(edition, sheet_row, rank, player, points, events, source)
+		JOIN players p ON lower(p.name) = lower(x.player)`,
 		editions, sheetRows, ranks, players, points, events, sources)
 	return FactsReplaced{Written: n}, err
 }
 
 // ReplaceCommunityScores replaces every community leaderboard event score, in
-// one transaction. Names are kept as written, players or not.
+// one transaction. Each sheet name is the player whose name it is, ignoring case: a name that is no player's
+// (ErrNoPlayer), or more than one's (ErrAmbiguousName), refuses the load.
 func ReplaceCommunityScores(ctx context.Context, pool *pgxpool.Pool, rows []tournamentcsv.Score) (FactsReplaced, error) {
 	var editions, players, events, sources []string
 	var scores []float64
@@ -378,11 +393,35 @@ func ReplaceCommunityScores(ctx context.Context, pool *pgxpool.Pool, rows []tour
 		editions, players, events = append(editions, r.Edition), append(players, r.Player), append(events, r.Event)
 		scores, sources = append(scores, r.Score), append(sources, r.Source)
 	}
-	n, err := replaceAll(ctx, pool, "community_scores", `
-		INSERT INTO community_scores (edition, player_name, event, score, source)
-		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::float8[], $5::text[])`,
+	n, err := replaceChecked(ctx, pool, "community_scores", onePlayerEach(ctx, "community scores", players), `
+		INSERT INTO community_scores (edition, player_id, event, score, source)
+		SELECT x.edition, p.player_id, x.event, x.score, x.source
+		FROM unnest($1::text[], $2::text[], $3::text[], $4::float8[], $5::text[]) AS x(edition, player, event, score, source)
+		JOIN players p ON lower(p.name) = lower(x.player)`,
 		editions, players, events, scores, sources)
 	return FactsReplaced{Written: n}, err
+}
+
+// onePlayerEach returns a check that refuses a load of what unless each of names, its rows' players, is exactly one
+// player's name ignoring case: ErrNoPlayer for a name no player has, ErrAmbiguousName for one several have.
+func onePlayerEach(ctx context.Context, what string, names []string) func(pgx.Tx) error {
+	return func(tx pgx.Tx) error {
+		var unknown, ambiguous int
+		err := tx.QueryRow(ctx, `
+			SELECT count(*) FILTER (WHERE m.players = 0), count(*) FILTER (WHERE m.players > 1)
+			FROM unnest($1::text[]) n
+			CROSS JOIN LATERAL (SELECT count(*) AS players FROM players p WHERE lower(p.name) = lower(n)) m`,
+			names).Scan(&unknown, &ambiguous)
+		switch {
+		case err != nil:
+			return fmt.Errorf("checking the %s' players: %w", what, err)
+		case unknown > 0:
+			return fmt.Errorf("loading %s: %d of %d rows name no player: %w", what, unknown, len(names), ErrNoPlayer)
+		case ambiguous > 0:
+			return fmt.Errorf("loading %s: %d of %d rows name more than one player: %w", what, ambiguous, len(names), ErrAmbiguousName)
+		}
+		return nil
+	}
 }
 
 // ReplaceCommunityPoints replaces every community points table, in one

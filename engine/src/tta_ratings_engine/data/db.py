@@ -64,11 +64,11 @@ def load_pairs(conn, run_id, player_count):
 
 
 RATING_COLUMNS = (
-    "model_type, player_count, player_name, rating, rd, sigma, c_rating, rank, rank_delta, "
+    "model_type, player_count, player_id, rating, rd, sigma, c_rating, rank, rank_delta, "
     "games_played, opponents_count, wins, losses, draws, win_rate, last_played"
 )
 HISTORY_COLUMNS = (
-    "model_type, player_count, player_name, period_date, rating, rd, c_rating"
+    "model_type, player_count, player_id, period_date, rating, rd, c_rating"
 )
 
 

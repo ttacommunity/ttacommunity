@@ -122,12 +122,12 @@ func (a *AdminStore) RunChanges(ctx context.Context, run, before int64) (RunChan
 	}
 	var c RunChanges
 	err := a.pool.QueryRow(ctx, `
-		WITH a AS (SELECT player_count, player_name, c_rating FROM player_ratings WHERE run_id = $1 AND model_type = $3),
-		     b AS (SELECT player_count, player_name, c_rating FROM player_ratings WHERE run_id = $2 AND model_type = $3),
-		     d AS (SELECT abs(a.c_rating - b.c_rating) AS m FROM a JOIN b USING (player_count, player_name))
+		WITH a AS (SELECT player_count, player_id, c_rating FROM player_ratings WHERE run_id = $1 AND model_type = $3),
+		     b AS (SELECT player_count, player_id, c_rating FROM player_ratings WHERE run_id = $2 AND model_type = $3),
+		     d AS (SELECT abs(a.c_rating - b.c_rating) AS m FROM a JOIN b USING (player_count, player_id))
 		SELECT (SELECT count(*) FROM a), (SELECT count(*) FROM b),
-		       (SELECT count(*) FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.player_count = a.player_count AND b.player_name = a.player_name)),
-		       (SELECT count(*) FROM b WHERE NOT EXISTS (SELECT 1 FROM a WHERE a.player_count = b.player_count AND a.player_name = b.player_name)),
+		       (SELECT count(*) FROM a WHERE NOT EXISTS (SELECT 1 FROM b WHERE b.player_count = a.player_count AND b.player_id = a.player_id)),
+		       (SELECT count(*) FROM b WHERE NOT EXISTS (SELECT 1 FROM a WHERE a.player_count = b.player_count AND a.player_id = b.player_id)),
 		       count(*) FILTER (WHERE m > 1), count(*) FILTER (WHERE m > 10),
 		       count(*) FILTER (WHERE m > 50), count(*) FILTER (WHERE m > 100)
 		FROM d`, run, before, changesModel).Scan(&c.Ratings, &c.RatingsBefore, &c.New, &c.Gone, &c.Moved1, &c.Moved10, &c.Moved50, &c.Moved100)
@@ -135,10 +135,10 @@ func (a *AdminStore) RunChanges(ctx context.Context, run, before int64) (RunChan
 		return RunChanges{}, fmt.Errorf("comparing runs %d and %d: %w", run, before, err)
 	}
 	rows, err := a.pool.Query(ctx, `
-		SELECT a.player_name, b.c_rating, a.c_rating, a.c_rating - b.c_rating
-		FROM player_ratings a JOIN player_ratings b USING (model_type, player_count, player_name)
+		SELECT p.name, b.c_rating, a.c_rating, a.c_rating - b.c_rating
+		FROM player_ratings a JOIN player_ratings b USING (model_type, player_count, player_id) JOIN players p USING (player_id)
 		WHERE a.run_id = $1 AND b.run_id = $2 AND a.model_type = $3 AND a.player_count = 0 AND a.c_rating <> b.c_rating
-		ORDER BY abs(a.c_rating - b.c_rating) DESC, a.player_name LIMIT 20`, run, before, changesModel)
+		ORDER BY abs(a.c_rating - b.c_rating) DESC, p.name LIMIT 20`, run, before, changesModel)
 	if err != nil {
 		return RunChanges{}, fmt.Errorf("comparing runs %d and %d: %w", run, before, err)
 	}

@@ -113,8 +113,11 @@ def record(conn):
     def add(season, division, *players):
         for p in players:
             conn.execute(
-                "INSERT INTO tournament_group_divisions "
-                "VALUES ('international', %s, %s, %s, 'sheet')",
+                "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING", (p,)
+            )
+            conn.execute(
+                "INSERT INTO tournament_group_divisions (series, season, division, player_id, source) "
+                "SELECT 'international', %s, %s, player_id, 'sheet' FROM players WHERE name = %s",
                 (season, division, p),
             )
         conn.commit()
@@ -124,11 +127,11 @@ def record(conn):
 
 def standings(conn, run_id, season):
     rows = conn.execute(
-        "SELECT player_name, place, points FROM tournament_standings "
+        "SELECT name AS player, place, points FROM tournament_standings JOIN players USING (player_id) "
         "WHERE run_id = %s AND season = %s ORDER BY group_label, place",
         (run_id, season),
     ).fetchall()
-    return [(r["player_name"], r["place"], r["points"]) for r in rows]
+    return [(r["player"], r["place"], r["points"]) for r in rows]
 
 
 def seats(*rows):
@@ -220,7 +223,7 @@ def seats(*rows):
 def test_rank_group_breaks_ties_by_the_series_rules(series, games, want):
     got = rank_group(games, SERIES[series])
 
-    assert [(r["player_name"], r["place"], r["points"]) for r in got] == want
+    assert [(r["player"], r["place"], r["points"]) for r in got] == want
 
 
 def test_a_final_tie_the_rules_cannot_split_gives_no_podium():
@@ -379,12 +382,12 @@ def test_placements_of_a_series_the_engine_does_not_derive_are_left_alone(
 
 def board(conn, run_id):
     rows = conn.execute(
-        "SELECT player_name, gold, silver, bronze, points, title "
-        "FROM tournament_boards WHERE run_id = %s AND series = 'international' "
-        "ORDER BY player_name",
+        "SELECT name AS player, gold, silver, bronze, points, title "
+        "FROM tournament_boards JOIN players USING (player_id) WHERE run_id = %s AND series = 'international' "
+        "ORDER BY name",
         (run_id,),
     ).fetchall()
-    return {r["player_name"]: tuple(list(r.values())[1:]) for r in rows}
+    return {r["player"]: tuple(list(r.values())[1:]) for r in rows}
 
 
 def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
@@ -416,8 +419,8 @@ def test_the_board_counts_top_division_podiums(conn, add_match, run_id, place):
 
 def season_records(conn, run_id):
     rows = conn.execute(
-        "SELECT player_name, season, points, games, placings, last_date "
-        "FROM tournament_season_records WHERE run_id = %s ORDER BY player_name",
+        "SELECT name AS player, season, points, games, placings, last_date "
+        "FROM tournament_season_records JOIN players USING (player_id) WHERE run_id = %s ORDER BY name",
         (run_id,),
     ).fetchall()
     return [tuple(r.values()) for r in rows]
@@ -536,11 +539,11 @@ def games(conn, run_id):
 
 def boards(conn, run_id, series):
     rows = conn.execute(
-        "SELECT player_name, gold, silver, bronze, points, first_season "
-        "FROM tournament_boards WHERE run_id = %s AND series = %s ORDER BY player_name",
+        "SELECT name AS player, gold, silver, bronze, points, first_season "
+        "FROM tournament_boards JOIN players USING (player_id) WHERE run_id = %s AND series = %s ORDER BY name",
         (run_id, series),
     ).fetchall()
-    return {r["player_name"]: tuple(list(r.values())[1:]) for r in rows}
+    return {r["player"]: tuple(list(r.values())[1:]) for r in rows}
 
 
 def im(n, season=8, group="Grandmaster"):
@@ -730,11 +733,11 @@ def test_derive_writes_every_series_counts(conn, add_match, run_id):
 
 def positions(conn, run_id, series):
     rows = conn.execute(
-        "SELECT player_name, position, title FROM tournament_boards "
+        "SELECT name AS player, position, title FROM tournament_boards JOIN players USING (player_id) "
         "WHERE run_id = %s AND series = %s ORDER BY position",
         (run_id, series),
     ).fetchall()
-    return [(r["player_name"], r["position"], r["title"]) for r in rows]
+    return [(r["player"], r["position"], r["title"]) for r in rows]
 
 
 def test_boards_are_numbered_in_upstream_order(conn, add_match, run_id, place):
@@ -787,8 +790,8 @@ def test_derive_writes_the_all_time_table(conn, add_match, run_id, place):
     derive_tournaments(conn=conn, run_id=run_id)
 
     rows = conn.execute(
-        "SELECT position, player_name, world_titles, international_titles, gold, silver, bronze "
-        "FROM tournament_legends WHERE run_id = %s ORDER BY position",
+        "SELECT position, name AS player, world_titles, international_titles, gold, silver, bronze "
+        "FROM tournament_legends JOIN players USING (player_id) WHERE run_id = %s ORDER BY position",
         (run_id,),
     ).fetchall()
     # ann: World title and an International silver; bob: an International title.
@@ -894,7 +897,7 @@ def test_a_game_never_played_gives_no_points_place_or_game(conn, add_match, run_
     derive_tournaments(conn=conn, run_id=run_id)
 
     rows = conn.execute(
-        "SELECT player_name, place, points, games FROM tournament_standings WHERE run_id = %s ORDER BY place",
+        "SELECT name AS player, place, points, games FROM tournament_standings JOIN players USING (player_id) WHERE run_id = %s ORDER BY place",
         (run_id,),
     ).fetchall()
     # International's 3-player points are 5-2-0; the never-played game adds no points, place or game.
@@ -939,18 +942,18 @@ def worlds_game(conn, add_match, move_last_game):
 
 def worlds_podium(conn, run_id, season):
     rows = conn.execute(
-        "SELECT player_name, place, points FROM tournament_standings "
+        "SELECT name AS player, place, points FROM tournament_standings JOIN players USING (player_id) "
         "WHERE run_id = %s AND series = 'worlds' AND season = %s AND division = 'Final' ORDER BY place",
         (run_id, season),
     ).fetchall()
-    return [(r["player_name"], r["place"], r["points"]) for r in rows]
+    return [(r["player"], r["place"], r["points"]) for r in rows]
 
 
 def world_titles(conn, run_id):
     return {
-        r["player_name"]: r["world_titles"]
+        r["player"]: r["world_titles"]
         for r in conn.execute(
-            "SELECT player_name, world_titles FROM tournament_achievements WHERE run_id = %s AND world_titles > 0",
+            "SELECT name AS player, world_titles FROM tournament_achievements JOIN players USING (player_id) WHERE run_id = %s AND world_titles > 0",
             (run_id,),
         ).fetchall()
     }
@@ -1017,7 +1020,8 @@ def test_an_admin_podium_beats_a_recorded_one(conn, worlds_game, run_id, place):
     place("worlds", 2025, "Final", "dan", "ann", "cat")
     for p, name in enumerate(("ann", "dan", "bob"), start=1):
         conn.execute(
-            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', '2025', %s, %s)",
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_id) "
+            "SELECT 'worlds', '2025', %s, player_id FROM players WHERE name = %s",
             (p, name),
         )
     conn.commit()
@@ -1161,7 +1165,7 @@ def test_a_players_records_are_stored_together(conn, add_match, run_id):
     stored = [
         r["p"]
         for r in conn.execute(
-            "SELECT lower(player_name) AS p FROM tournament_records WHERE run_id = %s ORDER BY ctid",
+            "SELECT lower(p.name) AS p FROM tournament_records r JOIN players p USING (player_id) WHERE r.run_id = %s ORDER BY r.ctid",
             (run_id,),
         ).fetchall()
     ]
@@ -1172,16 +1176,16 @@ def test_a_players_records_are_stored_together(conn, add_match, run_id):
 def medals_and_records(conn, run_id):
     """The run's international board medals and its top-division season records, by player."""
     board_medals = {
-        r["player_name"]: (r["gold"], r["silver"], r["bronze"])
+        r["player"]: (r["gold"], r["silver"], r["bronze"])
         for r in conn.execute(
-            "SELECT player_name, gold, silver, bronze FROM tournament_boards WHERE run_id = %s AND series = 'international'",
+            "SELECT name AS player, gold, silver, bronze FROM tournament_boards JOIN players USING (player_id) WHERE run_id = %s AND series = 'international'",
             (run_id,),
         ).fetchall()
     }
     record_medals = {
-        r["player_name"]: r["medal"]
+        r["player"]: r["medal"]
         for r in conn.execute(
-            "SELECT player_name, medal FROM tournament_records WHERE run_id = %s AND NOT career "
+            "SELECT name AS player, medal FROM tournament_records JOIN players USING (player_id) WHERE run_id = %s AND NOT career "
             "AND tournament = 'International Championship' AND medal IS NOT NULL",
             (run_id,),
         ).fetchall()
@@ -1335,7 +1339,8 @@ def test_the_world_championships_podium_source_decides_its_podium(
 def admin_podium(conn, season, *places):
     for place, name in places:
         conn.execute(
-            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_name) VALUES ('worlds', %s, %s, %s)",
+            "INSERT INTO tournament_podium_overrides (tournament, season, place, player_id) "
+            "SELECT 'worlds', %s, %s, player_id FROM players WHERE name = %s",
             (str(season), place, name),
         )
     conn.commit()
@@ -1374,9 +1379,9 @@ def test_each_world_championship_place_comes_from_admin_then_recorded_then_the_f
     medal = {(1, 0, 0): "WC", (0, 1, 0): "WCS", (0, 0, 1): "WCB"}
     board = {p: medal[b[:3]] for p, b in boards(conn, run_id, "worlds").items()}
     years = {
-        r["player_name"]: r["title"]
+        r["player"]: r["title"]
         for r in conn.execute(
-            "SELECT player_name, title FROM player_yearly_titles WHERE run_id = %s AND year = 2025",
+            "SELECT name AS player, title FROM player_yearly_titles JOIN players USING (player_id) WHERE run_id = %s AND year = 2025",
             (run_id,),
         ).fetchall()
         if r["title"].startswith("WC")
@@ -1431,7 +1436,7 @@ def test_a_world_championship_record_gives_its_finals_field(
     derive_tournaments(conn=conn, run_id=run_id)
 
     got = conn.execute(
-        "SELECT placement FROM tournament_records WHERE run_id = %s AND player_name = 'dan' "
+        "SELECT placement FROM tournament_records JOIN players USING (player_id) WHERE run_id = %s AND name = 'dan' "
         "AND tournament = 'World Championship'",
         (run_id,),
     ).fetchone()

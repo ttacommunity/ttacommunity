@@ -10,12 +10,12 @@ from tta_ratings_engine.data.year_records import derive_year_records
 def records(conn, run_id):
     """The run's records by format, year and player: opponents, wins, losses, draws and last game."""
     rows = conn.execute(
-        "SELECT player_count, year, player_name, opponents, wins, losses, draws, last_played "
-        "FROM player_year_records WHERE run_id = %s",
+        "SELECT player_count, year, name AS player, opponents, wins, losses, draws, last_played "
+        "FROM player_year_records JOIN players USING (player_id) WHERE run_id = %s",
         (run_id,),
     ).fetchall()
     return {
-        (r["player_count"], r["year"], r["player_name"]): (
+        (r["player_count"], r["year"], r["player"]): (
             r["opponents"],
             r["wins"],
             r["losses"],

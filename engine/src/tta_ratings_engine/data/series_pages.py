@@ -103,7 +103,7 @@ def series_metrics(rows) -> dict[str, tuple[int, int]]:
 
 
 def _board_row(player, medals, **extra):
-    return {"player_name": player, **medals, **extra}
+    return {"player": player, **medals, **extra}
 
 
 def worlds_board(placements) -> list[dict]:
@@ -118,7 +118,7 @@ def worlds_board(placements) -> list[dict]:
     )
     for p in placements:
         if p["place"] <= 3:
-            m = medals[p["player_name"]]
+            m = medals[p["player"]]
             m[PLACES[p["place"] - 1]] += 1
             m["latest"] = max(m["latest"], p["season"])
     order = sorted(
@@ -157,7 +157,7 @@ GRAND_SLAMS = frozenset(
 def grand_slams_board(podiums, names) -> list[dict]:
     """Returns the Grand Slams & Cups board from every recorded cup year's podium.
 
-    podiums are rows of cup, season, final, finished, place and player_name; names map a
+    podiums are rows of cup, season, final, finished, place and player; names map a
     cup's slug to its name. Ordered by golds, silvers, bronzes, then name. Each
     player's details are their first two honours, by the day each final finished.
     """
@@ -174,7 +174,7 @@ def grand_slams_board(podiums, names) -> list[dict]:
         )
         final = f" ({p['final']})" if p["final"] else ""
         t = trophies.setdefault(
-            p["player_name"], {"gold": 0, "silver": 0, "bronze": 0, "cups": []}
+            p["player"], {"gold": 0, "silver": 0, "bronze": 0, "cups": []}
         )
         t[PLACES[p["place"] - 1]] += 1
         t["cups"].append(
@@ -185,7 +185,7 @@ def grand_slams_board(podiums, names) -> list[dict]:
         for p, t in trophies.items()
     ]
     return sorted(
-        board, key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], b["player_name"])
+        board, key=lambda b: (-b["gold"], -b["silver"], -b["bronze"], b["player"])
     )
 
 
@@ -236,8 +236,8 @@ def legends(boards: dict[str, list[dict]], shown: int = 25) -> list[dict]:
     for series, title_key in MAJOR_CIRCUITS.items():
         for b in boards.get(series, []):
             row = got.setdefault(
-                b["player_name"],
-                {"player_name": b["player_name"], **dict.fromkeys(MAJOR_CIRCUITS.values(), 0),
+                b["player"],
+                {"player": b["player"], **dict.fromkeys(MAJOR_CIRCUITS.values(), 0),
                  "gold": 0, "silver": 0, "bronze": 0},
             )  # fmt: skip
             row[title_key] += b["gold"]

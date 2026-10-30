@@ -14,6 +14,8 @@ from datetime import date
 from typing import Any
 
 from tta_ratings_engine.data.db import DictConnection, require_running
+from tta_ratings_engine.data.players import Player
+from tta_ratings_engine.data.seats import players_of
 
 
 class CommunitySeasonUndated(Exception):
@@ -167,7 +169,7 @@ def counted(events):
 
 def ranked(totals):
     """Returns [(rank, player)] by total, highest first; equal totals share a rank."""
-    order = sorted(totals, key=lambda p: (-totals[p], p.lower()))
+    order = sorted(totals, key=lambda p: (-totals[p], p.name.lower()))
     got = []
     for i, p in enumerate(order, start=1):
         got.append((got[-1][0] if got and totals[p] == totals[got[-1][1]] else i, p))
@@ -207,7 +209,7 @@ def round_points(games, rule):
     got = {}
     for group, seats in games:
         value = rung_value(rung[group], rule)
-        for name, place in seats:
+        for player, place in seats:
             better = sum(1 for _, o in seats if o < place)
             tied = sum(1 for _, o in seats if o == place)
             share = (
@@ -217,21 +219,21 @@ def round_points(games, rule):
                 )
                 / tied
             )
-            got[name] = got.get(name, 0) + round(value * share)
+            got[player] = got.get(player, 0) + round(value * share)
     return got
 
 
 def scored(kind, lines, table):
-    """Returns {player: points} for one season's lines (stage, group, place, name, and points for floors), by its
+    """Returns {player: points} for one season's lines (stage, group, place, player, and points for floors), by its
     kind, from table's points by (group, place)."""
     if kind == "league":
         return {
-            ln["name"]: place_points(table, division(ln["group"]), ln["place"])
+            ln["player"]: place_points(table, division(ln["group"]), ln["place"])
             for ln in lines
         }
     last = {}
     for ln in sorted(lines, key=lambda ln: ln["stage"]):
-        last[ln["name"]] = ln
+        last[ln["player"]] = ln
     if kind == "worlds":
         return {
             n: place_points(
@@ -281,11 +283,13 @@ def derive_community(*, conn: DictConnection, run_id: int) -> None:
             points[(r["tournament"], r["from_edition"])][
                 (r["group_name"], r["place"])
             ] = r["points"]
-        names = {
-            r["cge_user"]: r["name"]
+        # A CGE account's player is the one most of its seats are, else the one it is linked to.
+        player_of = {
+            r["cge_user"]: Player(r["name"], r["player_id"])
             for r in conn.execute(
-                "SELECT cge_user, mode() WITHIN GROUP (ORDER BY player_name) AS name FROM seats "
-                "WHERE cge_user IS NOT NULL GROUP BY cge_user"
+                "SELECT DISTINCT ON (s.cge_user) s.cge_user, s.player_id, p.name FROM seats s "
+                "JOIN players p USING (player_id) WHERE s.cge_user IS NOT NULL "
+                "GROUP BY s.cge_user, s.player_id, p.name ORDER BY s.cge_user, count(*) DESC, p.name"
             )
         }
         seasons = conn.execute(
@@ -302,11 +306,11 @@ def derive_community(*, conn: DictConnection, run_id: int) -> None:
         for s in seasons:
             lines = [
                 {"stage": r["cge_season"], "group": r["group_name"], "place": r["place"] or r["row_number"],
-                 "name": names.get(r["cge_user"], r["player_name"]), "points": r["points"]}
+                 "player": player_of.get(r["cge_user"], Player(r["name"], r["player_id"])), "points": r["points"]}
                 for r in conn.execute(
                     # A cup's season is every stage of its CGE tournament; the others', their linked stages.
-                    """SELECT c.cge_season, c.group_name, c.place, c.row_number, c.cge_user, c.player_name, c.points
-                       FROM cge_standings c
+                    """SELECT c.cge_season, c.group_name, c.place, c.row_number, c.cge_user, a.player_id, p.name, c.points
+                       FROM cge_standings c JOIN player_accounts a USING (cge_user) JOIN players p ON p.player_id = a.player_id
                        WHERE c.games > 0 AND EXISTS (
                          SELECT 1 FROM stages x WHERE x.tournament_id = %s
                          AND x.cge_tournament = c.cge_tournament AND (%s OR x.cge_stage_number = c.cge_season))""",
@@ -315,10 +319,10 @@ def derive_community(*, conn: DictConnection, run_id: int) -> None:
             ]  # fmt: skip
             if not lines and s["scoring"] == "league" and s["label"].isdigit():
                 lines = [
-                    {"stage": 0, "group": r["division"], "place": r["place"], "name": r["player_name"]}
+                    {"stage": 0, "group": r["division"], "place": r["place"], "player": Player(r["name"], r["player_id"])}
                     for r in conn.execute(
-                        "SELECT division, place, player_name FROM tournament_standings "
-                        "WHERE run_id = %s AND series = %s AND season = %s",
+                        "SELECT t.division, t.place, t.player_id, p.name FROM tournament_standings t "
+                        "JOIN players p USING (player_id) WHERE t.run_id = %s AND t.series = %s AND t.season = %s",
                         (run_id, s["slug"], int(s["label"])),
                     )
                 ]  # fmt: skip
@@ -330,13 +334,15 @@ def derive_community(*, conn: DictConnection, run_id: int) -> None:
                     f"{s['slug']} season {s['label']} has CGE standings but no quarter and no games"
                 )
             table = table_for(points, s["slug"], edition)
-            for name, pts in scored(s["scoring"], lines, table).items():
-                rows.append((run_id, s["slug"], s["label"], name, pts))
+            for player, pts in scored(s["scoring"], lines, table).items():
+                rows.append((run_id, s["slug"], s["label"], player, pts))
         _rank_editions(conn, run_id, rows, points)
         conn.execute("DELETE FROM community_event_points WHERE run_id = %s", (run_id,))
         with conn.cursor() as cur:
             cur.executemany(
-                "INSERT INTO community_event_points VALUES (%s, %s, %s, %s, %s)", rows
+                "INSERT INTO community_event_points (run_id, tournament, season, player_id, points) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                [(*r[:3], r[3].id, r[4]) for r in rows],
             )
 
 
@@ -375,11 +381,14 @@ def _rank_editions(conn, run_id, rows, points):
     conn.execute("DELETE FROM community_rankings WHERE run_id = %s", (run_id,))
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO community_edition_points VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            point_rows,
+            "INSERT INTO community_edition_points (run_id, edition, player_id, event, points, source, counted) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            [(*r[:2], r[2].id, *r[3:]) for r in point_rows],
         )
         cur.executemany(
-            "INSERT INTO community_rankings VALUES (%s, %s, %s, %s, %s, %s)", rank_rows
+            "INSERT INTO community_rankings (run_id, edition, rank, player_id, points, events) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            [(*r[:3], r[3].id, *r[4:]) for r in rank_rows],
         )
 
 
@@ -405,7 +414,7 @@ def _quarter_events(conn, rows, codes):
     chosen = defaultdict(
         dict
     )  # (year, quarter) -> {(player, code): the season's finish and label}
-    for _, slug, season, name, pts in rows:
+    for _, slug, season, player, pts in rows:
         q = quarters.get((slug, season))
         if q is None and finished.get((slug, season)):
             d = finished[(slug, season)]
@@ -414,7 +423,7 @@ def _quarter_events(conn, rows, codes):
             continue
         # Two counting seasons giving one event in a quarter: the later finished, then the later label, counts;
         # never whichever row came last. A season that should not count is switched off in admin.
-        key = (name, event_code(code_of(codes, slug), season))
+        key = (player, event_code(code_of(codes, slug), season))
         rank = (finished.get((slug, season)) or date.min, season)
         if key not in chosen[q] or rank > chosen[q][key]:
             chosen[q][key], events[q][key] = rank, pts
@@ -422,17 +431,14 @@ def _quarter_events(conn, rows, codes):
 
 
 def _sheet_scores(conn):
-    """Returns the organisers' sheet points by edition, {edition: {(player, event code): score}}, names as players spell them."""
-    spelling = {
-        r["name"].lower(): r["name"] for r in conn.execute("SELECT name FROM players")
-    }
+    """Returns the organisers' sheet points by edition, {edition: {(player, event code): score}}."""
     sheet = defaultdict(dict)
     for r in conn.execute(
-        "SELECT edition, player_name, event, score FROM community_scores"
+        "SELECT c.edition, c.player_id, p.name, c.event, c.score FROM community_scores c JOIN players p USING (player_id)"
     ):
         if r["edition"] in SHEET_EDITIONS:
-            name = spelling.get(r["player_name"].lower(), r["player_name"])
-            sheet[SHEET_EDITIONS[r["edition"]]][(name, r["event"])] = r["score"]
+            player = Player(r["name"], r["player_id"])
+            sheet[SHEET_EDITIONS[r["edition"]]][(player, r["event"])] = r["score"]
     return sheet
 
 
@@ -442,32 +448,32 @@ def _edition_rows(run_id, edition, in_it, events, ladders, points, codes, sheet)
     scored = defaultdict(dict)
     sources = {}
     for q in in_it:
-        for (name, code), pts in events.get(q, {}).items():
-            scored[name][code] = pts
-            sources[(name, code)] = "computed"
-    for (name, code), pts in _ladder_points(
+        for (player, code), pts in events.get(q, {}).items():
+            scored[player][code] = pts
+            sources[(player, code)] = "computed"
+    for (player, code), pts in _ladder_points(
         ladders, edition, in_it, points, codes
     ).items():
-        scored[name][code] = pts
-        sources[(name, code)] = "computed"
+        scored[player][code] = pts
+        sources[(player, code)] = "computed"
     computed = {code for _, code in sources}
-    for (name, code), pts in sheet.get(edition, {}).items():
+    for (player, code), pts in sheet.get(edition, {}).items():
         if code not in computed:
-            scored[name][code] = pts
-            sources[(name, code)] = "sheet"
+            scored[player][code] = pts
+            sources[(player, code)] = "sheet"
     totals, counts = {}, {}
-    for name, evs in scored.items():
-        totals[name], counts[name] = best_eight(evs)
+    for player, evs in scored.items():
+        totals[player], counts[player] = best_eight(evs)
         best = counted(evs)
         for code, pts in evs.items():
             point_rows.append(
                 (
                     run_id,
                     edition,
-                    name,
+                    player,
                     code,
                     pts,
-                    sources[(name, code)],
+                    sources[(player, code)],
                     code in best,
                 )
             )
@@ -513,13 +519,14 @@ def _ladder_rounds(conn):
         rounds = defaultdict(list)
         finished = {}
         for r in conn.execute(
-            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_name AS group_label, m.players, m.places
+            """SELECT s.label, coalesce(m.cge_finished, m.date) AS date, m.group_name AS group_label, m.players,
+                      m.player_ids, m.places
                FROM game_lines m JOIN tournaments s ON s.tournament_id = m.tournament_id
                JOIN series t ON t.series_id = m.series_id
                WHERE t.slug = %s AND t.in_community_leaderboard AND s.in_community AND m.state = 'played'""",
             (slug,),
         ):
-            seats = list(zip(r["players"], r["places"]))
+            seats = list(zip(players_of(r), r["places"]))
             rounds[r["label"]].append((r["group_label"], seats))
             finished[r["label"]] = max(finished.get(r["label"], r["date"]), r["date"])
         got[slug] = (
@@ -570,6 +577,6 @@ def _ladder_points(ladders, edition, quarters, points, codes):
         for _, _, games, _ in window:
             totals.update(round_points(games, rule))
         table = table_for(points, slug, year)
-        for rank, name in ranked({n: t for n, t in totals.items() if t > 0}):
-            got[(name, code_of(codes, slug))] = table.get(("leaderboard", rank), 0)
+        for rank, player in ranked({n: t for n, t in totals.items() if t > 0}):
+            got[(player, code_of(codes, slug))] = table.get(("leaderboard", rank), 0)
     return got

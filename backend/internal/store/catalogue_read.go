@@ -133,7 +133,8 @@ type Story struct {
 func stories(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, slug string) ([]Story, error) {
-	rows, err := q.Query(ctx, "SELECT player_name, badge, title, text FROM tournament_stories WHERE tournament = $1 ORDER BY position", slug)
+	rows, err := q.Query(ctx, `SELECT p.name, s.badge, s.title, s.text FROM tournament_stories s JOIN players p USING (player_id)
+		WHERE s.tournament = $1 ORDER BY s.position`, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -413,9 +414,9 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT player_name, wins::float8, source FROM tournament_ladder_wins
-		WHERE ladder = $1 AND NOT `+hiddenName("player_name")+`
-		ORDER BY wins DESC, player_name`, slug)
+		SELECT p.name, w.wins::float8, w.source FROM tournament_ladder_wins w JOIN players p USING (player_id)
+		WHERE w.ladder = $1 AND NOT `+hiddenName("p.name")+`
+		ORDER BY w.wins DESC, p.name`, slug)
 	if err != nil {
 		return fail("top-tier wins", err)
 	}
@@ -639,8 +640,9 @@ func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []strin
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT cup, season, place, player_name, final, finished, source
-		FROM tournament_cup_podiums WHERE cup = ANY($1) ORDER BY cup, season, final, place`, slugs)
+		SELECT c.cup, c.season, c.place, p.name, c.final, c.finished, c.source
+		FROM tournament_cup_podiums c JOIN players p USING (player_id)
+		WHERE c.cup = ANY($1) ORDER BY c.cup, c.season, c.final, c.place`, slugs)
 	if err != nil {
 		return fmt.Errorf("reading podiums: %w", err)
 	}
@@ -660,16 +662,17 @@ func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []strin
 
 	rows, err = r.pool.Query(ctx, `
 		WITH official AS (
-			SELECT o.series, o.season, o.place, o.player_name, o.source
+			SELECT o.series, o.season, o.place, o.player_id, o.source
 			FROM tournament_official_placements o JOIN series t ON t.slug = o.series
 			WHERE o.series = ANY($1) AND o.division = ANY(t.top_divisions) AND o.place <= 3),
 		derived AS (
-			SELECT d.series, d.season, d.place, d.player_name, d.division || ' standings' AS source
+			SELECT d.series, d.season, d.place, d.player_id, d.division || ' standings' AS source
 			FROM tournament_standings d JOIN series t ON t.slug = d.series
 			WHERE d.run_id = $2 AND d.series = ANY($1) AND d.division = ANY(t.top_divisions) AND d.place <= 3 AND d.finished
 			  AND NOT EXISTS (SELECT 1 FROM official o WHERE o.series = d.series AND o.season = d.season))
-		SELECT series, season::text, place, player_name, source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) p
-		ORDER BY series, season, place, player_name`, slugs, run)
+		SELECT x.series, x.season::text, x.place, p.name, x.source FROM (SELECT * FROM official UNION ALL SELECT * FROM derived) x
+		JOIN players p USING (player_id)
+		ORDER BY x.series, x.season, x.place, p.name`, slugs, run)
 	if err != nil {
 		return fmt.Errorf("reading league podiums: %w", err)
 	}
@@ -685,8 +688,9 @@ func (r *RatingsReader) addPodiums(ctx context.Context, run int64, slugs []strin
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT tournament, season, place, player_name, CASE WHEN note = '' THEN 'Set in admin' ELSE 'Set in admin: ' || note END
-		FROM tournament_podium_overrides WHERE tournament = ANY($1) ORDER BY tournament, season, place`, slugs)
+		SELECT o.tournament, o.season, o.place, p.name, CASE WHEN o.note = '' THEN 'Set in admin' ELSE 'Set in admin: ' || o.note END
+		FROM tournament_podium_overrides o JOIN players p USING (player_id)
+		WHERE o.tournament = ANY($1) ORDER BY o.tournament, o.season, o.place`, slugs)
 	if err != nil {
 		return fmt.Errorf("reading admin podiums: %w", err)
 	}

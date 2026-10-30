@@ -18,7 +18,7 @@ import (
 var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrBadKind, store.ErrBadPodiumSource, store.ErrGroupCycle,
 	store.ErrBadLeagueRules,
 	store.ErrBadGroup, store.ErrNotAGroup, store.ErrBadPenalty, store.ErrBadPodium, store.ErrBadCard, store.ErrBadStory,
-	store.ErrSeasonHasGames, store.ErrSeasonExists}
+	store.ErrSeasonHasGames, store.ErrSeasonExists, store.ErrNoPlayer}
 
 // refusal returns the status and message for a store error a change can meet: 400 for a refused change, 404 for no
 // such tournament or season, or 0 for an error that is not the admin's to correct.

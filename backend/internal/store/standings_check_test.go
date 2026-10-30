@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -23,9 +24,41 @@ func cgeStanding(t, s int, group string, row int, player string, user, games int
 	}
 }
 
+// withAccounts gives each line's CGE user an account of a player by the line's name, unless it has one, as the CGE
+// extract's load does before the standings load.
+func withAccounts(t *testing.T, pool *pgxpool.Pool, lines ...tournamentcsv.CGEStanding) {
+	t.Helper()
+	for _, l := range lines {
+		if _, err := pool.Exec(context.Background(), `
+			INSERT INTO player_accounts (cge_user, player_id, name) VALUES ($1, $2, $3) ON CONFLICT (cge_user) DO NOTHING`,
+			l.CGEUser, playerID(t, pool, l.Player), l.Player); err != nil {
+			t.Fatalf("adding CGE account %d: %v", l.CGEUser, err)
+		}
+	}
+}
+
+func TestReplaceCGEStandingsRefusesAnAccountWeDoNotHold(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	held := cgeStanding(1, 1, "g", 1, "ann", 9, 1, 2, []int{1, 0}, nil, nil)
+	withAccounts(t, pool, held)
+	if _, err := ReplaceCGEStandings(ctx, pool, []tournamentcsv.CGEStanding{held}); err != nil {
+		t.Fatalf("first ReplaceCGEStandings: %v", err)
+	}
+	got, err := ReplaceCGEStandings(ctx, pool, []tournamentcsv.CGEStanding{held, cgeStanding(1, 1, "g", 2, "ghost", 10, 1, 0, []int{0, 1}, nil, nil)})
+	if !errors.Is(err, ErrNoCGEAccount) {
+		t.Errorf("ReplaceCGEStandings naming an account we do not hold = %+v, %v; want ErrNoCGEAccount", got, err)
+	}
+	if rows, want := rowsOf(t, pool, "SELECT cge_user::text FROM cge_standings"), []string{"9"}; !slices.Equal(rows, want) {
+		t.Errorf("rows after a refused load = %q, want the first load's %q", rows, want)
+	}
+}
+
 func TestReplaceCGEStandingsReplacesEveryEarlierRow(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
+	withAccounts(t, pool, cgeStanding(0, 0, "", 0, "x", 9, 0, 0, nil, nil, nil),
+		cgeStanding(0, 0, "", 0, "Magpie", 101239, 0, 0, nil, nil, nil), cgeStanding(0, 0, "", 0, "swift", 65877, 0, 0, nil, nil, nil))
 	if _, err := ReplaceCGEStandings(ctx, pool, []tournamentcsv.CGEStanding{cgeStanding(1, 1, "old", 1, "x", 9, 1, 2, []int{1, 0}, nil, nil)}); err != nil {
 		t.Fatalf("first ReplaceCGEStandings: %v", err)
 	}
@@ -41,9 +74,9 @@ func TestReplaceCGEStandingsReplacesEveryEarlierRow(t *testing.T) {
 	if want := (FactsReplaced{Written: 2}); got != want {
 		t.Errorf("ReplaceCGEStandings = %+v, want %+v", got, want)
 	}
-	const rows = `SELECT concat_ws('|', cge_tournament, cge_season, group_name, row_number, coalesce(place::text, '-'), player_name, cge_user,
-	                     banned, games, points, coalesce(places_2p::text, '-'), coalesce(places_3p::text, '-'), places_4p, source)
-	              FROM cge_standings ORDER BY row_number`
+	const rows = `SELECT concat_ws('|', cge_tournament, cge_season, group_name, row_number, coalesce(place::text, '-'), a.name, cge_user,
+	                     c.banned, games, points, coalesce(places_2p::text, '-'), coalesce(places_3p::text, '-'), places_4p, source)
+	              FROM cge_standings c JOIN player_accounts a USING (cge_user) ORDER BY row_number`
 	want := []string{
 		"4760|2|2024 group 1|1|1|Magpie|101239|f|5|21|{1,1}|{1,0,0}|{2,0,0,0}|CGE page",
 		"4760|2|2024 group 1|4|-|swift|65877|t|2|-1.5|-|-|{0,0,0,2}|CGE page",
@@ -130,6 +163,7 @@ func samePlaces(a, b Places) bool {
 func checked(t *testing.T, pool *pgxpool.Pool, rows ...tournamentcsv.CGEStanding) StandingsCheck {
 	t.Helper()
 	ctx := context.Background()
+	withAccounts(t, pool, rows...)
 	if _, err := ReplaceCGEStandings(ctx, pool, rows); err != nil {
 		t.Fatalf("ReplaceCGEStandings: %v", err)
 	}

@@ -254,7 +254,7 @@ func (a *AdminStore) addSuggestedPodiums(ctx context.Context, ts []AdminTourname
 		total AS (SELECT tournament_id, player, sum(pts) AS pts, sum(culture) AS culture FROM seat GROUP BY 1, 2),
 		derived AS (SELECT tournament_id, player, rank() OVER (PARTITION BY tournament_id ORDER BY pts DESC NULLS LAST,
 		                                                         culture DESC NULLS LAST)::int AS place FROM total),
-		recorded AS (SELECT t.tournament_id, o.player_name AS player, o.place FROM tournament_official_placements o
+		recorded AS (SELECT t.tournament_id, p.name AS player, o.place FROM tournament_official_placements o JOIN players p USING (player_id)
 		             JOIN series se ON se.slug = o.series JOIN tournaments t ON t.series_id = se.series_id AND t.label = o.season::text
 		             WHERE se.slug = $1)
 		SELECT se.slug, t.label, x.source, x.place, x.player FROM (
@@ -325,7 +325,8 @@ func (a *AdminStore) addGames(ctx context.Context, ts []AdminTournament, slug st
 
 // addPodiums puts each podium set in admin on its season.
 func (a *AdminStore) addPodiums(ctx context.Context, ts []AdminTournament) error {
-	rows, err := a.pool.Query(ctx, "SELECT tournament, season, place, player_name, note FROM tournament_podium_overrides ORDER BY place")
+	rows, err := a.pool.Query(ctx, `SELECT o.tournament, o.season, o.place, p.name, o.note FROM tournament_podium_overrides o
+		JOIN players p USING (player_id) ORDER BY o.place`)
 	if err != nil {
 		return fmt.Errorf("reading podiums for admin: %w", err)
 	}

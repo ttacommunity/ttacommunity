@@ -8,8 +8,9 @@ from tta_ratings_engine.data.pairwise import expand_pairwise, pairs_of
 
 def pairs(conn, run_id):
     rows = conn.execute(
-        "SELECT match_id, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible "
-        "FROM pairwise_matches WHERE run_id = %s ORDER BY pairwise_id",
+        "SELECT match_id, a.name AS player_a, b.name AS player_b, score_a, score_b, outcome_a, weight, glicko_eligible "
+        "FROM pairwise_matches JOIN players a ON a.player_id = player_a JOIN players b ON b.player_id = player_b "
+        "WHERE run_id = %s ORDER BY pairwise_id",
         (run_id,),
     ).fetchall()
     return [tuple(r.values()) for r in rows]
@@ -64,8 +65,12 @@ def new_run(conn):
             ["A", "Unknown player", "B"],
             [1, 3, 2],
             [50, 0, 40],
-            [("A", "B", 50, 40, 1.0, 1.0)],
-            id="a seat CGE holds no account for is nobody's: left out, not counted",
+            [
+                ("A", "Unknown player", 50, 0, 1.0, 0.5),
+                ("A", "B", 50, 40, 1.0, 0.5),
+                ("Unknown player", "B", 0, 40, 0.0, 0.5),
+            ],
+            id="no name is reserved: Unknown player is a player like any other",
         ),
     ],
 )

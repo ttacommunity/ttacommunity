@@ -245,6 +245,14 @@ def add_match(conn):
 
 
 @pytest.fixture
+def name_of(conn):
+    """Returns a function that gives a player's name by their id."""
+    return lambda player_id: conn.execute(
+        "SELECT name FROM players WHERE player_id = %s", (player_id,)
+    ).fetchone()["name"]
+
+
+@pytest.fixture
 def run_id(conn):
     """A running rating run to write results into."""
     rid = conn.execute(
@@ -262,9 +270,12 @@ def place(conn):
     def add(series, season, division, *players, points=None):
         for i, p in enumerate(players, start=1):
             conn.execute(
-                "INSERT INTO tournament_official_placements "
-                "VALUES (%s, %s, %s, %s, %s, %s, 'test', 'sheet')",
-                (series, season, division, p, i, points[i - 1] if points else None),
+                "INSERT INTO players (name) VALUES (%s) ON CONFLICT DO NOTHING", (p,)
+            )
+            conn.execute(
+                "INSERT INTO tournament_official_placements (series, season, division, player_id, place, points, "
+                "reason, source) SELECT %s, %s, %s, player_id, %s, %s, 'test', 'sheet' FROM players WHERE name = %s",
+                (series, season, division, i, points[i - 1] if points else None, p),
             )
         conn.commit()
 

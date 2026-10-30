@@ -8,15 +8,18 @@ from tta_ratings_engine.data.series_pages import (
     worlds_board,
 )
 
+IDS: dict[str, int] = {}
+
 
 def match(tournament, *players, day=date(2025, 1, 1), match_id=0):
-    """A game row as derive_tournaments reads it."""
+    """A game row as derive_tournaments reads it, each player with an invented id."""
     return {
         "match_id": match_id,
         "tournament": tournament,
         "date": day,
         "player_count": len(players),
         "players": [p for p, _ in players],
+        "player_ids": [IDS.setdefault(p, len(IDS) + 1) for p, _ in players],
         "places": [1 + sum(1 for _, o in players if o > s) for _, s in players],
         "cultures": [max(s, 0) for _, s in players],
         "outcomes": ["finished" if s >= 0 else "timed_out" for _, s in players],
@@ -53,17 +56,17 @@ def test_series_metrics_count_as_upstream():
 
 def test_the_world_championship_board_lists_recent_champions_first():
     placements = [
-        {"season": 2023, "player_name": "Willow_Tree", "place": 1},
-        {"season": 2025, "player_name": "alder440", "place": 1},
-        {"season": 2025, "player_name": "Grebe", "place": 2},
-        {"season": 2024, "player_name": "Marten_Fisher", "place": 1},
-        {"season": 2024, "player_name": "flicker", "place": 2},
-        {"season": 2025, "player_name": "stilt_x111", "place": 3},
-        {"season": 2022, "player_name": "Ember_Wolf", "place": 1},
+        {"season": 2023, "player": "Willow_Tree", "place": 1},
+        {"season": 2025, "player": "alder440", "place": 1},
+        {"season": 2025, "player": "Grebe", "place": 2},
+        {"season": 2024, "player": "Marten_Fisher", "place": 1},
+        {"season": 2024, "player": "flicker", "place": 2},
+        {"season": 2025, "player": "stilt_x111", "place": 3},
+        {"season": 2022, "player": "Ember_Wolf", "place": 1},
     ]
     got = worlds_board(placements)
     assert [
-        (b["player_name"], b["title"], b["gold"], b["silver"], b["bronze"]) for b in got
+        (b["player"], b["title"], b["gold"], b["silver"], b["bronze"]) for b in got
     ] == [
         ("alder440", "WC", 1, 0, 0),
         ("Marten_Fisher", "WC", 1, 0, 0),
@@ -120,7 +123,7 @@ def podium(cup, season, finished, *players, final=""):
             "final": final,
             "finished": finished,
             "place": place,
-            "player_name": p,
+            "player": p,
         }
         for place, p in enumerate(players, start=1)
     ]
@@ -153,8 +156,7 @@ def test_grand_slams_board_counts_every_recorded_cup_year():
     got = grand_slams_board(podiums, names)
 
     assert [
-        (b["player_name"], b["gold"], b["silver"], b["bronze"], b["details"])
-        for b in got
+        (b["player"], b["gold"], b["silver"], b["bronze"], b["details"]) for b in got
     ] == [
         ("fay", 2, 0, 0, "Wimbledon 2023 Champion, Wimbledon 2024 Champion"),
         (
@@ -208,7 +210,7 @@ def test_ladders_board_counts_ladder_wins_for_players_of_30_games():
             match(f"Mercurial Season 30 - 0-Tier {n} game 1", winner, loser, *third)
         )
     got = ladders_board(numbered(*rows))
-    assert [(b["player_name"], b["games"], b["wins"], b["win_rate"]) for b in got] == [
+    assert [(b["player"].name, b["games"], b["wins"], b["win_rate"]) for b in got] == [
         ("ann", 30, 20, 66.7),
         ("bob", 30, 10, 33.3),
     ]
@@ -224,14 +226,14 @@ def test_ladders_board_counts_mercurials_early_rounds():
 
     got = ladders_board(numbered(*rows))
 
-    assert [(b["player_name"], b["games"], b["wins"]) for b in got] == [
+    assert [(b["player"].name, b["games"], b["wins"]) for b in got] == [
         ("ann", 30, 28),
         ("bob", 30, 2),
     ]
 
 
 def medal(player, gold=0, silver=0, bronze=0):
-    return {"player_name": player, "gold": gold, "silver": silver, "bronze": bronze}
+    return {"player": player, "gold": gold, "silver": silver, "bronze": bronze}
 
 
 def test_legends_sum_the_four_major_circuits_as_upstream():
@@ -251,7 +253,7 @@ def test_legends_sum_the_four_major_circuits_as_upstream():
     # with no title needs two medals; ties keep the order first seen.
     assert [
         (
-            r["player_name"],
+            r["player"],
             r["world_titles"],
             r["international_titles"],
             r["intermezzo_titles"],

@@ -675,7 +675,8 @@ func TestApplyCGEExtractRemovesTheCopyAnEarlierLoadAddedOfAGameConfirmedByHand(t
 		{"INSERT INTO group_members (group_id, player_id) SELECT $1, player_id FROM player_accounts RETURNING group_id", nil},
 		{"INSERT INTO rating_runs (engine_version, input_fingerprint) VALUES ('t', 't') RETURNING run_id", &runID},
 		{`INSERT INTO pairwise_matches (run_id, match_id, date, tournament, player_count, player_a, player_b, score_a, score_b, outcome_a, weight, glicko_eligible)
-		  VALUES ($1, $2, '2024-02-03', 'Intermezzo S24', 2, 'ann', 'bob', 200, 150, 1, 1, true) RETURNING run_id`, nil},
+		  SELECT $1, $2, '2024-02-03', 'Intermezzo S24', 2, (SELECT player_id FROM players WHERE name = 'ann'),
+		         (SELECT player_id FROM players WHERE name = 'bob'), 200, 150, 1, 1, true RETURNING run_id`, nil},
 		{"INSERT INTO tournament_games (run_id, match_id, series, name_season) VALUES ($1, $2, 'intermezzo', 24) RETURNING run_id", nil},
 	} {
 		var into int64

@@ -59,8 +59,9 @@ type ExtraBadge struct {
 // badgesByPlayer returns every player's badges, by label: they show at once, whatever the run.
 func (r *RatingsReader) badgesByPlayer(ctx context.Context, names []string) (map[string][]ExtraBadge, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT pb.player_name, b.label, b.description FROM player_badges pb JOIN badges b USING (badge_id)
-		WHERE pb.player_name = ANY($1) ORDER BY lower(b.label)`, names)
+		SELECT p.name, b.label, b.description FROM player_badges pb JOIN badges b USING (badge_id)
+		JOIN players p USING (player_id)
+		WHERE p.name = ANY($1) ORDER BY lower(b.label)`, names)
 	if err != nil {
 		return nil, fmt.Errorf("reading badges: %w", err)
 	}
@@ -174,17 +175,17 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT r.rank, r.rank_delta, r.player_name, r.rating, r.rd, r.c_rating, r.games_played, r.opponents_count,
+		SELECT r.rank, r.rank_delta, p.name, r.rating, r.rd, r.c_rating, r.games_played, r.opponents_count,
 			r.wins, r.losses, r.draws, r.win_rate, r.last_played, m.country_code, t.title, t.title_count, t.badge_reason,
 			k.peak_title, k.peak_year
 		FROM player_ratings r
-		LEFT JOIN players p ON p.name = r.player_name
+		JOIN players p USING (player_id)
 		LEFT JOIN members m ON m.player_id = p.player_id
-		LEFT JOIN player_titles t ON t.run_id = r.run_id AND t.player_name = r.player_name
-		LEFT JOIN player_peak_titles k ON k.run_id = r.run_id AND k.player_name = r.player_name
+		LEFT JOIN player_titles t ON t.run_id = r.run_id AND t.player_id = r.player_id
+		LEFT JOIN player_peak_titles k ON k.run_id = r.run_id AND k.player_id = r.player_id
 		WHERE r.run_id = $1 AND r.model_type = $2 AND r.player_count = $3
 		  AND `+notHiddenPlayer+`
-		ORDER BY r.rank NULLS LAST, r.player_name`, run, model, format)
+		ORDER BY r.rank NULLS LAST, p.name`, run, model, format)
 	if err != nil {
 		return nil, fmt.Errorf("reading run %d's %s leaderboard: %w", run, model, err)
 	}
@@ -250,11 +251,11 @@ func (r *RatingsReader) History(ctx context.Context, run int64, model string, fo
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT player_name, rating, rd, c_rating
-		FROM rating_history
-		WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date = $4
-		  AND NOT `+hiddenName("player_name")+`
-		ORDER BY player_name`, run, model, format, on)
+		SELECT p.name, h.rating, h.rd, h.c_rating
+		FROM rating_history h JOIN players p USING (player_id)
+		WHERE h.run_id = $1 AND h.model_type = $2 AND h.player_count = $3 AND h.period_date = $4
+		  AND NOT `+hiddenName("p.name")+`
+		ORDER BY p.name`, run, model, format, on)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
 	}

@@ -70,7 +70,7 @@ def test_a_running_run_is_accepted(conn, run_id):
 
 
 def test_pairs_are_loaded_in_date_then_match_order_with_text_dates(
-    conn, add_match, run_id
+    conn, add_match, run_id, name_of
 ):
     add_match(("A", 1), ("B", 2), day=date(2024, 2, 1))
     add_match(("C", 1), ("D", 2), day=date(2024, 1, 1))
@@ -79,7 +79,7 @@ def test_pairs_are_loaded_in_date_then_match_order_with_text_dates(
 
     rows = load_pairs(conn, run_id, 0)
 
-    assert [(r["date"], r["player_a"]) for r in rows] == [
+    assert [(r["date"], name_of(r["player_a"])) for r in rows] == [
         ("2024-01-01", "C"),
         ("2024-01-01", "E"),
         ("2024-01-01", "E"),

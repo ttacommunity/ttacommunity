@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func rowsOf(t *testing.T, pool *pgxpool.Pool, query string) []string {
 	return got
 }
 
-const divisionRows = "SELECT concat_ws('|', series, season, division, player_name, source) FROM tournament_group_divisions ORDER BY season, player_name"
+const divisionRows = "SELECT concat_ws('|', series, season, division, p.name, source) FROM tournament_group_divisions JOIN players p USING (player_id) ORDER BY season, p.name"
 
 // load is one call of a Replace function.
 type load func(context.Context, *pgxpool.Pool) (FactsReplaced, error)
@@ -88,8 +89,8 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				return ReplacePlacements(ctx, p, []tournamentcsv.Placement{placement(24, 1, "ann", &pts), placement(24, 2, "ghost", nil), placement(31, 2, "bob", nil)})
 			},
 			want: FactsReplaced{Written: 2, Unknown: 1},
-			rows: "SELECT concat_ws('|', series, season, division, player_name, place, coalesce(points::text, '-'), reason, source) " +
-				"FROM tournament_official_placements ORDER BY season, place, player_name",
+			rows: "SELECT concat_ws('|', series, season, division, p.name, place, coalesce(points::text, '-'), reason, source) " +
+				"FROM tournament_official_placements JOIN players p USING (player_id) ORDER BY season, place, p.name",
 			wantRows: []string{"intermezzo|24|Grandmaster|ann|1|25|no games|sheet", "intermezzo|31|Grandmaster|bob|2|-|no games|sheet"},
 		},
 		{
@@ -127,8 +128,8 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				})
 			},
 			want: FactsReplaced{Written: 2, Unknown: 1},
-			rows: "SELECT concat_ws('|', series, player_name, gold, silver, bronze, coalesce(points, '-'), source) " +
-				"FROM tournament_career_honours ORDER BY series, player_name",
+			rows: "SELECT concat_ws('|', series, p.name, gold, silver, bronze, coalesce(points, '-'), source) " +
+				"FROM tournament_career_honours JOIN players p USING (player_id) ORDER BY series, p.name",
 			wantRows: []string{"q_and_d|bob|2|2|1|-|q", "sodium_ladder|ann|5|2|0|8,5|s"},
 		},
 		{
@@ -140,13 +141,14 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				return ReplacePodiums(ctx, p, []tournamentcsv.Podium{podium("2024", 1, "ann"), podium("2024", 2, "bob"), podium("2024", 3, "nobody")})
 			},
 			want:     FactsReplaced{Written: 2, Unknown: 1},
-			rows:     "SELECT concat_ws('|', cup, season, final, finished, place, player_name, source) FROM tournament_cup_podiums ORDER BY cup, season, final, place",
+			rows:     "SELECT concat_ws('|', cup, season, final, finished, place, p.name, source) FROM tournament_cup_podiums JOIN players p USING (player_id) ORDER BY cup, season, final, place",
 			wantRows: []string{"wimbledon|2024||2025-02-24|1|ann|s", "wimbledon|2024||2025-02-24|2|bob|s"},
 		},
 		{
-			name: "community standings keep names that are not players",
+			name:  "community standings of players",
+			setup: []string{"INSERT INTO players (name) VALUES ('Marten Fisher')"},
 			first: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
-				return ReplaceCommunityStandings(ctx, p, []tournamentcsv.Standing{{Edition: "2024", SheetRow: 9, Rank: 9, Player: "old", Points: 1, Events: 1, Source: "s"}})
+				return ReplaceCommunityStandings(ctx, p, []tournamentcsv.Standing{{Edition: "2024", SheetRow: 9, Rank: 9, Player: "bob", Points: 1, Events: 1, Source: "s"}})
 			},
 			then: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
 				return ReplaceCommunityStandings(ctx, p, []tournamentcsv.Standing{
@@ -155,11 +157,12 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				})
 			},
 			want:     FactsReplaced{Written: 2},
-			rows:     "SELECT concat_ws('|', edition, sheet_row, rank, player_name, points, events, source) FROM community_standings ORDER BY rank",
+			rows:     "SELECT concat_ws('|', edition, sheet_row, rank, p.name, points, events, source) FROM community_standings JOIN players p USING (player_id) ORDER BY rank",
 			wantRows: []string{"2024|1|1|ann|7657|11|s", "2024|2|2|Marten Fisher|6687|13|s"},
 		},
 		{
-			name: "community scores keep names that are not players",
+			name:  "community scores of players",
+			setup: []string{"INSERT INTO players (name) VALUES ('Marten Fisher')"},
 			then: func(ctx context.Context, p *pgxpool.Pool) (FactsReplaced, error) {
 				return ReplaceCommunityScores(ctx, p, []tournamentcsv.Score{
 					{Edition: "2024", Player: "ann", Event: "wrld", Score: 1600, Source: "s"},
@@ -167,7 +170,7 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				})
 			},
 			want:     FactsReplaced{Written: 2},
-			rows:     "SELECT concat_ws('|', edition, player_name, event, score, source) FROM community_scores ORDER BY score",
+			rows:     "SELECT concat_ws('|', edition, p.name, event, score, source) FROM community_scores JOIN players p USING (player_id) ORDER BY score",
 			wantRows: []string{"2024|Marten Fisher|qd|450|s", "2024|ann|wrld|1600|s"},
 		},
 		{
@@ -240,6 +243,70 @@ func TestReplaceFactsReplacesEarlierRowsAndCountsUnknowns(t *testing.T) {
 				t.Errorf("rows = %q, want %q", rows, tt.wantRows)
 			}
 		})
+	}
+}
+
+func TestCommunityLoadsFindEachSheetNamesPlayerIgnoringCase(t *testing.T) {
+	loads := []struct {
+		name string
+		load func(context.Context, *pgxpool.Pool, string) (FactsReplaced, error)
+		rows string
+	}{
+		{
+			name: "standings",
+			load: func(ctx context.Context, p *pgxpool.Pool, player string) (FactsReplaced, error) {
+				return ReplaceCommunityStandings(ctx, p, []tournamentcsv.Standing{
+					{Edition: "2024", SheetRow: 1, Rank: 1, Player: "ann", Points: 10, Events: 1, Source: "s"},
+					{Edition: "2024", SheetRow: 2, Rank: 2, Player: player, Points: 5, Events: 1, Source: "s"},
+				})
+			},
+			rows: "SELECT p.name FROM community_standings JOIN players p USING (player_id) ORDER BY sheet_row",
+		},
+		{
+			name: "scores",
+			load: func(ctx context.Context, p *pgxpool.Pool, player string) (FactsReplaced, error) {
+				return ReplaceCommunityScores(ctx, p, []tournamentcsv.Score{
+					{Edition: "2024", Player: "ann", Event: "wrld", Score: 10, Source: "s"},
+					{Edition: "2024", Player: player, Event: "qd", Score: 5, Source: "s"},
+				})
+			},
+			rows: "SELECT p.name FROM community_scores JOIN players p USING (player_id) ORDER BY score DESC",
+		},
+	}
+	tests := []struct {
+		name    string
+		players []string
+		sheet   string
+		want    []string
+		wantErr error
+	}{
+		{name: "an exact match", players: []string{"Bob"}, sheet: "Bob", want: []string{"ann", "Bob"}},
+		{name: "a match in another case", players: []string{"Bob"}, sheet: "BOB", want: []string{"ann", "Bob"}},
+		{name: "no player refused", players: []string{"Bob"}, sheet: "ghost", wantErr: ErrNoPlayer},
+		{name: "two players by that name refused", players: []string{"Bob", "bob"}, sheet: "bob", wantErr: ErrAmbiguousName},
+	}
+	for _, l := range loads {
+		for _, tt := range tests {
+			t.Run(l.name+": "+tt.name, func(t *testing.T) {
+				pool := migrated(t)
+				ctx := context.Background()
+				addPlayers(t, pool, append([]string{"ann", "cy"}, tt.players...)...)
+				if _, err := l.load(ctx, pool, "cy"); err != nil {
+					t.Fatalf("first load: %v", err)
+				}
+				_, err := l.load(ctx, pool, tt.sheet)
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("load naming %q = %v, want %v", tt.sheet, err, tt.wantErr)
+				}
+				want := tt.want
+				if tt.wantErr != nil {
+					want = []string{"ann", "cy"} // a refused load keeps the first load's rows
+				}
+				if rows := rowsOf(t, pool, l.rows); !slices.Equal(rows, want) {
+					t.Errorf("rows after loading %q = %q, want %q", tt.sheet, rows, want)
+				}
+			})
+		}
 	}
 }
 

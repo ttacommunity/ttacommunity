@@ -34,8 +34,8 @@ var (
 func (a *AdminStore) Badges(ctx context.Context) ([]Badge, error) {
 	rows, err := a.pool.Query(ctx, `
 		SELECT b.badge_id, b.label, b.description,
-		       coalesce(array_agg(pb.player_name ORDER BY lower(pb.player_name)) FILTER (WHERE pb.player_name IS NOT NULL), '{}')
-		FROM badges b LEFT JOIN player_badges pb USING (badge_id)
+		       coalesce(array_agg(p.name ORDER BY lower(p.name)) FILTER (WHERE p.name IS NOT NULL), '{}')
+		FROM badges b LEFT JOIN player_badges pb USING (badge_id) LEFT JOIN players p ON p.player_id = pb.player_id
 		GROUP BY b.badge_id ORDER BY lower(b.label)`)
 	if err != nil {
 		return nil, fmt.Errorf("reading badges: %w", err)
@@ -124,11 +124,12 @@ func setBadgePlayers(ctx context.Context, tx pgx.Tx, id int64, names []string) e
 	case unknown > 0:
 		return ErrNoPlayer
 	}
-	if _, err := tx.Exec(ctx, "DELETE FROM player_badges WHERE badge_id = $1 AND NOT player_name = ANY($2)", id, names); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM player_badges WHERE badge_id = $1
+		AND player_id NOT IN (SELECT player_id FROM players WHERE name = ANY($2))`, id, names); err != nil {
 		return fmt.Errorf("setting a badge's players: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO player_badges (player_name, badge_id) SELECT DISTINCT n, $1::bigint FROM unnest($2::text[]) n
-		ON CONFLICT DO NOTHING`, id, names); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO player_badges (player_id, badge_id) SELECT player_id, $1::bigint FROM players
+		WHERE name = ANY($2::text[]) ON CONFLICT DO NOTHING`, id, names); err != nil {
 		return fmt.Errorf("setting a badge's players: %w", err)
 	}
 	return nil
