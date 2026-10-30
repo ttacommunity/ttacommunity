@@ -556,8 +556,15 @@
 .challenges-submit-group {
   border: 1px solid var(--border-subtle);
 }
+/* The group's name sits inside the card, as a heading, not on its border as a legend would. */
 .challenges-submit-group legend {
-  padding: 0 0.5rem;
+  float: left;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+.challenges-submit-group legend + * {
+  clear: left;
 }
 .challenges-submit-row {
   display: grid;
@@ -628,8 +635,24 @@
   font-size: 2.5rem;
 }
 @media (max-width: 700px) {
+  /* On a phone: the picture and name, then the domination and proof side by side below them. */
   .challenges-submit-row {
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 56px 3.5rem 1fr;
+    grid-template-areas:
+      'picture name name'
+      'domination domination proof';
+  }
+  .challenges-submit-row > img {
+    grid-area: picture;
+  }
+  .challenges-submit-row > div {
+    grid-area: name;
+  }
+  .challenges-submit-row > input:first-of-type {
+    grid-area: domination;
+  }
+  .challenges-submit-row > input:last-of-type {
+    grid-area: proof;
   }
   .challenges-examples {
     grid-template-columns: 1fr;
