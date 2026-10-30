@@ -7,6 +7,7 @@ import type { Load } from '@ttac/shared/load';
 import { adminRequest } from '../lib/admin-api';
 import { entriesPath, entryFlags, pageCount, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice } from './Notice';
+import './ChallengesPanel.css';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -179,12 +180,24 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
               Proof
             </button>
             {e.proof_url !== null && (
-              <button type="button" className="btn-antique" onClick={() => onChange({ checked: !e.checked })}>
-                {e.checked ? 'Not checked' : 'Checked'}
+              <button
+                type="button"
+                className={e.checked ? 'btn-antique challenge-toggle on' : 'btn-antique challenge-toggle'}
+                aria-pressed={e.checked}
+                title={e.checked ? 'An admin has looked at the proof; press to undo' : 'Mark the proof as looked at'}
+                onClick={() => onChange({ checked: !e.checked })}
+              >
+                Checked
               </button>
             )}
-            <button type="button" className="btn-antique" onClick={() => onChange({ bugged: !e.bugged })}>
-              {e.bugged ? 'Not a bug' : 'Bug'}
+            <button
+              type="button"
+              className={e.bugged ? 'btn-antique challenge-toggle on' : 'btn-antique challenge-toggle'}
+              aria-pressed={e.bugged}
+              title={e.bugged ? 'Made through a game bug, never counted; press to undo' : 'Mark as made through a game bug'}
+              onClick={() => onChange({ bugged: !e.bugged })}
+            >
+              Bug
             </button>
             {e.hidden ? (
               <button type="button" className="btn-antique" onClick={() => onChange({ hidden: false })}>
