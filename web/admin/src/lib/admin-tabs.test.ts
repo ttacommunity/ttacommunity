@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor } from './admin-tabs';
+import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -64,10 +64,14 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
-    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Players', ['members']], ['Site', ['data']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz', 'challenges']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz', 'challenges']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
+  });
+
+  it('puts every tab in a menu, so each has a link', () => {
+    expect(groupsFor(TABS, {}).flatMap((g) => g.tabs.map((t) => t.key)).sort()).toEqual(TABS.map((t) => t.key).sort());
   });
 
   it('drops a group with no tab left', () => {
