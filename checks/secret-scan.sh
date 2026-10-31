@@ -3,7 +3,7 @@
 # Used by the git hooks and scripts/ci.sh. The broad entropy sweep is CI's
 # gitleaks step; this one keeps to formats that are never innocent.
 #
-# Usage: checks/secret-scan.sh <file>...               scan those files on disk
+# Usage: checks/secret-scan.sh <file>...               scan those files on disk, inside this repository
 #        checks/secret-scan.sh --staged                scan what is staged, as staged
 #        checks/secret-scan.sh --rev <commit> <file>...  scan those files as that commit has them
 #        checks/secret-scan.sh --all                   scan every tracked and unignored file
