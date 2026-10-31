@@ -13,6 +13,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 files=()
 spec=""
+rev=""
+all=0
 case "${1:-}" in
   --staged)
     spec=:
@@ -22,6 +24,7 @@ case "${1:-}" in
       printf 'REFUSED: --rev needs a commit, and %s is not one\n' "${2:-nothing}" >&2
       exit 1
     fi
+    rev=$2
     spec="$2:"
     files=("${@:3}") ;;
   --all)
@@ -33,13 +36,21 @@ case "${1:-}" in
     if [ ${#files[@]} -eq 0 ]; then
       echo "REFUSED: --all found no files to scan" >&2
       exit 1
-    fi ;;
+    fi
+    all=1 ;;
   *) files=("$@") ;;
 esac
-[ ${#files[@]} -eq 0 ] && exit 0
+scan=()
+for f in "${files[@]}"; do
+  [ "$f" = checks/secret-scan.sh ] && continue
+  [ -n "$spec" ] || [ -f "$f" ] || continue
+  scan+=("$f")
+done
+[ ${#scan[@]} -eq 0 ] && exit 0
 
 copy=$(mktemp)
-trap 'rm -f "$copy"' EXIT
+out=$(mktemp)
+trap 'rm -f "$copy" "$out"' EXIT
 
 # fetch writes the file's content to $copy: from disk, or from git when $spec names the index or a commit.
 fetch() {
@@ -48,6 +59,32 @@ fetch() {
   else
     git cat-file -e "$spec$1" 2>/dev/null && git show "$spec$1" >"$copy"
   fi
+}
+
+# search writes to $out what git grep, given these options, finds in the files to scan, in batches that fit
+# Windows' command line. It fails on git grep's own errors. With --rev, each path starts "<commit>:".
+search() {
+  local where=(--no-index) i
+  set -- --no-color --no-column "$@"
+  [ "$spec" = : ] && where=(--cached)
+  [ -n "$rev" ] && where=()
+  : >"$out"
+  if [ "$all" = 1 ]; then
+    git grep --untracked "$@" -- ':!checks/secret-scan.sh' >>"$out"
+    [ $? -le 1 ] || return 1
+  else
+    for ((i = 0; i < ${#scan[@]}; i += 200)); do
+      git grep "${where[@]}" "$@" ${rev:+"$rev"} -- "${scan[@]:i:200}" >>"$out"
+      [ $? -le 1 ] || return 1
+    done
+  fi
+}
+
+# found reads the files of search's -lz output into the array hits, without the commit.
+found() {
+  mapfile -d '' hits <"$out"
+  [ -n "$rev" ] && hits=("${hits[@]#"$rev:"}")
+  return 0
 }
 
 patterns=(
@@ -67,31 +104,48 @@ patterns=(
 )
 
 problems=0
-for f in "${files[@]}"; do
-  [ "$f" = checks/secret-scan.sh ] && continue
+refused() { echo "REFUSED: git grep could not scan the files" >&2; exit 1; }
+
+pattern_args=()
+for p in "${patterns[@]}"; do pattern_args+=(-e "$p"); done
+search -lzIE "${pattern_args[@]}" || refused
+found
+# Only a file with a hit is read again, once per pattern, to name what it matched.
+for f in "${hits[@]}"; do
   : >"$copy"
-  fetch "$f" || continue
-  grep -Iq . "$copy" 2>/dev/null || continue
+  fetch "$f"
+  named=0
   for p in "${patterns[@]}"; do
     if line=$(grep -nEo -e "$p" "$copy" | head -1) && [ -n "$line" ]; then
       printf '  %s:%s looks like a credential (%s)\n' "$f" "${line%%:*}" "$p" >&2
       problems=$((problems + 1))
+      named=1
     fi
   done
-  while IFS=: read -r n url; do
-    pw=${url#*://*:}
-    case ${pw%@} in
-      local-only*|ci-only-*|password|*'$'*|*%*|*'<'*|*'{'*) ;;
-      *) printf '  %s:%s a Postgres URL with a password (local-only… and ci-only-… are the safe ones)\n' "$f" "$n" >&2
-         problems=$((problems + 1)) ;;
-    esac
-  done < <(grep -nEo "postgres(ql)?://[^:/@[:space:]]+:[^@/[:space:]\"']+@" "$copy")
+  if [ "$named" = 0 ]; then
+    printf '  %s looks like a credential\n' "$f" >&2
+    problems=$((problems + 1))
+  fi
+done
+
+search -znIEo "postgres(ql)?://[^:/@[:space:]]+:[^@/[:space:]\"']+@" || refused
+while IFS= read -r -d '' f && IFS= read -r -d '' n && IFS= read -r url; do
+  [ -z "$rev" ] || f=${f#"$rev:"}
+  pw=${url#*://*:}
+  case ${pw%@} in
+    local-only*|ci-only-*|password|*'$'*|*%*|*'<'*|*'{'*) ;;
+    *) printf '  %s:%s a Postgres URL with a password (local-only… and ci-only-… are the safe ones)\n' "$f" "$n" >&2
+       problems=$((problems + 1)) ;;
+  esac
+done <"$out"
+
+search -lzI --all-match -E -e '^kind:[[:space:]]*Secret' -e '^[[:space:]]*(data|stringData):' || refused
+found
+for f in "${hits[@]}"; do
   case $f in
     *.yaml|*.yml)
-      if grep -qE '^kind:[[:space:]]*Secret' "$copy" && grep -qE '^[[:space:]]*(data|stringData):' "$copy"; then
-        printf '  %s: a Secret carrying data. Secrets are created by hand, never committed\n' "$f" >&2
-        problems=$((problems + 1))
-      fi ;;
+      printf '  %s: a Secret carrying data. Secrets are created by hand, never committed\n' "$f" >&2
+      problems=$((problems + 1)) ;;
   esac
 done
 
