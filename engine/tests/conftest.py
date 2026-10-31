@@ -159,8 +159,8 @@ def conn(db_url):
     c.close()
 
 
-def group_in(conn, slug, group=""):
-    """Returns group of test series slug's tournament 1, creating them; "rated" is in the community ranking."""
+def group_in(conn, slug, group="", stage=""):
+    """Returns group of stage of test series slug's tournament 1, creating them; "rated" is in the community ranking."""
     se = conn.execute(
         "INSERT INTO series (slug, name) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET slug = excluded.slug "
         "RETURNING series_id",
@@ -178,9 +178,9 @@ def group_in(conn, slug, group=""):
         (se,),
     ).fetchone()["tournament_id"]
     st = conn.execute(
-        "INSERT INTO stages (tournament_id, label) VALUES (%s, '') "
+        "INSERT INTO stages (tournament_id, label) VALUES (%s, %s) "
         "ON CONFLICT (tournament_id, label) DO UPDATE SET label = excluded.label RETURNING stage_id",
-        (t,),
+        (t, stage),
     ).fetchone()["stage_id"]
     return conn.execute(
         "INSERT INTO groups (stage_id, name) VALUES (%s, %s) "
@@ -208,6 +208,7 @@ def add_match(conn):
         placed="rated",
         state="played",
         group="",
+        stage="",
     ):
         match_id = conn.execute(
             "INSERT INTO games (batch_id, source_file, source_line, name, date, finished_at, glicko_eligible, group_id, state) "
@@ -219,7 +220,7 @@ def add_match(conn):
                 day,
                 finished_at,
                 eligible,
-                group_in(conn, placed, group) if placed else None,
+                group_in(conn, placed, group, stage) if placed else None,
                 state,
             ),
         ).fetchone()["game_id"]

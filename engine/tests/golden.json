@@ -26,5 +26,9 @@
   "1.13.0": {
     "ratings": "7517a8952c61c4a4174470c89c8cdd750207da76310335ec50e6cec2bb8b7c27",
     "derived": "8088081fa1b2694e985f1da91a415ac972f943fb12804a6be1acef37a57bdabb"
+  },
+  "1.14.0": {
+    "ratings": "7517a8952c61c4a4174470c89c8cdd750207da76310335ec50e6cec2bb8b7c27",
+    "derived": "87b969cccbb15cafa1ecae5c23bb1be7113c41870e194d62b0d736de563746c0"
   }
 }

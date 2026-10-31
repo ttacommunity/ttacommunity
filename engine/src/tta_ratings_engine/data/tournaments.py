@@ -6,11 +6,10 @@ database instead of spreadsheets and code: what a match name does not say
 comes from recorded facts (divisions, official placements, season corrections).
 """
 
-import functools
 import itertools
 import re
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, NamedTuple
 
@@ -280,7 +279,7 @@ def final_podium(games, final: Series):
 
 
 def _tally(games):
-    """Returns each player's points, games, placings, head-to-head, performance, wins and culture.
+    """Returns each player's points, games, placings, places above each other player and performance.
 
     games are each game's seats; points are the seats' game points (a timed-out seat's are its penalty).
     """
@@ -289,30 +288,22 @@ def _tally(games):
         "games": defaultdict(int),
         "placings": defaultdict(lambda: [0, 0, 0, 0]),
         "above": defaultdict(lambda: defaultdict(int)),
-        "h2h": defaultdict(lambda: defaultdict(float)),
         "performance": defaultdict(float),
-        "wins": defaultdict(int),
-        "score": defaultdict(float),
     }
     for seats in games:
         best = max(s.culture for s in seats)
-        winners = sum(1 for s in seats if s.place == 1)
         for s in seats:
-            p, got = s.player, s.points or 0.0
-            t["points"][p] += got
+            p = s.player
+            t["points"][p] += s.points or 0.0
             t["games"][p] += 1
             t["placings"][p][s.place - 1] += 1
             share = s.culture / best if best > 0 else 0.0
             t["performance"][p] += (
                 1.0 if s.place == 1 else max(PERFORMANCE_FLOOR, share)
             )
-            t["score"][p] += s.culture
-            t["wins"][p] += 1 if s.place == 1 and winners == 1 else 0
             for o in seats:
                 if s.place < o.place:
                     t["above"][p][o.player] += 1
-                if o.player != p:
-                    t["h2h"][p][o.player] += got
     return t
 
 
@@ -337,39 +328,63 @@ def _league_order(t):
     return places
 
 
-def _duel_order(t):
-    """Returns a Royal League group's places as upstream orders them, each its players: points, head-to-head
-    points, wins, total score. Players level on all four share a place, in name order."""
-    points, h2h, wins, score = t["points"], t["h2h"], t["wins"], t["score"]
-
-    def compare(a, b):
-        for x, y in (
-            (points[a], points[b]),
-            (h2h[a][b], h2h[b][a]),
-            (wins[a], wins[b]),
-            (score[a], score[b]),
-        ):
-            if x != y:
-                return -1 if x > y else 1
-        return 0
-
-    places: list[list[Player]] = []
-    for p in sorted(sorted(points), key=functools.cmp_to_key(compare)):
-        if places and compare(places[-1][0], p) == 0:
-            places[-1].append(p)
-        else:
-            places.append([p])
-    return places
+def _by_points(players, points) -> list[list[Player]]:
+    """Returns players grouped into places by points, best first, each place in name order."""
+    ordered = sorted(sorted(players), key=lambda p: -points[p])
+    return [
+        list(level) for _, level in itertools.groupby(ordered, key=lambda p: points[p])
+    ]
 
 
-def rank_group(games: list[list[Seat]], rules: Series):
+def _points_among(games, among) -> dict[Player, float]:
+    """Returns each of among's game points from the games played only among them."""
+    points = dict.fromkeys(among, 0.0)
+    for seats in games:
+        if all(s.player in among for s in seats):
+            for s in seats:
+                points[s.player] += s.points or 0.0
+    return points
+
+
+def _duel_order(t, games, playoffs):
+    """Returns a Royal League group's places, each its players, by the league's rule: points, then the points from
+    the games among the tied players, again for each smaller set still tied, then their playoff games. Players still
+    level share a place, in name order. A playoff splits a tie only when every tied player played in it."""
+
+    def split(tied):
+        if len(tied) == 1:
+            return [tied]
+        among = set(tied)
+        played = {
+            s.player
+            for seats in playoffs
+            if all(s.player in among for s in seats)
+            for s in seats
+        }
+        for source in (games, playoffs if played == among else []):
+            parts = _by_points(tied, _points_among(source, among))
+            if len(parts) > 1:
+                return [place for part in parts for place in split(part)]
+        return [tied]
+
+    return [
+        place
+        for level in _by_points(t["points"], t["points"])
+        for place in split(level)
+    ]
+
+
+def rank_group(
+    games: list[list[Seat]], rules: Series, playoffs: Sequence[list[Seat]] = ()
+):
     """Returns a group's standings as dicts in place order, by its seats' game points and the series' tiebreaks.
 
-    Players the tiebreaks cannot split share their place (shared is true), and the next place counts them all.
+    playoffs are the season's playoff games, which only a Royal League tie uses. Players the tiebreaks cannot split
+    share their place (shared is true), and the next place counts them all.
     """
     t = _tally(games)
     out: list[dict[str, Any]] = []
-    for place in _duel_order(t) if rules.duel else _league_order(t):
+    for place in _duel_order(t, games, playoffs) if rules.duel else _league_order(t):
         at = len(out) + 1
         out += [
             {
@@ -427,7 +442,8 @@ def classify(rows, recorded, corrections, series_rules):
     the real season, or None to leave the games out. A game without a named
     division takes the group CGE recorded for it, else a recorded one only when
     every player in it has the same one; recorded games of one division that
-    never meet form numbered groups.
+    never meet form numbered groups. A game is a tiebreak when its name or its
+    catalogue stage says so.
     """
     out = []
     pending = defaultdict(list)
@@ -437,10 +453,13 @@ def classify(rows, recorded, corrections, series_rules):
             continue
         rules = series_rules[series]
         season = corrections.get((series, parsed.season), parsed.season)
+        tiebreak = (
+            parsed.tiebreak or "tiebreak" in (r.get("catalogue_stage") or "").lower()
+        )
         g = {
             "match_id": r["match_id"], "series": series, "season": season,
             "name_season": parsed.season, "division": None, "group": None,
-            "source": None, "tiebreak": parsed.tiebreak,
+            "source": None, "tiebreak": tiebreak,
             "in_records": rules.in_records(r["tournament"]) if rules.in_records else False,
         }  # fmt: skip
         out.append(g)
@@ -451,13 +470,13 @@ def classify(rows, recorded, corrections, series_rules):
             continue
         # A league game named without its division: the group CGE recorded for it, when it has one.
         cge_group = (r.get("group_label") or "").strip()
-        if cge_group and not parsed.tiebreak and rules.points:
+        if cge_group and not tiebreak and rules.points:
             division = re.sub(r"\s+\d+$", "", cge_group)
             g.update(division=division, group=cge_group, source="cge")
             continue
         players = players_of(r)
         divs = {recorded.get((series, season, p)) for p in players}
-        if len(divs) == 1 and None not in divs and not parsed.tiebreak:
+        if len(divs) == 1 and None not in divs and not tiebreak:
             pending[(series, season, divs.pop())].append((g, players))
     for (_series, _season, division), games in pending.items():
         groups = _components([players for _, players in games])
@@ -729,10 +748,12 @@ def _finish_dates(classified, by_id, in_progress, recorded_dates):
 
 
 def _groups_and_records(classified, by_id, rules, in_progress):
-    """Returns each group's games' seats, by (series, season, division, group), and each series' games
-    that count for its seasonal records (finished seasons, no tiebreaks)."""
+    """Returns each group's games' seats, by (series, season, division, group), each series' games
+    that count for its seasonal records (finished seasons, no tiebreaks), and each season's playoff games' seats,
+    by (series, season)."""
     groups = defaultdict(list)
     records = defaultdict(list)
+    playoffs = defaultdict(list)
     for g in classified:
         r = by_id[g["match_id"]]
         if (
@@ -746,16 +767,18 @@ def _groups_and_records(classified, by_id, rules, in_progress):
         if g["division"] is not None and not g["tiebreak"]:
             key = (g["series"], g["season"], g["division"], g["group"])
             groups[key].append(seats_of(r))
-    return groups, records
+        if g["tiebreak"] and g["season"] is not None:
+            playoffs[(g["series"], g["season"])].append(seats_of(r))
+    return groups, records, playoffs
 
 
-def _standings(run_id, groups, rules, in_progress):
-    """Returns each group's standing rows to insert, each saying if its season is finished (not in in_progress),
-    and the standings by (series, season, division)."""
+def _standings(run_id, groups, playoffs, rules, in_progress):
+    """Returns each group's standing rows to insert, its ties split by its season's playoffs, each saying if its
+    season is finished (not in in_progress), and the standings by (series, season, division)."""
     standing_rows = []
     derived = defaultdict(list)
     for (series, season, division, group), games in groups.items():
-        for s in rank_group(games, rules[series]):
+        for s in rank_group(games, rules[series], playoffs[(series, season)]):
             standing_rows.append(
                 (run_id, series, season, division, group, s["player"],
                  s["place"], s["points"], s["games"], s["placings"], (series, season) not in in_progress)
@@ -808,8 +831,12 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             facts.dates,
         )
         dates = _finish_dates(classified, by_id, in_progress, facts.dates)
-        groups, records = _groups_and_records(classified, by_id, rules, in_progress)
-        standing_rows, derived = _standings(run_id, groups, rules, in_progress)
+        groups, records, playoffs = _groups_and_records(
+            classified, by_id, rules, in_progress
+        )
+        standing_rows, derived = _standings(
+            run_id, groups, playoffs, rules, in_progress
+        )
         # A season still being played shows its standings, but no podium yet.
         finished = {
             k: v

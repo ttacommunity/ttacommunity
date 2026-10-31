@@ -185,8 +185,8 @@ def seats(*rows):
                 seats(("dan", 1, 2, 100), ("bob", 2, 0, 90)),
                 seats(("dan", 1, 2, 100), ("cat", 2, 0, 90)),
             ],
-            [("dan", 1, 5.0), ("bob", 2, 3.0), ("ann", 3, 3.0), ("cat", 4, 1.0)],
-            id="Royal League: ann and bob drew, on 3 points; bob has a win, ann three draws",
+            [("dan", 1, 5.0), ("ann", 2, 3.0), ("bob", 2, 3.0), ("cat", 4, 1.0)],
+            id="Royal League: ann and bob drew, on 3 points; bob's win and ann's draws do not split them",
         ),
         pytest.param(
             "royal_league",
@@ -196,8 +196,8 @@ def seats(*rows):
                 seats(("bob", 1, 2, 300), ("dan", 2, 0, 10)),
                 seats(("cat", 1, 2, 50), ("dan", 2, 0, 40)),
             ],
-            [("bob", 1, 3.0), ("ann", 2, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
-            id="Royal League: ann and bob drew and won once each, bob scored more",
+            [("ann", 1, 3.0), ("bob", 1, 3.0), ("cat", 3, 2.0), ("dan", 4, 0.0)],
+            id="Royal League: ann and bob drew and won once each; bob's higher score does not split them",
         ),
         pytest.param(
             "international",
@@ -224,6 +224,101 @@ def test_rank_group_breaks_ties_by_the_series_rules(series, games, want):
     got = rank_group(games, SERIES[series])
 
     assert [(r["player"], r["place"], r["points"]) for r in got] == want
+
+
+def beat(winner, loser):
+    return seats((winner, 1, 2, 100), (loser, 2, 0, 90))
+
+
+def drew(a, b):
+    return seats((a, 1, 1, 100), (b, 1, 1, 100))
+
+
+@pytest.mark.parametrize(
+    ("games", "playoffs", "want"),
+    [
+        pytest.param(
+            [
+                beat("ann", "bob"),
+                beat("bob", "cat"),
+                beat("cat", "ann"),
+                beat("ann", "dan"),
+                beat("bob", "dan"),
+                beat("cat", "dan"),
+            ],
+            [],
+            [("ann", 1), ("bob", 1), ("cat", 1), ("dan", 4)],
+            id="three tied who each beat one of the others share the place",
+        ),
+        pytest.param(
+            [
+                beat("ann", "bob"),
+                beat("ann", "cat"),
+                beat("bob", "cat"),
+                beat("cat", "dan"),
+                beat("cat", "eve"),
+                beat("bob", "eve"),
+                beat("dan", "ann"),
+            ],
+            [],
+            [("ann", 1), ("bob", 2), ("cat", 3), ("dan", 4), ("eve", 5)],
+            id="three tied on 4 points go by the games among them: ann 4, bob 2, cat 0",
+        ),
+        pytest.param(
+            [
+                beat("ann", "bob"),
+                beat("bob", "cat"),
+                beat("cat", "ann"),
+                beat("dan", "ann"),
+                beat("dan", "bob"),
+                beat("cat", "dan"),
+                beat("ann", "eve"),
+                beat("bob", "eve"),
+            ],
+            [],
+            [("cat", 1), ("dan", 2), ("ann", 3), ("bob", 4), ("eve", 5)],
+            id="four tied split 4, 4, 2, 2 among them, then each pair by its own game",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), beat("ann", "cat"), beat("bob", "cat")],
+            [beat("bob", "ann")],
+            [("bob", 1), ("ann", 2), ("cat", 3)],
+            id="a tie head-to-head leaves goes to the playoff between them",
+        ),
+        pytest.param(
+            [
+                beat("ann", "bob"),
+                beat("ann", "cat"),
+                drew("bob", "cat"),
+                beat("bob", "dan"),
+                beat("cat", "dan"),
+                drew("bob", "eve"),
+                drew("cat", "fay"),
+            ],
+            [beat("cat", "bob")],
+            [("ann", 1), ("cat", 2), ("bob", 3), ("eve", 4), ("fay", 4), ("dan", 6)],
+            id="three tied on 4 points: ann goes first on the games among them, the playoff splits bob and cat",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), beat("ann", "cat"), beat("bob", "cat")],
+            [beat("ann", "zed")],
+            [("ann", 1), ("bob", 1), ("cat", 3)],
+            id="a playoff with a player from another group splits no one",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), drew("ann", "cat"), drew("bob", "cat")],
+            [beat("bob", "cat")],
+            [("ann", 1), ("bob", 1), ("cat", 1)],
+            id="a playoff some of the tied players did not play splits no one",
+        ),
+    ],
+)
+def test_royal_league_ties_go_to_the_games_among_the_tied_then_their_playoffs(
+    games, playoffs, want
+):
+    got = rank_group(games, SERIES["royal_league"], playoffs)
+
+    assert [(r["player"], r["place"]) for r in got] == want
 
 
 def test_a_final_tie_the_rules_cannot_split_gives_no_podium():
@@ -632,6 +727,24 @@ def test_tiebreak_games_stay_out_of_standings_but_in_records(conn, add_match, ru
     assert (got[tiebreak]["tiebreak"], got[tiebreak]["in_records"]) == (True, True)
     assert (got[regular]["tiebreak"], got[regular]["in_records"]) == (False, True)
     assert standings(conn, run_id, 9) == [("ann", 1, 2.0), ("bob", 2, 0.0)]
+
+
+def test_a_game_in_a_tiebreak_stage_is_a_playoff_whatever_its_name(
+    conn, add_match, run_id
+):
+    add_match(("ann", 90), ("bob", 90), tournament=rl(1))
+    playoff = add_match(
+        ("bob", 300),
+        ("ann", 80),
+        tournament=rl(1, group="Emperor, pl.1-2"),
+        stage="Tiebreak",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = {r["match_id"]: r for r in games(conn, run_id)}
+    assert got[playoff]["tiebreak"] is True
+    assert standings(conn, run_id, 9) == [("bob", 1, 1.0), ("ann", 2, 1.0)]
 
 
 def test_records_keep_grandmaster_1_and_leave_out_master_1(conn, add_match, run_id):
