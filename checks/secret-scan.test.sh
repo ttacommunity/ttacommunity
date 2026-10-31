@@ -52,6 +52,24 @@ done
 
 token="t=gh""p_$(rep a 36)"
 
+dir=$(repo secret)
+printf 'kind: Secret\ndata:\n  k: dg==\n' >"$dir/s.yaml"
+out=$(bash "$dir/checks/secret-scan.sh" "$dir/s.yaml" 2>&1)
+[ $? -eq 1 ] || fail "a Secret carrying data: passed; output: $out"
+
+dir=$(repo many)
+for i in $(seq 1 250); do echo clean >"$dir/f$i.txt"; done
+echo "$token" >"$dir/last.txt"
+out=$(cd "$dir" && bash checks/secret-scan.sh f*.txt last.txt 2>&1)
+[ $? -eq 1 ] || fail "a token in the 251st file: passed; output: $out"
+
+dir=$(repo all)
+echo clean >"$dir/clean.txt"
+git -C "$dir" add clean.txt
+echo "$token" >"$dir/untracked.txt"
+out=$(cd "$dir" && bash checks/secret-scan.sh --all 2>&1)
+[ $? -eq 1 ] || fail "--all, a token in an untracked file: passed; output: $out"
+
 dir=$(repo staged)
 echo "$token" >"$dir/f.txt"
 git -C "$dir" add f.txt
