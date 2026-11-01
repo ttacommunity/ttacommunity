@@ -2770,6 +2770,119 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/notification-endpoints:
+    get:
+      operationId: getAdminNotificationEndpoints
+      tags: [admin]
+      summary: The webhooks admin posts notifications to (admins only)
+      responses:
+        "200":
+          description: The endpoints, by name
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationEndpoint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminNotificationEndpoint
+      tags: [admin]
+      summary: Add a webhook to post notifications to (admins only)
+      description: Audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationEndpointSetting"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationEndpoint"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/notification-endpoints/{endpoint}:
+    put:
+      operationId: putAdminNotificationEndpoint
+      tags: [admin]
+      summary: Change a notification webhook (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminNotificationEndpointId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationEndpointSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminNotificationEndpoint
+      tags: [admin]
+      summary: Remove a notification webhook (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminNotificationEndpointId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/notification-endpoints/{endpoint}/test:
+    post:
+      operationId: postAdminNotificationEndpointTest
+      tags: [admin]
+      summary: Post a test message to a notification webhook, and say how Discord answered (admins only)
+      description: The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminNotificationEndpointId"
+      responses:
+        "200":
+          description: Posted, or Discord's refusal
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/titles:
     get:
       operationId: getAdminTitles
@@ -4243,6 +4356,14 @@ components:
         type: integer
         format: int64
         minimum: 1
+    AdminNotificationEndpointId:
+      name: endpoint
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminPlayer:
       name: player
       in: path
@@ -4744,6 +4865,61 @@ components:
           type: array
           items:
             type: string
+    NotificationEvent:
+      description: What a notification tells of, which an endpoint chooses among
+      type: string
+      enum: [link_request, blitz_report, blitz_flag]
+    NotificationEndpoint:
+      type: object
+      required: [id, name, url, format, events, prefix]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        url:
+          type: string
+        format:
+          $ref: "#/components/schemas/NotificationFormat"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationEvent"
+        prefix:
+          description: Text put before each message, such as [dev]
+          type: string
+    NotificationFormat:
+      description: How the endpoint takes messages; discord so far
+      type: string
+      enum: [discord]
+    NotificationEndpointSetting:
+      type: object
+      additionalProperties: false
+      required: [name, url, events]
+      properties:
+        name:
+          type: string
+        url:
+          description: A Discord webhook's URL, https://discord.com/api/webhooks/…
+          type: string
+        format:
+          $ref: "#/components/schemas/NotificationFormat"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationEvent"
+        prefix:
+          type: string
+    NotificationTest:
+      type: object
+      required: [delivered, message]
+      properties:
+        delivered:
+          type: boolean
+        message:
+          description: What happened, for admin to show
+          type: string
     BadgeSetting:
       type: object
       additionalProperties: false

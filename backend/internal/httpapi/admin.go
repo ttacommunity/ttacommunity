@@ -34,6 +34,18 @@ type Admins interface {
 	MemberAdmin
 	AccountAdmin
 	ChallengeAdmin
+	NotificationAdmin
+}
+
+// NotificationAdmin is the webhooks notifications are posted to, and a test post to one.
+type NotificationAdmin interface {
+	NotificationEndpoints(ctx context.Context) ([]store.NotificationEndpoint, error)
+	NotificationEndpoint(ctx context.Context, id int64) (store.NotificationEndpoint, error)
+	AddNotificationEndpoint(ctx context.Context, e store.NotificationEndpoint, now time.Time) (int64, error)
+	SetNotificationEndpoint(ctx context.Context, e store.NotificationEndpoint) error
+	RemoveNotificationEndpoint(ctx context.Context, id int64) error
+	// PostTestNotification posts notify.TestText to e: a *notify.RefusedError when Discord refuses it.
+	PostTestNotification(ctx context.Context, e store.NotificationEndpoint) error
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.

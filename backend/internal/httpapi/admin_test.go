@@ -51,6 +51,8 @@ type fakeAdmins struct {
 	threadText *store.BlitzThreadText
 	// members are the community's (admin_members_test.go).
 	members []store.Member
+	// postErr is what posting a test notification returns (admin_notifications_test.go).
+	postErr error
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
 	// what it was asked (admin_blitz_test.go).
 	added      []store.BlitzEntrant

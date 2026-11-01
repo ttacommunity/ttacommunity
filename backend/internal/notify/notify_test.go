@@ -71,6 +71,9 @@ func TestMessagePutsTheEndpointsPrefixFirst(t *testing.T) {
 			t.Errorf("Message with prefix %q = %q, want %q", tt.prefix, got, tt.want)
 		}
 	}
+	if got, want := notify.TestMessage(store.NotificationEndpoint{Prefix: "[dev]"}), `\[dev\] `+notify.TestText; got != want {
+		t.Errorf("TestMessage = %q, want %q", got, want)
+	}
 }
 
 // discord is a stub Discord webhook answering status, recording the body it was sent.

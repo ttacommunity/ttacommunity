@@ -38,11 +38,10 @@ type NotificationsSent struct {
 	Sent, Failed, GaveUp int
 }
 
-// queueNotification puts a notification of kind in the outbox, due at now, about a link request or a blitz match;
-// one of the same still waiting covers it.
+// queueNotification puts a notification of kind in the outbox, due at now, about a link request or a blitz match.
 func queueNotification(ctx context.Context, tx pgx.Tx, kind string, request, match *int64, now time.Time) error {
 	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, request_id, match_id, created_at, next_at)
-		VALUES ($1, $2, $3, $4, $4) ON CONFLICT DO NOTHING`, kind, request, match, now); err != nil {
+		VALUES ($1, $2, $3, $4, $4)`, kind, request, match, now); err != nil {
 		return fmt.Errorf("queueing a notification: %w", err)
 	}
 	return nil
@@ -71,7 +70,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, o.attempts, o.sent_to,
+			SELECT o.notification_id, o.kind, coalesce(o.request_id, o.match_id), o.attempts, o.sent_to,
 			       CASE o.kind WHEN 'link_request' THEN lr.status = 'pending'
 			                   WHEN 'blitz_report' THEN bm.report IS NOT NULL
 			                   ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
@@ -99,6 +98,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		}
 		type due struct {
 			n        Notification
+			ref      int64
 			attempts int
 			sentTo   []int64
 			open     bool
@@ -107,8 +107,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		for rows.Next() {
 			var d due
 			n := &d.n
-			if err := rows.Scan(&n.ID, &n.Kind, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.Slug, &n.Series, &n.Edition,
-				&n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason); err != nil {
+			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.Slug, &n.Series,
+				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -117,7 +117,17 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		if err := rows.Err(); err != nil {
 			return fmt.Errorf("reading the notifications due: %w", err)
 		}
+		// A repeat of a notification in this batch tells nothing more, being read from the same data.
+		seen := map[string]bool{}
 		for _, d := range all {
+			key := fmt.Sprint(d.n.Kind, d.ref)
+			if seen[key] {
+				if _, err := tx.Exec(ctx, "DELETE FROM notification_outbox WHERE notification_id = $1", d.n.ID); err != nil {
+					return fmt.Errorf("deleting a repeated notification: %w", err)
+				}
+				continue
+			}
+			seen[key] = true
 			failed := false
 			for _, e := range endpoints {
 				if !d.open || !slices.Contains(e.Events, d.n.Kind) || slices.Contains(d.sentTo, e.ID) {

@@ -1,7 +1,7 @@
 -- Notifications for admins and organisers. The endpoints admin posts them to: a Discord webhook (the only format so
 -- far), the events it receives and text put before each message. The outbox: a player's request to be linked, or their
 -- blitz report or flag, queued in the same transaction as what it tells of. The api posts each to every endpoint
--- taking its event, then deletes it; one still waiting covers a repeat, and the message is written as it is sent.
+-- taking its event, then deletes it; repeats sent together are posted once, written from the data as it is then.
 -- +goose Up
 CREATE TABLE notification_endpoints (
     endpoint_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -28,7 +28,6 @@ CREATE TABLE notification_outbox (
     sent_to bigint[] NOT NULL DEFAULT '{}',
     CHECK ((kind = 'link_request') = (request_id IS NOT NULL) AND (kind <> 'link_request') = (match_id IS NOT NULL))
 );
-CREATE UNIQUE INDEX notification_outbox_one_each ON notification_outbox (kind, request_id, match_id) NULLS NOT DISTINCT;
 CREATE INDEX notification_outbox_due ON notification_outbox (next_at);
 REVOKE SELECT ON notification_outbox FROM ratings_read;
 GRANT INSERT ON notification_outbox TO ratings_player;

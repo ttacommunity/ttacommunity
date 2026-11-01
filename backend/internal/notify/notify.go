@@ -84,10 +84,18 @@ func Text(n store.Notification, admin string) string {
 
 // Message is n as e posts it: Text after e's prefix.
 func Message(n store.Notification, e store.NotificationEndpoint, admin string) string {
+	return prefixed(e, Text(n, admin))
+}
+
+// TestMessage is what admin's Test button posts to e: TestText after e's prefix.
+func TestMessage(e store.NotificationEndpoint) string { return prefixed(e, TestText) }
+
+// prefixed puts e's prefix, if any, before text.
+func prefixed(e store.NotificationEndpoint, text string) string {
 	if e.Prefix == "" {
-		return Text(n, admin)
+		return text
 	}
-	return discordbot.EscapeMarkdown(e.Prefix) + " " + Text(n, admin)
+	return discordbot.EscapeMarkdown(e.Prefix) + " " + text
 }
 
 // Discord posts messages to Discord webhooks.

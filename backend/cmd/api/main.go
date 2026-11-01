@@ -26,6 +26,7 @@ import (
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/httpapi"
 	"ttacommunity/backend/internal/metrics"
+	"ttacommunity/backend/internal/notify"
 	"ttacommunity/backend/internal/openid"
 	"ttacommunity/backend/internal/store"
 )
@@ -90,6 +91,7 @@ func main() {
 	}
 	defer adminPool.Close()
 	reg.AddPool("ratings_admin", adminPool)
+	go sendNotifications(ctx, admins.AdminStore, admins.poster, admins.origin, log)
 	if os.Getenv("ADMIN_DEV_USER") != "" {
 		log.Warn("admin sign-in is bypassed for local development (ADMIN_DEV_USER)")
 	}
@@ -163,12 +165,14 @@ func serveMetrics(ctx context.Context, addr string, reg *metrics.Registry, log *
 	}()
 }
 
-// adminDeps verifies admin requests' Access tokens, reads admins through the admin login, and starts runs.
+// adminDeps verifies admin requests' Access tokens, reads admins through the admin login, starts runs, and posts
+// notifications.
 type adminDeps struct {
 	*access.Verifier
 	*store.AdminStore
 	origin  string
 	starter *enginejob.Starter
+	poster  *notify.Discord
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
@@ -248,7 +252,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter}, pool, nil
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second})}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

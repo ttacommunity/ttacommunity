@@ -405,3 +405,29 @@ func TestTheDatabaseRefusesABadNotificationEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestACorrectionMadeWhileTheReportIsSentIsSentNext(t *testing.T) {
+	a, p, matches := outboxFixture(t)
+	ctx := context.Background()
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+		t.Fatalf("ReportBlitzGame: %v", err)
+	}
+	var first []string
+	if _, err := a.SendNotifications(ctx, sendsAt, 10, func(_ context.Context, n Notification, _ NotificationEndpoint) error {
+		first = append(first, notificationLine(n))
+		corrected := BlitzGame{ShareCode: "REP-2", A: finished(40, 1), B: finished(55, 2), Finished: finishedAt}
+		if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], corrected, reportsAt); err != nil {
+			t.Errorf("ReportBlitzGame(the correction): %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("SendNotifications: %v", err)
+	}
+	want := []string{
+		`blitz_report us_open/2026 "US Open" round=1 Ann v Bob result=a by=Ann corrected=false flag=`,
+		`blitz_report us_open/2026 "US Open" round=1 Ann v Bob result=b by=Ann corrected=true flag=`,
+	}
+	if got := append(first, sent(t, a, sendsAt)...); !slices.Equal(got, want) {
+		t.Errorf("sent = %q, want %q", got, want)
+	}
+}
