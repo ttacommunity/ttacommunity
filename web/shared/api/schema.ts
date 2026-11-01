@@ -2509,9 +2509,9 @@ export interface paths {
          * Start an edition again from its entrants
          * @description Audited. The Origin must be the admin site. Every round, result and
          *     game goes, every dropped entrant is in again and every skip goes.
-         *     The entrants and their details, the format, points and pairing
-         *     stay. Ratings runs lose their rows for the games, as a
-         *     match's reset does.
+         *     The entrants and their details, the format, points, pairing,
+         *     organisers and thread text stay. Ratings runs lose their rows for
+         *     the games, as a match's reset does.
          */
         post: operations["postAdminBlitzReset"];
         delete?: never;
@@ -2653,6 +2653,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/blitz/{tournament}/{edition}/organisers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a member as an organiser of a blitz edition
+         * @description Audited. The Origin must be the admin site. Every round's Discord
+         *     thread messages tell players to ping the organisers. Adding one
+         *     again changes nothing.
+         */
+        post: operations["postAdminBlitzOrganiser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/organisers/{member}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Stop a member organising a blitz edition
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminBlitzOrganiser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/thread-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what a blitz edition's Discord thread messages say
+         * @description Audited. The Origin must be the admin site. Replaces the edition's text, or the default.
+         */
+        put: operations["putAdminBlitzThreadText"];
+        post?: never;
+        /**
+         * Reset a blitz edition's Discord thread messages to the default text
+         * @description Audited. The Origin must be the admin site. An edition already on the default stays on it.
+         */
+        delete: operations["deleteAdminBlitzThreadText"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/blitz/{tournament}/{edition}/points": {
         parameters: {
             query?: never;
@@ -2724,7 +2790,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/discord": {
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads": {
         parameters: {
             query?: never;
             header?: never;
@@ -2732,15 +2798,24 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * A round's games as text to paste into Discord
-         * @description Audited, as it holds Discord names. A line per game with two
-         *     players, in the order the site numbers them, as "@ann vs @bob",
-         *     every line but the last ending in a comma; pasted into Discord, it
-         *     notifies everyone playing. A player whose Discord name cannot be a
-         *     username is named by TTA username. Any round once paired, draft or
-         *     published; refused while the round has no game.
+         * Download a round's Discord threads as text to paste
+         * @description Audited, as it holds Discord names. First the round's games, a
+         *     line each as "@ann vs @bob", every line but the last ending in a
+         *     comma, so pasted into Discord it notifies everyone playing; then a
+         *     blank line, then a block per game with two players,
+         *     numbered as the site numbers them, between --- lines: the
+         *     thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
+         *     most 100 characters), then the edition's message with any {players}
+         *     mentioned by Discord username and any {deadline} as a Discord
+         *     timestamp, then whom to ping: the organisers by Discord username.
+         *     A player whose Discord name cannot be a username is named by TTA
+         *     username, and the edition's no-Discord sentence follows for them;
+         *     an organiser's shows as @???, for the organiser to fill in. A blank
+         *     line parts the blocks. Any round once paired, draft or published;
+         *     refused while the round has no deadline, the edition no organiser,
+         *     or the round no game.
          */
-        get: operations["getAdminBlitzRoundDiscord"];
+        get: operations["getAdminBlitzRoundThreads"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3992,6 +4067,9 @@ export interface components {
             skips: number[];
         };
         AdminBlitzEdition: {
+            /** @description The members the Discord thread messages tell players to ping, in the order added */
+            organisers: components["schemas"]["AdminBlitzOrganiser"][];
+            thread_text: components["schemas"]["AdminBlitzThreadText"];
             /** @description What fixed the starting ranks when round 1 was paired, rating or lot; null before */
             ranks_fixed_by: components["schemas"]["RanksFixedBy"] | null;
             pairing: components["schemas"]["BlitzPairingMethods"];
@@ -4095,9 +4173,39 @@ export interface components {
              */
             skip: number;
         };
-        /** @description A round's games as text to paste into Discord */
-        BlitzDiscordText: {
-            text: string;
+        /** @description What the edition's Discord thread messages say, its own text or the default */
+        AdminBlitzThreadText: {
+            /** @description The welcome message, where {players} and {deadline} are filled in */
+            message: string;
+            /** @description The sentence for a player without a Discord username, where {name} is filled in */
+            no_discord: string;
+            /** @description True when the edition has its own text, false for the default */
+            edited: boolean;
+        };
+        /**
+         * @description An edition's own thread text, written as typed, surrounding spaces
+         *     trimmed. In the message, {players} becomes the game's players and
+         *     {deadline} the round's deadline; in the no-Discord sentence, {name}
+         *     becomes the player's TTA username. Each is optional, and an empty
+         *     part is left out of the threads.
+         */
+        BlitzThreadTextSet: {
+            message: string;
+            no_discord: string;
+        };
+        /** @description A member who organises an edition */
+        AdminBlitzOrganiser: {
+            /** Format: int64 */
+            member: number;
+            /** @description The TTA username */
+            name: string;
+            /** @description Empty when not known */
+            discord_name: string;
+        };
+        /** @description The member to add as an organiser */
+        BlitzOrganiserAdd: {
+            /** Format: int64 */
+            member: number;
         };
         /** @description A deadline, and the time zone it was set in */
         BlitzDeadline: {
@@ -9546,6 +9654,121 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    postAdminBlitzOrganiser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzOrganiserAdd"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminBlitzOrganiser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                member: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminBlitzThreadText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzThreadTextSet"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminBlitzThreadText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     putAdminBlitzPoints: {
         parameters: {
             query?: never;
@@ -9670,7 +9893,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    getAdminBlitzRoundDiscord: {
+    getAdminBlitzRoundThreads: {
         parameters: {
             query?: never;
             header?: never;
@@ -9685,14 +9908,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The text */
+            /** @description The threads, as plain text */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
+                    "Content-Disposition": string;
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BlitzDiscordText"];
+                    "text/plain": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

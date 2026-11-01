@@ -1,5 +1,5 @@
-// A round's Discord text: a line per game naming its players as Discord mentions them, for an organiser to paste
-// into Discord so everyone playing is notified.
+// A round's games as Discord text: a line per game naming its players as Discord mentions them, at the top of the
+// round's threads so that pasting it into Discord notifies everyone playing.
 package blitz
 
 import (

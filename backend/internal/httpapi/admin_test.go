@@ -46,6 +46,9 @@ type fakeAdmins struct {
 	// ranksFixedBy is what fixed the blitz edition's starting ranks, "" before round 1.
 	ranksFixedBy string
 	rounds       []store.BlitzRound
+	// organisers and threadText are us_open 2026's (admin_blitz_discord_test.go).
+	organisers []store.BlitzOrganiser
+	threadText *store.BlitzThreadText
 	// members are the community's (admin_members_test.go).
 	members []store.Member
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
@@ -716,6 +719,7 @@ func TestAdminChangesRefuseAnotherOriginOrABadRequest(t *testing.T) {
 		{"a deadline from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/deadline", "https://evil.example", `{"day": "2026-10-19", "time": "12:00", "zone": "UTC"}`, http.StatusForbidden},
 		{"an organiser from another site", http.MethodPost, "/v1/admin/blitz/us_open/2026/organisers", "https://evil.example", `{"member": 21}`, http.StatusForbidden},
 		{"a thread text from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", `{"message": "Hi {players}.", "no_discord": "{name}."}`, http.StatusForbidden},
+		{"an organiser's removal from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/organisers/21", "https://evil.example", "", http.StatusForbidden},
 		{"a thread text reset from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/thread-text", "https://evil.example", "", http.StatusForbidden},
 		{"points from another site", http.MethodPut, "/v1/admin/blitz/us_open/2026/points", "https://evil.example", `{"win": 3, "draw": 1, "loss": 0, "forfeit_win": 3, "forfeit_loss": 0, "bye": 3, "skip": 0}`, http.StatusForbidden},
 		{"a points reset from another site", http.MethodDelete, "/v1/admin/blitz/us_open/2026/points", "https://evil.example", "", http.StatusForbidden},
