@@ -3,7 +3,7 @@ import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } f
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'members', 'data', 'titles', 'admins', 'audit']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'members', 'data', 'titles', 'admins', 'notifications', 'audit']],
     ['organiser', ['tournaments', 'blitz', 'challenges', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
@@ -19,6 +19,8 @@ describe('admin tabs', () => {
     ['#admins', 'organiser', 'tournaments'],
     ['#audit', 'admin', 'audit'],
     ['#audit', 'organiser', 'tournaments'],
+    ['#notifications', 'admin', 'notifications'],
+    ['#notifications', 'organiser', 'tournaments'],
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
     ['#challenges', 'organiser', 'challenges'],
@@ -39,6 +41,7 @@ describe('admin tabs', () => {
     ['members', 'organiser', ['members']],
     ['admins', 'admin', ['admins']],
     ['audit', 'admin', ['audit']],
+    ['notifications', 'admin', ['notifications']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);
   });
@@ -64,7 +67,7 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Challenges', ['challenges']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'audit']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Challenges', ['challenges']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'notifications', 'audit']]]],
     ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Challenges', ['challenges']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);

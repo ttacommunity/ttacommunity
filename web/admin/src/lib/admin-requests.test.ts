@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as req from './admin-requests';
 
 const BADGE = { id: 7, label: 'TD', description: 'Runs it', players: ['ann', 'bob'] };
+const ENDPOINT = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000000000001/token', events: ['link_request' as const], prefix: '[dev]' };
 
 describe('admin requests', () => {
   it.each([
@@ -75,6 +76,11 @@ describe('admin requests', () => {
     ['publishing a run', req.publishRun(12), '/api/runs/12/publish', 'POST', undefined],
     ['protecting a run', req.protectRun(12, true), '/api/runs/12', 'PATCH', { protected: true }],
     ['deleting a run', req.deleteRun(12), '/api/runs/12', 'DELETE', undefined],
+    // Notifications
+    ['a new notification endpoint', req.addEndpoint(ENDPOINT), '/api/notification-endpoints', 'POST', { ...ENDPOINT, format: 'discord' }],
+    ['a notification endpoint', req.setEndpoint(3, ENDPOINT), '/api/notification-endpoints/3', 'PUT', { ...ENDPOINT, format: 'discord' }],
+    ['removing a notification endpoint', req.removeEndpoint(3), '/api/notification-endpoints/3', 'DELETE', undefined],
+    ['testing a notification endpoint', req.testEndpoint(3), '/api/notification-endpoints/3/test', 'POST', undefined],
   ])('sends %s', (_, got, path, method, json) => {
     expect(got).toEqual({ path, init: { method, json } });
   });

@@ -429,22 +429,22 @@ func (e LinkedHow) Valid() bool {
 
 // Defines values for LoginProvider.
 const (
-	Discord   LoginProvider = "discord"
-	Email     LoginProvider = "email"
-	Google    LoginProvider = "google"
-	Microsoft LoginProvider = "microsoft"
+	LoginProviderDiscord   LoginProvider = "discord"
+	LoginProviderEmail     LoginProvider = "email"
+	LoginProviderGoogle    LoginProvider = "google"
+	LoginProviderMicrosoft LoginProvider = "microsoft"
 )
 
 // Valid indicates whether the value is a known member of the LoginProvider enum.
 func (e LoginProvider) Valid() bool {
 	switch e {
-	case Discord:
+	case LoginProviderDiscord:
 		return true
-	case Email:
+	case LoginProviderEmail:
 		return true
-	case Google:
+	case LoginProviderGoogle:
 		return true
-	case Microsoft:
+	case LoginProviderMicrosoft:
 		return true
 	default:
 		return false
@@ -505,6 +505,45 @@ func (e MyBlitzMatchActions) Valid() bool {
 	case Flag:
 		return true
 	case Report:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationEvent.
+const (
+	NotificationEventBlitzFlag   NotificationEvent = "blitz_flag"
+	NotificationEventBlitzReport NotificationEvent = "blitz_report"
+	NotificationEventLinkRequest NotificationEvent = "link_request"
+	NotificationEventSignUp      NotificationEvent = "sign_up"
+)
+
+// Valid indicates whether the value is a known member of the NotificationEvent enum.
+func (e NotificationEvent) Valid() bool {
+	switch e {
+	case NotificationEventBlitzFlag:
+		return true
+	case NotificationEventBlitzReport:
+		return true
+	case NotificationEventLinkRequest:
+		return true
+	case NotificationEventSignUp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationFormat.
+const (
+	NotificationFormatDiscord NotificationFormat = "discord"
+)
+
+// Valid indicates whether the value is a known member of the NotificationFormat enum.
+func (e NotificationFormat) Valid() bool {
+	switch e {
+	case NotificationFormatDiscord:
 		return true
 	default:
 		return false
@@ -3559,6 +3598,47 @@ type NewSeason struct {
 	Label string `json:"label"`
 }
 
+// NotificationEndpoint defines model for NotificationEndpoint.
+type NotificationEndpoint struct {
+	Events []NotificationEvent `json:"events"`
+
+	// Format How the endpoint takes messages; discord so far
+	Format NotificationFormat `json:"format"`
+	Id     int64              `json:"id"`
+	Name   string             `json:"name"`
+
+	// Prefix Text put before each message, such as [dev]
+	Prefix string `json:"prefix"`
+	Url    string `json:"url"`
+}
+
+// NotificationEndpointSetting defines model for NotificationEndpointSetting.
+type NotificationEndpointSetting struct {
+	Events []NotificationEvent `json:"events"`
+
+	// Format How the endpoint takes messages; discord so far
+	Format *NotificationFormat `json:"format,omitempty"`
+	Name   string              `json:"name"`
+	Prefix *string             `json:"prefix,omitempty"`
+
+	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…
+	Url string `json:"url"`
+}
+
+// NotificationEvent What a notification tells of, which an endpoint chooses among
+type NotificationEvent string
+
+// NotificationFormat How the endpoint takes messages; discord so far
+type NotificationFormat string
+
+// NotificationTest defines model for NotificationTest.
+type NotificationTest struct {
+	Delivered bool `json:"delivered"`
+
+	// Message What happened, for admin to show
+	Message string `json:"message"`
+}
+
 // Peak The player's best title over their career, if any
 type Peak struct {
 	Code TitleCode `json:"code"`
@@ -4465,6 +4545,9 @@ type AccountId = int64
 // AdminBadgeId defines model for AdminBadgeId.
 type AdminBadgeId = int64
 
+// AdminNotificationEndpointId defines model for AdminNotificationEndpointId.
+type AdminNotificationEndpointId = int64
+
 // AdminPlayer defines model for AdminPlayer.
 type AdminPlayer = string
 
@@ -4860,6 +4943,12 @@ type PatchAdminMemberJSONRequestBody = MemberChange
 // PutAdminMemberBanJSONRequestBody defines body for PutAdminMemberBan for application/json ContentType.
 type PutAdminMemberBanJSONRequestBody = MemberBan
 
+// PostAdminNotificationEndpointJSONRequestBody defines body for PostAdminNotificationEndpoint for application/json ContentType.
+type PostAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
+
+// PutAdminNotificationEndpointJSONRequestBody defines body for PutAdminNotificationEndpoint for application/json ContentType.
+type PutAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
+
 // PatchAdminRunJSONRequestBody defines body for PatchAdminRun for application/json ContentType.
 type PatchAdminRunJSONRequestBody = RunProtection
 
@@ -5093,6 +5182,21 @@ type ServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId)
+	// GetAdminNotificationEndpoints The webhooks admin posts notifications to (admins only)
+	// (GET /v1/admin/notification-endpoints)
+	GetAdminNotificationEndpoints(w http.ResponseWriter, r *http.Request)
+	// PostAdminNotificationEndpoint Add a webhook to post notifications to (admins only)
+	// (POST /v1/admin/notification-endpoints)
+	PostAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminNotificationEndpoint Remove a notification webhook (admins only)
+	// (DELETE /v1/admin/notification-endpoints/{endpoint})
+	DeleteAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId)
+	// PutAdminNotificationEndpoint Change a notification webhook (admins only)
+	// (PUT /v1/admin/notification-endpoints/{endpoint})
+	PutAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId)
+	// PostAdminNotificationEndpointTest Post a test message to a notification webhook, and say how Discord answered (admins only)
+	// (POST /v1/admin/notification-endpoints/{endpoint}/test)
+	PostAdminNotificationEndpointTest(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId)
 	// GetAdminPeople The five members and players the ratings know who best match a name (admins and organisers)
 	// (GET /v1/admin/people)
 	GetAdminPeople(w http.ResponseWriter, r *http.Request, params GetAdminPeopleParams)
@@ -7290,6 +7394,112 @@ func (siw *ServerInterfaceWrapper) PutAdminMemberBan(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminMemberBan(w, r, member)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminNotificationEndpoints operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminNotificationEndpoints(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminNotificationEndpoints(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminNotificationEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminNotificationEndpoint(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminNotificationEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "endpoint" -------------
+	var endpoint AdminNotificationEndpointId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "endpoint", r.PathValue("endpoint"), &endpoint, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "endpoint", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminNotificationEndpoint(w, r, endpoint)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminNotificationEndpoint operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "endpoint" -------------
+	var endpoint AdminNotificationEndpointId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "endpoint", r.PathValue("endpoint"), &endpoint, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "endpoint", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminNotificationEndpoint(w, r, endpoint)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminNotificationEndpointTest operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminNotificationEndpointTest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "endpoint" -------------
+	var endpoint AdminNotificationEndpointId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "endpoint", r.PathValue("endpoint"), &endpoint, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "endpoint", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminNotificationEndpointTest(w, r, endpoint)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10363,6 +10573,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.DeleteAdminBadge)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/badges/{badge}", wrapper.PutAdminBadge)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/notification-endpoints", wrapper.GetAdminNotificationEndpoints)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/notification-endpoints", wrapper.PostAdminNotificationEndpoint)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.DeleteAdminNotificationEndpoint)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.PutAdminNotificationEndpoint)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}/test", wrapper.PostAdminNotificationEndpointTest)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -15186,6 +15401,353 @@ func (response PutAdminMemberBan403JSONResponse) VisitPutAdminMemberBanResponse(
 type PutAdminMemberBan404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response PutAdminMemberBan404JSONResponse) VisitPutAdminMemberBanResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminNotificationEndpointsRequestObject struct {
+}
+
+type GetAdminNotificationEndpointsResponseObject interface {
+	VisitGetAdminNotificationEndpointsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminNotificationEndpoints200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminNotificationEndpoints200JSONResponse struct {
+	Body    []NotificationEndpoint
+	Headers GetAdminNotificationEndpoints200ResponseHeaders
+}
+
+func (response GetAdminNotificationEndpoints200JSONResponse) VisitGetAdminNotificationEndpointsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminNotificationEndpoints401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminNotificationEndpoints401JSONResponse) VisitGetAdminNotificationEndpointsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminNotificationEndpoints403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminNotificationEndpoints403JSONResponse) VisitGetAdminNotificationEndpointsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpointRequestObject struct {
+	Body *PostAdminNotificationEndpointJSONRequestBody
+}
+
+type PostAdminNotificationEndpointResponseObject interface {
+	VisitPostAdminNotificationEndpointResponse(w http.ResponseWriter) error
+}
+
+type PostAdminNotificationEndpoint201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminNotificationEndpoint201JSONResponse struct {
+	Body    NotificationEndpoint
+	Headers PostAdminNotificationEndpoint201ResponseHeaders
+}
+
+func (response PostAdminNotificationEndpoint201JSONResponse) VisitPostAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpoint400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminNotificationEndpoint400JSONResponse) VisitPostAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpoint401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminNotificationEndpoint401JSONResponse) VisitPostAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpoint403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminNotificationEndpoint403JSONResponse) VisitPostAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminNotificationEndpointRequestObject struct {
+	Endpoint AdminNotificationEndpointId `json:"endpoint"`
+}
+
+type DeleteAdminNotificationEndpointResponseObject interface {
+	VisitDeleteAdminNotificationEndpointResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminNotificationEndpoint204Response struct {
+}
+
+func (response DeleteAdminNotificationEndpoint204Response) VisitDeleteAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminNotificationEndpoint401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminNotificationEndpoint401JSONResponse) VisitDeleteAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminNotificationEndpoint403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminNotificationEndpoint403JSONResponse) VisitDeleteAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminNotificationEndpoint404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminNotificationEndpoint404JSONResponse) VisitDeleteAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNotificationEndpointRequestObject struct {
+	Endpoint AdminNotificationEndpointId `json:"endpoint"`
+	Body     *PutAdminNotificationEndpointJSONRequestBody
+}
+
+type PutAdminNotificationEndpointResponseObject interface {
+	VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error
+}
+
+type PutAdminNotificationEndpoint204Response struct {
+}
+
+func (response PutAdminNotificationEndpoint204Response) VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminNotificationEndpoint400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminNotificationEndpoint400JSONResponse) VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNotificationEndpoint401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminNotificationEndpoint401JSONResponse) VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNotificationEndpoint403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminNotificationEndpoint403JSONResponse) VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNotificationEndpoint404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminNotificationEndpoint404JSONResponse) VisitPutAdminNotificationEndpointResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpointTestRequestObject struct {
+	Endpoint AdminNotificationEndpointId `json:"endpoint"`
+}
+
+type PostAdminNotificationEndpointTestResponseObject interface {
+	VisitPostAdminNotificationEndpointTestResponse(w http.ResponseWriter) error
+}
+
+type PostAdminNotificationEndpointTest200ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminNotificationEndpointTest200JSONResponse struct {
+	Body    NotificationTest
+	Headers PostAdminNotificationEndpointTest200ResponseHeaders
+}
+
+func (response PostAdminNotificationEndpointTest200JSONResponse) VisitPostAdminNotificationEndpointTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpointTest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminNotificationEndpointTest401JSONResponse) VisitPostAdminNotificationEndpointTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpointTest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminNotificationEndpointTest403JSONResponse) VisitPostAdminNotificationEndpointTestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNotificationEndpointTest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminNotificationEndpointTest404JSONResponse) VisitPostAdminNotificationEndpointTestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -20409,6 +20971,21 @@ type StrictServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(ctx context.Context, request PutAdminMemberBanRequestObject) (PutAdminMemberBanResponseObject, error)
+	// GetAdminNotificationEndpoints The webhooks admin posts notifications to (admins only)
+	// (GET /v1/admin/notification-endpoints)
+	GetAdminNotificationEndpoints(ctx context.Context, request GetAdminNotificationEndpointsRequestObject) (GetAdminNotificationEndpointsResponseObject, error)
+	// PostAdminNotificationEndpoint Add a webhook to post notifications to (admins only)
+	// (POST /v1/admin/notification-endpoints)
+	PostAdminNotificationEndpoint(ctx context.Context, request PostAdminNotificationEndpointRequestObject) (PostAdminNotificationEndpointResponseObject, error)
+	// DeleteAdminNotificationEndpoint Remove a notification webhook (admins only)
+	// (DELETE /v1/admin/notification-endpoints/{endpoint})
+	DeleteAdminNotificationEndpoint(ctx context.Context, request DeleteAdminNotificationEndpointRequestObject) (DeleteAdminNotificationEndpointResponseObject, error)
+	// PutAdminNotificationEndpoint Change a notification webhook (admins only)
+	// (PUT /v1/admin/notification-endpoints/{endpoint})
+	PutAdminNotificationEndpoint(ctx context.Context, request PutAdminNotificationEndpointRequestObject) (PutAdminNotificationEndpointResponseObject, error)
+	// PostAdminNotificationEndpointTest Post a test message to a notification webhook, and say how Discord answered (admins only)
+	// (POST /v1/admin/notification-endpoints/{endpoint}/test)
+	PostAdminNotificationEndpointTest(ctx context.Context, request PostAdminNotificationEndpointTestRequestObject) (PostAdminNotificationEndpointTestResponseObject, error)
 	// GetAdminPeople The five members and players the ratings know who best match a name (admins and organisers)
 	// (GET /v1/admin/people)
 	GetAdminPeople(ctx context.Context, request GetAdminPeopleRequestObject) (GetAdminPeopleResponseObject, error)
@@ -22487,6 +23064,146 @@ func (sh *strictHandler) PutAdminMemberBan(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminMemberBanResponseObject); ok {
 		if err := validResponse.VisitPutAdminMemberBanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminNotificationEndpoints operation middleware
+func (sh *strictHandler) GetAdminNotificationEndpoints(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminNotificationEndpointsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminNotificationEndpoints(ctx, request.(GetAdminNotificationEndpointsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminNotificationEndpoints")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminNotificationEndpointsResponseObject); ok {
+		if err := validResponse.VisitGetAdminNotificationEndpointsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminNotificationEndpoint operation middleware
+func (sh *strictHandler) PostAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminNotificationEndpointRequestObject
+
+	var body PostAdminNotificationEndpointJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminNotificationEndpoint(ctx, request.(PostAdminNotificationEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminNotificationEndpoint")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminNotificationEndpointResponseObject); ok {
+		if err := validResponse.VisitPostAdminNotificationEndpointResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminNotificationEndpoint operation middleware
+func (sh *strictHandler) DeleteAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId) {
+	var request DeleteAdminNotificationEndpointRequestObject
+
+	request.Endpoint = endpoint
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminNotificationEndpoint(ctx, request.(DeleteAdminNotificationEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminNotificationEndpoint")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminNotificationEndpointResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminNotificationEndpointResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminNotificationEndpoint operation middleware
+func (sh *strictHandler) PutAdminNotificationEndpoint(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId) {
+	var request PutAdminNotificationEndpointRequestObject
+
+	request.Endpoint = endpoint
+
+	var body PutAdminNotificationEndpointJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminNotificationEndpoint(ctx, request.(PutAdminNotificationEndpointRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminNotificationEndpoint")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminNotificationEndpointResponseObject); ok {
+		if err := validResponse.VisitPutAdminNotificationEndpointResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminNotificationEndpointTest operation middleware
+func (sh *strictHandler) PostAdminNotificationEndpointTest(w http.ResponseWriter, r *http.Request, endpoint AdminNotificationEndpointId) {
+	var request PostAdminNotificationEndpointTestRequestObject
+
+	request.Endpoint = endpoint
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminNotificationEndpointTest(ctx, request.(PostAdminNotificationEndpointTestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminNotificationEndpointTest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminNotificationEndpointTestResponseObject); ok {
+		if err := validResponse.VisitPostAdminNotificationEndpointTestResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -18,6 +18,7 @@ import DataCard from './DataCard';
 import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
+import NotificationsPanel from './NotificationsPanel';
 import CommunityPanel from './CommunityPanel';
 import BlitzPanel from './BlitzPanel';
 import ChallengesPanel from './ChallengesPanel';
@@ -107,6 +108,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <BadgesPanel />;
     case 'admins':
       return <AdminList myName={myName} />;
+    case 'notifications':
+      return <NotificationsPanel />;
     case 'audit':
       return <AuditPanel />;
   }

@@ -1971,6 +1971,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/notification-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The webhooks admin posts notifications to (admins only) */
+        get: operations["getAdminNotificationEndpoints"];
+        put?: never;
+        /**
+         * Add a webhook to post notifications to (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminNotificationEndpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-endpoints/{endpoint}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a notification webhook (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminNotificationEndpoint"];
+        post?: never;
+        /**
+         * Remove a notification webhook (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminNotificationEndpoint"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notification-endpoints/{endpoint}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post a test message to a notification webhook, and say how Discord answered (admins only)
+         * @description The Origin must be the admin site.
+         */
+        post: operations["postAdminNotificationEndpointTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -3114,6 +3179,39 @@ export interface components {
             description: string;
             /** @description Who holds it, by name */
             players: string[];
+        };
+        /**
+         * @description What a notification tells of, which an endpoint chooses among
+         * @enum {string}
+         */
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag";
+        NotificationEndpoint: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            url: string;
+            format: components["schemas"]["NotificationFormat"];
+            events: components["schemas"]["NotificationEvent"][];
+            /** @description Text put before each message, such as [dev] */
+            prefix: string;
+        };
+        /**
+         * @description How the endpoint takes messages; discord so far
+         * @enum {string}
+         */
+        NotificationFormat: "discord";
+        NotificationEndpointSetting: {
+            name: string;
+            /** @description A Discord webhook's URL, https://discord.com/api/webhooks/… */
+            url: string;
+            format?: components["schemas"]["NotificationFormat"];
+            events: components["schemas"]["NotificationEvent"][];
+            prefix?: string;
+        };
+        NotificationTest: {
+            delivered: boolean;
+            /** @description What happened, for admin to show */
+            message: string;
         };
         BadgeSetting: {
             label: string;
@@ -6011,6 +6109,7 @@ export interface components {
         LinkRequestId: number;
         MemberId: number;
         AdminBadgeId: number;
+        AdminNotificationEndpointId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
         /** @description Any run's id, published or not */
@@ -8592,6 +8691,134 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminNotificationEndpoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The endpoints, by name */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationEndpoint"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminNotificationEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationEndpointSetting"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationEndpoint"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminNotificationEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint: components["parameters"]["AdminNotificationEndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationEndpointSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminNotificationEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint: components["parameters"]["AdminNotificationEndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminNotificationEndpointTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpoint: components["parameters"]["AdminNotificationEndpointId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Posted, or Discord's refusal */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminTitles: {
         parameters: {
             query?: never;
@@ -10064,6 +10291,8 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: Readonly
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag"];
+export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];

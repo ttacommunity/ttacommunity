@@ -81,8 +81,18 @@ func reportError(got, want string) error {
 // ReportBlitzGame records the game of the match matchID, in the shown edition, as the player whose session hashes to
 // tokenHash, at now; reporting again corrects it while players may. It returns ErrBlitzShareCodeNeeded,
 // ErrBadBlitzGame, ErrBlitzFinishedAhead, ErrNoSession, ErrNotLinked, ErrMemberBanned, ErrNoBlitzEdition, ErrNoBlitzMatch, ErrNotYourMatch,
-// ErrBlitzBye, ErrBlitzRoundClosed, ErrBlitzResultLocked, or a *BlitzShareCodeError.
+// ErrBlitzBye, ErrBlitzRoundClosed, ErrBlitzResultLocked, or a *BlitzShareCodeError. A report is queued to be notified.
 func (s *PlayerStore) ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, g BlitzGame, now time.Time) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if err := reportBlitzGame(ctx, tx, tokenHash, slug, edition, matchID, g, now); err != nil {
+			return err
+		}
+		return queueNotification(ctx, tx, "blitz_report", matchID, now)
+	})
+}
+
+// reportBlitzGame records a player's report through report_blitz_game on q, returning ReportBlitzGame's errors.
+func reportBlitzGame(ctx context.Context, q conn, tokenHash []byte, slug, edition string, matchID int64, g BlitzGame, now time.Time) error {
 	if strings.TrimSpace(g.ShareCode) == "" {
 		return ErrBlitzShareCodeNeeded
 	}
@@ -98,7 +108,7 @@ func (s *PlayerStore) ReportBlitzGame(ctx context.Context, tokenHash []byte, slu
 		return fmt.Errorf("reporting a game: %w", err)
 	}
 	var got string
-	if err := s.pool.QueryRow(ctx, "SELECT report_blitz_game($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+	if err := q.QueryRow(ctx, "SELECT report_blitz_game($1, $2, $3, $4, $5, $6, $7, $8, $9)",
 		tokenHash, now, slug, edition, matchID, g.ShareCode, g.Finished, result, sides).Scan(&got); err != nil {
 		return fmt.Errorf("reporting a game: %w", err)
 	}
@@ -121,14 +131,19 @@ func (s *PlayerStore) FlagBlitzResult(ctx context.Context, tokenHash []byte, slu
 	return s.answerBlitzReport(ctx, tokenHash, slug, edition, matchID, "flagged", reason, now)
 }
 
-// answerBlitzReport confirms or flags a report through answer_blitz_report.
+// answerBlitzReport confirms or flags a report through answer_blitz_report; a flag is notified.
 func (s *PlayerStore) answerBlitzReport(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, answer, reason string, now time.Time) error {
-	var got string
-	if err := s.pool.QueryRow(ctx, "SELECT answer_blitz_report($1, $2, $3, $4, $5, $6, nullif($7, ''))",
-		tokenHash, now, slug, edition, matchID, answer, reason).Scan(&got); err != nil {
-		return fmt.Errorf("answering a report: %w", err)
-	}
-	return reportError(got, answer)
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var got string
+		if err := tx.QueryRow(ctx, "SELECT answer_blitz_report($1, $2, $3, $4, $5, $6, nullif($7, ''))",
+			tokenHash, now, slug, edition, matchID, answer, reason).Scan(&got); err != nil {
+			return fmt.Errorf("answering a report: %w", err)
+		}
+		if err := reportError(got, answer); err != nil || answer != "flagged" {
+			return err
+		}
+		return queueNotification(ctx, tx, "blitz_flag", matchID, now)
+	})
 }
 
 // KeepBlitzReport resolves a flagged report by keeping its result; players still cannot change it. It returns

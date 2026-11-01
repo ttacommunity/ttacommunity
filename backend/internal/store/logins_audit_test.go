@@ -74,10 +74,11 @@ func TestMigration58sDownKeepsAnOrganisersDiscordNameAgain(t *testing.T) {
 	if _, err := a.AddMember(ctx, Member{Name: "ann", DiscordName: "player_one", Zone: "UTC"}); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
+	// The first sign-in opens an account, which today's code also notifies: a table 57 lacks.
+	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 	if err := withRatingsMigrations(pool, func(g *goose.Provider) error { _, err := g.DownTo(ctx, 57); return err }); err != nil {
 		t.Fatalf("migrating down to 57: %v", err)
 	}
-	signedIn(t, p, discordID("100000000000000001", "player_one", ""), "token")
 	signedIn(t, p, discordID("100000000000000001", "player_renamed", ""), "renamed")
 	if got := rowsOf(t, pool, "SELECT discord_name FROM members"); !slices.Equal(got, []string{"player_one"}) {
 		t.Errorf("after the Down, ann's Discord name = %q, want the one she had, player_one", got)

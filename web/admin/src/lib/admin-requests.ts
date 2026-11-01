@@ -170,6 +170,15 @@ export const giveBadge = (b: Badge, player: string) =>
   holders(b, b.players.includes(player.trim()) ? b.players : [...b.players, player.trim()]);
 /** takeBadge takes a saved badge from a player, its label and description as saved. */
 export const takeBadge = (b: Badge, player: string) => holders(b, b.players.filter((p) => p !== player));
+type EndpointSetting = Omit<Schemas['NotificationEndpointSetting'], 'format'>;
+/** addEndpoint adds a Discord webhook to post notifications to. */
+export const addEndpoint = (e: EndpointSetting) => to('/api/notification-endpoints', 'POST', { ...e, format: 'discord' });
+/** setEndpoint changes a notification webhook. */
+export const setEndpoint = (id: number, e: EndpointSetting) => to(`/api/notification-endpoints/${id}`, 'PUT', { ...e, format: 'discord' });
+/** removeEndpoint removes a notification webhook. */
+export const removeEndpoint = (id: number) => to(`/api/notification-endpoints/${id}`, 'DELETE');
+/** testEndpoint posts a test message to a notification webhook. */
+export const testEndpoint = (id: number) => to(`/api/notification-endpoints/${id}/test`, 'POST');
 /** setTitle sets a player's title by hand, with its reason. */
 export const setTitle = (player: string, title: string, reason: string) =>
   to(`/api/titles/${encodeURIComponent(player.trim())}`, 'PUT', { title, reason: reason.trim() });
