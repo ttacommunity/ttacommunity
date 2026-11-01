@@ -38,6 +38,7 @@ flowchart LR
     worker -.->|bot DMs| discord["Discord"]
     api -->|player sign-in| discord
     discord -->|"slash commands, signed"| api
+    api -->|"notifications, to webhooks set in admin"| discord
     api -->|player sign-in| microsoft["Microsoft"]
     api -->|player sign-in| google["Google"]
     api -.-> adb
@@ -47,7 +48,7 @@ flowchart LR
 
 | Piece | Role | Writes to |
 |---|---|---|
-| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord, Microsoft, Google or an emailed link: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
+| **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord, Microsoft, Google or an emailed link: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. **Notifications**: a player's request to be linked and their blitz reports and flags are queued in an outbox in the same transaction, and the api posts them to the Discord webhooks admin sets, each once across replicas. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
 | **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
 | **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
 | **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
@@ -219,7 +220,7 @@ Patterns that hold across the schema:
   when it starts, and refuses to serve with one that can do more
 
 The **app database** *(planned)* will hold tournament
-matches, the Pulse queue and the notification outbox, with its own
+matches, the Pulse queue and their own notifications, with its own
 migrations in `backend/migrations/app/`.
 
 ## Site content
