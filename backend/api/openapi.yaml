@@ -4868,7 +4868,7 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [link_request, blitz_report, blitz_flag]
+      enum: [sign_up, link_request, blitz_report, blitz_flag]
     NotificationEndpoint:
       type: object
       required: [id, name, url, format, events, prefix]

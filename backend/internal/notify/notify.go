@@ -56,11 +56,21 @@ func outcome(result, a, b string) string {
 // Text is n as a Discord message, linking to where admin, at origin admin, answers it.
 func Text(n store.Notification, admin string) string {
 	esc := discordbot.EscapeMarkdown
-	if n.Kind == "link_request" {
-		ways := make([]string, len(n.SignIns))
-		for i, s := range n.SignIns {
-			ways[i] = signInNames[s]
+	ways := make([]string, len(n.SignIns))
+	for i, s := range n.SignIns {
+		ways[i] = signInNames[s]
+	}
+	switch n.Kind {
+	case "sign_up":
+		linked := "is not linked to a TTA username yet"
+		switch n.LinkedHow {
+		case "match":
+			linked = fmt.Sprintf("was linked automatically to **%s**", esc(n.Name))
+		case "approved":
+			linked = fmt.Sprintf("was linked by an admin to **%s**", esc(n.Name))
 		}
+		return fmt.Sprintf("**New player**: someone signed in with %s for the first time and %s. <%s/#members>", list(ways), linked, admin)
+	case "link_request":
 		return fmt.Sprintf("**Link request**: a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
 			list(ways), esc(n.Name), admin)
 	}

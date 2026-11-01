@@ -116,7 +116,7 @@ export default function NotificationsPanel() {
         Notifications
       </h2>
       <p className="muted">
-        Discord channels the site posts to when a player asks to be linked, reports or corrects a blitz result, or flags one.
+        Discord channels the site posts to when a new player signs up, a player asks to be linked, or one reports, corrects or flags a blitz result.
         Make a webhook in the channel's settings (Integrations, Webhooks) and paste its URL here.
       </p>
       <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />

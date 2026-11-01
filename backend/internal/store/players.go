@@ -248,10 +248,14 @@ func knownLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (log
 	return login, account, nil
 }
 
-// newLogin records id's first sign-in at now, with a new account, returning both.
+// newLogin records id's first sign-in at now, with a new account, returning both. The new account is queued to be
+// notified.
 func newLogin(ctx context.Context, tx pgx.Tx, id Identity, now time.Time) (login, account int64, err error) {
 	if err := tx.QueryRow(ctx, "INSERT INTO accounts (created_at) VALUES ($1) RETURNING account_id", now).Scan(&account); err != nil {
 		return 0, 0, fmt.Errorf("opening an account: %w", err)
+	}
+	if err := queueNotification(ctx, tx, "sign_up", account, now); err != nil {
+		return 0, 0, err
 	}
 	err = tx.QueryRow(ctx, `
 		INSERT INTO logins (account_id, provider, subject, username, display_name, email, created_at, signed_in_at)
@@ -473,7 +477,7 @@ func (s *PlayerStore) RequestLink(ctx context.Context, account int64, name strin
 		if err != nil {
 			return fmt.Errorf("asking to be linked: %w", err)
 		}
-		return queueNotification(ctx, tx, "link_request", &request, nil, now)
+		return queueNotification(ctx, tx, "link_request", request, now)
 	})
 }
 

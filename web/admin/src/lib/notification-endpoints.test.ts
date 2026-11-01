@@ -5,7 +5,7 @@ const SAVED = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
-    expect(EVENTS.map((e) => e.key)).toEqual(['link_request', 'blitz_report', 'blitz_flag']);
+    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag']);
   });
 
   it.each([

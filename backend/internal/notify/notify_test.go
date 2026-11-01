@@ -32,6 +32,12 @@ func TestText(t *testing.T) {
 		n    store.Notification
 		want string
 	}{
+		{"a new player linked automatically", store.Notification{Kind: "sign_up", Name: "Dee", SignIns: []string{"discord"}, LinkedHow: "match"},
+			"**New player**: someone signed in with Discord for the first time and was linked automatically to **Dee**. <" + admin + "/#members>"},
+		{"a new player not linked", store.Notification{Kind: "sign_up", SignIns: []string{"email"}},
+			"**New player**: someone signed in with email for the first time and is not linked to a TTA username yet. <" + admin + "/#members>"},
+		{"a new player an admin linked before this was sent", store.Notification{Kind: "sign_up", Name: "Dee", SignIns: []string{"google"}, LinkedHow: "approved"},
+			"**New player**: someone signed in with Google for the first time and was linked by an admin to **Dee**. <" + admin + "/#members>"},
 		{"a link request", store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}},
 			"**Link request**: a player who signs in with Discord asks to be linked to **Eve**. Answer it in admin: <" + admin + "/#members>"},
 		{"a link request from an account with several sign-ins", store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord", "email", "google"}},

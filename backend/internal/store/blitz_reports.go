@@ -87,7 +87,7 @@ func (s *PlayerStore) ReportBlitzGame(ctx context.Context, tokenHash []byte, slu
 		if err := reportBlitzGame(ctx, tx, tokenHash, slug, edition, matchID, g, now); err != nil {
 			return err
 		}
-		return queueNotification(ctx, tx, "blitz_report", nil, &matchID, now)
+		return queueNotification(ctx, tx, "blitz_report", matchID, now)
 	})
 }
 
@@ -142,7 +142,7 @@ func (s *PlayerStore) answerBlitzReport(ctx context.Context, tokenHash []byte, s
 		if err := reportError(got, answer); err != nil || answer != "flagged" {
 			return err
 		}
-		return queueNotification(ctx, tx, "blitz_flag", nil, &matchID, now)
+		return queueNotification(ctx, tx, "blitz_flag", matchID, now)
 	})
 }
 

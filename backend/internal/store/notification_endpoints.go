@@ -14,7 +14,7 @@ import (
 )
 
 // NotificationEndpoint is a webhook notifications are posted to: its URL, its format (discord so far), the events
-// it takes (link_request, blitz_report, blitz_flag) and the prefix put before each message.
+// it takes (sign_up, link_request, blitz_report, blitz_flag) and the prefix put before each message.
 type NotificationEndpoint struct {
 	ID     int64
 	Name   string

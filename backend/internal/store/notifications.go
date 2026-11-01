@@ -14,14 +14,16 @@ import (
 // MaxNotificationAttempts is how many times a notification is tried before it is dropped.
 const MaxNotificationAttempts = 10
 
-// Notification is a notification as it is sent: its kind (link_request, blitz_report or blitz_flag) and what it
-// tells of, read when it is sent.
+// Notification is a notification as it is sent: its kind (sign_up, link_request, blitz_report or blitz_flag) and
+// what it tells of, read when it is sent.
 type Notification struct {
 	ID   int64
 	Kind string
-	// A request to be linked: the TTA username asked for, and how the account signs in (discord, email, …).
-	Name    string
-	SignIns []string
+	// A first sign-in: how the account signs in (discord, email, …), and how it was linked (match, approved or "")
+	// with the member's name as Name. A request to be linked: the TTA username asked for as Name, and SignIns.
+	Name      string
+	SignIns   []string
+	LinkedHow string
 	// A blitz report or flag: the edition, round and players, the result as reported (a, b, draw or double_loss),
 	// who reported it, whether they corrected an earlier report, and the opponent's reason for a flag.
 	Slug, Series, Edition string
@@ -38,10 +40,12 @@ type NotificationsSent struct {
 	Sent, Failed, GaveUp int
 }
 
-// queueNotification puts a notification of kind in the outbox, due at now, about a link request or a blitz match.
-func queueNotification(ctx context.Context, tx pgx.Tx, kind string, request, match *int64, now time.Time) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, request_id, match_id, created_at, next_at)
-		VALUES ($1, $2, $3, $4, $4)`, kind, request, match, now); err != nil {
+// queueNotification puts a notification of kind in the outbox, due at now, about what ref names: a new account for
+// sign_up, a link request for link_request, else a blitz match.
+func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, now time.Time) error {
+	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, account_id, request_id, match_id, created_at, next_at)
+		VALUES ($1, CASE WHEN $1 = 'sign_up' THEN $2::bigint END, CASE WHEN $1 = 'link_request' THEN $2::bigint END,
+		        CASE WHEN $1 IN ('blitz_report', 'blitz_flag') THEN $2::bigint END, $3, $3)`, kind, ref, now); err != nil {
 		return fmt.Errorf("queueing a notification: %w", err)
 	}
 	return nil
@@ -70,17 +74,21 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.request_id, o.match_id), o.attempts, o.sent_to,
-			       CASE o.kind WHEN 'link_request' THEN lr.status = 'pending'
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id), o.attempts, o.sent_to,
+			       CASE o.kind WHEN 'sign_up' THEN true
+			                   WHEN 'link_request' THEN lr.status = 'pending'
 			                   WHEN 'blitz_report' THEN bm.report IS NOT NULL
 			                   ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
-			       coalesce(lr.tta_name, ''),
-			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l WHERE l.account_id = lr.account_id), '{}'),
+			       coalesce(lr.tta_name, am.tta_name, ''),
+			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
+			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
+			       coalesce(ac.linked_how, ''),
 			       coalesce(s.slug, ''), coalesce(s.name, ''), coalesce(t.label, ''), coalesce(r.number, 0),
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, '')
 			FROM notification_outbox o
+			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
 			LEFT JOIN blitz_rounds r ON r.round_id = bm.round_id
@@ -107,7 +115,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		for rows.Next() {
 			var d due
 			n := &d.n
-			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.Slug, &n.Series,
+			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
 				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)

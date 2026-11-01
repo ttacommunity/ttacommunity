@@ -516,6 +516,7 @@ const (
 	NotificationEventBlitzFlag   NotificationEvent = "blitz_flag"
 	NotificationEventBlitzReport NotificationEvent = "blitz_report"
 	NotificationEventLinkRequest NotificationEvent = "link_request"
+	NotificationEventSignUp      NotificationEvent = "sign_up"
 )
 
 // Valid indicates whether the value is a known member of the NotificationEvent enum.
@@ -526,6 +527,8 @@ func (e NotificationEvent) Valid() bool {
 	case NotificationEventBlitzReport:
 		return true
 	case NotificationEventLinkRequest:
+		return true
+	case NotificationEventSignUp:
 		return true
 	default:
 		return false

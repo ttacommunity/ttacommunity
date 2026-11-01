@@ -60,7 +60,10 @@ func sent(t *testing.T, a *AdminStore, now time.Time) []string {
 
 // notificationLine writes what a notification tells, without its id.
 func notificationLine(n Notification) string {
-	if n.Kind == "link_request" {
+	switch n.Kind {
+	case "sign_up":
+		return fmt.Sprintf("%s name=%s sign-ins=%s linked=%s", n.Kind, n.Name, strings.Join(n.SignIns, ","), n.LinkedHow)
+	case "link_request":
 		return fmt.Sprintf("%s name=%s sign-ins=%s", n.Kind, n.Name, strings.Join(n.SignIns, ","))
 	}
 	return fmt.Sprintf("%s %s/%s %q round=%d %s v %s result=%s by=%s corrected=%t flag=%s", n.Kind, n.Slug, n.Edition, n.Series,
@@ -429,5 +432,37 @@ func TestACorrectionMadeWhileTheReportIsSentIsSentNext(t *testing.T) {
 	}
 	if got := append(first, sent(t, a, sendsAt)...); !slices.Equal(got, want) {
 		t.Errorf("sent = %q, want %q", got, want)
+	}
+}
+
+func TestANewPlayersFirstSignInIsNotified(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name   string
+		signIn func(t *testing.T, a *AdminStore, p *PlayerStore)
+		want   []string
+	}{
+		{"a new player linked by their Discord name", func(t *testing.T, a *AdminStore, p *PlayerStore) {
+			if _, err := a.pool.Exec(ctx, "UPDATE members SET discord_name = 'dee_plays' WHERE tta_name = 'Dee'"); err != nil {
+				t.Fatalf("giving Dee a Discord name: %v", err)
+			}
+			signedIn(t, p, discordID("100000000000000004", "dee_plays", "Dee"), "dee")
+		}, []string{"sign_up name=Dee sign-ins=discord linked=match"}},
+		{"a new player no member matches", func(t *testing.T, _ *AdminStore, p *PlayerStore) {
+			signedIn(t, p, discordID("100000000000000005", "eve", "Eve"), "eve")
+		}, []string{"sign_up name= sign-ins=discord linked="}},
+		{"a player signing in again", func(t *testing.T, _ *AdminStore, p *PlayerStore) {
+			signedIn(t, p, discordID("100000000000000001", "ann", "Ann"), "ann-again")
+		}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, p, _ := outboxFixture(t)
+			endpoint(t, a, "Sign-ups", 2, "sign_up")
+			tt.signIn(t, a, p)
+			if got := sent(t, a, sendsAt); !slices.Equal(got, tt.want) {
+				t.Errorf("sent = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

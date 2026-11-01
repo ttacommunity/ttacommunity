@@ -6,6 +6,7 @@ type Setting = { name: string; url: string; events: readonly Event[]; prefix: st
 
 /** EVENTS are the events an endpoint may take, in the order the tab lists them. */
 export const EVENTS: { key: Event; label: string }[] = [
+  { key: 'sign_up', label: 'New players signing up' },
   { key: 'link_request', label: 'Requests to be linked' },
   { key: 'blitz_report', label: 'Blitz results reported or corrected' },
   { key: 'blitz_flag', label: 'Blitz reports flagged' },
