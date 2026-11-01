@@ -2790,31 +2790,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/discord": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A round's games as text to paste into Discord
-         * @description Audited, as it holds Discord names. A line per game with two
-         *     players, in the order the site numbers them, as "@ann vs @bob",
-         *     every line but the last ending in a comma; pasted into Discord, it
-         *     notifies everyone playing. A player whose Discord name cannot be a
-         *     username is named by TTA username. Any round once paired, draft or
-         *     published; refused while the round has no game.
-         */
-        get: operations["getAdminBlitzRoundDiscord"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads": {
         parameters: {
             query?: never;
@@ -2824,9 +2799,10 @@ export interface paths {
         };
         /**
          * Download a round's Discord threads as text to paste
-         * @description Audited, as it holds Discord names. First the round's games as
-         *     the Discord text writes them (a line per game, "@ann vs @bob"),
-         *     then a blank line, then a block per game with two players,
+         * @description Audited, as it holds Discord names. First the round's games, a
+         *     line each as "@ann vs @bob", every line but the last ending in a
+         *     comma, so pasted into Discord it notifies everyone playing; then a
+         *     blank line, then a block per game with two players,
          *     numbered as the site numbers them, between --- lines: the
          *     thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
          *     most 100 characters), then the edition's message with any {players}
@@ -4230,10 +4206,6 @@ export interface components {
         BlitzOrganiserAdd: {
             /** Format: int64 */
             member: number;
-        };
-        /** @description A round's games as text to paste into Discord */
-        BlitzDiscordText: {
-            text: string;
         };
         /** @description A deadline, and the time zone it was set in */
         BlitzDeadline: {
@@ -9915,37 +9887,6 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    getAdminBlitzRoundDiscord: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The tournament's slug */
-                tournament: components["parameters"]["AdminTournamentSlug"];
-                /** @description The edition's label, as admin lists it (a season) */
-                edition: components["parameters"]["BlitzEditionLabel"];
-                round: components["parameters"]["BlitzRoundId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The text */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["CacheControl"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BlitzDiscordText"];
-                };
-            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

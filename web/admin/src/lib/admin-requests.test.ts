@@ -85,9 +85,3 @@ describe('blitzThreadsPath', () => {
     expect(req.blitzThreadsPath('us_open', 'Season 1', 101)).toBe('/api/blitz/us_open/Season%201/rounds/101/threads');
   });
 });
-
-describe('blitzDiscordTextPath', () => {
-  it("is a round's Discord text, under an edition to escape", () => {
-    expect(req.blitzDiscordTextPath('us_open', 'Season 1', 101)).toBe('/api/blitz/us_open/Season%201/rounds/101/discord');
-  });
-});

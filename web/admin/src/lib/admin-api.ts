@@ -16,7 +16,6 @@ export type AdminRun = components['schemas']['AdminRun'];
 export type RunChanges = components['schemas']['RunChanges'];
 export type StartedRun = components['schemas']['StartedRun'];
 export type AdminBlitzEditionRow = components['schemas']['AdminBlitzEditionRow'];
-export type BlitzDiscordText = components['schemas']['BlitzDiscordText'];
 export type AdminBlitzEdition = components['schemas']['AdminBlitzEdition'];
 export type BlitzEntrantIds = components['schemas']['BlitzEntrantIds'];
 export type AdminMember = components['schemas']['AdminMember'];

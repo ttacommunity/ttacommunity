@@ -1,4 +1,4 @@
-/** What admin decides about a round's deadline, its Discord text and threads: whether the text can be shown and the threads downloaded yet, the file's name, the deadline as a form and a label, when the edition's thread text can be saved, and the summaries of its organisers and text. */
+/** What admin decides about a round's deadline and its Discord threads: whether the threads can be downloaded yet, the file's name, the deadline as a form and a label, when the edition's thread text can be saved, and the summaries of its organisers and text. */
 import type { Candidate } from './person-form';
 import { clockIn, type Region } from './zones';
 
@@ -17,13 +17,6 @@ export function threadsBlocker(round: { deadline: BlitzDeadline | null; matches:
 /** threadsFileName names a round's threads download as the API does: us_open-2026-round-3-threads.txt. */
 export function threadsFileName(slug: string, edition: string, round: number): string {
   return `${slug}-${edition.replace(/[^A-Za-z0-9_-]+/g, '-')}-round-${round}-threads.txt`;
-}
-
-/** discordBlocker says why a round's Discord text cannot be shown yet, '' when it can: changes not saved, or no game. The API refuses the last too. */
-export function discordBlocker(round: { matches: readonly { b: unknown }[] }, unsaved: boolean): string {
-  if (unsaved) return 'Save or discard the changes first.';
-  if (!round.matches.some((m) => m.b !== null)) return 'No games to write.';
-  return '';
 }
 
 /** DeadlineForm is the deadline form's fields: a day (YYYY-MM-DD) and a time (HH:MM) on the clocks of zone. */

@@ -4002,49 +4002,16 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/discord:
-    get:
-      operationId: getAdminBlitzRoundDiscord
-      tags: [admin]
-      summary: A round's games as text to paste into Discord
-      description: |
-        Audited, as it holds Discord names. A line per game with two
-        players, in the order the site numbers them, as "@ann vs @bob",
-        every line but the last ending in a comma; pasted into Discord, it
-        notifies everyone playing. A player whose Discord name cannot be a
-        username is named by TTA username. Any round once paired, draft or
-        published; refused while the round has no game.
-      parameters:
-        - $ref: "#/components/parameters/AdminTournamentSlug"
-        - $ref: "#/components/parameters/BlitzEditionLabel"
-        - $ref: "#/components/parameters/BlitzRoundId"
-      responses:
-        "200":
-          description: The text
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControl"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BlitzDiscordText"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/threads:
     get:
       operationId: getAdminBlitzRoundThreads
       tags: [admin]
       summary: Download a round's Discord threads as text to paste
       description: |
-        Audited, as it holds Discord names. First the round's games as
-        the Discord text writes them (a line per game, "@ann vs @bob"),
-        then a blank line, then a block per game with two players,
+        Audited, as it holds Discord names. First the round's games, a
+        line each as "@ann vs @bob", every line but the last ending in a
+        comma, so pasted into Discord it notifies everyone playing; then a
+        blank line, then a block per game with two players,
         numbered as the site numbers them, between --- lines: the
         thread's title (Round 3 · Game 1 · Ann vs Bob, by TTA username, at
         most 100 characters), then the edition's message with any {players}
@@ -6756,13 +6723,6 @@ components:
           type: integer
           format: int64
           minimum: 1
-    BlitzDiscordText:
-      description: A round's games as text to paste into Discord
-      type: object
-      required: [text]
-      properties:
-        text:
-          type: string
     BlitzDeadline:
       description: A deadline, and the time zone it was set in
       type: object

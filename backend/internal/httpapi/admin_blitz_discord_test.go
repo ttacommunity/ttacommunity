@@ -94,25 +94,6 @@ func discordFixture() *fakeAdmins {
 	}
 }
 
-func TestAnOrganiserCopiesADraftRoundsDiscordText(t *testing.T) {
-	const org = "222222222222222222"
-	f := discordFixture()
-	rec := adminDoAs(t, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026/rounds/101/discord", "", "")
-	var got BlitzDiscordText
-	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
-		t.Fatalf("GET discord = %d %s, want 200", rec.Code, rec.Body)
-	}
-	if want := "@ann_tta vs Cy,\n@bobplays vs Dee"; got.Text != want {
-		t.Errorf("text = %q, want %q (Eve's bye left out)", got.Text, want)
-	}
-	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-		t.Errorf("Cache-Control = %q, want no-store", got)
-	}
-	if want := []string{org + " blitz.round.discord 101"}; !slices.Equal(f.audits, want) {
-		t.Errorf("audits = %q, want %q", f.audits, want)
-	}
-}
-
 func TestAnOrganiserDownloadsADraftRoundsThreadsOnceItHasADeadlineAndOrganisers(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := discordFixture()
@@ -344,43 +325,6 @@ func TestAnOrganiserSetsARoundsDeadlineAndTheEditionShowsIt(t *testing.T) {
 	}
 	rec = adminDo(t, f, http.MethodGet, "/v1/admin/blitz/us_open/2026", "", "")
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.deadline", `{"at": "2026-10-19T12:00:00Z", "zone": "Europe/London"}`)
-}
-
-func TestDiscordTextIsRefusedWhenItShouldBe(t *testing.T) {
-	tests := []struct {
-		name, path string
-		change     func(*fakeAdmins)
-		want       int
-		says       string
-	}{
-		{"only a bye", "/v1/admin/blitz/us_open/2026/rounds/101/discord", func(f *fakeAdmins) {
-			f.rounds[0].Matches = []store.BlitzMatch{{ID: 1011, A: 11}}
-		}, http.StatusConflict, "no game"},
-		{"an unknown round", "/v1/admin/blitz/us_open/2026/rounds/999/discord", func(*fakeAdmins) {}, http.StatusNotFound, "no such round"},
-		{"an unknown edition", "/v1/admin/blitz/us_open/2027/rounds/101/discord", func(*fakeAdmins) {}, http.StatusNotFound, "no such blitz edition"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := discordFixture()
-			tt.change(f)
-			rec := adminDo(t, f, http.MethodGet, tt.path, "", "")
-			if rec.Code != tt.want || !strings.Contains(rec.Body.String(), tt.says) {
-				t.Errorf("GET %s = %d %s, want %d saying %q", tt.path, rec.Code, rec.Body, tt.want, tt.says)
-			}
-			if len(f.audits) != 0 {
-				t.Errorf("audits = %q, want none for a refusal", f.audits)
-			}
-		})
-	}
-}
-
-func TestDiscordTextNeedsASignedInAdmin(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/v1/admin/blitz/us_open/2026/rounds/101/discord", nil)
-	rec := httptest.NewRecorder()
-	newMux(&fakeRatings{}, discordFixture(), slog.New(slog.DiscardHandler)).ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Errorf("GET discord without a token = %d %s, want 401", rec.Code, rec.Body)
-	}
 }
 
 func TestABadDeadlineIsRefused(t *testing.T) {

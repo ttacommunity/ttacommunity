@@ -1,23 +1,21 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
-import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
-import { copyText } from '@ttac/shared/copy';
 import type { Load } from '@ttac/shared/load';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzDiscordText, type BlitzEntrantIds } from '../lib/admin-api';
+import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
-import { deadlineForm, deadlineLabel, deadlineLocked, discordBlocker, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -1083,12 +1081,10 @@ function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
 
 type RoundDeadlineProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
 
-/** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, shows the round's Discord text to copy once it has a game, and downloads its Discord threads once they can be made. */
+/** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and downloads the round's Discord threads once they can be made. */
 function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: RoundDeadlineProps) {
   const [form, setForm] = useState<DeadlineForm | null>(null);
-  const [discord, setDiscord] = useState<{ text: string; opener: HTMLElement } | null>(null);
-  const blocker = discordBlocker(round, unsaved);
-  const threadsBlocked = threadsBlocker(round, ed.organisers.length, unsaved);
+  const blocker = threadsBlocker(round, ed.organisers.length, unsaved);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (form === null) return;
@@ -1096,14 +1092,6 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
     say(outcomeOf(r, `${roundTitle(round.number, ed.format)}: deadline saved.`, `round ${round.id}`));
     if (r.ok) setForm(null);
     await onReload();
-  };
-  const showDiscord = async (opener: HTMLElement) => {
-    const r = await adminRequest<BlitzDiscordText>(req.blitzDiscordTextPath(at.slug, at.edition, round.id), {});
-    if (!r.ok) {
-      say(refused(r.message, `round ${round.id}`));
-      return;
-    }
-    setDiscord({ text: r.data.text, opener });
   };
   const download = async () => {
     const r = await adminDownload(req.blitzThreadsPath(at.slug, at.edition, round.id));
@@ -1128,17 +1116,11 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={(e) => void showDiscord(e.currentTarget)}>
-          Discord text
-        </button>{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={threadsBlocked !== ''} onClick={() => void download()}>
+        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
           Discord threads
         </button>
-        {(blocker || threadsBlocked) !== '' && <span className="row-detail muted">{blocker || threadsBlocked}</span>}
+        {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
       </p>
-      {discord !== null && (
-        <DiscordTextDialog title={`${roundTitle(round.number, ed.format)}: Discord text`} text={discord.text} opener={discord.opener} onClose={() => setDiscord(null)} />
-      )}
       {form !== null && !deadlineLocked(round) && (
         <form className="result-row" onSubmit={(e) => void save(e)}>
           <label>
@@ -1159,33 +1141,6 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
         </form>
       )}
     </>
-  );
-}
-
-/** DiscordTextDialog shows a round's Discord text in a modal, read-only, with a button to copy it; if the browser refuses the copy, the text is selected to copy by hand. */
-function DiscordTextDialog({ title, text, opener, onClose }: { title: string; text: string; opener: HTMLElement; onClose: () => void }) {
-  const area = useRef<HTMLTextAreaElement>(null);
-  const [copied, setCopied] = useState('');
-  const copy = async () => {
-    if (await copyText(navigator.clipboard as Clipboard | undefined, text)) {
-      setCopied('Copied: paste it into Discord.');
-    } else {
-      area.current?.select();
-      setCopied('Copying was refused: the text is selected, copy it by hand.');
-    }
-  };
-  const copyButton = (
-    <button type="button" className="btn-antique" onClick={() => void copy()}>
-      Copy
-    </button>
-  );
-  return (
-    <InfoDialog title={title} opener={opener} onClose={onClose} actions={copyButton}>
-      <textarea ref={area} className="input-antique discord-text" readOnly rows={Math.min(14, text.split('\n').length + 1)} value={text} aria-label="Discord text" />
-      <p className="muted" role="status">
-        {copied}
-      </p>
-    </InfoDialog>
   );
 }
 

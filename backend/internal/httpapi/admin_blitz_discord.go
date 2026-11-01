@@ -1,5 +1,5 @@
-// Admin's blitz rounds for Discord: an edition's organisers and thread text, each round's deadline, a round's games
-// as text an organiser pastes into Discord so everyone playing is notified, and its Discord threads to download.
+// Admin's blitz rounds for Discord: an edition's organisers and thread text, each round's deadline, and a round's
+// Discord threads to download, its games listed first so pasting them notifies everyone playing.
 package httpapi
 
 import (
@@ -14,22 +14,6 @@ import (
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
-
-// roundGames lists round r's games with two players, in the order the site numbers them, as Discord text names
-// their players.
-func roundGames(ed store.BlitzEdition, r store.BlitzRound) [][2]blitz.Person {
-	people := map[int64]blitz.Person{}
-	for _, e := range ed.Entrants {
-		people[e.ID] = blitz.Person{Name: e.Name, Discord: e.DiscordName}
-	}
-	var games [][2]blitz.Person
-	for _, m := range r.Matches {
-		if m.B != nil {
-			games = append(games, [2]blitz.Person{people[m.A], people[*m.B]})
-		}
-	}
-	return games
-}
 
 // errNoThreads means a round's threads cannot be written yet: the reason says what is missing.
 var errNoThreads = errors.New("cannot write the threads")
@@ -99,36 +83,6 @@ func (s *server) GetAdminBlitzRoundThreads(ctx context.Context, req GetAdminBlit
 	name := fmt.Sprintf("%s-%s-round-%d-threads.txt", req.Tournament, fileNameUnsafe.ReplaceAllString(req.Edition, "-"), ed.Rounds[i].Number)
 	return GetAdminBlitzRoundThreads200TextResponse{Body: blitz.ThreadsText(threads),
 		Headers: GetAdminBlitzRoundThreads200ResponseHeaders{CacheControl: cacheNone, ContentDisposition: `attachment; filename="` + name + `"`}}, nil
-}
-
-func (s *server) GetAdminBlitzRoundDiscord(ctx context.Context, req GetAdminBlitzRoundDiscordRequestObject) (GetAdminBlitzRoundDiscordResponseObject, error) {
-	me, _ := adminFrom(ctx)
-	if !tournamentSlug.MatchString(req.Tournament) {
-		return GetAdminBlitzRoundDiscord404JSONResponse{notFound404("no such blitz edition")}, nil
-	}
-	ed, err := s.admins.BlitzEdition(ctx, req.Tournament, req.Edition)
-	if errors.Is(err, store.ErrNoBlitzEdition) {
-		return GetAdminBlitzRoundDiscord404JSONResponse{notFound404("no such blitz edition")}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	i := slices.IndexFunc(ed.Rounds, func(r store.BlitzRound) bool { return r.ID == req.Round })
-	if i < 0 {
-		return GetAdminBlitzRoundDiscord404JSONResponse{notFound404("no such round")}, nil
-	}
-	games := roundGames(ed, ed.Rounds[i])
-	if len(games) == 0 {
-		return GetAdminBlitzRoundDiscord409JSONResponse{conflict409("the round has no game to write")}, nil
-	}
-	err = s.admins.Change(ctx, func(tx Admins) error {
-		return tx.Audit(ctx, me.DiscordID, "blitz.round.discord", fmt.Sprint(req.Round), nil)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return GetAdminBlitzRoundDiscord200JSONResponse{Body: BlitzDiscordText{Text: blitz.DiscordText(games)},
-		Headers: GetAdminBlitzRoundDiscord200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) PutAdminBlitzRoundDeadline(ctx context.Context, req PutAdminBlitzRoundDeadlineRequestObject) (PutAdminBlitzRoundDeadlineResponseObject, error) {

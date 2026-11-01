@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deadlineForm, deadlineLabel, deadlineLocked, discordBlocker, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName } from './blitz-deadlines';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName } from './blitz-deadlines';
 import type { Candidate } from './person-form';
 import type { Region } from './zones';
 
@@ -29,16 +29,6 @@ describe('threadsFileName', () => {
     ['spaces and other characters as one dash', 'us_open', 'Spring 2026 (B)', 9, 'us_open-Spring-2026-B--round-9-threads.txt'],
   ])('%s', (_, slug, edition, round, want) => {
     expect(threadsFileName(slug, edition, round)).toBe(want);
-  });
-});
-
-describe('discordBlocker', () => {
-  it.each([
-    ['ready: a game', { matches: [game, bye] }, false, ''],
-    ['changes not saved yet', { matches: [game] }, true, 'Save or discard the changes first.'],
-    ['only a bye', { matches: [bye] }, false, 'No games to write.'],
-  ])('%s', (_, round, unsaved, want) => {
-    expect(discordBlocker(round, unsaved)).toBe(want);
   });
 });
 
