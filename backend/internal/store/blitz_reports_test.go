@@ -527,8 +527,8 @@ func TestMigration52sDownTakesAReportFinishedAheadAgain(t *testing.T) {
 		t.Fatalf("migrating down to 51: %v", err)
 	}
 	game := BlitzGame{ShareCode: "AHEAD", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Add(time.Hour)}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt); err != nil {
-		t.Errorf("ReportBlitzGame finished ahead after the Down = %v, want nil", err)
+	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt); err != nil {
+		t.Errorf("reportBlitzGame finished ahead after the Down = %v, want nil", err)
 	}
 }
 
@@ -739,8 +739,8 @@ func TestMigration63GivesTheBlitzSeatsAlreadyRecordedTheirCGEAccounts(t *testing
 		t.Fatalf("migrating down to 62: %v", err)
 	}
 	linkedToCGE(t, a, "Ann", 1001)
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
-		t.Fatalf("ReportBlitzGame after the Down: %v", err)
+	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
+		t.Fatalf("reportBlitzGame after the Down: %v", err)
 	}
 	seats := func() string {
 		t.Helper()

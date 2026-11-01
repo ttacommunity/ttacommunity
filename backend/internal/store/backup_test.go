@@ -91,7 +91,7 @@ func TestRestoreGivesBackExactlyWhatWasBackedUp(t *testing.T) {
 	}
 }
 
-func TestBackupHoldsEveryInputTableButSignInSecrets(t *testing.T) {
+func TestBackupHoldsEveryInputTableButSignInSecretsAndTheOutbox(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "backup")
 	m, err := Backup(context.Background(), withPeople(t, filled(t)), dir)
 	if err != nil {
@@ -100,11 +100,11 @@ func TestBackupHoldsEveryInputTableButSignInSecrets(t *testing.T) {
 	inputs := append(slices.Clone(ExportTables), NotExported...)
 	for _, table := range inputs {
 		kept := slices.Contains(tableNames(m), table)
-		if secret := table == "player_sessions" || table == "email_links"; kept == secret {
-			t.Errorf("backup holds %s = %v, want %v", table, kept, !secret)
+		if left := table == "player_sessions" || table == "email_links" || table == "notification_outbox"; kept == left {
+			t.Errorf("backup holds %s = %v, want %v", table, kept, !left)
 		}
 	}
-	for _, f := range []string{"player_sessions.csv", "email_links.csv"} {
+	for _, f := range []string{"player_sessions.csv", "email_links.csv", "notification_outbox.csv"} {
 		if _, err := os.Stat(filepath.Join(dir, f)); !os.IsNotExist(err) {
 			t.Errorf("backup wrote %s (stat: %v)", f, err)
 		}

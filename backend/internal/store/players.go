@@ -463,16 +463,17 @@ func (s *PlayerStore) RequestLink(ctx context.Context, account int64, name strin
 		if elsewhere {
 			return ErrNameLinked
 		}
-		tag, err := tx.Exec(ctx, "UPDATE link_requests SET tta_name = $2, requested_at = $3 WHERE account_id = $1 AND status = 'pending'", account, name, now)
+		var request int64
+		err := tx.QueryRow(ctx, "UPDATE link_requests SET tta_name = $2, requested_at = $3 WHERE account_id = $1 AND status = 'pending' RETURNING request_id",
+			account, name, now).Scan(&request)
+		if errors.Is(err, pgx.ErrNoRows) {
+			err = tx.QueryRow(ctx, "INSERT INTO link_requests (account_id, tta_name, requested_at) VALUES ($1, $2, $3) RETURNING request_id",
+				account, name, now).Scan(&request)
+		}
 		if err != nil {
-			return fmt.Errorf("changing a request to be linked: %w", err)
+			return fmt.Errorf("asking to be linked: %w", err)
 		}
-		if tag.RowsAffected() == 0 {
-			if _, err := tx.Exec(ctx, "INSERT INTO link_requests (account_id, tta_name, requested_at) VALUES ($1, $2, $3)", account, name, now); err != nil {
-				return fmt.Errorf("asking to be linked: %w", err)
-			}
-		}
-		return nil
+		return queueNotification(ctx, tx, "link_request", &request, nil, now)
 	})
 }
 

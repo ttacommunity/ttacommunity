@@ -68,13 +68,14 @@ var exportColumns = map[string][]string{
 // and what they did (Discord ids; a new database adds its admins with
 // load add-admin), the rows a load refused (load history, which no view
 // needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
-// members, and players' accounts, sign-ins, sessions, requests to be linked and emailed links. A backup restores
-// them in this order, after ExportTables.
+// members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and admin's notification
+// endpoints and the notifications waiting to be sent. A backup restores them in this order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
-	"accounts", "logins", "link_requests", "player_sessions", "email_links"}
+	"accounts", "logins", "link_requests", "player_sessions", "email_links", "notification_endpoints", "notification_outbox"}
 
-// NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets. Players sign in again after a restore.
-var NotBackedUp = []string{"player_sessions", "email_links"}
+// NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets, and notifications waiting
+// seconds to be sent. Players sign in again after a restore.
+var NotBackedUp = []string{"player_sessions", "email_links", "notification_outbox"}
 
 // BackupTables are every input table but NotBackedUp, in an order a restore can load them. A backup holds personal data.
 var BackupTables = slices.DeleteFunc(slices.Concat(ExportTables[:len(ExportTables)-len(challengeTables)], NotExported, challengeTables), func(t string) bool {
