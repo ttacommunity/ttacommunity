@@ -106,7 +106,7 @@ func (f *fakeAdmins) BlitzEdition(_ context.Context, slug, edition string) (stor
 			rounds[i].Order = store.DefaultBlitzPairing.FirstOrder
 		}
 	}
-	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: rounds}, nil
+	return store.BlitzEdition{BlitzEditionRow: f.blitzRow(), Entrants: f.blitzEntrants(), Rounds: rounds, Organisers: slices.Clone(f.organisers), ThreadText: f.threadText}, nil
 }
 
 func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, format store.BlitzFormat) error {
