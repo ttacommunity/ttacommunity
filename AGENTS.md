@@ -402,7 +402,8 @@ agent runs them itself.
   "Not covered here" instead. Green is not the whole story: say what the
   change was *not* tested against
 - Image builds: add the `images` label to a pull request once the code is
-  final; it builds `sha-<commit>` images to pin in `deploy/`
+  final; it builds `sha-<commit>` images to pin in `deploy/` and
+  `deploy/dev/` alike, so `main` pushed to `dev` runs the same images
 - **A squash or rebase merge needs a repin.** The pins name a commit on
   the branch, which they leave out of `main`, so `checks/deploy-current.sh`
   fails `main`'s CI. After the merge, pin the `sha-<main's new commit>`

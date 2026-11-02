@@ -2,7 +2,7 @@
 # Fail when deploy/ pins one of our images built from older code than HEAD's.
 # Each pin's tag names the commit it was built from (sha-<commit>); the code
 # that image is built from must be the same at that commit and at HEAD.
-# Usage: checks/deploy-current.sh [deploy | deploy/dev]   (branch dev's own pins)
+# Usage: checks/deploy-current.sh [deploy | deploy/dev]   (dev's pins, kept with deploy/'s)
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1

@@ -633,7 +633,7 @@ deploys both together:
 1. When the code is final, run the `images` workflow on the pull request's
    branch (Actions → images → Run workflow). Each job pushes
    `<image>:sha-<commit>` to GHCR and prints the reference in its summary
-2. Resolve each digest, and pin `tag@digest` in `deploy/`. The packages are private, so log in with your `gh` token:
+2. Resolve each digest, and pin `tag@digest` in `deploy/` and `deploy/dev/` alike. The packages are private, so log in with your `gh` token:
 
    ```bash
    gh auth token | crane auth login ghcr.io -u "$(gh api user -q .login)" --password-stdin
@@ -648,8 +648,9 @@ deploys both together:
    two of the rollout; the pull request says so. Once Pulse is live,
    migrations only add, and a removal follows in a later pull request
 
-`checks/deploy-current.sh` fails if `deploy/` pins an image built from older
-code than the branch's, so a late code change needs a new image and pin.
+`checks/deploy-current.sh` fails if `deploy/` or `deploy/dev/` pins an image
+built from older code than the branch's, so a late code change needs a new
+image and pin.
 
 ### The cluster's ratings database
 

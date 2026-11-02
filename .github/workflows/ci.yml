@@ -157,7 +157,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
-          PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}

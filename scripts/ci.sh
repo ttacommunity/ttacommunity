@@ -229,19 +229,15 @@ if full && area checks; then
   else
     run bash checks/verify-digests.sh
   fi
-  # dev deploys from deploy/dev. main's pins are checked too, but not while dev's MR to main is a draft.
+  # deploy/ and deploy/dev are pinned together, so main pushed to dev runs main's images.
   target=${GITHUB_BASE_REF:-${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}}
   source=${GITHUB_HEAD_REF:-$target}
   if [ -z "${CI:-}" ] && [ "$source" != main ] && [ "$source" != dev ]; then
     # A branch's images are built by CI (the images label), so its pins cannot be brought up to date here.
-    not_covered+=("deploy/ pins built from this branch's code: CI checks them; pin the images the images label builds")
+    not_covered+=("deploy/ and deploy/dev pins built from this branch's code: CI checks them; pin the images the images label builds")
   else
-    if [ "$source" = dev ] || [ "$target" = dev ]; then
-      run bash checks/deploy-current.sh deploy/dev
-    fi
-    if [ "$target" != dev ] && ! { [ "$source" = dev ] && [ "${PR_DRAFT:-}" = true ]; }; then
-      run bash checks/deploy-current.sh
-    fi
+    run bash checks/deploy-current.sh
+    run bash checks/deploy-current.sh deploy/dev
   fi
 
   step "workflows"
