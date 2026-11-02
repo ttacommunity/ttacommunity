@@ -261,3 +261,37 @@ func TestBlitzRoundMatchesAreCheckedAndChanged(t *testing.T) {
 		t.Errorf("changing an unknown round = %v, want ErrNoBlitzRound", err)
 	}
 }
+
+func TestAPublishedRoundIsChangedOnlyToAWholeRound(t *testing.T) {
+	tests := []struct {
+		name      string
+		published bool
+		matches   func(ids []int64) []BlitzMatch
+		want      error
+		named     []string
+	}{
+		{"a published round emptied", true, func([]int64) []BlitzMatch { return nil }, ErrBlitzRoundIncomplete, []string{"Ann", "Bob", "Cy", "Dee"}},
+		{"a published round leaving Cy out", true, func(ids []int64) []BlitzMatch { return []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[3]}} }, ErrBlitzRoundIncomplete, []string{"Cy"}},
+		{"a published round re-paired whole", true, func(ids []int64) []BlitzMatch { return []BlitzMatch{{A: ids[0], B: &ids[2]}, {A: ids[1], B: &ids[3]}} }, nil, nil},
+		{"a draft left part-paired", false, func(ids []int64) []BlitzMatch { return []BlitzMatch{{A: ids[0], B: &ids[2]}} }, nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, _, ids := blitzWithEntrants(t)
+			ctx := context.Background()
+			r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+			if err != nil {
+				t.Fatalf("AddBlitzRound: %v", err)
+			}
+			if tt.published {
+				if err := a.PublishBlitzRound(ctx, "us_open", "2026", r.ID); err != nil {
+					t.Fatalf("PublishBlitzRound: %v", err)
+				}
+			}
+			err = a.SetBlitzRoundMatches(ctx, "us_open", "2026", r.ID, tt.matches(ids))
+			if !errors.Is(err, tt.want) || (err != nil && !containsAll(err.Error(), tt.named...)) {
+				t.Errorf("SetBlitzRoundMatches = %v, want %v naming %q", err, tt.want, tt.named)
+			}
+		})
+	}
+}

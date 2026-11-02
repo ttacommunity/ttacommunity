@@ -122,6 +122,76 @@ func TestDutchIgnoresTimezones(t *testing.T) {
 	}
 }
 
+// mdpBracket is 22 players: 1–3 on 2 points, so 3 floats down as the MDP; 4–19 on 1 point, a remainder too large to
+// search whole; 20–22 on 0. change alters player id (from 1).
+func mdpBracket(change func(id int64, p *pairing.Player)) []pairing.Player {
+	players := field(2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0)
+	for i := range players {
+		change(int64(i+1), &players[i])
+	}
+	return players
+}
+
+// metUpTo makes player 3 have met players 4 to last.
+func metUpTo(id int64, p *pairing.Player, last int64) {
+	switch {
+	case id == 3:
+		for o := int64(4); o <= last; o++ {
+			p.Opponents = append(p.Opponents, o)
+		}
+	case id >= 4 && id <= last:
+		p.Opponents = append(p.Opponents, 3)
+	}
+}
+
+func TestDutchTriesTheMDPsNextOpponentWhenTheFirstBreaksAFloatCriterion(t *testing.T) {
+	tests := []struct {
+		name    string
+		players []pairing.Player
+		want    int64
+	}{
+		{"[C14] the first opponent leaves only players who floated down last round to float", mdpBracket(func(id int64, p *pairing.Player) {
+			metUpTo(id, p, 17)
+			if id >= 4 && id <= 19 && id != 18 {
+				p.Floats[0] = pairing.Down
+			}
+		}), 19},
+		{"[C15] the first opponent floated up last round", mdpBracket(func(id int64, p *pairing.Player) {
+			if id == 4 {
+				p.Floats[0] = pairing.Up
+			}
+		}), 5},
+		{"[C16] the first opponent leaves only players who floated down two rounds before to float", mdpBracket(func(id int64, p *pairing.Player) {
+			metUpTo(id, p, 17)
+			if id >= 4 && id <= 19 && id != 18 {
+				p.Floats[1] = pairing.Down
+			}
+		}), 19},
+		{"[C17] the first opponent floated up two rounds before", mdpBracket(func(id int64, p *pairing.Player) {
+			if id == 4 {
+				p.Floats[1] = pairing.Up
+			}
+		}), 5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := pairing.Pair(tt.players, pairing.Dutch, pairing.ByRating, 1)
+			if err != nil {
+				t.Fatalf("Pair: %v", err)
+			}
+			for _, m := range got.Matches {
+				if m.A == 3 || m.B == 3 {
+					if m.A+m.B-3 != tt.want {
+						t.Errorf("the MDP, 3, plays %d, want %d (pairs %v)", m.A+m.B-3, tt.want, pairs(got))
+					}
+					return
+				}
+			}
+			t.Errorf("the MDP, 3, is unpaired, want them to play %d (pairs %v)", tt.want, pairs(got))
+		})
+	}
+}
+
 // TestDutchPlaysWholeTournaments pairs simulated tournaments round after round and checks every round is legal:
 // everyone paired once, no rematch, no second bye.
 func TestDutchPlaysWholeTournaments(t *testing.T) {

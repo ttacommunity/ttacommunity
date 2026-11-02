@@ -227,6 +227,8 @@ type search struct {
 
 // level searches the candidates that pair m1 MDPs and rp pairs of the remainder, in FIDE's order (Articles 3.6,
 // 3.7 and 4): the sets of MDPs, then the transpositions of S2, then the remainder's transpositions and exchanges.
+// An MDP-pairing is skipped when no remainder could make it better than the best so far, and its remainder's
+// search ends once it reaches that pairing's floor, so one MDP-pairing cannot spend the level's steps.
 func (d *dutch) level(mdps, residents []Player, m1, rp int, next, below []Player) (candidate, bool) {
 	d.steps = 0
 	s := &search{d: d, next: next, below: below, last: len(next) == 0, valid: map[string]bool{}, nextOK: map[string]bool{}}
@@ -240,10 +242,15 @@ func (d *dutch) level(mdps, residents []Player, m1, rp int, next, below []Player
 			}
 		}
 		d.transpositions(s1, residents, func(mp [][2]Player, rem []Player) bool {
-			return d.homogeneous(rem, rp, func(pairs [][2]Player, down []Player) bool {
+			floor := floorOf(mp, rem, rp)
+			if s.found && compareQuality(floor, s.bestQ, d.zones) >= 0 {
+				return false
+			}
+			d.homogeneous(rem, rp, func(pairs [][2]Player, down []Player) bool {
 				c := candidate{pairs: append(slices.Clone(mp), pairs...), mdpPairs: len(mp), down: append(slices.Clone(limbo), down...), limbo: len(limbo)}
-				return s.consider(c)
+				return s.consider(c, floor)
 			})
+			return s.stop
 		})
 		if s.stop {
 			break
@@ -253,8 +260,8 @@ func (d *dutch) level(mdps, residents []Player, m1, rp int, next, below []Player
 }
 
 // consider weighs a candidate, keeping it when it is valid and better than the best so far. It reports whether
-// to stop: a perfect candidate, or the level's steps spent.
-func (s *search) consider(c candidate) bool {
+// to stop searching its MDP-pairing's remainder: the candidate reaches floor, is perfect, or the steps are spent.
+func (s *search) consider(c candidate, floor quality) bool {
 	if s.d.steps > levelSteps {
 		s.stop = true
 		return true
@@ -275,7 +282,7 @@ func (s *search) consider(c candidate) bool {
 	if q.perfect() {
 		s.stop = true
 	}
-	return s.stop
+	return s.stop || compareQuality(q, floor, false) == 0
 }
 
 // validDown reports whether a bracket's downfloaters leave a round that can be completed ([C4]); from the last
@@ -328,7 +335,16 @@ func (d *dutch) quality(c candidate, s *search, key string) quality {
 			}
 		}
 	}
-	for _, pr := range c.pairs[:c.mdpPairs] {
+	q.addMDPPairs(c.pairs[:c.mdpPairs])
+	for _, pr := range c.pairs[c.mdpPairs:] {
+		q.zone += ZoneGap(pr[0].Offset, pr[1].Offset)
+	}
+	return q
+}
+
+// addMDPPairs adds the MDP-pairings' floats up ([C15], [C17]), score differences ([C18]–[C21]) and zone gaps to q.
+func (q *quality) addMDPPairs(mp [][2]Player) {
+	for _, pr := range mp {
 		mdp, opp := pr[0], pr[1]
 		for k := range 2 {
 			if opp.Floats[k] == Up {
@@ -339,12 +355,28 @@ func (d *dutch) quality(c candidate, s *search, key string) quality {
 				q.diffs[2*k] = append(q.diffs[2*k], mdp.Points-opp.Points)
 			}
 		}
+		q.zone += ZoneGap(mdp.Offset, opp.Offset)
 	}
 	for i := range q.diffs {
 		slices.SortFunc(q.diffs[i], func(a, b float64) int { return cmp.Compare(b, a) })
 	}
-	for _, pr := range c.pairs {
-		q.zone += ZoneGap(pr[0].Offset, pr[1].Offset)
+}
+
+// floorOf is the best quality a candidate with the MDP-pairings mp can reach when rem is paired in rp pairs: mp's
+// own floats and differences, and only as many downfloaters who floated down before ([C14], [C16]) as rem has too
+// few others to float.
+func floorOf(mp [][2]Player, rem []Player, rp int) quality {
+	q := quality{next: true}
+	q.addMDPPairs(mp)
+	down := len(rem) - 2*rp
+	for k := range 2 {
+		others := 0
+		for _, p := range rem {
+			if p.Floats[k] != Down {
+				others++
+			}
+		}
+		q.counts[2*k] = max(0, down-others)
 	}
 	return q
 }

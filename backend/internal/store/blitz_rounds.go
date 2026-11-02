@@ -361,9 +361,10 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 	return r, nil
 }
 
-// SetBlitzRoundMatches replaces a Swiss round's matches, checked as AddBlitzRound checks them. A match with a
-// result stays as it is: the new matches must include it, else ErrBlitzMatchDecided names it. A knockout round
-// is ErrBlitzKnockoutFixed.
+// SetBlitzRoundMatches replaces a Swiss round's matches, checked as AddBlitzRound checks them, and a published
+// round's as PublishBlitzRound does (ErrBlitzRoundIncomplete names who is left out). A match with a result stays
+// as it is: the new matches must include it, else ErrBlitzMatchDecided names it. A knockout round is
+// ErrBlitzKnockoutFixed.
 func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition string, roundID int64, matches []BlitzMatch) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, number, err := blitzRoundOf(ctx, tx, edID, roundID)
@@ -373,7 +374,11 @@ func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition str
 		if kind == "knockout" {
 			return ErrBlitzKnockoutFixed
 		}
-		if err := checkBlitzMatches(ctx, tx, edID, roundID, number, kind, matches, false); err != nil {
+		var published bool
+		if err := tx.QueryRow(ctx, "SELECT published_at IS NOT NULL FROM blitz_rounds WHERE round_id = $1", roundID).Scan(&published); err != nil {
+			return fmt.Errorf("replacing round %d's matches: %w", roundID, err)
+		}
+		if err := checkBlitzMatches(ctx, tx, edID, roundID, number, kind, matches, published); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, "SELECT match_id, entry_a, entry_b FROM blitz_matches WHERE round_id = $1 AND result IS NOT NULL ORDER BY match_id", roundID)
