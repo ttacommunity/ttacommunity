@@ -2451,8 +2451,9 @@ export interface paths {
          * Replace a round's matches, as paired by hand
          * @description Audited. The Origin must be the admin site. A match names two active
          *     entrants, or one for the bye; nobody twice; never a pair that has met.
-         *     A round may be left incomplete until it is published. A knockout round
-         *     follows the bracket and is refused.
+         *     A draft round may be left incomplete; a published round must keep
+         *     every active entrant not skipping it. A knockout round follows the
+         *     bracket and is refused.
          */
         put: operations["putAdminBlitzRoundMatches"];
         post?: never;

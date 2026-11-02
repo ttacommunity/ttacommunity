@@ -83,6 +83,13 @@ func (f *fakeAdmins) SetBlitzRoundMatches(_ context.Context, slug, edition strin
 			return fmt.Errorf("%w: entrant %d and entrant %d", store.ErrBlitzMatchDecided, d.A, *d.B)
 		}
 	}
+	if f.rounds[i].PublishedAt != nil {
+		for _, e := range f.entrants {
+			if e.Status == "active" && !slices.ContainsFunc(matches, func(m store.BlitzMatch) bool { return m.A == e.ID || (m.B != nil && *m.B == e.ID) }) {
+				return fmt.Errorf("%w: %s", store.ErrBlitzRoundIncomplete, e.Name)
+			}
+		}
+	}
 	f.rounds[i].Matches = matches
 	f.notes = append(f.notes, fmt.Sprintf("set round %d matches %s", id, matchText(matches)))
 	return nil
@@ -325,6 +332,7 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},
 		{"pairing while a result is missing", oneDecided, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`, http.StatusConflict},
 		{"leaving out a decided match", oneDecided, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 9, "b": 10}]}`, http.StatusBadRequest},
+		{"leaving someone out of a published round", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 7, "b": 9}]}`, http.StatusBadRequest},
 		{"removing an entrant who has played", swissDone, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/7", site, "", http.StatusConflict},
 		{"removing a wildcard in a knockout match", wildcardInFinal, http.MethodDelete, "/v1/admin/blitz/us_open/2026/entrants/11", site, "", http.StatusConflict},
 		{"deleting a round with a result", oneDecided, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
@@ -347,6 +355,15 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 				t.Errorf("a refused change still changed something: %q %q", f.notes, f.audits)
 			}
 		})
+	}
+}
+
+func TestUpdatingAPublishedRoundNamesWhoIsLeftOut(t *testing.T) {
+	f := &fakeAdmins{}
+	roundOnePublished(f)
+	rec := adminDoAs(t, f, "111111111111111111", http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", "https://ttac-admin.example", `{"matches": [{"a": 7, "b": 9}]}`)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "Cy") {
+		t.Errorf("PUT matches leaving Cy out = %d %s, want 400 naming Cy", rec.Code, rec.Body)
 	}
 }
 

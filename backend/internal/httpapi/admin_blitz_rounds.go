@@ -425,7 +425,7 @@ func (s *server) PutAdminBlitzRoundMatches(ctx context.Context, req PutAdminBlit
 		return tx.Audit(ctx, me.DiscordID, "blitz.round.matches", fmt.Sprint(req.Round), req.Body)
 	})
 	switch {
-	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBlitzMatchDecided):
+	case errors.Is(err, store.ErrBadBlitzMatch), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBlitzMatchDecided), errors.Is(err, store.ErrBlitzRoundIncomplete):
 		return PutAdminBlitzRoundMatches400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrBlitzKnockoutFixed):
 		return PutAdminBlitzRoundMatches409JSONResponse{conflict409(err.Error())}, nil
