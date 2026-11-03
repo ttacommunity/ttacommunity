@@ -34,6 +34,11 @@ type CGEApplied struct {
 	CopiesRemoved int
 	// GamesRemoved counts our games deleted because CGE removed them from their tournament.
 	GamesRemoved int
+	// TournamentsUpdated counts the CGE tournaments whose name, organiser's name or dates took CGE's.
+	TournamentsUpdated int
+	// ModeratorsKept and RulesKept count, by CGE tournament, the moderators and the games' special rules we hold
+	// that CGE no longer lists, which are kept.
+	ModeratorsKept, RulesKept map[int]int
 	// SeatsRemoved counts our seats dropped because CGE shows their player was removed from the game.
 	SeatsRemoved int
 	// GamesMoved counts the matched games moved into their CGE group.
@@ -465,9 +470,10 @@ func moveMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got 
 	return nil
 }
 
-// writeCatalogue adds the CGE tournaments the catalogue lacks and records each one's organiser, moderators
-// (named, as the extract gives them) and dates. An organiser's name already held is kept.
-func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *CGEApplied) error {
+// writeCatalogue adds the CGE tournaments the catalogue lacks and records each one's name, organiser, moderators
+// (named, as the extract gives them) and dates (UTC days), CGE's replacing ours where CGE gives one; a status
+// already held is kept.
+func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
 	for _, t := range in.Extract.Tournaments {
 		status := "running"
 		if t.Finished != nil {
@@ -477,19 +483,27 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _
 		if s := plan.Series[t.ID]; s != 0 {
 			series = &s
 		}
-		_, err := tx.Exec(ctx, `
-			INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished, series_id, organiser_user)
-			VALUES ($1, $2, $3, $4, $5::timestamptz::date, $6::timestamptz::date, $7::timestamptz::date, $8,
-			        (SELECT cge_user FROM player_accounts WHERE cge_user = $9))
-			ON CONFLICT (cge_tournament) DO UPDATE SET
-			    organiser = coalesce(nullif(cge_tournaments.organiser, ''), excluded.organiser),
-			    organiser_user = excluded.organiser_user, series_id = coalesce(cge_tournaments.series_id, excluded.series_id),
-			    created = coalesce(cge_tournaments.created, excluded.created),
-			    started = coalesce(cge_tournaments.started, excluded.started),
-			    finished = coalesce(cge_tournaments.finished, excluded.finished)`,
-			t.ID, t.Name, status, t.OrganiserName, t.Created, t.Started, t.Finished, series, t.OrganiserID)
+		var updated bool
+		err := tx.QueryRow(ctx, `
+			WITH old AS (SELECT name, organiser, created, started, finished FROM cge_tournaments WHERE cge_tournament = $1),
+			up AS (
+				INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished, series_id, organiser_user)
+				VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC')::date, ($6::timestamptz AT TIME ZONE 'UTC')::date,
+				        ($7::timestamptz AT TIME ZONE 'UTC')::date, $8, (SELECT cge_user FROM player_accounts WHERE cge_user = $9))
+				ON CONFLICT (cge_tournament) DO UPDATE SET
+				    name = excluded.name, organiser = coalesce(nullif(excluded.organiser, ''), cge_tournaments.organiser),
+				    organiser_user = excluded.organiser_user, series_id = coalesce(cge_tournaments.series_id, excluded.series_id),
+				    created = coalesce(excluded.created, cge_tournaments.created),
+				    started = coalesce(excluded.started, cge_tournaments.started),
+				    finished = coalesce(excluded.finished, cge_tournaments.finished)
+				RETURNING name, organiser, created, started, finished)
+			SELECT EXISTS (SELECT FROM old) AND (SELECT row(o.*) FROM old o) IS DISTINCT FROM (SELECT row(u.*) FROM up u)`,
+			t.ID, t.Name, status, t.OrganiserName, t.Created, t.Started, t.Finished, series, t.OrganiserID).Scan(&updated)
 		if err != nil {
 			return err
+		}
+		if updated {
+			got.TournamentsUpdated++
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO cge_tournament_moderators (cge_tournament, cge_user)
@@ -497,6 +511,19 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _
 			JOIN player_accounts a ON lower(a.name) = lower(m.name)
 			ON CONFLICT DO NOTHING`, t.ID, t.Moderators); err != nil {
 			return err
+		}
+		var kept int
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*) FROM cge_tournament_moderators m JOIN player_accounts a USING (cge_user)
+			WHERE m.cge_tournament = $1 AND NOT EXISTS (SELECT FROM unnest($2::text[]) AS n(name) WHERE lower(n.name) = lower(a.name))`,
+			t.ID, t.Moderators).Scan(&kept); err != nil {
+			return err
+		}
+		if kept > 0 {
+			if got.ModeratorsKept == nil {
+				got.ModeratorsKept = map[int]int{}
+			}
+			got.ModeratorsKept[t.ID] = kept
 		}
 	}
 	return nil

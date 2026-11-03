@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -670,41 +671,80 @@ func TestApplyCGEExtractDropsTheSeatsOfPlayersCGERemoved(t *testing.T) {
 	}
 }
 
-func TestApplyCGEExtractFillsOnlyAnEmptyOrganiserName(t *testing.T) {
-	tests := []struct{ name, held, want string }{
-		{"an empty name is filled", "", "eve"},
-		{"a held name is kept", "Lantern_Keeper", "Lantern_Keeper"},
+func TestApplyCGEExtractFollowsCGEsTournamentRecord(t *testing.T) {
+	may1, may2 := time.Date(2026, 5, 1, 18, 0, 0, 0, time.UTC), time.Date(2026, 5, 2, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name, heldName, heldOrganiser, heldCreated, heldFinished string
+		cge                                                      cgeextract.Tournament
+		want                                                     string
+		wantUpdated                                              int
+	}{
+		{"an empty organiser name is filled", "Snail Cup", "", "2026-05-01", "",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 -", 1},
+		{"CGE's organiser name, a banned mark included, replaces ours", "Snail Cup", "eve", "2026-05-01", "",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve(BAN)", Created: &may1}, "Snail Cup eve(BAN) 2026-05-01 -", 1},
+		{"CGE's name and date replace ours", "Snail Cup", "eve", "2026-05-01", "",
+			cgeextract.Tournament{Name: "Snail Cup 2026", OrganiserName: "eve", Created: &may2}, "Snail Cup 2026 eve 2026-05-02 -", 1},
+		{"a date CGE does not give is kept", "Snail Cup", "eve", "2026-05-01", "2026-06-01",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 2026-06-01", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pool := migrated(t)
 			ctx := context.Background()
-			placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02")})
-			setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
-			if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, organiser)
-				VALUES (999, 'Snail Cup', 'running', $1)`, tt.held); err != nil {
+			if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, finished)
+				VALUES (999, $1, 'running', $2, $3::date, nullif($4, '')::date)`, tt.heldName, tt.heldOrganiser, tt.heldCreated, tt.heldFinished); err != nil {
 				t.Fatal(err)
 			}
+			cge := tt.cge
+			cge.ID, cge.OrganiserID = 999, 5
 			seats := extractOf(999, 200, "CODEDDDD", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50))
-			in := CGEInput{Extract: cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{
-				999: {ID: 999, Name: "Snail Cup", OrganiserID: 5, OrganiserName: "eve"},
-			}}}
+			in := CGEInput{Extract: cgeextract.Extract{Seats: seats, Tournaments: map[int]cgeextract.Tournament{999: cge}}}
 			plan, err := PlanCGEExtract(ctx, pool, in.Extract, nil)
 			if err != nil {
 				t.Fatalf("PlanCGEExtract: %v", err)
 			}
-			if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
+			got, err := ApplyCGEExtract(ctx, pool, plan, in)
+			if err != nil {
 				t.Fatalf("ApplyCGEExtract: %v", err)
 			}
 
-			var got string
-			if err := pool.QueryRow(ctx, "SELECT organiser FROM cge_tournaments WHERE cge_tournament = 999").Scan(&got); err != nil {
-				t.Fatal(err)
-			}
-			if got != tt.want {
-				t.Errorf("organiser held %q = %q, want %q", tt.held, got, tt.want)
+			row := rowsOf(t, pool, `SELECT concat_ws(' ', name, organiser, created, coalesce(finished::text, '-')) FROM cge_tournaments
+				WHERE cge_tournament = 999`)
+			if !slices.Equal(row, []string{tt.want}) || got.TournamentsUpdated != tt.wantUpdated {
+				t.Errorf("tournament = %q, %d updated; want %q, %d", row, got.TournamentsUpdated, tt.want, tt.wantUpdated)
 			}
 		})
+	}
+}
+
+func TestApplyCGEExtractKeepsAndCountsWhatCGENoLongerLists(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	load := func(moderators []string, special map[int]cgeextract.Special) CGEApplied {
+		t.Helper()
+		x := cgeextract.Extract{Seats: extractOf(999, 200, "CODEDDDD", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
+			Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 5, Moderators: moderators}}}
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		got, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x, Special: special})
+		if err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+		return got
+	}
+	load([]string{"fay"}, map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}})
+	got := load(nil, nil)
+
+	held := rowsOf(t, pool, `SELECT 'moderator ' || cge_user FROM cge_tournament_moderators WHERE cge_tournament = 999
+		UNION ALL SELECT 'rules ' || rules || ' ' || card_set FROM games WHERE share_code = 'CODEDDDD' ORDER BY 1`)
+	if want := []string{"moderator 6", "rules Tabletop Random Mix"}; !slices.Equal(held, want) {
+		t.Errorf("held after CGE stopped listing them = %q, want %q", held, want)
+	}
+	if want := map[int]int{999: 1}; !maps.Equal(got.ModeratorsKept, want) || !maps.Equal(got.RulesKept, want) {
+		t.Errorf("moderators kept %v, games' rules kept %v; want %v each", got.ModeratorsKept, got.RulesKept, want)
 	}
 }
 
