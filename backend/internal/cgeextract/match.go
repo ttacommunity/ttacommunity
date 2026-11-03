@@ -129,7 +129,7 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 }
 
 // MatchSeats pairs our seats (by number) with the CGE game's seats (by index): by the name CGE's seat has in
-// this game, else by the CGE account an earlier load stored on our seat, else by a name the account played
+// this game (unless another of our seats has that name too), else by the CGE account an earlier load stored on our seat, else by a name the account played
 // under, else by a finished score only one seat has, else the one seat left on each side. CGE's own names come
 // first, so one wrong account stored before cannot swap two players. It returns the pairs and the CGE seats
 // left without one, in seat order.
@@ -148,8 +148,9 @@ func MatchSeats(g Game, ours []OurSeat, names map[string][]int) (map[int]int, []
 	var unnamed []OurSeat
 	for _, o := range ours {
 		same := -1
+		shared := slices.ContainsFunc(ours, func(p OurSeat) bool { return p.Seat != o.Seat && strings.EqualFold(p.Name, o.Name) })
 		for i, s := range g.Seats {
-			if !taken[i] && s.PlayerName != "" && strings.EqualFold(s.PlayerName, o.Name) {
+			if !shared && !taken[i] && s.PlayerName != "" && strings.EqualFold(s.PlayerName, o.Name) {
 				same = i
 				break
 			}

@@ -171,6 +171,19 @@ func TestMatchSeatsTrustsCGEsNameBeforeAnAccountAnEarlierLoadStored(t *testing.T
 	}
 }
 
+func TestMatchSeatsPairsTwoSeatsOfOneNameByTheirAccounts(t *testing.T) {
+	annie, ann := cgeSeat(1, 100), cgeSeat(3, 70)
+	annie.PlayerName, ann.PlayerName = "annie", "ann"
+	// One player of ours holds both accounts, so both seats bear the player's name.
+	stored := []OurSeat{{Seat: 1, Name: "ann", Account: 1}, {Seat: 2, Name: "ann", Account: 3}}
+
+	pairs, missing := MatchSeats(cgeGame(100, 19, "CODEAAAA", annie, ann), stored, names)
+
+	if want := map[int]int{1: 0, 2: 1}; !mapsEqual(pairs, want) || len(missing) != 0 {
+		t.Errorf("pairs %v, missing %v; want %v, none: a name two of our seats share tells neither apart", pairs, missing, want)
+	}
+}
+
 func mapsEqual[K comparable, V comparable](a, b map[K]V) bool {
 	if len(a) != len(b) {
 		return false
