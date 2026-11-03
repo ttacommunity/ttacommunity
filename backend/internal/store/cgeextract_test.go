@@ -107,11 +107,9 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 		19:  {ID: 19, Name: "Intermezzo Championship", OrganiserID: 1},
 		999: {ID: 999, Name: "Snail Cup", OrganiserID: 5, Moderators: []string{"fay"}},
 	}}
-	penalty := -1.0
 	in := CGEInput{
-		Extract:  x,
-		Special:  map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}},
-		Settings: []cgeextract.Settings{{TournamentID: 19, TimeoutPenalty: &penalty}},
+		Extract: x,
+		Special: map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}},
 	}
 	snapshot := func() []string {
 		return rowsOf(t, pool, `SELECT 'g' || g::text FROM games g UNION ALL SELECT 's' || s::text FROM seats s
@@ -152,9 +150,6 @@ func TestApplyCGEExtractWritesWhatCGERecorded(t *testing.T) {
 			`SELECT se.slug || ' ' || se.name || ' ' || se.visible FROM games g JOIN game_lines l USING (game_id)
 			 JOIN series se ON se.series_id = l.series_id WHERE g.share_code = 'CODEDDDD'`, "cge_999 Snail Cup false"},
 		{"a game's special rules", `SELECT rules || ' ' || card_set FROM games WHERE share_code = 'CODEDDDD'`, "Tabletop Random Mix"},
-		{"a league's settings sit on its series",
-			`SELECT s.timeout_penalty || ' ' || s.source FROM settings s JOIN series se USING (series_id) WHERE se.slug = 'intermezzo'`,
-			"-1 cge"},
 		{"an organiser is an account", `SELECT organiser_user::text FROM cge_tournaments WHERE cge_tournament = 999`, "5"},
 		{"a moderator is an account", `SELECT cge_user::text FROM cge_tournament_moderators WHERE cge_tournament = 999`, "6"},
 	}
@@ -736,9 +731,10 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 		wantGames   int
 		wantLeftOut int
 		wantPenalty string
+		wantNew     string
 	}{
-		{"a season CGE runs takes its stages, games and settings", false, "Round 1, Stage 1", 1, 0, "-1"},
-		{"a season run on this site takes CGE's page only", true, "Round 1", 0, 1, "none"},
+		{"a season CGE runs takes its stages, games and settings, a stage the load makes included", false, "Round 1, Stage 1", 1, 0, "-1", "-2"},
+		{"a season run on this site takes CGE's page only", true, "Round 1", 0, 1, "none", "none"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -747,7 +743,8 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 			for _, q := range []string{
 				`INSERT INTO series (slug, name) VALUES ('lantern_open', 'Lantern Open')`,
 				fmt.Sprintf(`INSERT INTO tournaments (series_id, label, run_here) SELECT series_id, '2031', %t FROM series WHERE slug = 'lantern_open'`, tt.runHere),
-				`INSERT INTO stages (tournament_id, label) SELECT tournament_id, 'Round 1' FROM tournaments WHERE label = '2031'`,
+				`INSERT INTO stages (tournament_id, label, cge_tournament, cge_stage_number)
+				 SELECT tournament_id, 'Round 1', 7001, 2 FROM tournaments WHERE label = '2031'`,
 				`INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, tournament_id)
 				 SELECT 7001, 'Lantern Open', 'Stage 1 of 11', series_id, tournament_id FROM tournaments WHERE label = '2031'`,
 			} {
@@ -758,6 +755,7 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 			x := cgeextract.Extract{
 				Seats:       extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
 				Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}},
+				Stages:      map[int]cgeextract.Stage{9: {ID: 9, TournamentID: 7001, Number: 1}, 10: {ID: 10, TournamentID: 7001, Number: 2}},
 			}
 			plan, err := PlanCGEExtract(ctx, pool, x, nil)
 			if err != nil {
@@ -766,18 +764,26 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 			if plan.RunHere != tt.wantLeftOut {
 				t.Errorf("games left out = %d, want %d", plan.RunHere, tt.wantLeftOut)
 			}
-			penalty := -1.0
-			in := CGEInput{Extract: x, Settings: []cgeextract.Settings{{TournamentID: 7001, TimeoutPenalty: &penalty}}}
+			in := CGEInput{Extract: x, Stages: []cgeextract.StageSettings{
+				{TournamentID: 7001, StageID: 9, TimeoutPenalty: -2}, {TournamentID: 7001, StageID: 10, TimeoutPenalty: -1}}}
 			if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
 				t.Fatalf("ApplyCGEExtract: %v", err)
 			}
-			var stages, page, setting string
-			if err := pool.QueryRow(ctx, `SELECT coalesce((SELECT s.timeout_penalty::text FROM settings s
-				JOIN tournaments t USING (tournament_id) WHERE t.label = '2031'), 'none')`).Scan(&setting); err != nil {
-				t.Fatal(err)
+			var stages, page string
+			penalty := func(stage string) string {
+				t.Helper()
+				var got string
+				if err := pool.QueryRow(ctx, `SELECT coalesce((SELECT s.timeout_penalty::text FROM settings s
+					JOIN stages st USING (stage_id) WHERE st.label = $1), 'none')`, stage).Scan(&got); err != nil {
+					t.Fatal(err)
+				}
+				return got
 			}
-			if setting != tt.wantPenalty {
-				t.Errorf("time-out penalty from CGE = %s, want %s", setting, tt.wantPenalty)
+			if got := penalty("Round 1"); got != tt.wantPenalty {
+				t.Errorf("Round 1's time-out penalty from CGE = %s, want %s", got, tt.wantPenalty)
+			}
+			if got := penalty("Stage 1"); got != tt.wantNew {
+				t.Errorf("the time-out penalty from CGE of the stage the load made = %s, want %s", got, tt.wantNew)
 			}
 			var games int
 			if err := pool.QueryRow(ctx, `SELECT string_agg(st.label, ', ' ORDER BY st.label) FROM stages st
@@ -916,5 +922,165 @@ func TestApplyCGEExtractRefusesANameAnotherPlayerHas(t *testing.T) {
 	}
 	if after := rowsOf(t, pool, namesSnapshot); !slices.Equal(after, before) {
 		t.Errorf("the refused load changed the data:\n%q\nwant\n%q", after, before)
+	}
+}
+
+func TestApplyCGEExtractPutsCGEsSettingsOnEachStage(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	for _, q := range []string{
+		`INSERT INTO series (slug, name) VALUES ('lantern_open', 'Lantern Open')`,
+		`INSERT INTO tournaments (series_id, label) SELECT series_id, '2031' FROM series WHERE slug = 'lantern_open'`,
+		`INSERT INTO stages (tournament_id, label, cge_tournament, cge_stage_number)
+		 SELECT tournament_id, l, 7001, n FROM tournaments, (VALUES ('Stage 1', 1), ('Stage 2', 2)) v(l, n) WHERE label = '2031'`,
+		`INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, tournament_id)
+		 SELECT 7001, 'Lantern Open', 'finished', series_id, tournament_id FROM tournaments WHERE label = '2031'`,
+		`INSERT INTO settings (series_id, timeout_penalty, points_2p, tiebreak_2p, source)
+		 SELECT series_id, -3, '{2,0}', 'positions', 'admin' FROM series WHERE slug = 'lantern_open'`,
+		`INSERT INTO settings (stage_id, timeout_penalty, ignore_ai_players, tiebreak_2p, source)
+		 SELECT stage_id, -5, false, 'winnerScore', 'cge' FROM stages WHERE label = 'Stage 1'`,
+		`INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number) SELECT stage_id, 'Final', 7002, 1 FROM stages WHERE label = 'Stage 1'`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	x := cgeextract.Extract{
+		Seats:       extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
+		Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}},
+		Stages: map[int]cgeextract.Stage{9: {ID: 9, TournamentID: 7001, Number: 1}, 10: {ID: 10, TournamentID: 7001, Number: 2},
+			11: {ID: 11, TournamentID: 7002, Number: 1}},
+	}
+	least := 50.0
+	first := cgeextract.StageSettings{TournamentID: 7001, StageID: 9, TimeoutPenalty: -1, IgnoreAI: true,
+		Points:    map[int][]float64{2: {1, 0}, 3: {}, 4: {6, 3, 1, 0}},
+		EachPlays: map[int]int{2: 1, 3: 0, 4: 2}, Tiebreak2p: "duelPositionsComparison, winnerScore",
+		Tiebreak3pPlus: "winnerScore", WinnerScoreMinimum: &least}
+	final := first
+	final.TournamentID, final.StageID, final.TimeoutPenalty, final.EachPlays = 7002, 11, -50, map[int]int{2: 2, 3: 0, 4: 2}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	stages := []cgeextract.StageSettings{first, final,
+		{TournamentID: 7001, StageID: 10, Points: map[int][]float64{2: {}, 3: {5, 2, 0}, 4: {}}, EachPlays: map[int]int{2: 0, 3: 3, 4: 0}}}
+	writes, err := PlanCGEStages(ctx, pool, x, stages)
+	if err != nil {
+		t.Fatalf("PlanCGEStages: %v", err)
+	}
+	var disagree []string
+	for _, w := range writes {
+		disagree = append(disagree, w.Disagree...)
+	}
+	if want := []string{"each_plays_2p", "timeout_penalty"}; !slices.Equal(disagree, want) {
+		t.Errorf("settings CGE's stages disagree on = %q, want %q", disagree, want)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x, Stages: stages}); err != nil {
+		t.Fatalf("ApplyCGEExtract: %v", err)
+	}
+
+	resolved := `SELECT concat_ws(' ', ss.timeout_penalty, ss.points_2p, ss.points_3p, ss.points_4p, ss.ignore_ai_players,
+		concat_ws('/', ss.each_plays_2p, ss.each_plays_3p, ss.each_plays_4p), coalesce(ss.winner_score_minimum::text, 'none'))
+		|| ' [' || ss.tiebreak_2p || '] [' || ss.tiebreak_3p_plus || ']'
+		FROM stage_settings ss JOIN stages st USING (stage_id) WHERE st.label = `
+	tests := []struct{ name, query, want string }{
+		{"a stage takes the settings its CGE stages agree on over an earlier load's and its series', and keeps the rest",
+			resolved + "'Stage 1'", "-5 {1,0} {} {6,3,1,0} t 0/2 50 [duelPositionsComparison, winnerScore] [winnerScore]"},
+		{"a stage with no settings of its own takes CGE's, none included", resolved + "'Stage 2'",
+			"0 {} {5,2,0} {} f 0/3/0 none [] []"},
+		{"admin's series settings stay on the series",
+			`SELECT s.timeout_penalty || ' ' || s.points_2p::text || ' ' || s.source FROM settings s
+			 JOIN series se USING (series_id) WHERE se.slug = 'lantern_open'`, "-3 {2,0} admin"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			if err := pool.QueryRow(ctx, tt.query).Scan(&got); err != nil {
+				t.Fatalf("%v\n%s", err, tt.query)
+			}
+			if got != tt.want {
+				t.Errorf("got = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// inTournament puts an extract game's seats in a stage and group of their own for CGE tournament t; unplayed, the
+// game is prepared, with no outcomes.
+func inTournament(t int, unplayed bool, seats []cgeextract.Seat) []cgeextract.Seat {
+	for i := range seats {
+		seats[i].StageID, seats[i].StageNumber, seats[i].GroupID, seats[i].GroupName = t, 1, t*10, fmt.Sprintf("Group %d", t)
+		if unplayed {
+			seats[i].State, seats[i].FinishedAt, seats[i].FinishStatus, seats[i].Standing, seats[i].Score = "prepared", nil, "", nil, nil
+		}
+	}
+	return seats
+}
+
+func TestApplyCGEExtractRemovesTheGamesCGERemoved(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	tournaments := map[int]cgeextract.Tournament{
+		999: {ID: 999, Name: "Snail Cup", OrganiserID: 1}, 7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 1},
+		8000: {ID: 8000, Name: "Ember Cup", OrganiserID: 1},
+	}
+	game := func(t, session int, code string, unplayed bool) []cgeextract.Seat {
+		return inTournament(t, unplayed, extractOf(t, session, code, cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)))
+	}
+	load := func(seats []cgeextract.Seat, in map[int]cgeextract.Tournament) (CGEPlan, CGEApplied) {
+		t.Helper()
+		x := cgeextract.Extract{Seats: seats, Tournaments: in}
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		got, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x})
+		if err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+		return plan, got
+	}
+	moved := func(session int) []cgeextract.Seat {
+		return inTournament(999, false, extractOf(999, session, "CODEMOVE", cgeDone(1, "ann", 1, 90), cgeDone(2, "bob", 2, 40)))
+	}
+	var first []cgeextract.Seat
+	for _, g := range [][]cgeextract.Seat{
+		game(999, 400, "CODEPREP", true), game(999, 401, "CODEPLAY", false), game(999, 402, "CODESTAY", true),
+		game(7001, 403, "CODEHERE", true), game(8000, 405, "CODEGONE", true), moved(406),
+	} {
+		first = append(first, g...)
+	}
+	load(first, tournaments)
+	for _, q := range []string{
+		`UPDATE cge_tournaments SET tournament_id = (SELECT st.tournament_id FROM groups gr JOIN stages st USING (stage_id)
+		 WHERE gr.cge_tournament = 7001) WHERE cge_tournament = 7001`,
+		`UPDATE tournaments SET run_here = true WHERE tournament_id = (SELECT tournament_id FROM cge_tournaments WHERE cge_tournament = 7001)`,
+	} {
+		if tag, err := pool.Exec(ctx, q); err != nil || tag.RowsAffected() != 1 {
+			t.Fatalf("%s: %v, %d rows; want 1", q, err, tag.RowsAffected())
+		}
+	}
+
+	second := slices.Concat(game(999, 402, "CODESTAY", true), game(7001, 404, "CODENEXT", true), moved(407),
+		game(999, 411, "CODENEWS", false))
+	delete(tournaments, 8000)
+	for i, want := range []struct{ removed, played int }{{2, 1}, {0, 0}} {
+		plan, got := load(second, tournaments)
+		if len(plan.Removed) != want.removed || plan.RemovedPlayed != want.played || got.GamesRemoved != want.removed {
+			t.Errorf("load %d: planned %d removed, %d of them played, and removed %d; want %d, %d and %d", i+1,
+				len(plan.Removed), plan.RemovedPlayed, got.GamesRemoved, want.removed, want.played, want.removed)
+		}
+		if len(plan.Matching.HeldBack) != 0 {
+			t.Errorf("load %d: held back %d games as possible copies; want none, as a game CGE removed is no copy",
+				i+1, len(plan.Matching.HeldBack))
+		}
+	}
+	got := rowsOf(t, pool, `SELECT concat_ws(' ', share_code, CASE WHEN share_code = 'CODEMOVE' THEN cge_session END)
+		FROM games WHERE share_code LIKE 'CODE%' ORDER BY 1`)
+	want := []string{"CODEGONE", "CODEHERE", "CODEMOVE 407", "CODENEWS", "CODESTAY"}
+	if !slices.Equal(got, want) {
+		t.Errorf("games = %q, want %q: the games CGE removed gone, played or not; a season run here's, a tournament "+
+			"the extract left out and a game matched to a new session kept; a new game of the removed games' players "+
+			"added, not held back as a copy", got, want)
 	}
 }

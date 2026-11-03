@@ -1,81 +1,115 @@
-// CGE's extract, its settings: the ones we lack, each on our stage, tournament or series for it.
+// CGE's extract, its settings: each CGE stage's, on our stage for it.
 package store
 
 import (
 	"context"
+	"fmt"
+	"maps"
+	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/cgeextract"
 )
 
-// writeSettings fills the settings we lack from CGE's: a stage's on our stage for it, a cup year's on its
-// tournament, a league's on its series. A setting we hold is kept.
-func writeSettings(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
-	for _, s := range in.Settings {
-		target, id, err := settingsTarget(ctx, tx, plan, in, s)
-		if err != nil {
-			return err
-		}
-		if id == 0 {
+// CGEStageWrite is what the load writes on one stage of ours from the CGE stages for it: each setting they all
+// agree on, by column, and the columns they disagree on (sorted), which keep what the stage had.
+type CGEStageWrite struct {
+	StageID  int64
+	Settings map[string]any
+	Disagree []string
+}
+
+// stageColumns are the settings columns a CGE stage gives, in stageValues' order.
+var stageColumns = []string{"timeout_penalty", "points_2p", "points_3p", "points_4p", "ignore_ai_players", "each_plays_2p",
+	"each_plays_3p", "each_plays_4p", "tiebreak_2p", "tiebreak_3p_plus", "winner_score_minimum"}
+
+// stageValues returns s's settings in stageColumns' order.
+func stageValues(s cgeextract.StageSettings) []any {
+	var least any
+	if s.WinnerScoreMinimum != nil {
+		least = *s.WinnerScoreMinimum
+	}
+	return []any{s.TimeoutPenalty, s.Points[2], s.Points[3], s.Points[4], s.IgnoreAI, s.EachPlays[2], s.EachPlays[3],
+		s.EachPlays[4], s.Tiebreak2p, s.Tiebreak3pPlus, least}
+}
+
+// PlanCGEStages finds our stage for each of CGE's stages (through our stages or groups linked to it; none for a
+// season run on this site) and what to write on it: the settings every CGE stage for it agrees on. It writes
+// nothing, so a stage the load would make is not in it; the load writes that one too.
+func PlanCGEStages(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
+	return mergeStages(ctx, pool, x, stages)
+}
+
+// mergeStages is PlanCGEStages, reading through q: the pool, or the load's transaction.
+func mergeStages(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, x cgeextract.Extract, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
+	var writes []CGEStageWrite
+	values := map[int64][][]any{}
+	for _, s := range stages {
+		var id int64
+		var here bool
+		err := q.QueryRow(ctx, `
+			SELECT st.stage_id, t.run_here FROM stages st JOIN tournaments t USING (tournament_id)
+			WHERE st.stage_id IN (SELECT stage_id FROM stages WHERE cge_tournament = $1 AND cge_stage_number = $2
+			                      UNION SELECT stage_id FROM groups WHERE cge_tournament = $1 AND cge_stage_number = $2)
+			ORDER BY st.stage_id LIMIT 1`,
+			s.TournamentID, x.Stages[s.StageID].Number).Scan(&id, &here)
+		if err == pgx.ErrNoRows || here {
 			continue
 		}
-		points := func(n int) any {
-			if p := s.Points[n]; p != nil {
-				return *p
+		if err != nil {
+			return nil, fmt.Errorf("finding our stage for CGE stage %d: %w", s.StageID, err)
+		}
+		if _, ok := values[id]; !ok {
+			writes = append(writes, CGEStageWrite{StageID: id, Settings: map[string]any{}})
+		}
+		values[id] = append(values[id], stageValues(s))
+	}
+	for i, w := range writes {
+		for c, column := range stageColumns {
+			first := values[w.StageID][0][c]
+			if slices.ContainsFunc(values[w.StageID], func(v []any) bool { return !reflect.DeepEqual(v[c], first) }) {
+				writes[i].Disagree = append(writes[i].Disagree, column)
+				continue
 			}
-			return nil
+			w.Settings[column] = first
+		}
+		slices.Sort(writes[i].Disagree)
+	}
+	return writes, nil
+}
+
+// writeSettings writes each stage's settings from CGE's stages file, merged as PlanCGEStages does once the load
+// has made its stages, replacing what an earlier load stored in each column it gives.
+func writeSettings(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *CGEApplied) error {
+	writes, err := mergeStages(ctx, tx, in.Extract, in.Stages)
+	if err != nil {
+		return err
+	}
+	for _, w := range writes {
+		if len(w.Settings) == 0 {
+			continue
+		}
+		columns := slices.Sorted(maps.Keys(w.Settings))
+		args := []any{w.StageID}
+		var params, sets []string
+		for i, c := range columns {
+			args = append(args, w.Settings[c])
+			params = append(params, fmt.Sprintf("$%d", i+2))
+			sets = append(sets, c+" = excluded."+c)
 		}
 		tag, err := tx.Exec(ctx, `
-			INSERT INTO settings (`+target+`, timeout_penalty, points_2p, points_3p, points_4p, tiebreak_2p, tiebreak_3p_plus,
-			                      ignore_ai_players, each_plays, source)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'cge')
-			ON CONFLICT (`+target+`) DO UPDATE SET
-			    timeout_penalty = coalesce(settings.timeout_penalty, excluded.timeout_penalty),
-			    points_2p = coalesce(settings.points_2p, excluded.points_2p),
-			    points_3p = coalesce(settings.points_3p, excluded.points_3p),
-			    points_4p = coalesce(settings.points_4p, excluded.points_4p),
-			    tiebreak_2p = coalesce(settings.tiebreak_2p, excluded.tiebreak_2p),
-			    tiebreak_3p_plus = coalesce(settings.tiebreak_3p_plus, excluded.tiebreak_3p_plus),
-			    ignore_ai_players = coalesce(settings.ignore_ai_players, excluded.ignore_ai_players),
-			    each_plays = coalesce(settings.each_plays, excluded.each_plays),
-			    source = CASE WHEN settings.source IN ('', 'catalogue') THEN 'cge' ELSE settings.source END`,
-			id, s.TimeoutPenalty, points(2), points(3), points(4), s.Tiebreak2p, s.Tiebreak3pPlus, s.IgnoreAI, s.EachPlays)
+			INSERT INTO settings (stage_id, `+strings.Join(columns, ", ")+`, source) VALUES ($1, `+strings.Join(params, ", ")+`, 'cge')
+			ON CONFLICT (stage_id) DO UPDATE SET `+strings.Join(sets, ", ")+`, source = 'cge'`, args...)
 		if err != nil {
 			return err
 		}
 		got.SettingsWritten += int(tag.RowsAffected())
 	}
 	return nil
-}
-
-// settingsTarget returns the settings column and our id CGE's settings row belongs to, or 0 for none, as for
-// a season run on this site.
-func settingsTarget(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, s cgeextract.Settings) (string, int64, error) {
-	var id int64
-	if s.StageID != 0 {
-		stage := in.Extract.Stages[s.StageID]
-		err := tx.QueryRow(ctx, `
-			SELECT stage_id FROM stages WHERE cge_tournament = $1 AND cge_stage_number = $2
-			UNION SELECT stage_id FROM groups WHERE cge_tournament = $1 AND cge_stage_number = $2 LIMIT 1`,
-			s.TournamentID, stage.Number).Scan(&id)
-		if err == pgx.ErrNoRows {
-			return "", 0, nil
-		}
-		return "stage_id", id, err
-	}
-	var tournament *int64
-	var here bool
-	err := tx.QueryRow(ctx, `SELECT c.tournament_id, coalesce(t.run_here, false) FROM cge_tournaments c
-		LEFT JOIN tournaments t USING (tournament_id) WHERE c.cge_tournament = $1`, s.TournamentID).Scan(&tournament, &here)
-	if err != nil && err != pgx.ErrNoRows {
-		return "", 0, err
-	}
-	if here {
-		return "", 0, nil
-	}
-	if tournament != nil {
-		return "tournament_id", *tournament, nil
-	}
-	return "series_id", plan.Series[s.TournamentID], nil
 }

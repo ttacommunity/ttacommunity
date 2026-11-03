@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -14,14 +15,17 @@ import (
 
 // CGEPlan is how CGE's extract meets our games, before anything is written: its games, how they match ours,
 // the accounts each name has played under, and our series for each linked CGE tournament. RunHere counts the
-// games it leaves out, of CGE tournaments linked to seasons run on this site.
+// games it leaves out, of CGE tournaments linked to seasons run on this site. Removed are our games CGE removed
+// (their CGE tournament is in the extract, but not their session), RemovedPlayed how many of them were played.
 type CGEPlan struct {
-	Games    []cgeextract.Game
-	Ours     []cgeextract.OurGame
-	Matching cgeextract.Matching
-	Names    map[string][]int
-	Series   map[int]int64
-	RunHere  int
+	Games         []cgeextract.Game
+	Ours          []cgeextract.OurGame
+	Matching      cgeextract.Matching
+	Names         map[string][]int
+	Series        map[int]int64
+	RunHere       int
+	Removed       []int64
+	RemovedPlayed int
 }
 
 // PlanCGEExtract reads our games and matches the extract's to them, confirmed pairs first, writing nothing.
@@ -122,5 +126,45 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	}
 	plan.Ours = ours
 	plan.Matching = cgeextract.Match(plan.Games, ours, plan.Names, plan.Series, confirmed)
+	if err := planRemoved(ctx, pool, x, here, &plan); err != nil {
+		return CGEPlan{}, fmt.Errorf("reading the games CGE removed: %w", err)
+	}
+	if len(plan.Removed) > 0 {
+		// A game CGE removed is no copy of a CGE game: matched again without them, none is held back for one.
+		plan.Ours = slices.DeleteFunc(ours, func(o cgeextract.OurGame) bool { return slices.Contains(plan.Removed, o.ID) })
+		plan.Matching = cgeextract.Match(plan.Games, plan.Ours, plan.Names, plan.Series, confirmed)
+	}
 	return plan, nil
+}
+
+// planRemoved finds our games CGE removed: in a CGE tournament the extract holds, not of a season run on this site
+// (here), with a CGE session the extract does not hold, and matched to none of its games.
+func planRemoved(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, here []int, plan *CGEPlan) error {
+	sessions := map[int]bool{}
+	for _, s := range x.Seats {
+		sessions[s.SessionID] = true
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT g.game_id, g.state = 'played' FROM games g
+		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id) JOIN tournaments t USING (tournament_id)
+		WHERE g.cge_session IS NOT NULL AND NOT t.run_here
+		  AND coalesce(gr.cge_tournament, st.cge_tournament) = ANY($2) AND NOT coalesce(gr.cge_tournament, st.cge_tournament) = ANY($3)
+		  AND NOT EXISTS (SELECT FROM unnest($1::int[]) AS s(id) WHERE s.id = g.cge_session)
+		ORDER BY g.game_id`, slices.Collect(maps.Keys(sessions)), slices.Collect(maps.Keys(x.Tournaments)), here)
+	if err != nil {
+		return err
+	}
+	var id int64
+	var played bool
+	_, err = pgx.ForEachRow(rows, []any{&id, &played}, func() error {
+		if _, matched := plan.Matching.Matched[id]; matched {
+			return nil
+		}
+		plan.Removed = append(plan.Removed, id)
+		if played {
+			plan.RemovedPlayed++
+		}
+		return nil
+	})
+	return err
 }

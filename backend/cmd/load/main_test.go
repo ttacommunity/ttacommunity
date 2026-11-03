@@ -186,7 +186,7 @@ func TestRunRefusesAMissingOrWrongCommandLine(t *testing.T) {
 		{"facts without a file", []string{"facts", "divisions"}, 64},
 		{"countries without a file", []string{"countries"}, 64},
 		{"add-admin without a name and role", []string{"add-admin", "100000000000000001"}, 64},
-		{"cge-extract without settings", []string{"cge-extract", "extract"}, 64},
+		{"cge-extract without a directory", []string{"cge-extract"}, 64},
 		{"input-tables with an argument", []string{"input-tables", "x"}, 64},
 		{"unknown flag", []string{"migrate", "-nope"}, 2},
 		{"help", []string{"migrate", "-h"}, 0},
@@ -237,7 +237,7 @@ func TestRunReachesEachCommand(t *testing.T) {
 		{"export-upstream", []string{"export-upstream", missing}, "RATINGS_DATABASE_URL is not set"},
 		{"check-standings", []string{"check-standings", missing}, "RATINGS_DATABASE_URL is not set"},
 		{"add-admin", []string{"add-admin", "-name", "Local admin", "-role", "admin", "100000000000000001"}, "RATINGS_DATABASE_URL is not set"},
-		{"cge-extract", []string{"cge-extract", "-settings", missing, missing}, "missing"},
+		{"cge-extract", []string{"cge-extract", missing}, "missing"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var stderr strings.Builder

@@ -22,71 +22,87 @@ func TestReadSpecialRulesGivesEachGamesRulesAndCards(t *testing.T) {
 	}
 }
 
-const tournamentSettings = "tournament_id,each_plays,timeout_penalty,ignore_ai_players,scoring_2p,scoring_3p,scoring_4p," +
-	"tiebreak_2p,tiebreak_3p_plus,stages_read,stages_in_extract\n"
+const stagesFile = "tournament_id,tournament_name,stage_id,stage_number,stage_name,timeout_penalty,each_player_plays_2p," +
+	"scoring_2p,each_player_plays_3p,scoring_3p,each_player_plays_4p,scoring_4p,ignore_ai_in_scoring," +
+	"tiebreakers_2_players_tie,tiebreakers_3plus_players_tie,winner_score_minimum\n"
 
-const stageSettings = "tournament_id,stage_id,stage_number,each_plays,timeout_penalty,ignore_ai_players,scoring_2p," +
-	"scoring_3p,scoring_4p,tiebreak_2p,tiebreak_3p_plus,source,fetched\n"
-
-func TestReadSettingsTellsInheritedFromNone(t *testing.T) {
-	got, err := ReadTournamentSettings("t.csv", strings.NewReader(tournamentSettings+
-		`19,6,-1,yes,-,5-2-0,,"duelPositionsComparison, winnerScore",-,26,26`+"\n"))
+func TestReadStagesGivesEachStagesSettings(t *testing.T) {
+	got, err := ReadStages("stages.csv", strings.NewReader(stagesFile+
+		`5086,Quick and Dirty,3,1,Season 1,-1,0,,1,5-2-0,4,6-3-1-0,yes,"duelPositionsComparison, winnerScore",winnerScore,50`+"\n"))
 	if err != nil {
-		t.Fatalf("ReadTournamentSettings: %v", err)
+		t.Fatalf("ReadStages: %v", err)
+	}
+	if len(got.Settings) != 1 || len(got.Refused) != 0 {
+		t.Fatalf("settings %+v, refused %+v; want one stage", got.Settings, got.Refused)
 	}
 	s := got.Settings[0]
-	if s.TournamentID != 19 || s.StageID != 0 || *s.EachPlays != 6 || *s.TimeoutPenalty != -1 || !*s.IgnoreAI {
-		t.Errorf("settings = %+v", s)
+	if s.TournamentID != 5086 || s.StageID != 3 || s.TimeoutPenalty != -1 || !s.IgnoreAI ||
+		s.WinnerScoreMinimum == nil || *s.WinnerScoreMinimum != 50 {
+		t.Errorf("settings = %+v, want tournament 5086, stage 3, penalty -1, AI ignored, winner score at least 50", s)
 	}
-	if s.Points[2] == nil || len(*s.Points[2]) != 0 || !slices.Equal(*s.Points[3], []float64{5, 2, 0}) || s.Points[4] != nil {
-		t.Errorf("points = %v, want 2p none, 3p 5-2-0, 4p inherited", s.Points)
+	if len(s.Points[2]) != 0 || !slices.Equal(s.Points[3], []float64{5, 2, 0}) || !slices.Equal(s.Points[4], []float64{6, 3, 1, 0}) {
+		t.Errorf("points = %v, want 2p none, 3p 5-2-0, 4p 6-3-1-0", s.Points)
 	}
-	if *s.Tiebreak2p != "duelPositionsComparison, winnerScore" || *s.Tiebreak3pPlus != "" {
-		t.Errorf("tiebreaks = %q, %q; want the 2-way list and none for 3+", *s.Tiebreak2p, *s.Tiebreak3pPlus)
+	if s.EachPlays[2] != 0 || s.EachPlays[3] != 1 || s.EachPlays[4] != 4 {
+		t.Errorf("each plays = %v, want 0, 1 and 4", s.EachPlays)
+	}
+	if s.Tiebreak2p != "duelPositionsComparison, winnerScore" || s.Tiebreak3pPlus != "winnerScore" {
+		t.Errorf("tiebreaks = %q, %q; want CGE's, in order", s.Tiebreak2p, s.Tiebreak3pPlus)
 	}
 }
 
-func TestReadStageSettingsGivesOnlyWhatDiffers(t *testing.T) {
-	got, err := ReadStageSettings("s.csv", strings.NewReader(stageSettings+
-		"19,3,1,,-1,no,,,,-,-,/tournaments/detail/19/1,2026-10-01\n"))
-	if err != nil {
-		t.Fatalf("ReadStageSettings: %v", err)
+func TestReadStagesGivesNoneForEmptySettings(t *testing.T) {
+	got, err := ReadStages("stages.csv", strings.NewReader(stagesFile+"19,Intermezzo,3,1,Season 1,0,1,1-0,0,,0,,no,,,\n"))
+	if err != nil || len(got.Settings) != 1 {
+		t.Fatalf("ReadStages: %+v, %v; want one stage", got, err)
 	}
 	s := got.Settings[0]
-	if s.StageID != 3 || s.EachPlays != nil || *s.TimeoutPenalty != -1 || *s.IgnoreAI || s.Points[3] != nil ||
-		*s.Tiebreak2p != "" || s.Source != "/tournaments/detail/19/1" {
-		t.Errorf("settings = %+v, want penalty -1, no AI, no tiebreaks, the rest inherited", s)
+	if s.Tiebreak2p != "" || s.Tiebreak3pPlus != "" || s.WinnerScoreMinimum != nil {
+		t.Errorf("tiebreaks %q, %q and winner score minimum %v; want none of each", s.Tiebreak2p, s.Tiebreak3pPlus, s.WinnerScoreMinimum)
 	}
 }
 
-func TestReadSettingsRefusesBadValues(t *testing.T) {
+func TestReadStagesRefusesBadValues(t *testing.T) {
 	tests := []struct{ name, line string }{
-		{"a positive penalty", "19,6,2,yes,-,5-2-0,,-,-,1,1"},
-		{"points for the wrong number of places", "19,6,0,yes,-,5-2,,-,-,1,1"},
-		{"an AI setting that is not yes or no", "19,6,0,maybe,-,5-2-0,,-,-,1,1"},
+		{"a positive penalty", "5086,Q,3,1,,2,1,1-0,0,,0,,no,,,"},
+		{"no penalty", "5086,Q,3,1,,,1,1-0,0,,0,,no,,,"},
+		{"a negative count of games", "5086,Q,3,1,,0,-1,1-0,0,,0,,no,,,"},
+		{"no count of games", "5086,Q,3,1,,0,,1-0,0,,0,,no,,,"},
+		{"points for the wrong number of places", "5086,Q,3,1,,0,1,1-0-0,0,,0,,no,,,"},
+		{"negative points", "5086,Q,3,1,,0,1,1--1,0,,0,,no,,,"},
+		{"an AI setting that is not yes or no", "5086,Q,3,1,,0,1,1-0,0,,0,,,,,"},
+		{"no stage", "5086,Q,0,1,,0,1,1-0,0,,0,,no,,,"},
+		{"a winner score minimum over 100", "5086,Q,3,1,,0,1,1-0,0,,0,,no,,,101"},
+		{"a negative winner score minimum", "5086,Q,3,1,,0,1,1-0,0,,0,,no,,,-1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ReadTournamentSettings("t.csv", strings.NewReader(tournamentSettings+tt.line+"\n"))
+			got, err := ReadStages("stages.csv", strings.NewReader(stagesFile+tt.line+"\n"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(got.Settings) != 0 || len(got.Refused) != 1 {
-				t.Errorf("settings %d, refused %+v; want the row refused", len(got.Settings), got.Refused)
+			if len(got.Settings) != 0 || len(got.Refused) != 1 || got.Refused[0].Line != 2 {
+				t.Errorf("%s: settings %+v, refused %+v; want line 2 refused", tt.line, got.Settings, got.Refused)
 			}
 		})
+	}
+}
+
+func TestReadStagesRefusesAnotherHeader(t *testing.T) {
+	old := "tournament_id,tournament_name,stage_id,stage_number,stage_name,timeout_penalty,each_player_plays_2p," +
+		"scoring_2p,each_player_plays_3p,scoring_3p,each_player_plays_4p,scoring_4p,ignore_ai_in_scoring\n"
+	if _, err := ReadStages("stages.csv", strings.NewReader(old+"19,I,3,1,,0,1,1-0,0,,0,,no\n")); err == nil {
+		t.Error("ReadStages read a stages file without tiebreakers; want an error naming the header it wants")
 	}
 }
 
 func FuzzReadSettings(f *testing.F) {
 	f.Add("tournament_id,tournament_name,session_id,share_code,rules,card_set\n56,Cup,891270,ABCDEFGH,Tabletop,Random Mix\n")
 	f.Add("share_code,game_id,reason\nCODEAAAA,12,r\nCODEBBBB,x,r\n")
-	f.Add(tournamentSettings + `19,6,-1,yes,-,5-2-0,,"duelPositionsComparison, winnerScore",-,26,26` + "\n")
-	f.Add(stageSettings + "19,3,1,,-1,no,,,,-,-,/tournaments/detail/19/1,2026-10-01\n")
+	f.Add(stagesFile + `5086,Quick and Dirty,3,1,Season 1,-1,0,,1,5-2-0,4,6-3-1-0,yes,"duelPositionsComparison, winnerScore",winnerScore,50` + "\n")
 	f.Fuzz(func(t *testing.T, in string) {
 		_, _ = ReadSpecialRules("r.csv", strings.NewReader(in))
 		_, _ = ReadConfirmedPairs("p.csv", strings.NewReader(in))
-		_, _ = ReadTournamentSettings("t.csv", strings.NewReader(in))
-		_, _ = ReadStageSettings("s.csv", strings.NewReader(in))
+		_, _ = ReadStages("stages.csv", strings.NewReader(in))
 	})
 }

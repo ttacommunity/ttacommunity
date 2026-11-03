@@ -21,31 +21,25 @@ type SpecialRules struct {
 	Refused []Refusal
 }
 
-// Settings is one tournament's or stage's settings (StageID 0 for a tournament's). A nil setting is inherited;
-// an empty one is none: no points for that player count, no tiebreakers.
-type Settings struct {
-	TournamentID, StageID int
-	EachPlays             *int
-	TimeoutPenalty        *float64
-	IgnoreAI              *bool
-	Points                map[int]*[]float64
-	Tiebreak2p            *string
-	Tiebreak3pPlus        *string
-	Source                string
+// StageSettings is one CGE stage's settings, as CGE scores its groups. Points and EachPlays are by player count
+// (none: no points, 0 games); a tiebreaker list "" is none, and a nil WinnerScoreMinimum is none.
+type StageSettings struct {
+	TournamentID, StageID      int
+	TimeoutPenalty             float64
+	IgnoreAI                   bool
+	Points                     map[int][]float64
+	EachPlays                  map[int]int
+	Tiebreak2p, Tiebreak3pPlus string
+	WinnerScoreMinimum         *float64
 }
 
-// SettingsFile is what a settings file gave, and the rows refused.
-type SettingsFile struct {
-	Settings []Settings
+// Stages is what CGE's stages file gave, and the rows refused.
+type Stages struct {
+	Settings []StageSettings
 	Refused  []Refusal
 }
 
-var (
-	specialHeader    = []string{"tournament_id", "tournament_name", "session_id", "share_code", "rules", "card_set"}
-	settingNames     = []string{"each_plays", "timeout_penalty", "ignore_ai_players", "scoring_2p", "scoring_3p", "scoring_4p", "tiebreak_2p", "tiebreak_3p_plus"}
-	tournamentHeader = append(append([]string{"tournament_id"}, settingNames...), "stages_read", "stages_in_extract")
-	stageHeader      = append(append([]string{"tournament_id", "stage_id", "stage_number"}, settingNames...), "source", "fetched")
-)
+var specialHeader = []string{"tournament_id", "tournament_name", "session_id", "share_code", "rules", "card_set"}
 
 // ReadSpecialRules reads the special rules file named file.
 func ReadSpecialRules(file string, r io.Reader) (SpecialRules, error) {
@@ -81,20 +75,16 @@ func ReadConfirmedPairs(file string, r io.Reader) (ConfirmedPairs, error) {
 	return got, err
 }
 
-// ReadTournamentSettings reads tournament_settings.csv, each tournament's settings.
-func ReadTournamentSettings(file string, r io.Reader) (SettingsFile, error) {
-	return readSettings(file, r, tournamentHeader, false)
-}
+var stagesHeader = []string{"tournament_id", "tournament_name", "stage_id", "stage_number", "stage_name", "timeout_penalty",
+	"each_player_plays_2p", "scoring_2p", "each_player_plays_3p", "scoring_3p", "each_player_plays_4p", "scoring_4p",
+	"ignore_ai_in_scoring", "tiebreakers_2_players_tie", "tiebreakers_3plus_players_tie", "winner_score_minimum"}
 
-// ReadStageSettings reads stage_settings.csv, the stages whose settings differ from their tournament's.
-func ReadStageSettings(file string, r io.Reader) (SettingsFile, error) {
-	return readSettings(file, r, stageHeader, true)
-}
-
-func readSettings(file string, r io.Reader, header []string, stage bool) (SettingsFile, error) {
-	var got SettingsFile
-	err := readRows(file, r, header, func(line int, f func(string) string) {
-		s, ok := parseSettings(f, stage)
+// ReadStages reads CGE's stages file, tournaments_export_stages.csv: every stage's settings as CGE scores its
+// groups. A row that does not fit is refused.
+func ReadStages(file string, r io.Reader) (Stages, error) {
+	var got Stages
+	err := readRows(file, r, stagesHeader, func(line int, f func(string) string) {
+		s, ok := parseStage(f)
 		if !ok {
 			got.Refused = append(got.Refused, Refusal{Line: line, Reason: BadRow})
 			return
@@ -104,74 +94,61 @@ func readSettings(file string, r io.Reader, header []string, stage bool) (Settin
 	return got, err
 }
 
-// parseSettings reads one row's settings: "" is inherited, "-" is none.
-func parseSettings(f func(string) string, stage bool) (Settings, bool) {
-	s := Settings{Points: map[int]*[]float64{}}
+// parseStage reads one row of CGE's stages file.
+func parseStage(f func(string) string) (StageSettings, bool) {
+	s := StageSettings{Points: map[int][]float64{}, EachPlays: map[int]int{},
+		Tiebreak2p: f("tiebreakers_2_players_tie"), Tiebreak3pPlus: f("tiebreakers_3plus_players_tie")}
 	var err error
 	if s.TournamentID, err = strconv.Atoi(f("tournament_id")); err != nil || s.TournamentID < 1 {
-		return Settings{}, false
+		return StageSettings{}, false
 	}
-	if stage {
-		if s.StageID, err = strconv.Atoi(f("stage_id")); err != nil || s.StageID < 1 {
-			return Settings{}, false
-		}
-		s.Source = f("source")
+	if s.StageID, err = strconv.Atoi(f("stage_id")); err != nil || s.StageID < 1 {
+		return StageSettings{}, false
 	}
-	if v := f("each_plays"); v != "" && v != "-" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 {
-			return Settings{}, false
-		}
-		s.EachPlays = &n
+	if s.TimeoutPenalty, err = strconv.ParseFloat(f("timeout_penalty"), 64); err != nil || s.TimeoutPenalty > 0 {
+		return StageSettings{}, false
 	}
-	if v := f("timeout_penalty"); v != "" && v != "-" {
-		p, err := strconv.ParseFloat(v, 64)
-		if err != nil || p > 0 {
-			return Settings{}, false
-		}
-		s.TimeoutPenalty = &p
-	}
-	switch v := f("ignore_ai_players"); v {
+	switch v := f("ignore_ai_in_scoring"); v {
 	case "yes", "no":
-		ignore := v == "yes"
-		s.IgnoreAI = &ignore
-	case "":
+		s.IgnoreAI = v == "yes"
 	default:
-		return Settings{}, false
+		return StageSettings{}, false
 	}
 	for n := 2; n <= 4; n++ {
-		v := f(fmt.Sprintf("scoring_%dp", n))
-		if v == "" {
-			continue
+		games, err := strconv.Atoi(f(fmt.Sprintf("each_player_plays_%dp", n)))
+		if err != nil || games < 0 {
+			return StageSettings{}, false
 		}
-		points := []float64{}
-		if v != "-" {
-			for part := range strings.SplitSeq(v, "-") {
-				p, err := strconv.ParseFloat(part, 64)
-				if err != nil || p < 0 {
-					return Settings{}, false
-				}
-				points = append(points, p)
-			}
-			if len(points) != n {
-				return Settings{}, false
-			}
+		points, ok := parsePoints(f(fmt.Sprintf("scoring_%dp", n)), n)
+		if !ok {
+			return StageSettings{}, false
 		}
-		s.Points[n] = &points
+		s.EachPlays[n], s.Points[n] = games, points
 	}
-	s.Tiebreak2p, s.Tiebreak3pPlus = tiebreak(f("tiebreak_2p")), tiebreak(f("tiebreak_3p_plus"))
+	if v := f("winner_score_minimum"); v != "" {
+		least, err := strconv.ParseFloat(v, 64)
+		if err != nil || least < 0 || least > 100 {
+			return StageSettings{}, false
+		}
+		s.WinnerScoreMinimum = &least
+	}
 	return s, true
 }
 
-// tiebreak returns nil for "" (inherited), "" for "-" (none), else the tiebreakers as written.
-func tiebreak(v string) *string {
-	switch v {
-	case "":
-		return nil
-	case "-":
-		v = ""
+// parsePoints reads game points by place for n players, 1st first ("6-3-1-0"); "" is none.
+func parsePoints(v string, n int) ([]float64, bool) {
+	points := []float64{}
+	if v == "" {
+		return points, true
 	}
-	return &v
+	for part := range strings.SplitSeq(v, "-") {
+		p, err := strconv.ParseFloat(part, 64)
+		if err != nil || p < 0 {
+			return nil, false
+		}
+		points = append(points, p)
+	}
+	return points, len(points) == n
 }
 
 // readRows reads a CSV whose first line must be header, calling row for each line with a field lookup.

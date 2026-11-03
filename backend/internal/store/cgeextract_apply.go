@@ -13,12 +13,11 @@ import (
 	"ttacommunity/backend/internal/cgeextract"
 )
 
-// CGEInput is what the extract load reads: the extract, its special rules by session, and the settings files'
-// rows (tournament settings, then stage overrides).
+// CGEInput is what the extract load reads: the extract, its special rules by session, and its stages' settings.
 type CGEInput struct {
-	Extract  cgeextract.Extract
-	Special  map[int]cgeextract.Special
-	Settings []cgeextract.Settings
+	Extract cgeextract.Extract
+	Special map[int]cgeextract.Special
+	Stages  []cgeextract.StageSettings
 }
 
 // CGEApplied counts what an extract load wrote.
@@ -33,6 +32,8 @@ type CGEApplied struct {
 	TournamentsMerged int
 	// CopiesRemoved counts the games an earlier load added that the pairs file now matches to a game of ours.
 	CopiesRemoved int
+	// GamesRemoved counts our games deleted because CGE removed them from their tournament.
+	GamesRemoved int
 	// SeatsRemoved counts our seats dropped because CGE shows their player was removed from the game.
 	SeatsRemoved int
 	// GamesMoved counts the matched games moved into their CGE group.
@@ -47,12 +48,12 @@ const extractFile = "tournaments_export.csv"
 // The source of the games an earlier CGE scrape loaded: their seats are named as CGE named them then.
 const scrapeFile = "cge"
 
-// ApplyCGEExtract writes the extract as one import batch, in one transaction, by plan (PlanCGEExtract's):
-// CGE's facts on each matched game and seat (share code, times, account, starting position, outcome, culture,
-// CGE's score and standing, and place as cgeextract.Places gives it), the seats CGE holds and we lack, the
-// games only CGE has in their groups (each unlinked CGE tournament a hidden series of its own; a possible
-// copy is held back), every account, the catalogue's organisers and moderators, special rules, and the
-// settings we lack. Matched games take CGE's finish date and group. A seat CGE holds no player for (player id 0)
+// ApplyCGEExtract writes the extract as one import batch, in one transaction, by plan (PlanCGEExtract's, with
+// PlanCGEStages' Stages): CGE's facts on each matched game and seat (share code, times, account, starting
+// position, outcome, culture, CGE's score and standing, and place as cgeextract.Places gives it), the seats CGE
+// holds and we lack, the games only CGE has in their groups (each unlinked CGE tournament a hidden series of its
+// own; a possible copy is held back), every account, the catalogue's organisers and moderators, special rules,
+// and each stage's settings; it deletes the games CGE removed. Matched games take CGE's finish date and group. A seat CGE holds no player for (player id 0)
 // is a player removed from the game: it is never added, and our seat paired with it is dropped (removeCopies says
 // what a pair by hand removes).
 func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in CGEInput) (CGEApplied, error) {
@@ -71,6 +72,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 	}{
 		{"staging the extract", stageExtract},
 		{"removing the copies an earlier load added of games paired by hand", removeCopies},
+		{"removing the games CGE removed", removeRemoved},
 		{"merging the tournaments an earlier load split off hidden series", mergeHiddenSeries},
 		{"writing accounts", writeAccounts},
 		{"naming players after their accounts", renamePlayers},
@@ -173,6 +175,32 @@ func removeCopies(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CG
 		}
 		if i == 3 {
 			got.CopiesRemoved = int(tag.RowsAffected())
+		}
+	}
+	return nil
+}
+
+// removeRemoved deletes our games CGE removed from their tournament (the plan's Removed), as removeCopies does:
+// their seats go with them, their group when that leaves it empty, and their rows in every run's per-game tables.
+func removeRemoved(ctx context.Context, tx pgx.Tx, plan CGEPlan, _ CGEInput, got *CGEApplied) error {
+	for i, q := range []string{
+		`CREATE TEMPORARY TABLE x_removed ON COMMIT DROP AS SELECT game_id, group_id FROM games WHERE game_id = ANY($1)`,
+		`DELETE FROM pairwise_matches WHERE match_id IN (SELECT game_id FROM x_removed)`,
+		`DELETE FROM tournament_games WHERE match_id IN (SELECT game_id FROM x_removed)`,
+		`DELETE FROM games WHERE game_id IN (SELECT game_id FROM x_removed)`,
+		`DELETE FROM groups gr WHERE gr.group_id IN (SELECT group_id FROM x_removed)
+		   AND NOT EXISTS (SELECT FROM games g WHERE g.group_id = gr.group_id)`,
+	} {
+		var args []any
+		if i == 0 {
+			args = []any{plan.Removed}
+		}
+		tag, err := tx.Exec(ctx, q, args...)
+		if err != nil {
+			return err
+		}
+		if i == 3 {
+			got.GamesRemoved = int(tag.RowsAffected())
 		}
 	}
 	return nil

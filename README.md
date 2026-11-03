@@ -406,9 +406,14 @@ player per game) is the most complete record. `load cge-extract` matches its
 games to ours (by share code, else by players and finished scores), fills in
 what CGE recorded (each seat's account, outcome and place, the game's times
 and share code; CGE's finish date becomes the game's date; the game moves
-into our group for its CGE group), adds the games we lack (a CGE tournament
-we do not link becomes a hidden, unrated series) and
-the settings we lack from the settings files beside it. A game that may be a
+into our group for its CGE group) and adds the games we lack (a CGE tournament
+we do not link becomes a hidden, unrated series). Each CGE stage's settings
+(time-out penalty, points by place, "Each player plays" per player count, AI
+replacement, tiebreakers and least winner score) come from the stages file
+beside it and replace what our stage for it held. A game of ours whose CGE
+tournament is in the extract but whose session is not was removed by CGE
+(for example with a player taken out of a group): the load deletes it,
+played or not, and lists it in the plan. A game that may be a
 copy of ours is held back; a file of pairs checked by hand (`share_code,
 game_id,reason`) matches them, and a game an earlier load added for a
 session the file gives to another game of ours is removed as a copy. A seat
@@ -417,18 +422,19 @@ game is the others', so the load never adds that seat and drops our seat
 paired with it, and counts what it drops. A season ticked "Run on this
 site" in admin (a blitz tournament CGE only advertises) takes its CGE
 tournament's page and nothing else: this load leaves out its games and
-settings, so it gets no stages from CGE either. It prints the plan and writes
+settings, so it gets no stages from CGE either, and removes none of its
+games. It prints the plan and writes
 nothing unless given `-apply`; loading the same extract again changes
 nothing, except that it merges a hidden series' stages back into one
 tournament where an earlier load split them:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load cge-extract -settings ../../ttac-ratings-data/cge/settings \
-  [-pairs <file>] [-apply] ../../ttac-ratings-data/cge/extract/2026-10-07
+go run ./cmd/load cge-extract [-pairs <file>] [-apply] ../../ttac-ratings-data/cge/extract/2026-11-03
 ```
 
-The extract in the data repository is gzipped (`gzip -dk` restores it).
+The extract in the data repository is gzipped (`gzip -dk` restores it). An
+extract from before 2026-11-03 has no stages file and is refused.
 
 **A first database from match CSVs.** A directory without a
 `manifest.json` is loaded as match CSVs, every `*.csv` at its top level in

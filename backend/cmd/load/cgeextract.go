@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -15,10 +16,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// loadCGEExtract reads CGE's extract from dir, its settings from settingsDir and, if named, the pairs of CGE's
-// and our games confirmed by hand from pairsFile; plans how it meets our games and prints the plan; with apply
-// it also writes it, after applying any pending migration.
-func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
+// loadCGEExtract reads CGE's extract, its special rules and its stages' settings from dir and, if named, the pairs
+// of CGE's and our games confirmed by hand from pairsFile; plans how it meets our games and prints the plan; with
+// apply it also writes it, after applying any pending migration.
+func loadCGEExtract(dir, pairsFile string, apply bool) error {
 	read := func(name string, read func(string, io.Reader) error) error {
 		f, err := os.Open(name)
 		if err != nil {
@@ -42,14 +43,12 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 			in.Special = got.Games
 			return err
 		}},
-		{filepath.Join(settingsDir, "tournament_settings.csv"), func(n string, r io.Reader) error {
-			got, err := cgeextract.ReadTournamentSettings(n, r)
-			in.Settings = append(in.Settings, got.Settings...)
-			return err
-		}},
-		{filepath.Join(settingsDir, "stage_settings.csv"), func(n string, r io.Reader) error {
-			got, err := cgeextract.ReadStageSettings(n, r)
-			in.Settings = append(in.Settings, got.Settings...)
+		{filepath.Join(dir, "tournaments_export_stages.csv"), func(n string, r io.Reader) error {
+			got, err := cgeextract.ReadStages(n, r)
+			if err == nil && len(got.Refused) > 0 {
+				err = fmt.Errorf("%s: %d rows refused, the first at line %d", n, len(got.Refused), got.Refused[0].Line)
+			}
+			in.Stages = got.Settings
 			return err
 		}},
 	}
@@ -76,6 +75,10 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 		if err != nil {
 			return err
 		}
+		stages, err := store.PlanCGEStages(ctx, pool, in.Extract, in.Stages)
+		if err != nil {
+			return err
+		}
 		var applied *store.CGEApplied
 		if apply {
 			got, err := store.ApplyCGEExtract(ctx, pool, plan, in)
@@ -84,7 +87,7 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 			}
 			applied = &got
 		}
-		reportCGEExtract(os.Stdout, plan, in.Extract.Refused, applied)
+		reportCGEExtract(os.Stdout, plan, stages, in.Extract.Refused, applied)
 		if !apply {
 			return nil
 		}
@@ -92,8 +95,9 @@ func loadCGEExtract(dir, settingsDir, pairsFile string, apply bool) error {
 	})
 }
 
-// reportCGEExtract writes how the extract meets our games, and what was written if applied. It names no player.
-func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refusal, applied *store.CGEApplied) {
+// reportCGEExtract writes how the extract meets our games and our stages (stages, PlanCGEStages'), and what was
+// written if applied. It names no player.
+func reportCGEExtract(w io.Writer, plan store.CGEPlan, stages []store.CGEStageWrite, refused []cgeextract.Refusal, applied *store.CGEApplied) {
 	states := map[int]string{}
 	codes := map[int]string{}
 	for _, g := range plan.Games {
@@ -119,6 +123,21 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refu
 		fmt.Fprintf(w, "  %s\n", codes[s])
 	}
 	fmt.Fprintf(w, "ours only: %d\n", len(plan.Matching.OursOnly))
+	fmt.Fprintf(w, "removed by CGE: %d (%d played)\n", len(plan.Removed), plan.RemovedPlayed)
+	for _, id := range plan.Removed {
+		fmt.Fprintf(w, "  game %d\n", id)
+	}
+	var disagree []store.CGEStageWrite
+	for _, s := range stages {
+		if len(s.Disagree) > 0 {
+			disagree = append(disagree, s)
+		}
+	}
+	fmt.Fprintf(w, "stages of ours with CGE stages now: %d\n", len(stages))
+	fmt.Fprintf(w, "settings their CGE stages disagree on, kept: %d\n", len(disagree))
+	for _, s := range disagree {
+		fmt.Fprintf(w, "  stage %d: %s\n", s.StageID, strings.Join(s.Disagree, ", "))
+	}
 	fmt.Fprintf(w, "refused: %d\n", len(refused))
 	for _, r := range refused {
 		fmt.Fprintf(w, "  line %d %s\n", r.Line, r.Reason)
@@ -131,7 +150,8 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, refused []cgeextract.Refu
 	fmt.Fprintf(w, "batch %d: %d games added (%d with no place to go), %d seats added, %d accounts and %d players added, "+
 		"%d accounts relinked to the player their seats show, %d hidden series added, %d split tournaments merged, "+
 		"%d copies an earlier load added removed, %d settings rows checked, %d seats of players CGE removed dropped, "+
-		"%d games moved into their CGE group, %d players renamed after their account\n",
+		"%d games moved into their CGE group, %d players renamed after their account, %d games CGE removed deleted\n",
 		a.BatchID, a.Added, a.Unplaced, a.SeatsAdded, a.AccountsAdded, a.PlayersAdded, a.Relinked, a.SeriesAdded,
-		a.TournamentsMerged, a.CopiesRemoved, a.SettingsWritten, a.SeatsRemoved, a.GamesMoved, a.PlayersRenamed)
+		a.TournamentsMerged, a.CopiesRemoved, a.SettingsWritten, a.SeatsRemoved, a.GamesMoved, a.PlayersRenamed,
+		a.GamesRemoved)
 }
