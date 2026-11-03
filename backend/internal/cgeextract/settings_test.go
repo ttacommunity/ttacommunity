@@ -36,7 +36,7 @@ func TestReadStagesGivesEachStagesSettings(t *testing.T) {
 		t.Fatalf("settings %+v, refused %+v; want one stage", got.Settings, got.Refused)
 	}
 	s := got.Settings[0]
-	if s.TournamentID != 5086 || s.StageID != 3 || s.TimeoutPenalty != -1 || !s.IgnoreAI ||
+	if s.TournamentID != 5086 || s.StageID != 3 || s.StageNumber != 1 || s.TimeoutPenalty != -1 || !s.IgnoreAI ||
 		s.WinnerScoreMinimum == nil || *s.WinnerScoreMinimum != 50 {
 		t.Errorf("settings = %+v, want tournament 5086, stage 3, penalty -1, AI ignored, winner score at least 50", s)
 	}

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"cmp"
+	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -16,58 +20,25 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// loadCGEExtract reads CGE's extract, its special rules and its stages' settings from dir and, if named, the pairs
-// of CGE's and our games confirmed by hand from pairsFile; plans how it meets our games and prints the plan; with
-// apply it also writes it, after applying any pending migration.
+// loadCGEExtract reads a delivery of CGE's extract from dir (readDelivery's) and, if named, the pairs of CGE's and
+// our games confirmed by hand from pairsFile; plans how it meets our games and prints the plan; with apply it also
+// writes it, after applying any pending migration.
 func loadCGEExtract(dir, pairsFile string, apply bool) error {
-	read := func(name string, read func(string, io.Reader) error) error {
-		f, err := os.Open(name)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		return read(name, f)
+	in, err := readDelivery(dir)
+	if err != nil {
+		return err
 	}
-	var in store.CGEInput
 	var confirmed map[string]int64
-	steps := []struct {
-		file string
-		read func(string, io.Reader) error
-	}{
-		{filepath.Join(dir, "tournaments_export.csv"), func(n string, r io.Reader) (err error) {
-			in.Extract, err = cgeextract.Read(n, r)
-			return err
-		}},
-		{filepath.Join(dir, "tournaments_export_special_rules.csv"), func(n string, r io.Reader) error {
-			got, err := cgeextract.ReadSpecialRules(n, r)
-			in.Special = got.Games
-			return err
-		}},
-		{filepath.Join(dir, "tournaments_export_stages.csv"), func(n string, r io.Reader) error {
-			got, err := cgeextract.ReadStages(n, r)
-			if err == nil && len(got.Refused) > 0 {
-				err = fmt.Errorf("%s: %d rows refused, the first at line %d", n, len(got.Refused), got.Refused[0].Line)
-			}
-			in.Stages = got.Settings
-			return err
-		}},
-	}
 	if pairsFile != "" {
-		steps = append(steps, struct {
-			file string
-			read func(string, io.Reader) error
-		}{pairsFile, func(n string, r io.Reader) error {
+		if found, err := readOptional(pairsFile, func(n string, r io.Reader) error {
 			got, err := cgeextract.ReadConfirmedPairs(n, r)
 			if err == nil && len(got.Refused) > 0 {
 				err = fmt.Errorf("%s: %d rows refused, the first at line %d", n, len(got.Refused), got.Refused[0].Line)
 			}
 			confirmed = got.Pairs
 			return err
-		}})
-	}
-	for _, s := range steps {
-		if err := read(s.file, s.read); err != nil {
-			return err
+		}); err != nil || !found {
+			return cmp.Or(err, fmt.Errorf("%s: %w", pairsFile, fs.ErrNotExist))
 		}
 	}
 	return withRatings(func(ctx context.Context, pool *pgxpool.Pool) error {
@@ -75,7 +46,7 @@ func loadCGEExtract(dir, pairsFile string, apply bool) error {
 		if err != nil {
 			return err
 		}
-		stages, err := store.PlanCGEStages(ctx, pool, in.Extract, in.Stages)
+		stages, err := store.PlanCGEStages(ctx, pool, in.Stages)
 		if err != nil {
 			return err
 		}
@@ -154,4 +125,79 @@ func reportCGEExtract(w io.Writer, plan store.CGEPlan, stages []store.CGEStageWr
 		a.BatchID, a.Added, a.Unplaced, a.SeatsAdded, a.AccountsAdded, a.PlayersAdded, a.Relinked, a.SeriesAdded,
 		a.TournamentsMerged, a.CopiesRemoved, a.SettingsWritten, a.SeatsRemoved, a.GamesMoved, a.PlayersRenamed,
 		a.GamesRemoved)
+}
+
+// readDelivery reads whichever of CGE's files dir holds, each as name.csv or name.csv.gz: the full extract, the
+// changes since the last delivery (one of the two at least), the stages' settings and the special rules. A file
+// it lacks gives nothing (Stages and Special nil), so what we hold of it stays.
+func readDelivery(dir string) (store.CGEInput, error) {
+	var in store.CGEInput
+	var full, changes *cgeextract.Extract
+	read := func(name string, fn func(string, io.Reader) error) (bool, error) {
+		return readOptional(filepath.Join(dir, name), fn)
+	}
+	steps := []struct {
+		name string
+		read func(string, io.Reader) error
+	}{
+		{"tournaments_export.csv", func(n string, r io.Reader) error {
+			x, err := cgeextract.Read(n, r)
+			full = &x
+			return err
+		}},
+		{"tournaments_export_changes.csv", func(n string, r io.Reader) error {
+			x, err := cgeextract.ReadChanges(n, r)
+			changes = &x
+			return err
+		}},
+		{"tournaments_export_special_rules.csv", func(n string, r io.Reader) error {
+			got, err := cgeextract.ReadSpecialRules(n, r)
+			in.Special = got.Games
+			return err
+		}},
+		{"tournaments_export_stages.csv", func(n string, r io.Reader) error {
+			got, err := cgeextract.ReadStages(n, r)
+			if err == nil && len(got.Refused) > 0 {
+				err = fmt.Errorf("%s: %d rows refused, the first at line %d", n, len(got.Refused), got.Refused[0].Line)
+			}
+			in.Stages = append([]cgeextract.StageSettings{}, got.Settings...)
+			return err
+		}},
+	}
+	for i, s := range steps {
+		if _, err := read(s.name, s.read); err != nil {
+			return store.CGEInput{}, err
+		}
+		if i == 1 && full == nil && changes == nil {
+			return store.CGEInput{}, fmt.Errorf("%s holds neither tournaments_export.csv nor tournaments_export_changes.csv "+
+				"(either may be gzipped)", dir)
+		}
+	}
+	in.Extract = cgeextract.Combine(full, changes)
+	return in, nil
+}
+
+// readOptional reads the file named name, else name.gz unzipped, with fn; it reports false for neither.
+func readOptional(name string, fn func(string, io.Reader) error) (bool, error) {
+	for _, n := range []string{name, name + ".gz"} {
+		f, err := os.Open(n)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return false, err
+		}
+		defer f.Close()
+		var r io.Reader = f
+		if strings.HasSuffix(n, ".gz") {
+			z, err := gzip.NewReader(f)
+			if err != nil {
+				return false, fmt.Errorf("%s: %w", n, err)
+			}
+			defer z.Close()
+			r = z
+		}
+		return true, fn(n, r)
+	}
+	return false, nil
 }

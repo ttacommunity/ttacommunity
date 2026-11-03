@@ -24,13 +24,13 @@ type SpecialRules struct {
 // StageSettings is one CGE stage's settings, as CGE scores its groups. Points and EachPlays are by player count
 // (none: no points, 0 games); a tiebreaker list "" is none, and a nil WinnerScoreMinimum is none.
 type StageSettings struct {
-	TournamentID, StageID      int
-	TimeoutPenalty             float64
-	IgnoreAI                   bool
-	Points                     map[int][]float64
-	EachPlays                  map[int]int
-	Tiebreak2p, Tiebreak3pPlus string
-	WinnerScoreMinimum         *float64
+	TournamentID, StageID, StageNumber int
+	TimeoutPenalty                     float64
+	IgnoreAI                           bool
+	Points                             map[int][]float64
+	EachPlays                          map[int]int
+	Tiebreak2p, Tiebreak3pPlus         string
+	WinnerScoreMinimum                 *float64
 }
 
 // Stages is what CGE's stages file gave, and the rows refused.
@@ -103,6 +103,9 @@ func parseStage(f func(string) string) (StageSettings, bool) {
 		return StageSettings{}, false
 	}
 	if s.StageID, err = strconv.Atoi(f("stage_id")); err != nil || s.StageID < 1 {
+		return StageSettings{}, false
+	}
+	if s.StageNumber, err = strconv.Atoi(f("stage_number")); err != nil || s.StageNumber < 1 {
 		return StageSettings{}, false
 	}
 	if s.TimeoutPenalty, err = strconv.ParseFloat(f("timeout_penalty"), 64); err != nil || s.TimeoutPenalty > 0 {

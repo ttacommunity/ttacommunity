@@ -40,14 +40,14 @@ func stageValues(s cgeextract.StageSettings) []any {
 // PlanCGEStages finds our stage for each of CGE's stages (through our stages or groups linked to it; none for a
 // season run on this site) and what to write on it: the settings every CGE stage for it agrees on. It writes
 // nothing, so a stage the load would make is not in it; the load writes that one too.
-func PlanCGEStages(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
-	return mergeStages(ctx, pool, x, stages)
+func PlanCGEStages(ctx context.Context, pool *pgxpool.Pool, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
+	return mergeStages(ctx, pool, stages)
 }
 
 // mergeStages is PlanCGEStages, reading through q: the pool, or the load's transaction.
 func mergeStages(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, x cgeextract.Extract, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
+}, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
 	var writes []CGEStageWrite
 	values := map[int64][][]any{}
 	for _, s := range stages {
@@ -58,7 +58,7 @@ func mergeStages(ctx context.Context, q interface {
 			WHERE st.stage_id IN (SELECT stage_id FROM stages WHERE cge_tournament = $1 AND cge_stage_number = $2
 			                      UNION SELECT stage_id FROM groups WHERE cge_tournament = $1 AND cge_stage_number = $2)
 			ORDER BY st.stage_id LIMIT 1`,
-			s.TournamentID, x.Stages[s.StageID].Number).Scan(&id, &here)
+			s.TournamentID, s.StageNumber).Scan(&id, &here)
 		if err == pgx.ErrNoRows || here {
 			continue
 		}
@@ -87,7 +87,7 @@ func mergeStages(ctx context.Context, q interface {
 // writeSettings writes each stage's settings from CGE's stages file, merged as PlanCGEStages does once the load
 // has made its stages, replacing what an earlier load stored in each column it gives.
 func writeSettings(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *CGEApplied) error {
-	writes, err := mergeStages(ctx, tx, in.Extract, in.Stages)
+	writes, err := mergeStages(ctx, tx, in.Stages)
 	if err != nil {
 		return err
 	}

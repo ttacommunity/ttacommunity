@@ -1,6 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -56,5 +61,77 @@ func TestReportCGEExtractSaysWhatWasWritten(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("report lacks %q:\n%s", want, got)
 		}
+	}
+}
+
+// deliveryRow is one extract row of game 5, seat of account player.
+func deliveryRow(player int, name string) string {
+	return "19,Cup,101,orga,,2020-04-07 20:42:28.000,2020-04-25 21:19:48.000,,3,1,,,7,Gold 1,5,ABCDEFGH,finished," +
+		"2020-04-25 21:19:16.992,2020-05-12 07:34:01.739,Medium Async,48 h," + strconv.Itoa(player) + "," + name + ",0,2,1,100.0,finished"
+}
+
+// writeDelivery writes files, by name, into a new directory; a name ending .gz is gzipped.
+func writeDelivery(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, body := range files {
+		var b bytes.Buffer
+		if strings.HasSuffix(name, ".gz") {
+			z := gzip.NewWriter(&b)
+			if _, err := z.Write([]byte(body)); err != nil {
+				t.Fatal(err)
+			}
+			if err := z.Close(); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			b.WriteString(body)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), b.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func TestReadDeliveryTakesWhicheverFilesItHolds(t *testing.T) {
+	full := strings.Join(cgeextract.Header, ",") + "\n" + deliveryRow(1, "ann") + "\n"
+	changes := strings.Join(cgeextract.ChangesHeader, ",") + "\nnew," + deliveryRow(2, "bob") + ",\n"
+	stages := "tournament_id,tournament_name,stage_id,stage_number,stage_name,timeout_penalty,each_player_plays_2p,scoring_2p," +
+		"each_player_plays_3p,scoring_3p,each_player_plays_4p,scoring_4p,ignore_ai_in_scoring,tiebreakers_2_players_tie," +
+		"tiebreakers_3plus_players_tie,winner_score_minimum\n19,Cup,3,1,,0,1,1-0,0,,0,,no,,,\n"
+	special := "tournament_id,tournament_name,session_id,share_code,rules,card_set\n19,Cup,5,ABCDEFGH,Tabletop,Random Mix\n"
+	tests := []struct {
+		name                            string
+		files                           map[string]string
+		wantSeats                       int
+		wantFull, wantStages, wantRules bool
+	}{
+		{"every file", map[string]string{"tournaments_export.csv": full, "tournaments_export_changes.csv": changes,
+			"tournaments_export_stages.csv": stages, "tournaments_export_special_rules.csv": special}, 2, true, true, true},
+		{"the full extract gzipped", map[string]string{"tournaments_export.csv.gz": full}, 1, true, false, false},
+		{"a changes file alone", map[string]string{"tournaments_export_changes.csv": changes}, 1, false, false, false},
+		{"changes and stages", map[string]string{"tournaments_export_changes.csv.gz": changes,
+			"tournaments_export_stages.csv": stages}, 1, false, true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in, err := readDelivery(writeDelivery(t, tt.files))
+			if err != nil {
+				t.Fatalf("readDelivery: %v", err)
+			}
+			if len(in.Extract.Seats) != tt.wantSeats || in.Extract.Full != tt.wantFull ||
+				(in.Stages != nil) != tt.wantStages || (in.Special != nil) != tt.wantRules {
+				t.Errorf("seats %d, full %t, stages %t, rules %t; want %d, %t, %t, %t", len(in.Extract.Seats), in.Extract.Full,
+					in.Stages != nil, in.Special != nil, tt.wantSeats, tt.wantFull, tt.wantStages, tt.wantRules)
+			}
+		})
+	}
+}
+
+func TestReadDeliveryRefusesAFolderWithNoGames(t *testing.T) {
+	_, err := readDelivery(writeDelivery(t, map[string]string{"tournaments_export_stages.csv": "x"}))
+	if err == nil || !strings.Contains(err.Error(), "tournaments_export_changes.csv") {
+		t.Errorf("readDelivery of stages alone: err = %v, want one naming the files it needs", err)
 	}
 }

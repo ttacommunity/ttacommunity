@@ -736,7 +736,10 @@ func TestApplyCGEExtractKeepsAndCountsWhatCGENoLongerLists(t *testing.T) {
 		return got
 	}
 	load([]string{"fay"}, map[int]cgeextract.Special{200: {Rules: "Tabletop", CardSet: "Random Mix"}})
-	got := load(nil, nil)
+	if got := load([]string{"fay"}, nil); len(got.RulesKept) != 0 {
+		t.Errorf("with no special rules file, games' rules kept = %v, want none counted", got.RulesKept)
+	}
+	got := load(nil, map[int]cgeextract.Special{})
 
 	held := rowsOf(t, pool, `SELECT 'moderator ' || cge_user FROM cge_tournament_moderators WHERE cge_tournament = 999
 		UNION ALL SELECT 'rules ' || rules || ' ' || card_set FROM games WHERE share_code = 'CODEDDDD' ORDER BY 1`)
@@ -872,7 +875,6 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 			x := cgeextract.Extract{
 				Seats:       extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
 				Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}},
-				Stages:      map[int]cgeextract.Stage{9: {ID: 9, TournamentID: 7001, Number: 1}, 10: {ID: 10, TournamentID: 7001, Number: 2}},
 			}
 			plan, err := PlanCGEExtract(ctx, pool, x, nil)
 			if err != nil {
@@ -882,7 +884,8 @@ func TestPlanCGEExtractLeavesOutTheGamesOfASeasonRunOnThisSite(t *testing.T) {
 				t.Errorf("games left out = %d, want %d", plan.RunHere, tt.wantLeftOut)
 			}
 			in := CGEInput{Extract: x, Stages: []cgeextract.StageSettings{
-				{TournamentID: 7001, StageID: 9, TimeoutPenalty: -2}, {TournamentID: 7001, StageID: 10, TimeoutPenalty: -1}}}
+				{TournamentID: 7001, StageID: 9, StageNumber: 1, TimeoutPenalty: -2},
+				{TournamentID: 7001, StageID: 10, StageNumber: 2, TimeoutPenalty: -1}}}
 			if _, err := ApplyCGEExtract(ctx, pool, plan, in); err != nil {
 				t.Fatalf("ApplyCGEExtract: %v", err)
 			}
@@ -1065,11 +1068,9 @@ func TestApplyCGEExtractPutsCGEsSettingsOnEachStage(t *testing.T) {
 	x := cgeextract.Extract{
 		Seats:       extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
 		Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}},
-		Stages: map[int]cgeextract.Stage{9: {ID: 9, TournamentID: 7001, Number: 1}, 10: {ID: 10, TournamentID: 7001, Number: 2},
-			11: {ID: 11, TournamentID: 7002, Number: 1}},
 	}
 	least := 50.0
-	first := cgeextract.StageSettings{TournamentID: 7001, StageID: 9, TimeoutPenalty: -1, IgnoreAI: true,
+	first := cgeextract.StageSettings{TournamentID: 7001, StageID: 9, StageNumber: 1, TimeoutPenalty: -1, IgnoreAI: true,
 		Points:    map[int][]float64{2: {1, 0}, 3: {}, 4: {6, 3, 1, 0}},
 		EachPlays: map[int]int{2: 1, 3: 0, 4: 2}, Tiebreak2p: "duelPositionsComparison, winnerScore",
 		Tiebreak3pPlus: "winnerScore", WinnerScoreMinimum: &least}
@@ -1080,8 +1081,8 @@ func TestApplyCGEExtractPutsCGEsSettingsOnEachStage(t *testing.T) {
 		t.Fatalf("PlanCGEExtract: %v", err)
 	}
 	stages := []cgeextract.StageSettings{first, final,
-		{TournamentID: 7001, StageID: 10, Points: map[int][]float64{2: {}, 3: {5, 2, 0}, 4: {}}, EachPlays: map[int]int{2: 0, 3: 3, 4: 0}}}
-	writes, err := PlanCGEStages(ctx, pool, x, stages)
+		{TournamentID: 7001, StageID: 10, StageNumber: 2, Points: map[int][]float64{2: {}, 3: {5, 2, 0}, 4: {}}, EachPlays: map[int]int{2: 0, 3: 3, 4: 0}}}
+	writes, err := PlanCGEStages(ctx, pool, stages)
 	if err != nil {
 		t.Fatalf("PlanCGEStages: %v", err)
 	}
@@ -1144,9 +1145,9 @@ func TestApplyCGEExtractRemovesTheGamesCGERemoved(t *testing.T) {
 	game := func(t, session int, code string, unplayed bool) []cgeextract.Seat {
 		return inTournament(t, unplayed, extractOf(t, session, code, cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)))
 	}
-	load := func(seats []cgeextract.Seat, in map[int]cgeextract.Tournament) (CGEPlan, CGEApplied) {
+	load := func(seats, removed []cgeextract.Seat, in map[int]cgeextract.Tournament, full bool) (CGEPlan, CGEApplied) {
 		t.Helper()
-		x := cgeextract.Extract{Seats: seats, Tournaments: in}
+		x := cgeextract.Extract{Seats: seats, Removed: removed, Tournaments: in, Full: full}
 		plan, err := PlanCGEExtract(ctx, pool, x, nil)
 		if err != nil {
 			t.Fatalf("PlanCGEExtract: %v", err)
@@ -1167,7 +1168,7 @@ func TestApplyCGEExtractRemovesTheGamesCGERemoved(t *testing.T) {
 	} {
 		first = append(first, g...)
 	}
-	load(first, tournaments)
+	load(first, nil, tournaments, true)
 	for _, q := range []string{
 		`UPDATE cge_tournaments SET tournament_id = (SELECT st.tournament_id FROM groups gr JOIN stages st USING (stage_id)
 		 WHERE gr.cge_tournament = 7001) WHERE cge_tournament = 7001`,
@@ -1180,9 +1181,11 @@ func TestApplyCGEExtractRemovesTheGamesCGERemoved(t *testing.T) {
 
 	second := slices.Concat(game(999, 402, "CODESTAY", true), game(7001, 404, "CODENEXT", true), moved(407),
 		game(999, 411, "CODENEWS", false))
+	removed := slices.Concat(game(999, 400, "CODEPREP", true), game(999, 401, "CODEPLAY", false),
+		game(7001, 403, "CODEHERE", true), moved(406))
 	delete(tournaments, 8000)
 	for i, want := range []struct{ removed, played int }{{2, 1}, {0, 0}} {
-		plan, got := load(second, tournaments)
+		plan, got := load(second, removed, tournaments, false)
 		if len(plan.Removed) != want.removed || plan.RemovedPlayed != want.played || got.GamesRemoved != want.removed {
 			t.Errorf("load %d: planned %d removed, %d of them played, and removed %d; want %d, %d and %d", i+1,
 				len(plan.Removed), plan.RemovedPlayed, got.GamesRemoved, want.removed, want.played, want.removed)
@@ -1196,8 +1199,92 @@ func TestApplyCGEExtractRemovesTheGamesCGERemoved(t *testing.T) {
 		FROM games WHERE share_code LIKE 'CODE%' ORDER BY 1`)
 	want := []string{"CODEGONE", "CODEHERE", "CODEMOVE 407", "CODENEWS", "CODESTAY"}
 	if !slices.Equal(got, want) {
-		t.Errorf("games = %q, want %q: the games CGE removed gone, played or not; a season run here's, a tournament "+
-			"the extract left out and a game matched to a new session kept; a new game of the removed games' players "+
+		t.Errorf("games = %q, want %q: the games the changes file removes gone, played or not; a season run here's, "+
+			"one it does not name and one matched to a new session kept; a new game of the removed games' players "+
 			"added, not held back as a copy", got, want)
+	}
+}
+
+func TestPlanCGEExtractOnlyListsTheGamesAFullExtractLacks(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	tournaments := map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 1}}
+	game := func(session int, code string) []cgeextract.Seat {
+		return inTournament(999, true, extractOf(999, session, code, cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)))
+	}
+	if _, err := loadExtract(t, pool, slices.Concat(game(400, "CODEGONE"), game(401, "CODESTAY"))); err != nil {
+		t.Fatalf("the first load: %v", err)
+	}
+	tests := []struct {
+		name        string
+		full        bool
+		wantMissing int
+	}{
+		{"a full extract lists the game it lacks", true, 1},
+		{"a partial delivery lists nothing", false, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			x := cgeextract.Extract{Seats: game(401, "CODESTAY"), Tournaments: tournaments, Full: tt.full}
+			plan, err := PlanCGEExtract(ctx, pool, x, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+				t.Fatalf("ApplyCGEExtract: %v", err)
+			}
+			if len(plan.Missing) != tt.wantMissing || len(plan.Removed) != 0 {
+				t.Errorf("missing %v, removed %v; want %d missing, none removed", plan.Missing, plan.Removed, tt.wantMissing)
+			}
+			if got := rowsOf(t, pool, "SELECT share_code FROM games WHERE share_code LIKE 'CODE%' ORDER BY 1"); len(got) != 2 {
+				t.Errorf("games = %q, want both kept: a game missing from a delivery is never deleted", got)
+			}
+		})
+	}
+}
+
+func TestApplyCGEExtractCompletesAPartialGameFromTheSeatsWeHold(t *testing.T) {
+	full := func() []cgeextract.Seat {
+		return extractOf(999, 500, "CODEPART", cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 80), cgeDone(3, "cy", 3, 60))
+	}
+	only := func(seats []cgeextract.Seat, players ...int) []cgeextract.Seat {
+		return slices.DeleteFunc(seats, func(s cgeextract.Seat) bool { return !slices.Contains(players, s.PlayerID) })
+	}
+	tests := []struct {
+		name             string
+		present, removed []cgeextract.Seat
+		wantSeats        []string
+		wantPartial      int
+	}{
+		{"one changed seat keeps the others and their places", only(full(), 3), nil,
+			[]string{"ann 1", "bob 2", "cy 3"}, 0},
+		{"a seat the delivery removes is dropped, not completed back", only(full(), 1, 2), only(full(), 3),
+			[]string{"ann 1", "bob 2"}, 0},
+		{"a partial game we do not hold is left out", only(extractOf(999, 600, "CODENONE", cgeDone(1, "ann", 1, 100),
+			cgeDone(2, "bob", 2, 80)), 1), nil, []string{"ann 1", "bob 2", "cy 3"}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			if _, err := loadExtract(t, pool, full()); err != nil {
+				t.Fatalf("the first load: %v", err)
+			}
+			x := cgeextract.Extract{Seats: tt.present, Removed: tt.removed,
+				Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 2}}}
+			plan, err := PlanCGEExtract(ctx, pool, x, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+				t.Fatalf("ApplyCGEExtract: %v", err)
+			}
+
+			got := rowsOf(t, pool, `SELECT p.name || ' ' || s.place FROM seats s JOIN players p USING (player_id)
+				JOIN games g USING (game_id) WHERE g.share_code LIKE 'CODE%' ORDER BY 1`)
+			if !slices.Equal(got, tt.wantSeats) || plan.Partial != tt.wantPartial {
+				t.Errorf("seats %q, %d partial games left out; want %q, %d", got, plan.Partial, tt.wantSeats, tt.wantPartial)
+			}
+		})
 	}
 }

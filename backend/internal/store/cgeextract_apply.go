@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -209,6 +210,17 @@ func removeRemoved(ctx context.Context, tx pgx.Tx, plan CGEPlan, _ CGEInput, got
 			got.GamesRemoved = int(tag.RowsAffected())
 		}
 	}
+	sessions, accounts := make([]int, len(plan.SeatsGone)), make([]int, len(plan.SeatsGone))
+	for i, s := range plan.SeatsGone {
+		sessions[i], accounts[i] = s[0], s[1]
+	}
+	tag, err := tx.Exec(ctx, `
+		DELETE FROM seats s USING games g, unnest($1::int[], $2::int[]) AS r(session, account)
+		WHERE g.game_id = s.game_id AND g.cge_session = r.session AND s.cge_user = r.account`, sessions, accounts)
+	if err != nil {
+		return err
+	}
+	got.SeatsRemoved += int(tag.RowsAffected())
 	return nil
 }
 
@@ -347,7 +359,7 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 	if err != nil {
 		return err
 	}
-	got.SeatsRemoved = int(tag.RowsAffected())
+	got.SeatsRemoved += int(tag.RowsAffected())
 	for _, q := range []string{
 		`UPDATE games g SET share_code = x.share_code, cge_session = x.session, started_at = x.started_at,
 		        finished_at = x.finished_at, speed = x.speed, timer = x.timer, cge_players_in_game = x.players_in_game,
@@ -535,7 +547,11 @@ func writeRefusals(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *
 	_, err := tx.CopyFrom(ctx, pgx.Identifier{"refused_rows"}, []string{"batch_id", "source_file", "source_line", "reason", "fields"},
 		pgx.CopyFromSlice(len(in.Extract.Refused), func(i int) ([]any, error) {
 			r := in.Extract.Refused[i]
-			return []any{got.BatchID, extractFile, r.Line, string(r.Reason), []string{}}, nil
+			file := extractFile
+			if r.File != "" {
+				file = filepath.Base(r.File)
+			}
+			return []any{got.BatchID, file, r.Line, string(r.Reason), []string{}}, nil
 		}))
 	return err
 }

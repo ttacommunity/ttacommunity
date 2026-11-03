@@ -123,7 +123,10 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 			return err
 		}
 	}
-	// A game's special rules the file no longer lists are kept, and counted by CGE tournament.
+	// A game's special rules the file no longer lists are kept, and counted by CGE tournament; with no file, none.
+	if in.Special == nil {
+		return nil
+	}
 	unlisted, err := tx.Query(ctx, `
 		SELECT x.tournament, count(*) FROM x_seats x JOIN games g ON g.cge_session = x.session
 		WHERE x.idx = 0 AND (g.rules IS NOT NULL OR g.card_set IS NOT NULL) AND NOT x.session = ANY($1)

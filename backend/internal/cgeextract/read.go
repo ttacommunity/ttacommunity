@@ -34,8 +34,9 @@ const (
 	Duplicate   Reason = "duplicate"
 )
 
-// Refusal is a row that was not used. It names the line, never the player.
+// Refusal is a row that was not used. It names the file and line, never the player.
 type Refusal struct {
+	File   string
 	Line   int
 	Reason Reason
 }
@@ -56,13 +57,16 @@ type Stage struct {
 	Started, Finished        *time.Time
 }
 
-// Extract is what the file gave: its seats in file order, its tournaments and stages by id, and the rows refused.
+// Extract is what the files gave: the seats present in file order, its tournaments and stages by id, the seats a
+// changes file removed, and the rows refused. Full is set when a full extract (every game CGE holds) is in it.
 type Extract struct {
 	Rows        int
 	Seats       []Seat
+	Removed     []Seat
 	Tournaments map[int]Tournament
 	Stages      map[int]Stage
 	Refused     []Refusal
+	Full        bool
 }
 
 var states = []string{"finished", "running", "prepared", "cancelled"}
@@ -75,14 +79,35 @@ var statuses = map[string]string{"finished": Finished, "resigned": Resigned, "ti
 // no name) is kept, with no player. It returns an error only for a file it cannot read or whose header is not
 // Header.
 func Read(file string, r io.Reader) (Extract, error) {
+	got, err := readExtract(file, r, Header, func(rec []string) ([]string, string) { return rec, "new" })
+	got.Full = err == nil
+	return got, err
+}
+
+// ChangesHeader is the changes file's first line: change, the extract's columns, then changed_columns.
+var ChangesHeader = append(append([]string{"change"}, Header...), "changed_columns")
+
+// ReadChanges reads CGE's changes file named file, as Read does: its new and changed rows are seats present, its
+// removed rows seats removed (which name no tournament or stage), and a row of another change is refused.
+func ReadChanges(file string, r io.Reader) (Extract, error) {
+	return readExtract(file, r, ChangesHeader, func(rec []string) ([]string, string) {
+		if len(rec) != len(ChangesHeader) {
+			return nil, ""
+		}
+		return rec[1 : len(rec)-1], rec[0]
+	})
+}
+
+// readExtract reads a file whose first line must be header, each line's extract row and change given by split.
+func readExtract(file string, r io.Reader, header []string, split func([]string) ([]string, string)) (Extract, error) {
 	cr := csv.NewReader(r)
 	cr.FieldsPerRecord = -1
 	head, err := cr.Read()
 	if err == nil && len(head) > 0 {
 		head[0] = strings.TrimPrefix(head[0], "\ufeff")
 	}
-	if errors.Is(err, io.EOF) || (err == nil && !slices.Equal(head, Header)) {
-		return Extract{}, fmt.Errorf("%s: want the header %s", file, strings.Join(Header, ","))
+	if errors.Is(err, io.EOF) || (err == nil && !slices.Equal(head, header)) {
+		return Extract{}, fmt.Errorf("%s: want the header %s", file, strings.Join(header, ","))
 	}
 	if err != nil {
 		return Extract{}, fmt.Errorf("%s: %w", file, err)
@@ -98,12 +123,20 @@ func Read(file string, r io.Reader) (Extract, error) {
 			return Extract{}, fmt.Errorf("%s: %w", file, err)
 		}
 		got.Rows++
-		seat, t, st, why := parse(rec)
-		if why == "" && seat.PlayerID != 0 && seen[[2]int{seat.SessionID, seat.PlayerID}] {
+		row, kind := split(rec)
+		seat, t, st, why := parse(row)
+		if !slices.Contains([]string{"new", "changed", "removed"}, kind) {
+			why = BadRow
+		}
+		if why == "" && kind != "removed" && seat.PlayerID != 0 && seen[[2]int{seat.SessionID, seat.PlayerID}] {
 			why = Duplicate
 		}
 		if why != "" {
-			got.Refused = append(got.Refused, Refusal{Line: line, Reason: why})
+			got.Refused = append(got.Refused, Refusal{File: file, Line: line, Reason: why})
+			continue
+		}
+		if kind == "removed" {
+			got.Removed = append(got.Removed, seat)
 			continue
 		}
 		seen[[2]int{seat.SessionID, seat.PlayerID}] = true
@@ -111,6 +144,37 @@ func Read(file string, r io.Reader) (Extract, error) {
 		got.Tournaments[t.ID] = t
 		got.Stages[st.ID] = st
 	}
+}
+
+// Combine joins a full extract and a changes file, either of which may be nil: each seat once (by game, player
+// and starting position), the full extract's first, and the changes file's removed seats.
+func Combine(full, changes *Extract) Extract {
+	got := Extract{Tournaments: map[int]Tournament{}, Stages: map[int]Stage{}}
+	seen := map[[3]int]bool{}
+	for _, x := range []*Extract{full, changes} {
+		if x == nil {
+			continue
+		}
+		got.Rows, got.Full = got.Rows+x.Rows, got.Full || x.Full
+		got.Refused, got.Removed = append(got.Refused, x.Refused...), append(got.Removed, x.Removed...)
+		for _, s := range x.Seats {
+			if k := [3]int{s.SessionID, s.PlayerID, s.StartingPosition}; !seen[k] {
+				seen[k] = true
+				got.Seats = append(got.Seats, s)
+			}
+		}
+		for id, t := range x.Tournaments {
+			if _, ok := got.Tournaments[id]; !ok {
+				got.Tournaments[id] = t
+			}
+		}
+		for id, st := range x.Stages {
+			if _, ok := got.Stages[id]; !ok {
+				got.Stages[id] = st
+			}
+		}
+	}
+	return got
 }
 
 // parse reads one row, or returns why it is refused.
