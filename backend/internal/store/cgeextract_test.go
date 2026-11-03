@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -1077,10 +1078,6 @@ func TestApplyCGEExtractPutsCGEsSettingsOnEachStage(t *testing.T) {
 		Tiebreak3pPlus: "winnerScore", WinnerScoreMinimum: &least}
 	final := first
 	final.TournamentID, final.StageID, final.TimeoutPenalty, final.EachPlays = 7002, 11, -50, map[int]int{2: 2, 3: 0, 4: 2}
-	plan, err := PlanCGEExtract(ctx, pool, x, nil)
-	if err != nil {
-		t.Fatalf("PlanCGEExtract: %v", err)
-	}
 	stages := []cgeextract.StageSettings{first, final,
 		{TournamentID: 7001, StageID: 10, StageNumber: 2, Points: map[int][]float64{2: {}, 3: {5, 2, 0}, 4: {}}, EachPlays: map[int]int{2: 0, 3: 3, 4: 0}}}
 	writes, err := PlanCGEStages(ctx, pool, stages)
@@ -1089,13 +1086,25 @@ func TestApplyCGEExtractPutsCGEsSettingsOnEachStage(t *testing.T) {
 	}
 	var disagree []string
 	for _, w := range writes {
-		disagree = append(disagree, w.Disagree...)
+		for _, d := range w.Disagree {
+			disagree = append(disagree, w.Stage+": "+d)
+		}
 	}
-	if want := []string{"each_plays_2p", "timeout_penalty"}; !slices.Equal(disagree, want) {
+	if want := []string{"Lantern Open 2031, Stage 1: each_plays_2p", "Lantern Open 2031, Stage 1: timeout_penalty"}; !slices.Equal(disagree, want) {
 		t.Errorf("settings CGE's stages disagree on = %q, want %q", disagree, want)
 	}
-	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x, Stages: stages}); err != nil {
-		t.Fatalf("ApplyCGEExtract: %v", err)
+	for i, want := range []int{2, 0} {
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		got, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x, Stages: stages})
+		if err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+		if got.SettingsWritten != want {
+			t.Errorf("load %d: stages whose settings changed = %d, want %d", i+1, got.SettingsWritten, want)
+		}
 	}
 
 	resolved := `SELECT concat_ws(' ', ss.timeout_penalty, ss.points_2p, ss.points_3p, ss.points_4p, ss.ignore_ai_players,
@@ -1339,5 +1348,71 @@ func TestApplyCGEExtractRecordsEachStagesCGENameAndTimes(t *testing.T) {
 	if want := []string{"Final - 11 20", "Stage 1 Stage 1 of 2 01 10"}; !slices.Equal(got, want) {
 		t.Errorf("stage, CGE name, started and finished day = %q, want %q: a stage of ours spans its CGE stages, and a "+
 			"later delivery of one of them widens it only", got, want)
+	}
+}
+
+func TestApplyCGEExtractSummarisesWhatChanged(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	game := func(tournament, session int, code string, unplayed bool) []cgeextract.Seat {
+		return inTournament(tournament, unplayed, extractOf(tournament, session, code, cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)))
+	}
+	cups := func(ids ...int) map[int]cgeextract.Tournament {
+		m := map[int]cgeextract.Tournament{}
+		for _, id := range ids {
+			m[id] = cgeextract.Tournament{ID: id, Name: fmt.Sprintf("Cup %d", id), OrganiserID: 1}
+		}
+		return m
+	}
+	first := cgeextract.Extract{Tournaments: cups(999, 1001), Full: true, Seats: slices.Concat(game(999, 400, "CODEDONE", true),
+		game(999, 401, "CODESAME", false), game(999, 402, "CODEGONE", true), game(1001, 600, "CODELAST", true))}
+	plan, err := PlanCGEExtract(ctx, pool, first, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: first}); err != nil {
+		t.Fatalf("the first load: %v", err)
+	}
+	second := cgeextract.Extract{Tournaments: cups(999, 1000),
+		Seats:   slices.Concat(game(999, 400, "CODEDONE", false), game(999, 401, "CODESAME", false), game(1000, 500, "CODENEWT", false)),
+		Removed: slices.Concat(game(999, 402, "CODEGONE", true), game(1001, 600, "CODELAST", true))}
+	plan, err = PlanCGEExtract(ctx, pool, second, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	before := rowsOf(t, pool, namesSnapshot)
+	dry, err := DryRunCGEExtract(ctx, pool, plan, CGEInput{Extract: second})
+	if err != nil {
+		t.Fatalf("DryRunCGEExtract: %v", err)
+	}
+	if after := rowsOf(t, pool, namesSnapshot); !slices.Equal(after, before) {
+		t.Errorf("the dry run changed the data:\n%q\nwant\n%q", after, before)
+	}
+	got, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: second})
+	if err != nil {
+		t.Fatalf("ApplyCGEExtract: %v", err)
+	}
+	for _, run := range []struct {
+		name string
+		got  CGEApplied
+	}{{"the dry run", dry}, {"the load", got}} {
+		checks := []struct {
+			what      string
+			got, want any
+		}{
+			{"games changed", run.got.GamesChanged, 1},
+			{"games unchanged", run.got.GamesUnchanged, 1},
+			{"state changes", run.got.StateChanges, map[string]int{"prepared → played": 1}},
+			{"tournaments added", run.got.TournamentsAdded, 1},
+			{"games removed", run.got.GamesRemoved, 2},
+		}
+		for _, c := range checks {
+			if !reflect.DeepEqual(c.got, c.want) {
+				t.Errorf("%s: %s = %v, want %v", run.name, c.what, c.got, c.want)
+			}
+		}
+	}
+	if !slices.Equal(plan.TournamentsEmptied, []int{1001}) {
+		t.Errorf("tournaments every game of which is removed = %v, want [1001]", plan.TournamentsEmptied)
 	}
 }

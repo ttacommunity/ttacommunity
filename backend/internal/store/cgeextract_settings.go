@@ -18,7 +18,9 @@ import (
 // CGEStageWrite is what the load writes on one stage of ours from the CGE stages for it: each setting they all
 // agree on, by column, and the columns they disagree on (sorted), which keep what the stage had.
 type CGEStageWrite struct {
-	StageID  int64
+	StageID int64
+	// Stage names it: its series, season and label ("Royal League 6, Tiebreak"), for those it has disagreements on.
+	Stage    string
 	Settings map[string]any
 	Disagree []string
 }
@@ -41,7 +43,21 @@ func stageValues(s cgeextract.StageSettings) []any {
 // season run on this site) and what to write on it: the settings every CGE stage for it agrees on. It writes
 // nothing, so a stage the load would make is not in it; the load writes that one too.
 func PlanCGEStages(ctx context.Context, pool *pgxpool.Pool, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
-	return mergeStages(ctx, pool, stages)
+	writes, err := mergeStages(ctx, pool, stages)
+	if err != nil {
+		return nil, err
+	}
+	for i, w := range writes {
+		if len(w.Disagree) == 0 {
+			continue
+		}
+		if err := pool.QueryRow(ctx, `SELECT se.name || ' ' || t.label || ', ' || st.label FROM stages st
+			JOIN tournaments t USING (tournament_id) JOIN series se USING (series_id) WHERE st.stage_id = $1`,
+			w.StageID).Scan(&writes[i].Stage); err != nil {
+			return nil, fmt.Errorf("naming stage %d: %w", w.StageID, err)
+		}
+	}
+	return writes, nil
 }
 
 // rowQuerier is the pool or the load's transaction.
@@ -100,7 +116,7 @@ func mergeStages(ctx context.Context, q rowQuerier, stages []cgeextract.StageSet
 }
 
 // writeSettings writes each stage's settings from CGE's stages file, merged as PlanCGEStages does once the load
-// has made its stages, replacing what an earlier load stored in each column it gives.
+// has made its stages, replacing what an earlier load stored in each column it gives; it counts the stages changed.
 func writeSettings(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *CGEApplied) error {
 	writes, err := mergeStages(ctx, tx, in.Stages)
 	if err != nil {
@@ -112,15 +128,17 @@ func writeSettings(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *
 		}
 		columns := slices.Sorted(maps.Keys(w.Settings))
 		args := []any{w.StageID}
-		var params, sets []string
+		var params, sets, ours, theirs []string
 		for i, c := range columns {
 			args = append(args, w.Settings[c])
 			params = append(params, fmt.Sprintf("$%d", i+2))
 			sets = append(sets, c+" = excluded."+c)
+			ours, theirs = append(ours, "settings."+c), append(theirs, "excluded."+c)
 		}
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO settings (stage_id, `+strings.Join(columns, ", ")+`, source) VALUES ($1, `+strings.Join(params, ", ")+`, 'cge')
-			ON CONFLICT (stage_id) DO UPDATE SET `+strings.Join(sets, ", ")+`, source = 'cge'`, args...)
+			ON CONFLICT (stage_id) DO UPDATE SET `+strings.Join(sets, ", ")+`, source = 'cge'
+			WHERE (`+strings.Join(ours, ", ")+`, settings.source) IS DISTINCT FROM (`+strings.Join(theirs, ", ")+`, 'cge')`, args...)
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 
@@ -46,6 +47,15 @@ type CGEApplied struct {
 	GamesMoved int
 	// PlayersRenamed counts the players who took their account's new name.
 	PlayersRenamed int
+	// TournamentsAdded counts the CGE tournaments the catalogue lacked; GroupsLinked, our groups that took their CGE
+	// group's tournament and stage.
+	TournamentsAdded, GroupsLinked int
+	// GamesChanged and GamesUnchanged count the matched games the load changed or left as they were; StateChanges
+	// counts the games whose state changed, by "before → after".
+	GamesChanged, GamesUnchanged int
+	StateChanges                 map[string]int
+	// Members counts the members linked to the accounts and players the load wrote.
+	Members Linked
 }
 
 // The file the extract's rows come from, as games and refusals name it.
@@ -63,6 +73,17 @@ const scrapeFile = "cge"
 // is a player removed from the game: it is never added, and our seat paired with it is dropped (removeCopies says
 // what a pair by hand removes).
 func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in CGEInput) (CGEApplied, error) {
+	return applyCGEExtract(ctx, pool, plan, in, true)
+}
+
+// DryRunCGEExtract is ApplyCGEExtract rolled back: what the load would write, counted, with nothing written.
+func DryRunCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in CGEInput) (CGEApplied, error) {
+	return applyCGEExtract(ctx, pool, plan, in, false)
+}
+
+// applyCGEExtract is ApplyCGEExtract, committing only with commit.
+func applyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in CGEInput, commit bool) (CGEApplied, error) {
+	plan.Series = maps.Clone(plan.Series) // the load adds the series it makes, which a rollback undoes
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return CGEApplied{}, fmt.Errorf("starting the extract load: %w", err)
@@ -91,11 +112,19 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"recording the stages' CGE names and times", writeStages},
 		{"writing refusals", writeRefusals},
 		{"reading outcomes from the files' scores", fileOutcomes},
+		{"counting what changed", countChanges},
+		{"linking members", func(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) (err error) {
+			got.Members, err = linkMembers(ctx, tx)
+			return err
+		}},
 	}
 	for _, s := range steps {
 		if err := s.run(ctx, tx, plan, in, &got); err != nil {
 			return CGEApplied{}, fmt.Errorf("%s: %w", s.what, err)
 		}
+	}
+	if !commit {
+		return got, nil
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return CGEApplied{}, fmt.Errorf("committing the extract load: %w", err)
@@ -156,6 +185,10 @@ func stageExtract(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *
 		}
 	}
 	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"x_match"}, []string{"game_id", "session"}, pgx.CopyFromRows(matches)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `CREATE TEMPORARY TABLE x_before ON COMMIT DROP AS
+		SELECT g.game_id, g.state, `+gameRow+` AS row FROM games g JOIN x_match USING (game_id)`); err != nil {
 		return err
 	}
 	_, err := tx.CopyFrom(ctx, pgx.Identifier{"x_pairs"}, []string{"game_id", "seat", "session", "idx"}, pgx.CopyFromRows(pairs))
@@ -413,7 +446,7 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 		return err
 	}
 	// A group with a CGE group's id records that group's CGE tournament and stage.
-	_, err = tx.Exec(ctx, `
+	tag, err = tx.Exec(ctx, `
 		UPDATE groups gr SET cge_tournament = x.tournament, cge_stage_number = x.stage_number
 		FROM (SELECT DISTINCT group_id, tournament, stage_number FROM x_seats) x
 		WHERE gr.cge_group = x.group_id
@@ -421,6 +454,7 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 	if err != nil {
 		return err
 	}
+	got.GroupsLinked = int(tag.RowsAffected())
 	return moveMatched(ctx, tx, plan, in, got)
 }
 
@@ -496,7 +530,7 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g
 		if s := plan.Series[t.ID]; s != 0 {
 			series = &s
 		}
-		var updated bool
+		var added, updated bool
 		err := tx.QueryRow(ctx, `
 			WITH old AS (SELECT name, organiser, created, started, finished FROM cge_tournaments WHERE cge_tournament = $1),
 			up AS (
@@ -509,10 +543,14 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g
 				    started = coalesce(excluded.started, cge_tournaments.started),
 				    finished = coalesce(excluded.finished, cge_tournaments.finished)
 				RETURNING name, organiser, created, started, finished)
-			SELECT EXISTS (SELECT FROM old) AND (SELECT row(o.*) FROM old o) IS DISTINCT FROM (SELECT row(u.*) FROM up u)`,
-			t.ID, t.Name, status, t.OrganiserName, t.Created, t.Started, t.Finished, series, t.OrganiserID).Scan(&updated)
+			SELECT NOT EXISTS (SELECT FROM old),
+			       EXISTS (SELECT FROM old) AND (SELECT row(o.*) FROM old o) IS DISTINCT FROM (SELECT row(u.*) FROM up u)`,
+			t.ID, t.Name, status, t.OrganiserName, t.Created, t.Started, t.Finished, series, t.OrganiserID).Scan(&added, &updated)
 		if err != nil {
 			return err
+		}
+		if added {
+			got.TournamentsAdded++
 		}
 		if updated {
 			got.TournamentsUpdated++
@@ -580,4 +618,32 @@ func fileOutcomes(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEA
 		}
 	}
 	return nil
+}
+
+// gameRow is a game and its seats as one text, to tell a game a load changed from one it left as it was.
+const gameRow = `md5(g::text || coalesce((SELECT string_agg(s::text, '|' ORDER BY s.seat) FROM seats s WHERE s.game_id = g.game_id), ''))`
+
+// countChanges counts the matched games the load changed and left as they were, and their changes of state.
+func countChanges(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE `+gameRow+` <> b.row), count(*) FILTER (WHERE `+gameRow+` = b.row)
+		FROM x_before b JOIN games g USING (game_id)`).Scan(&got.GamesChanged, &got.GamesUnchanged); err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT b.state || ' → ' || g.state, count(*) FROM x_before b JOIN games g USING (game_id)
+		WHERE b.state <> g.state GROUP BY 1`)
+	if err != nil {
+		return err
+	}
+	var change string
+	var n int
+	_, err = pgx.ForEachRow(rows, []any{&change, &n}, func() error {
+		if got.StateChanges == nil {
+			got.StateChanges = map[string]int{}
+		}
+		got.StateChanges[change] = n
+		return nil
+	})
+	return err
 }

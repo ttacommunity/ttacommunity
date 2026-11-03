@@ -289,42 +289,49 @@ func (a *AdminStore) RemoveMember(ctx context.Context, id int64) error {
 // account that account's current name. A link another member already holds is left alone.
 func LinkMembers(ctx context.Context, pool *pgxpool.Pool) (Linked, error) {
 	var got Linked
-	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		for _, step := range []struct {
-			what  string
-			count *int
-			query string
-		}{
-			{"accounts", &got.Accounts, `
-				UPDATE members m SET cge_user = a.cge_user
-				FROM (SELECT DISTINCT ON (lower(name)) cge_user, name FROM player_accounts WHERE NOT deleted ORDER BY lower(name), cge_user) a
-				WHERE m.cge_user IS NULL AND lower(a.name) = lower(m.tta_name)
-				  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.cge_user = a.cge_user)`},
-			{"players", &got.Players, `
-				UPDATE members m SET player_id = x.player_id
-				FROM (SELECT m2.member_id, coalesce(a.player_id, p.player_id) AS player_id
-				      FROM members m2
-				      LEFT JOIN player_accounts a ON a.cge_user = m2.cge_user
-				      LEFT JOIN LATERAL (SELECT player_id FROM players WHERE lower(name) = lower(m2.tta_name) ORDER BY player_id LIMIT 1) p ON true
-				      WHERE m2.player_id IS NULL) x
-				WHERE m.member_id = x.member_id AND x.player_id IS NOT NULL
-				  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.player_id = x.player_id)`},
-			{"names", &got.Renamed, `
-				UPDATE members m SET tta_name = a.name
-				FROM player_accounts a
-				WHERE a.cge_user = m.cge_user AND NOT a.deleted AND a.name <> m.tta_name
-				  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.member_id <> m.member_id AND lower(o.tta_name) = lower(a.name))`},
-		} {
-			tag, err := tx.Exec(ctx, step.query)
-			if err != nil {
-				return fmt.Errorf("linking members' %s: %w", step.what, err)
-			}
-			*step.count = int(tag.RowsAffected())
-		}
-		return nil
+	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) (err error) {
+		got, err = linkMembers(ctx, tx)
+		return err
 	})
 	if err != nil {
 		return Linked{}, err
+	}
+	return got, nil
+}
+
+// linkMembers is LinkMembers in the transaction tx.
+func linkMembers(ctx context.Context, tx pgx.Tx) (Linked, error) {
+	var got Linked
+	for _, step := range []struct {
+		what  string
+		count *int
+		query string
+	}{
+		{"accounts", &got.Accounts, `
+			UPDATE members m SET cge_user = a.cge_user
+			FROM (SELECT DISTINCT ON (lower(name)) cge_user, name FROM player_accounts WHERE NOT deleted ORDER BY lower(name), cge_user) a
+			WHERE m.cge_user IS NULL AND lower(a.name) = lower(m.tta_name)
+			  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.cge_user = a.cge_user)`},
+		{"players", &got.Players, `
+			UPDATE members m SET player_id = x.player_id
+			FROM (SELECT m2.member_id, coalesce(a.player_id, p.player_id) AS player_id
+			      FROM members m2
+			      LEFT JOIN player_accounts a ON a.cge_user = m2.cge_user
+			      LEFT JOIN LATERAL (SELECT player_id FROM players WHERE lower(name) = lower(m2.tta_name) ORDER BY player_id LIMIT 1) p ON true
+			      WHERE m2.player_id IS NULL) x
+			WHERE m.member_id = x.member_id AND x.player_id IS NOT NULL
+			  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.player_id = x.player_id)`},
+		{"names", &got.Renamed, `
+			UPDATE members m SET tta_name = a.name
+			FROM player_accounts a
+			WHERE a.cge_user = m.cge_user AND NOT a.deleted AND a.name <> m.tta_name
+			  AND NOT EXISTS (SELECT 1 FROM members o WHERE o.member_id <> m.member_id AND lower(o.tta_name) = lower(a.name))`},
+	} {
+		tag, err := tx.Exec(ctx, step.query)
+		if err != nil {
+			return Linked{}, fmt.Errorf("linking members' %s: %w", step.what, err)
+		}
+		*step.count = int(tag.RowsAffected())
 	}
 	return got, nil
 }

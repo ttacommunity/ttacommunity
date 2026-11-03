@@ -67,6 +67,8 @@ type Extract struct {
 	Stages      map[int]Stage
 	Refused     []Refusal
 	Full        bool
+	// Changes counts a changes file's rows by change (new, changed, removed), refused ones aside.
+	Changes map[string]int
 }
 
 var states = []string{"finished", "running", "prepared", "cancelled"}
@@ -134,6 +136,12 @@ func readExtract(file string, r io.Reader, header []string, split func([]string)
 		if why != "" {
 			got.Refused = append(got.Refused, Refusal{File: file, Line: line, Reason: why})
 			continue
+		}
+		if len(header) > len(Header) {
+			if got.Changes == nil {
+				got.Changes = map[string]int{}
+			}
+			got.Changes[kind]++
 		}
 		if kind == "removed" {
 			got.Removed = append(got.Removed, seat)

@@ -1,6 +1,7 @@
 package cgeextract
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -32,6 +33,9 @@ func TestReadChangesSplitsPresentRowsFromRemovedOnes(t *testing.T) {
 	}
 	if !slices.Equal(present, []int{5, 6}) || !slices.Equal(removed, []int{7}) || got.Full || len(got.Refused) != 0 {
 		t.Errorf("present %v, removed %v, full %t, refused %v; want 5 and 6, 7, not full, none", present, removed, got.Full, got.Refused)
+	}
+	if want := map[string]int{"new": 1, "changed": 1, "removed": 1}; !maps.Equal(got.Changes, want) {
+		t.Errorf("changes = %v, want %v", got.Changes, want)
 	}
 	if _, ok := got.Tournaments[19]; !ok || len(got.Tournaments) != 1 {
 		t.Errorf("tournaments = %v, want 19's, from its present rows", got.Tournaments)

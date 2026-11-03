@@ -47,6 +47,8 @@ type OurSeat struct {
 
 // OurGame is one of our games: its series (0 if not placed), share code ("" if none) and seats.
 type OurGame struct {
+	// Session is the CGE session an earlier load matched it to, 0 for none.
+	Session   int
 	ID        int64
 	Series    int64
 	ShareCode string
@@ -67,7 +69,7 @@ type Matching struct {
 // it -5 or -1 where CGE has none). names maps a lower-case name to the accounts that played under it; series
 // maps a CGE tournament to our series (absent if not linked), and a match never crosses series. confirmed maps
 // a share code to our game, checked by hand, matched first. A game only CGE has is held back when an unmatched
-// game of ours in its series has the same players.
+// game of ours in its series, of no CGE session, has the same players.
 func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]int64, confirmed map[string]int64) Matching {
 	got := Matching{Matched: map[int64]int{}}
 	used := map[int64]bool{}
@@ -114,7 +116,9 @@ func Match(cge []Game, ours []OurGame, names map[string][]int, series map[int]in
 	for _, o := range ours {
 		if !used[o.ID] {
 			got.OursOnly = append(got.OursOnly, o.ID)
-			left[o.Series] = append(left[o.Series], o)
+			if o.Session == 0 {
+				left[o.Series] = append(left[o.Series], o)
+			}
 		}
 	}
 	for _, g := range unmatched {

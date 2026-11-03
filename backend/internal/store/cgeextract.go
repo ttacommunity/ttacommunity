@@ -31,6 +31,8 @@ type CGEPlan struct {
 	Partial       int
 	// SeatsGone are the seats a changes file removes from a game it still holds, by CGE session and account.
 	SeatsGone [][2]int
+	// TournamentsEmptied are the CGE tournaments every game of which we hold the changes file removes.
+	TournamentsEmptied []int
 }
 
 // PlanCGEExtract reads our games and matches the extract's to them, confirmed pairs first, writing nothing.
@@ -110,7 +112,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	}
 
 	rows, err = pool.Query(ctx, `
-		SELECT g.game_id, coalesce(l.series_id, 0), coalesce(g.share_code, ''), s.seat, p.name,
+		SELECT g.game_id, coalesce(g.cge_session, 0), coalesce(l.series_id, 0), coalesce(g.share_code, ''), s.seat, p.name,
 		       coalesce(s.cge_user, 0), coalesce(s.recorded_score, s.culture)
 		FROM games g JOIN game_lines l USING (game_id) JOIN seats s USING (game_id) JOIN players p USING (player_id)
 		ORDER BY g.game_id, s.seat`)
@@ -121,7 +123,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	for rows.Next() {
 		var g cgeextract.OurGame
 		var s cgeextract.OurSeat
-		if err := rows.Scan(&g.ID, &g.Series, &g.ShareCode, &s.Seat, &s.Name, &s.Account, &s.Score); err != nil {
+		if err := rows.Scan(&g.ID, &g.Session, &g.Series, &g.ShareCode, &s.Seat, &s.Name, &s.Account, &s.Score); err != nil {
 			return CGEPlan{}, fmt.Errorf("reading our games: %w", err)
 		}
 		if n := len(ours); n == 0 || ours[n-1].ID != g.ID {
@@ -136,11 +138,6 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 	plan.Matching = cgeextract.Match(plan.Games, ours, plan.Names, plan.Series, confirmed)
 	if err := planRemoved(ctx, pool, x, here, &plan); err != nil {
 		return CGEPlan{}, fmt.Errorf("reading the games CGE removed: %w", err)
-	}
-	if len(plan.Removed) > 0 {
-		// A game CGE removed is no copy of a CGE game: matched again without them, none is held back for one.
-		plan.Ours = slices.DeleteFunc(ours, func(o cgeextract.OurGame) bool { return slices.Contains(plan.Removed, o.ID) })
-		plan.Matching = cgeextract.Match(plan.Games, plan.Ours, plan.Names, plan.Series, confirmed)
 	}
 	return plan, nil
 }
@@ -256,5 +253,19 @@ func planRemoved(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, 
 		}
 		return nil
 	})
+	if err != nil || len(plan.Removed) == 0 {
+		return err
+	}
+	rows, err = pool.Query(ctx, `
+		SELECT coalesce(gr.cge_tournament, st.cge_tournament) FROM games g
+		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+		WHERE coalesce(gr.cge_tournament, st.cge_tournament) IN (
+			SELECT coalesce(gr2.cge_tournament, st2.cge_tournament) FROM games g2
+			JOIN groups gr2 USING (group_id) JOIN stages st2 USING (stage_id) WHERE g2.game_id = ANY($1))
+		GROUP BY 1 HAVING bool_and(g.game_id = ANY($1)) ORDER BY 1`, plan.Removed)
+	if err != nil {
+		return err
+	}
+	plan.TournamentsEmptied, err = pgx.CollectRows(rows, pgx.RowTo[int])
 	return err
 }
