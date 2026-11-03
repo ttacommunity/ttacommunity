@@ -10,6 +10,46 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+func TestMigrationSeventyFiveKeepsCGETournamentTimes(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, created)
+		VALUES (7001, 'Lantern Open', 'running', '2026-05-13 23:42:50+00')`); err != nil {
+		t.Fatal(err)
+	}
+	created := "SELECT created::text FROM cge_tournaments WHERE cge_tournament = 7001"
+	migrate := func(down bool) {
+		t.Helper()
+		if err := withRatingsMigrations(pool, func(p *goose.Provider) error {
+			if down {
+				_, err := p.DownTo(ctx, 74)
+				return err
+			}
+			_, err := p.Up(ctx)
+			return err
+		}); err != nil {
+			t.Fatalf("migrating (down %t): %v", down, err)
+		}
+	}
+	steps := []struct {
+		name string
+		down bool
+		want string
+	}{
+		{"at 75 the time", false, "2026-05-13 23:42:50+00"},
+		{"at 74 its UTC day", true, "2026-05-13"},
+		{"up again that day's start", false, "2026-05-13 00:00:00+00"},
+	}
+	for i, s := range steps {
+		if i > 0 {
+			migrate(s.down)
+		}
+		if got := rowsOf(t, pool, created); !slices.Equal(got, []string{s.want}) {
+			t.Errorf("%s: created = %q, want %q", s.name, got, s.want)
+		}
+	}
+}
+
 func TestMigrationSeventyFiveKeepsEachPlaysPerPlayerCount(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

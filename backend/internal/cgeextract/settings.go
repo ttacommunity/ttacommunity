@@ -25,12 +25,14 @@ type SpecialRules struct {
 // (none: no points, 0 games); a tiebreaker list "" is none, and a nil WinnerScoreMinimum is none.
 type StageSettings struct {
 	TournamentID, StageID, StageNumber int
-	TimeoutPenalty                     float64
-	IgnoreAI                           bool
-	Points                             map[int][]float64
-	EachPlays                          map[int]int
-	Tiebreak2p, Tiebreak3pPlus         string
-	WinnerScoreMinimum                 *float64
+	// StageName is the stage's name as CGE shows it ("Season 2", "Stage 1 of 3"); "" for a tournament of one stage.
+	StageName                  string
+	TimeoutPenalty             float64
+	IgnoreAI                   bool
+	Points                     map[int][]float64
+	EachPlays                  map[int]int
+	Tiebreak2p, Tiebreak3pPlus string
+	WinnerScoreMinimum         *float64
 }
 
 // Stages is what CGE's stages file gave, and the rows refused.
@@ -97,7 +99,7 @@ func ReadStages(file string, r io.Reader) (Stages, error) {
 // parseStage reads one row of CGE's stages file.
 func parseStage(f func(string) string) (StageSettings, bool) {
 	s := StageSettings{Points: map[int][]float64{}, EachPlays: map[int]int{},
-		Tiebreak2p: f("tiebreakers_2_players_tie"), Tiebreak3pPlus: f("tiebreakers_3plus_players_tie")}
+		Tiebreak2p: f("tiebreakers_2_players_tie"), Tiebreak3pPlus: f("tiebreakers_3plus_players_tie"), StageName: f("stage_name")}
 	var err error
 	if s.TournamentID, err = strconv.Atoi(f("tournament_id")); err != nil || s.TournamentID < 1 {
 		return StageSettings{}, false

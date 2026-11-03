@@ -88,6 +88,7 @@ func ApplyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"adding games only CGE has", addGames},
 		{"writing the catalogue", writeCatalogue},
 		{"writing settings", writeSettings},
+		{"recording the stages' CGE names and times", writeStages},
 		{"writing refusals", writeRefusals},
 		{"reading outcomes from the files' scores", fileOutcomes},
 	}
@@ -483,7 +484,7 @@ func moveMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got 
 }
 
 // writeCatalogue adds the CGE tournaments the catalogue lacks and records each one's name, organiser, moderators
-// (named, as the extract gives them) and dates (UTC days), CGE's replacing ours where CGE gives one; a status
+// (named, as the extract gives them) and times, CGE's replacing ours where CGE gives one; a status
 // already held is kept.
 func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
 	for _, t := range in.Extract.Tournaments {
@@ -500,8 +501,7 @@ func writeCatalogue(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g
 			WITH old AS (SELECT name, organiser, created, started, finished FROM cge_tournaments WHERE cge_tournament = $1),
 			up AS (
 				INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished, series_id, organiser_user)
-				VALUES ($1, $2, $3, $4, ($5::timestamptz AT TIME ZONE 'UTC')::date, ($6::timestamptz AT TIME ZONE 'UTC')::date,
-				        ($7::timestamptz AT TIME ZONE 'UTC')::date, $8, (SELECT cge_user FROM player_accounts WHERE cge_user = $9))
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, (SELECT cge_user FROM player_accounts WHERE cge_user = $9))
 				ON CONFLICT (cge_tournament) DO UPDATE SET
 				    name = excluded.name, organiser = coalesce(nullif(excluded.organiser, ''), cge_tournaments.organiser),
 				    organiser_user = excluded.organiser_user, series_id = coalesce(cge_tournaments.series_id, excluded.series_id),

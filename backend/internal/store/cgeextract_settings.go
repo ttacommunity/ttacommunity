@@ -44,26 +44,41 @@ func PlanCGEStages(ctx context.Context, pool *pgxpool.Pool, stages []cgeextract.
 	return mergeStages(ctx, pool, stages)
 }
 
-// mergeStages is PlanCGEStages, reading through q: the pool, or the load's transaction.
-func mergeStages(ctx context.Context, q interface {
+// rowQuerier is the pool or the load's transaction.
+type rowQuerier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
-}, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
+}
+
+// cgeStage returns our stage for CGE tournament's stage number, through our stages or groups linked to it, or 0
+// for none or for one of a season run on this site.
+func cgeStage(ctx context.Context, q rowQuerier, tournament, number int) (int64, error) {
+	var id int64
+	var here bool
+	err := q.QueryRow(ctx, `
+		SELECT st.stage_id, t.run_here FROM stages st JOIN tournaments t USING (tournament_id)
+		WHERE st.stage_id IN (SELECT stage_id FROM stages WHERE cge_tournament = $1 AND cge_stage_number = $2
+		                      UNION SELECT stage_id FROM groups WHERE cge_tournament = $1 AND cge_stage_number = $2)
+		ORDER BY st.stage_id LIMIT 1`, tournament, number).Scan(&id, &here)
+	if err == pgx.ErrNoRows || here {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("finding our stage for CGE tournament %d's stage %d: %w", tournament, number, err)
+	}
+	return id, nil
+}
+
+// mergeStages is PlanCGEStages, reading through q.
+func mergeStages(ctx context.Context, q rowQuerier, stages []cgeextract.StageSettings) ([]CGEStageWrite, error) {
 	var writes []CGEStageWrite
 	values := map[int64][][]any{}
 	for _, s := range stages {
-		var id int64
-		var here bool
-		err := q.QueryRow(ctx, `
-			SELECT st.stage_id, t.run_here FROM stages st JOIN tournaments t USING (tournament_id)
-			WHERE st.stage_id IN (SELECT stage_id FROM stages WHERE cge_tournament = $1 AND cge_stage_number = $2
-			                      UNION SELECT stage_id FROM groups WHERE cge_tournament = $1 AND cge_stage_number = $2)
-			ORDER BY st.stage_id LIMIT 1`,
-			s.TournamentID, s.StageNumber).Scan(&id, &here)
-		if err == pgx.ErrNoRows || here {
-			continue
-		}
+		id, err := cgeStage(ctx, q, s.TournamentID, s.StageNumber)
 		if err != nil {
-			return nil, fmt.Errorf("finding our stage for CGE stage %d: %w", s.StageID, err)
+			return nil, err
+		}
+		if id == 0 {
+			continue
 		}
 		if _, ok := values[id]; !ok {
 			writes = append(writes, CGEStageWrite{StageID: id, Settings: map[string]any{}})
@@ -110,6 +125,51 @@ func writeSettings(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, got *
 			return err
 		}
 		got.SettingsWritten += int(tag.RowsAffected())
+	}
+	return nil
+}
+
+// writeStages records on each stage of ours its CGE stages' times, from the games' rows, and their name, from the
+// stages file. A stage of ours spans its CGE stages: their earliest start and latest finish, widened, never
+// narrowed, by a later delivery; a name only when they share one.
+func writeStages(ctx context.Context, tx pgx.Tx, _ CGEPlan, in CGEInput, _ *CGEApplied) error {
+	for _, id := range slices.Sorted(maps.Keys(in.Extract.Stages)) {
+		st := in.Extract.Stages[id]
+		ours, err := cgeStage(ctx, tx, st.TournamentID, st.Number)
+		if err != nil {
+			return err
+		}
+		if ours == 0 {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `UPDATE stages SET cge_started_at = least(cge_started_at, $2), cge_finished_at = greatest(cge_finished_at, $3)
+			WHERE stage_id = $1`, ours, st.Started, st.Finished); err != nil {
+			return err
+		}
+	}
+	names := map[int64][]string{}
+	var order []int64
+	for _, s := range in.Stages {
+		ours, err := cgeStage(ctx, tx, s.TournamentID, s.StageNumber)
+		if err != nil {
+			return err
+		}
+		if ours == 0 {
+			continue
+		}
+		if _, ok := names[ours]; !ok {
+			order = append(order, ours)
+		}
+		names[ours] = append(names[ours], s.StageName)
+	}
+	for _, ours := range order {
+		var name *string
+		if n := names[ours]; !slices.ContainsFunc(n, func(o string) bool { return o != n[0] }) && n[0] != "" {
+			name = &n[0]
+		}
+		if _, err := tx.Exec(ctx, "UPDATE stages SET cge_name = $2 WHERE stage_id = $1", ours, name); err != nil {
+			return err
+		}
 	}
 	return nil
 }

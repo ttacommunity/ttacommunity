@@ -1,7 +1,11 @@
--- CGE's "Each player plays: Nx" is a count per player count: each_plays becomes each_plays_2p, _3p and _4p (0 =
--- none), and a stage's least winner score (in %) for the winnerScore tiebreakers is kept. Both start empty, for
--- CGE's extract to give on its next load; game_lines is unchanged.
+-- What CGE's extract gives that we did not keep: "Each player plays" per player count (each_plays becomes
+-- each_plays_2p, _3p and _4p; 0 = none), a stage's least winner score, its CGE name and times, and a CGE
+-- tournament's times rather than days. New values start empty, for CGE's next delivery; game_lines is unchanged.
 -- +goose Up
+ALTER TABLE stages ADD COLUMN cge_name text, ADD COLUMN cge_started_at timestamptz, ADD COLUMN cge_finished_at timestamptz;
+ALTER TABLE cge_tournaments ALTER COLUMN created TYPE timestamptz USING created::timestamp AT TIME ZONE 'UTC',
+    ALTER COLUMN started TYPE timestamptz USING started::timestamp AT TIME ZONE 'UTC',
+    ALTER COLUMN finished TYPE timestamptz USING finished::timestamp AT TIME ZONE 'UTC';
 ALTER TABLE settings ADD COLUMN each_plays_2p integer CHECK (each_plays_2p >= 0),
     ADD COLUMN each_plays_3p integer CHECK (each_plays_3p >= 0),
     ADD COLUMN each_plays_4p integer CHECK (each_plays_4p >= 0),
@@ -60,6 +64,10 @@ CROSS JOIN LATERAL (
 GRANT SELECT ON game_lines TO ratings_read, ratings_admin;
 
 -- +goose Down
+ALTER TABLE stages DROP COLUMN cge_name, DROP COLUMN cge_started_at, DROP COLUMN cge_finished_at;
+ALTER TABLE cge_tournaments ALTER COLUMN created TYPE date USING (created AT TIME ZONE 'UTC')::date,
+    ALTER COLUMN started TYPE date USING (started AT TIME ZONE 'UTC')::date,
+    ALTER COLUMN finished TYPE date USING (finished AT TIME ZONE 'UTC')::date;
 ALTER TABLE settings ADD COLUMN each_plays integer CHECK (each_plays > 0);
 -- The one count every player count with games shares, else none.
 UPDATE settings SET each_plays = (SELECT CASE WHEN count(DISTINCT n) = 1 THEN min(n) END

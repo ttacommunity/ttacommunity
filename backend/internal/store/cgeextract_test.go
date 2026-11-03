@@ -679,21 +679,21 @@ func TestApplyCGEExtractFollowsCGEsTournamentRecord(t *testing.T) {
 		want                                                     string
 		wantUpdated                                              int
 	}{
-		{"an empty organiser name is filled", "Snail Cup", "", "2026-05-01", "",
-			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 -", 1},
-		{"CGE's organiser name replaces ours", "Snail Cup", "eve", "2026-05-01", "",
-			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "evelyn", Created: &may1}, "Snail Cup evelyn 2026-05-01 -", 1},
-		{"CGE's name and date replace ours", "Snail Cup", "eve", "2026-05-01", "",
-			cgeextract.Tournament{Name: "Snail Cup 2026", OrganiserName: "eve", Created: &may2}, "Snail Cup 2026 eve 2026-05-02 -", 1},
-		{"a date CGE does not give is kept", "Snail Cup", "eve", "2026-05-01", "2026-06-01",
-			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 2026-06-01", 0},
+		{"an empty organiser name is filled", "Snail Cup", "", "2026-05-01 18:00", "",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 18:00 -", 1},
+		{"CGE's organiser name replaces ours", "Snail Cup", "eve", "2026-05-01 18:00", "",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "evelyn", Created: &may1}, "Snail Cup evelyn 2026-05-01 18:00 -", 1},
+		{"CGE's name and date replace ours", "Snail Cup", "eve", "2026-05-01 18:00", "",
+			cgeextract.Tournament{Name: "Snail Cup 2026", OrganiserName: "eve", Created: &may2}, "Snail Cup 2026 eve 2026-05-02 09:00 -", 1},
+		{"a date CGE does not give is kept", "Snail Cup", "eve", "2026-05-01 18:00", "2026-06-01 12:00",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 18:00 2026-06-01 12:00", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pool := migrated(t)
 			ctx := context.Background()
 			if _, err := pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, finished)
-				VALUES (999, $1, 'running', $2, $3::date, nullif($4, '')::date)`, tt.heldName, tt.heldOrganiser, tt.heldCreated, tt.heldFinished); err != nil {
+				VALUES (999, $1, 'running', $2, ($3 || 'Z')::timestamptz, (nullif($4, '') || 'Z')::timestamptz)`, tt.heldName, tt.heldOrganiser, tt.heldCreated, tt.heldFinished); err != nil {
 				t.Fatal(err)
 			}
 			cge := tt.cge
@@ -709,7 +709,8 @@ func TestApplyCGEExtractFollowsCGEsTournamentRecord(t *testing.T) {
 				t.Fatalf("ApplyCGEExtract: %v", err)
 			}
 
-			row := rowsOf(t, pool, `SELECT concat_ws(' ', name, organiser, created, coalesce(finished::text, '-')) FROM cge_tournaments
+			row := rowsOf(t, pool, `SELECT concat_ws(' ', name, organiser, to_char(created AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI'),
+				coalesce(to_char(finished AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI'), '-')) FROM cge_tournaments
 				WHERE cge_tournament = 999`)
 			if !slices.Equal(row, []string{tt.want}) || got.TournamentsUpdated != tt.wantUpdated {
 				t.Errorf("tournament = %q, %d updated; want %q, %d", row, got.TournamentsUpdated, tt.want, tt.wantUpdated)
@@ -1286,5 +1287,57 @@ func TestApplyCGEExtractCompletesAPartialGameFromTheSeatsWeHold(t *testing.T) {
 				t.Errorf("seats %q, %d partial games left out; want %q, %d", got, plan.Partial, tt.wantSeats, tt.wantPartial)
 			}
 		})
+	}
+}
+
+func TestApplyCGEExtractRecordsEachStagesCGENameAndTimes(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	for _, q := range []string{
+		`INSERT INTO series (slug, name) VALUES ('lantern_open', 'Lantern Open')`,
+		`INSERT INTO tournaments (series_id, label) SELECT series_id, '2031' FROM series WHERE slug = 'lantern_open'`,
+		`INSERT INTO stages (tournament_id, label, cge_tournament, cge_stage_number)
+		 SELECT tournament_id, l, 7001, n FROM tournaments, (VALUES ('Stage 1', 1), ('Final', 2)) v(l, n) WHERE label = '2031'`,
+		`INSERT INTO groups (stage_id, name, cge_tournament, cge_stage_number) SELECT stage_id, 'Final', 7002, 1 FROM stages WHERE label = 'Final'`,
+		`INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, tournament_id)
+		 SELECT 7001, 'Lantern Open', 'finished', series_id, tournament_id FROM tournaments WHERE label = '2031'`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	at := func(day int) *time.Time {
+		d := time.Date(2031, 5, day, 12, 0, 0, 0, time.UTC)
+		return &d
+	}
+	load := func(stages map[int]cgeextract.Stage, names []cgeextract.StageSettings) {
+		t.Helper()
+		x := cgeextract.Extract{Seats: extractOf(7001, 300, "CODEGGGG", cgeDone(5, "eve", 1, 100), cgeDone(6, "fay", 2, 50)),
+			Tournaments: map[int]cgeextract.Tournament{7001: {ID: 7001, Name: "Lantern Open", OrganiserID: 5}}, Stages: stages}
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x, Stages: names}); err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+	}
+	load(map[int]cgeextract.Stage{
+		1:  {ID: 1, TournamentID: 7009, Number: 1, Started: at(1)},
+		9:  {ID: 9, TournamentID: 7001, Number: 1, Started: at(1), Finished: at(10)},
+		10: {ID: 10, TournamentID: 7001, Number: 2, Started: at(12), Finished: at(14)},
+		11: {ID: 11, TournamentID: 7002, Number: 1, Started: at(11), Finished: at(20)},
+	}, []cgeextract.StageSettings{
+		{TournamentID: 7001, StageID: 9, StageNumber: 1, StageName: "Stage 1 of 2"},
+		{TournamentID: 7001, StageID: 10, StageNumber: 2, StageName: "Stage 2 of 2"},
+		{TournamentID: 7002, StageID: 11, StageNumber: 1, StageName: ""},
+	})
+	load(map[int]cgeextract.Stage{10: {ID: 10, TournamentID: 7001, Number: 2, Started: at(12), Finished: at(15)}}, nil)
+
+	got := rowsOf(t, pool, `SELECT concat_ws(' ', label, coalesce(cge_name, '-'), to_char(cge_started_at AT TIME ZONE 'UTC', 'DD'),
+		to_char(cge_finished_at AT TIME ZONE 'UTC', 'DD')) FROM stages WHERE cge_tournament = 7001 ORDER BY 1`)
+	if want := []string{"Final - 11 20", "Stage 1 Stage 1 of 2 01 10"}; !slices.Equal(got, want) {
+		t.Errorf("stage, CGE name, started and finished day = %q, want %q: a stage of ours spans its CGE stages, and a "+
+			"later delivery of one of them widens it only", got, want)
 	}
 }

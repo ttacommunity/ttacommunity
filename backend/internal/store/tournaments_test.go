@@ -410,7 +410,7 @@ func TestReplaceCGETournamentsLinksOursAndRatesNoNewOne(t *testing.T) {
 	if got != (FactsReplaced{Written: 3}) {
 		t.Errorf("ReplaceCGETournaments = %+v, want 3 written", got)
 	}
-	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(se.slug, '-'), coalesce(t.label, ''), c.finished)
+	rows := rowsOf(t, pool, `SELECT concat_ws('|', c.cge_tournament, c.name, coalesce(se.slug, '-'), coalesce(t.label, ''), (c.finished AT TIME ZONE 'UTC')::date)
 		FROM cge_tournaments c LEFT JOIN series se ON se.series_id = c.series_id
 		LEFT JOIN tournaments t ON t.tournament_id = c.tournament_id ORDER BY c.cge_tournament`)
 	want := []string{"4335|The banana tournament|-||2026-09-03", "5373|Nations Cup|nations_cup|2025|2026-09-03", "5731|Survivors Cup 2026|survivors_cup|2026|2026-09-03"}

@@ -307,7 +307,8 @@ func ReplaceCGETournaments(ctx context.Context, pool *pgxpool.Pool, rows []tourn
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO cge_tournaments (cge_tournament, name, status, organiser, created, started, finished,
 		                             description, mentions_glicko, links, series_id, tournament_id)
-		SELECT x.id, x.name, x.status, x.organiser, x.created, x.started, x.finished,
+		SELECT x.id, x.name, x.status, x.organiser, x.created::timestamp AT TIME ZONE 'UTC',
+		       x.started::timestamp AT TIME ZONE 'UTC', x.finished::timestamp AT TIME ZONE 'UTC',
 		       x.description, x.glicko, x.links, se.series_id, t.tournament_id
 		FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::date[], $6::date[], $7::date[],
 		            $8::text[], $9::text[], $10::text[], $11::text[], $12::text[])
