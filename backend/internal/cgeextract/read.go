@@ -253,7 +253,7 @@ func parse(rec []string) (Seat, Tournament, Stage, Reason) {
 	}
 	t := Tournament{
 		ID: ids["tournament_id"], Name: f("tournament_name"), OrganiserID: ids["organiser_id"],
-		OrganiserName: f("organiser_name"), Moderators: moderators, Created: times["tournament_created_at"],
+		OrganiserName: strings.TrimSuffix(f("organiser_name"), "(BAN)"), Moderators: moderators, Created: times["tournament_created_at"],
 		Started: times["tournament_started_at"], Finished: times["tournament_finished_at"],
 	}
 	st := Stage{ID: ids["stage_id"], TournamentID: ids["tournament_id"], Number: ids["stage_number"],

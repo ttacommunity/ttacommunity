@@ -681,8 +681,8 @@ func TestApplyCGEExtractFollowsCGEsTournamentRecord(t *testing.T) {
 	}{
 		{"an empty organiser name is filled", "Snail Cup", "", "2026-05-01", "",
 			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve", Created: &may1}, "Snail Cup eve 2026-05-01 -", 1},
-		{"CGE's organiser name, a banned mark included, replaces ours", "Snail Cup", "eve", "2026-05-01", "",
-			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "eve(BAN)", Created: &may1}, "Snail Cup eve(BAN) 2026-05-01 -", 1},
+		{"CGE's organiser name replaces ours", "Snail Cup", "eve", "2026-05-01", "",
+			cgeextract.Tournament{Name: "Snail Cup", OrganiserName: "evelyn", Created: &may1}, "Snail Cup evelyn 2026-05-01 -", 1},
 		{"CGE's name and date replace ours", "Snail Cup", "eve", "2026-05-01", "",
 			cgeextract.Tournament{Name: "Snail Cup 2026", OrganiserName: "eve", Created: &may2}, "Snail Cup 2026 eve 2026-05-02 -", 1},
 		{"a date CGE does not give is kept", "Snail Cup", "eve", "2026-05-01", "2026-06-01",

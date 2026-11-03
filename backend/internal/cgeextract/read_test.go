@@ -54,6 +54,17 @@ func TestReadTakesABanFromTheName(t *testing.T) {
 	}
 }
 
+func TestReadTakesABanFromTheOrganisersName(t *testing.T) {
+	line := strings.Replace(row(5, 1, "ann", "1", "181.0", "finished"), ",orga,", ",orga(BAN),", 1)
+	got, err := Read("x.csv", strings.NewReader(header+line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name := got.Tournaments[19].OrganiserName; name != "orga" {
+		t.Errorf("organiser = %q, want orga: the ban is on their account, not in their name", name)
+	}
+}
+
 func TestReadKeepsATimedOutSeatWithoutScoreOrStanding(t *testing.T) {
 	got, err := Read("x.csv", strings.NewReader(header+row(5, 1, "ann", "", "", "timed out")))
 	if err != nil {
