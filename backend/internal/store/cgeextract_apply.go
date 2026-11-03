@@ -103,7 +103,7 @@ func stageExtract(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *
 		`CREATE TEMPORARY TABLE x_seats (session int, idx int, tournament int, tournament_name text, stage_number int,
 		    group_id int, group_name text, share_code text, state text, started_at timestamptz, finished_at timestamptz,
 		    speed text, timer text, players_in_game int, player_id int, player_name text, banned bool,
-		    starting_position int, standing int, score float8, outcome text, place int, PRIMARY KEY (session, idx))
+		    starting_position int, standing int, score float8, outcome text, place int, our_state text, PRIMARY KEY (session, idx))
 		 ON COMMIT DROP`,
 		`CREATE TEMPORARY TABLE x_match (game_id bigint PRIMARY KEY, session int) ON COMMIT DROP`,
 		`CREATE TEMPORARY TABLE x_pairs (game_id bigint, seat int, session int, idx int) ON COMMIT DROP`,
@@ -114,7 +114,7 @@ func stageExtract(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *
 	}
 	var rows [][]any
 	for _, g := range plan.Games {
-		places := cgeextract.Places(g.Seats)
+		places, state := cgeextract.Places(g.Seats), gameState(g)
 		for i, s := range g.Seats {
 			var outcome *string
 			if s.FinishStatus != "" {
@@ -122,12 +122,13 @@ func stageExtract(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *
 			}
 			rows = append(rows, []any{g.SessionID, i, g.TournamentID, s.TournamentName, g.StageNumber, g.GroupID, g.GroupName,
 				g.ShareCode, g.State, g.StartedAt, g.FinishedAt, g.Speed, g.Timer, g.PlayersInGame, s.PlayerID, s.PlayerName,
-				s.Banned, s.StartingPosition, s.Standing, s.Score, outcome, places[i]})
+				s.Banned, s.StartingPosition, s.Standing, s.Score, outcome, places[i], state})
 		}
 	}
 	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"x_seats"}, []string{"session", "idx", "tournament", "tournament_name",
 		"stage_number", "group_id", "group_name", "share_code", "state", "started_at", "finished_at", "speed", "timer",
-		"players_in_game", "player_id", "player_name", "banned", "starting_position", "standing", "score", "outcome", "place"},
+		"players_in_game", "player_id", "player_name", "banned", "starting_position", "standing", "score", "outcome", "place",
+		"our_state"},
 		pgx.CopyFromRows(rows)); err != nil {
 		return err
 	}
@@ -347,7 +348,8 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 		        finished_at = x.finished_at, speed = x.speed, timer = x.timer, cge_players_in_game = x.players_in_game,
 		        date = coalesce((x.finished_at AT TIME ZONE 'UTC')::date, g.date),
 		        cge_finished = coalesce((x.finished_at AT TIME ZONE 'UTC')::date, g.cge_finished),
-		        state = CASE WHEN x.state = 'cancelled' THEN 'never_played' ELSE g.state END
+		        state = CASE WHEN x.state = 'cancelled' THEN 'never_played'
+		                     WHEN g.state IN ('prepared', 'running') THEN x.our_state ELSE g.state END
 		 FROM x_match m JOIN x_seats x ON x.session = m.session AND x.idx = 0
 		 WHERE g.game_id = m.game_id`,
 		`UPDATE seats s SET cge_user = x.player_id, starting_position = x.starting_position, cge_score = x.score,
@@ -389,6 +391,15 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 		WHERE gr.group_id = o.group_id AND gr.cge_group IS NULL AND gr.name = p.group_name
 		  AND (SELECT count(*) FROM pairs q WHERE q.group_id = o.group_id) = 1
 		  AND NOT EXISTS (SELECT FROM groups g2 WHERE g2.cge_group = o.cge_group)`)
+	if err != nil {
+		return err
+	}
+	// A group with a CGE group's id records that group's CGE tournament and stage.
+	_, err = tx.Exec(ctx, `
+		UPDATE groups gr SET cge_tournament = x.tournament, cge_stage_number = x.stage_number
+		FROM (SELECT DISTINCT group_id, tournament, stage_number FROM x_seats) x
+		WHERE gr.cge_group = x.group_id
+		  AND (gr.cge_tournament, gr.cge_stage_number) IS DISTINCT FROM (x.tournament, x.stage_number)`)
 	if err != nil {
 		return err
 	}

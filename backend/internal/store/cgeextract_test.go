@@ -284,6 +284,83 @@ func TestApplyCGEExtractMovesAMatchedGameIntoItsCGEGroup(t *testing.T) {
 	}
 }
 
+func TestApplyCGEExtractFollowsAGameCGEStartedOrFinished(t *testing.T) {
+	tests := []struct {
+		name, before, later, ours, want string
+	}{
+		{"a prepared game CGE finished is played", "prepared", "finished", "", "played"},
+		{"a running game CGE finished is played", "running", "finished", "", "played"},
+		{"a prepared game CGE started is running", "prepared", "running", "", "running"},
+		{"a game we hold as never played stays so", "prepared", "finished", "never_played", "never_played"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			game := func(state string) []cgeextract.Seat {
+				seats := inTournament(999, state != "finished", extractOf(999, 400, "CODEPREP", cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50)))
+				for i := range seats {
+					seats[i].State = state
+				}
+				return seats
+			}
+			if _, err := loadExtract(t, pool, game(tt.before)); err != nil {
+				t.Fatalf("the first load: %v", err)
+			}
+			if tt.ours != "" {
+				if _, err := pool.Exec(context.Background(), "UPDATE games SET state = $1 WHERE share_code = 'CODEPREP'", tt.ours); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := loadExtract(t, pool, game(tt.later)); err != nil {
+				t.Fatalf("the second load: %v", err)
+			}
+
+			if got := rowsOf(t, pool, "SELECT state FROM games WHERE share_code = 'CODEPREP'"); !slices.Equal(got, []string{tt.want}) {
+				t.Errorf("%s, then %s on CGE: state = %q, want %q", tt.before, tt.later, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyCGEExtractRecordsALinkedGroupsCGETournamentAndStage(t *testing.T) {
+	tests := []struct {
+		name   string
+		linked bool
+	}{
+		{"a group the load links by its name", false},
+		{"a group an earlier load linked by its CGE group alone", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02")})
+			setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
+			setShareCode(t, pool, "Intermezzo S24 - Bronze 1 game 1", "CODEAAAA")
+			if tt.linked {
+				if _, err := pool.Exec(ctx, "UPDATE groups SET cge_group = 70 WHERE name = 'Bronze 1'"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			x := cgeextract.Extract{Seats: extractOf(19, 100, "CODEAAAA", cgeDone(1, "ann", 1, 200), cgeDone(2, "bob", 2, 150)),
+				Tournaments: map[int]cgeextract.Tournament{19: {ID: 19, Name: "Intermezzo Championship"}}}
+			plan, err := PlanCGEExtract(ctx, pool, x, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+				t.Fatalf("ApplyCGEExtract: %v", err)
+			}
+
+			got := rowsOf(t, pool, `SELECT concat_ws(' ', name, cge_group, cge_tournament, cge_stage_number) FROM groups
+				WHERE cge_group IS NOT NULL ORDER BY 1`)
+			if want := []string{"Bronze 1 70 19 19"}; !slices.Equal(got, want) {
+				t.Errorf("group, CGE group, tournament and stage = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestApplyCGEExtractKeepsAnAccountsPlayerWhoGoesByAnotherName(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
