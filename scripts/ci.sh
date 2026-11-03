@@ -235,6 +235,9 @@ if full && area checks; then
   if [ -z "${CI:-}" ] && [ "$source" != main ] && [ "$source" != dev ]; then
     # A branch's images are built by CI (the images label), so its pins cannot be brought up to date here.
     not_covered+=("deploy/ and deploy/dev pins built from this branch's code: CI checks them; pin the images the images label builds")
+  elif [ "$target" = dev ]; then
+    # A trial on dev pins only deploy/dev; deploy/ keeps main's images until the trial reaches main.
+    run bash checks/deploy-current.sh deploy/dev
   else
     run bash checks/deploy-current.sh
     run bash checks/deploy-current.sh deploy/dev

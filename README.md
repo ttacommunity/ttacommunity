@@ -650,7 +650,8 @@ deploys both together:
 
 `checks/deploy-current.sh` fails if `deploy/` or `deploy/dev/` pins an image
 built from older code than the branch's, so a late code change needs a new
-image and pin.
+image and pin. A push to `dev` checks only `deploy/dev/`, so a trial there
+pins its images in `deploy/dev/` alone.
 
 ### The cluster's ratings database
 
