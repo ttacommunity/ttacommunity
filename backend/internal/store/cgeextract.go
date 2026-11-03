@@ -35,6 +35,10 @@ type CGEPlan struct {
 	TournamentsEmptied []int
 }
 
+// cgeFirstDay is the first day CGE's data holds a game of, which it never reaches before: a game of ours from
+// earlier, of no CGE session, is none of CGE's, so the extract load leaves it out.
+const cgeFirstDay = "2020-04-15"
+
 // PlanCGEExtract reads our games and matches the extract's to them, confirmed pairs first, writing nothing.
 // The games of a CGE tournament linked to a season run on this site are left out.
 func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, confirmed map[string]int64) (CGEPlan, error) {
@@ -115,7 +119,7 @@ func PlanCGEExtract(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extrac
 		SELECT g.game_id, coalesce(g.cge_session, 0), coalesce(l.series_id, 0), coalesce(g.share_code, ''), s.seat, p.name,
 		       coalesce(s.cge_user, 0), coalesce(s.recorded_score, s.culture)
 		FROM games g JOIN game_lines l USING (game_id) JOIN seats s USING (game_id) JOIN players p USING (player_id)
-		ORDER BY g.game_id, s.seat`)
+		WHERE g.cge_session IS NOT NULL OR g.date >= $1 ORDER BY g.game_id, s.seat`, cgeFirstDay)
 	if err != nil {
 		return CGEPlan{}, fmt.Errorf("reading our games: %w", err)
 	}

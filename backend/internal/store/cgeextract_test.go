@@ -23,6 +23,35 @@ func extractSeat(session, tournament, player int, name, code string, culture flo
 		ShareCode: code, State: "finished", FinishStatus: cgeextract.Finished, Score: &culture}
 }
 
+func TestPlanCGEExtractLeavesOutOurGamesFromBeforeCGEsData(t *testing.T) {
+	tests := []struct {
+		name, date  string
+		wantMatched int
+	}{
+		{"a game from CGE's first day may be CGE's", "2020-04-15", 1},
+		{"a game from before it is not", "2020-04-14", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day(tt.date)})
+			setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
+			x := cgeextract.Extract{Seats: []cgeextract.Seat{
+				extractSeat(100, 19, 1, "ann", "CODEAAAA", 200), extractSeat(100, 19, 2, "bob", "CODEAAAA", 150)}}
+
+			plan, err := PlanCGEExtract(ctx, pool, x, nil)
+			if err != nil {
+				t.Fatalf("PlanCGEExtract: %v", err)
+			}
+			if len(plan.Matching.Matched) != tt.wantMatched || len(plan.Matching.HeldBack) != 0 {
+				t.Errorf("our game of %s: matched %v, held back %v; want %d matched, none held back", tt.date,
+					plan.Matching.Matched, plan.Matching.HeldBack, tt.wantMatched)
+			}
+		})
+	}
+}
+
 func TestPlanCGEExtractMatchesOurGamesByCodeAndByPlayers(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
