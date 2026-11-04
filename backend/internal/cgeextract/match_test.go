@@ -90,6 +90,9 @@ func TestMatchAddsWhatOnlyCGEHasAndHoldsBackPossibleCopies(t *testing.T) {
 			ours(1, 7, "", seat("ann", 200), seat("bob", 150), seat("cy", 0)), true},
 		{"not two of ours for one seat with no player", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), noPlayer()),
 			ours(1, 7, "", seat("ann", 200), seat("bob", 0), seat("cy", 0)), false},
+		// A game of ours CGE holds already, absent from a partial delivery, is that CGE game: no copy of another.
+		{"not a game of ours CGE holds", cgeGame(100, 19, "CODEAAAA", cgeSeat(1, 200), cgeSeat(2, 150)),
+			heldByCGE(ours(1, 7, "CODEZZZZ", seat("ann", 200), seat("bob", 15)), 555), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -171,6 +174,19 @@ func TestMatchSeatsTrustsCGEsNameBeforeAnAccountAnEarlierLoadStored(t *testing.T
 	}
 }
 
+func TestMatchSeatsPairsTwoSeatsOfOneNameByTheirAccounts(t *testing.T) {
+	annie, ann := cgeSeat(1, 100), cgeSeat(3, 70)
+	annie.PlayerName, ann.PlayerName = "annie", "ann"
+	// One player of ours holds both accounts, so both seats bear the player's name.
+	stored := []OurSeat{{Seat: 1, Name: "ann", Account: 1}, {Seat: 2, Name: "ann", Account: 3}}
+
+	pairs, missing := MatchSeats(cgeGame(100, 19, "CODEAAAA", annie, ann), stored, names)
+
+	if want := map[int]int{1: 0, 2: 1}; !mapsEqual(pairs, want) || len(missing) != 0 {
+		t.Errorf("pairs %v, missing %v; want %v, none: a name two of our seats share tells neither apart", pairs, missing, want)
+	}
+}
+
 func mapsEqual[K comparable, V comparable](a, b map[K]V) bool {
 	if len(a) != len(b) {
 		return false
@@ -204,4 +220,10 @@ func TestReadConfirmedPairs(t *testing.T) {
 	if len(got.Pairs) != 1 || got.Pairs["CODEAAAA"] != 12 || len(got.Refused) != 1 || got.Refused[0].Line != 3 {
 		t.Errorf("pairs %v, refused %+v; want CODEAAAA→12 and line 3 refused", got.Pairs, got.Refused)
 	}
+}
+
+// heldByCGE is o, a game CGE holds as session.
+func heldByCGE(o OurGame, session int) OurGame {
+	o.Session = session
+	return o
 }

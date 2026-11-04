@@ -133,17 +133,14 @@ var commands = []command{
 		}
 		return addAdmin(store.Admin{DiscordID: fs.Arg(0), Name: *name, Role: *role})
 	}},
-	{"cge-extract", "-settings <directory> [-pairs <file>] [-apply] <directory>", "plan how CGE's extract in the directory meets our games; -apply writes it", func(fs *flag.FlagSet, args []string) error {
-		settings := fs.String("settings", "", "the directory of CGE's tournament and stage settings")
+	{"cge-extract", "[-pairs <file>] [-apply] [-json] <directory>", "load a delivery of CGE's extract from the directory and sum up what it changes; it writes only with -apply", func(fs *flag.FlagSet, args []string) error {
 		pairs := fs.String("pairs", "", "a CSV (share_code, game_id, reason) of CGE games matched to ours by hand")
-		apply := fs.Bool("apply", false, "write the plan")
+		apply := fs.Bool("apply", false, "write the load (without it, the load is rolled back)")
+		asJSON := fs.Bool("json", false, "write the summary as JSON")
 		if err := parse(fs, args, 1); err != nil {
 			return err
 		}
-		if *settings == "" {
-			return errUsage
-		}
-		return loadCGEExtract(fs.Arg(0), *settings, *pairs, *apply)
+		return loadCGEExtract(os.Stdout, fs.Arg(0), *pairs, *apply, *asJSON)
 	}},
 	{"challenges", "<JSON file>", "replace the challenges with the JSON list (web/site/src/data/challenges.json)", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 1); err != nil {

@@ -153,7 +153,8 @@ season or a year), each in **stages**, each in **groups** of **games**. A
 **place** (finishers by CGE's standing, then resigners, the last to resign
 highest, then timed-out players, tied last) and how they finished. A
 **setting** (points per place, time-out penalty, tiebreakers) sits on a
-series and may be overridden by a tournament or a stage. Two views put this
+series and may be overridden by a tournament or a stage; a stage of a CGE
+tournament holds CGE's own, from its extract. Two views put this
 together: `stage_settings` (each stage's settings, resolved) and
 `game_lines` (one row per game, its seats in seat order and each seat's game
 points). The engine rates who placed above whom, and scores standings from

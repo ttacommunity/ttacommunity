@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -122,7 +123,26 @@ func addGames(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CG
 			return err
 		}
 	}
-	return nil
+	// A game's special rules the file no longer lists are kept, and counted by CGE tournament; with no file, none.
+	if in.Special == nil {
+		return nil
+	}
+	unlisted, err := tx.Query(ctx, `
+		SELECT x.tournament, count(*) FROM x_seats x JOIN games g ON g.cge_session = x.session
+		WHERE x.idx = 0 AND (g.rules IS NOT NULL OR g.card_set IS NOT NULL) AND NOT x.session = ANY($1)
+		GROUP BY x.tournament`, append([]int{}, slices.Collect(maps.Keys(in.Special))...))
+	if err != nil {
+		return err
+	}
+	var tournament, kept int
+	_, err = pgx.ForEachRow(unlisted, []any{&tournament, &kept}, func() error {
+		if got.RulesKept == nil {
+			got.RulesKept = map[int]int{}
+		}
+		got.RulesKept[tournament] = kept
+		return nil
+	})
+	return err
 }
 
 // mergeHiddenSeries moves the stages of each hidden series' other tournaments under its tournament "1", naming
