@@ -401,40 +401,49 @@ entry, admins' marks on them included.
 New games and facts are loaded on top of a restored baseline, and the next
 export is the next baseline.
 
-**CGE's data extract.** CGE's export of every tournament game (one row per
-player per game) is the most complete record. `load cge-extract` matches its
-games to ours (by share code, else by players and finished scores), fills in
-what CGE recorded (each seat's account, outcome and place, the game's times
-and share code; CGE's finish date becomes the game's date; the game moves
-into our group for its CGE group) and adds the games we lack (a CGE tournament
-we do not link becomes a hidden, unrated series). Each CGE stage's settings
-(time-out penalty, points by place, "Each player plays" per player count, AI
-replacement, tiebreakers and least winner score) come from the stages file
-beside it and replace what our stage for it held. A game of ours whose CGE
-tournament is in the extract but whose session is not was removed by CGE
-(for example with a player taken out of a group): the load deletes it,
-played or not, and lists it in the plan. A game that may be a
-copy of ours is held back; a file of pairs checked by hand (`share_code,
-game_id,reason`) matches them, and a game an earlier load added for a
-session the file gives to another game of ours is removed as a copy. A seat
-CGE holds no player for (player id 0) is a player removed from the game: the
-game is the others', so the load never adds that seat and drops our seat
-paired with it, and counts what it drops. A season ticked "Run on this
-site" in admin (a blitz tournament CGE only advertises) takes its CGE
-tournament's page and nothing else: this load leaves out its games and
-settings, so it gets no stages from CGE either, and removes none of its
-games. It prints the plan and writes
-nothing unless given `-apply`; loading the same extract again changes
-nothing, except that it merges a hidden series' stages back into one
-tournament where an earlier load split them:
+**CGE's data extract.** CGE sends its tournament games (one row per player
+per game) as a delivery: a folder holding any of `tournaments_export.csv`
+(every game it holds), `tournaments_export_changes.csv` (the rows new,
+changed or removed since the delivery before), `tournaments_export_stages.csv`
+(each stage's settings) and `tournaments_export_special_rules.csv`; any of
+them may be gzipped. A delivery is kept dated in the data repository's
+`cge/extract/`, and loaded in order: each changes file is relative to the
+delivery before it. `load cge-extract` applies whatever the delivery holds
+to our database:
+
+- Each game it holds is matched to ours (by share code, else by players and
+  finished scores; a game of ours from before 2020-04-15, CGE's first day,
+  with no CGE session, is never CGE's) and takes what CGE recorded: each
+  seat's account, outcome and place, the game's state, times and share code,
+  CGE's finish date as its date, and our group for its CGE group. A game we
+  lack is added (a CGE tournament we do not link becomes a hidden, unrated
+  series). A game of which the delivery holds only some seats takes the rest
+  from ours.
+- A changes file's removed rows delete their games (and seats), played or
+  not. A game missing from a full file is never deleted, only listed.
+- Each CGE stage's settings (time-out penalty, points by place, "Each player
+  plays" per player count, AI replacement, tiebreakers and least winner
+  score), name and times go on our stage for it. Where several CGE stages
+  share one stage of ours, it takes what they agree on.
+- Each CGE tournament takes CGE's name, organiser and times. A moderator, or
+  a game's special rules, CGE no longer lists is kept, and counted.
+- A game that may be a copy of ours is held back; a file of pairs checked by
+  hand (`share_code,game_id,reason`) matches them, and a game an earlier load
+  added for a session the file gives to another game of ours is removed as a
+  copy. A seat CGE holds no player for (player id 0) is a player removed from
+  the game: the load never adds that seat and drops our seat paired with it.
+- A season ticked "Run on this site" in admin (a blitz tournament CGE only
+  advertises) takes its CGE tournament's page and nothing else.
+
+It writes a summary of what the delivery changes (`-json` for the same as
+JSON), naming no player, and writes nothing unless given `-apply`: without
+it, the load runs and is rolled back, so the summary is exactly what
+`-apply` would do. Loading the same delivery again changes nothing:
 
 ```bash
 cd backend && set -a && . ../.env && set +a
-go run ./cmd/load cge-extract [-pairs <file>] [-apply] ../../ttac-ratings-data/cge/extract/2026-11-03
+go run ./cmd/load cge-extract [-pairs <file>] [-apply] [-json] ../../ttac-ratings-data/cge/extract/2026-11-03
 ```
-
-The extract in the data repository is gzipped (`gzip -dk` restores it). An
-extract from before 2026-11-03 has no stages file and is refused.
 
 **A first database from match CSVs.** A directory without a
 `manifest.json` is loaded as match CSVs, every `*.csv` at its top level in
