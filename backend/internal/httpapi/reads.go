@@ -45,7 +45,7 @@ type RunReads interface {
 // BoardReads are the leaderboard's reads, here and in csv.go.
 type BoardReads interface {
 	Leaderboard(ctx context.Context, run int64, model string, format int) ([]store.LeaderboardRow, error)
-	History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error)
+	History(ctx context.Context, run int64, model string, format int, window string) (time.Time, []store.HistoryRow, error)
 }
 
 // PlayerReads are player.go's reads.

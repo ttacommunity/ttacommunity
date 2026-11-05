@@ -322,64 +322,126 @@ func addHistory(t *testing.T, pool *pgxpool.Pool, run int64, model string, forma
 	}
 }
 
-func TestHistoryGivesTheSnapshotOnOrBeforeADateAsUpstream(t *testing.T) {
-	pool := migrated(t)
-	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
-	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-03-31", 1500)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "cat", "2026-03-31", 1450)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-04-30", 1600)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-05-31", 1700)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-05-31", 1400)
-	addHistory(t, pool, run, "glicko2_daneo", 2, "ann", "2026-04-30", 9999)
-	addHistory(t, pool, run, "glicko2_std", 0, "ann", "2026-04-30", 9999)
-
-	at := day("2026-05-01")
-	gotAt, rows, err := r.History(ctx, run, "glicko2_daneo", 0, &at)
+func addWindow(t *testing.T, pool *pgxpool.Pool, run int64, model string, format int, window, name, period string, rank int, cRating float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO rating_windows (run_id, model_type, player_count, delta_window, period_date, player_id, rating, rd, c_rating, rank)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::float8 + 90, 30, $7::float8, $8)`,
+		run, model, format, window, period, playerID(t, pool, name), cRating, rank)
 	if err != nil {
-		t.Fatalf("History: %v", err)
-	}
-	want := []HistoryRow{{Name: "ann", Rating: 1690, RD: 30, CRating: 1600}}
-	if !gotAt.Equal(day("2026-04-30")) || !slices.Equal(rows, want) {
-		t.Errorf("History = %v %+v, want the 2026-04-30 snapshot %+v (cat is not in it, bob had no rating yet)", gotAt, rows, want)
-	}
-
-	early := day("2025-01-01")
-	gotAt, rows, err = r.History(ctx, run, "glicko2_daneo", 0, &early)
-	if err != nil || !gotAt.Equal(day("2026-03-31")) || len(rows) != 2 {
-		t.Errorf("History before any snapshot = %v %+v %v, want the first, 2026-03-31, with ann and cat", gotAt, rows, err)
+		t.Fatalf("adding %s's %s board in run %d: %v", name, window, run, err)
 	}
 }
 
-func TestHistoryWithoutADateUsesThePreviousPeriod(t *testing.T) {
-	pool := migrated(t)
-	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
-	run := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-06-30", 1500)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-07-31", 1600)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "bob", "2026-08-31", 1700)
-
-	gotAt, rows, err := r.History(ctx, run, "glicko2_daneo", 0, nil)
-	if err != nil {
-		t.Fatalf("History: %v", err)
-	}
-	if !gotAt.Equal(day("2026-07-31")) {
-		t.Errorf("at = %v, want the previous period 2026-07-31", gotAt)
-	}
-	if len(rows) != 1 || rows[0].Name != "ann" || rows[0].CRating != 1600 {
-		t.Errorf("History = %+v, want ann at 1600", rows)
+// startedAt records that run started at.
+func startedAt(t *testing.T, pool *pgxpool.Pool, run int64, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), "UPDATE rating_runs SET started_at = $2 WHERE run_id = $1", run, at); err != nil {
+		t.Fatalf("starting run %d at %v: %v", run, at, err)
 	}
 }
 
-func TestHistoryRefusesEmptyHistory(t *testing.T) {
+// addDataLoad records a data load made at, whose last finished game was on lastGame.
+func addDataLoad(t *testing.T, pool *pgxpool.Pool, at time.Time, lastGame string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		WITH b AS (INSERT INTO import_batches (source, created_at) VALUES ('load', $1) RETURNING batch_id)
+		INSERT INTO data_loads (batch_id, last_game) SELECT batch_id, $2 FROM b`, at, lastGame)
+	if err != nil {
+		t.Fatalf("adding a data load at %v: %v", at, err)
+	}
+}
+
+func TestHistoryOfAWindowIsTheRunsBoardAtItsStart(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
-	ctx := context.Background()
-	empty := addRun(t, pool, "complete", time.Date(2026, 9, 27, 4, 0, 0, 0, time.UTC))
-	if _, _, err := r.History(ctx, empty, "glicko2_daneo", 0, nil); !errors.Is(err, ErrNoHistory) {
-		t.Errorf("History with no periods: err = %v, want ErrNoHistory", err)
+	run := publishedRun(t, pool)
+	addWindow(t, pool, run, "glicko2_daneo", 0, "month", "ann", "2026-09-30", 2, 1500)
+	addWindow(t, pool, run, "glicko2_daneo", 0, "month", "bob", "2026-09-30", 1, 1600)
+	addWindow(t, pool, run, "glicko2_daneo", 0, "quarter", "ann", "2026-07-31", 1, 9999)
+	addWindow(t, pool, run, "glicko2_daneo", 2, "month", "ann", "2026-09-30", 1, 9999)
+	addWindow(t, pool, run, "glicko2_std", 0, "month", "ann", "2026-09-30", 1, 9999)
+
+	at, rows, err := r.History(context.Background(), run, "glicko2_daneo", 0, "month")
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	want := []HistoryRow{{Name: "ann", Rating: 1590, RD: 30, CRating: 1500, Rank: 2}, {Name: "bob", Rating: 1690, RD: 30, CRating: 1600, Rank: 1}}
+	if !at.Equal(day("2026-09-30")) || !slices.Equal(rows, want) {
+		t.Errorf("History(month) = %v %+v, want 2026-09-30 %+v", at, rows, want)
+	}
+}
+
+func TestHistoryOfTheLastUpdateIsTheBoardMadeFromTheLoadBeforeTheLatest(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	at := func(month time.Month, d, h int) time.Time { return time.Date(2026, month, d, h, 0, 0, 0, time.UTC) }
+	addDataLoad(t, pool, at(10, 8, 3), "2026-10-06")
+	addDataLoad(t, pool, at(11, 4, 2), "2026-11-03")
+	runs := []struct {
+		name               string
+		started, published time.Time
+		cRating            float64
+	}{
+		{"before October's load", at(10, 1, 0), at(10, 1, 1), 1100},
+		{"from October's load", at(10, 30, 8), at(10, 30, 9), 1200},
+		{"from October's load, published last", at(10, 31, 5), at(10, 31, 6), 1300},
+		{"from October's load, never published", at(11, 1, 0), time.Time{}, 1400},
+		{"the run asked for", at(11, 4, 3), at(11, 4, 4), 1500},
+	}
+	var asked int64
+	for _, rn := range runs {
+		run := addRun(t, pool, "complete", rn.published)
+		startedAt(t, pool, run, rn.started)
+		addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), rn.cRating)
+		asked = run
+	}
+	addDataLoad(t, pool, at(11, 5, 0), "2026-11-04")
+
+	on, rows, err := r.History(context.Background(), asked, "glicko2_daneo", 0, "last_update")
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	want := []HistoryRow{{Name: "ann", Rating: 1400, RD: 50, CRating: 1300, Rank: 1}}
+	if !on.Equal(day("2026-10-06")) || !slices.Equal(rows, want) {
+		t.Errorf("History(last_update) = %v %+v, want October's load's last game 2026-10-06 and the board %+v", on, rows, want)
+	}
+}
+
+func TestHistoryWithNoBoardToCompareWithIsErrNoPastBoard(t *testing.T) {
+	tests := []struct {
+		name, window string
+		loads        int
+	}{
+		{"a window the run saved no board for", "year", 2},
+		{"the last update with one data load", "last_update", 1},
+		{"the last update with no run made from the load before", "last_update", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			r := NewRatingsReader(asReader(t, pool))
+			for i := range tt.loads {
+				addDataLoad(t, pool, time.Date(2026, 10, 1+i, 0, 0, 0, 0, time.UTC), "2026-09-30")
+			}
+			run := publishedRun(t, pool)
+			startedAt(t, pool, run, time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC))
+			addRating(t, pool, run, "glicko2_daneo", 0, "ann", ptr(1), 1500)
+			addWindow(t, pool, run, "glicko2_daneo", 0, "month", "ann", "2026-09-30", 1, 1500)
+
+			if _, _, err := r.History(context.Background(), run, "glicko2_daneo", 0, tt.window); !errors.Is(err, ErrNoPastBoard) {
+				t.Errorf("History(%s): err = %v, want ErrNoPastBoard", tt.window, err)
+			}
+		})
+	}
+}
+
+func TestHistoryRefusesAnUnknownWindow(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	run := publishedRun(t, pool)
+	if _, _, err := r.History(context.Background(), run, "glicko2_daneo", 0, "week"); err == nil || errors.Is(err, ErrNoPastBoard) {
+		t.Errorf("History(week): err = %v, want an unknown window refused", err)
 	}
 }
 
@@ -531,7 +593,7 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 		"RecentPodiums":        func() error { _, err := r.RecentPodiums(ctx, run, 12, 8); return err },
 		"RunLastGame":          func() error { _, err := r.RunLastGame(ctx, run); return err },
 		"Leaderboard":          func() error { _, err := r.Leaderboard(ctx, run, "glicko2_daneo", 0); return err },
-		"History":              func() error { _, _, err := r.History(ctx, run, "glicko2_daneo", 0, nil); return err },
+		"History":              func() error { _, _, err := r.History(ctx, run, "glicko2_daneo", 0, "month"); return err },
 		"TournamentSeries":     func() error { _, err := r.TournamentSeries(ctx, run, "international"); return err },
 		"HallOfFame":           func() error { _, err := r.HallOfFame(ctx, run); return err },
 		"PlayerAchievements":   func() error { _, _, _, err := r.PlayerAchievements(ctx, run, "Ann"); return err },
@@ -564,21 +626,49 @@ func TestEveryReaderRefusesAnUnpublishedRun(t *testing.T) {
 }
 
 func TestHistoryLeavesOutHiddenPlayers(t *testing.T) {
-	pool := migrated(t)
-	r := NewRatingsReader(asReader(t, pool))
-	run := publishedRun(t, pool)
-	addPlayers(t, pool, "ann", "cat")
-	hideAccount(t, pool, "ann", "deleted")
-	addHistory(t, pool, run, "glicko2_daneo", 0, "ann", "2026-03-31", 1600)
-	addHistory(t, pool, run, "glicko2_daneo", 0, "cat", "2026-03-31", 1500)
+	for _, window := range []string{"month", "last_update"} {
+		t.Run(window, func(t *testing.T) {
+			pool := migrated(t)
+			r := NewRatingsReader(asReader(t, pool))
+			addPlayers(t, pool, "ann", "cat")
+			hideAccount(t, pool, "ann", "deleted")
+			addDataLoad(t, pool, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), "2026-09-30")
+			before := publishedRun(t, pool)
+			startedAt(t, pool, before, time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC))
+			addDataLoad(t, pool, time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC), "2026-10-02")
+			run := publishedRun(t, pool)
+			startedAt(t, pool, run, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC))
+			for i, name := range []string{"ann", "cat"} {
+				addRating(t, pool, before, "glicko2_daneo", 0, name, ptr(i+1), 1600)
+				addWindow(t, pool, run, "glicko2_daneo", 0, "month", name, "2026-09-30", i+1, 1600)
+			}
 
-	at := day("2026-04-01")
-	_, rows, err := r.History(context.Background(), run, "glicko2_daneo", 0, &at)
-	if err != nil {
-		t.Fatalf("History: %v", err)
+			_, rows, err := r.History(context.Background(), run, "glicko2_daneo", 0, window)
+			if err != nil {
+				t.Fatalf("History: %v", err)
+			}
+			if len(rows) != 1 || rows[0].Name != "cat" {
+				t.Errorf("History(%s) = %+v, want cat only: ann's account is deleted", window, rows)
+			}
+		})
 	}
-	if len(rows) != 1 || rows[0].Name != "cat" {
-		t.Errorf("History = %+v, want cat only: ann's account is deleted", rows)
+}
+
+func TestMigration77sDownTakesTheDataLoadsAwayAndUpBringsThemBack(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	present := func() []string { return rowsOf(t, pool, "SELECT coalesce(to_regclass('data_loads')::text, 'none')") }
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 76); return err }); err != nil {
+		t.Fatalf("migrating down to 76: %v", err)
+	}
+	if got := present(); !slices.Equal(got, []string{"none"}) {
+		t.Errorf("at 76, data_loads = %q, want none", got)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up again: %v", err)
+	}
+	if got := present(); !slices.Equal(got, []string{"data_loads"}) {
+		t.Errorf("up again: %q, want data_loads", got)
 	}
 }
 

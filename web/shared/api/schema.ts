@@ -132,12 +132,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Each player's rating at a past date, for rating changes over time
-         * @description The snapshot of the latest rating period on or before `at` (the first
-         *     period when `at` is earlier), as the original site compares against:
-         *     the players in that snapshot, each with their rating then. Without
-         *     `at`, the run's previous period, the one before its last. The answer's
-         *     date is the snapshot's. Players whose CGE accounts are deleted or
+         * The past board a leaderboard delta window compares with
+         * @description Every player on the board the window starts from, with their rating
+         *     and rank then. `month`, `quarter` and `year` are the run's own board
+         *     at the last rating period on or before 30, 90 and 365 days before its
+         *     last game, idle players included. `last_update` is the final board of
+         *     the latest published run made from the data load before the one this
+         *     run was made from, dated by that load's last finished game. A window
+         *     with no such board is 404. Players whose CGE accounts are deleted or
          *     banned are left out. Cached for five minutes.
          */
         get: operations["getHistory"];
@@ -4563,14 +4565,20 @@ export interface components {
             /** @description Badges admin gave the player, by label, shown beside the title */
             badges?: components["schemas"]["ExtraBadge"][];
         };
+        /**
+         * @description What a leaderboard delta compares with
+         * @enum {string}
+         */
+        DeltaWindow: "last_update" | "month" | "quarter" | "year";
         History: {
             /** Format: int64 */
             run_id: number;
             model: components["schemas"]["Model"];
             format: components["schemas"]["Format"];
+            window: components["schemas"]["DeltaWindow"];
             /**
              * Format: date
-             * @description The date asked for, or the previous period's when none was
+             * @description The board's date, its rating period's or its data load's last game
              */
             at: string;
             players: components["schemas"]["HistoryRow"][];
@@ -4583,6 +4591,8 @@ export interface components {
             rd: number;
             /** Format: double */
             c_rating: number;
+            /** @description The player's rank on that board, every player of it counted */
+            rank: number;
         };
         /** @enum {string} */
         TitleCode: "WC" | "SGM" | "WCS" | "WCB" | "GM" | "M" | "P" | "G" | "S" | "B" | "W";
@@ -6310,10 +6320,10 @@ export interface operations {
     };
     getHistory: {
         parameters: {
-            query?: {
+            query: {
                 model?: components["parameters"]["Model"];
                 format?: components["parameters"]["Format"];
-                at?: string;
+                window: components["schemas"]["DeltaWindow"];
             };
             header?: never;
             path: {
@@ -6324,7 +6334,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The ratings at that date */
+            /** @description The board the window starts from */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
@@ -10309,6 +10319,7 @@ export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
+export const deltaWindowValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DeltaWindow"]> = ["last_update", "month", "quarter", "year"];
 export const titleCodeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TitleCode"]> = ["WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"];
 export const roleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Role"]> = ["admin", "organiser"];
 export const entrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EntrantStatus"]> = ["active", "dropped"];

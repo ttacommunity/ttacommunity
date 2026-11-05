@@ -152,15 +152,15 @@ describe('leaderboard', () => {
 });
 
 describe('history', () => {
-  it('asks for a date, or for the previous period without one', async () => {
-    const f = fakeFetch(200, '{"run_id":5,"model":"glicko2_std","format":2,"at":"2026-05-01","players":[]}');
-    const got = await history('https://api.example', 5, 'glicko2_std', 2, '2026-05-01', f.fetch);
-    await history('https://api.example', 5, 'glicko2_daneo', 0, null, f.fetch);
+  it('asks for the board a delta window compares with', async () => {
+    const f = fakeFetch(200, '{"run_id":5,"model":"glicko2_std","format":2,"window":"month","at":"2026-09-30","players":[]}');
+    const got = await history('https://api.example', 5, 'glicko2_std', 2, 'month', f.fetch);
+    await history('https://api.example', 5, 'glicko2_daneo', 0, 'last_update', f.fetch);
 
-    expect(got.at).toBe('2026-05-01');
+    expect(got.at).toBe('2026-09-30');
     expect(f.calls.map((c) => c.url)).toEqual([
-      'https://api.example/v1/runs/5/history?model=glicko2_std&format=2&at=2026-05-01',
-      'https://api.example/v1/runs/5/history?model=glicko2_daneo&format=0',
+      'https://api.example/v1/runs/5/history?model=glicko2_std&format=2&window=month',
+      'https://api.example/v1/runs/5/history?model=glicko2_daneo&format=0&window=last_update',
     ]);
     expect(f.calls[0]?.init?.credentials).toBe('omit');
   });

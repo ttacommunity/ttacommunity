@@ -434,6 +434,10 @@ to our database:
   the game: the load never adds that seat and drops our seat paired with it.
 - A season ticked "Run on this site" in admin (a blitz tournament CGE only
   advertises) takes its CGE tournament's page and nothing else.
+- A load that adds, changes or removes a game or a seat is recorded as a
+  data load, dated by the last game the delivery shows finished. The
+  leaderboard's "Last Webmaster Update" compares a run with the latest
+  published run made from the data load before its own.
 
 It writes a summary of what the delivery changes (`-json` for the same as
 JSON), naming no player, and writes nothing unless given `-apply`: without

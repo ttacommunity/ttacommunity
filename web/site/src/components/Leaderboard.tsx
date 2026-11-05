@@ -22,12 +22,12 @@ import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
-  deltaDates,
   inactiveCutoff,
   csvUrl,
   defaultMinOpps,
   deltas,
   rankChange,
+  rankNow,
   hasFilters,
   hasOptions,
   modelOf,
@@ -151,7 +151,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     }
     let stale = false;
     const { board } = state;
-    history(apiUrl, board.run_id, board.model, board.format, deltaDates(state.lastGame)[view.delta])
+    history(apiUrl, board.run_id, board.model, board.format, view.delta)
       .then((past) => !stale && setChanges(deltas(board.players, past.players)))
       .catch(() => !stale && setChanges(new Map()));
     return () => {
@@ -562,7 +562,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
             <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'jump-highlight' : undefined}>
               <td className={show.isTopThree(p.displayRank) ? 'col-sticky-rank rank-col top-3-rank' : 'col-sticky-rank rank-col'}>
                 {show.rank(p.displayRank)}
-                {changes !== null && <RankChange delta={changes.get(p.name)} rank={p.displayRank} />}
+                {changes !== null && <RankChange delta={changes.get(p.name)} rank={rankNow(p, view)} />}
               </td>
               <td>
                 <Flag country={p.country} />

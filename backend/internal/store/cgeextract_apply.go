@@ -113,6 +113,7 @@ func applyCGEExtract(ctx context.Context, pool *pgxpool.Pool, plan CGEPlan, in C
 		{"writing refusals", writeRefusals},
 		{"reading outcomes from the files' scores", fileOutcomes},
 		{"counting what changed", countChanges},
+		{"recording the data load", recordDataLoad},
 		{"linking members", func(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) (err error) {
 			got.Members, err = linkMembers(ctx, tx)
 			return err
@@ -622,6 +623,19 @@ func fileOutcomes(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CGEA
 
 // gameRow is a game and its seats as one text, to tell a game a load changed from one it left as it was.
 const gameRow = `md5(g::text || coalesce((SELECT string_agg(s::text, '|' ORDER BY s.seat) FROM seats s WHERE s.game_id = g.game_id), ''))`
+
+// recordDataLoad records the load as a data load, dated by the last game the extract shows finished, when it
+// added, changed or removed a game or a seat; a load of games already held is none.
+func recordDataLoad(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
+	if got.Added+got.GamesChanged+got.GamesRemoved+got.CopiesRemoved+got.SeatsAdded+got.SeatsRemoved == 0 {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO data_loads (batch_id, last_game)
+		SELECT $1, max((finished_at AT TIME ZONE 'UTC')::date) FROM x_seats WHERE state = 'finished'
+		HAVING max(finished_at) IS NOT NULL`, got.BatchID)
+	return err
+}
 
 // countChanges counts the matched games the load changed and left as they were, and their changes of state.
 func countChanges(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {

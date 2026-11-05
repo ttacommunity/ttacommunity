@@ -4,7 +4,6 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
@@ -71,20 +70,19 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 	}, nil
 }
 
-// GetHistory returns each player's rating at a past date, or at the run's
-// previous period when no date is given.
+// GetHistory returns the past board a published run's delta window compares
+// with, refusing unknown values before they reach the database.
 func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (GetHistoryResponseObject, error) {
 	model, format, msg := boardParams(req.Run, req.Params.Model, req.Params.Format)
+	if msg == "" && !req.Params.Window.Valid() {
+		msg = "unknown window"
+	}
 	if msg != "" {
 		return GetHistory400JSONResponse{badRequestBody(msg)}, nil
 	}
-	var at *time.Time
-	if req.Params.At != nil {
-		at = &req.Params.At.Time
-	}
 
-	on, rows, err := s.ratings.History(ctx, req.Run, string(model), int(format), at)
-	if errors.Is(err, store.ErrRunNotFound) || errors.Is(err, store.ErrNoHistory) {
+	on, rows, err := s.ratings.History(ctx, req.Run, string(model), int(format), string(req.Params.Window))
+	if errors.Is(err, store.ErrRunNotFound) || errors.Is(err, store.ErrNoPastBoard) {
 		return GetHistory404JSONResponse{NotFoundJSONResponse{
 			Body:    Error{Error: err.Error()},
 			Headers: NotFoundResponseHeaders{CacheControl: cacheNone},
@@ -95,10 +93,11 @@ func (s *server) GetHistory(ctx context.Context, req GetHistoryRequestObject) (G
 	}
 	players := make([]HistoryRow, 0, len(rows))
 	for _, h := range rows {
-		players = append(players, HistoryRow{Name: h.Name, Rating: h.Rating, Rd: h.RD, CRating: h.CRating})
+		players = append(players, HistoryRow{Name: h.Name, Rating: h.Rating, Rd: h.RD, CRating: h.CRating, Rank: h.Rank})
 	}
 	return GetHistory200JSONResponse{
-		Body:    History{RunId: req.Run, Model: model, Format: format, At: openapi_types.Date{Time: on}, Players: players},
+		Body: History{RunId: req.Run, Model: model, Format: format, Window: req.Params.Window,
+			At: openapi_types.Date{Time: on}, Players: players},
 		Headers: GetHistory200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
 }

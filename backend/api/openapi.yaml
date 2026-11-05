@@ -205,27 +205,28 @@ paths:
     get:
       operationId: getHistory
       tags: [ratings]
-      summary: Each player's rating at a past date, for rating changes over time
+      summary: The past board a leaderboard delta window compares with
       description: |
-        The snapshot of the latest rating period on or before `at` (the first
-        period when `at` is earlier), as the original site compares against:
-        the players in that snapshot, each with their rating then. Without
-        `at`, the run's previous period, the one before its last. The answer's
-        date is the snapshot's. Players whose CGE accounts are deleted or
+        Every player on the board the window starts from, with their rating
+        and rank then. `month`, `quarter` and `year` are the run's own board
+        at the last rating period on or before 30, 90 and 365 days before its
+        last game, idle players included. `last_update` is the final board of
+        the latest published run made from the data load before the one this
+        run was made from, dated by that load's last finished game. A window
+        with no such board is 404. Players whose CGE accounts are deleted or
         banned are left out. Cached for five minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/Model"
         - $ref: "#/components/parameters/Format"
-        - name: at
+        - name: window
           in: query
-          required: false
+          required: true
           schema:
-            type: string
-            format: date
+            $ref: "#/components/schemas/DeltaWindow"
       responses:
         "200":
-          description: The ratings at that date
+          description: The board the window starts from
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -7334,9 +7335,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExtraBadge"
+    DeltaWindow:
+      description: What a leaderboard delta compares with
+      type: string
+      enum: [last_update, month, quarter, year]
     History:
       type: object
-      required: [run_id, model, format, at, players]
+      required: [run_id, model, format, window, at, players]
       properties:
         run_id:
           type: integer
@@ -7345,8 +7350,10 @@ components:
           $ref: "#/components/schemas/Model"
         format:
           $ref: "#/components/schemas/Format"
+        window:
+          $ref: "#/components/schemas/DeltaWindow"
         at:
-          description: The date asked for, or the previous period's when none was
+          description: The board's date, its rating period's or its data load's last game
           type: string
           format: date
         players:
@@ -7355,7 +7362,7 @@ components:
             $ref: "#/components/schemas/HistoryRow"
     HistoryRow:
       type: object
-      required: [name, rating, rd, c_rating]
+      required: [name, rating, rd, c_rating, rank]
       properties:
         name:
           type: string
@@ -7368,6 +7375,9 @@ components:
         c_rating:
           type: number
           format: double
+        rank:
+          description: The player's rank on that board, every player of it counted
+          type: integer
     TitleCode:
       type: string
       enum: [WC, SGM, WCS, WCB, GM, M, P, G, S, B, W]
