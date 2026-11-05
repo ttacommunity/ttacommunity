@@ -3816,11 +3816,13 @@ type PlayerRating struct {
 	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
 	// (`glicko2_std`), the benchmark. The other models of upstream's site
 	// were retired in 2026-10 and are refused.
-	Model     Model   `json:"model"`
-	Opponents int     `json:"opponents"`
-	Rank      *int    `json:"rank"`
-	Rating    float64 `json:"rating"`
-	Rd        float64 `json:"rd"`
+	Model     Model `json:"model"`
+	Opponents int   `json:"opponents"`
+
+	// Rank Active rank in this model and format (matching the default leaderboard with >= 30 opponents and played in the last 12 months); null when inactive or fewer than 30 opponents
+	Rank   *int    `json:"rank"`
+	Rating float64 `json:"rating"`
+	Rd     float64 `json:"rd"`
 
 	// WinRate Percent, 0 to 100
 	WinRate float64 `json:"win_rate"`

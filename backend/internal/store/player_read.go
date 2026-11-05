@@ -195,10 +195,40 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	}
 
 	rows, err = r.pool.Query(ctx, `
-		SELECT model_type, player_count, rank, rating, rd, c_rating, opponents_count, win_rate
-		FROM player_ratings
-		WHERE run_id = $1 AND player_id = $2 AND model_type = ANY($3)
-		ORDER BY model_type, player_count`, run, who.ID, PlayerPageModels)
+WITH run_info AS (
+			SELECT coalesce(
+				(SELECT last_game FROM rating_runs WHERE run_id = $1),
+				(SELECT max(date) FROM pairwise_matches WHERE run_id = $1),
+				'2025-05-31'::date
+			) - interval '1 year' AS cutoff
+		)
+		SELECT
+			r.model_type,
+			r.player_count,
+			CASE
+				WHEN r.opponents_count >= 30 AND r.last_played > info.cutoff
+				THEN ((
+					SELECT count(*) + 1
+					FROM player_ratings o
+					JOIN players p ON p.player_id = o.player_id
+					WHERE o.run_id = r.run_id
+					  AND o.model_type = r.model_type
+					  AND o.player_count = r.player_count
+					  AND o.opponents_count >= 30
+					  AND o.last_played > info.cutoff
+					  AND NOT EXISTS (
+						  SELECT 1 FROM player_accounts pa
+						  WHERE pa.player_id = p.player_id AND (pa.deleted OR pa.banned)
+					  )
+					  AND (o.c_rating > r.c_rating OR (o.c_rating = r.c_rating AND p.name < p_self.name))
+				))::int
+				ELSE NULL
+			END AS rank,
+			r.rating, r.rd, r.c_rating, r.opponents_count, r.win_rate
+		FROM player_ratings r
+		JOIN players p_self ON p_self.player_id = r.player_id, run_info info
+		WHERE r.run_id = $1 AND r.player_id = $2 AND r.model_type = ANY($3)
+		ORDER BY r.model_type, r.player_count`, run, who.ID, PlayerPageModels)
 	if err != nil {
 		return Player{}, fmt.Errorf("reading a player's ratings in run %d: %w", run, err)
 	}
