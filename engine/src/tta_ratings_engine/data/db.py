@@ -70,18 +70,27 @@ RATING_COLUMNS = (
 HISTORY_COLUMNS = (
     "model_type, player_count, player_id, period_date, rating, rd, c_rating"
 )
+WINDOW_COLUMNS = "model_type, player_count, delta_window, period_date, player_id, rating, rd, c_rating, rank"
+
+
+def run_last_game(conn, run_id):
+    """Returns the date of the run's last pair as 'YYYY-MM-DD', the date its delta windows reach back from, or None."""
+    return conn.execute(
+        "SELECT to_char(max(date), 'YYYY-MM-DD') AS last FROM pairwise_matches WHERE run_id = %s",
+        (run_id,),
+    ).fetchone()["last"]
 
 
 def save_model_results(
-    conn, run_id, model_type, player_count, rating_rows, history_rows
+    conn, run_id, model_type, player_count, rating_rows, history_rows, window_rows
 ):
-    """Replaces one model and format's ratings and history in a run.
+    """Replaces one model and format's ratings, history and delta window boards in a run.
 
-    Rows are tuples in RATING_COLUMNS and HISTORY_COLUMNS order, without the
-    run_id. Written with COPY; the caller commits. Raises RunNotRunning.
+    Rows are tuples in RATING_COLUMNS, HISTORY_COLUMNS and WINDOW_COLUMNS order,
+    without the run_id. Written with COPY; the caller commits. Raises RunNotRunning.
     """
     require_running(conn, run_id)
-    for table in ("player_ratings", "rating_history"):
+    for table in ("player_ratings", "rating_history", "rating_windows"):
         conn.execute(
             f"DELETE FROM {table} WHERE run_id = %s AND model_type = %s AND player_count = %s",
             (run_id, model_type, player_count),
@@ -89,6 +98,7 @@ def save_model_results(
     for table, columns, rows in (
         ("player_ratings", RATING_COLUMNS, rating_rows),
         ("rating_history", HISTORY_COLUMNS, history_rows),
+        ("rating_windows", WINDOW_COLUMNS, window_rows),
     ):
         with conn.cursor().copy(f"COPY {table} (run_id, {columns}) FROM STDIN") as copy:
             for row in rows:

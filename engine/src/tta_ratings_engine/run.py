@@ -70,6 +70,7 @@ RUN_STATS = ["games", "players", "pairs", "first_game", "last_game", "result_row
 COPIED_TABLES = [
     "player_ratings",
     "rating_history",
+    "rating_windows",
     "standard_calibration",
     "walk_forward_calibration",
 ]

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pressly/goose/v3"
 )
 
 func TestRatingsReadRoleCanOnlySelect(t *testing.T) {
@@ -577,5 +579,31 @@ func TestHistoryLeavesOutHiddenPlayers(t *testing.T) {
 	}
 	if len(rows) != 1 || rows[0].Name != "cat" {
 		t.Errorf("History = %+v, want cat only: ann's account is deleted", rows)
+	}
+}
+
+func TestMigration76sDownTakesTheWindowBoardsAwayAndUpGivesEveryRunAPartition(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	var run int64
+	if err := pool.QueryRow(ctx, "INSERT INTO rating_runs (engine_version, input_fingerprint) VALUES ('v1', 'f1') RETURNING run_id").Scan(&run); err != nil {
+		t.Fatalf("adding a run: %v", err)
+	}
+	partitions := func() []string {
+		return rowsOf(t, pool, `SELECT c.relname FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid
+			WHERE i.inhparent = to_regclass('rating_windows') ORDER BY 1`)
+	}
+	want := []string{"rating_windows_run" + strconv.FormatInt(run, 10)}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 75); return err }); err != nil {
+		t.Fatalf("migrating down to 75: %v", err)
+	}
+	if got := rowsOf(t, pool, "SELECT coalesce(to_regclass('rating_windows')::text, 'none')"); !slices.Equal(got, []string{"none"}) {
+		t.Errorf("at 75, rating_windows = %q, want none", got)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up again: %v", err)
+	}
+	if got := partitions(); !slices.Equal(got, want) {
+		t.Errorf("up again: partitions %q, want %q", got, want)
 	}
 }

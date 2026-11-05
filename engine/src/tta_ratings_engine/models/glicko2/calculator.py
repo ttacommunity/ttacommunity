@@ -1,14 +1,15 @@
 """Glicko-2 calendar monthly batch calculator calibrated to TTA tournament cadence."""
 
 import math
+from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import psycopg
 
-from tta_ratings_engine.data.db import load_pairs, save_model_results
+from tta_ratings_engine.data.db import load_pairs, run_last_game, save_model_results
 from tta_ratings_engine.models.glicko2.engine import (
     GLICKO2_SCALE,
     Rating,
@@ -21,6 +22,9 @@ CALIBRATED_SIGMA = 0.03
 INACTIVITY_DRIFT_PER_MONTH = 0.01  # gentle variance growth per missed month (~1.7 RD)
 
 PHI = 1.61803398875
+
+# The leaderboard's delta windows, by the days they reach back from the run's last game.
+WINDOW_DAYS = {"month": 30, "quarter": 90, "year": 365}
 
 # DANeo Golden Ratio Multiplayer Information Decomposition Weights:
 # W(N) = phi^(N-2) effective 1v1 equivalents
@@ -228,6 +232,20 @@ def by_month(rows: list[Any]) -> list[tuple[str, list[Any]]]:
     for r in rows:
         periods[r["date"][:7]].append(r)
     return [(m, periods[m]) for m in sorted(periods)]
+
+
+def window_starts(periods: list[str], last_game: str) -> dict[str, int]:
+    """Returns, for each delta window, the index of the last period on or before its days before last_game.
+
+    periods are 'YYYY-MM-DD' dates in order; a window with no period that early is left out.
+    """
+    last = date.fromisoformat(last_game)
+    starts = {}
+    for window, days in WINDOW_DAYS.items():
+        before = bisect_right(periods, (last - timedelta(days=days)).isoformat())
+        if before:
+            starts[window] = before - 1
+    return starts
 
 
 def new_year(previous: str | None, month: str) -> bool:
@@ -595,14 +613,26 @@ def compute_glicko2_ratings(
             priors = calibrated_priors(months, thresholds, weighted, softer, player_count)  # fmt: skip
 
         model = SecondPass(priors, thresholds, weighted, retro_calibrated, player_count)  # fmt: skip
+        last_game = run_last_game(conn, run_id)
+        periods = [matches[-1]["date"][:10] for _, matches in months]
+        starts = window_starts(periods, last_game) if last_game else {}
         history_records = []
+        window_records = []
+        played: set[str] = set()
         previous = None
-        for month, matches in months:
+        for i, (month, matches) in enumerate(months):
             if softer and new_year(previous, month):
                 model.season_reset()
             previous = month
             period_date_str = matches[-1]["date"][:10]
-            for p_name in model.rate_month(matches):
+            rated = model.rate_month(matches)
+            played.update(rated)
+            for window in (w for w, start in starts.items() if start == i):
+                board = {p: model.ratings[p] for p in played}
+                window_records += _window_rows(
+                    model_type, player_count, window, period_date_str, board
+                )
+            for p_name in rated:
                 curr = model.ratings[p_name]
                 history_records.append(
                     (
@@ -621,7 +651,13 @@ def compute_glicko2_ratings(
             model_type, player_count, ratings, _player_stats(conn, run_id, player_count)
         )
         save_model_results(
-            conn, run_id, model_type, player_count, rating_rows, history_records
+            conn,
+            run_id,
+            model_type,
+            player_count,
+            rating_rows,
+            history_records,
+            window_records,
         )
 
         fmt_label = f"{player_count}p" if player_count > 0 else "All"
@@ -672,6 +708,27 @@ def _player_stats(
             (run_id,),
         ).fetchall()
     return {r["player_id"]: r for r in stats_rows}
+
+
+def _window_rows(
+    model_type: str,
+    player_count: int,
+    window: str,
+    period_date: str,
+    board: dict[str, Rating],
+) -> list[tuple[Any, ...]]:
+    """Returns a delta window's rating_windows rows for board, ranked by conservative rating, then player."""
+    rows = sorted(
+        (
+            (round(r.conservative_rating, 2), p, round(r.rating, 2), round(r.rd, 2))
+            for p, r in board.items()
+        ),
+        key=lambda row: (-row[0], row[1]),
+    )
+    return [
+        (model_type, player_count, window, period_date, p, rating, rd, c_rating, rank)
+        for rank, (c_rating, p, rating, rd) in enumerate(rows, 1)
+    ]
 
 
 def _rating_rows(
