@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { LeaderboardRow, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 import {
   DEFAULT_VIEW,
-  deltaDates,
   csvUrl,
   inactiveCutoff,
   deltas,
@@ -27,7 +26,8 @@ import {
   parseSearch,
   excludePlayer,
   includePlayer,
-  type View, rankChange } from './leaderboard-view';
+  type RankedRow,
+  type View, rankChange, rankNow } from './leaderboard-view';
 
 function row(name: string, c_rating: number, opponents = 40, last_played: string | null = '2026-01-01', extra: Partial<LeaderboardRow> = {}): LeaderboardRow {
   return {
@@ -318,21 +318,30 @@ describe('titleOptions', () => {
 });
 
 describe('deltas', () => {
-  it('is each shown player now minus their past rating, and 0 without history', () => {
-    const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550 }]);
-    expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50, pastRank: 1 });
+  it('is each shown player now minus their rating on the past board, and 0 for a player not on it', () => {
+    const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550, rank: 7 }]);
+    expect(got.get('ann')).toEqual({ c_rating: 50, rating: 50, pastRank: 7 });
     expect(got.get('bob')).toEqual({ c_rating: 0, rating: 0, pastRank: null });
   });
 
-  it("gives each player's past rank among everyone then, by conservative rating, as upstream", () => {
+  it("takes each player's past rank from the past board, where every player then is ranked", () => {
     const past = [
-      { name: 'cat', rating: 1900, rd: 30, c_rating: 1800 },
-      { name: 'ann', rating: 1700, rd: 30, c_rating: 1600 },
-      { name: 'zed', rating: 1700, rd: 30, c_rating: 1600 },
-      { name: 'bob', rating: 1800, rd: 30, c_rating: 1700 },
+      { name: 'ann', rating: 1700, rd: 30, c_rating: 1600, rank: 12 },
+      { name: 'bob', rating: 1800, rd: 30, c_rating: 1700, rank: 3 },
     ];
-    const got = deltas([row('ann', 1600), row('bob', 1500), row('zed', 1400)], past);
-    expect([got.get('bob')?.pastRank, got.get('ann')?.pastRank, got.get('zed')?.pastRank]).toEqual([2, 3, 4]);
+    const got = deltas([row('ann', 1600), row('bob', 1500)], past);
+    expect([got.get('ann')?.pastRank, got.get('bob')?.pastRank]).toEqual([12, 3]);
+  });
+});
+
+describe('rankNow', () => {
+  const ranked = (rank: number | null, displayRank: number): RankedRow => ({ ...row('ann', 1500), rank, displayRank, active: true, provisional: false });
+  it.each([
+    ["the run's rank on the live board, every player counted", view(), ranked(40, 3), 40],
+    ['none on the live board for an unranked player', view(), ranked(null, 3), null],
+    ["the rank shown in a year's archive", view({ year: 2024 }), ranked(null, 3), 3],
+  ])('is what a past rank is compared with: %s', (_name, v, p, want) => {
+    expect(rankNow(p, v)).toBe(want);
   });
 });
 
@@ -451,16 +460,6 @@ describe('inactiveCutoff', () => {
     const rows = [row('summer', 1500, 40, '2025-07-01')];
     expect(rankPool(rows, view(), undefined, '2025-05-31').map((p) => p.name)).toEqual(['summer']);
     expect(rankPool(rows, view(), undefined, '2025-08-31')).toEqual([]);
-  });
-});
-
-describe('deltaDates', () => {
-  it("compares with 30, 90 and 365 days before the run's last game", () => {
-    expect(deltaDates('2026-08-31')).toEqual({ last_update: null, month: '2026-08-01', quarter: '2026-06-02', year: '2025-08-31' });
-  });
-
-  it("uses upstream's fixed dates for a run that recorded no last game", () => {
-    expect(deltaDates(null)).toEqual({ last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' });
   });
 });
 

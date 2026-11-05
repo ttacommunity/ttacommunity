@@ -319,6 +319,30 @@ func (e ChallengeScopeSet) Valid() bool {
 	}
 }
 
+// Defines values for DeltaWindow.
+const (
+	LastUpdate DeltaWindow = "last_update"
+	Month      DeltaWindow = "month"
+	Quarter    DeltaWindow = "quarter"
+	Year       DeltaWindow = "year"
+)
+
+// Valid indicates whether the value is a known member of the DeltaWindow enum.
+func (e DeltaWindow) Valid() bool {
+	switch e {
+	case LastUpdate:
+		return true
+	case Month:
+		return true
+	case Quarter:
+		return true
+	case Year:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EmailSignedInOutcome.
 const (
 	Added EmailSignedInOutcome = "added"
@@ -2840,6 +2864,9 @@ type DataSummary struct {
 	Unplaced int `json:"unplaced"`
 }
 
+// DeltaWindow What a leaderboard delta compares with
+type DeltaWindow string
+
 // DiscordAllowedMentions defines model for DiscordAllowedMentions.
 type DiscordAllowedMentions struct {
 	// Parse Always empty, so a reply mentions no one
@@ -3077,7 +3104,7 @@ type Health struct {
 
 // History defines model for History.
 type History struct {
-	// At The date asked for, or the previous period's when none was
+	// At The board's date, its rating period's or its data load's last game
 	At openapi_types.Date `json:"at"`
 
 	// Format Players per game. 0 is every format together
@@ -3090,6 +3117,9 @@ type History struct {
 	Model   Model        `json:"model"`
 	Players []HistoryRow `json:"players"`
 	RunId   int64        `json:"run_id"`
+
+	// Window What a leaderboard delta compares with
+	Window DeltaWindow `json:"window"`
 }
 
 // HistoryPoint defines model for HistoryPoint.
@@ -3103,8 +3133,11 @@ type HistoryPoint struct {
 type HistoryRow struct {
 	CRating float64 `json:"c_rating"`
 	Name    string  `json:"name"`
-	Rating  float64 `json:"rating"`
-	Rd      float64 `json:"rd"`
+
+	// Rank The player's rank on that board, every player of it counted
+	Rank   int     `json:"rank"`
+	Rating float64 `json:"rating"`
+	Rd     float64 `json:"rd"`
 }
 
 // HistorySeries defines model for HistorySeries.
@@ -4783,9 +4816,9 @@ type GetCatalogueGamesParams struct {
 
 // GetHistoryParams defines parameters for GetHistory.
 type GetHistoryParams struct {
-	Model  *Model              `form:"model,omitempty" json:"model,omitempty"`
-	Format *Format             `form:"format,omitempty" json:"format,omitempty"`
-	At     *openapi_types.Date `form:"at,omitempty" json:"at,omitempty"`
+	Model  *Model      `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format     `form:"format,omitempty" json:"format,omitempty"`
+	Window DeltaWindow `form:"window" json:"window"`
 }
 
 // GetLeaderboardParams defines parameters for GetLeaderboard.
@@ -5389,7 +5422,7 @@ type ServerInterface interface {
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(w http.ResponseWriter, r *http.Request, run RunId, edition CommunityEdition)
-	// GetHistory Each player's rating at a past date, for rating changes over time
+	// GetHistory The past board a leaderboard delta window compares with
 	// (GET /v1/runs/{run}/history)
 	GetHistory(w http.ResponseWriter, r *http.Request, run RunId, params GetHistoryParams)
 	// GetLeaderboard Every rated player in one model and format, in rank order
@@ -9459,15 +9492,15 @@ func (siw *ServerInterfaceWrapper) GetHistory(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// ------------- Optional query parameter "at" -------------
+	// ------------- Required query parameter "window" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "at", r.URL.Query(), &params.At, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "window", r.URL.Query(), &params.Window, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "at"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "window"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "at", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "window", Err: err})
 		}
 		return
 	}
@@ -21178,7 +21211,7 @@ type StrictServerInterface interface {
 	// GetCommunityLeaderboard An edition of the community leaderboard
 	// (GET /v1/runs/{run}/community/{edition})
 	GetCommunityLeaderboard(ctx context.Context, request GetCommunityLeaderboardRequestObject) (GetCommunityLeaderboardResponseObject, error)
-	// GetHistory Each player's rating at a past date, for rating changes over time
+	// GetHistory The past board a leaderboard delta window compares with
 	// (GET /v1/runs/{run}/history)
 	GetHistory(ctx context.Context, request GetHistoryRequestObject) (GetHistoryResponseObject, error)
 	// GetLeaderboard Every rated player in one model and format, in rank order

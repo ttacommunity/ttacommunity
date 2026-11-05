@@ -1445,3 +1445,60 @@ func TestApplyCGEExtractSummarisesWhatChanged(t *testing.T) {
 		t.Errorf("tournaments every game of which is removed = %v, want [1001]", plan.TournamentsEmptied)
 	}
 }
+
+// dataLoadSeats are two games CGE finished, the later on 5 March 2024, and one it cancelled after them.
+func dataLoadSeats() []cgeextract.Seat {
+	played := func(session int, code string, at time.Time) []cgeextract.Seat {
+		return finishedOn(at, inTournament(999, false, extractOf(999, session, code, cgeDone(1, "ann", 1, 100), cgeDone(2, "bob", 2, 50))))
+	}
+	cancelled := finishedOn(time.Date(2024, 3, 9, 12, 0, 0, 0, time.UTC),
+		inTournament(999, true, extractOf(999, 402, "CODECANC", cgeDone(1, "ann", 1, 0), cgeDone(2, "bob", 2, 0))))
+	for i := range cancelled {
+		cancelled[i].State = "cancelled"
+	}
+	return slices.Concat(played(400, "CODEOLDR", time.Date(2024, 2, 3, 21, 0, 0, 0, time.UTC)),
+		played(401, "CODENEWR", time.Date(2024, 3, 5, 23, 30, 0, 0, time.UTC)), cancelled)
+}
+
+func TestApplyCGEExtractRecordsADataLoadDatedByItsLastFinishedGame(t *testing.T) {
+	pool := migrated(t)
+	got, err := loadExtract(t, pool, dataLoadSeats())
+	if err != nil {
+		t.Fatalf("ApplyCGEExtract: %v", err)
+	}
+
+	want := []string{strconv.FormatInt(got.BatchID, 10) + " 2024-03-05"}
+	if loads := rowsOf(t, pool, "SELECT batch_id || ' ' || last_game FROM data_loads"); !slices.Equal(loads, want) {
+		t.Errorf("data loads = %q, want %q: the last finished game, not the cancelled one", loads, want)
+	}
+}
+
+func TestApplyCGEExtractRecordsNoDataLoadWhenItChangesNoGame(t *testing.T) {
+	pool := migrated(t)
+	for load := range 2 {
+		if _, err := loadExtract(t, pool, dataLoadSeats()); err != nil {
+			t.Fatalf("load %d: %v", load+1, err)
+		}
+	}
+
+	if loads := rowsOf(t, pool, "SELECT count(*) FROM data_loads"); !slices.Equal(loads, []string{"1"}) {
+		t.Errorf("after loading the same extract twice, %q data loads, want 1", loads)
+	}
+}
+
+func TestDryRunCGEExtractRecordsNoDataLoad(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	x := cgeextract.Extract{Seats: dataLoadSeats(), Tournaments: map[int]cgeextract.Tournament{999: {ID: 999, Name: "Snail Cup", OrganiserID: 2}}}
+	plan, err := PlanCGEExtract(ctx, pool, x, nil)
+	if err != nil {
+		t.Fatalf("PlanCGEExtract: %v", err)
+	}
+	if _, err := DryRunCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+		t.Fatalf("DryRunCGEExtract: %v", err)
+	}
+
+	if loads := rowsOf(t, pool, "SELECT count(*) FROM data_loads"); !slices.Equal(loads, []string{"0"}) {
+		t.Errorf("after a dry run, %q data loads, want 0", loads)
+	}
+}

@@ -7,6 +7,7 @@ export type Format = components['schemas']['Format'];
 export type Leaderboard = components['schemas']['Leaderboard'];
 export type LeaderboardRow = components['schemas']['LeaderboardRow'];
 export type History = components['schemas']['History'];
+export type DeltaWindow = components['schemas']['DeltaWindow'];
 export type TitleCode = NonNullable<components['schemas']['Title']>['code'];
 export type Player = components['schemas']['Player'];
 export type PlayerRating = components['schemas']['PlayerRating'];
@@ -171,17 +172,16 @@ export async function leaderboard(
   return get<Leaderboard>(fetchFn, base, `/v1/runs/${run}/leaderboard?${query}`);
 }
 
-/** Returns each player's rating at a past date, or at the run's previous period when date is null. */
+/** Returns the past board a leaderboard delta window compares with: each player's rating and rank then. */
 export async function history(
   base: string,
   run: number,
   model: Model,
   format: Format,
-  date: string | null,
+  window: DeltaWindow,
   fetchFn: typeof fetch = fetch,
 ): Promise<History> {
-  const query = new URLSearchParams({ model, format: String(format) });
-  if (date !== null) query.set('at', date);
+  const query = new URLSearchParams({ model, format: String(format), window });
   return get<History>(fetchFn, base, `/v1/runs/${run}/history?${query}`);
 }
 

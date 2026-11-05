@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,6 +17,7 @@ var (
 	ErrRunNotFound    = errors.New("no published rating run has this id")
 	ErrCanWrite       = errors.New("the ratings reader's database role can write")
 	ErrNoHistory      = errors.New("this run has no rating history for this model and format")
+	ErrNoPastBoard    = errors.New("this run has no past board to compare with for this window, model and format")
 )
 
 // PublishedRun is a run visitors can read.
@@ -91,12 +93,13 @@ type Title struct {
 	Reason string
 }
 
-// HistoryRow is one player's rating at the end of a past rating period.
+// HistoryRow is one player's rating and rank on a past board.
 type HistoryRow struct {
 	Name    string
 	Rating  float64
 	RD      float64
 	CRating float64
+	Rank    int
 }
 
 // RatingsReader reads published ratings through a read-only pool.
@@ -215,59 +218,74 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	return board, nil
 }
 
-// History returns the snapshot of the latest period on or before at (the first
-// period when at is earlier), for a published run, model and format, and its date.
-// Without at, it uses the run's previous period, the one before its last. Only the
-// players in that snapshot are in it, less those with a deleted or banned CGE account.
-func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, at *time.Time) (time.Time, []HistoryRow, error) {
+// DeltaWindows are the windows History compares a run's board over.
+var DeltaWindows = []string{"last_update", "month", "quarter", "year"}
+
+// History returns the board a published run's delta window compares with, for a model and format, and its date,
+// less players with a deleted or banned CGE account: for "month", "quarter" and "year", the run's own board at
+// the window's start; for "last_update", the final board of the latest published run started between the two data
+// loads before the run, dated by the earlier's last game. It returns ErrNoPastBoard when there is no such board.
+func (r *RatingsReader) History(ctx context.Context, run int64, model string, format int, window string) (time.Time, []HistoryRow, error) {
+	if !slices.Contains(DeltaWindows, window) {
+		return time.Time{}, nil, fmt.Errorf("unknown delta window %q", window)
+	}
 	if err := r.requirePublished(ctx, run); err != nil {
 		return time.Time{}, nil, err
 	}
-	var on time.Time
-	if at != nil {
-		// The snapshot on or before the date, else the first one, as upstream picks it (7cd7220).
-		err := r.pool.QueryRow(ctx, `
-			SELECT coalesce(max(period_date) FILTER (WHERE period_date <= $4), min(period_date))
-			FROM rating_history WHERE run_id = $1 AND model_type = $2 AND player_count = $3`, run, model, format, *at).Scan(&on)
-		if errors.Is(err, pgx.ErrNoRows) || (err == nil && on.IsZero()) {
-			return time.Time{}, nil, ErrNoHistory
+	var on *time.Time
+	var rows pgx.Rows
+	var err error
+	if window == "last_update" {
+		var from *int64
+		err = r.pool.QueryRow(ctx, `
+			WITH loads AS (
+				SELECT d.last_game, b.created_at FROM data_loads d JOIN import_batches b USING (batch_id)
+				WHERE b.created_at < (SELECT started_at FROM rating_runs WHERE run_id = $1)
+				ORDER BY b.created_at DESC LIMIT 2
+			), span AS (SELECT min(created_at) AS after, max(created_at) AS before, min(last_game) AS on FROM loads
+			            HAVING count(*) = 2)
+			SELECT (SELECT o.run_id FROM rating_runs o, rating_runs me
+			        WHERE me.run_id = $1 AND o.ranking_id = me.ranking_id AND o.status = 'complete'
+			          AND o.published_at IS NOT NULL AND o.started_at > span.after AND o.started_at < span.before
+			        ORDER BY o.published_at DESC LIMIT 1), span.on
+			FROM span`, run).Scan(&from, &on)
+		if errors.Is(err, pgx.ErrNoRows) || (err == nil && from == nil) {
+			return time.Time{}, nil, ErrNoPastBoard
 		}
 		if err != nil {
-			return time.Time{}, nil, fmt.Errorf("finding run %d's snapshot for %s: %w", run, at.Format(time.DateOnly), err)
+			return time.Time{}, nil, fmt.Errorf("finding the run before run %d's data load: %w", run, err)
 		}
+		rows, err = r.pool.Query(ctx, `
+			SELECT p.name, r.rating, r.rd, r.c_rating, r.rank
+			FROM player_ratings r JOIN players p USING (player_id)
+			WHERE r.run_id = $1 AND r.model_type = $2 AND r.player_count = $3 AND NOT `+hiddenName("p.name")+`
+			ORDER BY p.name`, *from, model, format)
 	} else {
-		err := r.pool.QueryRow(ctx, `
-			SELECT period_date FROM (
-				SELECT DISTINCT period_date FROM rating_history
-				WHERE run_id = $1 AND model_type = $2 AND player_count = $3
-				ORDER BY period_date DESC LIMIT 2) last
-			ORDER BY period_date LIMIT 1`, run, model, format).Scan(&on)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return time.Time{}, nil, ErrNoHistory
-		}
-		if err != nil {
-			return time.Time{}, nil, fmt.Errorf("finding run %d's previous period: %w", run, err)
-		}
+		rows, err = r.pool.Query(ctx, `
+			SELECT p.name, w.rating, w.rd, w.c_rating, w.rank, w.period_date
+			FROM rating_windows w JOIN players p USING (player_id)
+			WHERE w.run_id = $1 AND w.model_type = $2 AND w.player_count = $3 AND w.delta_window = $4
+			  AND NOT `+hiddenName("p.name")+`
+			ORDER BY p.name`, run, model, format, window)
 	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT p.name, h.rating, h.rd, h.c_rating
-		FROM rating_history h JOIN players p USING (player_id)
-		WHERE h.run_id = $1 AND h.model_type = $2 AND h.player_count = $3 AND h.period_date = $4
-		  AND NOT `+hiddenName("p.name")+`
-		ORDER BY p.name`, run, model, format, on)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
+		return time.Time{}, nil, fmt.Errorf("reading run %d's %s board for %s: %w", run, model, window, err)
 	}
 	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (HistoryRow, error) {
 		var h HistoryRow
-		err := row.Scan(&h.Name, &h.Rating, &h.RD, &h.CRating)
-		return h, err
+		dest := []any{&h.Name, &h.Rating, &h.RD, &h.CRating, &h.Rank}
+		if window != "last_update" {
+			dest = append(dest, &on)
+		}
+		return h, row.Scan(dest...)
 	})
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("reading run %d's %s history: %w", run, model, err)
+		return time.Time{}, nil, fmt.Errorf("reading run %d's %s board for %s: %w", run, model, window, err)
 	}
-	return on, got, nil
+	if on == nil {
+		return time.Time{}, nil, ErrNoPastBoard
+	}
+	return *on, got, nil
 }
 
 // requirePublished returns ErrRunNotFound unless run is complete and published.

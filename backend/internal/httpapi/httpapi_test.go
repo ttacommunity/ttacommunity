@@ -38,16 +38,16 @@ type fakeRatings struct {
 	histAt  time.Time
 	histErr error
 
-	calls  int
-	gotRun int64
-	gotMod string
-	gotFmt int
-	gotAt  *time.Time
+	calls     int
+	gotRun    int64
+	gotMod    string
+	gotFmt    int
+	gotWindow string
 }
 
-func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, at *time.Time) (time.Time, []store.HistoryRow, error) {
+func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, window string) (time.Time, []store.HistoryRow, error) {
 	f.calls++
-	f.gotRun, f.gotMod, f.gotFmt, f.gotAt = run, model, format, at
+	f.gotRun, f.gotMod, f.gotFmt, f.gotWindow = run, model, format, window
 	return f.histAt, f.hist, f.histErr
 }
 
@@ -921,49 +921,53 @@ func TestAPanicAfterTheAnswerStartedAbortsIt(t *testing.T) {
 }
 
 func TestHistory(t *testing.T) {
-	previous := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
-	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
-	rows := []store.HistoryRow{{Name: "ann", Rating: 1690, RD: 30.5, CRating: 1598.5}}
+	september := time.Date(2026, 9, 30, 0, 0, 0, 0, time.UTC)
+	rows := []store.HistoryRow{{Name: "ann", Rating: 1690, RD: 30.5, CRating: 1598.5, Rank: 4}}
 	tests := []struct {
-		name      string
-		path      string
-		ratings   *fakeRatings
-		wantCode  int
-		wantCache string
-		wantAt    *time.Time
-		wantBody  string
+		name       string
+		path       string
+		ratings    *fakeRatings
+		wantCode   int
+		wantCache  string
+		wantWindow string
+		wantBody   string
 	}{
 		{
-			name: "a date", path: "/v1/runs/7/history?model=glicko2_std&format=2&at=2026-05-01",
-			ratings:  &fakeRatings{hist: rows, histAt: may},
-			wantCode: http.StatusOK, wantCache: "public, max-age=300", wantAt: &may,
-			wantBody: `{"at":"2026-05-01","format":2,"model":"glicko2_std","players":[{"c_rating":1598.5,"name":"ann","rating":1690,"rd":30.5}],"run_id":7}`,
+			name: "a window", path: "/v1/runs/7/history?model=glicko2_std&format=2&window=month",
+			ratings:  &fakeRatings{hist: rows, histAt: september},
+			wantCode: http.StatusOK, wantCache: "public, max-age=300", wantWindow: "month",
+			wantBody: `{"at":"2026-09-30","format":2,"model":"glicko2_std","players":[{"c_rating":1598.5,"name":"ann","rank":4,"rating":1690,"rd":30.5}],"run_id":7,"window":"month"}`,
 		},
 		{
-			name: "no date means the previous period", path: "/v1/runs/7/history",
-			ratings:  &fakeRatings{histAt: previous},
-			wantCode: http.StatusOK, wantCache: "public, max-age=300",
-			wantBody: `{"at":"2026-07-31","format":0,"model":"glicko2_daneo","players":[],"run_id":7}`,
+			name: "the last update", path: "/v1/runs/7/history?window=last_update",
+			ratings:  &fakeRatings{histAt: september},
+			wantCode: http.StatusOK, wantCache: "public, max-age=300", wantWindow: "last_update",
+			wantBody: `{"at":"2026-09-30","format":0,"model":"glicko2_daneo","players":[],"run_id":7,"window":"last_update"}`,
 		},
 		{
-			name: "not a date", path: "/v1/runs/7/history?at=May",
+			name: "no window", path: "/v1/runs/7/history",
 			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
-			wantBody: `{"error":"bad parameter: at"}`,
+			wantBody: `{"error":"missing parameter: window"}`,
 		},
 		{
-			name: "unknown model", path: "/v1/runs/7/history?model=elo",
+			name: "unknown window", path: "/v1/runs/7/history?window=week",
+			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
+			wantBody: `{"error":"unknown window"}`,
+		},
+		{
+			name: "unknown model", path: "/v1/runs/7/history?model=elo&window=month",
 			ratings: &fakeRatings{}, wantCode: http.StatusBadRequest, wantCache: "no-store",
 			wantBody: `{"error":"unknown model"}`,
 		},
 		{
-			name: "run not published", path: "/v1/runs/9/history",
-			ratings: &fakeRatings{histErr: store.ErrRunNotFound}, wantCode: http.StatusNotFound, wantCache: "no-store",
+			name: "run not published", path: "/v1/runs/9/history?window=month",
+			ratings: &fakeRatings{histErr: store.ErrRunNotFound}, wantCode: http.StatusNotFound, wantCache: "no-store", wantWindow: "month",
 			wantBody: `{"error":"no published rating run has this id"}`,
 		},
 		{
-			name: "no history", path: "/v1/runs/9/history",
-			ratings: &fakeRatings{histErr: store.ErrNoHistory}, wantCode: http.StatusNotFound, wantCache: "no-store",
-			wantBody: `{"error":"this run has no rating history for this model and format"}`,
+			name: "no past board", path: "/v1/runs/9/history?window=year",
+			ratings: &fakeRatings{histErr: store.ErrNoPastBoard}, wantCode: http.StatusNotFound, wantCache: "no-store", wantWindow: "year",
+			wantBody: `{"error":"this run has no past board to compare with for this window, model and format"}`,
 		},
 	}
 	for _, tt := range tests {
@@ -976,8 +980,8 @@ func TestHistory(t *testing.T) {
 				t.Errorf("GET %s: Cache-Control = %q, want %q", tt.path, got, tt.wantCache)
 			}
 			wantJSON(t, rec.Body.Bytes(), "", tt.wantBody)
-			if (tt.ratings.gotAt == nil) != (tt.wantAt == nil) || (tt.wantAt != nil && !tt.ratings.gotAt.Equal(*tt.wantAt)) {
-				t.Errorf("GET %s: store asked for at %v, want %v", tt.path, tt.ratings.gotAt, tt.wantAt)
+			if tt.ratings.gotWindow != tt.wantWindow {
+				t.Errorf("GET %s: store asked for window %q, want %q", tt.path, tt.ratings.gotWindow, tt.wantWindow)
 			}
 		})
 	}

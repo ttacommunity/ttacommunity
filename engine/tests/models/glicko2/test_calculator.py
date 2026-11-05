@@ -4,6 +4,7 @@ from tta_ratings_engine.models.glicko2.calculator import (
     PlayerThresholds,
     compute_player_thresholds,
     get_tier_mean,
+    window_starts,
 )
 
 
@@ -27,6 +28,32 @@ def test_thresholds_follow_the_games_seen_so_far():
         "Cat": 15,
         "Dan": 15,
     }
+
+
+PERIODS = [
+    "2025-10-31",
+    "2026-07-31",
+    "2026-08-30",
+    "2026-09-30",
+    "2026-10-31",
+    "2026-11-03",
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "periods", "last_game", "want"),
+    [
+        ("each window takes the last period before it", PERIODS, "2026-11-03",
+         {"month": 3, "quarter": 1, "year": 0}),
+        ("a period on the window's day counts", PERIODS, "2026-11-30", {"month": 4, "quarter": 2, "year": 0}),
+        ("a window before every period has none", PERIODS[3:], "2026-11-03", {"month": 0}),
+        ("no periods, no windows", [], "2026-11-03", {}),
+    ],
+)  # fmt: skip
+def test_a_window_starts_at_the_last_period_on_or_before_its_days_before_the_last_game(
+    name, periods, last_game, want
+):
+    assert window_starts(periods, last_game) == want, name
 
 
 def test_tier_regression_rules():
@@ -432,6 +459,82 @@ def test_a_finished_run_is_never_written_to(conn, add_match, run_id):
         compute_glicko2_ratings(conn=conn, run_id=run_id)
 
     assert conn.execute("SELECT count(*) AS n FROM player_ratings").fetchone()["n"] == 0
+
+
+def season_with_an_idle_player(add_match):
+    """The season, with Ed playing only in January; the last game is on 25 March."""
+    season(add_match)
+    add_match(("Ed", 60), ("Alice", 80), day=date(2024, 1, 8))
+
+
+def window_board(conn, run_id, model_type, delta_window):
+    return conn.execute(
+        "SELECT name AS player, period_date, rank, rating, rd, c_rating "
+        "FROM rating_windows JOIN players USING (player_id) "
+        "WHERE run_id = %s AND model_type = %s AND player_count = 0 AND delta_window = %s ORDER BY rank",
+        (run_id, model_type, delta_window),
+    ).fetchall()
+
+
+@pytest.mark.parametrize("engine", ["glicko2_std", "glicko2_daneo"])
+def test_a_window_board_holds_every_player_rated_by_its_start(
+    conn, add_match, run_id, engine
+):
+    season_with_an_idle_player(add_match)
+    expand_pairwise(conn, run_id)
+
+    compute_glicko2_ratings(engine=engine, conn=conn, run_id=run_id)
+
+    board = window_board(conn, run_id, engine, "month")
+    assert {r["player"] for r in board} == {"Alice", "Bob", "Carol", "Ed"}
+    assert {r["period_date"] for r in board} == {date(2024, 2, 19)}
+
+
+def test_a_window_board_is_ranked_by_conservative_rating(conn, add_match, run_id):
+    season_with_an_idle_player(add_match)
+    expand_pairwise(conn, run_id)
+
+    compute_glicko2_ratings(conn=conn, run_id=run_id)
+
+    board = window_board(conn, run_id, "glicko2_std", "month")
+    assert [r["rank"] for r in board] == [1, 2, 3, 4]
+    assert [r["c_rating"] for r in board] == sorted(
+        (r["c_rating"] for r in board), reverse=True
+    )
+
+
+def test_a_window_board_has_an_idle_players_rd_grown(conn, add_match, run_id):
+    season_with_an_idle_player(add_match)
+    expand_pairwise(conn, run_id)
+
+    compute_glicko2_ratings(conn=conn, run_id=run_id)
+
+    ed = next(
+        r
+        for r in window_board(conn, run_id, "glicko2_std", "month")
+        if r["player"] == "Ed"
+    )
+    january = conn.execute(
+        "SELECT rating, rd FROM rating_history JOIN players USING (player_id) "
+        "WHERE run_id = %s AND model_type = 'glicko2_std' AND player_count = 0 AND name = 'Ed'",
+        (run_id,),
+    ).fetchone()
+    assert ed["rating"] == january["rating"]
+    assert ed["rd"] > january["rd"], (
+        f"Ed's RD got = {ed['rd']}, want more than January's {january['rd']}"
+    )
+
+
+def test_a_window_with_no_period_before_it_has_no_board(conn, add_match, run_id):
+    season_with_an_idle_player(add_match)
+    expand_pairwise(conn, run_id)
+
+    compute_glicko2_ratings(conn=conn, run_id=run_id)
+
+    windows = conn.execute(
+        "SELECT DISTINCT delta_window FROM rating_windows WHERE run_id = %s", (run_id,)
+    ).fetchall()
+    assert {r["delta_window"] for r in windows} == {"month"}
 
 
 def test_a_run_that_does_not_exist_is_refused(conn, add_match, run_id):

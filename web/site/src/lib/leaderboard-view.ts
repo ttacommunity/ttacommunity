@@ -1,5 +1,5 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
-import type { Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
+import type { DeltaWindow as PastWindow, Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 
 /** Upstream's fixed cutoff, kept for a run that recorded no last game. */
 const UPSTREAM_CUTOFF = '2025-05-31';
@@ -25,21 +25,8 @@ export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
 export type Order = 'asc' | 'desc';
-export type DeltaWindow = 'none' | 'last_update' | 'month' | 'quarter' | 'year';
+export type DeltaWindow = 'none' | PastWindow;
 export type StatsView = 'season' | 'career';
-
-/** Upstream's fixed delta dates, kept for a run that recorded no last game. */
-const UPSTREAM_DELTA_DATES = { last_update: null, month: '2026-05-01', quarter: '2026-03-01', year: '2025-05-31' } as const;
-
-/**
- * deltaDates returns the date each delta window compares against: 30, 90 and 365 days before the run's last game, or
- * null for the previous rating period.
- */
-export function deltaDates(lastGame: string | null): Record<Exclude<DeltaWindow, 'none'>, string | null> {
-  if (lastGame === null) return { ...UPSTREAM_DELTA_DATES };
-  const before = (days: number) => new Date(Date.parse(`${lastGame}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
-  return { last_update: null, month: before(30), quarter: before(90), year: before(365) };
-}
 const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
 const FORMATS: readonly Format[] = [0, 2, 3, 4];
@@ -415,27 +402,31 @@ export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
 export type Delta = { c_rating: number; rating: number; pastRank: number | null };
 
 /**
- * deltas returns each row's rating and C-rating now minus in the past (0 for a player with no past rating), and their
- * past rank among everyone then by C-rating, as upstream ranks its history (ties by name).
+ * deltas returns each row's rating and C-rating now minus on the past board, and their rank on it (0 and null for a
+ * player not on it).
  */
 export function deltas(rows: readonly LeaderboardRow[], past: History['players']): Map<string, Delta> {
   const then = new Map(past.map((h) => [h.name, h]));
-  const ranked = [...past].sort((a, b) => b.c_rating - a.c_rating || a.name.localeCompare(b.name));
-  const pastRank = new Map(ranked.map((h, i) => [h.name, i + 1]));
   return new Map(
     rows.map((p) => {
       const h = then.get(p.name);
       return [
         p.name,
-        h
-          ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating, pastRank: pastRank.get(p.name) ?? null }
-          : { c_rating: 0, rating: 0, pastRank: null },
+        h ? { c_rating: p.c_rating - h.c_rating, rating: p.rating - h.rating, pastRank: h.rank } : { c_rating: 0, rating: 0, pastRank: null },
       ];
     }),
   );
 }
 
-/** rankChange is how many places a player rose since the window's start (past rank minus the rank shown), or 0. */
+/**
+ * rankNow is the rank a player's past rank is compared with: on the live board the run's own, every player counted as
+ * on the past board; in a year's archive the rank shown, as yearDeltas ranks the year before.
+ */
+export function rankNow(p: RankedRow, view: View): number | null {
+  return view.year === null ? p.rank : p.displayRank;
+}
+
+/** rankChange is how many places a player rose since the window's start (past rank minus the rank now), or 0. */
 export function rankChange(d: Delta | undefined, shownRank: number | null): number {
   return d?.pastRank == null || shownRank === null ? 0 : d.pastRank - shownRank;
 }
