@@ -140,11 +140,7 @@ export interface ChartPoint {
 /** Golden Ratio phi used for perspective time compression. */
 export const PHI = 1.618033988749895;
 
-/**
- * goldenTimeWarp maps an ISO date string to a percentage [0, 100] along the X axis.
- * The recent 12 months receive approximately (1 - 1/phi) ~ 61.8% of horizontal width
- * with uniform linearity, while earlier history is smoothly compressed into 38.2%.
- */
+/** goldenTimeWarp maps an ISO date string to a percentage [0, 100] using a continuous power-law lens x(tau) = tau^phi. */
 export function goldenTimeWarp(date: string, minDate: string, maxDate: string): number {
   const t = new Date(date).getTime();
   const tMin = new Date(minDate).getTime();
@@ -153,24 +149,8 @@ export function goldenTimeWarp(date: string, minDate: string, maxDate: string): 
   if (t <= tMin) return 0;
   if (t >= tMax) return 100;
 
-  const msYear = 365.25 * 24 * 3600 * 1000;
-  const totalSpan = tMax - tMin;
-  if (totalSpan <= msYear) {
-    return linearTimeWarp(date, minDate, maxDate);
-  }
-
-  const cutoff = tMax - msYear;
-  const recentPortion = (1 / PHI) * 100; // ~61.8%
-  const olderPortion = 100 - recentPortion; // ~38.2%
-
-  if (t >= cutoff) {
-    const frac = (t - cutoff) / msYear;
-    return Math.round((olderPortion + frac * recentPortion) * 10) / 10;
-  }
-  const olderSpan = cutoff - tMin;
-  if (olderSpan <= 0) return 0;
-  const delta = (t - tMin) / olderSpan;
-  return Math.round(olderPortion * Math.pow(delta, PHI) * 10) / 10;
+  const tau = (t - tMin) / (tMax - tMin);
+  return Math.round(Math.pow(tau, PHI) * 1000) / 10;
 }
 
 /** linearTimeWarp maps an ISO date string uniformly across [0, 100]. */
@@ -191,23 +171,22 @@ export interface ChartTick {
 
 /** chartTicks produces nicely distributed horizontal ticks for the chosen scale. */
 export function chartTicks(minDate: string, maxDate: string, scale: ChartScale): ChartTick[] {
-  const tMin = new Date(minDate).getTime();
+  const startYear = new Date(minDate).getUTCFullYear();
+  const endYear = new Date(maxDate).getUTCFullYear();
+  const baseMin = `${startYear}-01-01`;
+  const tMin = new Date(baseMin).getTime();
   const tMax = new Date(maxDate).getTime();
   if (tMax <= tMin) return [{ x: 50, label: maxDate }];
 
-  const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate));
-  const ticks: ChartTick[] = [];
-  const startYear = new Date(minDate).getUTCFullYear();
-  const endYear = new Date(maxDate).getUTCFullYear();
+  const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, baseMin, maxDate) : linearTimeWarp(d, baseMin, maxDate));
 
-  for (let y = startYear; y <= endYear + 1; y++) {
+  const yearTicks: ChartTick[] = [];
+  for (let y = startYear; y <= endYear; y++) {
     const iso = `${y}-01-01`;
-    const t = new Date(iso).getTime();
-    if (t >= tMin && t <= tMax) {
-      ticks.push({ x: warp(iso), label: String(y) });
-    }
+    yearTicks.push({ x: warp(iso), label: String(y) });
   }
 
+  const monthTicks: ChartTick[] = [];
   const msYear = 365.25 * 24 * 3600 * 1000;
   const recentCutoff = tMax - msYear;
   const recentStart = new Date(Math.max(tMin, recentCutoff));
@@ -216,35 +195,32 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
   while (cur.getTime() <= tMax) {
     if (cur.getTime() >= tMin) {
       const month = cur.getUTCMonth();
-      if (month % 2 === 0) {
+      if (month % 2 === 0 && month !== 0) {
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const label = `${monthNames[month]} '${String(cur.getUTCFullYear()).slice(2)}`;
         const iso = cur.toISOString().slice(0, 10);
-        ticks.push({ x: warp(iso), label });
+        monthTicks.push({ x: warp(iso), label });
       }
     }
     cur.setUTCMonth(cur.getUTCMonth() + 1);
   }
 
-  ticks.push({ x: 0, label: minDate.slice(0, 7) });
-  ticks.push({ x: 100, label: maxDate.slice(0, 7) });
+  const endTick: ChartTick = { x: 100, label: maxDate.slice(0, 7) };
 
-  ticks.sort((a, b) => a.x - b.x);
-  const deduped: ChartTick[] = [];
-  for (const tick of ticks) {
-    const prev = deduped[deduped.length - 1];
-    if (!prev || Math.abs(prev.x - tick.x) >= 4) {
-      deduped.push(tick);
+  // Year ticks are guaranteed and never skipped so the user sees every year on the grid.
+  const allTicks: ChartTick[] = [...yearTicks];
+  for (const candidate of [...monthTicks, endTick]) {
+    const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < 3.5);
+    if (!collides) {
+      allTicks.push(candidate);
     }
   }
-  return deduped;
+
+  allTicks.sort((a, b) => a.x - b.x);
+  return allTicks;
 }
 
-/**
- * chartYBounds determines vertical min/max bounds.
- * In perspective scale, it anchors the window to recent competitive form (past ~18 months)
- * so early placement swings do not squash the recent trajectory.
- */
+/** chartYBounds determines vertical min/max bounds, anchored to recent competitive form in perspective scale. */
 export function chartYBounds(
   history: PlayerHistory | null,
   scale: ChartScale,
@@ -320,7 +296,8 @@ const tenth = (x: number) => Math.round(x * 10) / 10;
  */
 export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartCurve, scale: ChartScale = 'perspective'): ChartData {
   const labels = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
-  const minDate = labels[0];
+  const startYear = labels[0] ? new Date(labels[0]).getUTCFullYear() : undefined;
+  const minDate = startYear !== undefined ? `${startYear}-01-01` : labels[0];
   const maxDate = labels[labels.length - 1];
   const warp = (d: string) =>
     minDate && maxDate ? (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate)) : 50;
