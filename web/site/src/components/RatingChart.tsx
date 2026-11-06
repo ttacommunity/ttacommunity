@@ -16,14 +16,19 @@ import {
 declare module 'chart.js' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface PluginOptionsByType<TType extends ChartType> {
-    tierBands?: { enabled: boolean };
+    tierBands?: {
+      enabled: boolean;
+      warpY?: (r: number) => number;
+      axisMin?: number;
+      axisMax?: number;
+    };
   }
 }
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import {
   chartData,
   chartTicks,
-  chartYBounds,
+  chartYScale,
   runYears,
   RATING_TIERS,
   type ChartCurve,
@@ -32,15 +37,17 @@ import {
   type ChartScale,
   type ChartTick,
   type ChartTiers,
+  type ChartYTick,
 } from '../lib/player-view';
 import ChartOptionsDrawer from './ChartOptionsDrawer';
 
 const tierBandsPlugin: Plugin<'line'> = {
   id: 'tierBands',
-  beforeDraw(chart, _args, options: { enabled?: boolean }) {
-    if (!options?.enabled) return;
+  beforeDraw(chart, _args, options: { enabled?: boolean; warpY?: (r: number) => number; axisMin?: number; axisMax?: number }) {
+    if (!options?.enabled || !options.warpY) return;
     const { ctx, chartArea, scales } = chart;
     if (!chartArea || !scales.y) return;
+    const { warpY, axisMin = 0, axisMax = 3000 } = options;
     const yScale = scales.y;
     ctx.save();
     ctx.beginPath();
@@ -48,8 +55,12 @@ const tierBandsPlugin: Plugin<'line'> = {
     ctx.clip();
 
     for (const tier of RATING_TIERS) {
-      const yTop = yScale.getPixelForValue(Math.min(tier.max, yScale.max));
-      const yBottom = yScale.getPixelForValue(Math.max(tier.min, yScale.min));
+      const tMin = Math.max(tier.min, axisMin);
+      const tMax = Math.min(tier.max, axisMax);
+      if (tMin >= tMax) continue;
+
+      const yTop = yScale.getPixelForValue(warpY(tMax));
+      const yBottom = yScale.getPixelForValue(warpY(tMin));
       if (yBottom <= chartArea.top || yTop >= chartArea.bottom) continue;
 
       const actualTop = Math.max(chartArea.top, yTop);
@@ -61,8 +72,8 @@ const tierBandsPlugin: Plugin<'line'> = {
         ctx.fillRect(chartArea.left, actualTop, chartArea.width, height);
       }
 
-      if (tier.min > yScale.min && tier.min < yScale.max) {
-        const lineY = yScale.getPixelForValue(tier.min);
+      if (tier.min > axisMin && tier.min < axisMax) {
+        const lineY = yScale.getPixelForValue(warpY(tier.min));
         ctx.strokeStyle = tier.borderColor ?? 'rgba(74, 53, 37, 0.35)';
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 4]);
@@ -126,7 +137,20 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
 
   const empty = data !== null && data.labels.length === 0;
   const years = data === null || empty ? null : runYears(data.labels[0] ?? null, data.labels.at(-1) ?? null);
-  const yBounds = useMemo(() => chartYBounds(history, scale, mode, curve, engines), [history, scale, mode, curve, engines]);
+  const yScale = useMemo(
+    () => (history ? chartYScale(history, scale, mode, curve, engines) : null),
+    [history, scale, mode, curve, engines],
+  );
+  const yTicks = useMemo(() => yScale?.ticks ?? [], [yScale]);
+  const yTicksRef = useRef<ChartYTick[]>(yTicks);
+  const yTickMapRef = useRef<Map<number, ChartYTick>>(new Map());
+  yTicksRef.current = yTicks;
+  const yTickMap = new Map<number, ChartYTick>();
+  for (const t of yTicks) {
+    yTickMap.set(Math.round(t.y * 10) / 10, t);
+  }
+  yTickMapRef.current = yTickMap;
+
   const ticks = useMemo(
     () => (data && data.minDate && data.maxDate ? chartTicks(data.minDate, data.maxDate, scale) : []),
     [data, scale],
@@ -185,11 +209,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null || data === null || empty) return;
     const font = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const grid = {
-      color: 'rgba(243, 229, 200, 0.08)',
-      lineWidth: 1,
-    };
-    const border = { color: 'rgba(74, 53, 37, 0.5)' };
+        const border = { color: 'rgba(74, 53, 37, 0.5)' };
     chart.current = new Chart(canvas.current, {
       type: 'line',
       data: { datasets: [] },
@@ -254,6 +274,9 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
           },
           tierBands: {
             enabled: tiers === 'on',
+            warpY: yScale?.warpY,
+            axisMin: yScale?.axisMin,
+            axisMax: yScale?.axisMax,
           },
         },
         scales: {
@@ -284,13 +307,30 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             },
           },
           y: {
-            grid,
+            type: 'linear',
+            min: 0,
+            max: 100,
+            grid: {
+              color: (ctx) => {
+                if (!ctx.tick) return 'transparent';
+                const rounded = Math.round(Number(ctx.tick.value) * 10) / 10;
+                const tick = yTickMapRef.current.get(rounded);
+                return tick?.isTier ? 'rgba(243, 229, 200, 0.12)' : 'rgba(243, 229, 200, 0.06)';
+              },
+              lineWidth: 1,
+            },
             border,
-            suggestedMin: yBounds?.min,
-            suggestedMax: yBounds?.max,
-            min: yBounds?.min,
-            max: yBounds?.max,
-            ticks: { color: '#a89880' },
+            afterBuildTicks: (axis) => {
+              axis.ticks = yTicksRef.current.map((t) => ({ value: t.y }));
+            },
+            ticks: {
+              color: '#a89880',
+              callback: (value) => {
+                const rounded = Math.round(Number(value) * 10) / 10;
+                const tick = yTickMapRef.current.get(rounded);
+                return tick?.label ?? '';
+              },
+            },
           },
         },
       },
@@ -310,15 +350,28 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       };
     }
     if (c.options.scales?.y) {
-      c.options.scales.y.min = yBounds?.min;
-      c.options.scales.y.max = yBounds?.max;
+      c.options.scales.y.afterBuildTicks = (axis) => {
+        axis.ticks = yTicksRef.current.map((t) => ({ value: t.y }));
+      };
     }
     if (c.options.plugins) {
-      (c.options.plugins as Record<string, unknown>).tierBands = { enabled: tiers === 'on' };
+      (c.options.plugins as Record<string, unknown>).tierBands = {
+        enabled: tiers === 'on',
+        warpY: yScale?.warpY,
+        axisMin: yScale?.axisMin,
+        axisMax: yScale?.axisMax,
+      };
     }
     c.data.datasets = data.lines.map((line) => ({
       label: line.label,
-      data: (line.points ?? []).filter((p) => p.y !== null) as unknown as number[],
+      data: (line.points ?? [])
+        .filter((p) => p.y !== null)
+        .map((p) => ({
+          x: p.x,
+          y: yScale ? yScale.warpY(p.y as number) : (p.y as number),
+          rawY: p.y,
+          date: p.date,
+        })) as unknown as number[],
       borderColor: line.color,
       backgroundColor: line.fill ?? 'transparent',
       borderWidth: line.borderDash ? 2 : 2.5,
@@ -330,7 +383,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       hidden: hiddenLabels.current.has(line.label),
     }));
     c.update('none');
-  }, [data, scale, yBounds, tiers, ticks, engines]);
+  }, [data, scale, yScale, tiers, ticks, engines]);
 
   return (
     <div className={optionsOpen ? 'chart-container options-open' : 'chart-container'}>

@@ -230,14 +230,35 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
   return allTicks;
 }
 
-/** chartYBounds determines vertical min/max bounds, keeping curve peaks near the top while capturing established trajectory. */
-export function chartYBounds(
+export interface ChartYTick {
+  y: number;
+  rating: number;
+  label: string;
+  isTier: boolean;
+}
+
+export interface ChartYScale {
+  axisMin: number;
+  axisMax: number;
+  fMin: number;
+  fMax: number;
+  warpY: (rating: number) => number;
+  ticks: ChartYTick[];
+}
+
+/**
+ * chartYScale determines the vertical scaling transformation and tick placements.
+ * In perspective mode, the active recent rating band occupies ~70% of the vertical canvas,
+ * while historical tails (e.g. low starting ratings or ancient peaks) are smoothly compressed
+ * into compact margins, ensuring the entire career trajectory remains 100% visible and unclipped.
+ */
+export function chartYScale(
   history: PlayerHistory | null,
-  scale: ChartScale,
-  mode: ChartMode,
-  curve: ChartCurve,
+  scale: ChartScale = 'perspective',
+  mode: ChartMode = 'continuous',
+  curve: ChartCurve = 'expected',
   engines?: ReadonlySet<string>,
-): { min: number; max: number } | null {
+): ChartYScale | null {
   if (!history || history.series.length === 0) return null;
   const allDates = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
   if (allDates.length === 0) return null;
@@ -274,24 +295,140 @@ export function chartYBounds(
   const recentMax = recentPoints.length > 0 ? Math.max(...recentPoints) : allMax;
   const recentMin = recentPoints.length > 0 ? Math.min(...recentPoints) : allMin;
 
-  // Maximum Y bound: place close to the top of the diagram with a tight top margin
-  const topTarget = Math.max(recentMax, allMax);
-  const axisMax = Math.ceil((topTarget + 15) / 50) * 50;
+  const tiers = [1400, 1600, 1800, 2000, 2200];
 
-  let axisMin: number;
   if (scale === 'linear') {
-    axisMin = Math.floor((allMin - 15) / 50) * 50;
-  } else {
-    // In perspective mode: focus on recent form while filling space reasonably and preserving established historical trajectory.
-    const targetMin = Math.max(allMin, recentMin - 150);
-    axisMin = Math.floor((targetMin - 15) / 50) * 50;
+    let axisMin = Math.floor((allMin - 15) / 50) * 50;
+    const axisMax = Math.ceil((allMax + 15) / 50) * 50;
+    if (axisMax - axisMin < 100) axisMin = axisMax - 100;
+    const span = axisMax - axisMin;
+    const warpY = (r: number) => 5 + ((r - axisMin) / span) * 90;
+    const ticks: ChartYTick[] = [];
+    const step = span > 400 ? 100 : 50;
+    for (let r = axisMin; r <= axisMax; r += step) {
+      ticks.push({ y: Math.round(warpY(r) * 10) / 10, rating: r, label: String(r), isTier: tiers.includes(r) });
+    }
+    return { axisMin, axisMax, fMin: axisMin, fMax: axisMax, warpY, ticks };
   }
 
-  if (axisMax - axisMin < 100) {
-    axisMin = axisMax - 100;
+  // Perspective mode: active recent band receives primary space, historical tails compressed into margins
+  const fMax = Math.ceil((recentMax + 15) / 50) * 50;
+  let fMin = Math.floor((recentMin - 25) / 50) * 50;
+  if (fMax - fMin < 100) fMin = fMax - 100;
+
+  const allMinAxis = Math.min(fMin, Math.floor((allMin - 15) / 50) * 50);
+  const allMaxAxis = Math.max(fMax, Math.ceil((allMax + 15) / 50) * 50);
+
+  const focalSpan = fMax - fMin;
+  const lowerSpan = fMin - allMinAxis;
+  const upperSpan = allMaxAxis - fMax;
+
+  let hFocal = 90;
+  let hLower = 0;
+  let hUpper = 0;
+
+  if (lowerSpan > 0 && upperSpan > 0) {
+    hFocal = 64;
+    hLower = Math.min(15, (lowerSpan / focalSpan) * hFocal);
+    hUpper = Math.min(15, (upperSpan / focalSpan) * hFocal);
+  } else if (lowerSpan > 0) {
+    hFocal = 72;
+    hLower = Math.min(18, (lowerSpan / focalSpan) * hFocal);
+  } else if (upperSpan > 0) {
+    hFocal = 72;
+    hUpper = Math.min(18, (upperSpan / focalSpan) * hFocal);
   }
 
-  return { min: axisMin, max: axisMax };
+  const yBottom = 5;
+  const yLowerEnd = yBottom + hLower;
+  const yFocalEnd = yLowerEnd + hFocal;
+
+  function warpY(r: number): number {
+    if (r <= fMin) {
+      if (lowerSpan <= 0) return yLowerEnd;
+      const u = Math.max(0, (r - allMinAxis) / lowerSpan);
+      return yBottom + u * hLower;
+    }
+    if (r >= fMax) {
+      if (upperSpan <= 0) return yFocalEnd;
+      const u = Math.min(1, (r - fMax) / upperSpan);
+      return yFocalEnd + u * hUpper;
+    }
+    const u = (r - fMin) / focalSpan;
+    return yLowerEnd + u * hFocal;
+  }
+
+  const ticks: ChartYTick[] = [];
+  const added = new Set<number>();
+
+  function addTick(r: number, isTier = false) {
+    if (r < allMinAxis || r > allMaxAxis) return;
+    if (added.has(r)) return;
+    const yVal = Math.round(warpY(r) * 10) / 10;
+    const tooClose = ticks.find((t) => Math.abs(t.y - yVal) < 4.0);
+    if (tooClose) {
+      if (isTier && !tooClose.isTier) {
+        tooClose.rating = r;
+        tooClose.label = String(r);
+        tooClose.y = yVal;
+        tooClose.isTier = true;
+      }
+      return;
+    }
+    added.add(r);
+    ticks.push({ y: yVal, rating: r, label: String(r), isTier });
+  }
+
+  // 1. Focal zone
+  const focalStep = focalSpan > 250 ? 100 : 50;
+  for (let r = fMin; r <= fMax; r += focalStep) {
+    addTick(r, tiers.includes(r));
+  }
+
+  // 2. Lower tail
+  if (lowerSpan > 0) {
+    for (const t of tiers) {
+      if (t >= allMinAxis && t < fMin) addTick(t, true);
+    }
+    const lowest = Math.min(...Array.from(added));
+    if (lowest - allMinAxis >= 100) {
+      addTick(allMinAxis);
+    }
+  }
+
+  // 3. Upper tail
+  if (upperSpan > 0) {
+    for (const t of tiers) {
+      if (t > fMax && t <= allMaxAxis) addTick(t, true);
+    }
+    const highest = Math.max(...Array.from(added));
+    if (allMaxAxis - highest >= 100) {
+      addTick(allMaxAxis);
+    }
+  }
+
+  ticks.sort((a, b) => a.y - b.y);
+
+  return {
+    axisMin: allMinAxis,
+    axisMax: allMaxAxis,
+    fMin,
+    fMax,
+    warpY,
+    ticks,
+  };
+}
+
+/** chartYBounds determines vertical min/max bounds, encompassing the full career without clipping. */
+export function chartYBounds(
+  history: PlayerHistory | null,
+  scale: ChartScale = 'perspective',
+  mode: ChartMode = 'continuous',
+  curve: ChartCurve = 'expected',
+  engines?: ReadonlySet<string>,
+): { min: number; max: number } | null {
+  const s = chartYScale(history, scale, mode, curve, engines);
+  return s ? { min: s.axisMin, max: s.axisMax } : null;
 }
 
 /** Rating tier definition with parchment-fitting colors. */

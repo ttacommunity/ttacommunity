@@ -4,6 +4,7 @@ import {
   chartData,
   chartTicks,
   chartYBounds,
+  chartYScale,
   goldenTimeWarp,
   linearTimeWarp,
   RATING_TIERS,
@@ -342,13 +343,36 @@ describe('chartYBounds', () => {
     ],
   };
 
-  it('focuses Y bounds on recent era in perspective mode, keeping peak near top and preserving trajectory', () => {
+  it('preserves full historical range without clipping in perspective mode while keeping peak near top', () => {
     const bounds = chartYBounds(multiYearHistory, 'perspective', 'continuous', 'expected');
     expect(bounds).not.toBeNull();
     if (!bounds) return;
-    expect(bounds.min).toBeGreaterThanOrEqual(1550);
-    expect(bounds.min).toBeLessThanOrEqual(1650);
+    expect(bounds.min).toBe(1500);
     expect(bounds.max).toBe(1950);
+  });
+
+  it('allocates dominant vertical space to recent focal range and compresses lower tail in perspective mode', () => {
+    const s = chartYScale(multiYearHistory, 'perspective', 'continuous', 'expected');
+    expect(s).not.toBeNull();
+    if (!s) return;
+    expect(s.axisMin).toBe(1500);
+    expect(s.axisMax).toBe(1950);
+    expect(s.fMin).toBe(1700);
+    expect(s.fMax).toBe(1950);
+
+    const y1520 = s.warpY(1520);
+    const y1700 = s.warpY(1700);
+    const y1800 = s.warpY(1800);
+    const y1900 = s.warpY(1900);
+
+    expect(y1520).toBeGreaterThanOrEqual(5);
+    expect(y1700).toBeGreaterThan(y1520);
+    expect(y1800).toBeGreaterThan(y1700);
+    expect(y1900).toBeGreaterThan(y1800);
+
+    const focalSlope = (s.warpY(1900) - s.warpY(1800)) / 100;
+    const lowerSlope = (s.warpY(1700) - s.warpY(1500)) / 200;
+    expect(focalSlope).toBeGreaterThan(lowerSlope * 2);
   });
 
   it('spans all-time range in linear mode', () => {
