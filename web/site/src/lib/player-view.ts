@@ -235,6 +235,7 @@ export interface ChartYTick {
   rating: number;
   label: string;
   isTier: boolean;
+  isBreak?: boolean;
 }
 
 export interface ChartYScale {
@@ -242,15 +243,18 @@ export interface ChartYScale {
   axisMax: number;
   fMin: number;
   fMax: number;
+  hasLowerTail: boolean;
+  hasUpperTail: boolean;
   warpY: (rating: number) => number;
   ticks: ChartYTick[];
 }
 
 /**
  * chartYScale determines the vertical scaling transformation and tick placements.
- * In perspective mode, the active recent rating band occupies ~70% of the vertical canvas,
- * while historical tails (e.g. low starting ratings or ancient peaks) are smoothly compressed
- * into compact margins, ensuring the entire career trajectory remains 100% visible and unclipped.
+ * In perspective mode, the active recent rating band occupies ~75% of the vertical canvas,
+ * while historical tails (e.g. low starting ratings or ancient peaks) are strongly compressed
+ * into compact margins, ensuring the entire career trajectory remains 100% visible and unclipped
+ * with sharp, unmistakable visual scaling contrast.
  */
 export function chartYScale(
   history: PlayerHistory | null,
@@ -308,7 +312,7 @@ export function chartYScale(
     for (let r = axisMin; r <= axisMax; r += step) {
       ticks.push({ y: Math.round(warpY(r) * 10) / 10, rating: r, label: String(r), isTier: tiers.includes(r) });
     }
-    return { axisMin, axisMax, fMin: axisMin, fMax: axisMax, warpY, ticks };
+    return { axisMin, axisMax, fMin: axisMin, fMax: axisMax, hasLowerTail: false, hasUpperTail: false, warpY, ticks };
   }
 
   // Perspective mode: active recent band receives primary space, historical tails compressed into margins
@@ -327,16 +331,20 @@ export function chartYScale(
   let hLower = 0;
   let hUpper = 0;
 
+  // Maximum compressed slope is ~0.35 of the focal slope to guarantee clear visual contrast
   if (lowerSpan > 0 && upperSpan > 0) {
-    hFocal = 64;
-    hLower = Math.min(15, (lowerSpan / focalSpan) * hFocal);
-    hUpper = Math.min(15, (upperSpan / focalSpan) * hFocal);
+    hFocal = 66;
+    const maxTailSlope = 0.35 * (hFocal / focalSpan);
+    hLower = Math.max(5, Math.min(14, lowerSpan * maxTailSlope));
+    hUpper = Math.max(5, Math.min(14, upperSpan * maxTailSlope));
   } else if (lowerSpan > 0) {
-    hFocal = 72;
-    hLower = Math.min(18, (lowerSpan / focalSpan) * hFocal);
+    hFocal = 76;
+    const maxTailSlope = 0.35 * (hFocal / focalSpan);
+    hLower = Math.max(6, Math.min(16, lowerSpan * maxTailSlope));
   } else if (upperSpan > 0) {
-    hFocal = 72;
-    hUpper = Math.min(18, (upperSpan / focalSpan) * hFocal);
+    hFocal = 76;
+    const maxTailSlope = 0.35 * (hFocal / focalSpan);
+    hUpper = Math.max(6, Math.min(16, upperSpan * maxTailSlope));
   }
 
   const yBottom = 5;
@@ -361,28 +369,30 @@ export function chartYScale(
   const ticks: ChartYTick[] = [];
   const added = new Set<number>();
 
-  function addTick(r: number, isTier = false) {
+  function addTick(r: number, isTier = false, isBreak = false) {
     if (r < allMinAxis || r > allMaxAxis) return;
     if (added.has(r)) return;
     const yVal = Math.round(warpY(r) * 10) / 10;
     const tooClose = ticks.find((t) => Math.abs(t.y - yVal) < 4.0);
     if (tooClose) {
-      if (isTier && !tooClose.isTier) {
+      if ((isTier || isBreak) && !tooClose.isTier) {
         tooClose.rating = r;
         tooClose.label = String(r);
         tooClose.y = yVal;
-        tooClose.isTier = true;
+        tooClose.isTier = isTier || tooClose.isTier;
+        tooClose.isBreak = isBreak || tooClose.isBreak;
       }
       return;
     }
     added.add(r);
-    ticks.push({ y: yVal, rating: r, label: String(r), isTier });
+    ticks.push({ y: yVal, rating: r, label: String(r), isTier, isBreak });
   }
 
   // 1. Focal zone
   const focalStep = focalSpan > 250 ? 100 : 50;
   for (let r = fMin; r <= fMax; r += focalStep) {
-    addTick(r, tiers.includes(r));
+    const isBreak = (r === fMin && lowerSpan > 0) || (r === fMax && upperSpan > 0);
+    addTick(r, tiers.includes(r), isBreak);
   }
 
   // 2. Lower tail
@@ -414,6 +424,8 @@ export function chartYScale(
     axisMax: allMaxAxis,
     fMin,
     fMax,
+    hasLowerTail: lowerSpan > 0,
+    hasUpperTail: upperSpan > 0,
     warpY,
     ticks,
   };

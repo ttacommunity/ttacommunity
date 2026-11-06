@@ -21,6 +21,10 @@ declare module 'chart.js' {
       warpY?: (r: number) => number;
       axisMin?: number;
       axisMax?: number;
+      fMin?: number;
+      fMax?: number;
+      hasLowerTail?: boolean;
+      hasUpperTail?: boolean;
     };
   }
 }
@@ -43,11 +47,20 @@ import ChartOptionsDrawer from './ChartOptionsDrawer';
 
 const tierBandsPlugin: Plugin<'line'> = {
   id: 'tierBands',
-  beforeDraw(chart, _args, options: { enabled?: boolean; warpY?: (r: number) => number; axisMin?: number; axisMax?: number }) {
+  beforeDraw(chart, _args, options: {
+    enabled?: boolean;
+    warpY?: (r: number) => number;
+    axisMin?: number;
+    axisMax?: number;
+    fMin?: number;
+    fMax?: number;
+    hasLowerTail?: boolean;
+    hasUpperTail?: boolean;
+  }) {
     if (!options?.enabled || !options.warpY) return;
     const { ctx, chartArea, scales } = chart;
     if (!chartArea || !scales.y) return;
-    const { warpY, axisMin = 0, axisMax = 3000 } = options;
+    const { warpY, axisMin = 0, axisMax = 3000, fMin, fMax, hasLowerTail, hasUpperTail } = options;
     const yScale = scales.y;
     ctx.save();
     ctx.beginPath();
@@ -89,6 +102,36 @@ const tierBandsPlugin: Plugin<'line'> = {
         ctx.fillText(`${tier.min} · ${tier.code}`, chartArea.right - 6, lineY - 3);
       }
     }
+
+    // Visual compression break markers on the Y-axis border at focal boundaries
+    if (hasLowerTail && fMin !== undefined && fMin > axisMin && fMin < axisMax) {
+      const breakY = yScale.getPixelForValue(warpY(fMin));
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      const x = chartArea.left;
+      ctx.beginPath();
+      ctx.moveTo(x - 5, breakY + 3);
+      ctx.lineTo(x + 5, breakY - 3);
+      ctx.moveTo(x - 5, breakY + 7);
+      ctx.lineTo(x + 5, breakY + 1);
+      ctx.stroke();
+    }
+
+    if (hasUpperTail && fMax !== undefined && fMax > axisMin && fMax < axisMax) {
+      const breakY = yScale.getPixelForValue(warpY(fMax));
+      ctx.strokeStyle = 'rgba(212, 175, 55, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      const x = chartArea.left;
+      ctx.beginPath();
+      ctx.moveTo(x - 5, breakY + 3);
+      ctx.lineTo(x + 5, breakY - 3);
+      ctx.moveTo(x - 5, breakY + 7);
+      ctx.lineTo(x + 5, breakY + 1);
+      ctx.stroke();
+    }
+
     ctx.restore();
   },
 };
@@ -266,8 +309,8 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
                 return raw?.date ?? '';
               },
               label: (item) => {
-                const raw = item.raw as { y?: number | null } | undefined;
-                const val = raw?.y ?? item.parsed.y;
+                const raw = item.raw as { rawY?: number | null; y?: number | null } | undefined;
+                const val = raw?.rawY !== undefined && raw?.rawY !== null ? raw.rawY : item.parsed.y;
                 return ` ${item.dataset.label}: ${val}`;
               },
             },
@@ -277,6 +320,10 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             warpY: yScale?.warpY,
             axisMin: yScale?.axisMin,
             axisMax: yScale?.axisMax,
+            fMin: yScale?.fMin,
+            fMax: yScale?.fMax,
+            hasLowerTail: yScale?.hasLowerTail,
+            hasUpperTail: yScale?.hasUpperTail,
           },
         },
         scales: {
@@ -315,6 +362,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
                 if (!ctx.tick) return 'transparent';
                 const rounded = Math.round(Number(ctx.tick.value) * 10) / 10;
                 const tick = yTickMapRef.current.get(rounded);
+                if (tick?.isBreak) return 'rgba(212, 175, 55, 0.25)';
                 return tick?.isTier ? 'rgba(243, 229, 200, 0.12)' : 'rgba(243, 229, 200, 0.06)';
               },
               lineWidth: 1,
@@ -360,6 +408,10 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
         warpY: yScale?.warpY,
         axisMin: yScale?.axisMin,
         axisMax: yScale?.axisMax,
+        fMin: yScale?.fMin,
+        fMax: yScale?.fMax,
+        hasLowerTail: yScale?.hasLowerTail,
+        hasUpperTail: yScale?.hasUpperTail,
       };
     }
     c.data.datasets = data.lines.map((line) => ({
