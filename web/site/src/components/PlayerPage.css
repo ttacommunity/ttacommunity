@@ -353,6 +353,22 @@
   color: var(--text-muted);
 }
 
+.chart-toggle-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--accent-gold);
+  opacity: 0.8;
+  cursor: help;
+  user-select: none;
+}
+
+.chart-toggle-info:hover {
+  opacity: 1;
+}
+
 .chart-toggle .format-btn {
   min-height: 28px;
   padding: 0.2rem 0.6rem;

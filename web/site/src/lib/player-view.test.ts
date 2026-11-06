@@ -231,7 +231,6 @@ describe('chartData', () => {
 describe('goldenTimeWarp and linearTimeWarp', () => {
   const minDate = '2021-11-30';
   const maxDate = '2026-09-30';
-  const oneYearAgo = '2025-09-30';
 
   it('pins start date to 0 and latest date to 100 in both modes', () => {
     expect(goldenTimeWarp(minDate, minDate, maxDate)).toBe(0);
@@ -240,11 +239,21 @@ describe('goldenTimeWarp and linearTimeWarp', () => {
     expect(linearTimeWarp(maxDate, minDate, maxDate)).toBe(100);
   });
 
-  it('allocates the golden ratio (61.8%) of width to the most recent year in perspective mode', () => {
-    const warp1y = goldenTimeWarp(oneYearAgo, minDate, maxDate);
-    // 1 year ago should be around 38.2% mark (leaving 61.8% for the recent year)
-    expect(warp1y).toBeGreaterThan(37.5);
-    expect(warp1y).toBeLessThan(39.0);
+  it('progressively expands each successive year: current > last year > 2 ago > 3 ago', () => {
+    const w2022 = goldenTimeWarp('2022-01-01', minDate, maxDate);
+    const w2023 = goldenTimeWarp('2023-01-01', minDate, maxDate);
+    const w2024 = goldenTimeWarp('2024-01-01', minDate, maxDate);
+    const w2025 = goldenTimeWarp('2025-01-01', minDate, maxDate);
+    const w2026 = goldenTimeWarp('2026-01-01', minDate, maxDate);
+
+    const span2022 = w2023 - w2022;
+    const span2023 = w2024 - w2023;
+    const span2024 = w2025 - w2024;
+    const span2025 = w2026 - w2025;
+
+    expect(span2023).toBeGreaterThan(span2022);
+    expect(span2024).toBeGreaterThan(span2023);
+    expect(span2025).toBeGreaterThan(span2024);
   });
 
   it('maintains strict monotonicity over multi-year timeline', () => {
@@ -255,13 +264,13 @@ describe('goldenTimeWarp and linearTimeWarp', () => {
     }
   });
 
-  it('treats history under 1 year as linear without compression', () => {
+  it('scales sub-year timelines continuously with recency acceleration', () => {
     const d0 = '2026-01-01';
     const dMid = '2026-04-01';
     const dEnd = '2026-07-01';
     const gVal = goldenTimeWarp(dMid, d0, dEnd);
-    const lVal = linearTimeWarp(dMid, d0, dEnd);
-    expect(Math.round(gVal)).toBe(Math.round(lVal));
+    expect(gVal).toBeLessThan(40);
+    expect(gVal).toBeGreaterThan(30);
   });
 });
 

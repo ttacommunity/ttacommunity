@@ -140,11 +140,7 @@ export interface ChartPoint {
 /** Golden Ratio phi used for perspective time compression. */
 export const PHI = 1.618033988749895;
 
-/**
- * goldenTimeWarp maps an ISO date string to a percentage [0, 100] along the X axis.
- * The recent 12 months receive approximately (1 - 1/phi) ~ 61.8% of horizontal width
- * with uniform linearity, while earlier history is smoothly compressed into 38.2%.
- */
+/** goldenTimeWarp maps an ISO date string to a percentage [0, 100] using a continuous power-law lens x(tau) = tau^phi. */
 export function goldenTimeWarp(date: string, minDate: string, maxDate: string): number {
   const t = new Date(date).getTime();
   const tMin = new Date(minDate).getTime();
@@ -153,24 +149,8 @@ export function goldenTimeWarp(date: string, minDate: string, maxDate: string): 
   if (t <= tMin) return 0;
   if (t >= tMax) return 100;
 
-  const msYear = 365.25 * 24 * 3600 * 1000;
-  const totalSpan = tMax - tMin;
-  if (totalSpan <= msYear) {
-    return linearTimeWarp(date, minDate, maxDate);
-  }
-
-  const cutoff = tMax - msYear;
-  const recentPortion = (1 / PHI) * 100; // ~61.8%
-  const olderPortion = 100 - recentPortion; // ~38.2%
-
-  if (t >= cutoff) {
-    const frac = (t - cutoff) / msYear;
-    return Math.round((olderPortion + frac * recentPortion) * 10) / 10;
-  }
-  const olderSpan = cutoff - tMin;
-  if (olderSpan <= 0) return 0;
-  const delta = (t - tMin) / olderSpan;
-  return Math.round(olderPortion * Math.pow(delta, PHI) * 10) / 10;
+  const tau = (t - tMin) / (tMax - tMin);
+  return Math.round(Math.pow(tau, PHI) * 1000) / 10;
 }
 
 /** linearTimeWarp maps an ISO date string uniformly across [0, 100]. */

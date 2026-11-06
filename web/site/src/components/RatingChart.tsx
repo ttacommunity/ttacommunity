@@ -88,14 +88,16 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 function Toggle<T extends string>({
   label,
+  info,
   muted,
   options,
   value,
   onChange,
 }: {
   label: string;
+  info?: string;
   muted?: boolean;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; tooltip?: string }[];
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -104,7 +106,16 @@ function Toggle<T extends string>({
       label={label}
       look="raised"
       groupClass="chart-toggle"
-      prefix={<span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>{label}:</span>}
+      prefix={
+        <span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>
+          {label}:
+          {info && (
+            <span className="chart-toggle-info" data-tooltip={info} aria-label={info}>
+              ⓘ
+            </span>
+          )}
+        </span>
+      }
       options={options}
       value={value}
       onChange={onChange}
@@ -157,7 +168,11 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null || data === null || empty) return;
     const font = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const grid = { color: 'rgba(74, 53, 37, 0.25)' };
+    const grid = {
+      color: 'rgba(243, 229, 200, 0.08)',
+      lineWidth: 1,
+    };
+    const border = { color: 'rgba(74, 53, 37, 0.5)' };
     chart.current = new Chart(canvas.current, {
       type: 'line',
       data: { datasets: [] },
@@ -218,6 +233,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             min: 0,
             max: 100,
             grid,
+            border,
             afterBuildTicks: (axis) => {
               axis.ticks = ticksRef.current.map((t) => ({ value: t.x }));
             },
@@ -232,6 +248,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
           },
           y: {
             grid,
+            border,
             suggestedMin: yBounds?.min,
             suggestedMax: yBounds?.max,
             min: yBounds?.min,
@@ -283,9 +300,18 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
         <div className="chart-toggles">
           <Toggle
             label="Scale"
+            info="Perspective scale (Φ) uses the continuous power-law x(τ) = τ^1.618 to progressively expand recent history, giving each year more visual space than the last while focusing Y-axis bounds on recent form."
             options={[
-              { value: 'perspective', label: 'Perspective (Φ)' },
-              { value: 'linear', label: 'Linear' },
+              {
+                value: 'perspective',
+                label: 'Perspective (Φ)',
+                tooltip: 'Continuous power-law (x = τ^1.618): latest year receives the most space, smoothly accelerating from earlier history.',
+              },
+              {
+                value: 'linear',
+                label: 'Linear',
+                tooltip: 'Uniform chronological time scale: equal horizontal width per month across all years.',
+              },
             ]}
             value={scale}
             onChange={setScale}
@@ -293,9 +319,10 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
           <Toggle
             label="Tiers"
             muted
+            info="Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster)."
             options={[
-              { value: 'on', label: 'On' },
-              { value: 'off', label: 'Off' },
+              { value: 'on', label: 'On', tooltip: 'Show ambient rating tier bands and threshold markers' },
+              { value: 'off', label: 'Off', tooltip: 'Hide background tier bands' },
             ]}
             value={tiers}
             onChange={setTiers}
@@ -304,9 +331,9 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             label="Mode"
             muted
             options={[
-              { value: 'continuous', label: 'Continuous' },
-              { value: 'softer', label: 'Season Reset' },
-              { value: 'all', label: 'All Modes' },
+              { value: 'continuous', label: 'Continuous', tooltip: 'Continuous rating development across season boundaries' },
+              { value: 'softer', label: 'Season Reset', tooltip: 'Ratings calculated with seasonal rating resets' },
+              { value: 'all', label: 'All Modes', tooltip: 'Show both continuous and season-reset curves together' },
             ]}
             value={mode}
             onChange={setMode}
@@ -315,9 +342,9 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             label="Curve"
             muted
             options={[
-              { value: 'expected', label: 'Expected Mean (E = R)' },
-              { value: 'conservative', label: 'Conservative (C = μ − 3σ)' },
-              { value: 'all', label: 'All Curves' },
+              { value: 'expected', label: 'Expected Mean (E = R)', tooltip: 'Display expected rating mean (E = R)' },
+              { value: 'conservative', label: 'Conservative (C = μ − 3σ)', tooltip: 'Display conservative rating lower bound (C = μ − 3σ)' },
+              { value: 'all', label: 'All Curves', tooltip: 'Show both expected mean and conservative curves together' },
             ]}
             value={curve}
             onChange={setCurve}
