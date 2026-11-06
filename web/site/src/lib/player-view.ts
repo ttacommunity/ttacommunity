@@ -107,6 +107,8 @@ export function isProvisional(player: Player, format: Format): boolean {
 
 export type ChartMode = 'continuous' | 'softer' | 'all';
 export type ChartCurve = 'expected' | 'conservative' | 'all';
+export type ChartScale = 'perspective' | 'linear';
+export type ChartTiers = 'on' | 'off';
 
 export interface ChartSeriesLine {
   key: string;
@@ -116,6 +118,7 @@ export interface ChartSeriesLine {
   borderDash?: number[];
   curve: 'expected' | 'conservative';
   data: (number | null)[];
+  points?: ChartPoint[];
 }
 
 /** The chart's lines: one value per label and engine, null where the engine has none. */
@@ -123,7 +126,191 @@ export interface ChartData {
   labels: string[];
   series: Record<Engine, (number | null)[]>;
   lines: ChartSeriesLine[];
+  minDate?: string;
+  maxDate?: string;
 }
+
+/** Single coordinate point for scaled time charts. */
+export interface ChartPoint {
+  x: number;
+  y: number | null;
+  date: string;
+}
+
+/** Golden Ratio phi used for perspective time compression. */
+export const PHI = 1.618033988749895;
+
+/**
+ * goldenTimeWarp maps an ISO date string to a percentage [0, 100] along the X axis.
+ * The recent 12 months receive approximately (1 - 1/phi) ~ 61.8% of horizontal width
+ * with uniform linearity, while earlier history is smoothly compressed into 38.2%.
+ */
+export function goldenTimeWarp(date: string, minDate: string, maxDate: string): number {
+  const t = new Date(date).getTime();
+  const tMin = new Date(minDate).getTime();
+  const tMax = new Date(maxDate).getTime();
+  if (tMax <= tMin) return 50;
+  if (t <= tMin) return 0;
+  if (t >= tMax) return 100;
+
+  const msYear = 365.25 * 24 * 3600 * 1000;
+  const totalSpan = tMax - tMin;
+  if (totalSpan <= msYear) {
+    return linearTimeWarp(date, minDate, maxDate);
+  }
+
+  const cutoff = tMax - msYear;
+  const recentPortion = (1 / PHI) * 100; // ~61.8%
+  const olderPortion = 100 - recentPortion; // ~38.2%
+
+  if (t >= cutoff) {
+    const frac = (t - cutoff) / msYear;
+    return Math.round((olderPortion + frac * recentPortion) * 10) / 10;
+  }
+  const olderSpan = cutoff - tMin;
+  if (olderSpan <= 0) return 0;
+  const delta = (t - tMin) / olderSpan;
+  return Math.round(olderPortion * Math.pow(delta, PHI) * 10) / 10;
+}
+
+/** linearTimeWarp maps an ISO date string uniformly across [0, 100]. */
+export function linearTimeWarp(date: string, minDate: string, maxDate: string): number {
+  const t = new Date(date).getTime();
+  const tMin = new Date(minDate).getTime();
+  const tMax = new Date(maxDate).getTime();
+  if (tMax <= tMin) return 50;
+  if (t <= tMin) return 0;
+  if (t >= tMax) return 100;
+  return Math.round(((t - tMin) / (tMax - tMin)) * 1000) / 10;
+}
+
+export interface ChartTick {
+  x: number;
+  label: string;
+}
+
+/** chartTicks produces nicely distributed horizontal ticks for the chosen scale. */
+export function chartTicks(minDate: string, maxDate: string, scale: ChartScale): ChartTick[] {
+  const tMin = new Date(minDate).getTime();
+  const tMax = new Date(maxDate).getTime();
+  if (tMax <= tMin) return [{ x: 50, label: maxDate }];
+
+  const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate));
+  const ticks: ChartTick[] = [];
+  const startYear = new Date(minDate).getUTCFullYear();
+  const endYear = new Date(maxDate).getUTCFullYear();
+
+  for (let y = startYear; y <= endYear + 1; y++) {
+    const iso = `${y}-01-01`;
+    const t = new Date(iso).getTime();
+    if (t >= tMin && t <= tMax) {
+      ticks.push({ x: warp(iso), label: String(y) });
+    }
+  }
+
+  const msYear = 365.25 * 24 * 3600 * 1000;
+  const recentCutoff = tMax - msYear;
+  const recentStart = new Date(Math.max(tMin, recentCutoff));
+
+  const cur = new Date(Date.UTC(recentStart.getUTCFullYear(), recentStart.getUTCMonth(), 1));
+  while (cur.getTime() <= tMax) {
+    if (cur.getTime() >= tMin) {
+      const month = cur.getUTCMonth();
+      if (month % 2 === 0) {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const label = `${monthNames[month]} '${String(cur.getUTCFullYear()).slice(2)}`;
+        const iso = cur.toISOString().slice(0, 10);
+        ticks.push({ x: warp(iso), label });
+      }
+    }
+    cur.setUTCMonth(cur.getUTCMonth() + 1);
+  }
+
+  ticks.push({ x: 0, label: minDate.slice(0, 7) });
+  ticks.push({ x: 100, label: maxDate.slice(0, 7) });
+
+  ticks.sort((a, b) => a.x - b.x);
+  const deduped: ChartTick[] = [];
+  for (const tick of ticks) {
+    const prev = deduped[deduped.length - 1];
+    if (!prev || Math.abs(prev.x - tick.x) >= 4) {
+      deduped.push(tick);
+    }
+  }
+  return deduped;
+}
+
+/**
+ * chartYBounds determines vertical min/max bounds.
+ * In perspective scale, it anchors the window to recent competitive form (past ~18 months)
+ * so early placement swings do not squash the recent trajectory.
+ */
+export function chartYBounds(
+  history: PlayerHistory | null,
+  scale: ChartScale,
+  mode: ChartMode,
+  curve: ChartCurve,
+): { min: number; max: number } | null {
+  if (!history || history.series.length === 0) return null;
+  const allDates = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
+  if (allDates.length === 0) return null;
+
+  const maxDate = allDates[allDates.length - 1];
+  const maxTime = new Date(maxDate).getTime();
+  const ms18Months = 1.5 * 365.25 * 24 * 3600 * 1000;
+  const recentThreshold = maxTime - ms18Months;
+  const hasRecentPoints = allDates.some((d) => new Date(d).getTime() >= recentThreshold);
+
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const s of history.series) {
+    if (mode === 'continuous' && s.model.includes('_softer')) continue;
+    if (mode === 'softer' && !s.model.includes('_softer')) continue;
+    for (const p of s.points) {
+      if (scale === 'perspective' && hasRecentPoints) {
+        const pTime = new Date(p.date).getTime();
+        if (pTime < recentThreshold) continue;
+      }
+      if (curve === 'expected' || curve === 'all') {
+        if (p.rating < min) min = p.rating;
+        if (p.rating > max) max = p.rating;
+      }
+      if (curve === 'conservative' || curve === 'all') {
+        if (p.c_rating < min) min = p.c_rating;
+        if (p.c_rating > max) max = p.c_rating;
+      }
+    }
+  }
+
+  if (!isFinite(min) || !isFinite(max)) return null;
+  const span = max - min;
+  const pad = Math.max(25, span * 0.08);
+  return {
+    min: Math.floor((min - pad) / 50) * 50,
+    max: Math.ceil((max + pad) / 50) * 50,
+  };
+}
+
+/** Rating tier definition with parchment-fitting colors. */
+export interface RatingTier {
+  min: number;
+  max: number;
+  name: string;
+  code: string;
+  color: string;
+  borderColor?: string;
+}
+
+export const RATING_TIERS: readonly RatingTier[] = [
+  { min: 0, max: 1399, name: 'Bronze', code: 'BRZ', color: 'rgba(100, 75, 55, 0.07)' },
+  { min: 1400, max: 1599, name: 'Silver', code: 'SLV', color: 'rgba(140, 150, 165, 0.09)' },
+  { min: 1600, max: 1799, name: 'Gold', code: 'GLD', color: 'rgba(212, 175, 55, 0.12)' },
+  { min: 1800, max: 1999, name: 'Master', code: 'MST', color: 'rgba(215, 120, 40, 0.14)', borderColor: 'rgba(215, 120, 40, 0.35)' },
+  { min: 2000, max: 2199, name: 'Grandmaster', code: 'GM', color: 'rgba(180, 70, 60, 0.15)', borderColor: 'rgba(180, 70, 60, 0.4)' },
+  { min: 2200, max: 3000, name: 'Supreme Grandmaster', code: 'SGM', color: 'rgba(160, 60, 170, 0.16)', borderColor: 'rgba(160, 60, 170, 0.45)' },
+];
+
 
 const tenth = (x: number) => Math.round(x * 10) / 10;
 
@@ -131,8 +318,12 @@ const tenth = (x: number) => Math.round(x * 10) / 10;
  * chartData lines each engine's history up on every date any model has, in the continuous
  * or season-reset models and on the expected or conservative curve, or all selections at once.
  */
-export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartCurve): ChartData {
+export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartCurve, scale: ChartScale = 'perspective'): ChartData {
   const labels = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
+  const minDate = labels[0];
+  const maxDate = labels[labels.length - 1];
+  const warp = (d: string) =>
+    minDate && maxDate ? (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate)) : 50;
   const suffix = mode === 'softer' ? '_softer' : '';
   const series = {} as ChartData['series'];
   for (const engine of ENGINES) {
@@ -182,12 +373,16 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
           borderDash: isDashed ? [5, 5] : undefined,
           curve: c,
           data: labels.map((d) => (c === 'conservative' ? atCRating.get(d) ?? null : atRating.get(d) ?? null)),
+          points: labels.map((d) => {
+            const y = c === 'conservative' ? atCRating.get(d) ?? null : atRating.get(d) ?? null;
+            return { x: warp(d), y, date: d };
+          }),
         });
       }
     }
   }
 
-  return { labels, series, lines };
+  return { labels, series, lines, minDate, maxDate };
 }
 /** signedDelta writes a change as upstream writes ΔR: one decimal, a sign unless it rounds to zero, a dash for none. */
 export function signedDelta(delta: number | null): string {

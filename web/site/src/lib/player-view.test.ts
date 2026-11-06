@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
 import {
   chartData,
+  chartTicks,
+  chartYBounds,
+  goldenTimeWarp,
+  linearTimeWarp,
+  RATING_TIERS,
   formatCards,
   hasPlayerPage,
   isProvisional,
@@ -222,6 +227,124 @@ describe('chartData', () => {
     expect(got.lines[3].data).toEqual([1400, null, null]);
   });
 });
+
+describe('goldenTimeWarp and linearTimeWarp', () => {
+  const minDate = '2021-11-30';
+  const maxDate = '2026-09-30';
+  const oneYearAgo = '2025-09-30';
+
+  it('pins start date to 0 and latest date to 100 in both modes', () => {
+    expect(goldenTimeWarp(minDate, minDate, maxDate)).toBe(0);
+    expect(goldenTimeWarp(maxDate, minDate, maxDate)).toBe(100);
+    expect(linearTimeWarp(minDate, minDate, maxDate)).toBe(0);
+    expect(linearTimeWarp(maxDate, minDate, maxDate)).toBe(100);
+  });
+
+  it('allocates the golden ratio (61.8%) of width to the most recent year in perspective mode', () => {
+    const warp1y = goldenTimeWarp(oneYearAgo, minDate, maxDate);
+    // 1 year ago should be around 38.2% mark (leaving 61.8% for the recent year)
+    expect(warp1y).toBeGreaterThan(37.5);
+    expect(warp1y).toBeLessThan(39.0);
+  });
+
+  it('maintains strict monotonicity over multi-year timeline', () => {
+    const dates = ['2021-11-30', '2022-06-01', '2023-01-01', '2024-01-01', '2025-01-01', '2025-09-30', '2026-03-31', '2026-09-30'];
+    const warps = dates.map((d) => goldenTimeWarp(d, minDate, maxDate));
+    for (let i = 1; i < warps.length; i++) {
+      expect(warps[i]).toBeGreaterThan(warps[i - 1]);
+    }
+  });
+
+  it('treats history under 1 year as linear without compression', () => {
+    const d0 = '2026-01-01';
+    const dMid = '2026-04-01';
+    const dEnd = '2026-07-01';
+    const gVal = goldenTimeWarp(dMid, d0, dEnd);
+    const lVal = linearTimeWarp(dMid, d0, dEnd);
+    expect(Math.round(gVal)).toBe(Math.round(lVal));
+  });
+});
+
+describe('chartTicks', () => {
+  const minDate = '2021-11-30';
+  const maxDate = '2026-09-30';
+
+  it('returns sorted ticks on [0, 100] for perspective scale', () => {
+    const ticks = chartTicks(minDate, maxDate, 'perspective');
+    expect(ticks.length).toBeGreaterThan(5);
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i].x).toBeGreaterThan(ticks[i - 1].x);
+    }
+    // Recent year has bi-monthly ticks with dates
+    expect(ticks.some((t) => t.label.includes('26'))).toBe(true);
+    // Older era has year markers
+    expect(ticks.some((t) => t.label === '2023')).toBe(true);
+  });
+
+  it('returns ticks for linear scale', () => {
+    const ticks = chartTicks(minDate, maxDate, 'linear');
+    expect(ticks.length).toBeGreaterThan(3);
+    for (let i = 1; i < ticks.length; i++) {
+      expect(ticks[i].x).toBeGreaterThan(ticks[i - 1].x);
+    }
+  });
+});
+
+describe('chartYBounds', () => {
+  const multiYearHistory: PlayerHistory = {
+    run_id: 10,
+    name: 'eepogi',
+    format: 0,
+    series: [
+      {
+        model: 'glicko2_daneo',
+        points: [
+          { date: '2022-01-01', rating: 1520, c_rating: 1050 }, // early placement dip
+          { date: '2023-01-01', rating: 1650, c_rating: 1400 },
+          { date: '2025-06-01', rating: 1760, c_rating: 1680 }, // recent
+          { date: '2025-12-01', rating: 1830, c_rating: 1750 }, // recent
+          { date: '2026-05-01', rating: 1900, c_rating: 1820 }, // recent
+        ],
+      },
+    ],
+  };
+
+  it('focuses Y bounds on recent era in perspective mode, eliminating early placement floor', () => {
+    const bounds = chartYBounds(multiYearHistory, 'perspective', 'continuous', 'expected');
+    expect(bounds).not.toBeNull();
+    if (!bounds) return;
+    // In perspective mode, 1520 from 2022 should not pull the floor down to 1500
+    expect(bounds.min).toBeGreaterThanOrEqual(1700);
+    expect(bounds.max).toBeGreaterThanOrEqual(1900);
+  });
+
+  it('spans all-time range in linear mode', () => {
+    const bounds = chartYBounds(multiYearHistory, 'linear', 'continuous', 'expected');
+    expect(bounds).not.toBeNull();
+    if (!bounds) return;
+    expect(bounds.min).toBeLessThanOrEqual(1500);
+    expect(bounds.max).toBeGreaterThanOrEqual(1900);
+  });
+
+  it('excludes conservative low values when curve is expected', () => {
+    const bounds = chartYBounds(multiYearHistory, 'linear', 'continuous', 'expected');
+    if (!bounds) return;
+    expect(bounds.min).toBeGreaterThan(1050); // should not be anchored to c_rating 1050
+  });
+});
+
+describe('RATING_TIERS', () => {
+  it('defines the standard competitive rating tiers with distinct styling', () => {
+    expect(RATING_TIERS.length).toBeGreaterThanOrEqual(5);
+    expect(RATING_TIERS[0].min).toBe(0);
+    expect(RATING_TIERS[RATING_TIERS.length - 1]?.max).toBe(3000);
+    for (const tier of RATING_TIERS) {
+      expect(tier.color).toContain('rgba(');
+      expect(tier.name).toBeTruthy();
+    }
+  });
+});
+
 
 describe('signedDelta', () => {
   it.each([
