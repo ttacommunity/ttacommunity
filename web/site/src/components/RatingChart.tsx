@@ -153,16 +153,14 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
     [data, scale],
   );
 
-  const ticksRef = useRef<ChartTick[]>([]);
+  const ticksRef = useRef<ChartTick[]>(ticks);
   const tickMapRef = useRef<Map<number, ChartTick>>(new Map());
-  useEffect(() => {
-    ticksRef.current = ticks;
-    const m = new Map<number, ChartTick>();
-    for (const t of ticks) {
-      m.set(Math.round(t.x * 10) / 10, t);
-    }
-    tickMapRef.current = m;
-  }, [ticks]);
+  ticksRef.current = ticks;
+  const tickMap = new Map<number, ChartTick>();
+  for (const t of ticks) {
+    tickMap.set(Math.round(t.x * 10) / 10, t);
+  }
+  tickMapRef.current = tickMap;
 
   // A layout effect, declared before the fill below, so the chart exists when its lines are filled in.
   useIsomorphicLayoutEffect(() => {
@@ -267,9 +265,14 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   useIsomorphicLayoutEffect(() => {
     const c = chart.current;
     if (c === null || data === null) return;
-    if (yBounds && c.options.scales?.y) {
-      c.options.scales.y.min = yBounds.min;
-      c.options.scales.y.max = yBounds.max;
+    if (c.options.scales?.x) {
+      c.options.scales.x.afterBuildTicks = (axis) => {
+        axis.ticks = ticks.map((t) => ({ value: t.x }));
+      };
+    }
+    if (c.options.scales?.y) {
+      c.options.scales.y.min = yBounds?.min;
+      c.options.scales.y.max = yBounds?.max;
     }
     if (c.options.plugins) {
       (c.options.plugins as Record<string, unknown>).tierBands = { enabled: tiers === 'on' };
@@ -288,7 +291,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       hidden: hiddenLabels.current.has(line.label),
     }));
     c.update('none');
-  }, [data, scale, yBounds, tiers]);
+  }, [data, scale, yBounds, tiers, ticks]);
 
   return (
     <div className="chart-container">
@@ -300,12 +303,12 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
         <div className="chart-toggles">
           <Toggle
             label="Scale"
-            info="Perspective scale (Φ) uses the continuous power-law x(τ) = τ^1.618 to progressively expand recent history, giving each year more visual space than the last while focusing Y-axis bounds on recent form."
+            info="Perspective scale (Φ²) expands recent history with power-law recency acceleration, allocating the largest share of horizontal space to the current year while keeping the curve's peak close to the top of the diagram."
             options={[
               {
                 value: 'perspective',
-                label: 'Perspective (Φ)',
-                tooltip: 'Continuous power-law (x = τ^1.618): latest year receives the most space, smoothly accelerating from earlier history.',
+                label: 'Perspective (Φ²)',
+                tooltip: 'Continuous power-law (x ~ τ^2.6): current year receives the largest share (~40%), with earlier years smoothly condensed.',
               },
               {
                 value: 'linear',

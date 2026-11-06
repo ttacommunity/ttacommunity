@@ -269,8 +269,8 @@ describe('goldenTimeWarp and linearTimeWarp', () => {
     const dMid = '2026-04-01';
     const dEnd = '2026-07-01';
     const gVal = goldenTimeWarp(dMid, d0, dEnd);
-    expect(gVal).toBeLessThan(40);
-    expect(gVal).toBeGreaterThan(30);
+    expect(gVal).toBeLessThan(30);
+    expect(gVal).toBeGreaterThan(15);
   });
 });
 
@@ -331,13 +331,13 @@ describe('chartYBounds', () => {
     ],
   };
 
-  it('focuses Y bounds on recent era in perspective mode, eliminating early placement floor', () => {
+  it('focuses Y bounds on recent era in perspective mode, keeping peak near top and preserving trajectory', () => {
     const bounds = chartYBounds(multiYearHistory, 'perspective', 'continuous', 'expected');
     expect(bounds).not.toBeNull();
     if (!bounds) return;
-    // In perspective mode, 1520 from 2022 should not pull the floor down to 1500
-    expect(bounds.min).toBeGreaterThanOrEqual(1700);
-    expect(bounds.max).toBeGreaterThanOrEqual(1900);
+    expect(bounds.min).toBeGreaterThanOrEqual(1550);
+    expect(bounds.min).toBeLessThanOrEqual(1650);
+    expect(bounds.max).toBe(1950);
   });
 
   it('spans all-time range in linear mode', () => {
