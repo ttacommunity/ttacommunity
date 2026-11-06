@@ -364,6 +364,31 @@ describe('chartYBounds', () => {
     if (!bounds) return;
     expect(bounds.min).toBeGreaterThan(1050); // should not be anchored to c_rating 1050
   });
+
+  it('filters bounds to active engines when specified', () => {
+    const multiEngineHistory: PlayerHistory = {
+      run_id: 10,
+      name: 'eepogi',
+      format: 0,
+      series: [
+        {
+          model: 'glicko2_daneo',
+          points: [{ date: '2026-01-01', rating: 1800, c_rating: 1700 }],
+        },
+        {
+          model: 'glicko2_std',
+          points: [{ date: '2026-01-01', rating: 2200, c_rating: 2100 }],
+        },
+      ],
+    };
+    const daneoOnly = chartYBounds(multiEngineHistory, 'perspective', 'continuous', 'expected', new Set(['glicko2_daneo']));
+    expect(daneoOnly).not.toBeNull();
+    expect(daneoOnly?.max).toBeLessThan(2000);
+
+    const withStd = chartYBounds(multiEngineHistory, 'perspective', 'continuous', 'expected', new Set(['glicko2_daneo', 'glicko2_std']));
+    expect(withStd).not.toBeNull();
+    expect(withStd?.max).toBeGreaterThanOrEqual(2200);
+  });
 });
 
 describe('RATING_TIERS', () => {

@@ -236,6 +236,7 @@ export function chartYBounds(
   scale: ChartScale,
   mode: ChartMode,
   curve: ChartCurve,
+  engines?: ReadonlySet<string>,
 ): { min: number; max: number } | null {
   if (!history || history.series.length === 0) return null;
   const allDates = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
@@ -252,6 +253,7 @@ export function chartYBounds(
   for (const s of history.series) {
     if (mode === 'continuous' && s.model.includes('_softer')) continue;
     if (mode === 'softer' && !s.model.includes('_softer')) continue;
+    if (engines && !engines.has(s.model.replace('_softer', ''))) continue;
     for (const p of s.points) {
       const isRecent = new Date(p.date).getTime() >= recentThreshold;
       if (curve === 'expected' || curve === 'all') {
