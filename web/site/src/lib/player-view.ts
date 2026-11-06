@@ -140,7 +140,15 @@ export interface ChartPoint {
 /** Golden Ratio phi used for perspective time compression. */
 export const PHI = 1.618033988749895;
 
-/** goldenTimeWarp maps an ISO date string to a percentage [0, 100] using a continuous power-law lens x(tau) = tau^phi. */
+/** Golden Ratio phi squared (~2.618) used for perspective recency acceleration. */
+export const PHI_SQUARED = PHI * PHI;
+
+/**
+ * goldenTimeWarp maps an ISO date string to a percentage [0, 100] along the X axis
+ * using a power-law recency lens x(tau) = 100 * ((1 - alpha) * tau^phi^2 + alpha * tau).
+ * This gives the current year a large share of the space (~40%), with every earlier year
+ * smoothly and progressively smaller while ensuring all year markers fit without collision.
+ */
 export function goldenTimeWarp(date: string, minDate: string, maxDate: string): number {
   const t = new Date(date).getTime();
   const tMin = new Date(minDate).getTime();
@@ -150,10 +158,11 @@ export function goldenTimeWarp(date: string, minDate: string, maxDate: string): 
   if (t >= tMax) return 100;
 
   const tau = (t - tMin) / (tMax - tMin);
-  return Math.round(Math.pow(tau, PHI) * 1000) / 10;
+  const alpha = 0.12;
+  const warped = (1 - alpha) * Math.pow(tau, PHI_SQUARED) + alpha * tau;
+  return Math.round(warped * 1000) / 10;
 }
 
-/** linearTimeWarp maps an ISO date string uniformly across [0, 100]. */
 export function linearTimeWarp(date: string, minDate: string, maxDate: string): number {
   const t = new Date(date).getTime();
   const tMin = new Date(minDate).getTime();
@@ -210,7 +219,7 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
   // Year ticks are guaranteed and never skipped so the user sees every year on the grid.
   const allTicks: ChartTick[] = [...yearTicks];
   for (const candidate of [...monthTicks, endTick]) {
-    const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < 3.5);
+    const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < 2.5);
     if (!collides) {
       allTicks.push(candidate);
     }
@@ -220,7 +229,7 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
   return allTicks;
 }
 
-/** chartYBounds determines vertical min/max bounds, anchored to recent competitive form in perspective scale. */
+/** chartYBounds determines vertical min/max bounds, keeping curve peaks near the top while capturing established trajectory. */
 export function chartYBounds(
   history: PlayerHistory | null,
   scale: ChartScale,
@@ -235,37 +244,51 @@ export function chartYBounds(
   const maxTime = new Date(maxDate).getTime();
   const ms18Months = 1.5 * 365.25 * 24 * 3600 * 1000;
   const recentThreshold = maxTime - ms18Months;
-  const hasRecentPoints = allDates.some((d) => new Date(d).getTime() >= recentThreshold);
 
-  let min = Infinity;
-  let max = -Infinity;
+  const visiblePoints: number[] = [];
+  const recentPoints: number[] = [];
 
   for (const s of history.series) {
     if (mode === 'continuous' && s.model.includes('_softer')) continue;
     if (mode === 'softer' && !s.model.includes('_softer')) continue;
     for (const p of s.points) {
-      if (scale === 'perspective' && hasRecentPoints) {
-        const pTime = new Date(p.date).getTime();
-        if (pTime < recentThreshold) continue;
-      }
+      const isRecent = new Date(p.date).getTime() >= recentThreshold;
       if (curve === 'expected' || curve === 'all') {
-        if (p.rating < min) min = p.rating;
-        if (p.rating > max) max = p.rating;
+        visiblePoints.push(p.rating);
+        if (isRecent) recentPoints.push(p.rating);
       }
       if (curve === 'conservative' || curve === 'all') {
-        if (p.c_rating < min) min = p.c_rating;
-        if (p.c_rating > max) max = p.c_rating;
+        visiblePoints.push(p.c_rating);
+        if (isRecent) recentPoints.push(p.c_rating);
       }
     }
   }
 
-  if (!isFinite(min) || !isFinite(max)) return null;
-  const span = max - min;
-  const pad = Math.max(25, span * 0.08);
-  return {
-    min: Math.floor((min - pad) / 50) * 50,
-    max: Math.ceil((max + pad) / 50) * 50,
-  };
+  if (visiblePoints.length === 0) return null;
+
+  const allMax = Math.max(...visiblePoints);
+  const allMin = Math.min(...visiblePoints);
+  const recentMax = recentPoints.length > 0 ? Math.max(...recentPoints) : allMax;
+  const recentMin = recentPoints.length > 0 ? Math.min(...recentPoints) : allMin;
+
+  // Maximum Y bound: place close to the top of the diagram with a tight top margin
+  const topTarget = Math.max(recentMax, allMax);
+  const axisMax = Math.ceil((topTarget + 15) / 50) * 50;
+
+  let axisMin: number;
+  if (scale === 'linear') {
+    axisMin = Math.floor((allMin - 15) / 50) * 50;
+  } else {
+    // In perspective mode: focus on recent form while filling space reasonably and preserving established historical trajectory.
+    const targetMin = Math.max(allMin, recentMin - 150);
+    axisMin = Math.floor((targetMin - 15) / 50) * 50;
+  }
+
+  if (axisMax - axisMin < 100) {
+    axisMin = axisMax - 100;
+  }
+
+  return { min: axisMin, max: axisMax };
 }
 
 /** Rating tier definition with parchment-fitting colors. */
