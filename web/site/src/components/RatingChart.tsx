@@ -33,7 +33,7 @@ import {
   type ChartTick,
   type ChartTiers,
 } from '../lib/player-view';
-import ChartOptionsModal from './ChartOptionsModal';
+import ChartOptionsDrawer from './ChartOptionsDrawer';
 
 const tierBandsPlugin: Plugin<'line'> = {
   id: 'tierBands',
@@ -105,7 +105,6 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   const initializedDefaults = useRef(false);
 
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
 
   const [scale, setScale] = useState<ChartScale>('perspective');
   const [tiers, setTiers] = useState<ChartTiers>('on');
@@ -334,7 +333,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   }, [data, scale, yBounds, tiers, ticks, engines]);
 
   return (
-    <div className="chart-container">
+    <div className={optionsOpen ? 'chart-container options-open' : 'chart-container'}>
       <div className="chart-head">
         <div>
           <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
@@ -345,10 +344,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
           className={['btn-options-toggle', hasActiveOptions && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
           title="Trajectory chart options and curves"
           aria-expanded={optionsOpen}
-          onClick={(e) => {
-            setOptionsOpener(e.currentTarget);
-            setOptionsOpen(true);
-          }}
+          onClick={() => setOptionsOpen(!optionsOpen)}
         >
           <span>⚙️ Options</span>
           {hasActiveOptions && <span className="options-active-badge">Active</span>}
@@ -371,8 +367,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       {data !== null && !empty && <p className="visually-hidden">{summary(data)}</p>}
 
       {optionsOpen && (
-        <ChartOptionsModal
-          opener={optionsOpener}
+        <ChartOptionsDrawer
           scale={scale}
           setScale={setScale}
           tiers={tiers}
@@ -384,10 +379,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
           engines={engines}
           toggleEngine={toggleEngine}
           onReset={resetOptions}
-          onClose={() => {
-            setOptionsOpen(false);
-            setOptionsOpener(null);
-          }}
+          onClose={() => setOptionsOpen(false)}
         />
       )}
     </div>
