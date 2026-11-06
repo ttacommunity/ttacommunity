@@ -230,7 +230,15 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
             type: 'linear',
             min: 0,
             max: 100,
-            grid,
+            grid: {
+              color: (ctx) => {
+                if (!ctx.tick) return 'transparent';
+                const rounded = Math.round(Number(ctx.tick.value) * 10) / 10;
+                const tick = tickMapRef.current.get(rounded);
+                return tick?.isYear ? 'rgba(243, 229, 200, 0.10)' : 'transparent';
+              },
+              lineWidth: 1,
+            },
             border,
             afterBuildTicks: (axis) => {
               axis.ticks = ticksRef.current.map((t) => ({ value: t.x }));

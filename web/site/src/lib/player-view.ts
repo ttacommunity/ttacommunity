@@ -176,6 +176,7 @@ export function linearTimeWarp(date: string, minDate: string, maxDate: string): 
 export interface ChartTick {
   x: number;
   label: string;
+  isYear?: boolean;
 }
 
 /** chartTicks produces nicely distributed horizontal ticks for the chosen scale. */
@@ -185,14 +186,14 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
   const baseMin = `${startYear}-01-01`;
   const tMin = new Date(baseMin).getTime();
   const tMax = new Date(maxDate).getTime();
-  if (tMax <= tMin) return [{ x: 50, label: maxDate }];
+  if (tMax <= tMin) return [{ x: 50, label: maxDate, isYear: true }];
 
   const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, baseMin, maxDate) : linearTimeWarp(d, baseMin, maxDate));
 
   const yearTicks: ChartTick[] = [];
   for (let y = startYear; y <= endYear; y++) {
     const iso = `${y}-01-01`;
-    yearTicks.push({ x: warp(iso), label: String(y) });
+    yearTicks.push({ x: warp(iso), label: String(y), isYear: true });
   }
 
   const monthTicks: ChartTick[] = [];
@@ -208,13 +209,13 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const label = `${monthNames[month]} '${String(cur.getUTCFullYear()).slice(2)}`;
         const iso = cur.toISOString().slice(0, 10);
-        monthTicks.push({ x: warp(iso), label });
+        monthTicks.push({ x: warp(iso), label, isYear: false });
       }
     }
     cur.setUTCMonth(cur.getUTCMonth() + 1);
   }
 
-  const endTick: ChartTick = { x: 100, label: maxDate.slice(0, 7) };
+  const endTick: ChartTick = { x: 100, label: maxDate.slice(0, 7), isYear: false };
 
   // Year ticks are guaranteed and never skipped so the user sees every year on the grid.
   const allTicks: ChartTick[] = [...yearTicks];
