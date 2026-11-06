@@ -33,7 +33,7 @@ import {
   type ChartTick,
   type ChartTiers,
 } from '../lib/player-view';
-import Segmented from '@ttac/shared/Segmented';
+import ChartOptionsModal from './ChartOptionsModal';
 
 const tierBandsPlugin: Plugin<'line'> = {
   id: 'tierBands',
@@ -86,43 +86,6 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
-function Toggle<T extends string>({
-  label,
-  info,
-  muted,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  info?: string;
-  muted?: boolean;
-  options: { value: T; label: string; tooltip?: string }[];
-  value: T;
-  onChange: (v: T) => void;
-}) {
-  return (
-    <Segmented
-      label={label}
-      look="raised"
-      groupClass="chart-toggle"
-      prefix={
-        <span className={muted ? 'chart-toggle-label muted' : 'chart-toggle-label'}>
-          {label}:
-          {info && (
-            <span className="chart-toggle-info" data-tooltip={info} aria-label={info}>
-              ⓘ
-            </span>
-          )}
-        </span>
-      }
-      options={options}
-      value={value}
-      onChange={onChange}
-    />
-  );
-}
-
 /** summary describes each line's first and latest value, the chart's text alternative. */
 function summary(data: ChartData): string {
   const lines = data.lines.flatMap((line) => {
@@ -139,15 +102,32 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
   const hiddenLabels = useRef<Set<string>>(new Set());
+  const initializedDefaults = useRef(false);
+
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
+
   const [scale, setScale] = useState<ChartScale>('perspective');
   const [tiers, setTiers] = useState<ChartTiers>('on');
   const [mode, setMode] = useState<ChartMode>('continuous');
   const [curve, setCurve] = useState<ChartCurve>('expected');
+  const [engines, setEngines] = useState<Set<string>>(() => new Set(['glicko2_daneo']));
 
   const data = useMemo(() => (history === null ? null : chartData(history, mode, curve, scale)), [history, mode, curve, scale]);
+
+  // Standard starts with Glicko Standard unselected by default.
+  if (!initializedDefaults.current && data) {
+    for (const line of data.lines) {
+      if (line.key.startsWith('glicko2_std')) {
+        hiddenLabels.current.add(line.label);
+      }
+    }
+    initializedDefaults.current = true;
+  }
+
   const empty = data !== null && data.labels.length === 0;
   const years = data === null || empty ? null : runYears(data.labels[0] ?? null, data.labels.at(-1) ?? null);
-  const yBounds = useMemo(() => chartYBounds(history, scale, mode, curve), [history, scale, mode, curve]);
+  const yBounds = useMemo(() => chartYBounds(history, scale, mode, curve, engines), [history, scale, mode, curve, engines]);
   const ticks = useMemo(
     () => (data && data.minDate && data.maxDate ? chartTicks(data.minDate, data.maxDate, scale) : []),
     [data, scale],
@@ -161,6 +141,46 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
     tickMap.set(Math.round(t.x * 10) / 10, t);
   }
   tickMapRef.current = tickMap;
+
+  const toggleEngine = (eng: string) => {
+    setEngines((prev) => {
+      const next = new Set(prev);
+      if (next.has(eng)) {
+        if (next.size > 1) {
+          next.delete(eng);
+          data?.lines.filter((l) => l.key.startsWith(eng)).forEach((l) => hiddenLabels.current.add(l.label));
+        }
+      } else {
+        next.add(eng);
+        data?.lines.filter((l) => l.key.startsWith(eng)).forEach((l) => hiddenLabels.current.delete(l.label));
+      }
+      return next;
+    });
+  };
+
+  const resetOptions = () => {
+    setScale('perspective');
+    setTiers('on');
+    setMode('continuous');
+    setCurve('expected');
+    setEngines(new Set(['glicko2_daneo']));
+    hiddenLabels.current.clear();
+    if (data) {
+      for (const line of data.lines) {
+        if (line.key.startsWith('glicko2_std')) {
+          hiddenLabels.current.add(line.label);
+        }
+      }
+    }
+  };
+
+  const hasActiveOptions =
+    scale !== 'perspective' ||
+    tiers !== 'on' ||
+    mode !== 'continuous' ||
+    curve !== 'expected' ||
+    engines.size !== 1 ||
+    !engines.has('glicko2_daneo');
 
   // A layout effect, declared before the fill below, so the chart exists when its lines are filled in.
   useIsomorphicLayoutEffect(() => {
@@ -192,14 +212,26 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
               if (index === undefined) return;
               const ci = legend.chart;
               const label = ci.data.datasets[index]?.label;
+              const line = data?.lines[index];
+              const engine = line?.key.split('-')[0];
               if (ci.isDatasetVisible(index)) {
                 ci.hide(index);
                 legendItem.hidden = true;
                 if (label) hiddenLabels.current.add(label);
+                if (engine && data?.lines.filter((l) => l.key.startsWith(engine)).every((l) => hiddenLabels.current.has(l.label))) {
+                  setEngines((prev) => {
+                    const next = new Set(prev);
+                    next.delete(engine);
+                    return next;
+                  });
+                }
               } else {
                 ci.show(index);
                 legendItem.hidden = false;
                 if (label) hiddenLabels.current.delete(label);
+                if (engine) {
+                  setEngines((prev) => new Set([...prev, engine]));
+                }
               }
             },
           },
@@ -299,68 +331,29 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
       hidden: hiddenLabels.current.has(line.label),
     }));
     c.update('none');
-  }, [data, scale, yBounds, tiers, ticks]);
+  }, [data, scale, yBounds, tiers, ticks, engines]);
 
   return (
     <div className="chart-container">
       <div className="chart-head">
         <div>
           <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
-          <span className="chart-hint">Click legend items to toggle individual models</span>
+          <span className="chart-hint">Click legend items or open options to customize display</span>
         </div>
-        <div className="chart-toggles">
-          <Toggle
-            label="Scale"
-            info="Perspective scale (Φ²) expands recent history with power-law recency acceleration, allocating the largest share of horizontal space to the current year while keeping the curve's peak close to the top of the diagram."
-            options={[
-              {
-                value: 'perspective',
-                label: 'Perspective (Φ²)',
-                tooltip: 'Continuous power-law (x ~ τ^2.6): current year receives the largest share (~40%), with earlier years smoothly condensed.',
-              },
-              {
-                value: 'linear',
-                label: 'Linear',
-                tooltip: 'Uniform chronological time scale: equal horizontal width per month across all years.',
-              },
-            ]}
-            value={scale}
-            onChange={setScale}
-          />
-          <Toggle
-            label="Tiers"
-            muted
-            info="Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster)."
-            options={[
-              { value: 'on', label: 'On', tooltip: 'Show ambient rating tier bands and threshold markers' },
-              { value: 'off', label: 'Off', tooltip: 'Hide background tier bands' },
-            ]}
-            value={tiers}
-            onChange={setTiers}
-          />
-          <Toggle
-            label="Mode"
-            muted
-            options={[
-              { value: 'continuous', label: 'Continuous', tooltip: 'Continuous rating development across season boundaries' },
-              { value: 'softer', label: 'Season Reset', tooltip: 'Ratings calculated with seasonal rating resets' },
-              { value: 'all', label: 'All Modes', tooltip: 'Show both continuous and season-reset curves together' },
-            ]}
-            value={mode}
-            onChange={setMode}
-          />
-          <Toggle
-            label="Curve"
-            muted
-            options={[
-              { value: 'expected', label: 'Expected Mean (E = R)', tooltip: 'Display expected rating mean (E = R)' },
-              { value: 'conservative', label: 'Conservative (C = μ − 3σ)', tooltip: 'Display conservative rating lower bound (C = μ − 3σ)' },
-              { value: 'all', label: 'All Curves', tooltip: 'Show both expected mean and conservative curves together' },
-            ]}
-            value={curve}
-            onChange={setCurve}
-          />
-        </div>
+        <button
+          type="button"
+          className={['btn-options-toggle', hasActiveOptions && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
+          title="Trajectory chart options and curves"
+          aria-expanded={optionsOpen}
+          onClick={(e) => {
+            setOptionsOpener(e.currentTarget);
+            setOptionsOpen(true);
+          }}
+        >
+          <span>⚙️ Options</span>
+          {hasActiveOptions && <span className="options-active-badge">Active</span>}
+          <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
+        </button>
       </div>
       <div className="chart-container-inner" role={empty ? undefined : 'img'} aria-label={empty ? undefined : 'Rating history by model'}>
         {empty ? (
@@ -376,6 +369,27 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
         )}
       </div>
       {data !== null && !empty && <p className="visually-hidden">{summary(data)}</p>}
+
+      {optionsOpen && (
+        <ChartOptionsModal
+          opener={optionsOpener}
+          scale={scale}
+          setScale={setScale}
+          tiers={tiers}
+          setTiers={setTiers}
+          mode={mode}
+          setMode={setMode}
+          curve={curve}
+          setCurve={setCurve}
+          engines={engines}
+          toggleEngine={toggleEngine}
+          onReset={resetOptions}
+          onClose={() => {
+            setOptionsOpen(false);
+            setOptionsOpener(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /** Upstream's rating distribution chart for the format chosen on the page. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js';
 import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
@@ -10,6 +10,7 @@ import { errorText, type Load } from '@ttac/shared/load';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const BARS: { model: Model; label: string; badge: string; short: string; className: string; fill: string; line: string }[] = [
   { model: 'glicko2_daneo', label: '👑 GlickoD', badge: '👑 GlickoD', short: 'GlickoD', className: 'mean-daneo', fill: 'rgba(168, 85, 247, 0.65)', line: '#a855f7' },
@@ -28,47 +29,47 @@ function means(d: Distribution) {
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(browserStorage())).format);
   const [load, setLoad] = useState<Load<Distribution>>({ kind: 'loading' });
+  const [distData, setDistData] = useState<Distribution | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const chart = useRef<Chart<'bar'> | null>(null);
 
   useEffect(() => onFormat(window, setFormat), []);
 
   useEffect(() => {
-    // A slower answer for a format the reader has since left must not replace the new one.
     let current = true;
-    setLoad({ kind: 'loading' });
+    if (distData === null) {
+      setLoad({ kind: 'loading' });
+    }
     currentRun(apiUrl)
       .then((r) => distribution(apiUrl, r.run_id, format))
-      .then((data) => current && setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => current && setLoad({ kind: 'error', message: errorText(e) }));
+      .then((data) => {
+        if (!current) return;
+        setDistData(data);
+        setLoad({ kind: 'ready', data });
+      })
+      .catch((e: unknown) => {
+        if (!current) return;
+        setLoad({ kind: 'error', message: errorText(e) });
+      });
     return () => {
       current = false;
     };
   }, [apiUrl, format]);
 
-  const dist = load.kind === 'ready' ? load.data : null;
-
-  useEffect(() => {
-    if (canvas.current === null || dist === null) return;
+  // Create chart instance once when canvas is mounted
+  useIsomorphicLayoutEffect(() => {
+    if (canvas.current === null) return;
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const bars = means(dist);
     const grid = { color: 'rgba(74, 53, 37, 0.3)' };
     const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
-    const c = new Chart(canvas.current, {
+
+    chart.current = new Chart(canvas.current, {
       type: 'bar',
-      data: {
-        labels: dist.labels,
-        datasets: bars.map((b) => ({
-          label: b.label,
-          data: b.counts,
-          backgroundColor: b.fill,
-          borderColor: b.line,
-          borderWidth: 1.5,
-          minBarLength: 5,
-        })),
-      },
+      data: { labels: [], datasets: [] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: '#ffd700', font: { family: heading } }, grid, ticks },
@@ -85,7 +86,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
             borderWidth: 1,
             padding: 10,
             callbacks: {
-              title: (items) => (items[0] ? `Rating Bracket: ${dist.labels[items[0].dataIndex] ?? ''}` : ''),
+              title: (items) => (items[0] && distData ? `Rating Bracket: ${distData.labels[items[0].dataIndex] ?? ''}` : ''),
               label: (ctx) => {
                 const counts = ctx.dataset.data as number[];
                 const val = ctx.parsed.y ?? 0;
@@ -96,17 +97,41 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
                 const topPct = total > 0 ? (((total - cum) / total) * 100).toFixed(1) : '0.0';
                 return ` ${ctx.dataset.label ?? ''}: ${val} (${pct}%) • Percentile: ${cumPct}% (Top ${topPct}%)`;
               },
-              footer: () =>
-                `\nExact Means (All Players):\n  ${bars.map((b) => `${b.short}: ${b.mean}`).join(' | ')}\n\nActive Player Means (>10 games in last yr):\n  ${bars.map((b) => `${b.short}: ${b.active}`).join(' | ')}`,
+              footer: () => {
+                if (!distData) return '';
+                const currentBars = means(distData);
+                return `\nExact Means (All Players):\n  ${currentBars.map((b) => `${b.short}: ${b.mean}`).join(' | ')}\n\nActive Player Means (>10 games in last yr):\n  ${currentBars.map((b) => `${b.short}: ${b.active}`).join(' | ')}`;
+              },
             },
           },
         },
       },
     });
-    return () => c.destroy();
-  }, [dist]);
 
-  const bars = dist === null ? [] : means(dist);
+    return () => {
+      chart.current?.destroy();
+      chart.current = null;
+    };
+  }, []);
+
+  // Update datasets when distData updates
+  useIsomorphicLayoutEffect(() => {
+    const c = chart.current;
+    if (c === null || distData === null) return;
+    const currentBars = means(distData);
+    c.data.labels = distData.labels;
+    c.data.datasets = currentBars.map((b) => ({
+      label: b.label,
+      data: b.counts,
+      backgroundColor: b.fill,
+      borderColor: b.line,
+      borderWidth: 1.5,
+      minBarLength: 5,
+    }));
+    c.update('none');
+  }, [distData]);
+
+  const bars = distData === null ? [] : means(distData);
 
   return (
     <div className="panel-card">
@@ -126,12 +151,12 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
       <div className="density-chart-container">
-        {load.kind !== 'ready' ? (
+        {distData === null && load.kind !== 'ready' ? (
           <Waiting load={load} what="the distribution" form="inline" />
         ) : (
           <canvas
             ref={canvas}
-            aria-label={`Number of players in each 100-point rating bin, per engine. ${bars.map((b) => `${b.label}: ${dist?.labels.map((l, i) => `${l} ${b.counts[i] ?? 0}`).join(', ')}`).join('. ')}.`}
+            aria-label={`Number of players in each 100-point rating bin, per engine. ${bars.map((b) => `${b.label}: ${distData?.labels.map((l, i) => `${l} ${b.counts[i] ?? 0}`).join(', ')}`).join('. ')}.`}
           />
         )}
       </div>

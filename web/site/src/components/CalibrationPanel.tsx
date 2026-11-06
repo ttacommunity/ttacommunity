@@ -1,5 +1,7 @@
 /** Upstream's calibration diagram, ranked model table and analysis selector. */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
 import { calibration, currentRun, type Calibration, type Format } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
@@ -108,6 +110,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         scales: {
           x: { title: { display: true, text: 'Model Forecasted Probability Bin', ...axisTitle }, grid, ticks },
           y: {
@@ -135,7 +138,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     };
   }, [ready]);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const c = chart.current;
     if (c === null) return;
     const ideal = bins?.ideal ?? [];
@@ -167,7 +170,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
         };
       }),
     ];
-    c.update();
+    c.update('none');
   }, [bins, ranked, active, ready]);
 
   const resetAll = () => {

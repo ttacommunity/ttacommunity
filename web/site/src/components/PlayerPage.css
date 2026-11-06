@@ -1327,3 +1327,186 @@
   opacity: 0.75;
 }
 
+
+/* Trajectory chart options button and modal */
+.btn-options-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--control-height, 36px);
+  box-sizing: border-box;
+  padding: 0.4rem 0.85rem;
+  background: rgba(28, 19, 13, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-main);
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-options-toggle:hover,
+.btn-options-toggle.open {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold);
+}
+
+.btn-options-toggle.active {
+  border-color: var(--accent-gold);
+}
+
+.btn-options-toggle-arrow {
+  font-size: 0.75rem;
+}
+
+.options-active-badge {
+  padding: 0.1rem 0.35rem;
+  background: var(--accent-gold);
+  border-radius: 10px;
+  color: var(--text-on-gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.chart-options-modal {
+  width: min(34rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 1.25rem 1.5rem;
+  background: var(--surface-card);
+  border: 2px solid var(--accent-gold);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px var(--shadow-deep);
+  color: var(--text-main);
+}
+
+.chart-options-modal::backdrop {
+  background: var(--shadow);
+  backdrop-filter: blur(4px);
+}
+
+.chart-options-modal .options-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--gold-wash);
+}
+
+.chart-options-modal .options-header-title {
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.chart-options-modal .btn-options-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.chart-options-modal .btn-options-close:hover {
+  color: var(--accent-gold);
+  background: var(--gold-wash-faint);
+}
+
+.chart-options-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  margin: 1.1rem 0;
+  overflow-y: auto;
+  max-height: calc(85vh - 140px);
+}
+
+.options-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.options-section-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 0.35rem;
+}
+
+.options-engine-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.opt-engine-btn {
+  padding: 0.4rem 0.85rem;
+  background: var(--surface-well);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.opt-engine-btn:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-main);
+}
+
+.opt-engine-btn.active {
+  background: var(--gold-wash-faint);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+.chart-options-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--gold-wash);
+  padding-top: 0.85rem;
+}
+
+.btn-options-reset {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-options-reset:hover {
+  border-color: var(--loss);
+  color: var(--loss);
+}
+
+.btn-options-done {
+  background: var(--accent-gold);
+  border: 1px solid var(--accent-gold);
+  border-radius: 4px;
+  color: var(--text-on-gold);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.4rem 1.25rem;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.btn-options-done:hover {
+  filter: brightness(1.1);
+}
