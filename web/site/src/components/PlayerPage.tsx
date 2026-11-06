@@ -262,7 +262,12 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
               <span>
                 {c.icon} {c.label}
               </span>
-              <span className="badge badge-rank">{r ? `#${r.rank}` : 'Unranked'}</span>
+              <span
+                className="badge badge-rank"
+                data-tooltip={r && r.rank === null ? (r.opponents < 30 ? 'Unranked: fewer than 30 opponents' : 'Unranked: inactive in the last 12 months') : undefined}
+              >
+                {r && r.rank !== null ? `#${r.rank}` : 'Unranked'}
+              </span>
             </h3>
             <div className="rating-number">
               {r ? (

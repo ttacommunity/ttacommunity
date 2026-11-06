@@ -4693,6 +4693,7 @@ export interface components {
         PlayerRating: {
             model: components["schemas"]["Model"];
             format: components["schemas"]["Format"];
+            /** @description Active rank in this model and format (matching the default leaderboard with >= 30 opponents and played in the last 12 months); null when inactive or fewer than 30 opponents */
             rank: number | null;
             /** Format: double */
             rating: number;

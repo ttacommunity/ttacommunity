@@ -7515,6 +7515,7 @@ components:
         format:
           $ref: "#/components/schemas/Format"
         rank:
+          description: Active rank in this model and format (matching the default leaderboard with >= 30 opponents and played in the last 12 months); null when inactive or fewer than 30 opponents
           type: integer
           nullable: true
         rating:

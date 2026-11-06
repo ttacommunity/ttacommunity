@@ -262,6 +262,79 @@ func TestPlayerGivesRatingsGamesAndDetails(t *testing.T) {
 	}
 }
 
+func TestPlayerActiveRankMatchesLeaderboardFilter(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+
+	addPlayers(t, pool, "ann", "bob", "inactive_dan", "provisional_eve")
+
+	// Set run's last game to 2026-06-01
+	addGame(t, pool, run, "2026-06-01", "Cup", Seat{"ann", 90}, Seat{"bob", 80})
+
+	insertRating := func(name string, cRating float64, opps int, lastPlayed string) {
+		id := playerID(t, pool, name)
+		_, err := pool.Exec(ctx, `
+			INSERT INTO player_ratings (run_id, model_type, player_count, player_id, rating, rd, sigma, c_rating, rank,
+				rank_delta, games_played, opponents_count, wins, losses, draws, win_rate, last_played)
+			VALUES ($1, 'glicko2_daneo', 0, $2, $3 + 100, 50, 0.06, $3, 999, 0, $4, $4, 10, 5, 0, 66.7, $5::date)`,
+			run, id, cRating, opps, lastPlayed)
+		if err != nil {
+			t.Fatalf("inserting rating for %s: %v", name, err)
+		}
+	}
+
+	// Inactive player: higher c_rating, 50 opps, but played > 1 year ago (2024-01-01)
+	insertRating("inactive_dan", 1950, 50, "2024-01-01")
+	// Provisional player: higher c_rating, recent game, but fewer than 30 opponents (10)
+	insertRating("provisional_eve", 2000, 10, "2026-05-15")
+	// Active #1 player: bob with c_rating 1900, 40 opps, recent game
+	insertRating("bob", 1900, 40, "2026-05-20")
+	// Active #2 player: ann with c_rating 1800, 35 opps, recent game
+	insertRating("ann", 1800, 35, "2026-05-20")
+
+	// Verify bob is active #1
+	bob, err := r.Player(ctx, run, "bob")
+	if err != nil {
+		t.Fatalf("Player(bob): %v", err)
+	}
+	bobRating := bob.Ratings[0]
+	if bobRating.Rank == nil || *bobRating.Rank != 1 {
+		t.Errorf("bob rank = %v, want 1", bobRating.Rank)
+	}
+
+	// Verify ann is active #2 (neither inactive_dan nor provisional_eve is ahead of her in active rank)
+	ann, err := r.Player(ctx, run, "ann")
+	if err != nil {
+		t.Fatalf("Player(ann): %v", err)
+	}
+	annRating := ann.Ratings[0]
+	if annRating.Rank == nil || *annRating.Rank != 2 {
+		t.Errorf("ann rank = %v, want 2 (only active players with >= 30 opps counted ahead)", annRating.Rank)
+	}
+
+	// Verify inactive_dan has nil active rank
+	dan, err := r.Player(ctx, run, "inactive_dan")
+	if err != nil {
+		t.Fatalf("Player(inactive_dan): %v", err)
+	}
+	danRating := dan.Ratings[0]
+	if danRating.Rank != nil {
+		t.Errorf("inactive_dan rank = %v, want nil", danRating.Rank)
+	}
+
+	// Verify provisional_eve has nil active rank
+	eve, err := r.Player(ctx, run, "provisional_eve")
+	if err != nil {
+		t.Fatalf("Player(provisional_eve): %v", err)
+	}
+	eveRating := eve.Ratings[0]
+	if eveRating.Rank != nil {
+		t.Errorf("provisional_eve rank = %v, want nil", eveRating.Rank)
+	}
+}
+
 func TestPlayerHistoryGivesThePageModelsOldestFirst(t *testing.T) {
 	pool := migrated(t)
 	r := NewRatingsReader(asReader(t, pool))
