@@ -297,6 +297,19 @@ describe('chartTicks', () => {
       expect(ticks[i].x).toBeGreaterThan(ticks[i - 1].x);
     }
   });
+
+  it('includes every year on the x axis without skipping in both perspective and linear scales', () => {
+    for (const scale of ['perspective', 'linear'] as const) {
+      const ticks = chartTicks(minDate, maxDate, scale);
+      const labels = ticks.map((t) => t.label);
+      expect(labels).toContain('2021');
+      expect(labels).toContain('2022');
+      expect(labels).toContain('2023');
+      expect(labels).toContain('2024');
+      expect(labels).toContain('2025');
+      expect(labels).toContain('2026');
+    }
+  });
 });
 
 describe('chartYBounds', () => {
