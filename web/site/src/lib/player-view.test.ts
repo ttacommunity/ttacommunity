@@ -310,6 +310,17 @@ describe('chartTicks', () => {
       expect(labels).toContain('2026');
     }
   });
+
+  it('flags year ticks with isYear true and sub-year month ticks with isYear false', () => {
+    const ticks = chartTicks(minDate, maxDate, 'perspective');
+    const yearTick = ticks.find((t) => t.label === '2023');
+    expect(yearTick).toBeDefined();
+    expect(yearTick?.isYear).toBe(true);
+
+    const monthTick = ticks.find((t) => t.label.includes(" '26"));
+    expect(monthTick).toBeDefined();
+    expect(monthTick?.isYear).toBe(false);
+  });
 });
 
 describe('chartYBounds', () => {
