@@ -227,6 +227,13 @@ describe('chartData', () => {
     expect(got.lines[2].data).toEqual([1500.6, null, null]);
     expect(got.lines[3].data).toEqual([1400, null, null]);
   });
+
+  it('anchors minDate to first data point and places first point at x=0', () => {
+    const got = chartData(history, 'continuous', 'expected');
+    expect(got.minDate).toBe('2024-12-31');
+    const firstLinePoint = got.lines[0].points?.[0];
+    expect(firstLinePoint?.x).toBe(0);
+  });
 });
 
 describe('goldenTimeWarp and linearTimeWarp', () => {
@@ -299,9 +306,21 @@ describe('chartTicks', () => {
     }
   });
 
-  it('includes every year on the x axis without skipping in both perspective and linear scales', () => {
+  it('includes every full year transition on the x axis without skipping in both perspective and linear scales', () => {
     for (const scale of ['perspective', 'linear'] as const) {
       const ticks = chartTicks(minDate, maxDate, scale);
+      const labels = ticks.map((t) => t.label);
+      expect(labels).toContain('2022');
+      expect(labels).toContain('2023');
+      expect(labels).toContain('2024');
+      expect(labels).toContain('2025');
+      expect(labels).toContain('2026');
+    }
+  });
+
+  it('includes starting year when career begins in January', () => {
+    for (const scale of ['perspective', 'linear'] as const) {
+      const ticks = chartTicks('2021-01-01', maxDate, scale);
       const labels = ticks.map((t) => t.label);
       expect(labels).toContain('2021');
       expect(labels).toContain('2022');
@@ -310,6 +329,12 @@ describe('chartTicks', () => {
       expect(labels).toContain('2025');
       expect(labels).toContain('2026');
     }
+  });
+
+  it('labels year at x=0 when career starts in January', () => {
+    const ticks = chartTicks('2022-01-01', maxDate, 'perspective');
+    expect(ticks[0].x).toBe(0);
+    expect(ticks[0].label).toBe('2022');
   });
 
   it('flags year ticks with isYear true and sub-year month ticks with isYear false', () => {
