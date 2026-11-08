@@ -345,6 +345,7 @@ export default function RatingChart({ history }: { history: PlayerHistory | null
               axis.ticks = ticksRef.current.map((t) => ({ value: t.x }));
             },
             ticks: {
+              align: 'inner',
               color: '#a89880',
               callback: (value) => {
                 const rounded = Math.round(Number(value) * 10) / 10;

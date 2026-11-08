@@ -181,24 +181,40 @@ export interface ChartTick {
 
 /** chartTicks produces nicely distributed horizontal ticks for the chosen scale. */
 export function chartTicks(minDate: string, maxDate: string, scale: ChartScale): ChartTick[] {
-  const startYear = new Date(minDate).getUTCFullYear();
-  const endYear = new Date(maxDate).getUTCFullYear();
-  const baseMin = `${startYear}-01-01`;
-  const tMin = new Date(baseMin).getTime();
+  const tMin = new Date(minDate).getTime();
   const tMax = new Date(maxDate).getTime();
   if (tMax <= tMin) return [{ x: 50, label: maxDate, isYear: true }];
 
-  const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, baseMin, maxDate) : linearTimeWarp(d, baseMin, maxDate));
+  const warp = (d: string) => (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate));
+
+  const startYear = new Date(minDate).getUTCFullYear();
+  const endYear = new Date(maxDate).getUTCFullYear();
 
   const yearTicks: ChartTick[] = [];
   for (let y = startYear; y <= endYear; y++) {
     const iso = `${y}-01-01`;
-    yearTicks.push({ x: warp(iso), label: String(y), isYear: true });
+    const t = new Date(iso).getTime();
+    if (t >= tMin && t <= tMax) {
+      yearTicks.push({ x: warp(iso), label: String(y), isYear: true });
+    }
   }
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const startMonth = new Date(minDate).getUTCMonth();
+  const startLabel =
+    startMonth === 0 && new Date(minDate).getUTCDate() <= 15
+      ? String(startYear)
+      : `${monthNames[startMonth]} '${String(startYear).slice(2)}`;
+  const startTick: ChartTick = {
+    x: 0,
+    label: startLabel,
+    isYear: startMonth === 0 && new Date(minDate).getUTCDate() <= 15,
+  };
 
   const monthTicks: ChartTick[] = [];
   const msYear = 365.25 * 24 * 3600 * 1000;
-  const recentCutoff = tMax - msYear;
+  const totalSpan = tMax - tMin;
+  const recentCutoff = totalSpan <= 2.5 * msYear ? tMin : tMax - 1.5 * msYear;
   const recentStart = new Date(Math.max(tMin, recentCutoff));
 
   const cur = new Date(Date.UTC(recentStart.getUTCFullYear(), recentStart.getUTCMonth(), 1));
@@ -206,7 +222,6 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
     if (cur.getTime() >= tMin) {
       const month = cur.getUTCMonth();
       if (month % 2 === 0 && month !== 0) {
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const label = `${monthNames[month]} '${String(cur.getUTCFullYear()).slice(2)}`;
         const iso = cur.toISOString().slice(0, 10);
         monthTicks.push({ x: warp(iso), label, isYear: false });
@@ -219,7 +234,7 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
 
   // Year ticks are guaranteed and never skipped so the user sees every year on the grid.
   const allTicks: ChartTick[] = [...yearTicks];
-  for (const candidate of [...monthTicks, endTick]) {
+  for (const candidate of [startTick, ...monthTicks, endTick]) {
     const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < 2.5);
     if (!collides) {
       allTicks.push(candidate);
@@ -471,8 +486,7 @@ const tenth = (x: number) => Math.round(x * 10) / 10;
  */
 export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartCurve, scale: ChartScale = 'perspective'): ChartData {
   const labels = [...new Set(history.series.flatMap((s) => s.points.map((p) => p.date)))].sort();
-  const startYear = labels[0] ? new Date(labels[0]).getUTCFullYear() : undefined;
-  const minDate = startYear !== undefined ? `${startYear}-01-01` : labels[0];
+  const minDate = labels[0];
   const maxDate = labels[labels.length - 1];
   const warp = (d: string) =>
     minDate && maxDate ? (scale === 'perspective' ? goldenTimeWarp(d, minDate, maxDate) : linearTimeWarp(d, minDate, maxDate)) : 50;
