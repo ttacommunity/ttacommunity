@@ -53,6 +53,7 @@ import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import UnratedToggle from './UnratedToggle';
 import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
@@ -93,9 +94,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}`,
     runId === null ? null : () => playerHistory(apiUrl, runId, name, format),
   );
+  const [gamesUnrated, setGamesUnrated] = useState(false);
   const games = useLoad<PlayerMatches>(
-    `${runId}|${name}|${format}|${model}|${matchPage}`,
-    runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage),
+    `${runId}|${name}|${format}|${model}|${matchPage}|${gamesUnrated}`,
+    runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage, gamesUnrated),
   );
   const rivals = useLoad<PlayerRivals>(
     `${runId}|${name}|${format}`,
@@ -159,7 +161,19 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
       <div className="tables-grid">
-        <Games state={games} view={view} provisional={provisional} gamesInFormat={gamesInFormat} linkTo={linkTo} go={go} />
+        <Games
+          state={games}
+          view={view}
+          provisional={provisional}
+          gamesInFormat={gamesInFormat}
+          linkTo={linkTo}
+          go={go}
+          unrated={gamesUnrated}
+          onUnrated={(on) => {
+            setGamesUnrated(on);
+            if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
+          }}
+        />
         <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} />
       </div>
 
@@ -167,7 +181,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         state={seats}
         format={view.format}
         includeUnrated={includeUnrated}
-        onToggleUnrated={() => setIncludeUnrated(!includeUnrated)}
+        onToggleUnrated={setIncludeUnrated}
       />
     </>
   );
@@ -301,6 +315,8 @@ function Games({
   gamesInFormat,
   linkTo,
   go,
+  unrated,
+  onUnrated,
 }: {
   state: Load<PlayerMatches>;
   view: PlayerView;
@@ -308,6 +324,8 @@ function Games({
   gamesInFormat: number;
   linkTo: LinkTo;
   go: (next: PlayerView) => void;
+  unrated: boolean;
+  onUnrated: (on: boolean) => void;
 }) {
   const data = state.kind === 'ready' ? state.data : null;
   const total = data?.total ?? gamesInFormat;
@@ -322,9 +340,10 @@ function Games({
             className="badge badge-calibration"
             title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
           >
-            ⏳ Prior Calibration ({total}/15)
+            ⏳ Prior Calibration ({gamesInFormat}/15)
           </span>
         )}
+        <UnratedToggle on={unrated} onChange={onUnrated} className="unrated-toggle-end" />
       </div>
       <ScrollTable hint="full match details">
         <table className="data-table">
@@ -361,6 +380,7 @@ function Games({
                 <td className="cell-tournament">{formatTournamentDisplay(m.tournament)}</td>
                 <td>
                   <span className="badge badge-seats">{m.player_count}P</span>
+                  {!m.rated && <span className="badge badge-unrated">Unrated</span>}
                 </td>
                 <td>
                   <span className={`placement-badge place-${m.placement}`}>{m.placement}</span>
@@ -544,7 +564,7 @@ function PositionSeatStats({
   state: Load<PlayerSeatStats>;
   format: Format;
   includeUnrated: boolean;
-  onToggleUnrated: () => void;
+  onToggleUnrated: (next: boolean) => void;
 }) {
   const data = state.kind === 'ready' ? state.data : null;
   const groups = data ? (format === 0 ? data.groups : data.groups.filter((g) => g.player_count === format)) : [];
@@ -562,14 +582,7 @@ function PositionSeatStats({
           </span>
         </div>
         <div className="position-filter-toggle">
-          <button
-            type="button"
-            className={`btn-antique unrated-toggle-btn ${includeUnrated ? 'active' : ''}`}
-            onClick={onToggleUnrated}
-            title={includeUnrated ? 'Showing all tournament and exhibition games' : 'Showing rated games only'}
-          >
-            {includeUnrated ? '🌐 Filter: All Games' : '🏆 Filter: Rated Games Only'}
-          </button>
+          <UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />
         </div>
       </div>
 

@@ -146,7 +146,7 @@ func TestPlayerFindsAnOldNameAndAnswersWithTheCurrentOne(t *testing.T) {
 			}
 		})
 	}
-	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert")
+	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert", false)
 	if err != nil || a != "ann" || b != "cat" {
 		t.Errorf("Versus(Annie, Robert) = %q, %q, %v; want ann, cat", a, b, err)
 	}
@@ -380,7 +380,7 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	addGame(t, pool, run, "2025-01-01", "Without ann", Seat{"bob", 1}, Seat{"cy", 2})
 	addGame(t, pool, other, "2025-01-01", "Another run", Seat{"ann", 1}, Seat{"cy", 2})
 
-	name, first, err := r.PlayerMatches(ctx, run, "ann", 0, 1)
+	name, first, err := r.PlayerMatches(ctx, run, "ann", 0, 1, false)
 	if err != nil {
 		t.Fatalf("PlayerMatches: %v", err)
 	}
@@ -402,15 +402,15 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 		t.Errorf("the 3P game = %+v, want seats %v in seat order", first.Matches, wantSeats)
 	}
 
-	_, past, err := r.PlayerMatches(ctx, run, "ann", 0, 9)
+	_, past, err := r.PlayerMatches(ctx, run, "ann", 0, 9, false)
 	if err != nil || past.Page != 2 || len(past.Matches) != 2 {
 		t.Errorf("page 9 = page %d, %d games, %v; want the last page, 2, 2 games", past.Page, len(past.Matches), err)
 	}
-	_, trios, err := r.PlayerMatches(ctx, run, "ann", 3, 1)
+	_, trios, err := r.PlayerMatches(ctx, run, "ann", 3, 1, false)
 	if err != nil || trios.Total != 1 || trios.Pages != 1 || len(trios.Matches) != 1 || trios.Matches[0].ID != three {
 		t.Errorf("3P games = %+v, %v; want only the trio", trios, err)
 	}
-	_, none, err := r.PlayerMatches(ctx, run, "ann", 4, 1)
+	_, none, err := r.PlayerMatches(ctx, run, "ann", 4, 1, false)
 	if err != nil || none.Total != 0 || none.Pages != 1 || none.Page != 1 || len(none.Matches) != 0 {
 		t.Errorf("4P games = %+v, %v; want none, on page 1 of 1", none, err)
 	}
@@ -442,7 +442,7 @@ func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
 		t.Errorf("last played = %v, want the run's 2025-01-10", p.LastPlayed)
 	}
 
-	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1)
+	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1, false)
 	if err != nil {
 		t.Fatalf("PlayerMatches: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 
-	_, _, games, err := r.Versus(ctx, run, "ann", "bob")
+	_, _, games, err := r.Versus(ctx, run, "ann", "bob", false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}
@@ -480,6 +480,102 @@ func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
 	want := []string{fmt.Sprintf("%d 2025-01-10 3P", trio), fmt.Sprintf("%d 2025-01-05 2P", duel)}
 	if !slices.Equal(got, want) {
 		t.Errorf("shared games = %q, want %q (the run's dates and formats, newest first)", got, want)
+	}
+}
+
+// unratedGames holds the ids of the games withUnratedGames adds.
+type unratedGames struct{ run, rated, moved, blitz, elsewhere int64 }
+
+// withUnratedGames adds a run with two rated games of ann's with bob, one of them moved
+// since, and finished games the run did not rate: a blitz duel with bob, a game another
+// run rated, a game still running and a game without ann.
+func withUnratedGames(t *testing.T, pool *pgxpool.Pool) unratedGames {
+	t.Helper()
+	ctx := context.Background()
+	g := unratedGames{run: publishedRun(t, pool)}
+	other := publishedRun(t, pool)
+	addPlayers(t, pool, "ann", "bob", "cy")
+	g.rated = addGame(t, pool, g.run, "2025-01-05", "Rated duel", Seat{"ann", 9}, Seat{"bob", 5})
+	g.moved = addGame(t, pool, g.run, "2025-01-10", "Moved trio", Seat{"ann", 9}, Seat{"bob", 5}, Seat{"cy", 1})
+	g.blitz = addGame(t, pool, 0, "2025-02-01", "Blitz", Seat{"ann", 3}, Seat{"bob", 4})
+	g.elsewhere = addGame(t, pool, other, "2025-02-05", "Other run", Seat{"ann", 3}, Seat{"cy", 4})
+	running := addGame(t, pool, 0, "2025-02-10", "Running", Seat{"ann", 3}, Seat{"bob", 4})
+	addGame(t, pool, 0, "2025-02-15", "Without ann", Seat{"bob", 3}, Seat{"cy", 4})
+	if _, err := pool.Exec(ctx, "UPDATE games SET date = '2025-03-01' WHERE game_id = $1", g.moved); err != nil {
+		t.Fatalf("moving a game after the run: %v", err)
+	}
+	if _, err := pool.Exec(ctx, "UPDATE games SET state = 'running' WHERE game_id = $1", running); err != nil {
+		t.Fatalf("marking a game running: %v", err)
+	}
+	return g
+}
+
+// gameList prints games as "id date format rated", to compare lists by content.
+func gameList(games []PlayerMatch) []string {
+	out := make([]string, 0, len(games))
+	for _, m := range games {
+		out = append(out, fmt.Sprintf("%d %s %dP rated=%t", m.ID, m.Date.Format(time.DateOnly), m.PlayerCount, m.Rated))
+	}
+	return out
+}
+
+func TestPlayerMatchesAddsFinishedGamesTheRunDidNotRateWhenAsked(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	g := withUnratedGames(t, pool)
+	rated := fmt.Sprintf("%d 2025-01-05 2P rated=true", g.rated)
+	moved := fmt.Sprintf("%d 2025-01-10 3P rated=true", g.moved)
+	blitz := fmt.Sprintf("%d 2025-02-01 2P rated=false", g.blitz)
+	elsewhere := fmt.Sprintf("%d 2025-02-05 2P rated=false", g.elsewhere)
+	tests := []struct {
+		name    string
+		unrated bool
+		format  int
+		want    []string
+	}{
+		{"rated only", false, 0, []string{moved, rated}},
+		{"with unrated", true, 0, []string{elsewhere, blitz, moved, rated}},
+		{"with unrated, 2P", true, 2, []string{elsewhere, blitz, rated}},
+		{"with unrated, 3P", true, 3, []string{moved}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, page, err := r.PlayerMatches(context.Background(), g.run, "ann", tt.format, 1, tt.unrated)
+			if err != nil {
+				t.Fatalf("PlayerMatches: %v", err)
+			}
+			if got := gameList(page.Matches); !slices.Equal(got, tt.want) || page.Total != len(tt.want) {
+				t.Errorf("PlayerMatches(ann, %dP, unrated %t) = %q, total %d; want %q", tt.format, tt.unrated, got, page.Total, tt.want)
+			}
+		})
+	}
+}
+
+func TestVersusAddsFinishedGamesTheRunDidNotRateWhenAsked(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	g := withUnratedGames(t, pool)
+	rated := fmt.Sprintf("%d 2025-01-05 2P rated=true", g.rated)
+	moved := fmt.Sprintf("%d 2025-01-10 3P rated=true", g.moved)
+	blitz := fmt.Sprintf("%d 2025-02-01 2P rated=false", g.blitz)
+	tests := []struct {
+		name    string
+		unrated bool
+		want    []string
+	}{
+		{"rated only", false, []string{moved, rated}},
+		{"with unrated", true, []string{blitz, moved, rated}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, games, err := r.Versus(context.Background(), g.run, "ann", "bob", tt.unrated)
+			if err != nil {
+				t.Fatalf("Versus: %v", err)
+			}
+			if got := gameList(games); !slices.Equal(got, tt.want) {
+				t.Errorf("Versus(ann, bob, unrated %t) = %q, want %q", tt.unrated, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -719,7 +815,7 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 		addGame(t, pool, run, day("2020-01-01").AddDate(0, 0, i).Format(time.DateOnly), "Old", Seat{"bob", 1}, Seat{"ann", 2})
 	}
 
-	a, b, got, err := r.Versus(ctx, run, "ANN", "Bob")
+	a, b, got, err := r.Versus(ctx, run, "ANN", "Bob", false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}
@@ -729,7 +825,7 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 	if !slices.Equal(got[0].Seats, []Seat{{"cy", 9}, {"bob", 7}, {"ann", 5}}) {
 		t.Errorf("trio seats = %v, want seat order", got[0].Seats)
 	}
-	if _, _, _, err := r.Versus(ctx, run, "ann", "zed"); !errors.Is(err, ErrPlayerNotFound) {
+	if _, _, _, err := r.Versus(ctx, run, "ann", "zed", false); !errors.Is(err, ErrPlayerNotFound) {
 		t.Errorf("Versus(ann, zed): err = %v, want ErrPlayerNotFound", err)
 	}
 }
@@ -745,7 +841,7 @@ func TestVersusMasksAHiddenPlayersSeat(t *testing.T) {
 		t.Fatalf("setting up player account: %v", err)
 	}
 
-	_, _, got, err := r.Versus(ctx, run, "ann", "bob")
+	_, _, got, err := r.Versus(ctx, run, "ann", "bob", false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}

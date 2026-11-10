@@ -205,7 +205,7 @@ export async function playerHistory(
   return get<PlayerHistory>(fetchFn, base, playerPath(run, name, `/history?format=${format}`));
 }
 
-/** Returns one page of a player's games in a format, with each game's estimated rating change in model. */
+/** Returns one page of a player's games in a format, with each rated game's estimated rating change in model; with unrated, also the games the run did not rate. */
 export async function playerMatches(
   base: string,
   run: number,
@@ -213,9 +213,11 @@ export async function playerMatches(
   format: Format,
   model: Model,
   page: number,
+  unrated: boolean = false,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerMatches> {
   const query = new URLSearchParams({ format: String(format), model, page: String(page) });
+  if (unrated) query.set('unrated', 'true');
   return get<PlayerMatches>(fetchFn, base, playerPath(run, name, `/matches?${query}`));
 }
 
@@ -243,15 +245,17 @@ export async function playerCareer(
   return get<PlayerCareer>(fetchFn, base, playerPath(run, name, `/career?${query}`));
 }
 
-/** Returns the latest games two players played together, with where each finished. */
+/** Returns the latest games two players played together, with where each finished; with unrated, also the games the run did not rate. */
 export async function playerVersus(
   base: string,
   run: number,
   name: string,
   other: string,
+  unrated: boolean = false,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerVersus> {
-  return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}`));
+  const query = unrated ? '?unrated=true' : '';
+  return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}${query}`));
 }
 
 /** Returns a player's rating in each page model for a format: the run's, or at the end of year. */

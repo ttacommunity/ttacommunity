@@ -52,6 +52,7 @@ describe('feed-data', () => {
       placement: 1,
       replay_code: null,
       rating_delta: 12.5,
+      rated: true,
       seats: [
         { name: 'Alice', score: 250 },
         { name: 'Bob', score: 220 },
