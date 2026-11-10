@@ -53,6 +53,7 @@ import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import UnratedToggle from './UnratedToggle';
 import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
@@ -180,7 +181,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         state={seats}
         format={view.format}
         includeUnrated={includeUnrated}
-        onToggleUnrated={() => setIncludeUnrated(!includeUnrated)}
+        onToggleUnrated={setIncludeUnrated}
       />
     </>
   );
@@ -342,9 +343,7 @@ function Games({
             ⏳ Prior Calibration ({gamesInFormat}/15)
           </span>
         )}
-        <label className="unrated-check">
-          <input type="checkbox" checked={unrated} onChange={(e) => onUnrated(e.target.checked)} /> Show unrated games
-        </label>
+        <UnratedToggle on={unrated} onChange={onUnrated} className="unrated-toggle-end" />
       </div>
       <ScrollTable hint="full match details">
         <table className="data-table">
@@ -565,7 +564,7 @@ function PositionSeatStats({
   state: Load<PlayerSeatStats>;
   format: Format;
   includeUnrated: boolean;
-  onToggleUnrated: () => void;
+  onToggleUnrated: (next: boolean) => void;
 }) {
   const data = state.kind === 'ready' ? state.data : null;
   const groups = data ? (format === 0 ? data.groups : data.groups.filter((g) => g.player_count === format)) : [];
@@ -583,14 +582,7 @@ function PositionSeatStats({
           </span>
         </div>
         <div className="position-filter-toggle">
-          <button
-            type="button"
-            className={`btn-antique unrated-toggle-btn ${includeUnrated ? 'active' : ''}`}
-            onClick={onToggleUnrated}
-            title={includeUnrated ? 'Showing all tournament and exhibition games' : 'Showing rated games only'}
-          >
-            {includeUnrated ? '🌐 Filter: All Games' : '🏆 Filter: Rated Games Only'}
-          </button>
+          <UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />
         </div>
       </div>
 

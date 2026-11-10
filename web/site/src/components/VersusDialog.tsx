@@ -7,6 +7,7 @@ import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
+import UnratedToggle from './UnratedToggle';
 import CopyCode from './CopyCode';
 import { errorText, type Load } from '@ttac/shared/load';
 
@@ -74,9 +75,7 @@ export default function VersusDialog({
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
         <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
-        <label className="unrated-check">
-          <input type="checkbox" checked={unrated} onChange={(e) => setUnrated(e.target.checked)} /> Show unrated games
-        </label>
+        <UnratedToggle on={unrated} onChange={setUnrated} className="unrated-toggle-end" />
       </div>
       <div className="h2h-stats">
         {tally === null ? (

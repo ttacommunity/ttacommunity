@@ -518,15 +518,8 @@
   color: var(--text-muted);
 }
 
-.unrated-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+.unrated-toggle-end {
   margin-left: auto;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-main);
-  cursor: pointer;
 }
 
 .placement-badge {
