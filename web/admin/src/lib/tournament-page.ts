@@ -35,6 +35,12 @@ export function toggledCounts(counts: readonly number[], n: number, on: boolean)
   return next.length === 0 ? null : next.sort((a, b) => a - b);
 }
 
+/** seasonBox is a season's box as it takes effect: the season's own setting while the tournament's is on, else
+ * unticked and locked (the season's setting is kept for when the tournament's is turned on). */
+export function seasonBox(tournamentOn: boolean, seasonOn: boolean): { checked: boolean; locked: boolean } {
+  return tournamentOn ? { checked: seasonOn, locked: false } : { checked: false, locked: true };
+}
+
 /** divisionList reads a league's top divisions from a comma-separated box, dropping blanks. */
 export function divisionList(text: string): string[] {
   return text
