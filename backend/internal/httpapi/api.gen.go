@@ -3763,7 +3763,10 @@ type PlayerMatch struct {
 	Placement   int `json:"placement"`
 	PlayerCount int `json:"player_count"`
 
-	// RatingDelta What the game is worth to the player's rating from its pre-month baseline, to 0.1
+	// Rated Whether the run rated the game
+	Rated bool `json:"rated"`
+
+	// RatingDelta What the game is worth to the player's rating from its pre-month baseline, to 0.1; null when unrated
 	RatingDelta *float64 `json:"rating_delta"`
 	ReplayCode  *string  `json:"replay_code"`
 
@@ -4495,7 +4498,10 @@ type VersusMatch struct {
 	NamePlace   int                `json:"name_place"`
 	OtherPlace  int                `json:"other_place"`
 	PlayerCount int                `json:"player_count"`
-	ReplayCode  *string            `json:"replay_code"`
+
+	// Rated Whether the run rated the game
+	Rated      bool    `json:"rated"`
+	ReplayCode *string `json:"replay_code"`
 
 	// Seats Highest score first
 	Seats      []Seat `json:"seats"`
@@ -4624,6 +4630,9 @@ type PlayerName = string
 
 // RunId defines model for RunId.
 type RunId = int64
+
+// Unrated defines model for Unrated.
+type Unrated = bool
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
@@ -4880,7 +4889,10 @@ type GetPlayerHistoryParams struct {
 type GetPlayerMatchesParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
-	Page   *int    `form:"page,omitempty" json:"page,omitempty"`
+
+	// Unrated Also the finished games the run did not rate, marked unrated
+	Unrated *Unrated `form:"unrated,omitempty" json:"unrated,omitempty"`
+	Page    *int     `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // GetPlayerMatrixParams defines parameters for GetPlayerMatrix.
@@ -4898,6 +4910,12 @@ type GetPlayerRivalsParams struct {
 type GetPlayerSeatsParams struct {
 	// Unrated Whether to include unrated/exhibition matches alongside rated tournament games
 	Unrated *bool `form:"unrated,omitempty" json:"unrated,omitempty"`
+}
+
+// GetPlayerVersusParams defines parameters for GetPlayerVersus.
+type GetPlayerVersusParams struct {
+	// Unrated Also the finished games the run did not rate, marked unrated
+	Unrated *Unrated `form:"unrated,omitempty" json:"unrated,omitempty"`
 }
 
 // GetYearLeaderboardParams defines parameters for GetYearLeaderboard.
@@ -5459,7 +5477,7 @@ type ServerInterface interface {
 	GetPlayerSeats(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, params GetPlayerSeatsParams)
 	// GetPlayerVersus The latest games two players played together
 	// (GET /v1/runs/{run}/players/{name}/versus/{other})
-	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string)
+	GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string, params GetPlayerVersusParams)
 	// GetRecentPodiums The latest podiums, for the home page
 	// (GET /v1/runs/{run}/podiums)
 	GetRecentPodiums(w http.ResponseWriter, r *http.Request, run RunId)
@@ -9970,6 +9988,19 @@ func (siw *ServerInterfaceWrapper) GetPlayerMatches(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// ------------- Optional query parameter "unrated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unrated", r.URL.Query(), &params.Unrated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "page" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -10193,8 +10224,24 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPlayerVersusParams
+
+	// ------------- Optional query parameter "unrated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unrated", r.URL.Query(), &params.Unrated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPlayerVersus(w, r, run, name, other)
+		siw.Handler.GetPlayerVersus(w, r, run, name, other, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -20381,9 +20428,10 @@ func (response GetPlayerSeats404JSONResponse) VisitGetPlayerSeatsResponse(w http
 }
 
 type GetPlayerVersusRequestObject struct {
-	Run   RunId      `json:"run"`
-	Name  PlayerName `json:"name"`
-	Other string     `json:"other"`
+	Run    RunId      `json:"run"`
+	Name   PlayerName `json:"name"`
+	Other  string     `json:"other"`
+	Params GetPlayerVersusParams
 }
 
 type GetPlayerVersusResponseObject interface {
@@ -25290,12 +25338,13 @@ func (sh *strictHandler) GetPlayerSeats(w http.ResponseWriter, r *http.Request, 
 }
 
 // GetPlayerVersus operation middleware
-func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string) {
+func (sh *strictHandler) GetPlayerVersus(w http.ResponseWriter, r *http.Request, run RunId, name PlayerName, other string, params GetPlayerVersusParams) {
 	var request GetPlayerVersusRequestObject
 
 	request.Run = run
 	request.Name = name
 	request.Other = other
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetPlayerVersus(ctx, request.(GetPlayerVersusRequestObject))

@@ -49,9 +49,9 @@ func (f *fakePlayers) PlayerHistory(_ context.Context, run int64, name string, f
 	return "Ann", f.hist, f.err
 }
 
-func (f *fakePlayers) PlayerMatches(_ context.Context, run int64, name string, format, page int) (string, store.MatchPage, error) {
+func (f *fakePlayers) PlayerMatches(_ context.Context, run int64, name string, format, page int, unrated bool) (string, store.MatchPage, error) {
 	f.calls++
-	f.gotRun, f.asked, f.format, f.pageNo = run, name, format, page
+	f.gotRun, f.asked, f.format, f.pageNo, f.unrated = run, name, format, page, unrated
 	return "Ann", f.page, f.err
 }
 
@@ -182,7 +182,7 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 	code := "ABC123"
 	f := &fakePlayers{
 		page: store.MatchPage{Page: 2, Pages: 3, Total: 61, Matches: []store.PlayerMatch{
-			{ID: 9, Tournament: "Cup", Date: day, PlayerCount: 3, ReplayCode: &code,
+			{ID: 9, Tournament: "Cup", Date: day, PlayerCount: 3, ReplayCode: &code, Rated: true,
 				Seats: []store.Seat{{Name: "cy", Score: 50}, {Name: "Ann", Score: 70}, {Name: "bob", Score: 90}}},
 		}},
 		rated: map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "bob": {Rating: 1900, RD: 35}},
@@ -221,7 +221,7 @@ func TestPlayerMatchesPlacesAndEstimates(t *testing.T) {
 func TestPlayerMatchesEstimatesWithAHiddenOpponentsRatingAndMasksTheName(t *testing.T) {
 	seats := []store.Seat{{Name: "cy", Score: 90}, {Name: "Ann", Score: 70}}
 	f := &fakePlayers{
-		page:   store.MatchPage{Page: 1, Pages: 1, Total: 1, Matches: []store.PlayerMatch{{ID: 9, PlayerCount: 2, Seats: seats}}},
+		page:   store.MatchPage{Page: 1, Pages: 1, Total: 1, Matches: []store.PlayerMatch{{ID: 9, PlayerCount: 2, Seats: seats, Rated: true}}},
 		rated:  map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "cy": {Rating: 2100, RD: 40}},
 		hidden: map[string]bool{"cy": true},
 	}
@@ -251,8 +251,8 @@ func TestPlayerMatchesUsesHistoricalRatingsAcrossDifferentMonths(t *testing.T) {
 		page: store.MatchPage{
 			Page: 1, Pages: 1, Total: 2,
 			Matches: []store.PlayerMatch{
-				{ID: 2, Tournament: "Cup2", Date: d2, PlayerCount: 2, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
-				{ID: 1, Tournament: "Cup1", Date: d1, PlayerCount: 2, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
+				{ID: 2, Tournament: "Cup2", Date: d2, PlayerCount: 2, Rated: true, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
+				{ID: 1, Tournament: "Cup1", Date: d1, PlayerCount: 2, Rated: true, Seats: []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}},
 			},
 		},
 		historical: map[store.PlayerAt]store.Rated{
@@ -292,6 +292,45 @@ func TestPlayerMatchesUsesHistoricalRatingsAcrossDifferentMonths(t *testing.T) {
 	want2, _ := ratingdelta.Delta("glicko2_daneo", "Ann", 2, []ratingdelta.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}, lookup2)
 	if *m2.RatingDelta != want2 {
 		t.Errorf("m2 delta = %v, want %v", *m2.RatingDelta, want2)
+	}
+}
+
+func TestPlayerMatchesAsksForUnratedGamesAndEstimatesOnlyRatedOnes(t *testing.T) {
+	seats := []store.Seat{{Name: "Ann", Score: 90}, {Name: "bob", Score: 70}}
+	tests := []struct {
+		name        string
+		query       string
+		wantUnrated bool
+	}{
+		{"not asked", "", false},
+		{"asked", "?unrated=true", true},
+		{"turned off", "?unrated=false", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakePlayers{
+				page: store.MatchPage{Page: 1, Pages: 1, Total: 2, Matches: []store.PlayerMatch{
+					{ID: 2, PlayerCount: 2, Seats: seats},
+					{ID: 1, PlayerCount: 2, Seats: seats, Rated: true},
+				}},
+				rated: map[string]store.Rated{"Ann": {Rating: 1800, RD: 45}, "bob": {Rating: 1900, RD: 35}},
+			}
+			rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches"+tt.query)
+			var got PlayerMatches
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got.Matches) != 2 {
+				t.Fatalf("GET matches%s: %d %s", tt.query, rec.Code, rec.Body)
+			}
+			if f.unrated != tt.wantUnrated {
+				t.Errorf("GET matches%s: store asked unrated %t, want %t", tt.query, f.unrated, tt.wantUnrated)
+			}
+			unrated, rated := got.Matches[0], got.Matches[1]
+			if unrated.Rated || unrated.RatingDelta != nil {
+				t.Errorf("unrated game = rated %t, delta %v; want false, null", unrated.Rated, unrated.RatingDelta)
+			}
+			if !rated.Rated || rated.RatingDelta == nil {
+				t.Errorf("rated game = rated %t, delta %v; want true, an estimate", rated.Rated, rated.RatingDelta)
+			}
+		})
 	}
 }
 
@@ -346,9 +385,9 @@ func (f *fakeCareer) PlayerMatrix(_ context.Context, run int64, name string, for
 	return "Ann", f.cells, f.err
 }
 
-func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error) {
+func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string, unrated bool) (string, string, []store.PlayerMatch, error) {
 	f.calls++
-	f.gotRun, f.asked, f.other = run, name, other
+	f.gotRun, f.asked, f.other, f.unrated = run, name, other, unrated
 	return "Ann", "Bob", f.shared, f.err
 }
 
@@ -388,11 +427,11 @@ func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
 	day := time.Date(2026, 8, 26, 0, 0, 0, 0, time.UTC)
 	code := "HEKANUJIMA"
 	f := &fakeCareer{shared: []store.PlayerMatch{{
-		ID: 9, Tournament: "Worlds", Date: day, PlayerCount: 3, ReplayCode: &code,
+		ID: 9, Tournament: "Worlds", Date: day, PlayerCount: 3, ReplayCode: &code, Rated: true,
 		Seats: []store.Seat{{Name: "Ann", Score: 113}, {Name: "cy", Score: 96}, {Name: "Bob", Score: 112}},
 	}}}
 	rec, _ := serve(t, f, "/v1/runs/7/players/ann/versus/bob")
-	want := `{"matches":[{"date":"2026-08-26","match_id":9,"name_place":1,"other_place":2,"player_count":3,"replay_code":"HEKANUJIMA",` +
+	want := `{"matches":[{"date":"2026-08-26","match_id":9,"name_place":1,"other_place":2,"player_count":3,"rated":true,"replay_code":"HEKANUJIMA",` +
 		`"seats":[{"name":"Ann","score":113},{"name":"Bob","score":112},{"name":"cy","score":96}],"tournament":"Worlds"}],` +
 		`"name":"Ann","other":"Bob","run_id":7}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {
@@ -400,6 +439,32 @@ func TestPlayerVersusPlacesBothPlayers(t *testing.T) {
 	}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.asked != "ann" || f.other != "bob" {
 		t.Errorf("GET versus: Cache-Control %q, asked %q and %q", rec.Header().Get("Cache-Control"), f.asked, f.other)
+	}
+}
+
+func TestPlayerVersusAsksForUnratedGamesAndMarksThem(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		wantUnrated bool
+	}{
+		{"not asked", "", false},
+		{"asked", "?unrated=true", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeCareer{shared: []store.PlayerMatch{
+				{ID: 2, PlayerCount: 2, Seats: []store.Seat{{Name: "Ann", Score: 3}, {Name: "Bob", Score: 4}}},
+			}}
+			rec, _ := serve(t, f, "/v1/runs/7/players/ann/versus/bob"+tt.query)
+			var got PlayerVersus
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got.Matches) != 1 {
+				t.Fatalf("GET versus%s: %d %s", tt.query, rec.Code, rec.Body)
+			}
+			if f.unrated != tt.wantUnrated || got.Matches[0].Rated {
+				t.Errorf("GET versus%s: store asked unrated %t, game rated %t; want %t, false", tt.query, f.unrated, got.Matches[0].Rated, tt.wantUnrated)
+			}
+		})
 	}
 }
 

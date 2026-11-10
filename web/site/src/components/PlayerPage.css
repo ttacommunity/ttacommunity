@@ -511,6 +511,24 @@
   color: var(--text-main);
 }
 
+.badge.badge-unrated {
+  margin-left: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.unrated-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
 .placement-badge {
   display: inline-block;
   width: 26px;

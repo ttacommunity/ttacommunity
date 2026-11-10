@@ -302,8 +302,9 @@ paths:
       tags: [ratings]
       summary: One player's games, newest first, 30 to a page
       description: |
-        The games the run rated for the player, in one format (0 is all).
-        Each carries an estimate of what it is worth to the player's rating
+        The games the run rated for the player, in one format (0 is all),
+        and with unrated the finished games it did not rate. Each rated game
+        carries an estimate of what it is worth to the player's rating
         today: one rating update from the run's final ratings in `model`. A
         page past the last gives the last. Cached for five minutes.
       parameters:
@@ -311,6 +312,7 @@ paths:
         - $ref: "#/components/parameters/PlayerName"
         - $ref: "#/components/parameters/Format"
         - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/Unrated"
         - name: page
           in: query
           required: false
@@ -427,11 +429,13 @@ paths:
       summary: The latest games two players played together
       description: |
         The 100 latest games the run rated with both players at the table,
-        in every format, newest first, with where each finished. Cached for
-        five minutes.
+        in every format, newest first, with where each finished; with
+        unrated, the finished games it did not rate too. Cached for five
+        minutes.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
+        - $ref: "#/components/parameters/Unrated"
         - name: other
           in: path
           required: true
@@ -4422,6 +4426,14 @@ components:
       required: false
       schema:
         $ref: "#/components/schemas/Format"
+    Unrated:
+      name: unrated
+      in: query
+      required: false
+      description: Also the finished games the run did not rate, marked unrated
+      schema:
+        type: boolean
+        default: false
     PlayerName:
       name: name
       in: path
@@ -7598,7 +7610,7 @@ components:
             $ref: "#/components/schemas/PlayerMatch"
     PlayerMatch:
       type: object
-      required: [match_id, tournament, date, player_count, placement, replay_code, rating_delta, seats]
+      required: [match_id, tournament, date, player_count, placement, replay_code, rating_delta, rated, seats]
       properties:
         match_id:
           type: integer
@@ -7617,10 +7629,13 @@ components:
           type: string
           nullable: true
         rating_delta:
-          description: What the game is worth to the player's rating from its pre-month baseline, to 0.1
+          description: What the game is worth to the player's rating from its pre-month baseline, to 0.1; null when unrated
           type: number
           format: double
           nullable: true
+        rated:
+          description: Whether the run rated the game
+          type: boolean
         seats:
           description: Seat order
           type: array
@@ -7772,7 +7787,7 @@ components:
             $ref: "#/components/schemas/VersusMatch"
     VersusMatch:
       type: object
-      required: [match_id, tournament, date, player_count, name_place, other_place, seats, replay_code]
+      required: [match_id, tournament, date, player_count, name_place, other_place, seats, replay_code, rated]
       properties:
         match_id:
           type: integer
@@ -7791,6 +7806,9 @@ components:
         replay_code:
           type: string
           nullable: true
+        rated:
+          description: Whether the run rated the game
+          type: boolean
         seats:
           description: Highest score first
           type: array

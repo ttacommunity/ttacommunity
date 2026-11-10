@@ -198,8 +198,9 @@ func (r *RatingsReader) careerYears(ctx context.Context, run int64, player int64
 }
 
 // Versus returns both stored names and the latest 100 games run rated with
-// both players, newest first.
-func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other string) (string, string, []PlayerMatch, error) {
+// both players, newest first; with unrated, also the finished games the run
+// did not rate.
+func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other string, unrated bool) (string, string, []PlayerMatch, error) {
 	a, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", "", nil, err
@@ -208,17 +209,22 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 	if err != nil {
 		return "", "", nil, err
 	}
+	shared := `
+		SELECT match_id, date, player_count, true FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
+		UNION
+		SELECT match_id, date, player_count, true FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2`
+	if unrated {
+		shared = `WITH mine AS (SELECT s.game_id FROM seats s JOIN seats o ON o.game_id = s.game_id AND o.player_id = $3
+			WHERE s.player_id = $2) ` + shared + ` UNION ALL ` + notRatedGames
+	}
 	rows, err := r.pool.Query(ctx, `
-		SELECT match_id, date, player_count FROM (
-			SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
-			UNION
-			SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2) shared
+		SELECT match_id, date, player_count, rated FROM (`+shared+`) shared (match_id, date, player_count, rated)
 		ORDER BY date DESC, match_id DESC
 		LIMIT $4`, run, a.ID, b.ID, sharedGames)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}
-	games, err := r.gamesAsRated(ctx, rows)
+	games, err := r.gamesAsListed(ctx, rows)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("reading shared games in run %d: %w", run, err)
 	}

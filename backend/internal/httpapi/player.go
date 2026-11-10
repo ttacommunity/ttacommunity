@@ -116,9 +116,9 @@ func (s *server) GetPlayerHistory(ctx context.Context, req GetPlayerHistoryReque
 	}, nil
 }
 
-// GetPlayerMatches returns one page of a player's games, each placed and
-// with the rating change the player page estimates for it. A seat whose
-// player is hidden is named DeletedPlayer once its rating has been used.
+// GetPlayerMatches returns one page of a player's games, each placed and,
+// when rated, with the rating change the player page estimates for it. A seat
+// whose player is hidden is named DeletedPlayer once its rating has been used.
 func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesRequestObject) (GetPlayerMatchesResponseObject, error) {
 	format := formatOr(req.Params.Format)
 	model, page := Glicko2Daneo, 1
@@ -140,7 +140,7 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		return GetPlayerMatches400JSONResponse{badRequestBody(msg)}, nil
 	}
 
-	name, mp, err := s.ratings.PlayerMatches(ctx, req.Run, req.Name, int(format), page)
+	name, mp, err := s.ratings.PlayerMatches(ctx, req.Run, req.Name, int(format), page, req.Params.Unrated != nil && *req.Params.Unrated)
 	if nf, ok := notFound(err); ok {
 		return GetPlayerMatches404JSONResponse{nf}, nil
 	}
@@ -157,10 +157,14 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 	var queries []store.PlayerAt
 	for _, m := range mp.Matches {
 		month := m.Date.Format("2006-01")
-		queries = append(queries, store.PlayerAt{Name: name, Month: month})
+		if m.Rated {
+			queries = append(queries, store.PlayerAt{Name: name, Month: month})
+		}
 		for _, seat := range m.Seats {
 			names = append(names, seat.Name)
-			queries = append(queries, store.PlayerAt{Name: seat.Name, Month: month})
+			if m.Rated {
+				queries = append(queries, store.PlayerAt{Name: seat.Name, Month: month})
+			}
 		}
 	}
 	historical, err := s.ratings.HistoricalRatingsOf(ctx, req.Run, ratedAs, int(format), queries)
@@ -179,7 +183,7 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		slices.SortStableFunc(byScore, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
 		pm := PlayerMatch{
 			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
-			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Placement: 1, Seats: make([]Seat, 0, len(m.Seats)),
+			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Placement: 1, Rated: m.Rated, Seats: make([]Seat, 0, len(m.Seats)),
 		}
 		for i, seat := range byScore {
 			if seat.Name == name {
@@ -202,7 +206,7 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 			r, ok := historical[store.PlayerAt{Name: n, Month: month}]
 			return ratingdelta.Rating{Rating: r.Rating, RD: r.RD}, ok
 		}
-		if d, ok := ratingdelta.Delta(engine, name, m.PlayerCount, dseats, lookup); ok {
+		if d, ok := ratingdelta.Delta(engine, name, m.PlayerCount, dseats, lookup); ok && m.Rated {
 			pm.RatingDelta = &d
 		}
 		matches = append(matches, pm)
@@ -320,7 +324,7 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 	if msg != "" {
 		return GetPlayerVersus400JSONResponse{badRequestBody(msg)}, nil
 	}
-	name, other, shared, err := s.ratings.Versus(ctx, req.Run, req.Name, req.Other)
+	name, other, shared, err := s.ratings.Versus(ctx, req.Run, req.Name, req.Other, req.Params.Unrated != nil && *req.Params.Unrated)
 	if nf, ok := notFound(err); ok {
 		return GetPlayerVersus404JSONResponse{nf}, nil
 	}
@@ -334,7 +338,7 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 		slices.SortStableFunc(seats, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
 		vm := VersusMatch{
 			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
-			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Seats: make([]Seat, 0, len(seats)),
+			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Rated: m.Rated, Seats: make([]Seat, 0, len(seats)),
 		}
 		for i, seat := range seats {
 			switch seat.Name {

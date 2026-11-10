@@ -52,13 +52,13 @@ type BoardReads interface {
 type PlayerReads interface {
 	Player(ctx context.Context, run int64, name string) (store.Player, error)
 	PlayerHistory(ctx context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error)
-	PlayerMatches(ctx context.Context, run int64, name string, format, page int) (string, store.MatchPage, error)
+	PlayerMatches(ctx context.Context, run int64, name string, format, page int, unrated bool) (string, store.MatchPage, error)
 	RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]store.Rated, error)
 	HistoricalRatingsOf(ctx context.Context, run int64, model string, format int, at []store.PlayerAt) (map[store.PlayerAt]store.Rated, error)
 	HiddenNames(ctx context.Context, names []string) (map[string]bool, error)
 	PlayerRivals(ctx context.Context, run int64, name string, format int) (string, []store.Rival, error)
 	PlayerCareer(ctx context.Context, run int64, name string, format int, model string) (string, []store.CareerYear, *store.CareerPeak, error)
-	Versus(ctx context.Context, run int64, name, other string) (string, string, []store.PlayerMatch, error)
+	Versus(ctx context.Context, run int64, name, other string, unrated bool) (string, string, []store.PlayerMatch, error)
 	PlayerMatrix(ctx context.Context, run int64, name string, format int, year *int) (string, []store.MatrixCell, error)
 	PlayerSeats(ctx context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error)
 }

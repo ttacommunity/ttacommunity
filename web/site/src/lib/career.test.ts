@@ -65,6 +65,7 @@ const game = (format: number, namePlace: number, otherPlace: number): VersusMatc
   name_place: namePlace,
   other_place: otherPlace,
   replay_code: null,
+  rated: true,
   seats: [],
 });
 

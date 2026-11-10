@@ -209,8 +209,9 @@ export interface paths {
         };
         /**
          * One player's games, newest first, 30 to a page
-         * @description The games the run rated for the player, in one format (0 is all).
-         *     Each carries an estimate of what it is worth to the player's rating
+         * @description The games the run rated for the player, in one format (0 is all),
+         *     and with unrated the finished games it did not rate. Each rated game
+         *     carries an estimate of what it is worth to the player's rating
          *     today: one rating update from the run's final ratings in `model`. A
          *     page past the last gives the last. Cached for five minutes.
          */
@@ -306,8 +307,9 @@ export interface paths {
         /**
          * The latest games two players played together
          * @description The 100 latest games the run rated with both players at the table,
-         *     in every format, newest first, with where each finished. Cached for
-         *     five minutes.
+         *     in every format, newest first, with where each finished; with
+         *     unrated, the finished games it did not rate too. Cached for five
+         *     minutes.
          */
         get: operations["getPlayerVersus"];
         put?: never;
@@ -4752,9 +4754,11 @@ export interface components {
             replay_code: string | null;
             /**
              * Format: double
-             * @description What the game is worth to the player's rating from its pre-month baseline, to 0.1
+             * @description What the game is worth to the player's rating from its pre-month baseline, to 0.1; null when unrated
              */
             rating_delta: number | null;
+            /** @description Whether the run rated the game */
+            rated: boolean;
             /** @description Seat order */
             seats: components["schemas"]["Seat"][];
         };
@@ -4860,6 +4864,8 @@ export interface components {
             name_place: number;
             other_place: number;
             replay_code: string | null;
+            /** @description Whether the run rated the game */
+            rated: boolean;
             /** @description Highest score first */
             seats: components["schemas"]["Seat"][];
         };
@@ -6134,6 +6140,8 @@ export interface components {
         AdminSeasonLabel: string;
         Model: components["schemas"]["Model"];
         Format: components["schemas"]["Format"];
+        /** @description Also the finished games the run did not rate, marked unrated */
+        Unrated: boolean;
         /**
          * @description The player's name, as the leaderboard gives it. A name they went by
          *     before also finds them (the one who used it most recently, when
@@ -6420,6 +6428,8 @@ export interface operations {
             query?: {
                 format?: components["parameters"]["Format"];
                 model?: components["parameters"]["Model"];
+                /** @description Also the finished games the run did not rate, marked unrated */
+                unrated?: components["parameters"]["Unrated"];
                 page?: number;
             };
             header?: never;
@@ -6554,7 +6564,10 @@ export interface operations {
     };
     getPlayerVersus: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Also the finished games the run did not rate, marked unrated */
+                unrated?: components["parameters"]["Unrated"];
+            };
             header?: never;
             path: {
                 /** @description A published run's id, from `/v1/runs/current` */

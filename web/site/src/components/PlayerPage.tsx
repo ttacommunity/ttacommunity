@@ -93,9 +93,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}`,
     runId === null ? null : () => playerHistory(apiUrl, runId, name, format),
   );
+  const [gamesUnrated, setGamesUnrated] = useState(false);
   const games = useLoad<PlayerMatches>(
-    `${runId}|${name}|${format}|${model}|${matchPage}`,
-    runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage),
+    `${runId}|${name}|${format}|${model}|${matchPage}|${gamesUnrated}`,
+    runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage, gamesUnrated),
   );
   const rivals = useLoad<PlayerRivals>(
     `${runId}|${name}|${format}`,
@@ -159,7 +160,19 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <RatingChart history={history.kind === 'ready' ? history.data : null} />
 
       <div className="tables-grid">
-        <Games state={games} view={view} provisional={provisional} gamesInFormat={gamesInFormat} linkTo={linkTo} go={go} />
+        <Games
+          state={games}
+          view={view}
+          provisional={provisional}
+          gamesInFormat={gamesInFormat}
+          linkTo={linkTo}
+          go={go}
+          unrated={gamesUnrated}
+          onUnrated={(on) => {
+            setGamesUnrated(on);
+            if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
+          }}
+        />
         <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} />
       </div>
 
@@ -301,6 +314,8 @@ function Games({
   gamesInFormat,
   linkTo,
   go,
+  unrated,
+  onUnrated,
 }: {
   state: Load<PlayerMatches>;
   view: PlayerView;
@@ -308,6 +323,8 @@ function Games({
   gamesInFormat: number;
   linkTo: LinkTo;
   go: (next: PlayerView) => void;
+  unrated: boolean;
+  onUnrated: (on: boolean) => void;
 }) {
   const data = state.kind === 'ready' ? state.data : null;
   const total = data?.total ?? gamesInFormat;
@@ -322,9 +339,12 @@ function Games({
             className="badge badge-calibration"
             title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
           >
-            ⏳ Prior Calibration ({total}/15)
+            ⏳ Prior Calibration ({gamesInFormat}/15)
           </span>
         )}
+        <label className="unrated-check">
+          <input type="checkbox" checked={unrated} onChange={(e) => onUnrated(e.target.checked)} /> Show unrated games
+        </label>
       </div>
       <ScrollTable hint="full match details">
         <table className="data-table">
@@ -361,6 +381,7 @@ function Games({
                 <td className="cell-tournament">{formatTournamentDisplay(m.tournament)}</td>
                 <td>
                   <span className="badge badge-seats">{m.player_count}P</span>
+                  {!m.rated && <span className="badge badge-unrated">Unrated</span>}
                 </td>
                 <td>
                   <span className={`placement-badge place-${m.placement}`}>{m.placement}</span>

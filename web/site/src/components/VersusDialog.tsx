@@ -38,18 +38,19 @@ export default function VersusDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState<Load<PlayerVersus>>({ kind: 'loading' });
   const [format, setFormat] = useState<Format>(initial);
+  const [unrated, setUnrated] = useState(false);
   // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   useEffect(() => {
     let stale = false;
-    playerVersus(apiUrl, runId, name, other)
+    playerVersus(apiUrl, runId, name, other, unrated)
       .then((data) => !stale && setState({ kind: 'ready', data }))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
       stale = true;
     };
-  }, [apiUrl, runId, name, other]);
+  }, [apiUrl, runId, name, other, unrated]);
 
   const tally = state.kind === 'ready' ? versusTally(state.data.matches, format) : null;
   const a = state.kind === 'ready' ? state.data.name : name;
@@ -73,6 +74,9 @@ export default function VersusDialog({
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
         <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
+        <label className="unrated-check">
+          <input type="checkbox" checked={unrated} onChange={(e) => setUnrated(e.target.checked)} /> Show unrated games
+        </label>
       </div>
       <div className="h2h-stats">
         {tally === null ? (
@@ -124,7 +128,10 @@ export default function VersusDialog({
                 <tr key={m.match_id}>
                   <td>{m.date}</td>
                   <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
-                  <td>{m.player_count}p</td>
+                  <td>
+                    {m.player_count}p
+                    {!m.rated && <span className="badge badge-unrated">Unrated</span>}
+                  </td>
                   <td>
                     <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>
                   </td>

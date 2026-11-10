@@ -68,6 +68,7 @@ type PlayerMatch struct {
 	PlayerCount int
 	ReplayCode  *string
 	Seats       []Seat
+	Rated       bool
 }
 
 // MatchPage is one page of a player's games.
@@ -94,6 +95,13 @@ const playerRunGames = `
 	SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_a = $2
 	UNION
 	SELECT match_id, date, player_count FROM pairwise_matches WHERE run_id = $1 AND player_b = $2`
+
+// notRatedGames selects, from game ids in a CTE named mine, the finished games run $1 did not rate,
+// with their date, format and false for rated.
+const notRatedGames = `
+	SELECT g.game_id, g.date, (SELECT count(*) FROM seats o WHERE o.game_id = g.game_id)::smallint, false
+	FROM mine JOIN games g ON g.game_id = mine.game_id AND g.state = 'played'
+	WHERE NOT EXISTS (SELECT 1 FROM pairwise_matches p WHERE p.run_id = $1 AND p.match_id = g.game_id)`
 
 // namedPlayer is a player a page asks for: their id, and their name now.
 type namedPlayer struct {
@@ -271,15 +279,20 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 
 // PlayerMatches returns the stored name and one page of the games run rated
 // for a player in a format (0 is all), newest first, each with the date and
-// format the run took. A page past the last gives the last. Seats keep their
+// format the run took; with unrated, also the finished games the run did not
+// rate, with their own. A page past the last gives the last. Seats keep their
 // stored names, for rating estimates: the caller masks the HiddenNames before
 // answering.
-func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int) (string, MatchPage, error) {
+func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int, unrated bool) (string, MatchPage, error) {
 	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", MatchPage{}, err
 	}
-	const mine = `(` + playerRunGames + `) mine WHERE $3 = 0 OR player_count = $3`
+	games := `SELECT match_id, date, player_count, true FROM (` + playerRunGames + `) rated`
+	if unrated {
+		games = `WITH mine AS (SELECT game_id FROM seats WHERE player_id = $2) ` + games + ` UNION ALL ` + notRatedGames
+	}
+	mine := `(` + games + `) all_games (match_id, date, player_count, rated) WHERE $3 = 0 OR player_count = $3`
 	var mp MatchPage
 	err = r.pool.QueryRow(ctx, `SELECT count(*) FROM `+mine, run, who.ID, format).Scan(&mp.Total)
 	if err != nil {
@@ -289,25 +302,25 @@ func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked stri
 	mp.Page = min(max(page, 1), mp.Pages)
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT match_id, date, player_count FROM `+mine+`
+		SELECT match_id, date, player_count, rated FROM `+mine+`
 		ORDER BY date DESC, match_id DESC
 		LIMIT $4 OFFSET $5`, run, who.ID, format, gamesPerPage, (mp.Page-1)*gamesPerPage)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("paging a player's games in run %d: %w", run, err)
 	}
-	mp.Matches, err = r.gamesAsRated(ctx, rows)
+	mp.Matches, err = r.gamesAsListed(ctx, rows)
 	if err != nil {
 		return "", MatchPage{}, fmt.Errorf("reading a player's games in run %d: %w", run, err)
 	}
 	return who.Name, mp, nil
 }
 
-// gamesAsRated reads rows of a run's games (id, date, format) and returns those games in their order, with
-// their tournament, replay code and seats, and the run's date and format.
-func (r *RatingsReader) gamesAsRated(ctx context.Context, rows pgx.Rows) ([]PlayerMatch, error) {
+// gamesAsListed reads rows of games (id, date, format, rated) and returns those games in their order, with
+// their tournament, replay code and seats, and the rows' date, format and rated.
+func (r *RatingsReader) gamesAsListed(ctx context.Context, rows pgx.Rows) ([]PlayerMatch, error) {
 	rated, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlayerMatch, error) {
 		var m PlayerMatch
-		return m, row.Scan(&m.ID, &m.Date, &m.PlayerCount)
+		return m, row.Scan(&m.ID, &m.Date, &m.PlayerCount, &m.Rated)
 	})
 	if err != nil {
 		return nil, err
@@ -333,7 +346,7 @@ func (r *RatingsReader) gamesAsRated(ctx context.Context, rows pgx.Rows) ([]Play
 	out := make([]PlayerMatch, 0, len(rated))
 	for _, m := range rated {
 		g := byID[m.ID]
-		g.ID, g.Date, g.PlayerCount = m.ID, m.Date, m.PlayerCount
+		g.ID, g.Date, g.PlayerCount, g.Rated = m.ID, m.Date, m.PlayerCount, m.Rated
 		out = append(out, g)
 	}
 	return out, nil
