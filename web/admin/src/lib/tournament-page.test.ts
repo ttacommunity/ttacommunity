@@ -14,6 +14,7 @@ import {
   pointsText,
   renamedFrom,
   scoringPatch,
+  seasonBox,
   opensSettings,
   settingsHref,
   slugParam,
@@ -136,6 +137,17 @@ describe('toggledCounts', () => {
 
   it('refuses to leave no player count rated (turn the tournament off instead)', () => {
     expect(toggledCounts([3], 3, false)).toBeNull();
+  });
+});
+
+describe('seasonBox', () => {
+  it.each([
+    ['the tournament and season on', true, true, { checked: true, locked: false }],
+    ['the season off', true, false, { checked: false, locked: false }],
+    ['the tournament off', false, true, { checked: false, locked: true }],
+    ['both off', false, false, { checked: false, locked: true }],
+  ])('shows a season box with %s as it takes effect', (_name, tournamentOn, seasonOn, want) => {
+    expect(seasonBox(tournamentOn, seasonOn)).toEqual(want);
   });
 });
 

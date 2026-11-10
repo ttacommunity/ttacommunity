@@ -4,7 +4,7 @@ import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament, AdminTournamentRow } from '../lib/admin-api';
 import { seasonSummary, stageRows } from '../lib/season-counts';
-import { fieldId, hasPenalty, renamedFrom, toggled } from '../lib/tournament-page';
+import { fieldId, hasPenalty, renamedFrom, seasonBox, toggled } from '../lib/tournament-page';
 import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
 import MoveSeasonButton from './MoveSeasonButton';
 import NoteBox from './NoteBox';
@@ -74,6 +74,8 @@ export default function SeasonsCard({
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => {
         const sum = seasonSummary(se);
+        const rated = seasonBox(t.rated, se.rated);
+        const community = seasonBox(t.community, se.in_community);
         return (
           <div key={se.label} className="season-notes">
             <h3>
@@ -98,10 +100,16 @@ export default function SeasonsCard({
               <input
                 id={fieldId('season-rated', se.label)}
                 type="checkbox"
-                checked={se.rated}
+                checked={rated.checked}
+                disabled={rated.locked}
                 onChange={(e) => void setFlag(se.label, 'rated', e.target.checked)}
               />{' '}
-              Counts towards ratings <span className="muted">(from the next engine run; its games still show, marked not rated)</span>
+              Counts towards ratings{' '}
+              <span className="muted">
+                {rated.locked
+                  ? "(the tournament isn't rated: tick Rated in its settings first)"
+                  : '(from the next engine run; its games still show, marked not rated)'}
+              </span>
             </label>
             <label className="season-rated">
               <input
@@ -116,11 +124,16 @@ export default function SeasonsCard({
               <input
                 id={fieldId('season-community', se.label)}
                 type="checkbox"
-                checked={se.in_community}
+                checked={community.checked}
+                disabled={community.locked}
                 onChange={(e) => void setFlag(se.label, 'community', e.target.checked)}
               />{' '}
               Counts in the community leaderboard{' '}
-              <span className="muted">(from the next engine run, when the tournament counts; untick a play-off that should not score)</span>
+              <span className="muted">
+                {community.locked
+                  ? "(the tournament doesn't count: tick Community leaderboard in its settings first)"
+                  : '(from the next engine run; untick a play-off that should not score)'}
+              </span>
             </label>
             <label className="season-rated">
               <input
