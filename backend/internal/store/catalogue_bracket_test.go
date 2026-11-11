@@ -128,3 +128,72 @@ func TestCatalogueTournamentSaysItIsShownAsABracket(t *testing.T) {
 		t.Errorf("CatalogueTournament(wimbledon).Bracket = %v, %v; want true", got.Bracket, err)
 	}
 }
+
+// finalFixture places Wimbledon 2024 as two groups of Stage 1, played, and a final whose only group CGE leaves
+// unnamed (so named after its stage), played as two games in the states given.
+func finalFixture(t *testing.T, states ...string) (int64, *RatingsReader) {
+	t.Helper()
+	pool := migrated(t)
+	run := publishedRun(t, pool)
+	games := map[string]time.Time{
+		"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+		"Wimbledon 2024 Stage 1 - group 2 game 1": day("2024-07-01"),
+	}
+	for i := range states {
+		games[fmt.Sprintf("Wimbledon 2024 Stage 2 - Stage 2 game %d", i+1)] = day("2024-07-10")
+	}
+	placedOn(t, pool, games)
+	setSeats(t, pool, "%Stage 1 - group 1 %", Seat{"ann", 40}, Seat{"bob", 30}, Seat{"cat", 20}, Seat{"dan", 10})
+	setSeats(t, pool, "%Stage 1 - group 2 %", Seat{"eve", 40}, Seat{"fay", 30}, Seat{"gus", 20}, Seat{"hal", 10})
+	setSeats(t, pool, "%Stage 2 - Stage 2 %", Seat{"fay", 40}, Seat{"ann", 30}, Seat{"eve", 20}, Seat{"bob", 10})
+	for i, s := range states {
+		setGameState(t, pool, fmt.Sprintf("%%Stage 2 - Stage 2 game %d", i+1), s)
+	}
+	if _, err := pool.Exec(context.Background(), "UPDATE series SET bracket = true WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatalf("setting up the bracket: %v", err)
+	}
+	withSpans(t, pool, run)
+	return run, NewRatingsReader(asReader(t, pool))
+}
+
+func TestSeasonBracketNumbersARoundsOnlyGroupOne(t *testing.T) {
+	run, r := finalFixture(t, "played")
+	got, err := r.SeasonBracket(context.Background(), run, "wimbledon", "2024")
+	if err != nil {
+		t.Fatalf("SeasonBracket: %v", err)
+	}
+	want := []string{
+		"Stage 1|group 1 1|played: 1 ann 1 - →1; 2 bob 2 - →1; 3 cat 3 - →0; 4 dan 4 - →0;",
+		"Stage 1|group 2 2|played: 5 eve 1 - →1; 6 fay 2 - →1; 7 gus 3 - →0; 8 hal 4 - →0;",
+		"Stage 2|Stage 2 1|played: 6 fay 1 - →0; 1 ann 2 - →0; 5 eve 3 - →0; 2 bob 4 - →0;",
+	}
+	if diff := cmp.Diff(want, bracketLines(got)); diff != "" {
+		t.Errorf("the bracket (-want +got):\n%s", diff)
+	}
+}
+
+func TestSeasonBracketGivesAGroupTheStateOfItsGamesNeverPlayedAside(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		states []string
+		want   string
+	}{
+		{"one never played, the others played", []string{"played", "never_played", "played"}, "played"},
+		{"one never played, one running", []string{"never_played", "running"}, "running"},
+		{"one prepared, one played", []string{"played", "prepared"}, "prepared"},
+		{"every game never played", []string{"never_played", "never_played"}, "never_played"},
+		{"one unconfirmed, the others played", []string{"played", "unconfirmed", "played"}, "unconfirmed"},
+		{"one unconfirmed, one never played", []string{"never_played", "unconfirmed"}, "unconfirmed"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			run, r := finalFixture(t, tt.states...)
+			got, err := r.SeasonBracket(context.Background(), run, "wimbledon", "2024")
+			if err != nil {
+				t.Fatalf("SeasonBracket: %v", err)
+			}
+			if final := got.Rounds[len(got.Rounds)-1].Groups[0]; final.State != tt.want {
+				t.Errorf("the final of games %v is %s, want %s", tt.states, final.State, tt.want)
+			}
+		})
+	}
+}

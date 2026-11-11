@@ -2122,13 +2122,13 @@ type BlitzThreadTextSet struct {
 type BracketGroup struct {
 	Name string `json:"name"`
 
-	// Number The number its name ends in, else its place in the round
+	// Number n for a group named "group n", else its place in the round
 	Number int `json:"number"`
 
 	// Seats Best first once played (most points, then best place), else as seated
 	Seats []BracketSeat `json:"seats"`
 
-	// State A game's state
+	// State Its games' least advanced state, never-played games aside unless all are
 	State GameState `json:"state"`
 }
 

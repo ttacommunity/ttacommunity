@@ -23,8 +23,9 @@ type BracketRound struct {
 	Groups []BracketGroup
 }
 
-// BracketGroup is one group of a round. Number is the one its name ends in, else its place in the round; State is its
-// game's (played, running, prepared or never_played), the least advanced where it has several.
+// BracketGroup is one group of a round. Number is n for a group named "group n", else its place in the round; State
+// is its game's (played, running, prepared, never_played or unconfirmed), the least advanced where it has several, never-played
+// games aside unless all are.
 type BracketGroup struct {
 	Name   string
 	Number int
@@ -48,10 +49,11 @@ type BracketSeat struct {
 // knockout is kept in the blitz tables rather than stages and groups.
 const shownAsBracket = `(t.bracket AND NOT t.blitz)`
 
-// bracketStates orders game states from the least advanced.
-var bracketStates = []string{"never_played", "prepared", "running", "played"}
+// bracketStates orders game states from the least advanced: an unconfirmed game, its result in doubt, holds its
+// group back.
+var bracketStates = []string{"unconfirmed", "never_played", "prepared", "running", "played"}
 
-var trailingNumber = regexp.MustCompile(`[0-9]+$`)
+var numberedGroup = regexp.MustCompile(`(?i)^group ([0-9]+)$`)
 
 // SeasonBracket returns the bracket of a shown tournament's season, for a published run. A tournament not marked as a
 // bracket, hidden, or without that season's games is ErrTournamentNotFound. Each group's seats come from its games:
@@ -110,7 +112,7 @@ func (r *RatingsReader) SeasonBracket(ctx context.Context, run int64, slug, seas
 			i = len(rd.groups) - 1
 		}
 		g := rd.groups[i]
-		if slices.Index(bracketStates, state) < slices.Index(bracketStates, g.state) {
+		if g.state == "never_played" || state != "never_played" && slices.Index(bracketStates, state) < slices.Index(bracketStates, g.state) {
 			g.state = state
 		}
 		for k, id := range ids {
@@ -158,8 +160,8 @@ func (r *RatingsReader) SeasonBracket(ctx context.Context, run int64, slug, seas
 				})
 			}
 			number := j + 1
-			if n, err := strconv.Atoi(trailingNumber.FindString(g.name)); err == nil {
-				number = n
+			if m := numberedGroup.FindStringSubmatch(g.name); m != nil {
+				number, _ = strconv.Atoi(m[1])
 			}
 			dg := BracketGroup{Name: g.name, Number: number, State: g.state, Seats: make([]BracketSeat, len(g.seats))}
 			for k, s := range g.seats {

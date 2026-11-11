@@ -5535,8 +5535,9 @@ export interface components {
         };
         BracketGroup: {
             name: string;
-            /** @description The number its name ends in, else its place in the round */
+            /** @description n for a group named "group n", else its place in the round */
             number: number;
+            /** @description Its games' least advanced state, never-played games aside unless all are */
             state: components["schemas"]["GameState"];
             /** @description Best first once played (most points, then best place), else as seated */
             seats: components["schemas"]["BracketSeat"][];

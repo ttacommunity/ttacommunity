@@ -9061,10 +9061,12 @@ components:
         name:
           type: string
         number:
-          description: The number its name ends in, else its place in the round
+          description: n for a group named "group n", else its place in the round
           type: integer
         state:
-          $ref: "#/components/schemas/GameState"
+          description: Its games' least advanced state, never-played games aside unless all are
+          allOf:
+            - $ref: "#/components/schemas/GameState"
         seats:
           description: Best first once played (most points, then best place), else as seated
           type: array
