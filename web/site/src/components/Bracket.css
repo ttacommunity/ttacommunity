@@ -54,6 +54,16 @@
   font-size: var(--size-label);
   color: var(--text-muted);
 }
+.bracket-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 12px 20px 0;
+}
+.bracket-view-choice {
+  display: inline-flex;
+  gap: 8px;
+}
 .bracket-find input {
   width: 240px;
   max-width: 100%;
@@ -181,7 +191,7 @@ button.bracket-name:focus-visible {
   padding: 16px 20px 20px;
 }
 
-/* The late rounds as a tree: each pair of groups joined to the group it feeds, zoomed to fit or by hand. */
+/* Rounds side by side as a tree on shared rows, the tree's pairs joined to the group they feed, zoomed to fit or by hand. */
 .bracket-tree-box {
   overflow-x: auto;
   padding: 8px 20px 20px;
@@ -219,14 +229,17 @@ button.bracket-name:focus-visible {
   text-align: right;
 }
 .bracket-tree {
-  display: flex;
-  gap: 40px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 260px;
+  grid-template-rows: auto;
+  grid-auto-rows: 1fr;
+  column-gap: 40px;
   min-width: max-content;
 }
 .bracket-col {
-  display: flex;
-  flex-direction: column;
-  width: 260px;
+  display: grid;
+  grid-template-rows: subgrid;
 }
 .bracket-col-head {
   margin: 0 0 10px;
@@ -235,18 +248,16 @@ button.bracket-name:focus-visible {
   color: var(--text-main);
   letter-spacing: 0.04em;
 }
-.bracket-col-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
 .bracket-pair {
   position: relative;
   display: flex;
-  flex: 1;
   flex-direction: column;
-  justify-content: space-around;
-  gap: 16px;
+}
+.bracket-slot {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: center;
   padding: 8px 0;
 }
 .bracket-pair-joined::after {
@@ -256,7 +267,7 @@ button.bracket-name:focus-visible {
   bottom: 25%;
   right: -20px;
   width: 20px;
-  border: 2px solid var(--border-subtle);
+  border: 3px solid var(--text-muted);
   border-left: 0;
   border-radius: 0 6px 6px 0;
 }
@@ -266,7 +277,41 @@ button.bracket-name:focus-visible {
   top: 50%;
   right: -40px;
   width: 20px;
-  border-top: 2px solid var(--border-subtle);
+  border-top: 3px solid var(--text-muted);
+}
+
+/* A tree squashed to one player's road: lines out of a group, and into the group they feed. */
+.bracket-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.bracket-item-out::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -20px;
+  width: 20px;
+  border-top: 3px solid var(--text-muted);
+}
+.bracket-item-in::before {
+  content: '';
+  position: absolute;
+  top: var(--bar-top);
+  bottom: var(--bar-bottom);
+  left: -20px;
+  border-left: 3px solid var(--text-muted);
+}
+.bracket-item-in > .bracket-slot {
+  position: relative;
+}
+.bracket-item-in > .bracket-slot::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -20px;
+  width: 20px;
+  border-top: 3px solid var(--text-muted);
 }
 
 /* On a phone the tree gives way to the chosen round's list. */

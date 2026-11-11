@@ -9,6 +9,7 @@ import {
   stepZoom,
   tapRound,
   shownRounds,
+  bracketGrid,
   treeReach,
   defaultView,
   bracketParams,
@@ -18,6 +19,10 @@ import {
   bracketMap,
   bracketRounds,
   groupsMatching,
+  bracketPlayers,
+  roadsKept,
+  compactTree,
+  allView,
   road,
   seatView,
   seedLabel,
@@ -122,6 +127,7 @@ describe('defaultView', () => {
     ['a big bracket, from its round of eight groups', sized([64, 32, 16, 8, 4, 2, 1]), { first: 3, last: 6 }],
     ['a bracket redrawn up to its quarter-finals, from them', sized([64, 32, 16, 8, 4, 2, 1], { 0: 40, 1: 20, 2: 10, 3: 5 }), { first: 4, last: 6 }],
     ['a small bracket, whole', sized([4, 2, 1]), { first: 0, last: 2 }],
+    ['a small bracket whose tree starts after its first round, from the tree', sized([8, 4, 2, 1], { 0: 1 }), { first: 1, last: 3 }],
     ['a bracket without a tree, on its latest round', sized([3, 1]), { first: 1, last: 1 }],
   ])('opens %s', (_name, rounds, want) => {
     expect(defaultView(rounds)).toMatchObject({ ...want, anchor: null });
@@ -141,26 +147,50 @@ describe('tapRound', () => {
     ['a third round, which starts again', [3, 6, 4], { first: 4, last: 4 }],
     ['the same round twice', [4, 4], { first: 4, last: 4 }],
     ['a round before the tree, alone', [1], { first: 1, last: 1 }],
-    ['a round before the tree after one in it, alone', [4, 1], { first: 1, last: 1 }],
-    ['a round in the tree after one before it, alone', [1, 5], { first: 5, last: 5 }],
+    ['a round before the tree after one in it, and those between', [4, 1], { first: 1, last: 4 }],
+    ['a round in the tree after one before it, and those between', [1, 5], { first: 1, last: 5 }],
+    ['two rounds before the tree, and the one between', [0, 2], { first: 0, last: 2 }],
   ])('chooses %s, the tree from round 3', (_name, taps, want) => {
-    expect(taps.reduce((v, i) => tapRound(v, i, 3), opened)).toMatchObject(want);
+    expect(taps.reduce((v, i) => tapRound(v, i), opened)).toMatchObject(want);
   });
 });
 
 describe('shownRounds', () => {
   const rounds = sized([64, 32, 16, 8, 4, 2, 1]);
   it.each([
-    ['several rounds as a tree', { first: 3, last: 6 }, 0, { start: 3, end: 6, joined: true }],
-    ['one round before the tree beside the next, unjoined', { first: 2, last: 2 }, 5, { start: 2, end: 3, joined: false }],
-    ['one round of the tree beside the next, joined', { first: 5, last: 5 }, 5, { start: 5, end: 6, joined: true }],
+    ['several rounds as a tree, joined up to the final', { first: 3, last: 6 }, 0, { start: 3, end: 6, joined: [true, true, true, false] }],
+    ['rounds across the start of the tree, joined from it', { first: 1, last: 6 }, 3, { start: 1, end: 6, joined: [false, false, true, true, true, false] }],
+    ['a range ending inside the tree, its last round unjoined', { first: 2, last: 4 }, 3, { start: 2, end: 4, joined: [false, true, false] }],
+    ['the round before the tree beside its first, unjoined', { first: 2, last: 2 }, 3, { start: 2, end: 3, joined: [false, false] }],
+    ['one round of the tree beside the next, joined', { first: 5, last: 5 }, 5, { start: 5, end: 6, joined: [true, false] }],
     ['the final alone', { first: 6, last: 6 }, 0, null],
   ])('shows %s', (_name, view, reach, want) => {
-    expect(shownRounds(rounds, { ...view, anchor: null }, reach)).toEqual(want);
+    expect(shownRounds(rounds, { ...view, anchor: null }, reach, 'tree')).toEqual(want);
+  });
+
+  it.each([
+    ['a round shown as a grid, alone', { first: 5, last: 5 }, null],
+    ['several rounds, as a tree whatever one round shows', { first: 5, last: 6 }, { start: 5, end: 6, joined: [true, false] }],
+  ])('shows %s', (_name, view, want) => {
+    expect(shownRounds(rounds, { ...view, anchor: null }, 0, 'grid')).toEqual(want);
   });
 
   it('shows a round alone while the next is to come', () => {
-    expect(shownRounds(bracketRounds(inPlay), { first: 1, last: 1, anchor: null }, 0)).toBeNull();
+    expect(shownRounds(bracketRounds(inPlay), { first: 1, last: 1, anchor: null }, 0, 'tree')).toBeNull();
+  });
+});
+
+describe('bracketGrid', () => {
+  const groups = (n: number) => Array.from({ length: n }, (_, i) => played(i + 1, []));
+  it.each([
+    ['a tree, its pairs joined', [4, 2, 1], [true, true, false], [[2, 2, 2], [4, 1, 2], [4, 1, 1]], 4],
+    ['rounds that halve without lines, still between pairs of the one before', [4, 2], [false, false], [[1, 4, 1], [2, 2, 1]], 4],
+    ['a round that does not halve, still between pairs, past the end of the one before', [83, 56], [false, false], [[1, 83, 1], [2, 56, 1]], 112],
+    ['rounds before a tree that does not halve from them, then the tree', [6, 4, 2, 1], [false, true, true, false], [[1, 6, 1], [4, 2, 2], [8, 1, 2], [8, 1, 1]], 8],
+  ])('lays out %s: each column [rows per item, items, groups per item], and the rows', (_name, sizes, joined, want, rows) => {
+    const grid = bracketGrid(sizes.map(groups), joined);
+    expect(grid.columns.map((c) => [c.span, c.items.length, c.items[0]?.length])).toEqual(want);
+    expect(grid.rows).toBe(rows);
   });
 });
 
@@ -262,6 +292,78 @@ describe('defaultRound', () => {
     ['a bracket being played', inPlay, 1],
   ])('opens %s on its latest round with players', (_name, d, want) => {
     expect(defaultRound(bracketRounds(d))).toBe(want);
+  });
+});
+
+// A knockout of eight in matches: Aster beats Brook, then Cove, then Ember in the final.
+const match = (number: number, a: [number, string], b: [number, string], next: number): BracketGroup => ({
+  name: `match ${number}`,
+  number,
+  state: 'played',
+  seats: [seat(a[0], a[1], 1, next), seat(b[0], b[1], 2)],
+});
+const knockout = bracketRounds(
+  bracket(
+    [match(1, [1, 'Aster'], [2, 'Brook'], 1), match(2, [3, 'Cove'], [4, 'Dune'], 1), match(3, [5, 'Ember'], [6, 'Fern'], 2), match(4, [7, 'Gale'], [8, 'Heath'], 2)],
+    [match(1, [1, 'Aster'], [3, 'Cove'], 1), match(2, [5, 'Ember'], [7, 'Gale'], 1)],
+    [match(1, [1, 'Aster'], [5, 'Ember'], 0)],
+  ),
+);
+
+describe('roadsKept', () => {
+  it.each([
+    ["a champion: their road and their opponents'", 'Aster', ['0/1', '0/2', '0/3', '1/1', '1/2', '2/1']],
+    ["a player out at once: their match and their opponent's road", 'Dune', ['0/2', '1/1']],
+    ['a name in any case, with the road of the opponent who beat them', 'brook', ['0/1', '1/1', '2/1']],
+  ])('keeps %s', (_name, q, want) => {
+    expect([...(roadsKept(knockout, q) ?? [])].sort()).toEqual(want);
+  });
+
+  it.each([
+    ['nothing typed', ''],
+    ['part of a name', 'Ast'],
+    ['a name not in the bracket', 'Zephyr'],
+  ])('keeps every group for %s', (_name, q) => {
+    expect(roadsKept(knockout, q)).toBeNull();
+  });
+});
+
+describe('compactTree', () => {
+  const layout = (q: string, start: number, joined: boolean[]) => {
+    const t = compactTree(knockout, start, 2, roadsKept(knockout, q) ?? new Set(), joined);
+    return { rows: t.rows, columns: t.columns.map((c) => c.items.map((x) => [x.group.number, x.start, x.end, x.bar, x.out])) };
+  };
+  it.each([
+    [
+      "a champion's road, each match spanning those that fed it",
+      'Aster',
+      0,
+      [true, true, false],
+      { rows: 6, columns: [[[1, 0, 2, null, true], [2, 2, 4, null, true], [3, 4, 6, null, true]], [[1, 0, 4, [1, 3], true], [2, 4, 6, [5, 5], true]], [[1, 0, 6, [2, 5], false]]] },
+    ],
+    [
+      'the same rounds without lines, each stacked from the top',
+      'Aster',
+      0,
+      [false, false, false],
+      { rows: 6, columns: [[[1, 0, 2, null, false], [2, 2, 4, null, false], [3, 4, 6, null, false]], [[1, 0, 2, null, false], [2, 2, 4, null, false]], [[1, 0, 2, null, false]]] },
+    ],
+    ['a player out at once', 'Dune', 0, [true, true, false], { rows: 2, columns: [[[2, 0, 2, null, true]], [[1, 0, 2, [1, 1], false]], []] }],
+    ['a range from the second round', 'Aster', 1, [true, false], { rows: 4, columns: [[[1, 0, 2, null, true], [2, 2, 4, null, true]], [[1, 0, 4, [1, 3], false]]] }],
+  ])('lays out %s', (_name, q, start, joined, want) => {
+    expect(layout(q, start, joined)).toEqual(want);
+  });
+});
+
+describe('bracketPlayers', () => {
+  it('lists each player once, by name', () => {
+    expect(bracketPlayers(knockout).map((p) => p.name)).toEqual(['Aster', 'Brook', 'Cove', 'Dune', 'Ember', 'Fern', 'Gale', 'Heath']);
+  });
+});
+
+describe('allView', () => {
+  it('shows every round', () => {
+    expect(allView(knockout)).toEqual({ first: 0, last: 2, anchor: null });
   });
 });
 

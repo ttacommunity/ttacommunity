@@ -80,7 +80,7 @@ export function treeReach(rounds: ViewRound[]): number {
   return reach >= rounds.length - 1 ? rounds.length : reach;
 }
 
-/** BracketView is the rounds shown, first to last, and a round of the tree tapped alone, which a second tap makes one end of a range. */
+/** BracketView is the rounds shown, first to last, and a round tapped alone, which a second tap makes one end of a range. */
 export type BracketView = { first: number; last: number; anchor: number | null };
 
 /** defaultView is what a bracket opens on: its tree from the first round it can draw with at most TREE_MOST groups, to its end; without a tree, its latest round with players. */
@@ -96,25 +96,41 @@ export function defaultView(rounds: ViewRound[]): BracketView {
   return { first, last, anchor: null };
 }
 
-/**
- * tapRound is the view after tapping round i, the tree drawn from round reach: that round alone, or, for a round of the
- * tree tapped after another of the tree alone, the two and those between. A round before the tree is only ever alone.
- */
-export function tapRound(view: BracketView, i: number, reach: number): BracketView {
-  if (i < reach) return { first: i, last: i, anchor: null };
+/** tapRound is the view after tapping round i: that round alone, or, tapped after another round alone, the two and those between. */
+export function tapRound(view: BracketView, i: number): BracketView {
   if (view.anchor !== null && view.anchor !== i) return { first: Math.min(view.anchor, i), last: Math.max(view.anchor, i), anchor: null };
   return { first: i, last: i, anchor: i };
 }
 
 /**
- * shownRounds is the rounds drawn side by side, start to end, and whether lines join them (only from reach, where the
- * tree holds): a range as chosen, or one round beside the next once that has players. Null for a round shown alone.
+ * shownRounds is the rounds drawn side by side, start to end, and for each whether lines join its groups to the next
+ * round's (from reach, where the tree holds, to the last shown): a range as chosen, or one round shown as a tree beside
+ * the next once that has players. Null for a round shown alone, as a grid.
  */
-export function shownRounds(rounds: ViewRound[], view: BracketView, reach: number): { start: number; end: number; joined: boolean } | null {
-  if (view.first !== view.last) return { start: view.first, end: view.last, joined: true };
-  const next = rounds[view.first + 1];
-  if (next === undefined || next.state === 'to_come') return null;
-  return { start: view.first, end: view.first + 1, joined: view.first >= reach };
+export function shownRounds(rounds: ViewRound[], view: BracketView, reach: number, single: 'tree' | 'grid'): { start: number; end: number; joined: boolean[] } | null {
+  let end = view.last;
+  if (view.first === end) {
+    if (single === 'grid') return null;
+    const next = rounds[end + 1];
+    if (next === undefined || next.state === 'to_come') return null;
+    end++;
+  }
+  const joined = rounds.slice(view.first, end + 1).map((r, k) => view.first + k >= reach && view.first + k < end && r.groups.length > 1);
+  return { start: view.first, end, joined };
+}
+
+/**
+ * bracketGrid lays rounds side by side on shared rows as a tree, whether or not they halve or lines join them: the kth
+ * round's groups span 2^k rows each, so each sits between two of the round before. A joined round's groups go in pairs,
+ * each spanning the rows of the group it feeds. Returns each column's rows per item and items, and the rows in all.
+ */
+export function bracketGrid(rounds: BracketGroup[][], joined: boolean[]): { rows: number; columns: { span: number; items: BracketGroup[][] }[] } {
+  const columns = rounds.map((groups, k) => {
+    const pairs = joined[k] === true;
+    const items = pairs ? groups.flatMap((g, j) => (j % 2 === 0 ? [groups.slice(j, j + 2)] : [])) : groups.map((g) => [g]);
+    return { span: 2 ** (pairs ? k + 1 : k), items };
+  });
+  return { rows: Math.max(0, ...columns.map((c) => c.span * c.items.length)), columns };
 }
 
 /** SeatView is how a seat shows: through to the next round (or champion), knocked out, where they play next, and their points. */
@@ -185,6 +201,60 @@ export function defaultRound(rounds: ViewRound[]): number {
     if (rounds[i]?.state !== 'to_come') return i;
   }
   return 0;
+}
+
+/** roadsKept is the groups to keep when q names a player in full: theirs and every opponent's, as round/group keys; null otherwise. */
+export function roadsKept(rounds: ViewRound[], q: string): Set<string> | null {
+  const want = q.trim().toLowerCase();
+  const seats = rounds.flatMap((r, i) => r.groups.flatMap((g) => g.seats.map((s) => ({ key: `${i}/${g.number}`, group: g, s }))));
+  const player = seats.find((x) => x.s.name.toLowerCase() === want)?.s.entrant;
+  if (want === '' || player === undefined) return null;
+  const met = new Set(seats.filter((x) => x.s.entrant === player).flatMap((x) => x.group.seats.map((s) => s.entrant)));
+  return new Set(seats.filter((x) => met.has(x.s.entrant)).map((x) => x.key));
+}
+
+/** CompactItem is a group kept in a squashed tree: its rows (start to end), the rows its line in reaches (from the first group feeding it to the last), and whether a line goes out to the group it feeds. */
+export type CompactItem = { group: BracketGroup; start: number; end: number; bar: [number, number] | null; out: boolean };
+
+/**
+ * compactTree squashes the rounds start to end to the groups kept, two rows each, stacked from the top; where joined
+ * says lines join a round to the next, each group of the next spans the groups that fed it (by where their players
+ * went next) and its line in reaches from the first to the last.
+ */
+export function compactTree(rounds: ViewRound[], start: number, end: number, kept: Set<string>, joined: boolean[]): { rows: number; columns: { items: CompactItem[] }[] } {
+  const centre = (x: CompactItem) => (x.start + x.end) / 2;
+  const feeds = (from: CompactItem, to: BracketGroup) => from.group.seats.some((s) => s.next === to.number);
+  const columns: { items: CompactItem[] }[] = [];
+  rounds.slice(start, end + 1).forEach((r, k) => {
+    const prev = columns[k - 1]?.items ?? [];
+    const lines = joined[k - 1] === true;
+    let bottom = 0;
+    const items = r.groups
+      .filter((g) => kept.has(`${start + k}/${g.number}`))
+      .map((group): CompactItem => {
+        const fed = lines ? prev.filter((p) => feeds(p, group)) : [];
+        let from = fed.length > 0 ? Math.min(...fed.map((p) => p.start)) : bottom;
+        let to = fed.length > 0 ? Math.max(...fed.map((p) => p.end)) : bottom + 2;
+        if (from < bottom) [from, to] = [bottom, to + bottom - from];
+        bottom = to;
+        const bar: [number, number] | null = fed.length > 0 ? [Math.min(...fed.map(centre)), Math.max(...fed.map(centre))] : null;
+        return { group, start: from, end: to, bar, out: false };
+      });
+    if (lines) prev.forEach((p) => (p.out = items.some((x) => feeds(p, x.group))));
+    columns.push({ items });
+  });
+  return { rows: Math.max(0, ...columns.flatMap((c) => c.items.map((x) => x.end))), columns };
+}
+
+/** bracketPlayers is each player of the bracket once, by name, for the search box to suggest. */
+export function bracketPlayers(rounds: ViewRound[]): { name: string }[] {
+  const names = new Set(rounds.flatMap((r) => r.groups.flatMap((g) => g.seats.map((s) => s.name))));
+  return [...names].sort((a, b) => a.localeCompare(b)).map((name) => ({ name }));
+}
+
+/** allView shows every round. */
+export function allView(rounds: ViewRound[]): BracketView {
+  return { first: 0, last: Math.max(rounds.length - 1, 0), anchor: null };
 }
 
 /** groupsMatching keeps the groups with a player whose name holds q, in any case; all of them for nothing typed. */
