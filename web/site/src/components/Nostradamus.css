@@ -12,3 +12,40 @@
   gap: 1rem;
   margin: 0 0 1rem;
 }
+.nostradamus-question {
+  margin: 0 0 1.25rem;
+  border: 0;
+  padding: 0;
+}
+.nostradamus-question h3,
+.nostradamus-question legend {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+.nostradamus-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.nostradamus-choice[aria-pressed='true'] {
+  background: var(--accent-gold);
+  color: var(--bg-dark);
+}
+.nostradamus-token {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+.nostradamus-poll {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nostradamus-poll li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0;
+}
+.nostradamus-poll li > span:first-child {
+  min-width: 9rem;
+}
