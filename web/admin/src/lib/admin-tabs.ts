@@ -8,8 +8,8 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
   { key: 'tournaments', label: 'Tournaments', adminOnly: false },
   { key: 'community', label: 'Community', adminOnly: true },
   { key: 'blitz', label: 'Blitz', adminOnly: false },
-  { key: 'nostradamus', label: 'Nostradamus', adminOnly: false },
   { key: 'challenges', label: 'Challenges', adminOnly: false },
+  { key: 'nostradamus', label: 'Nostradamus', adminOnly: false },
   { key: 'members', label: 'Members', adminOnly: false },
   { key: 'data', label: 'Data', adminOnly: false },
   { key: 'titles', label: 'Titles & badges', adminOnly: true },
@@ -20,8 +20,8 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
 
 /** GROUPS are the header's menus, each holding tabs in TABS's order. */
 const GROUPS: { label: string; tabs: TabKey[] }[] = [
-  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz', 'nostradamus'] },
-  { label: 'Challenges', tabs: ['challenges'] },
+  { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz'] },
+  { label: 'Games', tabs: ['challenges', 'nostradamus'] },
   { label: 'Players', tabs: ['members', 'titles'] },
   { label: 'Site', tabs: ['data', 'admins', 'notifications', 'audit'] },
 ];
