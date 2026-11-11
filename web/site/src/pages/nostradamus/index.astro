@@ -3,8 +3,8 @@
 import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import '../../components/Nostradamus.css';
-import NostradamusBoardPage from '../../components/NostradamusBoardPage';
+import NostradamusGamePage from '../../components/NostradamusGamePage';
 ---
 <SiteLayout title="Nostradamus | Through the Ages community" description="The community's prediction game for the World Championship: standings, round by round.">
-  <NostradamusBoardPage client:only="react" apiUrl={PUBLIC_API_URL} />
+  <NostradamusGamePage client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>
