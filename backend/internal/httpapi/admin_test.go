@@ -177,7 +177,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 	if slug != "worlds" {
 		return store.AdminTournament{}, store.ErrNoTournament
 	}
-	return store.AdminTournament{Slug: "worlds", Name: "World Championship", Visible: true, Rated: true, Community: true, Blitz: true,
+	return store.AdminTournament{Slug: "worlds", Name: "World Championship", Visible: true, Rated: true, Community: true, Blitz: true, Bracket: true,
 		Regulations: "Mine.", CGERegulations: "CGE's.", FormatSummary: "Knockout.",
 		Card: store.Card{Icon: "🏆", Tagline: "Annual World Championship", Summary: "The pinnacle.", Subtitle: "4-Player", Cadence: "Annual"},
 		Kind: "cup", OriginalName: "World Championships", Points: map[int][]float64{2: nil, 3: {5, 2, 0}, 4: {6, 3, 1, 0}}, StageName: "Round",
@@ -191,7 +191,7 @@ func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTourna
 
 func (*fakeAdmins) TournamentRows(context.Context) ([]store.AdminTournamentRow, error) {
 	first := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
-	return []store.AdminTournamentRow{{Slug: "worlds", Name: "World Championship", Kind: "cup", Rated: true, Games: 3, FirstGame: &first,
+	return []store.AdminTournamentRow{{Slug: "worlds", Name: "World Championship", Kind: "cup", Rated: true, Blitz: true, Bracket: true, Games: 3, FirstGame: &first,
 		LastGame: &first, CGEAbout: "CGE's."}}, nil
 }
 

@@ -3,7 +3,7 @@ import type { Load } from '@ttac/shared/load';
 import { isSlug } from '@ttac/shared/ratings';
 import type { AdminResult, AdminTournament, AdminTournamentRow } from './admin-api';
 
-export type Setting = 'visible' | 'rated' | 'community' | 'blitz';
+export type Setting = 'visible' | 'rated' | 'community' | 'blitz' | 'bracket';
 
 /** SETTINGS are a tournament's on/off settings, in the order admin shows them. */
 export const SETTINGS: { key: Setting; label: string; short: string; hint: string }[] = [
@@ -11,6 +11,7 @@ export const SETTINGS: { key: Setting; label: string; short: string; hint: strin
   { key: 'rated', label: 'Rated', short: 'Rated', hint: 'In the community ratings, from the next engine run' },
   { key: 'community', label: 'Community leaderboard', short: 'Community', hint: 'Counted in the overall community leaderboard' },
   { key: 'blitz', label: 'Blitz', short: 'Blitz', hint: 'Run from admin as a blitz tournament: its editions, entrants, weekly pairings and results are on the Blitz tab' },
+  { key: 'bracket', label: 'Shown as a bracket', short: 'Bracket', hint: 'Each season shown on the site as a knockout bracket: its stages as rounds of groups or matches, up to the final' },
 ];
 
 /** settingsHref is the address of a tournament's or group's page; with settings, a group's opens on its settings. */

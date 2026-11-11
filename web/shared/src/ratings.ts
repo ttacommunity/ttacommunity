@@ -70,6 +70,10 @@ export type CatalogueGames = components['schemas']['CatalogueGames'];
 export type LadderWin = components['schemas']['LadderWin'];
 export type EditionRules = components['schemas']['EditionRules'];
 export type CatalogueGame = components['schemas']['CatalogueGame'];
+export type SeasonBracket = components['schemas']['SeasonBracket'];
+export type BracketRound = components['schemas']['BracketRound'];
+export type BracketGroup = components['schemas']['BracketGroup'];
+export type BracketSeat = components['schemas']['BracketSeat'];
 export type GameSeat = components['schemas']['GameSeat'];
 export type PodiumPlace = components['schemas']['PodiumPlace'];
 export type RecentPodiums = components['schemas']['RecentPodiums'];
@@ -359,6 +363,11 @@ export async function catalogue(base: string, run: number, fetchFn: typeof fetch
 /** Returns one tournament's seasons in order, each with its stages and recorded podium. */
 export async function catalogueTournament(base: string, run: number, slug: string, fetchFn: typeof fetch = fetch): Promise<CatalogueTournament> {
   return get<CatalogueTournament>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}`);
+}
+
+/** Returns a season of a tournament shown as a bracket: its rounds, groups and where each player went next. */
+export async function seasonBracket(base: string, run: number, slug: string, season: string, fetchFn: typeof fetch = fetch): Promise<SeasonBracket> {
+  return get<SeasonBracket>(fetchFn, base, `/v1/runs/${run}/catalogue/${encodeURIComponent(slug)}/bracket?${new URLSearchParams({ season })}`);
 }
 
 /** Returns the latest podiums of the tournaments played last, those finished last first, as the home page shows them. */

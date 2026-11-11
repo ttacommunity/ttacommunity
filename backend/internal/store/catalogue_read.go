@@ -27,9 +27,11 @@ type GameSpan struct {
 type CatalogueEntry struct {
 	Slug, Name string
 	Seasons    int
-	Rankings   []string
-	Span       GameSpan
-	Card       Card
+	// Bracket is whether its seasons are shown as a bracket.
+	Bracket  bool
+	Rankings []string
+	Span     GameSpan
+	Card     Card
 }
 
 // Card is how a tournament presents itself on its card and its page's header, as admin writes it; empty fields
@@ -121,6 +123,8 @@ type CatalogueTournament struct {
 	Stories     []Story
 	// SeasonName and StageName are what it calls its seasons and stages, empty for the defaults.
 	SeasonName, StageName string
+	// Bracket is whether its seasons are shown as a bracket: stages as rounds of groups, up to the final.
+	Bracket bool
 }
 
 // Story is one of a tournament's stories, as DANeo's series pages tell them: a player, a badge, a title and the
@@ -168,7 +172,7 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 		       array(SELECT k.slug FROM ranking_series rt JOIN rankings k USING (ranking_id)
 		             WHERE rt.series_id = t.series_id ORDER BY k.slug),
 		       coalesce(c.icon, ''), coalesce(c.tagline, ''), coalesce(c.summary, ''),
-		       coalesce(c.subtitle, ''), coalesce(c.cadence, '')
+		       coalesce(c.subtitle, ''), coalesce(c.cadence, ''), `+shownAsBracket+`
 		FROM catalogue_spans s JOIN series t USING (series_id) LEFT JOIN tournament_cards c ON c.tournament = t.slug
 		WHERE s.run_id = $1 AND s.tournament_id IS NULL
 		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
@@ -180,7 +184,7 @@ func (r *RatingsReader) Catalogue(ctx context.Context, run int64) (CatalogueView
 	got.Tournaments, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (CatalogueEntry, error) {
 		var e CatalogueEntry
 		return e, row.Scan(&e.Slug, &e.Name, &e.Seasons, &e.Span.Games, &e.Span.Players, &e.Span.First, &e.Span.Last, &e.Rankings,
-			&e.Card.Icon, &e.Card.Tagline, &e.Card.Summary, &e.Card.Subtitle, &e.Card.Cadence)
+			&e.Card.Icon, &e.Card.Tagline, &e.Card.Summary, &e.Card.Subtitle, &e.Card.Cadence, &e.Bracket)
 	})
 	if err != nil {
 		return CatalogueView{}, fmt.Errorf("reading the catalogue: %w", err)
@@ -589,15 +593,15 @@ func (r *RatingsReader) seasonsWithPodiums(ctx context.Context, run int64, slugs
 		return nil, nil, fmt.Errorf("reading seasons without games: %w", err)
 	}
 
-	rows, err = r.pool.Query(ctx, "SELECT slug, kind = 'ladder', tournament_noun, stage_noun FROM series WHERE slug = ANY($1)", slugs)
+	rows, err = r.pool.Query(ctx, "SELECT t.slug, t.kind = 'ladder', t.tournament_noun, t.stage_noun, "+shownAsBracket+" FROM series t WHERE t.slug = ANY($1)", slugs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading kinds: %w", err)
 	}
-	var ladder bool
+	var ladder, bracket bool
 	var seasonName, stageName string
-	_, err = pgx.ForEachRow(rows, []any{&slug, &ladder, &seasonName, &stageName}, func() error {
+	_, err = pgx.ForEachRow(rows, []any{&slug, &ladder, &seasonName, &stageName, &bracket}, func() error {
 		if t, ok := got[slug]; ok {
-			t.Ladder, t.SeasonName, t.StageName = ladder, seasonName, stageName
+			t.Ladder, t.SeasonName, t.StageName, t.Bracket = ladder, seasonName, stageName, bracket
 		}
 		return nil
 	})

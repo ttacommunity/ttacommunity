@@ -9,6 +9,7 @@ import {
   challengeWeeks,
   isSlug,
   RatingsApiError,
+  seasonBracket,
   siteVisits,
   activity,
   tournamentSeries,
@@ -296,6 +297,13 @@ describe('tournament pages', () => {
       'https://api.example/v1/runs/5/catalogue/worlds/games?page=2&season=2022+%28Age+A%29&stage=Stage+1&group=Group+3&player=Ember_Wolf&coded=true',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+
+  it('ask for a season shown as a bracket without credentials', async () => {
+    const f = fakeFetch(200, '{}');
+    await seasonBracket('https://api.example', 5, 'australian_open', '2022 (Age A)', f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual(['https://api.example/v1/runs/5/catalogue/australian_open/bracket?season=2022+%28Age+A%29']);
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 });
 

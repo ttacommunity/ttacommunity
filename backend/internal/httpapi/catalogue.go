@@ -37,7 +37,7 @@ func (s *server) GetCatalogue(ctx context.Context, req GetCatalogueRequestObject
 	}
 	for _, e := range view.Tournaments {
 		body.Tournaments = append(body.Tournaments, CatalogueEntry{
-			Slug: e.Slug, Name: e.Name, Card: tournamentCard(e.Card), Seasons: e.Seasons, Rankings: append([]string{}, e.Rankings...),
+			Slug: e.Slug, Name: e.Name, Card: tournamentCard(e.Card), Seasons: e.Seasons, Rankings: append([]string{}, e.Rankings...), Bracket: e.Bracket,
 			Games: e.Span.Games, Players: e.Span.Players,
 			FirstGame: openapi_types.Date{Time: e.Span.First}, LastGame: openapi_types.Date{Time: e.Span.Last},
 		})
@@ -97,7 +97,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	}
 	body := CatalogueTournament{
 		RunId: req.Run, Slug: t.Slug, Name: t.Name, Card: tournamentCard(t.Card), Rated: t.Rated, GameRecords: gameRecords(t.GameRecords), Stories: storyList(t.Stories), Seasons: make([]CatalogueSeason, 0, len(t.Seasons)),
-		Ladder: t.Ladder, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
+		Ladder: t.Ladder, Bracket: t.Bracket, TopTierWins: make([]LadderWin, 0, len(t.TopTierWins)), Players: append([]string{}, t.Players...),
 		SeasonName: cmp.Or(t.SeasonName, "Season"), StageName: cmp.Or(t.StageName, "Stage"),
 	}
 	if t.Regulations != "" {
@@ -235,6 +235,47 @@ func (s *server) GetCatalogueGames(ctx context.Context, req GetCatalogueGamesReq
 	return GetCatalogueGames200JSONResponse{
 		Body: body, Headers: GetCatalogueGames200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// GetSeasonBracket serves a season of a tournament shown as a bracket.
+func (s *server) GetSeasonBracket(ctx context.Context, req GetSeasonBracketRequestObject) (GetSeasonBracketResponseObject, error) {
+	var msg string
+	switch {
+	case req.Run < 1:
+		msg = "bad parameter: run"
+	case !tournamentSlug.MatchString(req.Tournament):
+		msg = "bad parameter: tournament"
+	case req.Params.Season == "" || len(req.Params.Season) > 64:
+		msg = "bad parameter: season"
+	}
+	if msg != "" {
+		return GetSeasonBracket400JSONResponse{badRequestBody(msg)}, nil
+	}
+	got, err := s.ratings.SeasonBracket(ctx, req.Run, req.Tournament, req.Params.Season)
+	if nf, ok := notFound(err); ok {
+		return GetSeasonBracket404JSONResponse{nf}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	body := SeasonBracket{RunId: req.Run, Slug: req.Tournament, Season: got.Season, Rounds: make([]BracketRound, len(got.Rounds))}
+	for i, r := range got.Rounds {
+		round := BracketRound{Stage: r.Stage, Groups: make([]BracketGroup, len(r.Groups))}
+		for j, g := range r.Groups {
+			group := BracketGroup{Name: g.Name, Number: g.Number, State: GameState(g.State), Seats: make([]BracketSeat, len(g.Seats))}
+			for k, seat := range g.Seats {
+				ds := BracketSeat{Entrant: seat.Entrant, Name: seat.Name, Place: seat.Place, Points: seat.Points, Next: seat.Next}
+				if seat.Outcome != "" {
+					o := SeatOutcome(seat.Outcome)
+					ds.Outcome = &o
+				}
+				group.Seats[k] = ds
+			}
+			round.Groups[j] = group
+		}
+		body.Rounds[i] = round
+	}
+	return GetSeasonBracket200JSONResponse{Body: body, Headers: GetSeasonBracket200ResponseHeaders{CacheControl: cacheRun}}, nil
 }
 
 // optionalDate returns t as an API date, or nil for none.

@@ -973,6 +973,47 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/catalogue/{tournament}/bracket:
+    get:
+      operationId: getSeasonBracket
+      tags: [tournaments]
+      summary: A season of a tournament shown as a bracket
+      description: |
+        The season's stages as rounds, first to last, each with its groups by
+        number and each group's players: best first once its games are
+        played, with their place and points, and the group they play in the
+        round after. A tournament not shown as a bracket, hidden, or without
+        that season's games is not found. A player whose CGE account is
+        deleted or banned is named "Deleted player". Cached for five minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: tournament
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_]{0,63}$"
+        - name: season
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: The bracket
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeasonBracket"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/podiums:
     get:
       operationId: getRecentPodiums
@@ -5070,7 +5111,7 @@ components:
           $ref: "#/components/schemas/Role"
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, card, stories, regulations, cge_regulations, format_summary, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, bracket, card, stories, regulations, cge_regulations, format_summary, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
@@ -5167,6 +5208,9 @@ components:
           type: boolean
         blitz:
           description: Run from admin as a blitz tournament
+          type: boolean
+        bracket:
+          description: Each season shown on the site as a bracket, its stages as rounds of groups up to the final
           type: boolean
         seasons:
           type: array
@@ -5266,7 +5310,7 @@ components:
       x-enum-varnames: [KindLeague, KindCup, KindLadder, KindSeries, KindGroup]
     AdminTournamentRow:
       type: object
-      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, blitz, games, first_game, last_game]
+      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, blitz, bracket, games, first_game, last_game]
       properties:
         slug:
           type: string
@@ -5292,6 +5336,8 @@ components:
         community:
           type: boolean
         blitz:
+          type: boolean
+        bracket:
           type: boolean
         games:
           type: integer
@@ -5464,6 +5510,9 @@ components:
           type: boolean
         blitz:
           description: Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings
+          type: boolean
+        bracket:
+          description: Each season shown on the site as a bracket, its stages as rounds of groups up to the final
           type: boolean
         points_2p:
           $ref: "#/components/schemas/PlacePoints"
@@ -8699,12 +8748,15 @@ components:
       allOf:
         - $ref: "#/components/schemas/GameSpan"
         - type: object
-          required: [slug, name, seasons, rankings, card]
+          required: [slug, name, seasons, rankings, card, bracket]
           properties:
             slug:
               type: string
             name:
               type: string
+            bracket:
+              description: Its seasons are shown as a bracket (getSeasonBracket)
+              type: boolean
             card:
               $ref: "#/components/schemas/TournamentCard"
             seasons:
@@ -8864,7 +8916,7 @@ components:
                 type: string
     CatalogueTournament:
       type: object
-      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records, stories, season_name, stage_name]
+      required: [run_id, slug, name, card, rated, seasons, ladder, top_tier_wins, players, rules, game_records, stories, season_name, stage_name, bracket]
       properties:
         season_name:
           description: What it calls a season, as headings use it ("Season" unless admin set another word, such as "Edition")
@@ -8889,6 +8941,9 @@ components:
           $ref: "#/components/schemas/TournamentCard"
         ladder:
           description: A ladder's champions are counted as top-tier wins, not season podiums
+          type: boolean
+        bracket:
+          description: Its seasons are shown as a bracket (getSeasonBracket)
           type: boolean
         rules:
           description: Each CGE edition's description, usually its organiser's format and rules, newest first; plain text
@@ -8971,6 +9026,71 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CatalogueGame"
+    SeasonBracket:
+      type: object
+      required: [run_id, slug, season, rounds]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        season:
+          type: string
+        rounds:
+          description: The season's stages, first to last
+          type: array
+          items:
+            $ref: "#/components/schemas/BracketRound"
+    BracketRound:
+      type: object
+      required: [stage, groups]
+      properties:
+        stage:
+          description: The stage's label, as the catalogue gives it
+          type: string
+        groups:
+          description: By number
+          type: array
+          items:
+            $ref: "#/components/schemas/BracketGroup"
+    BracketGroup:
+      type: object
+      required: [name, number, state, seats]
+      properties:
+        name:
+          type: string
+        number:
+          description: The number its name ends in, else its place in the round
+          type: integer
+        state:
+          $ref: "#/components/schemas/GameState"
+        seats:
+          description: Best first once played (most points, then best place), else as seated
+          type: array
+          items:
+            $ref: "#/components/schemas/BracketSeat"
+    BracketSeat:
+      type: object
+      required: [entrant, name, place, next]
+      properties:
+        entrant:
+          description: Numbers the season's players from 1, the same in every round, in their first round's order
+          type: integer
+        name:
+          type: string
+        place:
+          description: Best place in the group's games; 0 until it is played
+          type: integer
+        points:
+          description: Points from the group's games; absent until played, or without points per place
+          type: number
+          format: double
+        outcome:
+          $ref: "#/components/schemas/SeatOutcome"
+        next:
+          description: The number of the group the player is in the round after; 0 for none
+          type: integer
     CatalogueGame:
       type: object
       required: [match_id, date, season, stage, group, game, state, replay_code, seats, rated]

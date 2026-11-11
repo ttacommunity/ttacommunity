@@ -44,6 +44,10 @@ func TestTournamentRowsListEachSeriesInBrief(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	on := true
+	if err := a.SetTournament(ctx, "international", TournamentSettings{Bracket: &on}); err != nil {
+		t.Fatal(err)
+	}
 	rows, err := a.TournamentRows(ctx)
 	if err != nil {
 		t.Fatalf("TournamentRows: %v", err)
@@ -53,8 +57,8 @@ func TestTournamentRowsListEachSeriesInBrief(t *testing.T) {
 		by[r.Slug] = r
 	}
 	intl, group := by["international"], by[g]
-	if intl.Games != 2 || intl.FirstGame == nil || !intl.FirstGame.Equal(day("2024-09-15")) || intl.Parent != g || !intl.Rated || intl.Kind != "league" {
-		t.Errorf("international = %+v, want 2 games from 2024-09-15, in %s, rated, a league", intl, g)
+	if intl.Games != 2 || intl.FirstGame == nil || !intl.FirstGame.Equal(day("2024-09-15")) || intl.Parent != g || !intl.Rated || intl.Kind != "league" || !intl.Bracket {
+		t.Errorf("international = %+v, want 2 games from 2024-09-15, in %s, rated, a league shown as a bracket", intl, g)
 	}
 	if n := len([]rune(intl.CGEAbout)); n != 200 {
 		t.Errorf("CGE's description = %d characters, want the first 200", n)

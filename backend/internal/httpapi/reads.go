@@ -96,5 +96,6 @@ type CatalogueReads interface {
 	Catalogue(ctx context.Context, run int64) (store.CatalogueView, error)
 	CatalogueTournament(ctx context.Context, run int64, slug string) (store.CatalogueTournament, error)
 	CatalogueGames(ctx context.Context, run int64, slug string, f store.CatalogueGamesFilter) (store.CatalogueGames, error)
+	SeasonBracket(ctx context.Context, run int64, slug, season string) (store.SeasonBracket, error)
 	RecentPodiums(ctx context.Context, run int64, played, shown int) ([]store.RecentPodium, error)
 }
