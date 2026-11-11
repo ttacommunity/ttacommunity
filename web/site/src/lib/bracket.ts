@@ -85,13 +85,17 @@ export function treeStart(rounds: ViewRound[]): number {
 /** SeatView is how a seat shows: through to the next round (or champion), knocked out, where they play next, and their points. */
 export type SeatView = { through: boolean; out: boolean; to: string; points: string };
 
-/** seatView says how a seat of a round's group shows: through when found in the next round, or in a finished group's top half. */
+/** seatView says how a seat of a round's group shows: through when found in the next round, or, while that round is to
+ * come, in a finished group's top half; the champion is a played final's first. A played group's players come best first,
+ * so their order is their place, also where a group of several games gives two players a best place of 1. */
 export function seatView(rounds: ViewRound[], r: number, group: BracketGroup, seat: BracketSeat): SeatView {
   const played = group.state === 'played';
   const final = r === rounds.length - 1;
-  const champion = final && played && seat.place === 1 && rounds[r]?.groups.length === 1;
+  const rank = group.seats.findIndex((x) => x.entrant === seat.entrant) + 1;
+  const champion = final && played && rank === 1 && rounds[r]?.groups.length === 1;
   const next = rounds[r + 1];
-  const through = seat.next > 0 || champion || (played && !final && seat.place >= 1 && seat.place <= group.seats.length / 2);
+  const waiting = next === undefined || next.state === 'to_come';
+  const through = seat.next > 0 || champion || (played && !final && waiting && rank >= 1 && rank <= group.seats.length / 2);
   return {
     through,
     out: played && !final && !through,
@@ -123,7 +127,8 @@ export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
       if (r.unit === 'Seed') {
         result = `Seed ${s.seed ?? g.number}`;
       } else if (g.state === 'played') {
-        const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[s.place - 1] ?? `${s.place}th`);
+        const rank = g.seats.indexOf(s) + 1;
+        const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[rank - 1] ?? `${rank}th`);
         result = view.points === '' ? place : `${place} · ${view.points} pts`;
       }
       const final = r.groups.length === 1;

@@ -135,6 +135,32 @@ describe('seatView', () => {
     expect(seatView(matches, 0, group, at(group.seats, s))).toEqual(want);
   });
 
+  it.each([
+    ['its best on points the champion', 0, { through: true, to: 'Champion' }],
+    ['the other, who also won a game, not', 1, { through: false, to: '' }],
+  ])('shows a final of several games with %s', (_name, s, want) => {
+    const final = bracketRounds(bracket([played(1, [seat(1, 'Aster', 1, 0, 3), seat(2, 'Brook', 1, 0, 2)])]));
+    const group = at(at(final, 0).groups, 0);
+    expect(seatView(final, 0, group, at(group.seats, s))).toMatchObject(want);
+  });
+
+  describe('a match played as several games, each player winning one', () => {
+    const match = (next: number) => [played(1, [seat(1, 'Aster', 1, next, 3), seat(2, 'Brook', 1, 0, 1)]), played(2, [seat(3, 'Cove', 1, next, 3), seat(4, 'Dune', 2, 0, 0)])];
+    it.each([
+      ['its loser out, once the next round has them', bracket(match(1), [played(1, [seat(1, 'Aster', 1), seat(3, 'Cove', 2)])])],
+      ['its loser out, while the next round is to come', bracket(match(0))],
+    ])('shows %s', (_name, d) => {
+      const rounds = bracketRounds(d);
+      const group = at(at(rounds, 0).groups, 0);
+      expect(seatView(rounds, 0, group, at(group.seats, 1))).toMatchObject({ through: false, out: true });
+      expect(seatView(rounds, 0, group, at(group.seats, 0))).toMatchObject({ through: true, out: false });
+    });
+
+    it('gives its loser second place on their road', () => {
+      expect(road(bracketRounds(bracket(match(0))), 2).map((s) => s.result)).toEqual(['2nd · 1 pts']);
+    });
+  });
+
   it('shows a group still being played without results', () => {
     const live = bracketRounds(inPlay);
     const group = at(at(live, 1).groups, 0);
