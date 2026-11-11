@@ -33,6 +33,8 @@ describe('placeOf', () => {
     ['the community leaderboard', '/ratings/community/', 'Tournaments', 'Community leaderboard'],
     ['blitz', '/blitz/', 'Tournaments', 'Blitz'],
     ['movies', '/movies/', 'Movies', undefined],
+    ['Nostradamus', '/nostradamus/', 'Tournaments', 'Nostradamus'],
+    ["a Nostradamus participant's page", '/nostradamus/participant/', 'Tournaments', 'Nostradamus'],
   ])('puts %s in its section and page', (_name, path, section, page) => {
     const place = placeOf(path);
     expect([place?.section.label, place?.page?.label]).toEqual([section, page]);

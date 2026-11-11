@@ -1,0 +1,10 @@
+---
+/** A Nostradamus participant's answers; the address names the edition and the participant (?edition=&name=). */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../layouts/SiteLayout.astro';
+import '../../../components/Nostradamus.css';
+import NostradamusParticipantPage from '../../../components/NostradamusParticipantPage';
+---
+<SiteLayout title="Participant | Nostradamus" description="A Nostradamus participant's predictions, tokens and points in each round.">
+  <NostradamusParticipantPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

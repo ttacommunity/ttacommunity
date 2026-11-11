@@ -1,0 +1,14 @@
+/* Nostradamus pages: their cards, spaced as the blitz pages' are. */
+.nostradamus-card {
+  margin: 0 0 1.5rem;
+  padding: 1.5rem 1.75rem;
+}
+.nostradamus-card .rating-card-heading {
+  margin: 0 0 1rem;
+}
+.nostradamus-editions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 0 0 1rem;
+}

@@ -34,6 +34,7 @@ export const sections: readonly NavSection[] = [
       { label: 'Hall of Fame', href: '/ratings/hall_of_fame/', description: 'Champions and podiums, series by series' },
       { label: 'Community leaderboard', href: '/ratings/community/', description: 'Standings under the Best-8 system' },
       { label: 'Blitz', href: '/blitz/', description: 'Weekly pairings, results and standings' },
+      { label: 'Nostradamus', href: '/nostradamus/', description: 'Predict the World Championship, round by round' },
     ],
   },
   {
