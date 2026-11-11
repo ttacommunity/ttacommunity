@@ -32,6 +32,16 @@
   background: var(--gold-wash);
   color: var(--accent-gold-light);
 }
+.bracket-rounds-narrow {
+  display: none;
+}
+.bracket-rounds-split {
+  align-self: stretch;
+  width: 2px;
+  margin: 0 6px;
+  background: var(--accent-gold);
+  border-radius: 1px;
+}
 .bracket-round-state {
   font-size: var(--size-label);
   color: var(--text-muted);
@@ -171,10 +181,42 @@ button.bracket-name:focus-visible {
   padding: 16px 20px 20px;
 }
 
-/* The late rounds as a tree: each pair of groups joined to the group it feeds. */
+/* The late rounds as a tree: each pair of groups joined to the group it feeds, zoomed to fit or by hand. */
 .bracket-tree-box {
   overflow-x: auto;
   padding: 8px 20px 20px;
+  touch-action: pan-x pan-y;
+}
+.bracket-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  color: var(--text-muted);
+}
+.bracket-zoom-button {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  color: var(--text-main);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+  cursor: pointer;
+}
+.bracket-zoom-button[aria-pressed='true'] {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash);
+  color: var(--accent-gold-light);
+}
+.bracket-zoom-size {
+  min-width: 4ch;
+  text-align: right;
 }
 .bracket-tree {
   display: flex;
@@ -231,12 +273,24 @@ button.bracket-name:focus-visible {
 .bracket-list-narrow {
   display: none;
 }
+.bracket-list-head {
+  margin: 20px 20px 0;
+  font-family: var(--font-heading);
+  font-size: var(--size-body-short);
+  color: var(--text-main);
+  letter-spacing: 0.04em;
+}
 @media (max-width: 900px) {
-  .bracket-tree-box {
+  .bracket-tree-box,
+  .bracket-rounds-wide,
+  .bracket-wide-only {
     display: none;
   }
   .bracket-list-narrow {
     display: grid;
+  }
+  .bracket-rounds-narrow {
+    display: flex;
   }
 }
 

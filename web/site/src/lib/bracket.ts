@@ -8,7 +8,7 @@ import { editionHref } from '@ttac/shared/blitz';
  */
 export type ViewRound = { name: string; short: string; state: 'finished' | 'in_play' | 'to_come'; unit: 'Seed' | 'Match' | 'Group'; groups: BracketGroup[] };
 
-/** TREE_MOST is the most groups a round of the tree may have, so it fits a wide screen. */
+/** TREE_MOST is the most groups the first round of the tree a bracket opens on may have, so it fits a wide screen. */
 const TREE_MOST = 8;
 
 const LATE = [
@@ -64,22 +64,57 @@ export function seedLabel(seat: BracketSeat): string {
 }
 
 /**
- * treeStart returns the first round the bracket can show as a tree, up to the final: from it each round has at most
- * TREE_MOST groups, half as many as the round before, and every group's winner went on to the group its line leads
- * to (group n's to group ⌈n/2⌉). It returns rounds.length when fewer than two rounds qualify.
+ * treeReach returns the first round the bracket can draw as a tree to its end: from it each round has half the groups of
+ * the one before, and everyone who goes on goes to the group their line leads to (group n's to group ⌈n/2⌉). It returns
+ * rounds.length when fewer than two rounds can.
  */
-export function treeStart(rounds: ViewRound[]): number {
-  let start = rounds.length;
-  for (let i = rounds.length - 1; i >= 0; i--) {
+export function treeReach(rounds: ViewRound[]): number {
+  let reach = rounds.length - 1;
+  for (let i = rounds.length - 2; i >= 0; i--) {
     const r = rounds[i];
     const next = rounds[i + 1];
-    if (r === undefined) break;
-    const fits = r.groups.length <= TREE_MOST && (next === undefined || next.groups.length * 2 === r.groups.length);
-    const followed = r.groups.every((g) => g.seats.every((s) => s.place !== 1 || s.next === 0 || s.next === Math.ceil(g.number / 2)));
-    if (!fits || !followed) break;
-    start = i;
+    if (r === undefined || next === undefined || next.groups.length * 2 !== r.groups.length) break;
+    if (r.groups.some((g) => g.seats.some((s) => s.next > 0 && s.next !== Math.ceil(g.number / 2)))) break;
+    reach = i;
   }
-  return rounds.length - start < 2 ? rounds.length : start;
+  return reach >= rounds.length - 1 ? rounds.length : reach;
+}
+
+/** BracketView is the rounds shown, first to last, and a round of the tree tapped alone, which a second tap makes one end of a range. */
+export type BracketView = { first: number; last: number; anchor: number | null };
+
+/** defaultView is what a bracket opens on: its tree from the first round it can draw with at most TREE_MOST groups, to its end; without a tree, its latest round with players. */
+export function defaultView(rounds: ViewRound[]): BracketView {
+  const reach = treeReach(rounds);
+  const last = rounds.length - 1;
+  if (reach >= rounds.length) {
+    const r = defaultRound(rounds);
+    return { first: r, last: r, anchor: null };
+  }
+  let first = reach;
+  while (first < last - 1 && (rounds[first]?.groups.length ?? 0) > TREE_MOST) first++;
+  return { first, last, anchor: null };
+}
+
+/**
+ * tapRound is the view after tapping round i, the tree drawn from round reach: that round alone, or, for a round of the
+ * tree tapped after another of the tree alone, the two and those between. A round before the tree is only ever alone.
+ */
+export function tapRound(view: BracketView, i: number, reach: number): BracketView {
+  if (i < reach) return { first: i, last: i, anchor: null };
+  if (view.anchor !== null && view.anchor !== i) return { first: Math.min(view.anchor, i), last: Math.max(view.anchor, i), anchor: null };
+  return { first: i, last: i, anchor: i };
+}
+
+/**
+ * shownRounds is the rounds drawn side by side, start to end, and whether lines join them (only from reach, where the
+ * tree holds): a range as chosen, or one round beside the next once that has players. Null for a round shown alone.
+ */
+export function shownRounds(rounds: ViewRound[], view: BracketView, reach: number): { start: number; end: number; joined: boolean } | null {
+  if (view.first !== view.last) return { start: view.first, end: view.last, joined: true };
+  const next = rounds[view.first + 1];
+  if (next === undefined || next.state === 'to_come') return null;
+  return { start: view.first, end: view.first + 1, joined: view.first >= reach };
 }
 
 /** SeatView is how a seat shows: through to the next round (or champion), knocked out, where they play next, and their points. */
@@ -187,4 +222,25 @@ export function openingSeason(seasons: readonly { label: string; games: number }
   const played = seasons.filter((s) => s.games > 0);
   if (asked !== null && played.some((s) => s.label === asked)) return asked;
   return played[played.length - 1]?.label ?? null;
+}
+
+/** ZOOMS are the tree's sizes, from the smallest. */
+const ZOOMS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5];
+
+/** fitZoom is the size that fits a tree of treeWidth into a box of boxWidth: never larger than full size or smaller than the least; full size before the box is measured. */
+export function fitZoom(boxWidth: number, treeWidth: number): number {
+  if (boxWidth <= 0 || treeWidth <= 0) return 1;
+  return Math.min(1, Math.max(ZOOMS[0] ?? 0.4, boxWidth / treeWidth));
+}
+
+/** stepZoom is the next size in (dir 1) or out (dir −1) from zoom, staying at the largest or smallest. */
+export function stepZoom(zoom: number, dir: 1 | -1): number {
+  const next = dir === 1 ? ZOOMS.find((z) => z > zoom + 0.001) : [...ZOOMS].reverse().find((z) => z < zoom - 0.001);
+  return next ?? zoom;
+}
+
+/** pinchZoom is the size for a pinch that began at size from with the fingers start apart and is now at now apart, kept between the smallest and largest sizes. */
+export function pinchZoom(from: number, start: number, now: number): number {
+  if (start <= 0) return from;
+  return Math.min(ZOOMS[ZOOMS.length - 1] ?? 1.5, Math.max(ZOOMS[0] ?? 0.4, (from * now) / start));
 }

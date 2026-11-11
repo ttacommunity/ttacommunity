@@ -3,6 +3,13 @@ import type { BlitzEditionRow, BracketGroup, BracketSeat, SeasonBracket } from '
 import {
   bracketCard,
   bracketHref,
+  fitZoom,
+  pinchZoom,
+  stepZoom,
+  tapRound,
+  shownRounds,
+  treeReach,
+  defaultView,
   bracketParams,
   defaultRound,
   groupLabel,
@@ -13,7 +20,7 @@ import {
   road,
   seatView,
   seedLabel,
-  treeStart,
+  type BracketView,
   type ViewRound,
 } from './bracket';
 
@@ -82,23 +89,77 @@ describe('bracketRounds', () => {
   });
 });
 
-describe('treeStart', () => {
-  const rounds = (groups: number[]) =>
-    bracketRounds(bracket(...groups.map((n) => Array.from({ length: n }, (_, i) => played(i + 1, [seat(i * 4 + 1, `P${i}`, 1, Math.ceil((i + 1) / 2))])))));
+// A bracket of rounds of the sizes given, each group's winner going on to group ⌈n/2⌉, except the groups strays names.
+const sized = (groups: number[], strays: Record<number, number> = {}) =>
+  bracketRounds(
+    bracket(
+      ...groups.map((n, r) =>
+        Array.from({ length: n }, (_, i) => played(i + 1, [seat(i * 4 + 1, `P${i}`, 1, r === groups.length - 1 ? 0 : i < (strays[r] ?? 0) ? Math.ceil((i + 1) / 2) + 1 : Math.ceil((i + 1) / 2))])),
+      ),
+    ),
+  );
 
+describe('treeReach', () => {
   it.each([
-    ['a whole bracket whose winners follow the lines', [4, 2, 1], 0],
-    ['a big bracket, from its round of eight groups', [64, 32, 16, 8, 4, 2, 1], 3],
-    ['a single group', [1], 1],
-  ])('brackets %s as a tree', (_name, groups, want) => {
-    expect(treeStart(rounds(groups))).toBe(want);
+    ['a whole bracket whose winners follow the lines', sized([4, 2, 1]), 0],
+    ['a big bracket, whatever its size', sized([64, 32, 16, 8, 4, 2, 1]), 0],
+    ['a single group', sized([1]), 1],
+    ['a bracket with one winner astray in its first round', sized([4, 2, 1], { 0: 1 }), 1],
+    ['a bracket with one winner astray in a big round', sized([32, 16, 8, 4, 2, 1], { 1: 1 }), 2],
+    ['a round that does not halve', sized([3, 2, 1]), 1],
+  ])('reaches back to the first round it can draw for %s', (_name, rounds, want) => {
+    expect(treeReach(rounds)).toBe(want);
   });
 
-  it('starts the tree after a round whose winners do not follow its lines', () => {
-    const crossed = bracketRounds(structuredClone(whole));
-    const first = at(at(crossed, 0).groups, 0);
-    first.seats[0] = { ...at(first.seats, 0), next: 2 };
-    expect(treeStart(crossed)).toBe(1);
+  it('draws no round whose runners-up go to the neighbouring group', () => {
+    expect(treeReach(bracketRounds(whole))).toBe(1);
+  });
+});
+
+describe('defaultView', () => {
+  it.each([
+    ['a big bracket, from its round of eight groups', sized([64, 32, 16, 8, 4, 2, 1]), { first: 3, last: 6 }],
+    ['a bracket redrawn up to its quarter-finals, from them', sized([64, 32, 16, 8, 4, 2, 1], { 0: 40, 1: 20, 2: 10, 3: 5 }), { first: 4, last: 6 }],
+    ['a small bracket, whole', sized([4, 2, 1]), { first: 0, last: 2 }],
+    ['a bracket without a tree, on its latest round', sized([3, 1]), { first: 1, last: 1 }],
+  ])('opens %s', (_name, rounds, want) => {
+    expect(defaultView(rounds)).toMatchObject({ ...want, anchor: null });
+  });
+
+  it('opens a blitz knockout whole', () => {
+    expect(defaultView(bracketRounds(blitz))).toMatchObject({ first: 0, last: 2 });
+  });
+});
+
+describe('tapRound', () => {
+  const opened: BracketView = { first: 3, last: 6, anchor: null };
+  it.each([
+    ['one round, which it shows alone', [4], { first: 4, last: 4 }],
+    ['a second round, which shows the two and those between', [3, 6], { first: 3, last: 6 }],
+    ['a second round before the first', [6, 3], { first: 3, last: 6 }],
+    ['a third round, which starts again', [3, 6, 4], { first: 4, last: 4 }],
+    ['the same round twice', [4, 4], { first: 4, last: 4 }],
+    ['a round before the tree, alone', [1], { first: 1, last: 1 }],
+    ['a round before the tree after one in it, alone', [4, 1], { first: 1, last: 1 }],
+    ['a round in the tree after one before it, alone', [1, 5], { first: 5, last: 5 }],
+  ])('chooses %s, the tree from round 3', (_name, taps, want) => {
+    expect(taps.reduce((v, i) => tapRound(v, i, 3), opened)).toMatchObject(want);
+  });
+});
+
+describe('shownRounds', () => {
+  const rounds = sized([64, 32, 16, 8, 4, 2, 1]);
+  it.each([
+    ['several rounds as a tree', { first: 3, last: 6 }, 0, { start: 3, end: 6, joined: true }],
+    ['one round before the tree beside the next, unjoined', { first: 2, last: 2 }, 5, { start: 2, end: 3, joined: false }],
+    ['one round of the tree beside the next, joined', { first: 5, last: 5 }, 5, { start: 5, end: 6, joined: true }],
+    ['the final alone', { first: 6, last: 6 }, 0, null],
+  ])('shows %s', (_name, view, reach, want) => {
+    expect(shownRounds(rounds, { ...view, anchor: null }, reach)).toEqual(want);
+  });
+
+  it('shows a round alone while the next is to come', () => {
+    expect(shownRounds(bracketRounds(inPlay), { first: 1, last: 1, anchor: null }, 0)).toBeNull();
   });
 });
 
@@ -293,7 +354,7 @@ describe('a blitz knockout', () => {
   });
 
   it('is a tree from its qualifiers', () => {
-    expect(treeStart(rounds)).toBe(0);
+    expect(treeReach(rounds)).toBe(0);
   });
 
   it.each([
@@ -353,5 +414,38 @@ describe('bracketCard', () => {
     ['a blitz edition in its Swiss rounds', 'grand_blitz', [row('2026', false), row('2025', true)], '/blitz/?t=grand_blitz&e=2026', 'Swiss rounds: see the standings'],
   ])('links %s', (_name, slug, editions, href, cta) => {
     expect(bracketCard(slug, editions)).toEqual({ href, cta });
+  });
+});
+
+describe('fitZoom and stepZoom', () => {
+  it.each([
+    ['a tree that fits', 1300, 1160, 1],
+    ['a tree twice the width', 580, 1160, 0.5],
+    ['a tree too wide to shrink further', 200, 1160, 0.4],
+    ['a box not measured yet', 0, 1160, 1],
+  ])('fits %s', (_name, box, tree, want) => {
+    expect(fitZoom(box, tree)).toBeCloseTo(want);
+  });
+
+  it.each([
+    ['in from fit', 0.62, 1, 0.7],
+    ['out from fit', 0.62, -1, 0.6],
+    ['in at the largest', 1.5, 1, 1.5],
+    ['out at the smallest', 0.4, -1, 0.4],
+    ['in from full size', 1, 1, 1.25],
+  ])('zooms %s', (_name, z, dir, want) => {
+    expect(stepZoom(z, dir as 1 | -1)).toBe(want);
+  });
+});
+
+describe('pinchZoom', () => {
+  it.each([
+    ['fingers spread to twice as far apart', 0.6, 100, 200, 1.2],
+    ['fingers drawn to half as far apart', 1, 200, 100, 0.5],
+    ['spread past the largest size', 1, 100, 400, 1.5],
+    ['drawn past the smallest size', 0.5, 400, 100, 0.4],
+    ['a pinch that starts with the fingers together', 0.8, 0, 100, 0.8],
+  ])('sizes the tree for %s', (_name, from, start, now, want) => {
+    expect(pinchZoom(from, start, now)).toBeCloseTo(want);
   });
 });
