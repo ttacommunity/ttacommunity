@@ -27,6 +27,7 @@ describe('placeOf', () => {
     ['methodology', '/ratings/methodology/', 'Ratings', 'Methodology'],
     ['the FAQ', '/ratings/faq/', 'Ratings', 'FAQ & guide'],
     ['all tournaments, under the ratings path', '/ratings/tournaments/', 'Tournaments', 'All tournaments'],
+    ['brackets', '/ratings/brackets/', 'Tournaments', 'Brackets'],
     ['the Hall of Fame, under the ratings path', '/ratings/hall_of_fame/', 'Tournaments', 'Hall of Fame'],
     ['a Hall of Fame series', '/ratings/hall_of_fame/royal_league/', 'Tournaments', 'Hall of Fame'],
     ['the community leaderboard', '/ratings/community/', 'Tournaments', 'Community leaderboard'],

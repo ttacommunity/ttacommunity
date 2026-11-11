@@ -21,6 +21,7 @@ import StoriesPanel from './StoriesPanel';
 import { ladderBoard, podiumBoard } from '../lib/trophyboard';
 import { cardView } from '../lib/tournament-card';
 import TournamentGames from './TournamentGames';
+import { bracketHref } from '../lib/bracket';
 import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel, placeNames, plural, regulationsBox, seasonDates, seasonName, shownName, stageName, tournamentParam } from '../lib/catalogue-view';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
@@ -172,6 +173,12 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           <>
             {card.subtitle !== null && <>{card.subtitle} · </>}
             <a href={catalogueHref()}>Every tournament</a> · <a href="/ratings/hall_of_fame/">Hall of Fame</a>
+            {t.bracket && (
+              <>
+                {' · '}
+                <a href={bracketHref(t.slug)}>See the bracket</a>
+              </>
+            )}
           </>
         }
         facts={[
@@ -321,7 +328,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
         {seasons.length > 1 ? (
           <label className="stages-pick">
             <span className="visually-hidden">{seasonWord}</span>
-            <select id="stages-season" value={s.label} onChange={(e) => setLabel(e.target.value)}>
+            <select id="stages-season" className="input-antique" value={s.label} onChange={(e) => setLabel(e.target.value)}>
               {[...seasons].reverse().map((x) => (
                 <option key={x.label} value={x.label}>
                   {seasonName(x.label, seasonWord)}

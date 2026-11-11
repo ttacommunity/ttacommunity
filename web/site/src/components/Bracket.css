@@ -1,0 +1,340 @@
+/* A season shown as a bracket: round buttons, the tree of the late rounds, a round's groups, and a player's road. */
+.bracket-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+.bracket-rounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bracket-round {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-panel);
+  color: var(--text-main);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+  text-align: left;
+  cursor: pointer;
+}
+.bracket-round[aria-pressed='true'] {
+  border-color: var(--accent-gold);
+  background: var(--gold-wash);
+  color: var(--accent-gold-light);
+}
+.bracket-round-state {
+  font-size: var(--size-label);
+  color: var(--text-muted);
+}
+.bracket-find {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  color: var(--text-muted);
+}
+.bracket-find input {
+  width: 240px;
+  max-width: 100%;
+  height: var(--control-height);
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-field);
+  color: var(--text-main);
+  font-family: var(--font-stats);
+  font-size: var(--size-body-short);
+}
+.bracket-key {
+  padding: 0 20px;
+}
+.bracket-to {
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  color: var(--accent-gold);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* A group. */
+.bracket-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  font-family: var(--font-stats);
+  font-size: var(--size-table-compact);
+  overflow: hidden;
+}
+.bracket-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-subheading);
+  font-size: var(--size-body-short);
+  font-weight: 400;
+  color: var(--accent-gold);
+}
+.bracket-card-state {
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.bracket-card-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.bracket-seats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bracket-seat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px 56px;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-soft);
+}
+.bracket-seat:first-child {
+  border-top: 0;
+}
+.bracket-seat-through {
+  background: var(--gold-wash-faint);
+  color: var(--text-main);
+  font-weight: 600;
+}
+.bracket-seat-out {
+  color: var(--text-muted);
+}
+.bracket-seat-hit {
+  outline: 2px solid var(--accent-gold-soft);
+  outline-offset: -2px;
+}
+.bracket-seat-me {
+  background: var(--gradient-gold);
+  color: var(--text-on-gold);
+  font-weight: 600;
+}
+.bracket-name {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+button.bracket-name:hover,
+button.bracket-name:focus-visible {
+  color: var(--accent-gold-light);
+  text-decoration: underline;
+}
+.bracket-points {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A round's groups, as a list. */
+.bracket-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  padding: 16px 20px 20px;
+}
+
+/* The late rounds as a tree: each pair of groups joined to the group it feeds. */
+.bracket-tree-box {
+  overflow-x: auto;
+  padding: 8px 20px 20px;
+}
+.bracket-tree {
+  display: flex;
+  gap: 40px;
+  min-width: max-content;
+}
+.bracket-col {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+}
+.bracket-col-head {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  font-size: var(--size-body-short);
+  color: var(--text-main);
+  letter-spacing: 0.04em;
+}
+.bracket-col-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.bracket-pair {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 16px;
+  padding: 8px 0;
+}
+.bracket-pair-joined::after {
+  content: '';
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  right: -20px;
+  width: 20px;
+  border: 2px solid var(--border-subtle);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+}
+.bracket-pair-joined::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -40px;
+  width: 20px;
+  border-top: 2px solid var(--border-subtle);
+}
+
+/* On a phone the tree gives way to the chosen round's list. */
+.bracket-list-narrow {
+  display: none;
+}
+@media (max-width: 900px) {
+  .bracket-tree-box {
+    display: none;
+  }
+  .bracket-list-narrow {
+    display: grid;
+  }
+}
+
+/* A player's road. */
+.bracket-road {
+  margin: 16px 20px;
+  padding: 16px;
+  border: 1px solid var(--accent-gold-deep);
+  border-radius: 8px;
+  background: var(--surface-panel);
+}
+.bracket-road-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.bracket-road-top h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--size-card-title);
+  color: var(--accent-gold-light);
+}
+.bracket-road-close {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-inset);
+  color: var(--text-main);
+  font-family: var(--font-stats);
+  cursor: pointer;
+}
+.bracket-road-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bracket-road-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-stats);
+  font-size: var(--size-table-compact);
+}
+.bracket-road-step .bracket-seats {
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-card);
+  overflow: hidden;
+}
+.bracket-road-step .bracket-seat {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bracket-road-round {
+  font-family: var(--font-heading);
+  color: var(--text-main);
+}
+.bracket-road-group {
+  font-size: var(--size-label);
+  color: var(--text-muted);
+}
+.bracket-road-result {
+  font-family: var(--font-subheading);
+  color: var(--accent-gold-light);
+}
+.bracket-map {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-x: auto;
+}
+.bracket-map-row {
+  display: grid;
+  grid-template-columns: 110px max-content;
+  align-items: center;
+  gap: 12px;
+}
+.bracket-map-name {
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  color: var(--text-soft);
+  text-align: right;
+}
+.bracket-map-cells {
+  display: flex;
+  gap: 3px;
+}
+.bracket-map-cell {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--border-subtle);
+}
+.bracket-map-cell-on {
+  background: var(--accent-gold-soft);
+  box-shadow: 0 0 0 2px var(--gold-wash-strong);
+}

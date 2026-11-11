@@ -30,6 +30,7 @@ export const sections: readonly NavSection[] = [
     label: 'Tournaments',
     pages: [
       { label: 'All tournaments', href: '/ratings/tournaments/', description: 'Every tournament on record' },
+      { label: 'Brackets', href: '/ratings/brackets/', description: 'Grand Slams round by round, to the final' },
       { label: 'Hall of Fame', href: '/ratings/hall_of_fame/', description: 'Champions and podiums, series by series' },
       { label: 'Community leaderboard', href: '/ratings/community/', description: 'Standings under the Best-8 system' },
       { label: 'Blitz', href: '/blitz/', description: 'Weekly pairings, results and standings' },
