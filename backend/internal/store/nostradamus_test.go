@@ -56,8 +56,8 @@ func bot(name string, answers string) entry {
 	return e
 }
 
-// nostradamusFixture migrates a database holding the World Championship's 2031 tournament and its edition
-// wc-2031, with no rounds yet.
+// nostradamusFixture migrates a database holding the World Championship's 2031 tournament and its game wc-2031,
+// with no rounds yet.
 func nostradamusFixture(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	pool := migrated(t)
@@ -73,33 +73,32 @@ func nostradamusFixture(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// addRounds writes rounds to edition wc-2031, adding each participant once and linking it to the member of its
-// name, as the one-off import of a past edition does.
+// closedAt is when addRounds closes a past round's answers.
+var closedAt = time.Date(2031, 4, 1, 12, 0, 0, 0, time.UTC)
+
+// addRounds writes past rounds to game wc-2031, as the one-off import of a past edition does: published, answered,
+// then closed. Each participant is added once, linked to the member of its name.
 func addRounds(t *testing.T, pool *pgxpool.Pool, rounds ...nround) {
 	t.Helper()
 	ctx := context.Background()
 	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
 		for i, r := range rounds {
-			if _, err := tx.Exec(ctx, `INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens, token_points, closes_at)
-				SELECT edition_id, $1, $2, 'Stage ' || $2, 3, 10, $3 FROM nostradamus_editions`,
-				i, r.label, time.Date(2031, 4, 1, 12, 0, 0, 0, time.UTC)); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens, token_points, closes_at,
+				deadline_zone, published_at) SELECT edition_id, $1, $2, 'Stage ' || $2, 3, 10, $3, 'UTC', $3 FROM nostradamus_editions`,
+				i, r.label, closedAt); err != nil {
 				return err
 			}
 			for j, q := range r.questions {
-				var outcome []string
-				if len(q.outcome) > 0 {
-					outcome = q.outcome
-				}
-				if _, err := tx.Exec(ctx, `INSERT INTO nostradamus_questions (round_id, position, label, kind, points, near_points, outcome)
-					SELECT round_id, $2, $3, $4, $5, $6, $7 FROM nostradamus_rounds WHERE label = $1`,
-					r.label, j, q.label, q.kind, q.points, q.near, outcome); err != nil {
+				if _, err := tx.Exec(ctx, `INSERT INTO nostradamus_questions (round_id, position, label, kind, points, near_points, picks, outcome)
+					SELECT round_id, $2, $3, $4, $5, $6, $7, $8 FROM nostradamus_rounds WHERE label = $1`,
+					r.label, j, q.label, q.kind, q.points, q.near, picksOf(q), nullIfEmpty(q.outcome)); err != nil {
 					return err
 				}
 			}
 			for _, e := range r.entries {
 				if _, err := tx.Exec(ctx, `INSERT INTO nostradamus_participants (edition_id, name, member_id, bot)
 					SELECT edition_id, $1, (SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)), $2
-					FROM nostradamus_editions
+					FROM nostradamus_editions WHERE slug = 'wc-2031'
 					ON CONFLICT (edition_id, lower(name)) DO NOTHING`, e.name, e.bot); err != nil {
 					return err
 				}
@@ -114,22 +113,39 @@ func addRounds(t *testing.T, pool *pgxpool.Pool, rounds ...nround) {
 				}
 			}
 		}
-		return nil
+		_, err := tx.Exec(ctx, "UPDATE nostradamus_rounds SET closed_at = closes_at")
+		return err
 	})
 	if err != nil {
 		t.Fatalf("adding rounds: %v", err)
 	}
 }
 
-// boardLines writes the edition's board, read as the site, as "name member total [round points (missed)]".
+// picksOf is how many names q's set takes: as many as its outcome names, else 2; 1 for any other kind.
+func picksOf(q question) int {
+	switch {
+	case q.kind != "set":
+		return 1
+	case len(q.outcome) > 0:
+		return len(q.outcome)
+	}
+	return 2
+}
+
+// boardLines writes the game's standings, read as the site, as "name member total [round points (missed)]".
 func boardLines(t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
-	board, err := NewRatingsReader(asReader(t, pool)).NostradamusBoard(context.Background(), "wc-2031")
+	g, err := NewRatingsReader(asReader(t, pool)).NostradamusGame(context.Background(), "wc-2031")
 	if err != nil {
-		t.Fatalf("NostradamusBoard: %v", err)
+		t.Fatalf("NostradamusGame: %v", err)
 	}
+	return standingLines(g.Standings)
+}
+
+// standingLines writes standings as boardLines does.
+func standingLines(standings []NostradamusStanding) []string {
 	var out []string
-	for _, s := range board.Standings {
+	for _, s := range standings {
 		line := fmt.Sprintf("%s %q %d", s.Name, s.Member, s.Total)
 		for _, r := range s.Rounds {
 			line += fmt.Sprintf(" %s=%d", r.Label, r.Points)
@@ -162,7 +178,6 @@ func TestNostradamusScoresEachKindOfAnswer(t *testing.T) {
 		{"either of a tie", tie, "Cy", false, 4},
 		{"a right set in another order", set, "Cy,Ann", false, 6},
 		{"a set with one wrong", set, "Ann,Dee", false, 0},
-		{"a set with one missing", set, "Ann", false, 0},
 		{"a right number", number, "3", false, 8},
 		{"a number one off", number, "2", false, 4},
 		{"a number two off", number, "5", false, 0},
@@ -202,16 +217,6 @@ func TestNostradamusMissedRoundScoresTheLowestBot(t *testing.T) {
 	}
 }
 
-func TestNostradamusRoundIsScoredOnlyOnceAnOutcomeIsKnown(t *testing.T) {
-	pool := nostradamusFixture(t)
-	addRounds(t, pool,
-		nround{"S1", []question{{label: "A", kind: "pick", points: 4, outcome: []string{"Ann"}}}, []entry{answered("Bea", "A=Ann")}},
-		nround{"S2", []question{{label: "A", kind: "pick", points: 4}}, []entry{answered("Bea", "A=Ann")}})
-	if got, want := boardLines(t, pool), []string{`Bea "" 4 S1=4`}; !slices.Equal(got, want) {
-		t.Errorf("board = %q, want %q", got, want)
-	}
-}
-
 func TestNostradamusBoardNamesTheLinkedMember(t *testing.T) {
 	pool := nostradamusFixture(t)
 	if _, err := pool.Exec(context.Background(), "INSERT INTO members (tta_name) VALUES ('Ann')"); err != nil {
@@ -221,13 +226,6 @@ func TestNostradamusBoardNamesTheLinkedMember(t *testing.T) {
 	addRounds(t, pool, nround{"S1", questions, []entry{answered("ann", "A=Cy"), answered("Dee", "A=Dee")}})
 	if got, want := boardLines(t, pool), []string{`ann "Ann" 4 S1=4`, `Dee "" 0 S1=0`}; !slices.Equal(got, want) {
 		t.Errorf("board = %q, want %q", got, want)
-	}
-}
-
-func TestNostradamusBoardOfNoEditionIsRefused(t *testing.T) {
-	pool := nostradamusFixture(t)
-	if _, err := NewRatingsReader(asReader(t, pool)).NostradamusBoard(context.Background(), "wc-2099"); !errors.Is(err, ErrNoNostradamus) {
-		t.Errorf("NostradamusBoard(wc-2099) = %v, want ErrNoNostradamus", err)
 	}
 }
 
@@ -251,19 +249,25 @@ func TestNostradamusRulesRefuseWhatBreaksThem(t *testing.T) {
 			answer("D", "Bea", "Ann", true)},
 		{"two names for a pick", nil, answer("A", "Bea", "Ann,Cy", false)},
 		{"one name twice in a set", nil, answer("S", "Bea", "Ann,ann", false)},
+		{"a set of the wrong size", nil, answer("S", "Bea", "Ann,Cy,Dee", false)},
+		{"an answer not among the choices", nil, answer("P", "Bea", "Zed", false)},
 		{"an empty name", nil, answer("A", "Bea", `""`, false)},
 		{"a number that is not one", nil, answer("N", "Bea", "three", false)},
-		{"an answer from another edition's participant",
+		{"an answer in a closed round", []string{`UPDATE nostradamus_rounds SET closed_at = published_at`}, answer("A", "Bea", "Ann", false)},
+		{"an answer from another game's participant",
 			[]string{`INSERT INTO nostradamus_editions (slug, name, tournament_id) SELECT 'wc-2032', 'Nostradamus #10', tournament_id FROM tournaments`,
 				`INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'Cy' FROM nostradamus_editions WHERE slug = 'wc-2032'`},
 			answer("A", "Cy", "Ann", false)},
 		{"an unknown kind", nil, addQuestion("G", "guess", 0, "NULL")},
 		{"near points on a pick", nil, addQuestion("G", "pick", 2, "NULL")},
 		{"an outcome that is not a number", nil, addQuestion("G", "number", 0, `'{x}'`)},
+		{"published without a deadline", nil, `UPDATE nostradamus_rounds SET closes_at = NULL`},
 		{"a name with spaces around it",
-			nil, `INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'Cy ' FROM nostradamus_editions`},
-		{"one name twice in an edition",
-			nil, `INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'bea' FROM nostradamus_editions`},
+			nil, `INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'Cy ' FROM nostradamus_editions WHERE slug = 'wc-2031'`},
+		{"one name twice in a game",
+			nil, `INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'bea' FROM nostradamus_editions WHERE slug = 'wc-2031'`},
+		{"a bot rule on one who is not a bot",
+			nil, `INSERT INTO nostradamus_participants (edition_id, name, bot_rule) SELECT edition_id, 'Cy', 'seed' FROM nostradamus_editions WHERE slug = 'wc-2031'`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -271,9 +275,14 @@ func TestNostradamusRulesRefuseWhatBreaksThem(t *testing.T) {
 			addRounds(t, pool, nround{"S1", []question{
 				{label: "A", kind: "pick", points: 4}, {label: "B", kind: "pick", points: 4}, {label: "C", kind: "pick", points: 4},
 				{label: "D", kind: "pick", points: 4}, {label: "S", kind: "set", points: 4}, {label: "N", kind: "number", points: 4},
-			}, []entry{}})
+				{label: "P", kind: "pick", points: 4},
+			}, nil})
 			ctx := context.Background()
-			for _, q := range append([]string{`INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'Bea' FROM nostradamus_editions`}, tt.setup...) {
+			for _, q := range append([]string{
+				`UPDATE nostradamus_rounds SET closed_at = NULL`,
+				`INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'Bea' FROM nostradamus_editions`,
+				`INSERT INTO nostradamus_choices (question_id, position, label) SELECT question_id, 0, 'Ann' FROM nostradamus_questions WHERE label = 'P'`,
+			}, tt.setup...) {
 				if _, err := pool.Exec(ctx, q); err != nil {
 					t.Fatalf("%s: %v", q, err)
 				}
@@ -291,10 +300,12 @@ func TestNostradamusMigrationGoesDownAndUp(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	present := func() []string {
-		return rowsOf(t, pool, `SELECT relname FROM pg_class WHERE relkind IN ('r', 'v') AND relname LIKE 'nostradamus%' ORDER BY 1`)
+		return rowsOf(t, pool, `SELECT relname FROM pg_class WHERE relkind IN ('r', 'v') AND relname LIKE 'nostradamus%'
+			UNION SELECT proname FROM pg_proc WHERE proname LIKE '%nostradamus%' ORDER BY 1`)
 	}
-	want := []string{"nostradamus_answers", "nostradamus_editions", "nostradamus_participants", "nostradamus_questions",
-		"nostradamus_round_scores", "nostradamus_rounds"}
+	want := []string{"my_nostradamus", "nostradamus_answer_counts", "nostradamus_answers", "nostradamus_check_answer", "nostradamus_choices",
+		"nostradamus_editions", "nostradamus_member_of", "nostradamus_participants", "nostradamus_points", "nostradamus_questions",
+		"nostradamus_round_scores", "nostradamus_rounds", "nostradamus_valid", "request_nostradamus_entry", "submit_nostradamus_answers"}
 	if got := present(); !slices.Equal(got, want) {
 		t.Fatalf("migrated: %q, want %q", got, want)
 	}
@@ -312,7 +323,16 @@ func TestNostradamusMigrationGoesDownAndUp(t *testing.T) {
 	}
 }
 
-func TestNostradamusEditionsListsEachEdition(t *testing.T) {
+func TestTheSiteLoginCannotReadAnAnswer(t *testing.T) {
+	pool := nostradamusFixture(t)
+	_, err := asReader(t, pool).Exec(context.Background(), "SELECT * FROM nostradamus_answers")
+	var pg *pgconn.PgError
+	if !errors.As(err, &pg) || pg.Code != "42501" {
+		t.Errorf("reading answers as the site = %v, want permission denied", err)
+	}
+}
+
+func TestNostradamusEditionsListsEachGame(t *testing.T) {
 	pool := nostradamusFixture(t)
 	got, err := NewRatingsReader(asReader(t, pool)).NostradamusEditions(context.Background())
 	if err != nil {
@@ -323,161 +343,354 @@ func TestNostradamusEditionsListsEachEdition(t *testing.T) {
 	}
 }
 
-// participantLines writes a participant's rounds as "round points" and each answer as "question answer token
-// points", read as the site at now.
-func participantLines(t *testing.T, pool *pgxpool.Pool, name string, now time.Time) []string {
+// game is game wc-2031 with an organiser's store, a draft round and its question, and the time it is now.
+type game struct {
+	pool  *pgxpool.Pool
+	admin *AdminStore
+	round int64
+	q     int64
+	now   time.Time
+}
+
+// newGame is a fresh game wc-2031 with a draft round R1 (one 10-point token) asking who wins from Ann (seed 2), Cy
+// (seed 1) and Dee (no seed), worth 4.
+func newGame(t *testing.T) game {
 	t.Helper()
-	p, err := NewRatingsReader(asReader(t, pool)).NostradamusParticipant(context.Background(), "wc-2031", name, now)
+	pool := nostradamusFixture(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	ctx := context.Background()
+	round, err := a.AddNostradamusRound(ctx, "wc-2031", NostradamusRoundDraft{Label: "R1", Name: "Round 1", Tokens: 1, TokenPoints: 10})
 	if err != nil {
-		t.Fatalf("NostradamusParticipant(%s): %v", name, err)
+		t.Fatalf("AddNostradamusRound: %v", err)
 	}
-	var out []string
-	for _, r := range p.Rounds {
-		out = append(out, fmt.Sprintf("%s %s missed=%t", r.Label, intOrDash(r.Points), r.Missed))
-		for _, a := range r.Answers {
-			out = append(out, fmt.Sprintf("  %s %q token=%t %s", a.Question.Label, a.Answer, a.Token, intOrDash(a.Points)))
-		}
+	q, err := a.AddNostradamusQuestion(ctx, "wc-2031", round, NostradamusQuestion{Label: "Win", Prompt: "Who wins?", Kind: "pick", Points: 4,
+		Choices: []NostradamusChoice{{Label: "Ann", Seed: 2}, {Label: "Cy", Seed: 1}, {Label: "Dee"}}})
+	if err != nil {
+		t.Fatalf("AddNostradamusQuestion: %v", err)
 	}
-	return out
+	return game{pool: pool, admin: a, round: round, q: q, now: time.Date(2031, 5, 1, 12, 0, 0, 0, time.UTC)}
 }
 
-// intOrDash is n, or "-" for none.
-func intOrDash(n *int) string {
-	if n == nil {
-		return "-"
-	}
-	return fmt.Sprint(*n)
-}
-
-func TestNostradamusParticipantShowsTheirAnswersInClosedRounds(t *testing.T) {
-	pool := nostradamusFixture(t)
-	addRounds(t, pool,
-		nround{"S1", []question{{label: "A", kind: "pick", points: 4, outcome: []string{"Ann"}}, {label: "B", kind: "pick", points: 2}},
-			[]entry{answered("Bea", "A=Ann", "A"), answered("Cy", "A=Dee;B=Ann")}},
-		nround{"S2", []question{{label: "A", kind: "pick", points: 4}}, []entry{answered("Cy", "A=Ann")}})
-	if _, err := pool.Exec(context.Background(), "UPDATE nostradamus_rounds SET closes_at = '2031-05-01T12:00:00Z' WHERE label = 'S2'"); err != nil {
-		t.Fatal(err)
-	}
-	tests := []struct {
-		name, participant string
-		now               time.Time
-		want              []string
-	}{
-		{"one who answered", "bea", time.Date(2031, 4, 2, 0, 0, 0, 0, time.UTC), []string{
-			"S1 14 missed=false", `  A ["Ann"] token=true 14`}},
-		{"an answer whose outcome is not known yet", "Cy", time.Date(2031, 4, 2, 0, 0, 0, 0, time.UTC), []string{
-			"S1 0 missed=false", `  A ["Dee"] token=false 0`, `  B ["Ann"] token=false -`}},
-		{"a round once it has closed, not scored yet", "Cy", time.Date(2031, 5, 2, 0, 0, 0, 0, time.UTC), []string{
-			"S1 0 missed=false", `  A ["Dee"] token=false 0`, `  B ["Ann"] token=false -`, "S2 - missed=false", `  A ["Ann"] token=false -`}},
-		{"no answers in a round they missed", "bea", time.Date(2031, 5, 2, 0, 0, 0, 0, time.UTC), []string{
-			"S1 14 missed=false", `  A ["Ann"] token=true 14`, "S2 - missed=true"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := participantLines(t, pool, tt.participant, tt.now); !slices.Equal(got, tt.want) {
-				t.Errorf("%s at %s = %q, want %q", tt.participant, tt.now, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNostradamusParticipantOfNoOneIsRefused(t *testing.T) {
-	pool := nostradamusFixture(t)
-	addRounds(t, pool, nround{"S1", []question{{label: "A", kind: "pick", points: 4}}, []entry{answered("Bea", "A=Ann")}})
-	r := NewRatingsReader(asReader(t, pool))
-	for _, tt := range []struct{ edition, name string }{{"wc-2031", "Zed"}, {"wc-2099", "Bea"}} {
-		if _, err := r.NostradamusParticipant(context.Background(), tt.edition, tt.name, time.Now()); !errors.Is(err, ErrNoNostradamus) {
-			t.Errorf("NostradamusParticipant(%s, %s) = %v, want ErrNoNostradamus", tt.edition, tt.name, err)
-		}
-	}
-}
-
-// adminEdition reads wc-2031 as admin, failing the test on an error.
-func adminEdition(t *testing.T, a *AdminStore) AdminNostradamus {
+// publish publishes the game's round, closing a day after its now.
+func (g game) publish(t *testing.T) {
 	t.Helper()
-	got, err := a.NostradamusForAdmin(context.Background(), "wc-2031")
+	if err := g.admin.PublishNostradamusRound(context.Background(), "wc-2031", g.round, g.now.Add(24*time.Hour), "Europe/Berlin", g.now); err != nil {
+		t.Fatalf("PublishNostradamusRound: %v", err)
+	}
+}
+
+// siteGame reads wc-2031 as the site.
+func (g game) siteGame(t *testing.T) NostradamusGame {
+	t.Helper()
+	got, err := NewRatingsReader(asReader(t, g.pool)).NostradamusGame(context.Background(), "wc-2031")
 	if err != nil {
-		t.Fatalf("NostradamusForAdmin: %v", err)
+		t.Fatalf("NostradamusGame: %v", err)
 	}
 	return got
 }
 
-func TestNostradamusAdminSetsAnOutcomeThatScoresTheRound(t *testing.T) {
-	pool := nostradamusFixture(t)
-	addRounds(t, pool, nround{"S1", []question{{label: "A", kind: "set", points: 6}}, []entry{answered("Bea", "A=Ann,Cy")}})
-	a := NewAdminStore(asAdminLogin(t, pool))
-	question := adminEdition(t, a).Rounds[0].Questions[0].ID
-	if err := a.SetNostradamusOutcome(context.Background(), "wc-2031", question, []string{"Cy", "Ann"}); err != nil {
-		t.Fatalf("SetNostradamusOutcome: %v", err)
+func TestNostradamusADraftIsShownOnlyInAdminUntilPublished(t *testing.T) {
+	g := newGame(t)
+	if got := g.siteGame(t).Rounds; len(got) != 0 {
+		t.Errorf("the site's rounds before publishing = %+v, want none", got)
 	}
-	if got, want := boardLines(t, pool), []string{`Bea "" 6 S1=6`}; !slices.Equal(got, want) {
-		t.Errorf("board = %q, want %q", got, want)
+	admin, err := g.admin.NostradamusGame(context.Background(), "wc-2031")
+	if err != nil {
+		t.Fatalf("admin's NostradamusGame: %v", err)
 	}
-	if err := a.SetNostradamusOutcome(context.Background(), "wc-2031", question, nil); err != nil {
-		t.Fatalf("SetNostradamusOutcome(nil): %v", err)
+	if got := admin.Rounds[0].Questions[0].Choices[0]; got != (NostradamusChoice{Label: "Ann", Seed: 2}) {
+		t.Errorf("admin's first choice = %+v, want Ann with seed 2", got)
 	}
-	if got := boardLines(t, pool); len(got) != 0 {
-		t.Errorf("board after clearing the outcome = %q, want no scored round", got)
+	g.publish(t)
+	site := g.siteGame(t)
+	if got := site.Rounds[0].Questions[0].Choices[0]; got != (NostradamusChoice{Label: "Ann"}) {
+		t.Errorf("the site's first choice = %+v, want Ann without her seed", got)
+	}
+	if site.Rounds[0].ClosesAt == nil || site.Rounds[0].Zone != "Europe/Berlin" {
+		t.Errorf("the site's round closes at %v in %q, want a deadline in Europe/Berlin", site.Rounds[0].ClosesAt, site.Rounds[0].Zone)
 	}
 }
 
-func TestNostradamusAdminOutcomesAreRefusedWhenTheyShouldBe(t *testing.T) {
-	pool := nostradamusFixture(t)
-	addRounds(t, pool, nround{"S1", []question{{label: "N", kind: "number", points: 6}}, nil})
-	a := NewAdminStore(asAdminLogin(t, pool))
-	question := adminEdition(t, a).Rounds[0].Questions[0].ID
+func TestNostradamusPublishingHasTheBotsAnswer(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	for _, e := range []NostradamusEntrant{{Name: "John Seed", BotRule: "seed"}, {Name: "Glickos", BotRule: "glicko"}} {
+		if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", e); err != nil {
+			t.Fatalf("AddNostradamusParticipant(%s): %v", e.Name, err)
+		}
+	}
+	g.publish(t)
+	answers, err := g.admin.NostradamusRoundAnswers(ctx, "wc-2031", g.round)
+	if err != nil {
+		t.Fatalf("NostradamusRoundAnswers: %v", err)
+	}
+	var got []string
+	for _, a := range answers {
+		got = append(got, fmt.Sprintf("%s %q", a.Participant, a.Answer))
+	}
+	if want := []string{`John Seed ["Cy"]`}; !slices.Equal(got, want) {
+		t.Errorf("the bots' answers = %q, want John Seed's best seed, and none for Glickos (no rated choice)", got)
+	}
+}
+
+func TestNostradamusRoundStagesRefuseWhatTheyShould(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	if err := g.admin.SetNostradamusOutcome(ctx, "wc-2031", g.q, []string{"Ann"}); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("an outcome for a draft = %v, want ErrNostradamusRoundState", err)
+	}
+	if err := g.admin.PublishNostradamusRound(ctx, "wc-2031", g.round, g.now, "UTC", g.now); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("publishing with a deadline of now = %v, want ErrNostradamusRoundState", err)
+	}
+	empty, err := g.admin.AddNostradamusRound(ctx, "wc-2031", NostradamusRoundDraft{Label: "R2", Name: "Round 2", Tokens: 1, TokenPoints: 10})
+	if err != nil {
+		t.Fatalf("AddNostradamusRound: %v", err)
+	}
+	if err := g.admin.PublishNostradamusRound(ctx, "wc-2031", empty, g.now.Add(time.Hour), "UTC", g.now); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("publishing a round with no question = %v, want ErrNostradamusRoundState", err)
+	}
+	g.publish(t)
 	tests := []struct {
-		name     string
-		edition  string
-		question int64
-		outcome  []string
-		want     error
+		name string
+		err  error
 	}{
-		{"a number that is not one", "wc-2031", question, []string{"three"}, ErrBadNostradamus},
-		{"two numbers", "wc-2031", question, []string{"3", "4"}, ErrBadNostradamus},
-		{"a question of another edition", "wc-2099", question, []string{"3"}, ErrNoNostradamus},
-		{"no such question", "wc-2031", question + 100, []string{"3"}, ErrNoNostradamus},
+		{"publishing again", g.admin.PublishNostradamusRound(ctx, "wc-2031", g.round, g.now.Add(time.Hour), "UTC", g.now)},
+		{"changing a published question", g.admin.SetNostradamusQuestion(ctx, "wc-2031", g.q, NostradamusQuestion{Label: "Win", Kind: "pick", Points: 9})},
+		{"removing a published question", g.admin.RemoveNostradamusQuestion(ctx, "wc-2031", g.q)},
+		{"removing a published round", g.admin.RemoveNostradamusRound(ctx, "wc-2031", g.round)},
+		{"closing before the deadline", g.admin.CloseNostradamusRound(ctx, "wc-2031", g.round, g.now.Add(time.Hour))},
+		{"closing with an outcome missing", g.admin.CloseNostradamusRound(ctx, "wc-2031", g.round, g.now.Add(48*time.Hour))},
+	}
+	for _, tt := range tests {
+		if !errors.Is(tt.err, ErrNostradamusRoundState) {
+			t.Errorf("%s = %v, want ErrNostradamusRoundState", tt.name, tt.err)
+		}
+	}
+	if err := g.admin.CloseNostradamusRound(ctx, "wc-2099", g.round, g.now); !errors.Is(err, ErrNoNostradamus) {
+		t.Errorf("closing another game's round = %v, want ErrNoNostradamus", err)
+	}
+}
+
+func TestNostradamusAdminEditsADraftsQuestion(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	err := g.admin.SetNostradamusQuestion(ctx, "wc-2031", g.q, NostradamusQuestion{Label: "Top", Prompt: "Who are the top two?", Kind: "set",
+		Points: 6, Picks: 2, Choices: []NostradamusChoice{{Label: "Ann"}, {Label: "Cy"}}})
+	if err != nil {
+		t.Fatalf("SetNostradamusQuestion: %v", err)
+	}
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	if err != nil {
+		t.Fatalf("NostradamusGame: %v", err)
+	}
+	q := admin.Rounds[0].Questions[0]
+	if q.Label != "Top" || q.Picks != 2 || len(q.Choices) != 2 {
+		t.Errorf("the question after the change = %+v, want Top, a set of 2 from 2 choices", q)
+	}
+	if err := g.admin.SetNostradamusQuestion(ctx, "wc-2031", g.q, NostradamusQuestion{Label: "Top", Kind: "pick", Points: 6, Picks: 2}); !errors.Is(err, ErrBadNostradamus) {
+		t.Errorf("a pick of 2 = %v, want ErrBadNostradamus", err)
+	}
+}
+
+// nostradamusPlayers is playersFixture's database with game wc-2031 over worlds 2031 and a round R1 (one 10-point
+// token) asking who wins from Ann and Cy, published until a day after now.
+func nostradamusPlayers(t *testing.T) (game, *PlayerStore) {
+	t.Helper()
+	pool, a, p := playersFixture(t)
+	ctx := context.Background()
+	for _, q := range []string{
+		`INSERT INTO tournaments (series_id, label) SELECT series_id, '2031' FROM series WHERE slug = 'worlds'`,
+		`INSERT INTO nostradamus_editions (slug, name, tournament_id)
+		 SELECT 'wc-2031', 'Nostradamus #9', t.tournament_id FROM tournaments t JOIN series s USING (series_id) WHERE s.slug = 'worlds' AND t.label = '2031'`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	g := game{pool: pool, admin: a, now: signInAt}
+	var err error
+	if g.round, err = a.AddNostradamusRound(ctx, "wc-2031", NostradamusRoundDraft{Label: "R1", Name: "Round 1", Tokens: 1, TokenPoints: 10}); err != nil {
+		t.Fatalf("AddNostradamusRound: %v", err)
+	}
+	if g.q, err = a.AddNostradamusQuestion(ctx, "wc-2031", g.round, NostradamusQuestion{Label: "Win", Kind: "pick", Points: 4,
+		Choices: []NostradamusChoice{{Label: "Ann"}, {Label: "Cy"}}}); err != nil {
+		t.Fatalf("AddNostradamusQuestion: %v", err)
+	}
+	g.publish(t)
+	return g, p
+}
+
+func TestNostradamusAPlayerAsksToJoinAndAnswersOnceAccepted(t *testing.T) {
+	g, p := nostradamusPlayers(t)
+	ctx := context.Background()
+	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
+	approved(t, g.admin, p, l, "Bea")
+	hash := tokenHash("token-1")
+	answer := []NostradamusGiven{{Question: g.q, Answer: []string{"Cy"}, Token: true}}
+	if _, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, answer, g.now); !errors.Is(err, ErrNotEntered) {
+		t.Errorf("answering before joining = %v, want ErrNotEntered", err)
+	}
+	if got, err := p.RequestNostradamusEntry(ctx, hash, "wc-2031", g.now); err != nil || got != "requested" {
+		t.Fatalf("RequestNostradamusEntry = %q, %v; want requested", got, err)
+	}
+	if _, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, answer, g.now); !errors.Is(err, ErrNotEntered) {
+		t.Errorf("answering while requested = %v, want ErrNotEntered", err)
+	}
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := admin.Participants[0]; got.Name != "Bea" || got.Status != "requested" {
+		t.Fatalf("admin's first participant = %+v, want Bea's request", got)
+	}
+	if err := g.admin.SetNostradamusStatus(ctx, "wc-2031", admin.Participants[0].ID, "accepted"); err != nil {
+		t.Fatalf("SetNostradamusStatus: %v", err)
+	}
+	if n, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, answer, g.now); err != nil || n != 1 {
+		t.Fatalf("SubmitNostradamusAnswers = %d, %v; want 1 saved", n, err)
+	}
+	mine, err := p.MyNostradamus(ctx, hash, "wc-2031", g.now)
+	if err != nil {
+		t.Fatalf("MyNostradamus: %v", err)
+	}
+	if got := mine.Answers[g.q]; mine.Status != "accepted" || !slices.Equal(got.Answer, []string{"Cy"}) || !got.Token {
+		t.Errorf("MyNostradamus = %+v, want accepted with Cy and a token", mine)
+	}
+	if err := g.admin.SetNostradamusOutcome(ctx, "wc-2031", g.q, []string{"Cy"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.admin.CloseNostradamusRound(ctx, "wc-2031", g.round, g.now.Add(25*time.Hour)); err != nil {
+		t.Fatalf("CloseNostradamusRound: %v", err)
+	}
+	site := g.siteGame(t)
+	if got, want := standingLines(site.Standings), []string{`Bea "Bea" 14 R1=14`}; !slices.Equal(got, want) {
+		t.Errorf("standings after closing = %q, want %q", got, want)
+	}
+	if got := site.Rounds[0].Questions[0]; !slices.Equal(got.Outcome, []string{"Cy"}) || len(got.Counts) != 1 || got.Counts[0] != (NostradamusCount{Value: "Cy", Answers: 1}) {
+		t.Errorf("the closed question on the site = %+v, want its outcome and a poll of Cy 1", got)
+	}
+}
+
+func TestNostradamusAnswersAreRefusedWhenTheyShouldBe(t *testing.T) {
+	g, p := nostradamusPlayers(t)
+	ctx := context.Background()
+	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
+	approved(t, g.admin, p, l, "Bea")
+	hash := tokenHash("token-1")
+	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "Bea"}); err != nil {
+		t.Fatalf("adding Bea: %v", err)
+	}
+	draft, err := g.admin.AddNostradamusRound(ctx, "wc-2031", NostradamusRoundDraft{Label: "R2", Name: "Round 2", Tokens: 1, TokenPoints: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	one := func(answer string, token bool) []NostradamusGiven {
+		return []NostradamusGiven{{Question: g.q, Answer: []string{answer}, Token: token}}
+	}
+	tests := []struct {
+		name    string
+		hash    []byte
+		round   int64
+		answers []NostradamusGiven
+		at      time.Time
+		want    error
+	}{
+		{"signed out", tokenHash("no-such-token"), g.round, one("Cy", false), g.now, ErrNoSession},
+		{"a draft round", hash, draft, one("Cy", false), g.now, ErrRoundNotOpen},
+		{"after the deadline", hash, g.round, one("Cy", false), g.now.Add(24 * time.Hour), ErrPastDeadline},
+		{"a name not among the choices", hash, g.round, one("Zed", false), g.now, ErrBadNostradamus},
+		{"a question of another round", hash, g.round, []NostradamusGiven{{Question: g.q + 100, Answer: []string{"Cy"}}}, g.now, ErrBadNostradamus},
+		{"one question answered twice", hash, g.round, []NostradamusGiven{{Question: g.q, Answer: []string{"Cy"}},
+			{Question: g.q, Answer: []string{"Ann"}}}, g.now, ErrBadNostradamus},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := a.SetNostradamusOutcome(context.Background(), tt.edition, tt.question, tt.outcome); !errors.Is(err, tt.want) {
-				t.Errorf("SetNostradamusOutcome(%q) = %v, want %v", tt.outcome, err, tt.want)
+			if _, err := p.SubmitNostradamusAnswers(ctx, tt.hash, tt.round, tt.answers, tt.at); !errors.Is(err, tt.want) {
+				t.Errorf("SubmitNostradamusAnswers = %v, want %v", err, tt.want)
 			}
 		})
 	}
-}
-
-func TestNostradamusAdminLinksAParticipantToAMember(t *testing.T) {
-	pool := nostradamusFixture(t)
-	if _, err := pool.Exec(context.Background(), "INSERT INTO members (tta_name) VALUES ('Beatrix')"); err != nil {
+	mine, err := p.MyNostradamus(ctx, hash, "wc-2031", g.now)
+	if err != nil {
 		t.Fatal(err)
 	}
-	addRounds(t, pool, nround{"S1", []question{{label: "A", kind: "pick", points: 4, outcome: []string{"Ann"}}}, []entry{answered("Bea", "A=Ann")}})
-	a := NewAdminStore(asAdminLogin(t, pool))
-	participant := adminEdition(t, a).Participants[0].ID
-	if err := a.LinkNostradamusParticipant(context.Background(), "wc-2031", participant, "beatrix"); err != nil {
+	if len(mine.Answers) != 0 {
+		t.Errorf("after only refused answers, MyNostradamus = %+v, want no answers", mine.Answers)
+	}
+}
+
+func TestNostradamusJoiningLinksAnImportedName(t *testing.T) {
+	g, p := nostradamusPlayers(t)
+	ctx := context.Background()
+	if _, err := g.pool.Exec(ctx, `INSERT INTO nostradamus_participants (edition_id, name) SELECT edition_id, 'bea' FROM nostradamus_editions`); err != nil {
+		t.Fatal(err)
+	}
+	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
+	approved(t, g.admin, p, l, "Bea")
+	if got, err := p.RequestNostradamusEntry(ctx, tokenHash("token-1"), "wc-2031", g.now); err != nil || got != "accepted" {
+		t.Errorf("RequestNostradamusEntry for an imported name = %q, %v; want accepted, linked", got, err)
+	}
+	if got, err := p.RequestNostradamusEntry(ctx, tokenHash("token-1"), "wc-2099", g.now); !errors.Is(err, ErrNoNostradamus) {
+		t.Errorf("asking to join no game = %q, %v; want ErrNoNostradamus", got, err)
+	}
+}
+
+func TestNostradamusAdminAddsAndLinksMembers(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	if _, err := g.pool.Exec(ctx, "INSERT INTO members (tta_name) VALUES ('Beatrix')"); err != nil {
+		t.Fatal(err)
+	}
+	id, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "Newcomer", DiscordName: "new_one"})
+	if err != nil {
+		t.Fatalf("AddNostradamusParticipant: %v", err)
+	}
+	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "newcomer"}); !errors.Is(err, ErrBadNostradamus) {
+		t.Errorf("adding the same member again = %v, want ErrBadNostradamus", err)
+	}
+	if err := g.admin.LinkNostradamusParticipant(ctx, "wc-2031", id, "beatrix"); err != nil {
 		t.Fatalf("LinkNostradamusParticipant: %v", err)
 	}
-	if got, want := boardLines(t, pool), []string{`Bea "Beatrix" 4 S1=4`}; !slices.Equal(got, want) {
-		t.Errorf("board = %q, want %q", got, want)
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := a.LinkNostradamusParticipant(context.Background(), "wc-2031", participant, ""); err != nil {
-		t.Fatalf("unlinking: %v", err)
-	}
-	if got, want := boardLines(t, pool), []string{`Bea "" 4 S1=4`}; !slices.Equal(got, want) {
-		t.Errorf("board after unlinking = %q, want %q", got, want)
+	if got := admin.Participants[0]; got.Name != "Newcomer" || got.Member != "Beatrix" || got.Status != "accepted" {
+		t.Errorf("the participant = %+v, want Newcomer, accepted, linked to Beatrix", got)
 	}
 	for _, tt := range []struct {
-		name, edition, member string
-		participant           int64
-		want                  error
+		name string
+		err  error
+		want error
 	}{
-		{"no such member", "wc-2031", "Zed", participant, ErrNoMember},
-		{"no such participant", "wc-2031", "Beatrix", participant + 100, ErrNoNostradamus},
-		{"a participant of another edition", "wc-2099", "Beatrix", participant, ErrNoNostradamus},
+		{"linking no such member", g.admin.LinkNostradamusParticipant(ctx, "wc-2031", id, "Zed"), ErrNoMember},
+		{"linking another game's participant", g.admin.LinkNostradamusParticipant(ctx, "wc-2099", id, "Beatrix"), ErrNoNostradamus},
+		{"a status that is not one", g.admin.SetNostradamusStatus(ctx, "wc-2031", id, "maybe"), ErrBadNostradamus},
+		{"a status for no participant", g.admin.SetNostradamusStatus(ctx, "wc-2031", id+100, "refused"), ErrNoNostradamus},
 	} {
-		if err := a.LinkNostradamusParticipant(context.Background(), tt.edition, tt.participant, tt.member); !errors.Is(err, tt.want) {
-			t.Errorf("%s: LinkNostradamusParticipant = %v, want %v", tt.name, err, tt.want)
+		if !errors.Is(tt.err, tt.want) {
+			t.Errorf("%s = %v, want %v", tt.name, tt.err, tt.want)
+		}
+	}
+}
+
+func TestNostradamusAdminAddsAGameOverATournament(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	if err := g.admin.AddNostradamusEdition(ctx, NostradamusEdition{Slug: "wc-2031-b", Name: "Side bets", Series: "worlds", Tournament: "2031"}); err != nil {
+		t.Fatalf("AddNostradamusEdition: %v", err)
+	}
+	for _, tt := range []struct {
+		name string
+		e    NostradamusEdition
+		want error
+	}{
+		{"a slug taken", NostradamusEdition{Slug: "wc-2031", Name: "Again", Series: "worlds", Tournament: "2031"}, ErrBadNostradamus},
+		{"a slug not of the pattern", NostradamusEdition{Slug: "WC 2031", Name: "Bad", Series: "worlds", Tournament: "2031"}, ErrBadNostradamus},
+		{"no such tournament", NostradamusEdition{Slug: "wc-2099", Name: "Later", Series: "worlds", Tournament: "2099"}, ErrNoTournament},
+	} {
+		if err := g.admin.AddNostradamusEdition(ctx, tt.e); !errors.Is(err, tt.want) {
+			t.Errorf("%s: AddNostradamusEdition = %v, want %v", tt.name, err, tt.want)
 		}
 	}
 }

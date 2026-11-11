@@ -23,9 +23,11 @@ import (
 // fakeAdmins accepts the token "good-<id>" for Discord id <id>, and knows one admin and one organiser.
 // It records each tournament change and audit, and knows one tournament, worlds.
 type fakeAdmins struct {
-	settings []store.TournamentSettings
-	notes    []string
-	audits   []string
+	// nostradamusErr, when set, is what every Nostradamus change answers (nostradamus_test.go).
+	nostradamusErr error
+	settings       []store.TournamentSettings
+	notes          []string
+	audits         []string
 	// details is each audit's detail, as JSON.
 	details  []string
 	startErr error

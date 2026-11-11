@@ -1,5 +1,6 @@
-// Nostradamus editions: the site's reads (the editions, a board, a participant's answers) and admin's (an edition's
-// questions, an outcome set, a participant linked). The rules an answer keeps and how it scores are the database's.
+// Nostradamus games: the list, and one game as the site sees it (published rounds, results once closed, the
+// standings) or as admin does (drafts, outcomes as entered, participants and their status). The rules an answer keeps
+// and how it scores are the database's.
 package store
 
 import (
@@ -10,44 +11,53 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// ErrNoNostradamus is an edition slug, or a question or participant of it, that names none.
-var ErrNoNostradamus = errors.New("no such Nostradamus edition")
+// ErrNoNostradamus is a game slug, or a round, question or participant of it, that names none.
+var ErrNoNostradamus = errors.New("no such Nostradamus game")
 
-// ErrBadNostradamus is an outcome that is not of its question's kind.
-var ErrBadNostradamus = errors.New("not an outcome of the question's kind")
+// ErrBadNostradamus is a change the rules refuse: an outcome not of its question's kind, a label taken, a value out
+// of range. Its message says which where it can.
+var ErrBadNostradamus = errors.New("not allowed by the Nostradamus rules")
 
-// NostradamusEdition is an edition and the tournament it is played over.
+// NostradamusEdition is a game and the tournament it is played over.
 type NostradamusEdition struct {
 	Slug, Name, Series, Tournament string
 }
 
-// NostradamusEditions returns every edition, the newest tournament's first.
-func (r *RatingsReader) NostradamusEditions(ctx context.Context) ([]NostradamusEdition, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT e.slug, e.name, s.slug, t.label
-		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		ORDER BY t.tournament_id DESC, e.slug`)
-	if err != nil {
-		return nil, fmt.Errorf("reading Nostradamus editions: %w", err)
-	}
-	editions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusEdition, error) {
-		var e NostradamusEdition
-		return e, row.Scan(&e.Slug, &e.Name, &e.Series, &e.Tournament)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("reading Nostradamus editions: %w", err)
-	}
-	return editions, nil
+// NostradamusChoice is a choice a question offers; Seed and LeaderboardRank, 0 when not given, feed the bots.
+type NostradamusChoice struct {
+	Label                 string
+	Seed, LeaderboardRank int
 }
 
-// NostradamusBoard is an edition's standings: Rounds are the labels of the rounds scored so far, in order.
-type NostradamusBoard struct {
-	Slug, Name string
-	Rounds     []string
-	Standings  []NostradamusStanding
+// NostradamusCount is how many answers named a value: a closed round's poll.
+type NostradamusCount struct {
+	Value   string
+	Answers int
+}
+
+// NostradamusQuestion is a question. A set takes Picks names; AsksLast marks one about who finishes last. Outcome is
+// empty until it is known; Counts are the poll, given for a closed round only.
+type NostradamusQuestion struct {
+	ID                        int64
+	Label, Prompt, Kind       string
+	Points, NearPoints, Picks int
+	AsksLast                  bool
+	Choices                   []NostradamusChoice
+	Outcome                   []string
+	Counts                    []NostradamusCount
+}
+
+// NostradamusRound is a round: a draft until PublishedAt, open until ClosesAt (shown in Zone), scored on the site
+// from ClosedAt.
+type NostradamusRound struct {
+	ID                    int64
+	Label, Name, Zone     string
+	Tokens, TokenPoints   int
+	ClosesAt              *time.Time
+	PublishedAt, ClosedAt *time.Time
+	Questions             []NostradamusQuestion
 }
 
 // NostradamusStanding is a participant's total and points in each scored round. Member is the TTA name of the
@@ -66,274 +76,214 @@ type NostradamusRoundScore struct {
 	Missed bool
 }
 
-// NostradamusBoard returns the edition's standings, highest total first, or ErrNoNostradamus.
-func (r *RatingsReader) NostradamusBoard(ctx context.Context, slug string) (NostradamusBoard, error) {
-	board := NostradamusBoard{Slug: slug}
+// NostradamusParticipant is a participant as admin sees it: its member's TTA and Discord names, its bot rule, and
+// whether it is requested, accepted or refused.
+type NostradamusParticipant struct {
+	ID                        int64
+	Name, Member, DiscordName string
+	Bot                       bool
+	BotRule, Status           string
+	RequestedAt               *time.Time
+}
+
+// NostradamusGame is a game with its rounds, in order, and its standings. Scored are the labels of the rounds in the
+// standings. Participants are given to admin only.
+type NostradamusGame struct {
+	NostradamusEdition
+	Rounds       []NostradamusRound
+	Scored       []string
+	Standings    []NostradamusStanding
+	Participants []NostradamusParticipant
+}
+
+// NostradamusEditions returns every game, the newest tournament's first.
+func (r *RatingsReader) NostradamusEditions(ctx context.Context) ([]NostradamusEdition, error) {
+	return nostradamusEditions(ctx, r.pool)
+}
+
+// NostradamusEditions returns every game for admin, the newest tournament's first.
+func (a *AdminStore) NostradamusEditions(ctx context.Context) ([]NostradamusEdition, error) {
+	return nostradamusEditions(ctx, a.pool)
+}
+
+func nostradamusEditions(ctx context.Context, db conn) ([]NostradamusEdition, error) {
+	rows, err := db.Query(ctx, `
+		SELECT e.slug, e.name, s.slug, t.label
+		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
+		ORDER BY t.tournament_id DESC, e.slug`)
+	if err != nil {
+		return nil, fmt.Errorf("reading Nostradamus games: %w", err)
+	}
+	editions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusEdition, error) {
+		var e NostradamusEdition
+		return e, row.Scan(&e.Slug, &e.Name, &e.Series, &e.Tournament)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reading Nostradamus games: %w", err)
+	}
+	return editions, nil
+}
+
+// NostradamusGame returns the game as the site shows it: published rounds only, outcomes and polls once a round is
+// closed, and the standings over closed rounds. An unknown slug is ErrNoNostradamus.
+func (r *RatingsReader) NostradamusGame(ctx context.Context, slug string) (NostradamusGame, error) {
+	return nostradamusGame(ctx, r.pool, slug, true)
+}
+
+// NostradamusGame returns the game as admin sees it: every round, outcomes as entered, standings over every round
+// with an outcome, and the participants. An unknown slug is ErrNoNostradamus.
+func (a *AdminStore) NostradamusGame(ctx context.Context, slug string) (NostradamusGame, error) {
+	return nostradamusGame(ctx, a.pool, slug, false)
+}
+
+func nostradamusGame(ctx context.Context, db conn, slug string, public bool) (NostradamusGame, error) {
+	var g NostradamusGame
 	var edition int64
-	err := r.pool.QueryRow(ctx, "SELECT edition_id, name FROM nostradamus_editions WHERE slug = $1", slug).Scan(&edition, &board.Name)
+	err := db.QueryRow(ctx, `
+		SELECT e.edition_id, e.slug, e.name, s.slug, t.label
+		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
+		WHERE e.slug = $1`, slug).Scan(&edition, &g.Slug, &g.Name, &g.Series, &g.Tournament)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return NostradamusBoard{}, ErrNoNostradamus
+		return NostradamusGame{}, ErrNoNostradamus
 	}
 	if err != nil {
-		return NostradamusBoard{}, fmt.Errorf("reading Nostradamus edition %s: %w", slug, err)
+		return NostradamusGame{}, fmt.Errorf("reading Nostradamus game %s: %w", slug, err)
 	}
-	rows, err := r.pool.Query(ctx, `
+	if g.Rounds, err = nostradamusRounds(ctx, db, edition, public); err != nil {
+		return NostradamusGame{}, err
+	}
+	if g.Scored, g.Standings, err = nostradamusStandings(ctx, db, edition, public); err != nil {
+		return NostradamusGame{}, err
+	}
+	if !public {
+		if g.Participants, err = nostradamusParticipants(ctx, db, edition); err != nil {
+			return NostradamusGame{}, err
+		}
+	}
+	return g, nil
+}
+
+// nostradamusRounds reads the edition's rounds with their questions and choices: for the site, published rounds
+// only, with outcomes and polls for closed ones and no seeds or ranks.
+func nostradamusRounds(ctx context.Context, db conn, edition int64, public bool) ([]NostradamusRound, error) {
+	rows, err := db.Query(ctx, `
+		SELECT r.round_id, r.label, r.name, coalesce(r.deadline_zone, ''), r.tokens, r.token_points, r.closes_at, r.published_at,
+		       r.closed_at, n.question_id, n.label, n.prompt, n.kind, n.points, n.near_points, n.picks, n.asks_last,
+		       CASE WHEN $2 AND r.closed_at IS NULL THEN '{}' ELSE coalesce(n.outcome, '{}') END,
+		       coalesce((SELECT array_agg(c.label ORDER BY c.position) FROM nostradamus_choices c WHERE c.question_id = n.question_id), '{}'),
+		       coalesce((SELECT array_agg(CASE WHEN $2 THEN 0 ELSE coalesce(c.seed, 0) END ORDER BY c.position)
+		                 FROM nostradamus_choices c WHERE c.question_id = n.question_id), '{}'),
+		       coalesce((SELECT array_agg(CASE WHEN $2 THEN 0 ELSE coalesce(c.leaderboard_rank, 0) END ORDER BY c.position)
+		                 FROM nostradamus_choices c WHERE c.question_id = n.question_id), '{}'),
+		       coalesce((SELECT array_agg(k.value ORDER BY k.answers DESC, lower(k.value)) FROM nostradamus_answer_counts k
+		                 WHERE k.question_id = n.question_id AND r.closed_at IS NOT NULL), '{}'),
+		       coalesce((SELECT array_agg(k.answers ORDER BY k.answers DESC, lower(k.value)) FROM nostradamus_answer_counts k
+		                 WHERE k.question_id = n.question_id AND r.closed_at IS NOT NULL), '{}')
+		FROM nostradamus_rounds r
+		LEFT JOIN nostradamus_questions n USING (round_id)
+		WHERE r.edition_id = $1 AND (r.published_at IS NOT NULL OR NOT $2)
+		ORDER BY r.position, n.position`, edition, public)
+	if err != nil {
+		return nil, fmt.Errorf("reading Nostradamus rounds: %w", err)
+	}
+	defer rows.Close()
+	var rounds []NostradamusRound
+	for rows.Next() {
+		var r NostradamusRound
+		var id *int64
+		var label, prompt, kind *string
+		var points, near, picks *int
+		var last *bool
+		var q NostradamusQuestion
+		var choices, values []string
+		var seeds, ranks, answers []int
+		if err := rows.Scan(&r.ID, &r.Label, &r.Name, &r.Zone, &r.Tokens, &r.TokenPoints, &r.ClosesAt, &r.PublishedAt, &r.ClosedAt,
+			&id, &label, &prompt, &kind, &points, &near, &picks, &last, &q.Outcome, &choices, &seeds, &ranks, &values, &answers); err != nil {
+			return nil, fmt.Errorf("reading Nostradamus rounds: %w", err)
+		}
+		if len(rounds) == 0 || rounds[len(rounds)-1].ID != r.ID {
+			rounds = append(rounds, r)
+		}
+		if id == nil {
+			continue
+		}
+		q.ID, q.Label, q.Prompt, q.Kind, q.Points, q.NearPoints, q.Picks, q.AsksLast = *id, *label, *prompt, *kind, *points, *near, *picks, *last
+		for i, c := range choices {
+			q.Choices = append(q.Choices, NostradamusChoice{Label: c, Seed: seeds[i], LeaderboardRank: ranks[i]})
+		}
+		for i, v := range values {
+			q.Counts = append(q.Counts, NostradamusCount{Value: v, Answers: answers[i]})
+		}
+		current := &rounds[len(rounds)-1]
+		current.Questions = append(current.Questions, q)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("reading Nostradamus rounds: %w", err)
+	}
+	return rounds, nil
+}
+
+// nostradamusStandings reads each accepted participant's points by round, highest total first: for the site, over
+// closed rounds only.
+func nostradamusStandings(ctx context.Context, db conn, edition int64, public bool) ([]string, []NostradamusStanding, error) {
+	rows, err := db.Query(ctx, `
 		SELECT p.participant_id, p.name, coalesce(m.tta_name, ''), p.bot, r.label, s.points, s.missed
 		FROM nostradamus_round_scores s
 		JOIN nostradamus_rounds r USING (round_id)
 		JOIN nostradamus_participants p USING (participant_id)
 		LEFT JOIN members m ON m.member_id = p.member_id
-		WHERE s.edition_id = $1
-		ORDER BY sum(s.points) OVER (PARTITION BY p.participant_id) DESC, lower(p.name), r.position`, edition)
+		WHERE s.edition_id = $1 AND (s.closed OR NOT $2)
+		ORDER BY sum(s.points) OVER (PARTITION BY p.participant_id) DESC, lower(p.name), r.position`, edition, public)
 	if err != nil {
-		return NostradamusBoard{}, fmt.Errorf("reading Nostradamus board %s: %w", slug, err)
+		return nil, nil, fmt.Errorf("reading Nostradamus standings: %w", err)
 	}
 	defer rows.Close()
+	var scored []string
+	var standings []NostradamusStanding
 	last := int64(-1)
 	for rows.Next() {
 		var id int64
 		var s NostradamusStanding
 		var score NostradamusRoundScore
 		if err := rows.Scan(&id, &s.Name, &s.Member, &s.Bot, &score.Label, &score.Points, &score.Missed); err != nil {
-			return NostradamusBoard{}, fmt.Errorf("reading Nostradamus board %s: %w", slug, err)
+			return nil, nil, fmt.Errorf("reading Nostradamus standings: %w", err)
 		}
 		if id != last {
-			board.Standings = append(board.Standings, s)
+			standings = append(standings, s)
 			last = id
 		}
-		current := &board.Standings[len(board.Standings)-1]
+		current := &standings[len(standings)-1]
 		current.Rounds = append(current.Rounds, score)
 		current.Total += score.Points
-		if !slices.Contains(board.Rounds, score.Label) {
-			board.Rounds = append(board.Rounds, score.Label)
+		if !slices.Contains(scored, score.Label) {
+			scored = append(scored, score.Label)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return NostradamusBoard{}, fmt.Errorf("reading Nostradamus board %s: %w", slug, err)
+		return nil, nil, fmt.Errorf("reading Nostradamus standings: %w", err)
 	}
-	return board, nil
+	return scored, standings, nil
 }
 
-// NostradamusQuestion is a question as the site and admin show it; Outcome is empty until it is known.
-type NostradamusQuestion struct {
-	ID                 int64
-	Label, Prompt      string
-	Kind               string
-	Points, NearPoints int
-	Outcome            []string
-}
-
-// NostradamusAnswer is a participant's answer to a question, and its points once the outcome is known.
-type NostradamusAnswer struct {
-	Question NostradamusQuestion
-	Answer   []string
-	Token    bool
-	Points   *int
-}
-
-// NostradamusParticipantRound is a closed round as one participant played it. Points are the round's once it is
-// scored; Missed when they gave no answers, so Answers is empty.
-type NostradamusParticipantRound struct {
-	Label, Name string
-	ClosesAt    time.Time
-	Points      *int
-	Missed      bool
-	Answers     []NostradamusAnswer
-}
-
-// NostradamusParticipant is one participant's rounds: only those closed, since answers are hidden until then.
-type NostradamusParticipant struct {
-	Name, Member string
-	Bot          bool
-	Rounds       []NostradamusParticipantRound
-}
-
-// NostradamusParticipant returns the named participant's answers in the edition's rounds closed by now, the name
-// matched ignoring case, or ErrNoNostradamus.
-func (r *RatingsReader) NostradamusParticipant(ctx context.Context, slug, name string, now time.Time) (NostradamusParticipant, error) {
-	var p NostradamusParticipant
-	var id int64
-	err := r.pool.QueryRow(ctx, `
-		SELECT p.participant_id, p.name, coalesce(m.tta_name, ''), p.bot
-		FROM nostradamus_participants p JOIN nostradamus_editions e USING (edition_id)
-		LEFT JOIN members m ON m.member_id = p.member_id
-		WHERE e.slug = $1 AND lower(p.name) = lower($2)`, slug, name).Scan(&id, &p.Name, &p.Member, &p.Bot)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return NostradamusParticipant{}, ErrNoNostradamus
-	}
-	if err != nil {
-		return NostradamusParticipant{}, fmt.Errorf("reading a Nostradamus participant: %w", err)
-	}
-	rows, err := r.pool.Query(ctx, `
-		SELECT r.round_id, r.label, r.name, r.closes_at, s.points,
-		       NOT EXISTS (SELECT FROM nostradamus_answers a JOIN nostradamus_questions n USING (question_id)
-		                   WHERE n.round_id = r.round_id AND a.participant_id = p.participant_id),
-		       n.question_id, n.label, n.prompt, n.kind, n.points, n.near_points, coalesce(n.outcome, '{}'),
-		       a.answer, coalesce(a.token, false),
-		       nostradamus_points(n.kind, n.points, n.near_points, n.outcome, a.answer, a.token, r.token_points)
-		FROM nostradamus_participants p
-		JOIN nostradamus_rounds r USING (edition_id)
-		LEFT JOIN nostradamus_round_scores s ON s.round_id = r.round_id AND s.participant_id = p.participant_id
-		LEFT JOIN nostradamus_questions n ON n.round_id = r.round_id
-		LEFT JOIN nostradamus_answers a ON a.question_id = n.question_id AND a.participant_id = p.participant_id
-		WHERE p.participant_id = $1 AND r.closes_at <= $2 AND (a.answer IS NOT NULL OR n.question_id IS NULL OR
-		      NOT EXISTS (SELECT FROM nostradamus_answers x JOIN nostradamus_questions y USING (question_id)
-		                  WHERE y.round_id = r.round_id AND x.participant_id = p.participant_id))
-		ORDER BY r.position, n.position`, id, now)
-	if err != nil {
-		return NostradamusParticipant{}, fmt.Errorf("reading a Nostradamus participant's answers: %w", err)
-	}
-	defer rows.Close()
-	last := int64(-1)
-	for rows.Next() {
-		var round int64
-		var pr NostradamusParticipantRound
-		var question *int64
-		var q NostradamusQuestion
-		var label, prompt, kind *string
-		var points, near *int
-		var a NostradamusAnswer
-		if err := rows.Scan(&round, &pr.Label, &pr.Name, &pr.ClosesAt, &pr.Points, &pr.Missed,
-			&question, &label, &prompt, &kind, &points, &near, &q.Outcome, &a.Answer, &a.Token, &a.Points); err != nil {
-			return NostradamusParticipant{}, fmt.Errorf("reading a Nostradamus participant's answers: %w", err)
-		}
-		if round != last {
-			p.Rounds = append(p.Rounds, pr)
-			last = round
-		}
-		if pr.Missed || question == nil {
-			continue
-		}
-		q.ID, q.Label, q.Prompt, q.Kind, q.Points, q.NearPoints = *question, *label, *prompt, *kind, *points, *near
-		a.Question = q
-		current := &p.Rounds[len(p.Rounds)-1]
-		current.Answers = append(current.Answers, a)
-	}
-	if err := rows.Err(); err != nil {
-		return NostradamusParticipant{}, fmt.Errorf("reading a Nostradamus participant's answers: %w", err)
-	}
-	return p, nil
-}
-
-// AdminNostradamusRound is a round with every question, for admin.
-type AdminNostradamusRound struct {
-	Label, Name string
-	ClosesAt    time.Time
-	Questions   []NostradamusQuestion
-}
-
-// AdminNostradamusParticipant is a participant and the TTA name of the member it is linked to, or empty.
-type AdminNostradamusParticipant struct {
-	ID           int64
-	Name, Member string
-	Bot          bool
-}
-
-// AdminNostradamus is an edition as admin sees it: its rounds' questions with their outcomes, and its participants.
-type AdminNostradamus struct {
-	Slug, Name   string
-	Rounds       []AdminNostradamusRound
-	Participants []AdminNostradamusParticipant
-}
-
-// NostradamusForAdmin returns the edition's rounds, in order, and its participants by name, or ErrNoNostradamus.
-func (a *AdminStore) NostradamusForAdmin(ctx context.Context, slug string) (AdminNostradamus, error) {
-	e := AdminNostradamus{Slug: slug}
-	var edition int64
-	err := a.pool.QueryRow(ctx, "SELECT edition_id, name FROM nostradamus_editions WHERE slug = $1", slug).Scan(&edition, &e.Name)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return AdminNostradamus{}, ErrNoNostradamus
-	}
-	if err != nil {
-		return AdminNostradamus{}, fmt.Errorf("reading Nostradamus edition %s: %w", slug, err)
-	}
-	rows, err := a.pool.Query(ctx, `
-		SELECT r.round_id, r.label, r.name, r.closes_at, n.question_id, n.label, n.prompt, n.kind, n.points, n.near_points,
-		       coalesce(n.outcome, '{}')
-		FROM nostradamus_rounds r JOIN nostradamus_questions n USING (round_id)
-		WHERE r.edition_id = $1 ORDER BY r.position, n.position`, edition)
-	if err != nil {
-		return AdminNostradamus{}, fmt.Errorf("reading Nostradamus questions: %w", err)
-	}
-	defer rows.Close()
-	last := int64(-1)
-	for rows.Next() {
-		var round int64
-		var r AdminNostradamusRound
-		var q NostradamusQuestion
-		if err := rows.Scan(&round, &r.Label, &r.Name, &r.ClosesAt, &q.ID, &q.Label, &q.Prompt, &q.Kind, &q.Points, &q.NearPoints, &q.Outcome); err != nil {
-			return AdminNostradamus{}, fmt.Errorf("reading Nostradamus questions: %w", err)
-		}
-		if round != last {
-			e.Rounds = append(e.Rounds, r)
-			last = round
-		}
-		current := &e.Rounds[len(e.Rounds)-1]
-		current.Questions = append(current.Questions, q)
-	}
-	if err := rows.Err(); err != nil {
-		return AdminNostradamus{}, fmt.Errorf("reading Nostradamus questions: %w", err)
-	}
-	people, err := a.pool.Query(ctx, `
-		SELECT p.participant_id, p.name, coalesce(m.tta_name, ''), p.bot
+// nostradamusParticipants reads every participant of the edition, requests first, then by name.
+func nostradamusParticipants(ctx context.Context, db conn, edition int64) ([]NostradamusParticipant, error) {
+	rows, err := db.Query(ctx, `
+		SELECT p.participant_id, p.name, coalesce(m.tta_name, ''), coalesce(m.discord_name, ''), p.bot, coalesce(p.bot_rule, ''),
+		       p.status, p.requested_at
 		FROM nostradamus_participants p LEFT JOIN members m ON m.member_id = p.member_id
-		WHERE p.edition_id = $1 ORDER BY lower(p.name)`, edition)
+		WHERE p.edition_id = $1
+		ORDER BY p.status <> 'requested', p.bot, lower(p.name)`, edition)
 	if err != nil {
-		return AdminNostradamus{}, fmt.Errorf("reading Nostradamus participants: %w", err)
+		return nil, fmt.Errorf("reading Nostradamus participants: %w", err)
 	}
-	e.Participants, err = pgx.CollectRows(people, func(row pgx.CollectableRow) (AdminNostradamusParticipant, error) {
-		var p AdminNostradamusParticipant
-		return p, row.Scan(&p.ID, &p.Name, &p.Member, &p.Bot)
+	people, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusParticipant, error) {
+		var p NostradamusParticipant
+		return p, row.Scan(&p.ID, &p.Name, &p.Member, &p.DiscordName, &p.Bot, &p.BotRule, &p.Status, &p.RequestedAt)
 	})
 	if err != nil {
-		return AdminNostradamus{}, fmt.Errorf("reading Nostradamus participants: %w", err)
+		return nil, fmt.Errorf("reading Nostradamus participants: %w", err)
 	}
-	return e, nil
-}
-
-// SetNostradamusOutcome sets what happened for a question of the edition, or clears it with none. It returns
-// ErrNoNostradamus for a question not in the edition, or ErrBadNostradamus for an outcome not of its kind.
-func (a *AdminStore) SetNostradamusOutcome(ctx context.Context, slug string, question int64, outcome []string) error {
-	tag, err := a.pool.Exec(ctx, `
-		UPDATE nostradamus_questions n SET outcome = $3
-		FROM nostradamus_rounds r JOIN nostradamus_editions e USING (edition_id)
-		WHERE n.round_id = r.round_id AND e.slug = $1 AND n.question_id = $2`, slug, question, nullIfEmpty(outcome))
-	var pg *pgconn.PgError
-	if errors.As(err, &pg) && pg.Code == "23514" {
-		return ErrBadNostradamus
-	}
-	if err != nil {
-		return fmt.Errorf("setting a Nostradamus outcome: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoNostradamus
-	}
-	return nil
-}
-
-// LinkNostradamusParticipant links a participant of the edition to the member of that TTA name, ignoring case, or
-// unlinks it for an empty name. It returns ErrNoMember or ErrNoNostradamus.
-func (a *AdminStore) LinkNostradamusParticipant(ctx context.Context, slug string, participant int64, member string) error {
-	var id *int64
-	if member != "" {
-		if err := a.pool.QueryRow(ctx, "SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)", member).Scan(&id); err != nil {
-			return fmt.Errorf("finding the member to link: %w", err)
-		}
-		if id == nil {
-			return ErrNoMember
-		}
-	}
-	tag, err := a.pool.Exec(ctx, `
-		UPDATE nostradamus_participants p SET member_id = $3
-		FROM nostradamus_editions e
-		WHERE p.edition_id = e.edition_id AND e.slug = $1 AND p.participant_id = $2`, slug, participant, id)
-	if err != nil {
-		return fmt.Errorf("linking a Nostradamus participant: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoNostradamus
-	}
-	return nil
+	return people, nil
 }
 
 // nullIfEmpty is values, or nil for SQL's null when there are none.

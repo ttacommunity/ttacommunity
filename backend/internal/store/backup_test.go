@@ -51,6 +51,7 @@ func withPeople(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 		`INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens, token_points, closes_at)
 		 SELECT edition_id, 0, 'S1', 'Stage 1', 3, 10, now() FROM nostradamus_editions`,
 		`INSERT INTO nostradamus_questions (round_id, position, label, kind, points, outcome) SELECT round_id, 0, 'Q', 'pick', 4, '{Ann}' FROM nostradamus_rounds`,
+		`INSERT INTO nostradamus_choices (question_id, position, label, seed) SELECT question_id, 0, 'Ann', 1 FROM nostradamus_questions`,
 		`INSERT INTO nostradamus_participants (edition_id, name, member_id) SELECT edition_id, 'ann', (SELECT min(member_id) FROM members) FROM nostradamus_editions`,
 		`INSERT INTO nostradamus_answers (question_id, participant_id, answer, token)
 		 SELECT question_id, participant_id, '{Ann}', true FROM nostradamus_questions, nostradamus_participants`,

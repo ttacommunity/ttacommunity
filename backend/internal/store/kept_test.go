@@ -110,6 +110,9 @@ var keptColumns = map[string]string{
 	"nostradamus_participants.name":           "omitted: public on the Nostradamus pages",
 	"nostradamus_participants.member_id":      "omitted: public on the Nostradamus pages",
 	"nostradamus_participants.bot":            "omitted: public on the Nostradamus pages",
+	"nostradamus_participants.bot_rule":       "omitted: how a bot answers, not about a player",
+	"nostradamus_participants.status":         "omitted: an organiser's answer to the request to play",
+	"nostradamus_participants.requested_at":   "omitted: when they asked to play",
 }
 
 func TestEveryColumnAboutAPlayerIsShownOrLeftOut(t *testing.T) {
