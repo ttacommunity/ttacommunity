@@ -81,6 +81,21 @@ describe('admin requests', () => {
     ['a notification endpoint', req.setEndpoint(3, ENDPOINT), '/api/notification-endpoints/3', 'PUT', { ...ENDPOINT, format: 'discord' }],
     ['removing a notification endpoint', req.removeEndpoint(3), '/api/notification-endpoints/3', 'DELETE', undefined],
     ['testing a notification endpoint', req.testEndpoint(3), '/api/notification-endpoints/3/test', 'POST', undefined],
+    // Nostradamus
+    ['a new game', req.addNostradamusGame({ slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }), '/api/nostradamus', 'POST', { slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }],
+    ['a new round', req.addNostradamusRound('wc-2031', { label: 'S1', name: 'Stage 1', tokens: 3, token_points: 10 }), '/api/nostradamus/wc-2031/rounds', 'POST', { label: 'S1', name: 'Stage 1', tokens: 3, token_points: 10 }],
+    ['a round changed', req.setNostradamusRound('wc-2031', 4, { label: 'S1', name: 'Stage 1', tokens: 2, token_points: 10 }), '/api/nostradamus/wc-2031/rounds/4', 'PUT', { label: 'S1', name: 'Stage 1', tokens: 2, token_points: 10 }],
+    ['a round removed', req.removeNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4', 'DELETE', undefined],
+    ['a new question', req.addNostradamusQuestion('wc-2031', 4, { label: 'Win', prompt: '', kind: 'pick' as const, points: 4, near_points: 0, picks: 1, asks_last: false, choices: [] }), '/api/nostradamus/wc-2031/rounds/4/questions', 'POST', { label: 'Win', prompt: '', kind: 'pick' as const, points: 4, near_points: 0, picks: 1, asks_last: false, choices: [] }],
+    ['a question changed', req.setNostradamusQuestion('wc-2031', 7, { label: 'Win', prompt: '', kind: 'pick' as const, points: 4, near_points: 0, picks: 1, asks_last: false, choices: [] }), '/api/nostradamus/wc-2031/questions/7', 'PUT', { label: 'Win', prompt: '', kind: 'pick' as const, points: 4, near_points: 0, picks: 1, asks_last: false, choices: [] }],
+    ['a question removed', req.removeNostradamusQuestion('wc-2031', 7), '/api/nostradamus/wc-2031/questions/7', 'DELETE', undefined],
+    ['a round published', req.publishNostradamusRound('wc-2031', 4, { day: '2031-06-01', time: '18:00', zone: 'Europe/Berlin' }), '/api/nostradamus/wc-2031/rounds/4/publish', 'POST', { day: '2031-06-01', time: '18:00', zone: 'Europe/Berlin' }],
+    ['a round closed', req.closeNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4/close', 'POST', undefined],
+    ['an outcome', req.setNostradamusOutcome('wc-2031', 7, ['Ann']), '/api/nostradamus/wc-2031/questions/7/outcome', 'PUT', { outcome: ['Ann'] }],
+    ["a bot's answers", req.setNostradamusBotAnswers('wc-2031', 4, 9, [{ question: 7, answer: ['Ann'], token: false }]), '/api/nostradamus/wc-2031/rounds/4/bots/9/answers', 'PUT', { answers: [{ question: 7, answer: ['Ann'], token: false }] }],
+    ['a new participant, trimmed', req.addNostradamusParticipant('wc-2031', { name: ' Ann ', discord_name: ' ann_d ', bot_rule: '' }), '/api/nostradamus/wc-2031/participants', 'POST', { name: 'Ann', discord_name: 'ann_d', bot_rule: '' }],
+    ['a participant accepted', req.setNostradamusStatus('wc-2031', 8, 'accepted'), '/api/nostradamus/wc-2031/participants/8/status', 'PUT', { status: 'accepted' }],
+    ['a participant linked, trimmed', req.linkNostradamusParticipant('wc-2031', 8, ' Ann '), '/api/nostradamus/wc-2031/participants/8/member', 'PUT', { member: 'Ann' }],
   ])('sends %s', (_, got, path, method, json) => {
     expect(got).toEqual({ path, init: { method, json } });
   });
