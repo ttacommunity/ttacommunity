@@ -127,6 +127,12 @@ export default function BracketView({
                   </button>
                 </Fragment>
               ))}
+              {rounds.length > 1 && (
+                <button type="button" className="bracket-round" aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
+                  <span>All rounds</span>
+                  <span className="bracket-round-state">{rounds.length} rounds</span>
+                </button>
+              )}
             </nav>
             <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-narrow">
               {rounds.map((x, i) => (
@@ -141,21 +147,16 @@ export default function BracketView({
               <SearchBox players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" inputClassName="bracket-find-input" placeholder="Player name" />
             </div>
           </div>
-          <div className="bracket-view bracket-wide-only">
-            <button type="button" className="bracket-zoom-button" aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
-              Show all rounds
-            </button>
-            {treeable && (
-              <span className="bracket-view-choice" role="group" aria-label="Show the round">
-                <button type="button" className="bracket-zoom-button" aria-pressed={single === 'grid'} onClick={() => setSingle('grid')}>
-                  Grid
-                </button>
-                <button type="button" className="bracket-zoom-button" aria-pressed={single === 'tree'} onClick={() => setSingle('tree')}>
-                  Tree
-                </button>
-              </span>
-            )}
-          </div>
+          {treeable && (
+            <div className="bracket-view bracket-wide-only" role="group" aria-label="Show the round">
+              <button type="button" className="bracket-zoom-button" aria-pressed={single === 'grid'} onClick={() => setSingle('grid')}>
+                Grid
+              </button>
+              <button type="button" className="bracket-zoom-button" aria-pressed={single === 'tree'} onClick={() => setSingle('tree')}>
+                Tree
+              </button>
+            </div>
+          )}
           {entrant !== null && <PlayerRoad rounds={rounds} entrant={entrant} onClose={() => setEntrant(null)} />}
           {tree !== null && <BracketTree rounds={rounds} start={tree.start} end={tree.end} joined={tree.joined} kept={kept} q={q} onPlayer={setEntrant} />}
           {listed.map(({ x, r }) => (
