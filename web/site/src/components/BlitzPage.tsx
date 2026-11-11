@@ -19,6 +19,7 @@ import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
 import { catalogueHref } from '../lib/catalogue-view';
+import { bracketHref } from '../lib/bracket';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
@@ -205,6 +206,11 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             and the winners of neighbouring matches meet next, through to the final. A drawn game sends the higher seed
             through.
           </p>
+          {ed.bracket && (
+            <p className="blitz-intro">
+              <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
+            </p>
+          )}
           <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine)} />
         </section>
       )}

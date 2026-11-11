@@ -13,7 +13,7 @@ import (
 )
 
 // bracketLines writes each group of a bracket as "stage|group number|state" and its seats as "entrant name place
-// points →next".
+// points →next", the name followed by #seed for a seeded seat.
 func bracketLines(d SeasonBracket) []string {
 	var out []string
 	for _, r := range d.Rounds {
@@ -24,7 +24,11 @@ func bracketLines(d SeasonBracket) []string {
 				if s.Points != nil {
 					points = fmt.Sprint(*s.Points)
 				}
-				line += fmt.Sprintf(" %d %s %d %s →%d;", s.Entrant, s.Name, s.Place, points, s.Next)
+				name := s.Name
+				if s.Seed > 0 {
+					name += fmt.Sprintf("#%d", s.Seed)
+				}
+				line += fmt.Sprintf(" %d %s %d %s →%d;", s.Entrant, name, s.Place, points, s.Next)
 			}
 			out = append(out, line)
 		}
@@ -94,7 +98,6 @@ func TestSeasonBracketRefusesWhatIsNotABracketSeason(t *testing.T) {
 func TestSeasonBracketRefusesATournamentNotShownAsABracket(t *testing.T) {
 	for _, tt := range []struct{ name, set string }{
 		{"not marked as a bracket", "bracket = false"},
-		{"a blitz tournament, whose knockout is not read here", "bracket = true, blitz = true"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			pool := migrated(t)
@@ -195,5 +198,138 @@ func TestSeasonBracketGivesAGroupTheStateOfItsGamesNeverPlayedAside(t *testing.T
 				t.Errorf("the final of games %v is %s, want %s", tt.states, final.State, tt.want)
 			}
 		})
+	}
+}
+
+// blitzBracketFixture is the US Open 2026, shown as a bracket, with four entrants and a published Swiss round; its
+// knockout of four is still to draw, Ann and Cy having won.
+func blitzBracketFixture(t *testing.T) (int64, *AdminStore, *RatingsReader, []int64) {
+	t.Helper()
+	pool, a := blitzFixture(t)
+	ctx := context.Background()
+	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{
+		{Name: "Ann", Zone: "UTC"}, {Name: "Bob", Zone: "UTC"}, {Name: "Cy", Zone: "UTC"}, {Name: "Dee", Zone: "UTC"},
+	})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	on := true
+	if err := a.SetTournament(ctx, "us_open", TournamentSettings{Visible: &on, Bracket: &on}); err != nil {
+		t.Fatalf("SetTournament: %v", err)
+	}
+	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 4}); err != nil {
+		t.Fatalf("SetBlitzFormat: %v", err)
+	}
+	swiss, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(swiss): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", swiss.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(swiss): %v", err)
+	}
+	for _, m := range swiss.Matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling(swiss): %v", err)
+		}
+	}
+	return publishedRun(t, pool), a, NewRatingsReader(asReader(t, pool)), ids
+}
+
+func TestSeasonBracketGivesABlitzKnockoutItsQualifiersAndMatches(t *testing.T) {
+	run, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
+	before, err := r.SeasonBracket(ctx, run, "us_open", "2026")
+	if err != nil || len(before.Rounds) != 0 {
+		t.Errorf("the bracket before the knockout = %v, %v; want no rounds", bracketLines(before), err)
+	}
+	ko := func(a, b int64, slot, seedA, seedB int) BlitzMatch {
+		return BlitzMatch{A: a, B: &b, Slot: new(slot), SeedA: new(seedA), SeedB: new(seedB)}
+	}
+	// Saved with slot 1 first, so the bracket's order comes from the slots, not the order made.
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{ko(cy, dee, 1, 2, 3), ko(ann, bob, 0, 1, 4)}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(semi-finals): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(semi-finals): %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", semi.Matches[1].ID, "b", "Ann did not show"); err != nil {
+		t.Fatalf("RecordBlitzRuling: %v", err)
+	}
+
+	got, err := r.SeasonBracket(ctx, run, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("SeasonBracket: %v", err)
+	}
+	want := []string{
+		"Qualifiers|seed 1 1|played: 1 Ann#1 1 - →1;",
+		"Qualifiers|seed 4 2|played: 2 Bob#4 1 - →1;",
+		"Qualifiers|seed 2 3|played: 3 Cy#2 1 - →2;",
+		"Qualifiers|seed 3 4|played: 4 Dee#3 1 - →2;",
+		"Round 2|match 1 1|played: 2 Bob#4 1 - →0; 1 Ann#1 2 - →0;",
+		"Round 2|match 2 2|prepared: 3 Cy#2 0 - →0; 4 Dee#3 0 - →0;",
+	}
+	if diff := cmp.Diff(want, bracketLines(got)); diff != "" {
+		t.Errorf("the bracket (-want +got):\n%s", diff)
+	}
+	if !got.Rounds[0].Qualifiers || got.Rounds[1].Qualifiers {
+		t.Errorf("Qualifiers = %v, %v; want only the first round", got.Rounds[0].Qualifiers, got.Rounds[1].Qualifiers)
+	}
+}
+
+func TestSeasonBracketRefusesABlitzEditionNotShownAsABracket(t *testing.T) {
+	for _, tt := range []struct{ name, set string }{
+		{"not marked as a bracket", "bracket = false"},
+		{"not shown", "visible = false"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			run, a, r, _ := blitzBracketFixture(t)
+			if _, err := a.pool.Exec(context.Background(), "UPDATE series SET "+tt.set+" WHERE slug = 'us_open'"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := r.SeasonBracket(context.Background(), run, "us_open", "2026"); !errors.Is(err, ErrTournamentNotFound) {
+				t.Errorf("SeasonBracket = %v, want ErrTournamentNotFound", err)
+			}
+		})
+	}
+}
+
+func TestBlitzEditionsSayWhenTheKnockoutIsDrawn(t *testing.T) {
+	_, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	drawn := func() bool {
+		t.Helper()
+		list, err := r.BlitzEditions(ctx)
+		if err != nil {
+			t.Fatalf("BlitzEditions: %v", err)
+		}
+		for _, e := range list {
+			if e.Edition == "2026" {
+				if !e.Bracket {
+					t.Error("Bracket = false, want true: the tournament is shown as a bracket")
+				}
+				return e.Knockout
+			}
+		}
+		t.Fatal("BlitzEditions has no 2026")
+		return false
+	}
+	if drawn() {
+		t.Error("Knockout during the Swiss rounds = true, want false")
+	}
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{
+		{A: ids[0], B: &ids[1], Slot: new(0), SeedA: new(1), SeedB: new(4)}, {A: ids[2], B: &ids[3], Slot: new(1), SeedA: new(2), SeedB: new(3)}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if drawn() {
+		t.Error("Knockout with its first round a draft = true, want false")
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("PublishBlitzRound: %v", err)
+	}
+	if !drawn() {
+		t.Error("Knockout once its first round is published = false, want true")
 	}
 }

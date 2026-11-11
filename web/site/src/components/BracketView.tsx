@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { seasonBracket, type CatalogueSeason, type BracketGroup, type SeasonBracket } from '@ttac/shared/ratings';
 import type { Load } from '@ttac/shared/load';
-import { defaultRound, bracketMap, bracketRounds, groupsMatching, road, seatView, treeStart, type ViewRound } from '../lib/bracket';
+import { defaultRound, bracketMap, bracketRounds, groupLabel, groupsMatching, road, seatView, seedLabel, treeStart, type ViewRound } from '../lib/bracket';
+import { editionHref } from '@ttac/shared/blitz';
 import { seasonName } from '../lib/catalogue-view';
 import Waiting from './Waiting';
 
@@ -70,6 +71,11 @@ export default function BracketView({
         )}
       </div>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
+      {load.kind === 'ready' && rounds.length === 0 && (
+        <p className="waiting-message">
+          The knockout is not drawn yet. <a href={editionHref(slug, season)}>Swiss rounds: see the standings</a>.
+        </p>
+      )}
       {shown !== undefined && (
         <>
           <div className="bracket-controls">
@@ -134,8 +140,8 @@ function BracketTree({ rounds, start, q, onPlayer }: { rounds: ViewRound[]; star
 function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: ViewRound[]; r: number; group: BracketGroup; q: string; onPlayer: (entrant: number) => void; titled?: boolean }) {
   const x = rounds[r];
   if (x === undefined) return null;
-  const title = x.groups.length === 1 ? x.name : titled ? `${x.short} · Group ${group.number}` : `Group ${group.number}`;
-  const state = group.seats.length === 0 ? 'To come' : group.state === 'played' ? 'Finished' : group.state === 'running' ? 'Being played' : 'To play';
+  const title = groupLabel(rounds, r, group, titled);
+  const state = x.unit === 'Seed' ? 'Qualified' : group.seats.length === 0 ? 'To come' : group.state === 'played' ? 'Finished' : group.state === 'running' ? 'Being played' : 'To play';
   const want = q.trim().toLowerCase();
   return (
     <article className="bracket-card">
@@ -151,7 +157,7 @@ function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: 
           return (
             <li key={s.entrant} className={['bracket-seat', v.through ? 'bracket-seat-through' : '', v.out ? 'bracket-seat-out' : '', hit ? 'bracket-seat-hit' : ''].join(' ')}>
               <button type="button" className="bracket-name" onClick={() => onPlayer(s.entrant)}>
-                {s.name}
+                {s.name} {seedLabel(s)}
               </button>
               <span className="bracket-points">{v.points}</span>
               <span className="bracket-to">{v.to}</span>
@@ -187,11 +193,13 @@ function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant
         {steps.map((st) => (
           <li key={st.round} className="bracket-road-step">
             <span className="bracket-road-round">{st.round}</span>
-            <span className="bracket-road-group">{st.final ? 'The final group' : `Group ${st.group.number}`}</span>
+            <span className="bracket-road-group">{st.label}</span>
             <ol className="bracket-seats">
               {st.group.seats.map((s) => (
                 <li key={s.entrant} className={s.entrant === entrant ? 'bracket-seat bracket-seat-me' : 'bracket-seat'}>
-                  <span className="bracket-name">{s.name}</span>
+                  <span className="bracket-name">
+                    {s.name} {seedLabel(s)}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -200,7 +208,7 @@ function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant
         ))}
       </ol>
       <p className="records-intro">
-        Route: {steps.map((st) => (st.final ? st.round : `${st.round} group ${st.group.number}`)).join(' → ')}.
+        Route: {steps.map((st) => (st.final ? st.round : `${st.round} ${st.label.toLowerCase()}`)).join(' → ')}.
       </p>
       <div className="bracket-map" aria-hidden="true">
         {map.map((m) => (

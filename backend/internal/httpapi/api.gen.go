@@ -1725,6 +1725,9 @@ type BlitzDeadlineSet struct {
 
 // BlitzEdition A blitz edition for the site, with the entrants still in, the published rounds and the standings
 type BlitzEdition struct {
+	// Bracket Whether the tournament is shown as a bracket (getSeasonBracket)
+	Bracket bool `json:"bracket"`
+
 	// Champion The winner of the knockout's final, by username; null until the final has a winner
 	Champion *string        `json:"champion"`
 	Edition  string         `json:"edition"`
@@ -1773,6 +1776,9 @@ type BlitzEdition struct {
 
 // BlitzEditionRow One edition of a blitz tournament as the site's list shows it
 type BlitzEditionRow struct {
+	// Bracket Whether the tournament is shown as a bracket (getSeasonBracket)
+	Bracket bool `json:"bracket"`
+
 	// Champion The winner of the knockout's final, by username; null until the final has a winner
 	Champion *string `json:"champion"`
 
@@ -1784,6 +1790,9 @@ type BlitzEditionRow struct {
 
 	// Format How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none)
 	Format BlitzFormat `json:"format"`
+
+	// Knockout Whether the knockout's first round is published
+	Knockout bool `json:"knockout"`
 
 	// Name The tournament's name
 	Name string `json:"name"`
@@ -2137,6 +2146,9 @@ type BracketRound struct {
 	// Groups By number
 	Groups []BracketGroup `json:"groups"`
 
+	// Qualifiers A blitz knockout's first column, its players by their place in the draw
+	Qualifiers bool `json:"qualifiers"`
+
 	// Stage The stage's label, as the catalogue gives it
 	Stage string `json:"stage"`
 }
@@ -2158,6 +2170,9 @@ type BracketSeat struct {
 
 	// Points Points from the group's games; absent until played, or without points per place
 	Points *float64 `json:"points,omitempty"`
+
+	// Seed A blitz knockout player's seed, their place in the Swiss standings when the knockout began; absent elsewhere
+	Seed *int `json:"seed,omitempty"`
 }
 
 // CGETournament A tournament on CGE's site, as its page shows it

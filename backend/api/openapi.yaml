@@ -985,6 +985,14 @@ paths:
         round after. A tournament not shown as a bracket, hidden, or without
         that season's games is not found. A player whose CGE account is
         deleted or banned is named "Deleted player". Cached for five minutes.
+
+        A blitz tournament's season is an edition, and its bracket is the
+        knockout's published rounds: first the Qualifiers, each player alone
+        in the group of their place in the draw (2k+1 and 2k+2 for the match
+        in slot k), then each round's matches as group slot + 1, the winner
+        first once decided, every player with their seed. It has no rounds
+        until the knockout's first round is published, and is cached for a
+        minute, as results are recorded.
       parameters:
         - $ref: "#/components/parameters/RunId"
         - name: tournament
@@ -5598,8 +5606,14 @@ components:
     BlitzEditionRow:
       description: One edition of a blitz tournament as the site's list shows it
       type: object
-      required: [tournament, name, edition, format, entrants, round, champion]
+      required: [tournament, name, edition, format, entrants, round, champion, knockout, bracket]
       properties:
+        knockout:
+          description: Whether the knockout's first round is published
+          type: boolean
+        bracket:
+          description: Whether the tournament is shown as a bracket (getSeasonBracket)
+          type: boolean
         champion:
           description: The winner of the knockout's final, by username; null until the final has a winner
           type: string
@@ -6174,8 +6188,11 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, results_updated_at]
+      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, results_updated_at, bracket]
       properties:
+        bracket:
+          description: Whether the tournament is shown as a bracket (getSeasonBracket)
+          type: boolean
         pairing:
           $ref: "#/components/schemas/BlitzPairingMethods"
         ranks_fixed_by:
@@ -9044,11 +9061,14 @@ components:
             $ref: "#/components/schemas/BracketRound"
     BracketRound:
       type: object
-      required: [stage, groups]
+      required: [stage, qualifiers, groups]
       properties:
         stage:
           description: The stage's label, as the catalogue gives it
           type: string
+        qualifiers:
+          description: A blitz knockout's first column, its players by their place in the draw
+          type: boolean
         groups:
           description: By number
           type: array
@@ -9081,6 +9101,9 @@ components:
           type: integer
         name:
           type: string
+        seed:
+          description: A blitz knockout player's seed, their place in the Swiss standings when the knockout began; absent elsewhere
+          type: integer
         place:
           description: Best place in the group's games; 0 until it is played
           type: integer

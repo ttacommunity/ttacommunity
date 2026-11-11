@@ -1,8 +1,8 @@
 /** The Brackets page: every tournament shown as a bracket, or one tournament's bracket (?t=, season ?s=). */
 import { useEffect, useState } from 'react';
-import { catalogue, catalogueTournament, currentRun, type Catalogue, type CatalogueTournament } from '@ttac/shared/ratings';
+import { blitzEditions, catalogue, catalogueTournament, currentRun, type BlitzEditionRow, type Catalogue, type CatalogueTournament } from '@ttac/shared/ratings';
 import { failed, type Found } from '@ttac/shared/load';
-import { bracketHref, bracketParams, openingSeason } from '../lib/bracket';
+import { bracketCard, bracketHref, bracketParams, openingSeason } from '../lib/bracket';
 import { catalogueHref, entryRows, seasonName, shownName } from '../lib/catalogue-view';
 import { cardView } from '../lib/tournament-card';
 import BracketView from './BracketView';
@@ -24,14 +24,14 @@ function Missing() {
 }
 
 function BracketList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Found<Catalogue>>({ kind: 'loading' });
+  const [load, setLoad] = useState<Found<{ cat: Catalogue; editions: BlitzEditionRow[] }>>({ kind: 'loading' });
   useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => catalogue(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
+    Promise.all([currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)), blitzEditions(apiUrl)])
+      .then(([cat, blitz]) => setLoad({ kind: 'ready', data: { cat, editions: blitz.editions } }))
       .catch((e: unknown) => setLoad(failed(e)));
   }, [apiUrl]);
-  const brackets = load.kind === 'ready' ? load.data.tournaments.filter((t) => t.bracket) : [];
+  const brackets = load.kind === 'ready' ? load.data.cat.tournaments.filter((t) => t.bracket) : [];
+  const editions = load.kind === 'ready' ? load.data.editions : [];
   return (
     <>
       <div className="tournaments-header">
@@ -45,9 +45,10 @@ function BracketList({ apiUrl }: { apiUrl: string }) {
       {load.kind === 'ready' && brackets.length === 0 && <div className="rating-card waiting-message">No tournament is shown as a bracket yet.</div>}
       {brackets.length > 0 && (
         <div className="series-grid">
-          {brackets.map((t) => (
-            <TournamentCard key={t.slug} href={bracketHref(t.slug)} name={shownName(t.name, t.rankings.length > 0)} card={cardView(t.card)} rows={entryRows(t)} cta="View the bracket" />
-          ))}
+          {brackets.map((t) => {
+            const link = bracketCard(t.slug, editions);
+            return <TournamentCard key={t.slug} href={link.href} name={shownName(t.name, t.rankings.length > 0)} card={cardView(t.card)} rows={entryRows(t)} cta={link.cta} />;
+          })}
         </div>
       )}
     </>

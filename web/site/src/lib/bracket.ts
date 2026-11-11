@@ -1,8 +1,12 @@
 /** A season shown as a bracket: its rounds named, the rounds still to come, the tree, and a player's road. */
-import { isSlug, type BracketGroup, type BracketSeat, type SeasonBracket } from '@ttac/shared/ratings';
+import { isSlug, type BlitzEditionRow, type BracketGroup, type BracketSeat, type SeasonBracket } from '@ttac/shared/ratings';
+import { editionHref } from '@ttac/shared/blitz';
 
-/** ViewRound is one round as the bracket shows it: named, and whether it is finished, being played or still to come. */
-export type ViewRound = { name: string; short: string; state: 'finished' | 'in_play' | 'to_come'; groups: BracketGroup[] };
+/**
+ * ViewRound is one round as the bracket shows it: named, whether it is finished, being played or still to come, and
+ * what its groups are called (a blitz knockout's qualifiers by Seed, its matches Match, else Group).
+ */
+export type ViewRound = { name: string; short: string; state: 'finished' | 'in_play' | 'to_come'; unit: 'Seed' | 'Match' | 'Group'; groups: BracketGroup[] };
 
 /** TREE_MOST is the most groups a round of the tree may have, so it fits a wide screen. */
 const TREE_MOST = 8;
@@ -15,8 +19,9 @@ const LATE = [
 
 /**
  * bracketRounds names a bracket's rounds and adds those still to come: where the last round has an even number of groups,
- * empty rounds of half as many, down to one. A bracket that ends in one group names its last three rounds by their
- * size (Quarter-finals, Semi-finals, Final); every other round is numbered.
+ * empty rounds of half as many, down to one. A blitz knockout's first round is its Qualifiers. A bracket that ends in
+ * one group names its last three rounds by their size (Quarter-finals, Semi-finals, Final); every other round is
+ * numbered, the qualifiers aside.
  */
 export function bracketRounds(bracket: SeasonBracket): ViewRound[] {
   const sizes = bracket.rounds.map((r) => r.groups.length);
@@ -26,19 +31,36 @@ export function bracketRounds(bracket: SeasonBracket): ViewRound[] {
     last /= 2;
     rounds.push(Array.from({ length: last }, (_, i) => ({ name: `group ${i + 1}`, number: i + 1, state: 'never_played' as const, seats: [] })));
   }
+  const qualified = bracket.rounds[0]?.qualifiers === true ? 1 : 0;
+  const unit = qualified === 1 ? 'Match' : 'Group';
   const toFinal = rounds[rounds.length - 1]?.length === 1;
   return rounds.map((groups, i) => {
+    if (i < qualified) return { ...numbered(groups, 0, 'Seed'), name: 'Qualifiers', short: 'Q' };
     const fromEnd = rounds.length - 1 - i;
     const late = toFinal && fromEnd < LATE.length ? LATE[LATE.length - 1 - fromEnd] : undefined;
-    if (late !== undefined && late.groups !== groups.length) return numbered(groups, i);
-    return late === undefined ? numbered(groups, i) : { ...numbered(groups, i), name: late.name, short: late.short };
+    const round = numbered(groups, i - qualified, unit);
+    return late === undefined || late.groups !== groups.length ? round : { ...round, name: late.name, short: late.short };
   });
 }
 
 /** numbered is round i (from 0) of the groups, named by its number. */
-function numbered(groups: BracketGroup[], i: number): ViewRound {
+function numbered(groups: BracketGroup[], i: number, unit: ViewRound['unit']): ViewRound {
   const state = groups.every((g) => g.seats.length === 0) ? 'to_come' : groups.every((g) => g.state === 'played') ? 'finished' : 'in_play';
-  return { name: `Round ${i + 1}`, short: `R${i + 1}`, state, groups };
+  return { name: `Round ${i + 1}`, short: `R${i + 1}`, state, unit, groups };
+}
+
+/** groupLabel names a group of round r: a qualifier by their seed, a round's only group by the round, else by its number (after the round's short name in the tree). */
+export function groupLabel(rounds: ViewRound[], r: number, group: BracketGroup, titled: boolean): string {
+  const x = rounds[r];
+  if (x === undefined) return '';
+  if (x.unit === 'Seed') return `Seed ${group.seats[0]?.seed ?? group.number}`;
+  if (x.groups.length === 1) return x.name;
+  return titled ? `${x.short} · ${x.unit} ${group.number}` : `${x.unit} ${group.number}`;
+}
+
+/** seedLabel writes a seat's seed as (3), or nothing for a seat without one. */
+export function seedLabel(seat: BracketSeat): string {
+  return seat.seed === undefined ? '' : `(${seat.seed})`;
 }
 
 /**
@@ -86,8 +108,8 @@ function pointsText(points: number): string {
 
 const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
 
-/** RoadStep is one group of a player's road: the round (final when it has one group), the group, the player's seat and how it went. */
-export type RoadStep = { round: string; final: boolean; group: BracketGroup; seat: BracketSeat; result: string };
+/** RoadStep is one group of a player's road: the round (final when it has one group), the group and its label, the player's seat and how it went. */
+export type RoadStep = { round: string; final: boolean; group: BracketGroup; label: string; seat: BracketSeat; result: string };
 
 /** road follows a player (by entrant) through the rounds they played, with each result. */
 export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
@@ -98,11 +120,15 @@ export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
       if (s === undefined) continue;
       const view = seatView(rounds, i, g, s);
       let result = g.state === 'running' ? 'Being played' : 'To play';
-      if (g.state === 'played') {
+      if (r.unit === 'Seed') {
+        result = `Seed ${s.seed ?? g.number}`;
+      } else if (g.state === 'played') {
         const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[s.place - 1] ?? `${s.place}th`);
         result = view.points === '' ? place : `${place} · ${view.points} pts`;
       }
-      steps.push({ round: r.name, final: r.groups.length === 1, group: g, seat: s, result });
+      const final = r.groups.length === 1;
+      const label = final ? (r.unit === 'Group' ? 'The final group' : 'The final') : groupLabel(rounds, i, g, false);
+      steps.push({ round: r.name, final, group: g, label, seat: s, result });
     }
   });
   return steps;
@@ -126,6 +152,14 @@ export function groupsMatching(groups: BracketGroup[], q: string): BracketGroup[
   const want = q.trim().toLowerCase();
   if (want === '') return groups;
   return groups.filter((g) => g.seats.some((s) => s.name.toLowerCase().includes(want)));
+}
+
+/** bracketCard is where a tournament's card on the Brackets list leads: a blitz tournament whose latest edition is in
+ * its Swiss rounds to that edition's standings, every other to its bracket. */
+export function bracketCard(slug: string, editions: readonly BlitzEditionRow[]): { href: string; cta: string } {
+  const latest = editions.find((e) => e.tournament === slug);
+  if (latest !== undefined && !latest.knockout) return { href: editionHref(slug, latest.edition), cta: 'Swiss rounds: see the standings' };
+  return { href: bracketHref(slug), cta: 'View the bracket' };
 }
 
 /** bracketHref is the address of every bracket, of a tournament's (its latest season), or of one season's. */

@@ -735,19 +735,20 @@ func TestMigration63GivesTheBlitzSeatsAlreadyRecordedTheirCGEAccounts(t *testing
 		t.Fatalf("opening the owner's pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
+	// Reported while Ann is not linked, and read, before the Down: today's reads need today's schema.
+	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
+		t.Fatalf("reportBlitzGame: %v", err)
+	}
+	game := matchNow(t, reader, matches[0]).GameID
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 62); return err }); err != nil {
 		t.Fatalf("migrating down to 62: %v", err)
 	}
 	linkedToCGE(t, a, "Ann", 1001)
-	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
-		t.Fatalf("reportBlitzGame after the Down: %v", err)
-	}
 	seats := func() string {
 		t.Helper()
 		var got []string
 		if err := pool.QueryRow(ctx, `SELECT array_agg(p.name || '=' || coalesce(s.cge_user::text, '-') ORDER BY s.seat)
-			FROM seats s JOIN players p USING (player_id) WHERE s.game_id = $1`,
-			matchNow(t, reader, matches[0]).GameID).Scan(&got); err != nil {
+			FROM seats s JOIN players p USING (player_id) WHERE s.game_id = $1`, game).Scan(&got); err != nil {
 			t.Fatalf("reading the seats: %v", err)
 		}
 		return strings.Join(got, " ")

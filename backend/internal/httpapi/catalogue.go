@@ -260,11 +260,14 @@ func (s *server) GetSeasonBracket(ctx context.Context, req GetSeasonBracketReque
 	}
 	body := SeasonBracket{RunId: req.Run, Slug: req.Tournament, Season: got.Season, Rounds: make([]BracketRound, len(got.Rounds))}
 	for i, r := range got.Rounds {
-		round := BracketRound{Stage: r.Stage, Groups: make([]BracketGroup, len(r.Groups))}
+		round := BracketRound{Stage: r.Stage, Qualifiers: r.Qualifiers, Groups: make([]BracketGroup, len(r.Groups))}
 		for j, g := range r.Groups {
 			group := BracketGroup{Name: g.Name, Number: g.Number, State: GameState(g.State), Seats: make([]BracketSeat, len(g.Seats))}
 			for k, seat := range g.Seats {
 				ds := BracketSeat{Entrant: seat.Entrant, Name: seat.Name, Place: seat.Place, Points: seat.Points, Next: seat.Next}
+				if seat.Seed > 0 {
+					ds.Seed = new(seat.Seed)
+				}
 				if seat.Outcome != "" {
 					o := SeatOutcome(seat.Outcome)
 					ds.Outcome = &o
@@ -275,7 +278,11 @@ func (s *server) GetSeasonBracket(ctx context.Context, req GetSeasonBracketReque
 		}
 		body.Rounds[i] = round
 	}
-	return GetSeasonBracket200JSONResponse{Body: body, Headers: GetSeasonBracket200ResponseHeaders{CacheControl: cacheRun}}, nil
+	cache := cacheRun
+	if got.Live {
+		cache = cacheCurrent
+	}
+	return GetSeasonBracket200JSONResponse{Body: body, Headers: GetSeasonBracket200ResponseHeaders{CacheControl: cache}}, nil
 }
 
 // optionalDate returns t as an API date, or nil for none.
