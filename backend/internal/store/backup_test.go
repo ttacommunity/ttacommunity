@@ -47,6 +47,13 @@ func withPeople(t *testing.T, pool *pgxpool.Pool) *pgxpool.Pool {
 		`INSERT INTO challenge_entries (challenge_id, member_id, name, account_id, domination, proof_url, created_at, source, hidden, hidden_reason)
 		 SELECT '1ai', min(member_id), 'ann', (SELECT min(account_id) FROM accounts), 50, 'https://discord.com/channels/1/2/3', now(), 'web', true, 'a duplicate'
 		 FROM members`,
+		`INSERT INTO nostradamus_editions (slug, name, tournament_id) SELECT 'wc', 'Nostradamus', min(tournament_id) FROM tournaments`,
+		`INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens, token_points, closes_at)
+		 SELECT edition_id, 0, 'S1', 'Stage 1', 3, 10, now() FROM nostradamus_editions`,
+		`INSERT INTO nostradamus_questions (round_id, position, label, kind, points, outcome) SELECT round_id, 0, 'Q', 'pick', 4, '{Ann}' FROM nostradamus_rounds`,
+		`INSERT INTO nostradamus_participants (edition_id, name, member_id) SELECT edition_id, 'ann', (SELECT min(member_id) FROM members) FROM nostradamus_editions`,
+		`INSERT INTO nostradamus_answers (question_id, participant_id, answer, token)
+		 SELECT question_id, participant_id, '{Ann}', true FROM nostradamus_questions, nostradamus_participants`,
 	} {
 		if _, err := pool.Exec(ctx, q); err != nil {
 			t.Fatalf("filling %q: %v", q, err)
