@@ -15,6 +15,8 @@ type fakeCatalogue struct {
 	view                store.CatalogueView
 	tournament          store.CatalogueTournament
 	games               store.CatalogueGames
+	bracket             store.SeasonBracket
+	gotSeason           string
 	podiums             []store.RecentPodium
 	err                 error
 	gotSlug             string
@@ -32,6 +34,12 @@ func (f *fakeCatalogue) CatalogueGames(_ context.Context, run int64, slug string
 	f.calls++
 	f.gotRun, f.gotSlug, f.gotFilter = run, slug, filter
 	return f.games, f.err
+}
+
+func (f *fakeCatalogue) SeasonBracket(_ context.Context, run int64, slug, season string) (store.SeasonBracket, error) {
+	f.calls++
+	f.gotRun, f.gotSlug, f.gotSeason = run, slug, season
+	return f.bracket, f.err
 }
 
 func (f *fakeCatalogue) Catalogue(_ context.Context, run int64) (store.CatalogueView, error) {
@@ -55,7 +63,7 @@ func TestCatalogue(t *testing.T) {
 	finished, _ := time.Parse(time.DateOnly, "2025-11-19")
 	f := &fakeCatalogue{view: store.CatalogueView{
 		Tournaments: []store.CatalogueEntry{
-			{Slug: "intermezzo", Name: "Intermezzo", Seasons: 30, Rankings: []string{"community"}, Span: span(25342, 1900, "2019-03-10", "2026-05-31")},
+			{Slug: "intermezzo", Name: "Intermezzo", Seasons: 30, Rankings: []string{"community"}, Bracket: true, Span: span(25342, 1900, "2019-03-10", "2026-05-31")},
 		},
 		CGE: []store.CGEEntry{
 			{ID: 5373, Name: "Nations Cup", Status: "finished", Finished: &finished, Tournament: "nations_cup"},
@@ -70,7 +78,7 @@ func TestCatalogue(t *testing.T) {
 	wantJSON(t, body, "cge_tournaments", `[{"cge_tournament":5373,"finished":"2025-11-19","name":"Nations Cup","organiser":"","rated":false,
 		"started":null,"status":"finished","tournament":"nations_cup","url":"https://account.czechgames.com/tournaments/detail/5373"}]`)
 	wantJSON(t, body, "tournaments", `[{"slug":"intermezzo","name":"Intermezzo","first_game":"2019-03-10","last_game":"2026-05-31",
-		"games":25342,"players":1900,"seasons":30,"rankings":["community"]}]`)
+		"games":25342,"players":1900,"seasons":30,"rankings":["community"],"bracket":true}]`)
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 {
 		t.Errorf("GET catalogue: Cache-Control %q, asked run %d", rec.Header().Get("Cache-Control"), f.gotRun)
 	}
@@ -92,7 +100,7 @@ func TestCatalogueTournament(t *testing.T) {
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
 		Note:   "The first held in two halves.", Organiser: "Ember_Wolf",
 	}}, Ladder: true, TopTierWins: []store.LadderWin{{Name: "wren", Wins: 10, Source: "Hall of Fame"}, {Name: "Grebe", Wins: 3.5, Source: "Hall of Fame"}},
-		Players: []string{"Grebe", "sora"}, Rules: []store.EditionRules{{CGETournament: 4991, Name: "Wimbledon 2024", Description: "2p knock-out."}}}}
+		Players: []string{"Grebe", "sora"}, Rules: []store.EditionRules{{CGETournament: 4991, Name: "Wimbledon 2024", Description: "2p knock-out."}}, Bracket: true}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET a tournament = %d %s", rec.Code, rec.Body)
@@ -102,6 +110,7 @@ func TestCatalogueTournament(t *testing.T) {
 	wantJSON(t, body, "slug", `"wimbledon"`)
 	wantJSON(t, body, "name", `"Wimbledon"`)
 	wantJSON(t, body, "ladder", `true`)
+	wantJSON(t, body, "bracket", `true`)
 	wantJSON(t, body, "players", `["Grebe","sora"]`)
 	wantJSON(t, body, "rules", `[{"cge_tournament":4991,"description":"2p knock-out.","name":"Wimbledon 2024",
 		"url":"https://account.czechgames.com/tournaments/detail/4991"}]`)
@@ -198,19 +207,46 @@ func TestCatalogueGamesDefaultsAndEmpty(t *testing.T) {
 	}
 }
 
+func TestSeasonBracket(t *testing.T) {
+	six := 6.0
+	f := &fakeCatalogue{bracket: store.SeasonBracket{Season: "2024", Rounds: []store.BracketRound{
+		{Stage: "Stage 1", Groups: []store.BracketGroup{{Name: "group 1", Number: 1, State: "played", Seats: []store.BracketSeat{
+			{Entrant: 1, Name: "ann", Place: 1, Points: &six, Outcome: "finished", Next: 1},
+			{Entrant: 2, Name: "bob", Place: 4},
+		}}}},
+		{Stage: "Stage 2", Groups: []store.BracketGroup{{Name: "Final", Number: 1, State: "running", Seats: []store.BracketSeat{}}}},
+	}}}
+	rec, _ := serve(t, f, "/v1/runs/7/catalogue/wimbledon/bracket?season=2024")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET bracket = %d %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.Bytes()
+	wantJSON(t, body, "", `{"run_id": 7, "slug": "wimbledon", "season": "2024"}`)
+	wantJSON(t, body, "rounds.0.groups.0", `{"name": "group 1", "number": 1, "state": "played"}`)
+	wantJSON(t, body, "rounds.0.groups.0.seats.0", `{"entrant": 1, "name": "ann", "place": 1, "points": 6, "outcome": "finished", "next": 1}`)
+	wantJSON(t, body, "rounds.0.groups.0.seats.1", `{"entrant": 2, "name": "bob", "place": 4, "next": 0}`)
+	wantJSON(t, body, "rounds.1.groups.0.seats", `[]`)
+	if rec.Header().Get("Cache-Control") != "public, max-age=300" || f.gotRun != 7 || f.gotSlug != "wimbledon" || f.gotSeason != "2024" {
+		t.Errorf("GET bracket: Cache-Control %q; asked run %d, %q, %q", rec.Header().Get("Cache-Control"), f.gotRun, f.gotSlug, f.gotSeason)
+	}
+}
+
 func TestCatalogueRefusals(t *testing.T) {
 	for path, msg := range map[string]string{
-		"/v1/runs/0/catalogue":                                                   "bad parameter: run",
-		"/v1/runs/0/podiums":                                                     "bad parameter: run",
-		"/v1/runs/0/catalogue/wimbledon":                                         "bad parameter: run",
-		"/v1/runs/7/catalogue/Wimbledon":                                         "bad parameter: tournament",
-		"/v1/runs/7/catalogue/9cup":                                              "bad parameter: tournament",
-		"/v1/runs/0/catalogue/wimbledon/games":                                   "bad parameter: run",
-		"/v1/runs/7/catalogue/Wimbledon/games":                                   "bad parameter: tournament",
-		"/v1/runs/7/catalogue/wimbledon/games?page=0":                            "bad parameter: page",
-		"/v1/runs/7/catalogue/wimbledon/games?state=invalid":                     "bad parameter: state",
-		"/v1/runs/7/catalogue/wimbledon/games?season=" + strings.Repeat("x", 65): "bad parameter: season",
-		"/v1/runs/7/catalogue/wimbledon/games?player=" + strings.Repeat("x", 65): "bad parameter: player",
+		"/v1/runs/0/catalogue":                                                     "bad parameter: run",
+		"/v1/runs/0/podiums":                                                       "bad parameter: run",
+		"/v1/runs/0/catalogue/wimbledon":                                           "bad parameter: run",
+		"/v1/runs/7/catalogue/Wimbledon":                                           "bad parameter: tournament",
+		"/v1/runs/7/catalogue/9cup":                                                "bad parameter: tournament",
+		"/v1/runs/0/catalogue/wimbledon/games":                                     "bad parameter: run",
+		"/v1/runs/7/catalogue/Wimbledon/games":                                     "bad parameter: tournament",
+		"/v1/runs/7/catalogue/wimbledon/games?page=0":                              "bad parameter: page",
+		"/v1/runs/7/catalogue/wimbledon/games?state=invalid":                       "bad parameter: state",
+		"/v1/runs/7/catalogue/wimbledon/games?season=" + strings.Repeat("x", 65):   "bad parameter: season",
+		"/v1/runs/7/catalogue/wimbledon/games?player=" + strings.Repeat("x", 65):   "bad parameter: player",
+		"/v1/runs/0/catalogue/wimbledon/bracket?season=2024":                       "bad parameter: run",
+		"/v1/runs/7/catalogue/Wimbledon/bracket?season=2024":                       "bad parameter: tournament",
+		"/v1/runs/7/catalogue/wimbledon/bracket?season=" + strings.Repeat("x", 65): "bad parameter: season",
 	} {
 		f := &fakeCatalogue{}
 		rec, _ := serve(t, f, path)
@@ -219,11 +255,12 @@ func TestCatalogueRefusals(t *testing.T) {
 		}
 	}
 	for path, err := range map[string]error{
-		"/v1/runs/9/catalogue":                 store.ErrRunNotFound,
-		"/v1/runs/9/podiums":                   store.ErrRunNotFound,
-		"/v1/runs/9/catalogue/wimbledon":       store.ErrRunNotFound,
-		"/v1/runs/7/catalogue/snail_cup":       store.ErrTournamentNotFound,
-		"/v1/runs/7/catalogue/snail_cup/games": store.ErrTournamentNotFound,
+		"/v1/runs/9/catalogue":                               store.ErrRunNotFound,
+		"/v1/runs/9/podiums":                                 store.ErrRunNotFound,
+		"/v1/runs/9/catalogue/wimbledon":                     store.ErrRunNotFound,
+		"/v1/runs/7/catalogue/snail_cup":                     store.ErrTournamentNotFound,
+		"/v1/runs/7/catalogue/snail_cup/games":               store.ErrTournamentNotFound,
+		"/v1/runs/7/catalogue/snail_cup/bracket?season=2024": store.ErrTournamentNotFound,
 	} {
 		rec, _ := serve(t, &fakeCatalogue{err: err}, path)
 		if rec.Code != http.StatusNotFound || rec.Header().Get("Cache-Control") != "no-store" {

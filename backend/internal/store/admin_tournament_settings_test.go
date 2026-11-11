@@ -26,13 +26,13 @@ func TestSetTournamentChangesOnlyWhatItIsGiven(t *testing.T) {
 	if err := a.SetTournament(ctx, "nations_league", TournamentSettings{Visible: &yes, Community: &yes}); err != nil {
 		t.Fatalf("SetTournament: %v", err)
 	}
-	if err := a.SetTournament(ctx, "nations_league", TournamentSettings{Rated: &no}); err != nil {
-		t.Fatalf("SetTournament(unrate): %v", err)
+	if err := a.SetTournament(ctx, "nations_league", TournamentSettings{Rated: &no, Bracket: &yes}); err != nil {
+		t.Fatalf("SetTournament(unrate, bracket): %v", err)
 	}
 
 	nl := adminTournament(t, a, "nations_league")
-	if !nl.Visible || !nl.Community || nl.Rated {
-		t.Errorf("nations_league = %+v, want visible, in the community leaderboard, not rated", nl)
+	if !nl.Visible || !nl.Community || nl.Rated || !nl.Bracket {
+		t.Errorf("nations_league = %+v, want visible, in the community leaderboard, not rated, shown as a bracket", nl)
 	}
 	if err := a.SetTournament(ctx, "no_such", TournamentSettings{Visible: &yes}); !errors.Is(err, ErrNoTournament) {
 		t.Errorf("SetTournament(no_such) = %v, want ErrNoTournament", err)

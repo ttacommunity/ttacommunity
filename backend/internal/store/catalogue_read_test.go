@@ -29,6 +29,9 @@ func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 	})
 
 	withSpans(t, pool, run)
+	if _, err := pool.Exec(context.Background(), "UPDATE series SET bracket = true WHERE slug = 'wimbledon'"); err != nil {
+		t.Fatal(err)
+	}
 	view, err := NewRatingsReader(asReader(t, pool)).Catalogue(context.Background(), run)
 	if err != nil {
 		t.Fatalf("Catalogue: %v", err)
@@ -36,7 +39,7 @@ func TestCatalogueListsEachTournamentWithGames(t *testing.T) {
 	// Each game here has ann and one other player of its own; the friendly game is placed nowhere.
 	want := []CatalogueEntry{
 		{Slug: "intermezzo", Name: "Intermezzo", Seasons: 2, Rankings: []string{"community"}, Span: GameSpan{Games: 3, Players: 4, First: day("2024-01-02"), Last: day("2024-05-01")}},
-		{Slug: "wimbledon", Name: "Wimbledon", Seasons: 1, Rankings: []string{"community"}, Span: GameSpan{Games: 1, Players: 2, First: day("2024-07-01"), Last: day("2024-07-01")}},
+		{Slug: "wimbledon", Name: "Wimbledon", Seasons: 1, Rankings: []string{"community"}, Bracket: true, Span: GameSpan{Games: 1, Players: 2, First: day("2024-07-01"), Last: day("2024-07-01")}},
 	}
 	if diff := cmp.Diff(want, view.Tournaments, cmpopts.IgnoreFields(CatalogueEntry{}, "Card")); diff != "" {
 		t.Errorf("Catalogue tournaments (-want +got):\n%s", diff)

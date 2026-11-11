@@ -1570,6 +1570,9 @@ type AdminTournament struct {
 	// Blitz Run from admin as a blitz tournament
 	Blitz bool `json:"blitz"`
 
+	// Bracket Each season shown on the site as a bracket, its stages as rounds of groups up to the final
+	Bracket bool `json:"bracket"`
+
 	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
 	Card TournamentCard `json:"card"`
 
@@ -1655,7 +1658,8 @@ type AdminTournament struct {
 
 // AdminTournamentRow defines model for AdminTournamentRow.
 type AdminTournamentRow struct {
-	Blitz bool `json:"blitz"`
+	Blitz   bool `json:"blitz"`
+	Bracket bool `json:"bracket"`
 
 	// CgeAbout The first 200 characters of CGE's latest description of it, on one line
 	CgeAbout  string `json:"cge_about"`
@@ -2114,6 +2118,48 @@ type BlitzThreadTextSet struct {
 	NoDiscord string `json:"no_discord"`
 }
 
+// BracketGroup defines model for BracketGroup.
+type BracketGroup struct {
+	Name string `json:"name"`
+
+	// Number The number its name ends in, else its place in the round
+	Number int `json:"number"`
+
+	// Seats Best first once played (most points, then best place), else as seated
+	Seats []BracketSeat `json:"seats"`
+
+	// State A game's state
+	State GameState `json:"state"`
+}
+
+// BracketRound defines model for BracketRound.
+type BracketRound struct {
+	// Groups By number
+	Groups []BracketGroup `json:"groups"`
+
+	// Stage The stage's label, as the catalogue gives it
+	Stage string `json:"stage"`
+}
+
+// BracketSeat defines model for BracketSeat.
+type BracketSeat struct {
+	// Entrant Numbers the season's players from 1, the same in every round, in their first round's order
+	Entrant int    `json:"entrant"`
+	Name    string `json:"name"`
+
+	// Next The number of the group the player is in the round after; 0 for none
+	Next int `json:"next"`
+
+	// Outcome How a player's game ended
+	Outcome *SeatOutcome `json:"outcome,omitempty"`
+
+	// Place Best place in the group's games; 0 until it is played
+	Place int `json:"place"`
+
+	// Points Points from the group's games; absent until played, or without points per place
+	Points *float64 `json:"points,omitempty"`
+}
+
 // CGETournament A tournament on CGE's site, as its page shows it
 type CGETournament struct {
 	CgeTournament int                 `json:"cge_tournament"`
@@ -2252,6 +2298,9 @@ type Catalogue struct {
 
 // CatalogueEntry A tournament as the catalogue names it, with its seasons and games
 type CatalogueEntry struct {
+	// Bracket Its seasons are shown as a bracket (getSeasonBracket)
+	Bracket bool `json:"bracket"`
+
 	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
 	Card      TournamentCard     `json:"card"`
 	FirstGame openapi_types.Date `json:"first_game"`
@@ -2349,6 +2398,9 @@ type CatalogueStage struct {
 
 // CatalogueTournament defines model for CatalogueTournament.
 type CatalogueTournament struct {
+	// Bracket Its seasons are shown as a bracket (getSeasonBracket)
+	Bracket bool `json:"bracket"`
+
 	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
 	Card TournamentCard `json:"card"`
 
@@ -4062,6 +4114,15 @@ type RunProtection struct {
 	Protected bool `json:"protected"`
 }
 
+// SeasonBracket defines model for SeasonBracket.
+type SeasonBracket struct {
+	// Rounds The season's stages, first to last
+	Rounds []BracketRound `json:"rounds"`
+	RunId  int64          `json:"run_id"`
+	Season string         `json:"season"`
+	Slug   string         `json:"slug"`
+}
+
 // SeasonChange defines model for SeasonChange.
 type SeasonChange struct {
 	// ClearPodium Removes its podium set by hand
@@ -4403,6 +4464,9 @@ type TournamentSeries struct {
 type TournamentSettings struct {
 	// Blitz Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings
 	Blitz *bool `json:"blitz,omitempty"`
+
+	// Bracket Each season shown on the site as a bracket, its stages as rounds of groups up to the final
+	Bracket *bool `json:"bracket,omitempty"`
 
 	// Card How a tournament presents itself on its card and its page's header; an empty field is unset
 	Card        *TournamentCard `json:"card,omitempty"`
@@ -4806,6 +4870,11 @@ type GetSeatAnalysisParams struct {
 
 	// Format Player count format (0 for all formats, or 2, 3, 4)
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetSeasonBracketParams defines parameters for GetSeasonBracket.
+type GetSeasonBracketParams struct {
+	Season string `form:"season" json:"season"`
 }
 
 // GetCatalogueGamesParams defines parameters for GetCatalogueGames.
@@ -5436,6 +5505,9 @@ type ServerInterface interface {
 	// GetCatalogueTournament One tournament's seasons, stages and podiums
 	// (GET /v1/runs/{run}/catalogue/{tournament})
 	GetCatalogueTournament(w http.ResponseWriter, r *http.Request, run RunId, tournament string)
+	// GetSeasonBracket A season of a tournament shown as a bracket
+	// (GET /v1/runs/{run}/catalogue/{tournament}/bracket)
+	GetSeasonBracket(w http.ResponseWriter, r *http.Request, run RunId, tournament string, params GetSeasonBracketParams)
 	// GetCatalogueGames One page of a tournament's games
 	// (GET /v1/runs/{run}/catalogue/{tournament}/games)
 	GetCatalogueGames(w http.ResponseWriter, r *http.Request, run RunId, tournament string, params GetCatalogueGamesParams)
@@ -9304,6 +9376,57 @@ func (siw *ServerInterfaceWrapper) GetCatalogueTournament(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetSeasonBracket operation middleware
+func (siw *ServerInterfaceWrapper) GetSeasonBracket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSeasonBracketParams
+
+	// ------------- Required query parameter "season" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "season", r.URL.Query(), &params.Season, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "season"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSeasonBracket(w, r, run, tournament, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCatalogueGames operation middleware
 func (siw *ServerInterfaceWrapper) GetCatalogueGames(w http.ResponseWriter, r *http.Request) {
 
@@ -10591,6 +10714,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}", wrapper.GetCatalogueTournament)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/games", wrapper.GetCatalogueGames)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue/{tournament}/bracket", wrapper.GetSeasonBracket)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/podiums", wrapper.GetRecentPodiums)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/community/editions", wrapper.GetCommunityEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/community/{edition}", wrapper.GetCommunityLeaderboard)
@@ -19621,6 +19745,68 @@ func (response GetCatalogueTournament404JSONResponse) VisitGetCatalogueTournamen
 	return err
 }
 
+type GetSeasonBracketRequestObject struct {
+	Run        RunId  `json:"run"`
+	Tournament string `json:"tournament"`
+	Params     GetSeasonBracketParams
+}
+
+type GetSeasonBracketResponseObject interface {
+	VisitGetSeasonBracketResponse(w http.ResponseWriter) error
+}
+
+type GetSeasonBracket200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetSeasonBracket200JSONResponse struct {
+	Body    SeasonBracket
+	Headers GetSeasonBracket200ResponseHeaders
+}
+
+func (response GetSeasonBracket200JSONResponse) VisitGetSeasonBracketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSeasonBracket400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetSeasonBracket400JSONResponse) VisitGetSeasonBracketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSeasonBracket404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetSeasonBracket404JSONResponse) VisitGetSeasonBracketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCatalogueGamesRequestObject struct {
 	Run        RunId  `json:"run"`
 	Tournament string `json:"tournament"`
@@ -21255,6 +21441,9 @@ type StrictServerInterface interface {
 	// GetCatalogueTournament One tournament's seasons, stages and podiums
 	// (GET /v1/runs/{run}/catalogue/{tournament})
 	GetCatalogueTournament(ctx context.Context, request GetCatalogueTournamentRequestObject) (GetCatalogueTournamentResponseObject, error)
+	// GetSeasonBracket A season of a tournament shown as a bracket
+	// (GET /v1/runs/{run}/catalogue/{tournament}/bracket)
+	GetSeasonBracket(ctx context.Context, request GetSeasonBracketRequestObject) (GetSeasonBracketResponseObject, error)
 	// GetCatalogueGames One page of a tournament's games
 	// (GET /v1/runs/{run}/catalogue/{tournament}/games)
 	GetCatalogueGames(ctx context.Context, request GetCatalogueGamesRequestObject) (GetCatalogueGamesResponseObject, error)
@@ -24972,6 +25161,34 @@ func (sh *strictHandler) GetCatalogueTournament(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCatalogueTournamentResponseObject); ok {
 		if err := validResponse.VisitGetCatalogueTournamentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSeasonBracket operation middleware
+func (sh *strictHandler) GetSeasonBracket(w http.ResponseWriter, r *http.Request, run RunId, tournament string, params GetSeasonBracketParams) {
+	var request GetSeasonBracketRequestObject
+
+	request.Run = run
+	request.Tournament = tournament
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSeasonBracket(ctx, request.(GetSeasonBracketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSeasonBracket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSeasonBracketResponseObject); ok {
+		if err := validResponse.VisitGetSeasonBracketResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

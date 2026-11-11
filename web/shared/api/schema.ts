@@ -676,6 +676,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/catalogue/{tournament}/bracket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A season of a tournament shown as a bracket
+         * @description The season's stages as rounds, first to last, each with its groups by
+         *     number and each group's players: best first once its games are
+         *     played, with their place and points, and the group they play in the
+         *     round after. A tournament not shown as a bracket, hidden, or without
+         *     that season's games is not found. A player whose CGE account is
+         *     deleted or banned is named "Deleted player". Cached for five minutes.
+         */
+        get: operations["getSeasonBracket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/podiums": {
         parameters: {
             query?: never;
@@ -3339,6 +3364,8 @@ export interface components {
             community: boolean;
             /** @description Run from admin as a blitz tournament */
             blitz: boolean;
+            /** @description Each season shown on the site as a bracket, its stages as rounds of groups up to the final */
+            bracket: boolean;
             seasons: components["schemas"]["AdminSeason"][];
         };
         AdminSeason: {
@@ -3415,6 +3442,7 @@ export interface components {
             rated: boolean;
             community: boolean;
             blitz: boolean;
+            bracket: boolean;
             games: number;
             /** Format: date */
             first_game: string | null;
@@ -3492,6 +3520,8 @@ export interface components {
             community?: boolean;
             /** @description Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings */
             blitz?: boolean;
+            /** @description Each season shown on the site as a bracket, its stages as rounds of groups up to the final */
+            bracket?: boolean;
             points_2p?: components["schemas"]["PlacePoints"];
             points_3p?: components["schemas"]["PlacePoints"];
             points_4p?: components["schemas"]["PlacePoints"];
@@ -5343,6 +5373,8 @@ export interface components {
         CatalogueEntry: components["schemas"]["GameSpan"] & {
             slug: string;
             name: string;
+            /** @description Its seasons are shown as a bracket (getSeasonBracket) */
+            bracket: boolean;
             card: components["schemas"]["TournamentCard"];
             seasons: number;
             /** @description The rankings it is rated in, by slug; none for a tournament not rated */
@@ -5444,6 +5476,8 @@ export interface components {
             card: components["schemas"]["TournamentCard"];
             /** @description A ladder's champions are counted as top-tier wins, not season podiums */
             ladder: boolean;
+            /** @description Its seasons are shown as a bracket (getSeasonBracket) */
+            bracket: boolean;
             /** @description Each CGE edition's description, usually its organiser's format and rules, newest first; plain text */
             rules: components["schemas"]["EditionRules"][];
             /** @description The format and regulations written in admin, shown instead of the rules; plain text, absent for none */
@@ -5484,6 +5518,43 @@ export interface components {
             /** @description The chosen season's groups (in its chosen stage), in order; empty when no season is chosen */
             groups: string[];
             games: components["schemas"]["CatalogueGame"][];
+        };
+        SeasonBracket: {
+            /** Format: int64 */
+            run_id: number;
+            slug: string;
+            season: string;
+            /** @description The season's stages, first to last */
+            rounds: components["schemas"]["BracketRound"][];
+        };
+        BracketRound: {
+            /** @description The stage's label, as the catalogue gives it */
+            stage: string;
+            /** @description By number */
+            groups: components["schemas"]["BracketGroup"][];
+        };
+        BracketGroup: {
+            name: string;
+            /** @description The number its name ends in, else its place in the round */
+            number: number;
+            state: components["schemas"]["GameState"];
+            /** @description Best first once played (most points, then best place), else as seated */
+            seats: components["schemas"]["BracketSeat"][];
+        };
+        BracketSeat: {
+            /** @description Numbers the season's players from 1, the same in every round, in their first round's order */
+            entrant: number;
+            name: string;
+            /** @description Best place in the group's games; 0 until it is played */
+            place: number;
+            /**
+             * Format: double
+             * @description Points from the group's games; absent until played, or without points per place
+             */
+            points?: number;
+            outcome?: components["schemas"]["SeatOutcome"];
+            /** @description The number of the group the player is in the round after; 0 for none */
+            next: number;
         };
         CatalogueGame: {
             /** @description Counts towards ratings - played, and its tournament, season and player count rated */
@@ -7032,6 +7103,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueGames"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getSeasonBracket: {
+        parameters: {
+            query: {
+                season: string;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+                tournament: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bracket */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonBracket"];
                 };
             };
             400: components["responses"]["BadRequest"];

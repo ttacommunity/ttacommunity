@@ -18,7 +18,9 @@ import (
 type TournamentSettings struct {
 	Visible, Rated, Community *bool
 	// Blitz marks a series run from admin as a blitz tournament: entrants, weekly pairings and results.
-	Blitz             *bool
+	Blitz *bool
+	// Bracket shows each season as a bracket: its stages as rounds of groups, up to the final.
+	Bracket           *bool
 	RatedPlayerCounts []int
 	// Kind is league, cup or ladder ("" unchanged); TopDivisions give a league's podium (nil unchanged).
 	Kind         string
@@ -212,6 +214,11 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 		}
 		if s.Blitz != nil {
 			if _, err := tx.Exec(ctx, "UPDATE series SET blitz = $2 WHERE series_id = $1", id, *s.Blitz); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.Bracket != nil {
+			if _, err := tx.Exec(ctx, "UPDATE series SET bracket = $2 WHERE series_id = $1", id, *s.Bracket); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}

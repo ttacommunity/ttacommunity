@@ -42,7 +42,7 @@ func (s *server) GetAdminTournaments(ctx context.Context, _ GetAdminTournamentsR
 	out := make([]AdminTournamentRow, len(rows))
 	for i, r := range rows {
 		out[i] = AdminTournamentRow{Slug: r.Slug, Name: r.Name, Kind: TournamentKind(r.Kind), Parent: r.Parent, IsGroup: r.IsGroup,
-			Description: r.Description, CgeAbout: r.CGEAbout, Visible: r.Visible, Rated: r.Rated, Community: r.Community,
+			Description: r.Description, CgeAbout: r.CGEAbout, Visible: r.Visible, Rated: r.Rated, Community: r.Community, Blitz: r.Blitz, Bracket: r.Bracket,
 			Games: r.Games, FirstGame: dateOf(r.FirstGame), LastGame: dateOf(r.LastGame)}
 	}
 	return GetAdminTournaments200JSONResponse{Body: out, Headers: GetAdminTournaments200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -77,7 +77,7 @@ func (s *server) GetAdminTournament(ctx context.Context, req GetAdminTournamentR
 	out := AdminTournament{Slug: t.Slug, Name: t.Name, OriginalName: t.OriginalName, Parent: t.Parent, Description: t.Description,
 		IsGroup: t.IsGroup, Games: t.Games, FirstGame: dateOf(t.FirstGame), LastGame: dateOf(t.LastGame), Kind: TournamentKind(t.Kind),
 		PodiumSource: ps,
-		TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community, Blitz: t.Blitz,
+		TopDivisions: append([]string{}, t.TopDivisions...), Visible: t.Visible, Rated: t.Rated, Community: t.Community, Blitz: t.Blitz, Bracket: t.Bracket,
 		Points2p: append(PlacePoints{}, t.Points[2]...), Points3p: append(PlacePoints{}, t.Points[3]...),
 		Points4p: append(PlacePoints{}, t.Points[4]...), SeasonName: t.SeasonName, StageName: t.StageName, Card: tournamentCard(t.Card),
 		Stories: storyList(t.Stories), RatedPlayerCounts: append([]int{}, t.RatedPlayerCounts...), Regulations: t.Regulations,
@@ -97,7 +97,7 @@ func leagueDivisions(list []store.Division) []LeagueDivision {
 
 // tournamentSettings returns the store's settings from a patch, and whether it asks for any of them.
 func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) {
-	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz,
+	settings := store.TournamentSettings{Visible: b.Visible, Rated: b.Rated, Community: b.Community, Blitz: b.Blitz, Bracket: b.Bracket,
 		SeasonName: b.SeasonName, StageName: b.StageName, Parent: b.Parent, Description: b.Description, Name: b.Name,
 		FormatSummary: b.FormatSummary, SuperGM: b.SuperGm, RecordMinGames: b.RecordMinGames}
 	if b.Divisions != nil {
@@ -127,7 +127,7 @@ func tournamentSettings(b *TournamentSettings) (store.TournamentSettings, bool) 
 			settings.Points[players] = append([]float64{}, *points...)
 		}
 	}
-	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
+	asked := b.Visible != nil || b.Rated != nil || b.Community != nil || b.Blitz != nil || b.Bracket != nil || b.RatedPlayerCounts != nil || b.Kind != nil ||
 		b.PodiumSource != nil || b.TopDivisions != nil || settings.Points != nil || b.SeasonName != nil || b.StageName != nil ||
 		b.Parent != nil || b.Description != nil || b.Name != nil || b.FormatSummary != nil || leagueRules(b)
 	return settings, asked

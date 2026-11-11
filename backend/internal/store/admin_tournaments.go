@@ -23,6 +23,7 @@ type AdminTournament struct {
 	Rated          bool
 	Community      bool
 	Blitz          bool
+	Bracket        bool
 	Regulations    string
 	CGERegulations string
 	// FormatSummary is its format in brief, which its group's page lists; "" for none.
@@ -136,7 +137,7 @@ func (a *AdminStore) Tournament(ctx context.Context, slug string) (AdminTourname
 // tournament reads the tournament slug's rows: none when there is no such tournament, else one.
 func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTournament, error) {
 	rows, err := a.pool.Query(ctx, `
-		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard, t.blitz,
+		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard, t.blitz, t.bracket,
 		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.series_id = t.series_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
@@ -168,7 +169,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	}
 	var out []AdminTournament
 	var rowSlug, name string
-	var visible, community, blitz, rated bool
+	var visible, community, blitz, bracket, rated bool
 	var regulations, cgeRegulations string
 	var card Card
 	var season, stage, seasonNote, stageNote *string
@@ -186,12 +187,12 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var divisionNames []string
 	var divisionTiers []int16
 	var recordMinGames int16
-	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &rated, &regulations,
+	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &bracket, &rated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
 		&seasonRated, &inChampions, &inCommunity, &runHere, &organiser, &cgeOrganiserName, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup,
 		&formatSummary, &divisionNames, &divisionTiers, &superGM, &recordMinGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
-			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz,
+			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz, Bracket: bracket,
 				Regulations: regulations, CGERegulations: cgeRegulations, FormatSummary: formatSummary, Card: card, RatedPlayerCounts: counts,
 				Kind: kind, PodiumSource: podiumSource, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4},
 				SeasonName: seasonName, StageName: stageName, OriginalName: original, Parent: parent, Description: description,

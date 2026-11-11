@@ -13,7 +13,7 @@ func TestAdminTournamentsListsEachInBrief(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/admin/tournaments = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "0", `{"slug": "worlds", "kind": "cup", "rated": true, "games": 3, "first_game": "2024-01-02", "cge_about": "CGE's."}`)
+	wantJSON(t, rec.Body.Bytes(), "0", `{"slug": "worlds", "kind": "cup", "rated": true, "blitz": true, "bracket": true, "games": 3, "first_game": "2024-01-02", "cge_about": "CGE's."}`)
 }
 
 func TestAdminTournamentGivesItsSettingsSeasonsAndStages(t *testing.T) {
@@ -23,7 +23,7 @@ func TestAdminTournamentGivesItsSettingsSeasonsAndStages(t *testing.T) {
 	}
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "", `{"slug": "worlds", "kind": "cup", "original_name": "World Championships", "top_divisions": []}`)
-	wantJSON(t, body, "", `{"visible": true, "rated": true, "community": true, "blitz": true}`)
+	wantJSON(t, body, "", `{"visible": true, "rated": true, "community": true, "blitz": true, "bracket": true}`)
 	wantJSON(t, body, "", `{"divisions": [{"name": "Final", "tier": 1}, {"name": "Semi-final", "tier": 2}], "super_gm": true, "record_min_games": 3}`)
 	wantJSON(t, body, "seasons.0", `{"label": "2025", "original_name": "2025 Edition", "games": 3, "finished": 2, "players": 5}`)
 	wantJSON(t, body, "seasons.0.stages.0", `{"label": "Stage 1", "original_name": "Groups", "note": "n", "number": 1, "games": 2, "finished": 1, "players": 5}`)
@@ -47,6 +47,10 @@ func TestAnOrganiserChangesATournamentAndItIsAudited(t *testing.T) {
 	rec = adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", "https://ttac-admin.example", `{"blitz": true}`)
 	if rec.Code != http.StatusNoContent || len(f.settings) != 2 || f.settings[1].Blitz == nil || !*f.settings[1].Blitz {
 		t.Errorf("PATCH blitz = %d %s, settings %+v; want 204 with blitz on", rec.Code, rec.Body, f.settings)
+	}
+	rec = adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds", "https://ttac-admin.example", `{"bracket": true}`)
+	if rec.Code != http.StatusNoContent || len(f.settings) != 3 || f.settings[2].Bracket == nil || !*f.settings[2].Bracket {
+		t.Errorf("PATCH bracket = %d %s, settings %+v; want 204 with bracket on", rec.Code, rec.Body, f.settings)
 	}
 	f.settings, f.audits = f.settings[:1], f.audits[:1]
 
