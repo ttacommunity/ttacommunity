@@ -1274,6 +1274,76 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/nostradamus:
+    get:
+      operationId: getNostradamusEditions
+      summary: Every edition of Nostradamus, the prediction game
+      description: |
+        Each edition and the tournament it is played over, the newest
+        tournament's first. Cached for a minute.
+      responses:
+        "200":
+          description: The editions
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusEditions"
+  /v1/nostradamus/{edition}:
+    get:
+      operationId: getNostradamusBoard
+      summary: A Nostradamus edition's standings
+      description: |
+        Each participant's points in every round scored so far (a round with
+        any outcome known), and their total, highest first. A participant who
+        gave no answers in a round scores the lowest of the bots that did. An
+        unknown edition is 404. Cached for a minute.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: The standings
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusBoard"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/nostradamus/{edition}/participants/{name}:
+    get:
+      operationId: getNostradamusParticipant
+      summary: One participant's answers in a Nostradamus edition
+      description: |
+        The participant's answers, tokens and points in each round that has
+        closed: answers are hidden until their round closes. The name is
+        matched ignoring case. An unknown edition or name is 404. Cached for
+        a minute.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        "200":
+          description: The participant
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusParticipant"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/blitz:
     get:
       operationId: getBlitzEditions
@@ -2421,6 +2491,122 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminChallengeNameMerged"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus:
+    get:
+      operationId: getAdminNostradamusEditions
+      tags: [admin]
+      summary: Every Nostradamus edition, for admin to choose one (admins and organisers)
+      description: |
+        Each edition and the tournament it is played over, the newest
+        tournament's first.
+      responses:
+        "200":
+          description: The editions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusEditions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/nostradamus/{edition}:
+    get:
+      operationId: getAdminNostradamus
+      tags: [admin]
+      summary: A Nostradamus edition's questions and participants (admins and organisers)
+      description: |
+        Every round with its questions and their outcomes, and every
+        participant with the member it is linked to. An unknown edition is
+        404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: The edition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNostradamus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/questions/{question}/outcome:
+    put:
+      operationId: putAdminNostradamusOutcome
+      tags: [admin]
+      summary: Set what happened for a Nostradamus question (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Sets the question's
+        outcome, which scores every answer to it; an empty outcome clears it.
+        A pick's outcome names everyone who tied; a set's, every name; a
+        number's, one whole number. One not of the question's kind is 400; a
+        question not in the edition is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - name: question
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusOutcome"
+      responses:
+        "204":
+          description: Set
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/participants/{participant}/member:
+    put:
+      operationId: putAdminNostradamusMember
+      tags: [admin]
+      summary: Link a Nostradamus participant to a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Links the participant to
+        the member whose TTA username is member, ignoring case, or unlinks it
+        for an empty one. No such member, or a participant not in the
+        edition, is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - name: participant
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusLink"
+      responses:
+        "204":
+          description: Linked
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4338,6 +4524,13 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    NostradamusEditionSlug:
+      name: edition
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]{1,40}$"
     ChallengeVerified:
       name: verified
       in: query
@@ -9979,3 +10172,225 @@ components:
           description: Shown to the player; may be empty
           type: string
           maxLength: 500
+    NostradamusEditions:
+      type: object
+      required: [editions]
+      properties:
+        editions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusEdition"
+    NostradamusEdition:
+      type: object
+      required: [slug, name, series, tournament]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        series:
+          description: The slug of the series whose tournament it is played over
+          type: string
+        tournament:
+          description: The tournament's label in its series
+          type: string
+    NostradamusBoard:
+      type: object
+      required: [slug, name, rounds, standings]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        rounds:
+          description: The labels of the rounds scored so far, in order
+          type: array
+          items:
+            type: string
+        standings:
+          description: Highest total first
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusStanding"
+    NostradamusStanding:
+      type: object
+      required: [name, member, bot, total, rounds]
+      properties:
+        name:
+          description: The name the participant answered under
+          type: string
+        member:
+          description: The TTA username of the member it is linked to
+          type: string
+          nullable: true
+        bot:
+          description: A participant that answers by a fixed rule
+          type: boolean
+        total:
+          type: integer
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusRoundScore"
+    NostradamusRoundScore:
+      type: object
+      required: [round, points, missed]
+      properties:
+        round:
+          type: string
+        points:
+          type: integer
+        missed:
+          description: The participant gave no answers in the round
+          type: boolean
+    NostradamusQuestion:
+      type: object
+      required: [label, prompt, kind, points, near_points, outcome]
+      properties:
+        label:
+          type: string
+        prompt:
+          type: string
+        kind:
+          description: One name or option; a set of names, all to be right; a whole number, one off scoring near_points
+          type: string
+          enum: [pick, set, number]
+        points:
+          type: integer
+        near_points:
+          type: integer
+        outcome:
+          description: What happened, unknown yet when null; a pick's names everyone who tied
+          type: array
+          nullable: true
+          items:
+            type: string
+    NostradamusParticipant:
+      type: object
+      required: [name, member, bot, rounds]
+      properties:
+        name:
+          type: string
+        member:
+          type: string
+          nullable: true
+        bot:
+          type: boolean
+        rounds:
+          description: The rounds that have closed, in order
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusParticipantRound"
+    NostradamusParticipantRound:
+      type: object
+      required: [round, name, closes_at, points, missed, answers]
+      properties:
+        round:
+          type: string
+        name:
+          type: string
+        closes_at:
+          type: string
+          format: date-time
+        points:
+          description: The participant's points, null until the round is scored
+          type: integer
+          nullable: true
+        missed:
+          type: boolean
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusAnswer"
+    NostradamusAnswer:
+      type: object
+      required: [question, answer, token, points]
+      properties:
+        question:
+          $ref: "#/components/schemas/NostradamusQuestion"
+        answer:
+          type: array
+          items:
+            type: string
+        token:
+          description: A token is on it, winning or losing the round's token points
+          type: boolean
+        points:
+          description: Null until the question's outcome is known
+          type: integer
+          nullable: true
+    AdminNostradamus:
+      type: object
+      required: [slug, name, rounds, participants]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNostradamusRound"
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNostradamusParticipant"
+    AdminNostradamusRound:
+      type: object
+      required: [round, name, closes_at, questions]
+      properties:
+        round:
+          type: string
+        name:
+          type: string
+        closes_at:
+          type: string
+          format: date-time
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNostradamusQuestion"
+    AdminNostradamusQuestion:
+      type: object
+      required: [id, question]
+      properties:
+        id:
+          type: integer
+          format: int64
+        question:
+          $ref: "#/components/schemas/NostradamusQuestion"
+    AdminNostradamusParticipant:
+      type: object
+      required: [id, name, member, bot]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        member:
+          type: string
+          nullable: true
+        bot:
+          type: boolean
+    AdminNostradamusOutcome:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          description: Empty to clear it
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 100
+    AdminNostradamusLink:
+      type: object
+      additionalProperties: false
+      required: [member]
+      properties:
+        member:
+          description: A TTA username, or empty to unlink
+          type: string
+          maxLength: 100

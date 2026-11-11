@@ -942,6 +942,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/nostradamus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every edition of Nostradamus, the prediction game
+         * @description Each edition and the tournament it is played over, the newest
+         *     tournament's first. Cached for a minute.
+         */
+        get: operations["getNostradamusEditions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/nostradamus/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A Nostradamus edition's standings
+         * @description Each participant's points in every round scored so far (a round with
+         *     any outcome known), and their total, highest first. A participant who
+         *     gave no answers in a round scores the lowest of the bots that did. An
+         *     unknown edition is 404. Cached for a minute.
+         */
+        get: operations["getNostradamusBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/nostradamus/{edition}/participants/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One participant's answers in a Nostradamus edition
+         * @description The participant's answers, tokens and points in each round that has
+         *     closed: answers are hidden until their round closes. The name is
+         *     matched ignoring case. An unknown edition or name is 404. Cached for
+         *     a minute.
+         */
+        get: operations["getNostradamusParticipant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/blitz": {
         parameters: {
             query?: never;
@@ -1755,6 +1822,75 @@ export interface paths {
          *     for Members to remove.
          */
         post: operations["postAdminChallengeName"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A Nostradamus edition's questions and participants (admins and organisers)
+         * @description Every round with its questions and their outcomes, and every
+         *     participant with the member it is linked to. An unknown edition is
+         *     404.
+         */
+        get: operations["getAdminNostradamus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/questions/{question}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what happened for a Nostradamus question (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Sets the question's
+         *     outcome, which scores every answer to it; an empty outcome clears it.
+         *     A pick's outcome names everyone who tied; a set's, every name; a
+         *     number's, one whole number. One not of the question's kind is 400; a
+         *     question not in the edition is 404.
+         */
+        put: operations["putAdminNostradamusOutcome"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/participants/{participant}/member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a Nostradamus participant to a member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Links the participant to
+         *     the member whose TTA username is member, ignoring case, or unlinks it
+         *     for an empty one. No such member, or a participant not in the
+         *     edition, is 404.
+         */
+        put: operations["putAdminNostradamusMember"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6078,6 +6214,112 @@ export interface components {
             /** @description Shown to the player; may be empty */
             reason: string;
         };
+        NostradamusEditions: {
+            editions: components["schemas"]["NostradamusEdition"][];
+        };
+        NostradamusEdition: {
+            slug: string;
+            name: string;
+            /** @description The slug of the series whose tournament it is played over */
+            series: string;
+            /** @description The tournament's label in its series */
+            tournament: string;
+        };
+        NostradamusBoard: {
+            slug: string;
+            name: string;
+            /** @description The labels of the rounds scored so far, in order */
+            rounds: string[];
+            /** @description Highest total first */
+            standings: components["schemas"]["NostradamusStanding"][];
+        };
+        NostradamusStanding: {
+            /** @description The name the participant answered under */
+            name: string;
+            /** @description The TTA username of the member it is linked to */
+            member: string | null;
+            /** @description A participant that answers by a fixed rule */
+            bot: boolean;
+            total: number;
+            rounds: components["schemas"]["NostradamusRoundScore"][];
+        };
+        NostradamusRoundScore: {
+            round: string;
+            points: number;
+            /** @description The participant gave no answers in the round */
+            missed: boolean;
+        };
+        NostradamusQuestion: {
+            label: string;
+            prompt: string;
+            /**
+             * @description One name or option; a set of names, all to be right; a whole number, one off scoring near_points
+             * @enum {string}
+             */
+            kind: "pick" | "set" | "number";
+            points: number;
+            near_points: number;
+            /** @description What happened, unknown yet when null; a pick's names everyone who tied */
+            outcome: string[] | null;
+        };
+        NostradamusParticipant: {
+            name: string;
+            member: string | null;
+            bot: boolean;
+            /** @description The rounds that have closed, in order */
+            rounds: components["schemas"]["NostradamusParticipantRound"][];
+        };
+        NostradamusParticipantRound: {
+            round: string;
+            name: string;
+            /** Format: date-time */
+            closes_at: string;
+            /** @description The participant's points, null until the round is scored */
+            points: number | null;
+            missed: boolean;
+            answers: components["schemas"]["NostradamusAnswer"][];
+        };
+        NostradamusAnswer: {
+            question: components["schemas"]["NostradamusQuestion"];
+            answer: string[];
+            /** @description A token is on it, winning or losing the round's token points */
+            token: boolean;
+            /** @description Null until the question's outcome is known */
+            points: number | null;
+        };
+        AdminNostradamus: {
+            slug: string;
+            name: string;
+            rounds: components["schemas"]["AdminNostradamusRound"][];
+            participants: components["schemas"]["AdminNostradamusParticipant"][];
+        };
+        AdminNostradamusRound: {
+            round: string;
+            name: string;
+            /** Format: date-time */
+            closes_at: string;
+            questions: components["schemas"]["AdminNostradamusQuestion"][];
+        };
+        AdminNostradamusQuestion: {
+            /** Format: int64 */
+            id: number;
+            question: components["schemas"]["NostradamusQuestion"];
+        };
+        AdminNostradamusParticipant: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            member: string | null;
+            bot: boolean;
+        };
+        AdminNostradamusOutcome: {
+            /** @description Empty to clear it */
+            outcome: string[];
+        };
+        AdminNostradamusLink: {
+            /** @description A TTA username, or empty to unlink */
+            member: string;
+        };
     };
     responses: {
         /** @description Not signed in, or the session has ended */
@@ -6206,6 +6448,7 @@ export interface components {
         };
     };
     parameters: {
+        NostradamusEditionSlug: string;
         /** @description Count only entries that link a Discord proof (the official records), or every entry */
         ChallengeVerified: boolean;
         /** @description The edition's label, as admin lists it (a season) */
@@ -7399,6 +7642,76 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getNostradamusEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The editions */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusEditions"];
+                };
+            };
+        };
+    };
+    getNostradamusBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The standings */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusBoard"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getNostradamusParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The participant */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusParticipant"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     getBlitzEditions: {
         parameters: {
             query?: never;
@@ -8425,6 +8738,89 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminChallengeNameMerged"];
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminNostradamus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The edition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNostradamus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                question: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusOutcome"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                participant: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusLink"];
+            };
+        };
+        responses: {
+            /** @description Linked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
@@ -10470,3 +10866,4 @@ export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["sche
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
+export const nostradamusQuestionKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NostradamusQuestion"]["kind"]> = ["pick", "set", "number"];
