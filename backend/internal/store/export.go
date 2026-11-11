@@ -50,7 +50,8 @@ var ExportTables = slices.Concat([]string{
 	"tournament_season_corrections", "tournament_season_notes",
 	"tournament_podium_overrides", "tournament_regulations", "player_title_overrides",
 	"badges", "player_badges", "tournament_cards", "tournament_stories",
-	"nostradamus_editions", "nostradamus_rounds", "nostradamus_questions", "nostradamus_participants", "nostradamus_answers",
+	"nostradamus_editions", "nostradamus_rounds", "nostradamus_questions", "nostradamus_choices", "nostradamus_participants",
+	"nostradamus_answers",
 }, challengeTables)
 
 // challengeTables are the challenges, their entries and the weekly challenge's weeks. They come last in a backup,
