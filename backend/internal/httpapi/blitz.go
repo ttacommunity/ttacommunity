@@ -12,7 +12,7 @@ import (
 )
 
 func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
-	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round, Champion: r.Champion,
+	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round, Champion: r.Champion, Knockout: r.Knockout, Bracket: r.Bracket,
 		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
 }
 
@@ -182,7 +182,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 	body := BlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format,
 		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing),
 		RanksFixedBy: ranksFixedByOf[RanksFixedBy](ed.RanksFixedBy),
-		Entrants:     []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion}
+		Entrants:     []BlitzEntrant{}, Rounds: make([]BlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed), Champion: row.Champion, Bracket: row.Bracket}
 	for _, e := range ed.Entrants {
 		if e.Status != "active" {
 			continue

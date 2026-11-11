@@ -42,6 +42,14 @@ export function seasonBox(tournamentOn: boolean, seasonOn: boolean): { checked: 
   return tournamentOn ? { checked: seasonOn, locked: false } : { checked: false, locked: true };
 }
 
+/** settingBox is a setting's box as it takes effect: Shown as a bracket is unticked and locked, with a note, while the
+ * tournament is neither shown nor rated, as the site shows it only then; every other setting is as saved. */
+export function settingBox(key: Setting, t: Record<Setting, boolean>): { checked: boolean; locked: boolean; note: string } {
+  if (key !== 'bracket') return { checked: t[key], locked: false, note: '' };
+  const box = seasonBox(t.visible || t.rated, t.bracket);
+  return { ...box, note: box.locked ? "(the tournament isn't shown or rated: tick Shown or Rated first)" : '' };
+}
+
 /** divisionList reads a league's top divisions from a comma-separated box, dropping blanks. */
 export function divisionList(text: string): string[] {
   return text

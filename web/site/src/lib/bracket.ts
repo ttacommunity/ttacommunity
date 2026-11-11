@@ -1,10 +1,14 @@
 /** A season shown as a bracket: its rounds named, the rounds still to come, the tree, and a player's road. */
-import { isSlug, type BracketGroup, type BracketSeat, type SeasonBracket } from '@ttac/shared/ratings';
+import { isSlug, type BlitzEditionRow, type BracketGroup, type BracketSeat, type SeasonBracket } from '@ttac/shared/ratings';
+import { editionHref } from '@ttac/shared/blitz';
 
-/** ViewRound is one round as the bracket shows it: named, and whether it is finished, being played or still to come. */
-export type ViewRound = { name: string; short: string; state: 'finished' | 'in_play' | 'to_come'; groups: BracketGroup[] };
+/**
+ * ViewRound is one round as the bracket shows it: named, whether it is finished, being played or still to come, and
+ * what its groups are called (a blitz knockout's qualifiers by Seed, its matches Match, else Group).
+ */
+export type ViewRound = { name: string; short: string; state: 'finished' | 'in_play' | 'to_come'; unit: 'Seed' | 'Match' | 'Group'; groups: BracketGroup[] };
 
-/** TREE_MOST is the most groups a round of the tree may have, so it fits a wide screen. */
+/** TREE_MOST is the most groups the first round of the tree a bracket opens on may have, so it fits a wide screen. */
 const TREE_MOST = 8;
 
 const LATE = [
@@ -15,8 +19,9 @@ const LATE = [
 
 /**
  * bracketRounds names a bracket's rounds and adds those still to come: where the last round has an even number of groups,
- * empty rounds of half as many, down to one. A bracket that ends in one group names its last three rounds by their
- * size (Quarter-finals, Semi-finals, Final); every other round is numbered.
+ * empty rounds of half as many, down to one. A blitz knockout's first round is its Qualifiers. A bracket that ends in
+ * one group names its last three rounds by their size (Quarter-finals, Semi-finals, Final); every other round is
+ * numbered, the qualifiers aside.
  */
 export function bracketRounds(bracket: SeasonBracket): ViewRound[] {
   const sizes = bracket.rounds.map((r) => r.groups.length);
@@ -26,50 +31,106 @@ export function bracketRounds(bracket: SeasonBracket): ViewRound[] {
     last /= 2;
     rounds.push(Array.from({ length: last }, (_, i) => ({ name: `group ${i + 1}`, number: i + 1, state: 'never_played' as const, seats: [] })));
   }
+  const qualified = bracket.rounds[0]?.qualifiers === true ? 1 : 0;
+  const unit = qualified === 1 ? 'Match' : 'Group';
   const toFinal = rounds[rounds.length - 1]?.length === 1;
   return rounds.map((groups, i) => {
+    if (i < qualified) return { ...numbered(groups, 0, 'Seed'), name: 'Qualifiers', short: 'Q' };
     const fromEnd = rounds.length - 1 - i;
     const late = toFinal && fromEnd < LATE.length ? LATE[LATE.length - 1 - fromEnd] : undefined;
-    if (late !== undefined && late.groups !== groups.length) return numbered(groups, i);
-    return late === undefined ? numbered(groups, i) : { ...numbered(groups, i), name: late.name, short: late.short };
+    const round = numbered(groups, i - qualified, unit);
+    return late === undefined || late.groups !== groups.length ? round : { ...round, name: late.name, short: late.short };
   });
 }
 
 /** numbered is round i (from 0) of the groups, named by its number. */
-function numbered(groups: BracketGroup[], i: number): ViewRound {
+function numbered(groups: BracketGroup[], i: number, unit: ViewRound['unit']): ViewRound {
   const state = groups.every((g) => g.seats.length === 0) ? 'to_come' : groups.every((g) => g.state === 'played') ? 'finished' : 'in_play';
-  return { name: `Round ${i + 1}`, short: `R${i + 1}`, state, groups };
+  return { name: `Round ${i + 1}`, short: `R${i + 1}`, state, unit, groups };
+}
+
+/** groupLabel names a group of round r: a qualifier by their seed, a round's only group by the round, else by its number (after the round's short name in the tree). */
+export function groupLabel(rounds: ViewRound[], r: number, group: BracketGroup, titled: boolean): string {
+  const x = rounds[r];
+  if (x === undefined) return '';
+  if (x.unit === 'Seed') return `Seed ${group.seats[0]?.seed ?? group.number}`;
+  if (x.groups.length === 1) return x.name;
+  return titled ? `${x.short} · ${x.unit} ${group.number}` : `${x.unit} ${group.number}`;
+}
+
+/** seedLabel writes a seat's seed as (3), or nothing for a seat without one. */
+export function seedLabel(seat: BracketSeat): string {
+  return seat.seed === undefined ? '' : `(${seat.seed})`;
 }
 
 /**
- * treeStart returns the first round the bracket can show as a tree, up to the final: from it each round has at most
- * TREE_MOST groups, half as many as the round before, and every group's winner went on to the group its line leads
- * to (group n's to group ⌈n/2⌉). It returns rounds.length when fewer than two rounds qualify.
+ * treeReach returns the first round the bracket can draw as a tree to its end: from it each round has half the groups of
+ * the one before, and everyone who goes on goes to the group their line leads to (group n's to group ⌈n/2⌉). It returns
+ * rounds.length when fewer than two rounds can.
  */
-export function treeStart(rounds: ViewRound[]): number {
-  let start = rounds.length;
-  for (let i = rounds.length - 1; i >= 0; i--) {
+export function treeReach(rounds: ViewRound[]): number {
+  let reach = rounds.length - 1;
+  for (let i = rounds.length - 2; i >= 0; i--) {
     const r = rounds[i];
     const next = rounds[i + 1];
-    if (r === undefined) break;
-    const fits = r.groups.length <= TREE_MOST && (next === undefined || next.groups.length * 2 === r.groups.length);
-    const followed = r.groups.every((g) => g.seats.every((s) => s.place !== 1 || s.next === 0 || s.next === Math.ceil(g.number / 2)));
-    if (!fits || !followed) break;
-    start = i;
+    if (r === undefined || next === undefined || next.groups.length * 2 !== r.groups.length) break;
+    if (r.groups.some((g) => g.seats.some((s) => s.next > 0 && s.next !== Math.ceil(g.number / 2)))) break;
+    reach = i;
   }
-  return rounds.length - start < 2 ? rounds.length : start;
+  return reach >= rounds.length - 1 ? rounds.length : reach;
+}
+
+/** BracketView is the rounds shown, first to last, and a round of the tree tapped alone, which a second tap makes one end of a range. */
+export type BracketView = { first: number; last: number; anchor: number | null };
+
+/** defaultView is what a bracket opens on: its tree from the first round it can draw with at most TREE_MOST groups, to its end; without a tree, its latest round with players. */
+export function defaultView(rounds: ViewRound[]): BracketView {
+  const reach = treeReach(rounds);
+  const last = rounds.length - 1;
+  if (reach >= rounds.length) {
+    const r = defaultRound(rounds);
+    return { first: r, last: r, anchor: null };
+  }
+  let first = reach;
+  while (first < last - 1 && (rounds[first]?.groups.length ?? 0) > TREE_MOST) first++;
+  return { first, last, anchor: null };
+}
+
+/**
+ * tapRound is the view after tapping round i, the tree drawn from round reach: that round alone, or, for a round of the
+ * tree tapped after another of the tree alone, the two and those between. A round before the tree is only ever alone.
+ */
+export function tapRound(view: BracketView, i: number, reach: number): BracketView {
+  if (i < reach) return { first: i, last: i, anchor: null };
+  if (view.anchor !== null && view.anchor !== i) return { first: Math.min(view.anchor, i), last: Math.max(view.anchor, i), anchor: null };
+  return { first: i, last: i, anchor: i };
+}
+
+/**
+ * shownRounds is the rounds drawn side by side, start to end, and whether lines join them (only from reach, where the
+ * tree holds): a range as chosen, or one round beside the next once that has players. Null for a round shown alone.
+ */
+export function shownRounds(rounds: ViewRound[], view: BracketView, reach: number): { start: number; end: number; joined: boolean } | null {
+  if (view.first !== view.last) return { start: view.first, end: view.last, joined: true };
+  const next = rounds[view.first + 1];
+  if (next === undefined || next.state === 'to_come') return null;
+  return { start: view.first, end: view.first + 1, joined: view.first >= reach };
 }
 
 /** SeatView is how a seat shows: through to the next round (or champion), knocked out, where they play next, and their points. */
 export type SeatView = { through: boolean; out: boolean; to: string; points: string };
 
-/** seatView says how a seat of a round's group shows: through when found in the next round, or in a finished group's top half. */
+/** seatView says how a seat of a round's group shows: through when found in the next round, or, while that round is to
+ * come, in a finished group's top half; the champion is a played final's first. A played group's players come best first,
+ * so their order is their place, also where a group of several games gives two players a best place of 1. */
 export function seatView(rounds: ViewRound[], r: number, group: BracketGroup, seat: BracketSeat): SeatView {
   const played = group.state === 'played';
   const final = r === rounds.length - 1;
-  const champion = final && played && seat.place === 1 && rounds[r]?.groups.length === 1;
+  const rank = group.seats.findIndex((x) => x.entrant === seat.entrant) + 1;
+  const champion = final && played && rank === 1 && rounds[r]?.groups.length === 1;
   const next = rounds[r + 1];
-  const through = seat.next > 0 || champion || (played && !final && seat.place >= 1 && seat.place <= group.seats.length / 2);
+  const waiting = next === undefined || next.state === 'to_come';
+  const through = seat.next > 0 || champion || (played && !final && waiting && rank >= 1 && rank <= group.seats.length / 2);
   return {
     through,
     out: played && !final && !through,
@@ -86,8 +147,8 @@ function pointsText(points: number): string {
 
 const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
 
-/** RoadStep is one group of a player's road: the round (final when it has one group), the group, the player's seat and how it went. */
-export type RoadStep = { round: string; final: boolean; group: BracketGroup; seat: BracketSeat; result: string };
+/** RoadStep is one group of a player's road: the round (final when it has one group), the group and its label, the player's seat and how it went. */
+export type RoadStep = { round: string; final: boolean; group: BracketGroup; label: string; seat: BracketSeat; result: string };
 
 /** road follows a player (by entrant) through the rounds they played, with each result. */
 export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
@@ -98,11 +159,16 @@ export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
       if (s === undefined) continue;
       const view = seatView(rounds, i, g, s);
       let result = g.state === 'running' ? 'Being played' : 'To play';
-      if (g.state === 'played') {
-        const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[s.place - 1] ?? `${s.place}th`);
+      if (r.unit === 'Seed') {
+        result = `Seed ${s.seed ?? g.number}`;
+      } else if (g.state === 'played') {
+        const rank = g.seats.indexOf(s) + 1;
+        const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[rank - 1] ?? `${rank}th`);
         result = view.points === '' ? place : `${place} · ${view.points} pts`;
       }
-      steps.push({ round: r.name, final: r.groups.length === 1, group: g, seat: s, result });
+      const final = r.groups.length === 1;
+      const label = final ? (r.unit === 'Group' ? 'The final group' : 'The final') : groupLabel(rounds, i, g, false);
+      steps.push({ round: r.name, final, group: g, label, seat: s, result });
     }
   });
   return steps;
@@ -128,6 +194,14 @@ export function groupsMatching(groups: BracketGroup[], q: string): BracketGroup[
   return groups.filter((g) => g.seats.some((s) => s.name.toLowerCase().includes(want)));
 }
 
+/** bracketCard is where a tournament's card on the Brackets list leads: a blitz tournament whose latest edition is in
+ * its Swiss rounds to that edition's standings, every other to its bracket. */
+export function bracketCard(slug: string, editions: readonly BlitzEditionRow[]): { href: string; cta: string } {
+  const latest = editions.find((e) => e.tournament === slug);
+  if (latest !== undefined && !latest.knockout) return { href: editionHref(slug, latest.edition), cta: 'Swiss rounds: see the standings' };
+  return { href: bracketHref(slug), cta: 'View the bracket' };
+}
+
 /** bracketHref is the address of every bracket, of a tournament's (its latest season), or of one season's. */
 export function bracketHref(slug?: string, season?: string): string {
   if (slug === undefined) return '/ratings/brackets/';
@@ -148,4 +222,30 @@ export function openingSeason(seasons: readonly { label: string; games: number }
   const played = seasons.filter((s) => s.games > 0);
   if (asked !== null && played.some((s) => s.label === asked)) return asked;
   return played[played.length - 1]?.label ?? null;
+}
+
+/** ZOOMS are the tree's sizes, from the smallest. */
+const ZOOMS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.25, 1.5];
+
+/** fitZoom is the size that fits a tree of treeWidth into a box of boxWidth: never larger than full size or smaller than the least; full size before the box is measured. */
+export function fitZoom(boxWidth: number, treeWidth: number): number {
+  if (boxWidth <= 0 || treeWidth <= 0) return 1;
+  return Math.min(1, Math.max(ZOOMS[0] ?? 0.4, boxWidth / treeWidth));
+}
+
+/** stepZoom is the next size in (dir 1) or out (dir −1) from zoom, staying at the largest or smallest. */
+export function stepZoom(zoom: number, dir: 1 | -1): number {
+  const next = dir === 1 ? ZOOMS.find((z) => z > zoom + 0.001) : [...ZOOMS].reverse().find((z) => z < zoom - 0.001);
+  return next ?? zoom;
+}
+
+/** pinchZoom is the size for a pinch that began at size from with the fingers start apart and is now at now apart, kept between the smallest and largest sizes. */
+export function pinchZoom(from: number, start: number, now: number): number {
+  if (start <= 0) return from;
+  return Math.min(ZOOMS[ZOOMS.length - 1] ?? 1.5, Math.max(ZOOMS[0] ?? 0.4, (from * now) / start));
+}
+
+/** anchoredScroll is the scroll that keeps a point offset px into the tree where it was when its size goes from from to to. */
+export function anchoredScroll(scroll: number, offset: number, from: number, to: number): number {
+  return scroll + offset * (to / from - 1);
 }

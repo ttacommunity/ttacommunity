@@ -13,6 +13,7 @@ import {
   levelNamesPatch,
   scoringPatch,
   SETTINGS,
+  settingBox,
   toggledCounts,
 } from '../lib/tournament-page';
 
@@ -46,23 +47,31 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
       </h2>
       <p className="muted">Changes save at once and are recorded with your name. Rating changes apply from the next engine run.</p>
       <div className="settings-list">
-        {SETTINGS.map((s) => (
-          <Fragment key={s.key}>
-            <div className="setting">
-              <input
-                id={`setting-${s.key}`}
-                type="checkbox"
-                checked={t[s.key]}
-                onChange={(e) => void patch({ [s.key]: e.target.checked }, s.key)}
-              />
-              <label htmlFor={`setting-${s.key}`}>
-                <strong>{s.label}</strong>
-                <span className="muted"> · {s.hint}</span>
-              </label>
-            </div>
-            {notice(s.key)}
-          </Fragment>
-        ))}
+        {SETTINGS.map((s) => {
+          const box = settingBox(s.key, t);
+          return (
+            <Fragment key={s.key}>
+              <div className="setting">
+                <input
+                  id={`setting-${s.key}`}
+                  type="checkbox"
+                  checked={box.checked}
+                  disabled={box.locked}
+                  onChange={(e) => void patch({ [s.key]: e.target.checked }, s.key)}
+                />
+                <label htmlFor={`setting-${s.key}`}>
+                  <strong>{s.label}</strong>
+                  <span className="muted">
+                    {' '}
+                    · {s.hint}
+                    {box.note !== '' && ` ${box.note}`}
+                  </span>
+                </label>
+              </div>
+              {notice(s.key)}
+            </Fragment>
+          );
+        })}
         <fieldset className="setting-counts">
           <legend>
             <strong>Rated player counts</strong>

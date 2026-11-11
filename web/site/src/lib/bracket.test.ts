@@ -1,6 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import type { BracketGroup, BracketSeat, SeasonBracket } from '@ttac/shared/ratings';
-import { bracketHref, bracketParams, defaultRound, openingSeason, bracketMap, bracketRounds, groupsMatching, road, seatView, treeStart, type ViewRound } from './bracket';
+import type { BlitzEditionRow, BracketGroup, BracketSeat, SeasonBracket } from '@ttac/shared/ratings';
+import {
+  bracketCard,
+  bracketHref,
+  anchoredScroll,
+  fitZoom,
+  pinchZoom,
+  stepZoom,
+  tapRound,
+  shownRounds,
+  treeReach,
+  defaultView,
+  bracketParams,
+  defaultRound,
+  groupLabel,
+  openingSeason,
+  bracketMap,
+  bracketRounds,
+  groupsMatching,
+  road,
+  seatView,
+  seedLabel,
+  type BracketView,
+  type ViewRound,
+} from './bracket';
 
 /** at returns xs[i], failing the test when there is none. */
 function at<T>(xs: readonly T[], i: number): T {
@@ -15,7 +38,7 @@ const bracket = (...rounds: BracketGroup[][]): SeasonBracket => ({
   run_id: 1,
   slug: 'grand_open',
   season: '2026',
-  rounds: rounds.map((groups, i) => ({ stage: `Stage ${i + 1}`, groups })),
+  rounds: rounds.map((groups, i) => ({ stage: `Stage ${i + 1}`, qualifiers: false, groups })),
 });
 
 // Four groups, then two, then the final: a whole bracket of 16 players, as the API gives it.
@@ -67,23 +90,77 @@ describe('bracketRounds', () => {
   });
 });
 
-describe('treeStart', () => {
-  const rounds = (groups: number[]) =>
-    bracketRounds(bracket(...groups.map((n) => Array.from({ length: n }, (_, i) => played(i + 1, [seat(i * 4 + 1, `P${i}`, 1, Math.ceil((i + 1) / 2))])))));
+// A bracket of rounds of the sizes given, each group's winner going on to group ⌈n/2⌉, except the groups strays names.
+const sized = (groups: number[], strays: Record<number, number> = {}) =>
+  bracketRounds(
+    bracket(
+      ...groups.map((n, r) =>
+        Array.from({ length: n }, (_, i) => played(i + 1, [seat(i * 4 + 1, `P${i}`, 1, r === groups.length - 1 ? 0 : i < (strays[r] ?? 0) ? Math.ceil((i + 1) / 2) + 1 : Math.ceil((i + 1) / 2))])),
+      ),
+    ),
+  );
 
+describe('treeReach', () => {
   it.each([
-    ['a whole bracket whose winners follow the lines', [4, 2, 1], 0],
-    ['a big bracket, from its round of eight groups', [64, 32, 16, 8, 4, 2, 1], 3],
-    ['a single group', [1], 1],
-  ])('brackets %s as a tree', (_name, groups, want) => {
-    expect(treeStart(rounds(groups))).toBe(want);
+    ['a whole bracket whose winners follow the lines', sized([4, 2, 1]), 0],
+    ['a big bracket, whatever its size', sized([64, 32, 16, 8, 4, 2, 1]), 0],
+    ['a single group', sized([1]), 1],
+    ['a bracket with one winner astray in its first round', sized([4, 2, 1], { 0: 1 }), 1],
+    ['a bracket with one winner astray in a big round', sized([32, 16, 8, 4, 2, 1], { 1: 1 }), 2],
+    ['a round that does not halve', sized([3, 2, 1]), 1],
+  ])('reaches back to the first round it can draw for %s', (_name, rounds, want) => {
+    expect(treeReach(rounds)).toBe(want);
   });
 
-  it('starts the tree after a round whose winners do not follow its lines', () => {
-    const crossed = bracketRounds(structuredClone(whole));
-    const first = at(at(crossed, 0).groups, 0);
-    first.seats[0] = { ...at(first.seats, 0), next: 2 };
-    expect(treeStart(crossed)).toBe(1);
+  it('draws no round whose runners-up go to the neighbouring group', () => {
+    expect(treeReach(bracketRounds(whole))).toBe(1);
+  });
+});
+
+describe('defaultView', () => {
+  it.each([
+    ['a big bracket, from its round of eight groups', sized([64, 32, 16, 8, 4, 2, 1]), { first: 3, last: 6 }],
+    ['a bracket redrawn up to its quarter-finals, from them', sized([64, 32, 16, 8, 4, 2, 1], { 0: 40, 1: 20, 2: 10, 3: 5 }), { first: 4, last: 6 }],
+    ['a small bracket, whole', sized([4, 2, 1]), { first: 0, last: 2 }],
+    ['a bracket without a tree, on its latest round', sized([3, 1]), { first: 1, last: 1 }],
+  ])('opens %s', (_name, rounds, want) => {
+    expect(defaultView(rounds)).toMatchObject({ ...want, anchor: null });
+  });
+
+  it('opens a blitz knockout whole', () => {
+    expect(defaultView(bracketRounds(blitz))).toMatchObject({ first: 0, last: 2 });
+  });
+});
+
+describe('tapRound', () => {
+  const opened: BracketView = { first: 3, last: 6, anchor: null };
+  it.each([
+    ['one round, which it shows alone', [4], { first: 4, last: 4 }],
+    ['a second round, which shows the two and those between', [3, 6], { first: 3, last: 6 }],
+    ['a second round before the first', [6, 3], { first: 3, last: 6 }],
+    ['a third round, which starts again', [3, 6, 4], { first: 4, last: 4 }],
+    ['the same round twice', [4, 4], { first: 4, last: 4 }],
+    ['a round before the tree, alone', [1], { first: 1, last: 1 }],
+    ['a round before the tree after one in it, alone', [4, 1], { first: 1, last: 1 }],
+    ['a round in the tree after one before it, alone', [1, 5], { first: 5, last: 5 }],
+  ])('chooses %s, the tree from round 3', (_name, taps, want) => {
+    expect(taps.reduce((v, i) => tapRound(v, i, 3), opened)).toMatchObject(want);
+  });
+});
+
+describe('shownRounds', () => {
+  const rounds = sized([64, 32, 16, 8, 4, 2, 1]);
+  it.each([
+    ['several rounds as a tree', { first: 3, last: 6 }, 0, { start: 3, end: 6, joined: true }],
+    ['one round before the tree beside the next, unjoined', { first: 2, last: 2 }, 5, { start: 2, end: 3, joined: false }],
+    ['one round of the tree beside the next, joined', { first: 5, last: 5 }, 5, { start: 5, end: 6, joined: true }],
+    ['the final alone', { first: 6, last: 6 }, 0, null],
+  ])('shows %s', (_name, view, reach, want) => {
+    expect(shownRounds(rounds, { ...view, anchor: null }, reach)).toEqual(want);
+  });
+
+  it('shows a round alone while the next is to come', () => {
+    expect(shownRounds(bracketRounds(inPlay), { first: 1, last: 1, anchor: null }, 0)).toBeNull();
   });
 });
 
@@ -120,6 +197,32 @@ describe('seatView', () => {
     expect(seatView(matches, 0, group, at(group.seats, s))).toEqual(want);
   });
 
+  it.each([
+    ['its best on points the champion', 0, { through: true, to: 'Champion' }],
+    ['the other, who also won a game, not', 1, { through: false, to: '' }],
+  ])('shows a final of several games with %s', (_name, s, want) => {
+    const final = bracketRounds(bracket([played(1, [seat(1, 'Aster', 1, 0, 3), seat(2, 'Brook', 1, 0, 2)])]));
+    const group = at(at(final, 0).groups, 0);
+    expect(seatView(final, 0, group, at(group.seats, s))).toMatchObject(want);
+  });
+
+  describe('a match played as several games, each player winning one', () => {
+    const match = (next: number) => [played(1, [seat(1, 'Aster', 1, next, 3), seat(2, 'Brook', 1, 0, 1)]), played(2, [seat(3, 'Cove', 1, next, 3), seat(4, 'Dune', 2, 0, 0)])];
+    it.each([
+      ['its loser out, once the next round has them', bracket(match(1), [played(1, [seat(1, 'Aster', 1), seat(3, 'Cove', 2)])])],
+      ['its loser out, while the next round is to come', bracket(match(0))],
+    ])('shows %s', (_name, d) => {
+      const rounds = bracketRounds(d);
+      const group = at(at(rounds, 0).groups, 0);
+      expect(seatView(rounds, 0, group, at(group.seats, 1))).toMatchObject({ through: false, out: true });
+      expect(seatView(rounds, 0, group, at(group.seats, 0))).toMatchObject({ through: true, out: false });
+    });
+
+    it('gives its loser second place on their road', () => {
+      expect(road(bracketRounds(bracket(match(0))), 2).map((s) => s.result)).toEqual(['2nd · 1 pts']);
+    });
+  });
+
   it('shows a group still being played without results', () => {
     const live = bracketRounds(inPlay);
     const group = at(at(live, 1).groups, 0);
@@ -129,10 +232,10 @@ describe('seatView', () => {
 
 describe('road', () => {
   it("follows a player's groups to the end, with each result", () => {
-    expect(road(bracketRounds(whole), 9).map((s) => [s.round, s.group.number, s.result])).toEqual([
-      ['Quarter-finals', 3, '1st · 6 pts'],
-      ['Semi-finals', 2, '1st · 6 pts'],
-      ['Final', 1, 'Champion · 6 pts'],
+    expect(road(bracketRounds(whole), 9).map((s) => [s.round, s.label, s.result])).toEqual([
+      ['Quarter-finals', 'Group 3', '1st · 6 pts'],
+      ['Semi-finals', 'Group 2', '1st · 6 pts'],
+      ['Final', 'The final group', 'Champion · 6 pts'],
     ]);
   });
 
@@ -210,5 +313,151 @@ describe('openingSeason', () => {
 
   it('opens nothing for a tournament without games', () => {
     expect(openingSeason([{ label: '2026', games: 0 }], null)).toBeNull();
+  });
+});
+
+// A blitz knockout of four: its qualifiers by their place in the draw, then the semi-finals, the first decided.
+const seeded = (entrant: number, name: string, seed: number, place = 0, next = 0): BracketSeat => ({ entrant, name, seed, place, next });
+const blitz: SeasonBracket = {
+  run_id: 1,
+  slug: 'grand_blitz',
+  season: '2026',
+  rounds: [
+    {
+      stage: 'Qualifiers',
+      qualifiers: true,
+      groups: [
+        played(1, [seeded(1, 'Aster', 1, 1, 1)]),
+        played(2, [seeded(2, 'Brook', 4, 1, 1)]),
+        played(3, [seeded(3, 'Cove', 2, 1, 2)]),
+        played(4, [seeded(4, 'Dune', 3, 1, 2)]),
+      ],
+    },
+    {
+      stage: 'Round 2',
+      qualifiers: false,
+      groups: [played(1, [seeded(2, 'Brook', 4, 1), seeded(1, 'Aster', 1, 2)]), { name: 'match 2', number: 2, state: 'prepared', seats: [seeded(3, 'Cove', 2), seeded(4, 'Dune', 3)] }],
+    },
+  ],
+};
+
+describe('a blitz knockout', () => {
+  const rounds = bracketRounds(blitz);
+
+  it('opens with its qualifiers, then numbers its rounds from the first match', () => {
+    expect(rounds.map((r) => [r.name, r.short, r.state])).toEqual([
+      ['Qualifiers', 'Q', 'finished'],
+      ['Semi-finals', 'SF', 'in_play'],
+      ['Final', 'F', 'to_come'],
+    ]);
+    const big = bracketRounds({ ...blitz, rounds: [{ stage: 'Qualifiers', qualifiers: true, groups: Array.from({ length: 32 }, (_, i) => played(i + 1, [])) }] });
+    expect(big.map((r) => r.short)).toEqual(['Q', 'R1', 'R2', 'QF', 'SF', 'F']);
+  });
+
+  it('is a tree from its qualifiers', () => {
+    expect(treeReach(rounds)).toBe(0);
+  });
+
+  it.each([
+    ['a qualifier by their seed', 0, 1, false, 'Seed 4'],
+    ['a match', 1, 1, false, 'Match 2'],
+    ['a match in the tree', 1, 0, true, 'SF · Match 1'],
+    ['the final', 2, 0, true, 'Final'],
+  ])('labels %s', (_name, r, g, titled, want) => {
+    expect(groupLabel(rounds, r, at(at(rounds, r).groups, g), titled)).toBe(want);
+  });
+
+  it("follows a player's road from their seed", () => {
+    expect(road(rounds, 1).map((s) => [s.round, s.label, s.result])).toEqual([
+      ['Qualifiers', 'Seed 1', 'Seed 1'],
+      ['Semi-finals', 'Match 1', '2nd'],
+    ]);
+  });
+
+  it('shows a qualifier through to their match', () => {
+    const group = at(at(rounds, 0).groups, 2);
+    expect(seatView(rounds, 0, group, at(group.seats, 0))).toMatchObject({ through: true, out: false, to: '→ SF 2' });
+  });
+});
+
+describe('labels elsewhere', () => {
+  const rounds = bracketRounds(whole);
+  it.each([
+    ['a group', 0, 2, false, 'Group 3'],
+    ['a group in the tree', 1, 1, true, 'SF · Group 2'],
+  ])('labels %s of a bracket of groups', (_name, r, g, titled, want) => {
+    expect(groupLabel(rounds, r, at(at(rounds, r).groups, g), titled)).toBe(want);
+  });
+
+  it.each([
+    ['a seeded seat', seeded(1, 'Aster', 3), '(3)'],
+    ['an unseeded seat', seat(1, 'Aster'), ''],
+  ])('writes the seed of %s', (_name, s, want) => {
+    expect(seedLabel(s)).toBe(want);
+  });
+});
+
+describe('bracketCard', () => {
+  const row = (edition: string, knockout: boolean): BlitzEditionRow => ({
+    tournament: 'grand_blitz',
+    name: 'Grand Blitz',
+    edition,
+    format: { swiss_rounds: 8, knockout_size: 8 },
+    entrants: 20,
+    round: 3,
+    champion: null,
+    knockout,
+    bracket: true,
+  });
+  it.each([
+    ['a tournament that is not blitz', 'wimbledon', [row('2026', false)], '/ratings/brackets/?t=wimbledon', 'View the bracket'],
+    ['a blitz edition whose knockout is drawn', 'grand_blitz', [row('2026', true)], '/ratings/brackets/?t=grand_blitz', 'View the bracket'],
+    ['a blitz edition in its Swiss rounds', 'grand_blitz', [row('2026', false), row('2025', true)], '/blitz/?t=grand_blitz&e=2026', 'Swiss rounds: see the standings'],
+  ])('links %s', (_name, slug, editions, href, cta) => {
+    expect(bracketCard(slug, editions)).toEqual({ href, cta });
+  });
+});
+
+describe('fitZoom and stepZoom', () => {
+  it.each([
+    ['a tree that fits', 1300, 1160, 1],
+    ['a tree twice the width', 580, 1160, 0.5],
+    ['a tree too wide to shrink further', 200, 1160, 0.4],
+    ['a box not measured yet', 0, 1160, 1],
+  ])('fits %s', (_name, box, tree, want) => {
+    expect(fitZoom(box, tree)).toBeCloseTo(want);
+  });
+
+  it.each([
+    ['in from fit', 0.62, 1, 0.7],
+    ['out from fit', 0.62, -1, 0.6],
+    ['in at the largest', 1.5, 1, 1.5],
+    ['out at the smallest', 0.4, -1, 0.4],
+    ['in from full size', 1, 1, 1.25],
+  ])('zooms %s', (_name, z, dir, want) => {
+    expect(stepZoom(z, dir as 1 | -1)).toBe(want);
+  });
+});
+
+describe('pinchZoom', () => {
+  it.each([
+    ['fingers spread to twice as far apart', 0.6, 100, 200, 1.2],
+    ['fingers drawn to half as far apart', 1, 200, 100, 0.5],
+    ['spread past the largest size', 1, 100, 400, 1.5],
+    ['drawn past the smallest size', 0.5, 400, 100, 0.4],
+    ['a pinch that starts with the fingers together', 0.8, 0, 100, 0.8],
+  ])('sizes the tree for %s', (_name, from, start, now, want) => {
+    expect(pinchZoom(from, start, now)).toBeCloseTo(want);
+  });
+});
+
+describe('anchoredScroll', () => {
+  it.each([
+    ['doubling, the point 100 px into the tree', 0, 100, 1, 2, 100],
+    ['halving, the point 300 px into the tree', 400, 300, 1, 0.5, 250],
+    ['not changing size', 120, 300, 0.8, 0.8, 120],
+    ['growing a tree scrolled to its left edge, the point at its edge', 0, 0, 1, 1.5, 0],
+  ])('keeps a point still when %s', (_name, scroll, offset, from, to, want) => {
+    expect(anchoredScroll(scroll, offset, from, to)).toBeCloseTo(want);
   });
 });

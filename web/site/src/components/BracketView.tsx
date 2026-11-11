@@ -1,8 +1,27 @@
 /** A season shown as a bracket: rounds to pick, the late rounds as a tree, a round's groups as a list, and a player's road. */
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { seasonBracket, type CatalogueSeason, type BracketGroup, type SeasonBracket } from '@ttac/shared/ratings';
 import type { Load } from '@ttac/shared/load';
-import { defaultRound, bracketMap, bracketRounds, groupsMatching, road, seatView, treeStart, type ViewRound } from '../lib/bracket';
+import {
+  bracketMap,
+  bracketRounds,
+  anchoredScroll,
+  fitZoom,
+  groupLabel,
+  groupsMatching,
+  pinchZoom,
+  road,
+  seatView,
+  seedLabel,
+  defaultView,
+  stepZoom,
+  tapRound,
+  shownRounds,
+  treeReach,
+  type BracketView as View,
+  type ViewRound,
+} from '../lib/bracket';
+import { editionHref } from '@ttac/shared/blitz';
 import { seasonName } from '../lib/catalogue-view';
 import Waiting from './Waiting';
 
@@ -28,13 +47,13 @@ export default function BracketView({
 }) {
   const played = seasons.filter((s) => s.games > 0);
   const [load, setLoad] = useState<Load<SeasonBracket>>({ kind: 'loading' });
-  const [round, setRound] = useState<number | null>(null);
+  const [chosen, setChosen] = useState<View | null>(null);
   const [entrant, setEntrant] = useState<number | null>(null);
   const [q, setQ] = useState('');
   useEffect(() => {
     let live = true;
     setLoad({ kind: 'loading' });
-    setRound(null);
+    setChosen(null);
     setEntrant(null);
     seasonBracket(apiUrl, run, slug, season)
       .then((data) => live && setLoad({ kind: 'ready', data }))
@@ -46,10 +65,17 @@ export default function BracketView({
   if (season === '') return null;
 
   const rounds = load.kind === 'ready' ? bracketRounds(load.data) : [];
-  const start = treeStart(rounds);
-  const r = round ?? defaultRound(rounds);
-  const inTree = r >= start;
-  const shown = rounds[r];
+  const view = chosen ?? defaultView(rounds);
+  const reach = treeReach(rounds);
+  const tree = shownRounds(rounds, view, reach);
+  const hint =
+    reach >= rounds.length
+      ? 'Tap a round for its results.'
+      : reach === 0
+        ? 'Tap a round for its results, or two rounds for the bracket between them.'
+        : 'Tap a round for its results. After the line, tap two rounds for the bracket between them.';
+  const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
+  const phone = rounds[view.last];
   return (
     <div className="panel-card bracket-panel">
       <div className="panel-header panel-header-split">
@@ -70,12 +96,32 @@ export default function BracketView({
         )}
       </div>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
-      {shown !== undefined && (
+      {load.kind === 'ready' && rounds.length === 0 && (
+        <p className="waiting-message">
+          The knockout is not drawn yet. <a href={editionHref(slug, season)}>Swiss rounds: see the standings</a>.
+        </p>
+      )}
+      {phone !== undefined && (
         <>
+          <p className="records-intro bracket-key">
+            <span className="bracket-wide-only">{hint} </span>
+            Gold: through to the next round. <span className="bracket-to">→ SF 1</span> is where they play next. Choose a name to follow that player.
+          </p>
           <div className="bracket-controls">
-            <nav aria-label="Rounds" className="bracket-rounds">
+            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-wide">
               {rounds.map((x, i) => (
-                <button key={x.name} type="button" className="bracket-round" aria-pressed={i === r} onClick={() => setRound(i)}>
+                <Fragment key={x.name}>
+                  {i === reach && i > 0 && <span className="bracket-rounds-split" title="The bracket can be drawn from here" aria-hidden="true" />}
+                  <button type="button" className="bracket-round" aria-pressed={i >= view.first && i <= view.last} onClick={() => setChosen(tapRound(view, i, reach))}>
+                    <span>{x.name}</span>
+                    <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
+                  </button>
+                </Fragment>
+              ))}
+            </nav>
+            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-narrow">
+              {rounds.map((x, i) => (
+                <button key={x.name} type="button" className="bracket-round" aria-pressed={i === view.last} onClick={() => setChosen({ first: i, last: i, anchor: i })}>
                   <span>{x.name}</span>
                   <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
                 </button>
@@ -86,14 +132,21 @@ export default function BracketView({
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} />
             </label>
           </div>
-          <p className="records-intro bracket-key">
-            Gold: through to the next round. <span className="bracket-to">→ SF 1</span> is where they play next. Choose a name to follow that player.
-          </p>
           {entrant !== null && <PlayerRoad rounds={rounds} entrant={entrant} onClose={() => setEntrant(null)} />}
-          {inTree && <BracketTree rounds={rounds} start={start} q={q} onPlayer={setEntrant} />}
-          <div className={inTree ? 'bracket-list bracket-list-narrow' : 'bracket-list'}>
-            {groupsMatching(shown.groups, q).map((g) => (
-              <GroupCard key={g.number} rounds={rounds} r={r} group={g} q={q} onPlayer={setEntrant} />
+          {tree !== null && <BracketTree rounds={rounds} start={tree.start} end={tree.end} joined={tree.joined} q={q} onPlayer={setEntrant} />}
+          {listed.map(({ x, r }) => (
+            <div key={x.name} className="bracket-wide-only">
+              {listed.length > 1 && <h3 className="bracket-list-head">{x.name}</h3>}
+              <div className="bracket-list">
+                {groupsMatching(x.groups, q).map((g) => (
+                  <GroupCard key={g.number} rounds={rounds} r={r} group={g} q={q} onPlayer={setEntrant} />
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="bracket-list bracket-list-narrow">
+            {groupsMatching(phone.groups, q).map((g) => (
+              <GroupCard key={g.number} rounds={rounds} r={view.last} group={g} q={q} onPlayer={setEntrant} />
             ))}
           </div>
         </>
@@ -102,14 +155,114 @@ export default function BracketView({
   );
 }
 
-/** BracketTree lays the rounds from start to the final out as a tree, each pair of groups joined to the group it feeds. */
-function BracketTree({ rounds, start, q, onPlayer }: { rounds: ViewRound[]; start: number; q: string; onPlayer: (entrant: number) => void }) {
+/** BracketTree lays the rounds from start to end out side by side, as a tree when joined (each pair of groups joined to
+ * the group it feeds), fitted to the screen until zoomed in or out. */
+function BracketTree({
+  rounds,
+  start,
+  end,
+  joined,
+  q,
+  onPlayer,
+}: {
+  rounds: ViewRound[];
+  start: number;
+  end: number;
+  joined: boolean;
+  q: string;
+  onPlayer: (entrant: number) => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const tree = useRef<HTMLDivElement>(null);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [fit, setFit] = useState(1);
+  const zoom = chosen ?? fit;
+  useEffect(() => {
+    const b = box.current;
+    const t = tree.current;
+    if (b === null || t === null) return;
+    const measure = () => {
+      const was = t.style.zoom;
+      t.style.zoom = '1';
+      const css = getComputedStyle(b);
+      setFit(fitZoom(b.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight), t.scrollWidth));
+      t.style.zoom = was;
+    };
+    const watch = new ResizeObserver(measure);
+    watch.observe(b);
+    return () => watch.disconnect();
+  }, [rounds.length, start, end]);
+  // A change of size keeps a point still: between the fingers, or the middle of what is in view.
+  const anchor = useRef<{ dx: number; dy: number; from: number; sx: number; sy: number } | null>(null);
+  const zoomTo = (next: number | null, x?: number, y?: number) => {
+    const b = box.current;
+    const t = tree.current;
+    if (b !== null && t !== null) {
+      const r = t.getBoundingClientRect();
+      const bx = b.getBoundingClientRect();
+      const ax = x ?? bx.left + b.clientWidth / 2;
+      const ay = y ?? (Math.max(r.top, 0) + Math.min(r.bottom, window.innerHeight)) / 2;
+      anchor.current = { dx: ax - r.left, dy: ay - r.top, from: zoom, sx: b.scrollLeft, sy: window.scrollY };
+    }
+    setChosen(next);
+  };
+  useLayoutEffect(() => {
+    if (tree.current !== null) tree.current.style.zoom = String(zoom);
+    const a = anchor.current;
+    anchor.current = null;
+    if (a === null || box.current === null) return;
+    box.current.scrollLeft = anchoredScroll(a.sx, a.dx, a.from, zoom);
+    window.scrollTo(window.scrollX, anchoredScroll(a.sy, a.dy, a.from, zoom));
+  }, [zoom]);
+  // Two fingers on the tree zoom it; touch-action in the CSS leaves one finger to scroll.
+  const touches = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ from: number; apart: number } | null>(null);
+  const apart = () => {
+    const [a, b] = [...touches.current.values()];
+    return a === undefined || b === undefined ? 0 : Math.hypot(a.x - b.x, a.y - b.y);
+  };
+  const touchDown = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (touches.current.size === 2) pinch.current = { from: zoom, apart: apart() };
+  };
+  const touchMove = (e: React.PointerEvent) => {
+    if (!touches.current.has(e.pointerId)) return;
+    touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const [a, b] = [...touches.current.values()];
+    if (pinch.current !== null && a !== undefined && b !== undefined) {
+      zoomTo(pinchZoom(pinch.current.from, pinch.current.apart, apart()), (a.x + b.x) / 2, (a.y + b.y) / 2);
+    }
+  };
+  const touchUp = (e: React.PointerEvent) => {
+    touches.current.delete(e.pointerId);
+    if (touches.current.size < 2) pinch.current = null;
+  };
   return (
-    <div className="bracket-tree-box">
-      <div className="bracket-tree">
-        {rounds.slice(start).map((x, k) => {
+    <div
+      className="bracket-tree-box"
+      ref={box}
+      onPointerDown={touchDown}
+      onPointerMove={touchMove}
+      onPointerUp={touchUp}
+      onPointerCancel={touchUp}
+    >
+      <div className="bracket-zoom" role="group" aria-label="Zoom the bracket">
+        <button type="button" className="bracket-zoom-button" aria-label="Zoom out" onClick={() => zoomTo(stepZoom(zoom, -1))}>
+          −
+        </button>
+        <button type="button" className="bracket-zoom-button" aria-pressed={chosen === null} onClick={() => zoomTo(null)}>
+          Fit to screen
+        </button>
+        <button type="button" className="bracket-zoom-button" aria-label="Zoom in" onClick={() => zoomTo(stepZoom(zoom, 1))}>
+          +
+        </button>
+        <span className="bracket-zoom-size">{Math.round(zoom * 100)}%</span>
+      </div>
+      <div className="bracket-tree" ref={tree}>
+        {rounds.slice(start, end + 1).map((x, k) => {
           const i = start + k;
-          const pairs = x.groups.length === 1 ? [x.groups] : x.groups.flatMap((g, j) => (j % 2 === 0 ? [x.groups.slice(j, j + 2)] : []));
+          const pairs = !joined || x.groups.length === 1 || i === end ? [x.groups] : x.groups.flatMap((g, j) => (j % 2 === 0 ? [x.groups.slice(j, j + 2)] : []));
           return (
             <section key={x.name} className="bracket-col" aria-label={x.name}>
               <h3 className="bracket-col-head">{x.name}</h3>
@@ -134,8 +287,8 @@ function BracketTree({ rounds, start, q, onPlayer }: { rounds: ViewRound[]; star
 function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: ViewRound[]; r: number; group: BracketGroup; q: string; onPlayer: (entrant: number) => void; titled?: boolean }) {
   const x = rounds[r];
   if (x === undefined) return null;
-  const title = x.groups.length === 1 ? x.name : titled ? `${x.short} · Group ${group.number}` : `Group ${group.number}`;
-  const state = group.seats.length === 0 ? 'To come' : group.state === 'played' ? 'Finished' : group.state === 'running' ? 'Being played' : 'To play';
+  const title = groupLabel(rounds, r, group, titled);
+  const state = x.unit === 'Seed' ? 'Qualified' : group.seats.length === 0 ? 'To come' : group.state === 'played' ? 'Finished' : group.state === 'running' ? 'Being played' : 'To play';
   const want = q.trim().toLowerCase();
   return (
     <article className="bracket-card">
@@ -151,7 +304,7 @@ function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: 
           return (
             <li key={s.entrant} className={['bracket-seat', v.through ? 'bracket-seat-through' : '', v.out ? 'bracket-seat-out' : '', hit ? 'bracket-seat-hit' : ''].join(' ')}>
               <button type="button" className="bracket-name" onClick={() => onPlayer(s.entrant)}>
-                {s.name}
+                {s.name} {seedLabel(s)}
               </button>
               <span className="bracket-points">{v.points}</span>
               <span className="bracket-to">{v.to}</span>
@@ -187,11 +340,13 @@ function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant
         {steps.map((st) => (
           <li key={st.round} className="bracket-road-step">
             <span className="bracket-road-round">{st.round}</span>
-            <span className="bracket-road-group">{st.final ? 'The final group' : `Group ${st.group.number}`}</span>
+            <span className="bracket-road-group">{st.label}</span>
             <ol className="bracket-seats">
               {st.group.seats.map((s) => (
                 <li key={s.entrant} className={s.entrant === entrant ? 'bracket-seat bracket-seat-me' : 'bracket-seat'}>
-                  <span className="bracket-name">{s.name}</span>
+                  <span className="bracket-name">
+                    {s.name} {seedLabel(s)}
+                  </span>
                 </li>
               ))}
             </ol>
@@ -200,7 +355,7 @@ function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant
         ))}
       </ol>
       <p className="records-intro">
-        Route: {steps.map((st) => (st.final ? st.round : `${st.round} group ${st.group.number}`)).join(' → ')}.
+        Route: {steps.map((st) => (st.final ? st.round : `${st.round} ${st.label.toLowerCase()}`)).join(' → ')}.
       </p>
       <div className="bracket-map" aria-hidden="true">
         {map.map((m) => (

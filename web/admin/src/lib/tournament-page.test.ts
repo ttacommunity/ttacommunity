@@ -15,6 +15,7 @@ import {
   renamedFrom,
   scoringPatch,
   seasonBox,
+  settingBox,
   opensSettings,
   settingsHref,
   slugParam,
@@ -148,6 +149,21 @@ describe('seasonBox', () => {
     ['both off', false, false, { checked: false, locked: true }],
   ])('shows a season box with %s as it takes effect', (_name, tournamentOn, seasonOn, want) => {
     expect(seasonBox(tournamentOn, seasonOn)).toEqual(want);
+  });
+});
+
+describe('settingBox', () => {
+  it.each([
+    ['shown', { visible: true, rated: false, bracket: true }, { checked: true, locked: false }],
+    ['rated', { visible: false, rated: true, bracket: false }, { checked: false, locked: false }],
+    ['neither shown nor rated', { visible: false, rated: false, bracket: true }, { checked: false, locked: true }],
+  ])('locks the bracket box of a tournament %s until it is shown or rated', (_name, t, want) => {
+    expect(settingBox('bracket', { ...t, community: false, blitz: false })).toMatchObject(want);
+  });
+
+  it('never locks another setting', () => {
+    const t = { visible: false, rated: false, community: true, blitz: false, bracket: false };
+    expect(settingBox('community', t)).toMatchObject({ checked: true, locked: false });
   });
 });
 

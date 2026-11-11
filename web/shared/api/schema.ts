@@ -691,6 +691,14 @@ export interface paths {
          *     round after. A tournament not shown as a bracket, hidden, or without
          *     that season's games is not found. A player whose CGE account is
          *     deleted or banned is named "Deleted player". Cached for five minutes.
+         *
+         *     A blitz tournament's season is an edition, and its bracket is the
+         *     knockout's published rounds: first the Qualifiers, each player alone
+         *     in the group of their place in the draw (2k+1 and 2k+2 for the match
+         *     in slot k), then each round's matches as group slot + 1, the winner
+         *     first once decided, every player with their seed. It has no rounds
+         *     until the knockout's first round is published, and is cached for a
+         *     minute, as results are recorded.
          */
         get: operations["getSeasonBracket"];
         put?: never;
@@ -3558,6 +3566,10 @@ export interface components {
         };
         /** @description One edition of a blitz tournament as the site's list shows it */
         BlitzEditionRow: {
+            /** @description Whether the knockout's first round is published */
+            knockout: boolean;
+            /** @description Whether the tournament is shown as a bracket (getSeasonBracket) */
+            bracket: boolean;
             /** @description The winner of the knockout's final, by username; null until the final has a winner */
             champion: string | null;
             /** @description The latest published round's number, null before the first is published */
@@ -3872,6 +3884,8 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            /** @description Whether the tournament is shown as a bracket (getSeasonBracket) */
+            bracket: boolean;
             pairing: components["schemas"]["BlitzPairingMethods"];
             /** @description What fixed the starting ranks when round 1 was paired, rating or lot; null before */
             ranks_fixed_by: components["schemas"]["RanksFixedBy"] | null;
@@ -5530,13 +5544,16 @@ export interface components {
         BracketRound: {
             /** @description The stage's label, as the catalogue gives it */
             stage: string;
+            /** @description A blitz knockout's first column, its players by their place in the draw */
+            qualifiers: boolean;
             /** @description By number */
             groups: components["schemas"]["BracketGroup"][];
         };
         BracketGroup: {
             name: string;
-            /** @description The number its name ends in, else its place in the round */
+            /** @description n for a group named "group n", else its place in the round */
             number: number;
+            /** @description Its games' least advanced state, never-played games aside unless all are */
             state: components["schemas"]["GameState"];
             /** @description Best first once played (most points, then best place), else as seated */
             seats: components["schemas"]["BracketSeat"][];
@@ -5545,6 +5562,8 @@ export interface components {
             /** @description Numbers the season's players from 1, the same in every round, in their first round's order */
             entrant: number;
             name: string;
+            /** @description A blitz knockout player's seed, their place in the Swiss standings when the knockout began; absent elsewhere */
+            seed?: number;
             /** @description Best place in the group's games; 0 until it is played */
             place: number;
             /**
