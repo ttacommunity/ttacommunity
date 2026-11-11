@@ -100,6 +100,13 @@ export type ChallengePlayerEntry = components['schemas']['ChallengePlayerEntry']
 export type ChallengeWeeks = components['schemas']['ChallengeWeeks'];
 export type ChallengeEntries = components['schemas']['ChallengeEntries'];
 export type ChallengePlacing = components['schemas']['ChallengePlacing'];
+export type NostradamusEditions = components['schemas']['NostradamusEditions'];
+export type NostradamusEdition = components['schemas']['NostradamusEdition'];
+export type NostradamusBoard = components['schemas']['NostradamusBoard'];
+export type NostradamusStanding = components['schemas']['NostradamusStanding'];
+export type NostradamusParticipant = components['schemas']['NostradamusParticipant'];
+export type NostradamusParticipantRound = components['schemas']['NostradamusParticipantRound'];
+export type NostradamusAnswer = components['schemas']['NostradamusAnswer'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
 export function isSlug(s: string): boolean {
@@ -434,6 +441,21 @@ export async function challengePlayers(base: string, verified: boolean, fetchFn:
 /** Returns every challenge entry not hidden, for download. */
 export async function challengeEntries(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeEntries> {
   return get<ChallengeEntries>(fetchFn, base, '/v1/challenges/entries');
+}
+
+/** Returns every Nostradamus edition, the newest tournament's first. */
+export async function nostradamusEditions(base: string, fetchFn: typeof fetch = fetch): Promise<NostradamusEditions> {
+  return get<NostradamusEditions>(fetchFn, base, '/v1/nostradamus');
+}
+
+/** Returns a Nostradamus edition's standings: each participant's points in the rounds scored so far. */
+export async function nostradamusBoard(base: string, edition: string, fetchFn: typeof fetch = fetch): Promise<NostradamusBoard> {
+  return get<NostradamusBoard>(fetchFn, base, `/v1/nostradamus/${encodeURIComponent(edition)}`);
+}
+
+/** Returns one participant's answers in a Nostradamus edition's closed rounds. */
+export async function nostradamusParticipant(base: string, edition: string, name: string, fetchFn: typeof fetch = fetch): Promise<NostradamusParticipant> {
+  return get<NostradamusParticipant>(fetchFn, base, `/v1/nostradamus/${encodeURIComponent(edition)}/participants/${encodeURIComponent(name)}`);
 }
 
 /** Returns the weekly challenge's weeks, each with its winners and runners-up. */
