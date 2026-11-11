@@ -5,6 +5,7 @@ import type { Load } from '@ttac/shared/load';
 import {
   bracketMap,
   bracketRounds,
+  anchoredScroll,
   fitZoom,
   groupLabel,
   groupsMatching,
@@ -191,8 +192,27 @@ function BracketTree({
     watch.observe(b);
     return () => watch.disconnect();
   }, [rounds.length, start, end]);
+  // A change of size keeps a point still: between the fingers, or the middle of what is in view.
+  const anchor = useRef<{ dx: number; dy: number; from: number; sx: number; sy: number } | null>(null);
+  const zoomTo = (next: number | null, x?: number, y?: number) => {
+    const b = box.current;
+    const t = tree.current;
+    if (b !== null && t !== null) {
+      const r = t.getBoundingClientRect();
+      const bx = b.getBoundingClientRect();
+      const ax = x ?? bx.left + b.clientWidth / 2;
+      const ay = y ?? (Math.max(r.top, 0) + Math.min(r.bottom, window.innerHeight)) / 2;
+      anchor.current = { dx: ax - r.left, dy: ay - r.top, from: zoom, sx: b.scrollLeft, sy: window.scrollY };
+    }
+    setChosen(next);
+  };
   useLayoutEffect(() => {
     if (tree.current !== null) tree.current.style.zoom = String(zoom);
+    const a = anchor.current;
+    anchor.current = null;
+    if (a === null || box.current === null) return;
+    box.current.scrollLeft = anchoredScroll(a.sx, a.dx, a.from, zoom);
+    window.scrollTo(window.scrollX, anchoredScroll(a.sy, a.dy, a.from, zoom));
   }, [zoom]);
   // Two fingers on the tree zoom it; touch-action in the CSS leaves one finger to scroll.
   const touches = useRef(new Map<number, { x: number; y: number }>());
@@ -209,7 +229,10 @@ function BracketTree({
   const touchMove = (e: React.PointerEvent) => {
     if (!touches.current.has(e.pointerId)) return;
     touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pinch.current !== null && touches.current.size === 2) setChosen(pinchZoom(pinch.current.from, pinch.current.apart, apart()));
+    const [a, b] = [...touches.current.values()];
+    if (pinch.current !== null && a !== undefined && b !== undefined) {
+      zoomTo(pinchZoom(pinch.current.from, pinch.current.apart, apart()), (a.x + b.x) / 2, (a.y + b.y) / 2);
+    }
   };
   const touchUp = (e: React.PointerEvent) => {
     touches.current.delete(e.pointerId);
@@ -225,13 +248,13 @@ function BracketTree({
       onPointerCancel={touchUp}
     >
       <div className="bracket-zoom" role="group" aria-label="Zoom the bracket">
-        <button type="button" className="bracket-zoom-button" aria-label="Zoom out" onClick={() => setChosen(stepZoom(zoom, -1))}>
+        <button type="button" className="bracket-zoom-button" aria-label="Zoom out" onClick={() => zoomTo(stepZoom(zoom, -1))}>
           −
         </button>
-        <button type="button" className="bracket-zoom-button" aria-pressed={chosen === null} onClick={() => setChosen(null)}>
+        <button type="button" className="bracket-zoom-button" aria-pressed={chosen === null} onClick={() => zoomTo(null)}>
           Fit to screen
         </button>
-        <button type="button" className="bracket-zoom-button" aria-label="Zoom in" onClick={() => setChosen(stepZoom(zoom, 1))}>
+        <button type="button" className="bracket-zoom-button" aria-label="Zoom in" onClick={() => zoomTo(stepZoom(zoom, 1))}>
           +
         </button>
         <span className="bracket-zoom-size">{Math.round(zoom * 100)}%</span>

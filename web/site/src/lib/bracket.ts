@@ -244,3 +244,8 @@ export function pinchZoom(from: number, start: number, now: number): number {
   if (start <= 0) return from;
   return Math.min(ZOOMS[ZOOMS.length - 1] ?? 1.5, Math.max(ZOOMS[0] ?? 0.4, (from * now) / start));
 }
+
+/** anchoredScroll is the scroll that keeps a point offset px into the tree where it was when its size goes from from to to. */
+export function anchoredScroll(scroll: number, offset: number, from: number, to: number): number {
+  return scroll + offset * (to / from - 1);
+}

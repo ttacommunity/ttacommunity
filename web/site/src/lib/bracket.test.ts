@@ -3,6 +3,7 @@ import type { BlitzEditionRow, BracketGroup, BracketSeat, SeasonBracket } from '
 import {
   bracketCard,
   bracketHref,
+  anchoredScroll,
   fitZoom,
   pinchZoom,
   stepZoom,
@@ -447,5 +448,16 @@ describe('pinchZoom', () => {
     ['a pinch that starts with the fingers together', 0.8, 0, 100, 0.8],
   ])('sizes the tree for %s', (_name, from, start, now, want) => {
     expect(pinchZoom(from, start, now)).toBeCloseTo(want);
+  });
+});
+
+describe('anchoredScroll', () => {
+  it.each([
+    ['doubling, the point 100 px into the tree', 0, 100, 1, 2, 100],
+    ['halving, the point 300 px into the tree', 400, 300, 1, 0.5, 250],
+    ['not changing size', 120, 300, 0.8, 0.8, 120],
+    ['growing a tree scrolled to its left edge, the point at its edge', 0, 0, 1, 1.5, 0],
+  ])('keeps a point still when %s', (_name, scroll, offset, from, to, want) => {
+    expect(anchoredScroll(scroll, offset, from, to)).toBeCloseTo(want);
   });
 });
