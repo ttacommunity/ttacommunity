@@ -127,3 +127,10 @@ export function withChoice(text: string, name: string): string {
   if (choicesFromText(text).some((c) => c.label.toLowerCase() === name.toLowerCase())) return text;
   return text.trim() === '' ? name : `${text.replace(/\n+$/, '')}\n${name}`;
 }
+
+/** toggled ticks value among values, or unticks it; at most limit stay ticked (0 for no limit), a limit of 1 swapping the one ticked. */
+export function toggled(values: readonly string[], value: string, limit: number): string[] {
+  if (values.includes(value)) return values.filter((v) => v !== value);
+  if (limit === 1) return [value];
+  return limit > 0 && values.length >= limit ? [...values] : [...values, value];
+}

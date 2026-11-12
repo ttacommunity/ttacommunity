@@ -5,9 +5,11 @@ import { nostradamusEditions, nostradamusGame, type NostradamusGame, type Nostra
 import { browserStorage, seemsSignedIn } from '../lib/account';
 import { askToPlay, fetchMyNostradamus, sendAnswers, type MyPlace } from '../lib/nostradamus-me';
 import {
+  answeredOf,
   chosenEdition,
   choose,
   draftFrom,
+  editionLabel,
   editionParam,
   givenFrom,
   joinState,
@@ -16,6 +18,7 @@ import {
   pollShare,
   roundStage,
   shownName,
+  timeLeft,
   tokensLeft,
   toggleToken,
   valuesText,
@@ -53,13 +56,16 @@ export default function NostradamusGamePage({ apiUrl }: { apiUrl: string }) {
       ) : (
         <>
           {editions.data.editions.length > 1 && (
-            <nav className="nostradamus-editions" aria-label="Games">
-              {editions.data.editions.map((e) => (
-                <a key={e.slug} href={nostradamusHref(e.slug)} aria-current={e.slug === edition ? 'page' : undefined}>
-                  {e.name}
-                </a>
-              ))}
-            </nav>
+            <label className="nostradamus-pick">
+              <span>Game</span>
+              <select className="input-antique" value={edition} onChange={(e) => window.location.assign(nostradamusHref(e.target.value))}>
+                {editions.data.editions.map((e) => (
+                  <option key={e.slug} value={e.slug}>
+                    {editionLabel(e, new Date())}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           {game.kind !== 'ready' ? (
             <Waiting load={game} what="the game" />
@@ -126,6 +132,19 @@ function JoinBox({ apiUrl, game, place, onChange }: { apiUrl: string; game: Nost
       {state === 'requested' && <p>You have asked to play: an organiser will let you in.</p>}
       {state === 'refused' && <p>An organiser did not let you into this game. Ask them on Discord if you think that is wrong.</p>}
       {state === 'play' && <p>You are in. Answer each round before its deadline; you can change your answers until then.</p>}
+      {state === 'play' &&
+        place.kind === 'signed-in' &&
+        game.rounds
+          .filter((r) => roundStage(r, new Date()) === 'open')
+          .map((r) => {
+            const done = answeredOf(r.questions, place.mine.answers);
+            return (
+              <p key={r.id} className={done.answered < done.of ? 'nostradamus-nudge' : undefined}>
+                <strong>{r.name}</strong> is open, {r.closes_at ? timeLeft(r.closes_at, new Date()) : ''}: you have answered {done.answered} of {done.of}.{' '}
+                <a href={`#answer-${r.id}`}>{done.answered < done.of ? 'Answer now' : 'Change your answers'}</a>
+              </p>
+            );
+          })}
       {message !== '' && <p role="alert">{message}</p>}
     </section>
   );
@@ -151,7 +170,8 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
         {round.name}: your answers
       </h2>
       <p className="muted">
-        Closes {round.closes_at ? formatInstant(round.closes_at, zone) : ''}. Tokens left: {tokensLeft(draft, round.tokens)} of {round.tokens} (±{round.token_points}{' '}
+        Closes {round.closes_at ? `${formatInstant(round.closes_at, zone)} (${timeLeft(round.closes_at, new Date())})` : ''}. Answered{' '}
+        {givenFrom(round.questions, draft).length} of {round.questions.length}. Tokens left: {tokensLeft(draft, round.tokens)} of {round.tokens} (±{round.token_points}{' '}
         each).
       </p>
       {round.questions.map((q) => (
@@ -275,7 +295,7 @@ function RoundCard({ round, place }: { round: NostradamusRound; place: MyPlace |
         {round.name}
       </h2>
       <p className="muted">
-        {stage === 'open' && `Open until ${round.closes_at ? formatInstant(round.closes_at, zone) : ''}.`}
+        {stage === 'open' && `Open until ${round.closes_at ? `${formatInstant(round.closes_at, zone)}, ${timeLeft(round.closes_at, new Date())}` : ''}.`}
         {stage === 'awaiting' && 'Closed for answers: results once the organisers publish them.'}
         {stage === 'closed' && 'Results are in.'}
       </p>

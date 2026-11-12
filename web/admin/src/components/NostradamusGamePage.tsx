@@ -9,7 +9,9 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, roundLabel, roundStatus, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
+import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, roundLabel, roundStatus, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
+import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
+import { useDialog } from '@ttac/shared/Dialog';
 import { countryNames, type Country } from '../lib/countries';
 import { entrantToAdd } from '../lib/person-form';
 import type { Region } from '../lib/zones';
@@ -160,8 +162,18 @@ function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { r
     if (result.ok) await onReload();
   };
   const blocker = closeBlocker(round, new Date());
+  const dialog = useDialog();
+  const deadline = deadlineForm(regions, round.closes_at ? { at: round.closes_at, zone: round.zone } : null, zone);
+  const unpublish = async (opener: HTMLElement) => {
+    const sure = await dialog.confirm(
+      { heading: `Unpublish ${round.name}?`, text: 'Players stop seeing it until you publish it again. Their answers are kept, except to a question whose kind, picks or choices you change.', action: 'Unpublish' },
+      opener,
+    );
+    if (sure) await run(req.unpublishNostradamusRound(game.slug, round.id), `${round.name} is a draft again: fix it, then publish it.`);
+  };
   return (
     <details className="admin-subsection" open={status !== 'closed'}>
+      {dialog.element}
       <summary>
         <h3>
           {round.name} <span className="muted">({round.label})</span> · {STATUS_LABEL[status]}
@@ -177,7 +189,9 @@ function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { r
       {status === 'draft' && (
         <>
           <QuestionEditor title="Add a question" start={emptyQuestionForm} onSave={(f) => run(req.addNostradamusQuestion(game.slug, round.id, questionBody(f)), `Added ${f.label.trim()}.`)} />
-          <PublishForm regions={regions} onPublish={(d) => run(req.publishNostradamusRound(game.slug, round.id, d), `Published ${round.name}.`)} />
+          <DeadlineEditor regions={regions} start={deadline} title="Publish" submitLabel="Publish the round"
+            note="Players can answer until the deadline. The bots answer what their rules can as it publishes; to change a question later, unpublish it."
+            onSave={(d) => run(req.publishNostradamusRound(game.slug, round.id, d), `Published ${round.name}.`)} />
           <p>
             <button type="button" className="btn-antique" onClick={() => void run(req.removeNostradamusRound(game.slug, round.id), `Removed ${round.name}.`)}>
               Remove this draft
@@ -186,6 +200,17 @@ function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { r
         </>
       )}
       {status !== 'draft' && <AnswersView game={game} round={round} run={run} />}
+      {(status === 'open' || status === 'awaiting') && (
+        <>
+          <DeadlineEditor regions={regions} start={deadline} title="Deadline" submitLabel="Move the deadline" note="Moving it keeps every answer."
+            onSave={(d) => run(req.setNostradamusDeadline(game.slug, round.id, d), `Moved the deadline of ${round.name}.`)} />
+          <p>
+            <button type="button" className="btn-antique" onClick={(e) => void unpublish(e.currentTarget)}>
+              Unpublish to edit
+            </button>
+          </p>
+        </>
+      )}
       {(status === 'open' || status === 'awaiting') && (
         <p>
           <button type="button" className="btn-antique" disabled={blocker !== ''} onClick={() => void run(req.closeNostradamusRound(game.slug, round.id), `Closed ${round.name}: its results are out.`)}>
@@ -202,6 +227,9 @@ function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { r
 function QuestionRow({ game, round, question: q, status, run }: { game: Game; round: Round; question: Question; status: string; run: (r: req.Request, done: string) => Promise<void> }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(outcomeText(q.outcome));
+  const [ticked, setTicked] = useState<string[]>(q.outcome ?? []);
+  const fromChoices = q.kind !== 'number' && q.choices.length > 0;
+  const saved = outcomeText(q.outcome);
   const choices = q.choices.map((c) => c.label + (c.seed > 0 ? ` (seed ${c.seed})` : '') + (c.leaderboard_rank > 0 ? ` (#${c.leaderboard_rank})` : '')).join(', ');
   return (
     <div className="badge-row">
@@ -220,7 +248,21 @@ function QuestionRow({ game, round, question: q, status, run }: { game: Game; ro
         </p>
       )}
       {editing && <QuestionEditor title={`Edit ${q.label}`} start={questionFormFrom(q)} onSave={(f) => run(req.setNostradamusQuestion(game.slug, q.id, questionBody(f)), `Saved ${f.label.trim()}.`)} />}
-      {(status === 'open' || status === 'awaiting') && (
+      {(status === 'open' || status === 'awaiting') && fromChoices && (
+        <fieldset className="admin-add">
+          <legend>Outcome {q.kind === 'set' ? `(the ${q.picks} that happened)` : '(tick more than one for a tie)'}</legend>
+          {q.choices.map((c) => (
+            <label key={c.label}>
+              <input type="checkbox" checked={ticked.includes(c.label)} onChange={() => setTicked(toggled(ticked, c.label, q.kind === 'set' ? q.picks : 0))} /> {c.label}
+            </label>
+          ))}
+          <button type="button" className="btn-antique" disabled={ticked.join(', ') === saved}
+            onClick={() => void run(req.setNostradamusOutcome(game.slug, q.id, ticked), `Saved the outcome of ${q.label}.`)}>
+            Save outcome
+          </button>
+        </fieldset>
+      )}
+      {(status === 'open' || status === 'awaiting') && !fromChoices && (
         <div className="admin-add">
           <label>
             Outcome {q.kind === 'number' ? '(a whole number)' : '(names separated by commas; a tie lists each)'}
@@ -306,17 +348,24 @@ function QuestionEditor({ title, start, onSave }: { title: string; start: Questi
   );
 }
 
-/** PublishForm sets a draft's deadline, a day and time on the clocks of a zone, and publishes it. */
-function PublishForm({ regions, onPublish }: { regions: readonly Region[]; onPublish: (d: { day: string; time: string; zone: string }) => Promise<void> }) {
-  const [d, setD] = useState({ day: '', time: '18:00', zone: viewerZone() });
-  const publish = async (e: FormEvent) => {
+/** DeadlineEditor sets a round's deadline, a day and time on the clocks of a zone: to publish a draft, or to move an open round's. */
+function DeadlineEditor({ regions, start, title, note, submitLabel, onSave }: {
+  regions: readonly Region[];
+  start: DeadlineForm;
+  title: string;
+  note: string;
+  submitLabel: string;
+  onSave: (d: { day: string; time: string; zone: string }) => Promise<void>;
+}) {
+  const [d, setD] = useState<DeadlineForm>(start.time === '' ? { ...start, time: '18:00' } : start);
+  const save = async (e: FormEvent) => {
     e.preventDefault();
-    await onPublish({ ...d, zone: d.zone.trim() });
+    await onSave({ ...d, zone: d.zone.trim() });
   };
   return (
-    <form className="admin-subsection" onSubmit={(e) => void publish(e)}>
-      <h4>Publish</h4>
-      <p className="muted">Players can answer until the deadline. The bots answer what their rules can as it publishes; questions can no longer change.</p>
+    <form className="admin-subsection" onSubmit={(e) => void save(e)}>
+      <h4>{title}</h4>
+      <p className="muted">{note}</p>
       <div className="admin-add">
         <label>
           Day
@@ -328,7 +377,7 @@ function PublishForm({ regions, onPublish }: { regions: readonly Region[]; onPub
         </label>
         <ZonePick label="Time zone" regions={regions} value={d.zone} onChange={(zone) => setD({ ...d, zone })} />
         <button type="submit" className="btn-antique">
-          Publish the round
+          {submitLabel}
         </button>
       </div>
     </form>
@@ -397,9 +446,13 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
   const [texts, setTexts] = useState<Record<number, string>>(() =>
     Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.answer.join(', ') ?? ''])),
   );
+  const [picked, setPicked] = useState<Record<number, string[]>>(() =>
+    Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.answer ?? []])),
+  );
+  const fromChoices = (q: Question) => q.kind !== 'number' && q.choices.length > 0;
   const [tokens, setTokens] = useState<Record<number, boolean>>(() => Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.token ?? false])));
   const given = round.questions.flatMap((q) => {
-    const answer = outcomeValues(q.kind, texts[q.id] ?? '');
+    const answer = fromChoices(q) ? (picked[q.id] ?? []) : outcomeValues(q.kind, texts[q.id] ?? '');
     return answer.length === 0 ? [] : [{ question: q.id, answer, token: tokens[q.id] ?? false }];
   });
   return (
@@ -411,7 +464,19 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
         {round.questions.map((q) => (
           <label key={q.id}>
             {q.label}
-            <input className="input-antique" value={texts[q.id] ?? ''} onChange={(e) => setTexts({ ...texts, [q.id]: e.target.value })} />
+            {fromChoices(q) ? (
+              <span className="admin-add">
+                {q.choices.map((c) => (
+                  <span key={c.label}>
+                    <input type={q.kind === 'set' ? 'checkbox' : 'radio'} name={`bot-${bot.id}-${q.id}`} aria-label={`${bot.name}, ${q.label}: ${c.label}`}
+                      checked={(picked[q.id] ?? []).includes(c.label)}
+                      onChange={() => setPicked({ ...picked, [q.id]: toggled(picked[q.id] ?? [], c.label, q.kind === 'set' ? q.picks : 1) })} /> {c.label}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <input className="input-antique" value={texts[q.id] ?? ''} onChange={(e) => setTexts({ ...texts, [q.id]: e.target.value })} />
+            )}
             <span>
               <input type="checkbox" checked={tokens[q.id] ?? false} onChange={(e) => setTokens({ ...tokens, [q.id]: e.target.checked })} /> Token
             </span>

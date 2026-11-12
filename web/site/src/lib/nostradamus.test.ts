@@ -3,7 +3,10 @@ import {
   chosenEdition,
   choose,
   draftFrom,
+  answeredOf,
+  editionLabel,
   editionParam,
+  timeLeft,
   givenFrom,
   joinState,
   nostradamusHref,
@@ -167,5 +170,34 @@ describe('pollShare', () => {
     ['a name nobody picked', 'Dee', { answers: 0, share: 0 }],
   ])('gives %s', (_name, label, want) => {
     expect(pollShare(q, label)).toEqual(want);
+  });
+});
+
+describe('timeLeft', () => {
+  const now = new Date('2031-04-01T12:00:00Z');
+  it.each([
+    ['days and hours', '2031-04-03T15:00:00Z', '2 days 3 hours left'],
+    ['a day', '2031-04-02T12:30:00Z', '1 day left'],
+    ['hours and minutes', '2031-04-01T15:20:00Z', '3 hours 20 minutes left'],
+    ['minutes', '2031-04-01T12:05:00Z', '5 minutes left'],
+    ['none, once passed', '2031-04-01T11:00:00Z', 'closed'],
+  ])('writes %s', (_name, closes, want) => {
+    expect(timeLeft(closes, now)).toBe(want);
+  });
+});
+
+describe('answeredOf', () => {
+  it('counts the questions answered of those asked', () => {
+    expect(answeredOf([{ id: 1 }, { id: 2 }, { id: 3 }], [{ question: 2 }, { question: 9 }])).toEqual({ answered: 1, of: 3 });
+  });
+});
+
+describe('editionLabel', () => {
+  const now = new Date('2031-04-01T12:00:00Z');
+  it.each([
+    ['a game with a round open', { name: 'Nostradamus #9', open_until: '2031-04-02T12:00:00Z' }, 'Nostradamus #9 · round open, 1 day left'],
+    ['a game without', { name: 'Nostradamus #8', open_until: null }, 'Nostradamus #8'],
+  ])('names %s', (_name, e, want) => {
+    expect(editionLabel(e, now)).toBe(want);
   });
 });

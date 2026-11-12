@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, gameSlug, linkChoices, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
+import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, gameSlug, linkChoices, toggled, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
 
 describe('outcomeValues', () => {
   it.each([
@@ -136,5 +136,16 @@ describe('withChoice', () => {
     ['leaves a name already there, in any case', 'Ann\ncy | 3', 'Cy', 'Ann\ncy | 3'],
   ])('%s', (_name, text, name, want) => {
     expect(withChoice(text, name)).toBe(want);
+  });
+});
+
+describe('toggled', () => {
+  it.each([
+    ['ticks a choice', ['Ann'], 'Cy', 0, ['Ann', 'Cy']],
+    ['unticks one ticked', ['Ann', 'Cy'], 'Ann', 0, ['Cy']],
+    ['takes no more past the limit', ['Ann', 'Cy'], 'Dee', 2, ['Ann', 'Cy']],
+    ['swaps a single pick', ['Ann'], 'Cy', 1, ['Cy']],
+  ])('%s', (_name, values, value, limit, want) => {
+    expect(toggled(values, value, limit)).toEqual(want);
   });
 });
