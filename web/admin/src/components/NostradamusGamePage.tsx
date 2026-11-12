@@ -9,7 +9,7 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, roundLabel, roundStatus, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
+import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
 import { useDialog } from '@ttac/shared/Dialog';
 import { countryNames, type Country } from '../lib/countries';
@@ -105,14 +105,14 @@ export default function NostradamusGamePage() {
 /** RoundsTab drafts a new round and shows each round at its stage, newest last. */
 function RoundsTab(props: Props & { regions: readonly Region[] }) {
   const { game, onReload, outcome, say } = props;
-  const [draft, setDraft] = useState({ label: '', name: '', tokens: 3, token_points: 10 });
+  const [draft, setDraft] = useState({ label: '', name: '', tokensMin: '', tokensMax: '3', token_points: 10 });
   const add = async (e: FormEvent) => {
     e.preventDefault();
     const label = roundLabel(draft.label, game.rounds.map((r) => r.label));
-    const r = await req.send(req.addNostradamusRound(game.slug, { ...draft, label, name: draft.name.trim() }));
+    const r = await req.send(req.addNostradamusRound(game.slug, { label, name: draft.name.trim(), tokens_min: countOrNone(draft.tokensMin), tokens_max: countOrNone(draft.tokensMax), token_points: draft.token_points }));
     say(outcomeOf(r, `Drafted ${draft.name.trim()}.`, 'new round'));
     if (r.ok) {
-      setDraft({ label: '', name: '', tokens: draft.tokens, token_points: draft.token_points });
+      setDraft({ ...draft, label: '', name: '' });
       await onReload();
     }
   };
@@ -134,8 +134,12 @@ function RoundsTab(props: Props & { regions: readonly Region[] }) {
               onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
           </label>
           <label>
-            Tokens
-            <input className="input-antique" type="number" min={0} max={10} value={draft.tokens} onChange={(e) => setDraft({ ...draft, tokens: Number(e.target.value) })} />
+            Least tokens (optional)
+            <input className="input-antique" type="number" min={0} max={99} placeholder="none" value={draft.tokensMin} onChange={(e) => setDraft({ ...draft, tokensMin: e.target.value })} />
+          </label>
+          <label>
+            Most tokens (optional)
+            <input className="input-antique" type="number" min={0} max={99} placeholder="no limit" value={draft.tokensMax} onChange={(e) => setDraft({ ...draft, tokensMax: e.target.value })} />
           </label>
           <label>
             Points a token
@@ -180,7 +184,7 @@ function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { r
         </h3>
       </summary>
       <p className="muted">
-        {round.tokens} tokens of ±{round.token_points}.{round.closes_at && ` Deadline ${formatInstant(round.closes_at, zone)}, set in ${round.zone}.`}
+        {tokensText(round.tokens_min, round.tokens_max, round.token_points)}.{round.closes_at && ` Deadline ${formatInstant(round.closes_at, zone)}, set in ${round.zone}.`}
       </p>
       <Notice outcome={shownAt(outcome, at)} onClose={() => say(null)} />
       {round.questions.map((q) => (
@@ -411,7 +415,9 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
                 <th scope="col">Player</th>
                 <th scope="col">Question</th>
                 <th scope="col">Answer</th>
-                <th scope="col">Token</th>
+                <th scope="col" className="num">
+                  Tokens
+                </th>
                 <th scope="col" className="num">
                   Points
                 </th>
@@ -423,7 +429,7 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
                   <td>{a.participant}</td>
                   <td>{labelOf(a.question)}</td>
                   <td>{a.answer.join(', ')}</td>
-                  <td>{a.token ? 'Yes' : ''}</td>
+                  <td className="num">{a.tokens > 0 ? a.tokens : ''}</td>
                   <td className="num">{a.points ?? '–'}</td>
                 </tr>
               ))}
@@ -450,10 +456,10 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
     Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.answer ?? []])),
   );
   const fromChoices = (q: Question) => q.kind !== 'number' && q.choices.length > 0;
-  const [tokens, setTokens] = useState<Record<number, boolean>>(() => Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.token ?? false])));
+  const [tokens, setTokens] = useState<Record<number, number>>(() => Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.tokens ?? 0])));
   const given = round.questions.flatMap((q) => {
     const answer = fromChoices(q) ? (picked[q.id] ?? []) : outcomeValues(q.kind, texts[q.id] ?? '');
-    return answer.length === 0 ? [] : [{ question: q.id, answer, token: tokens[q.id] ?? false }];
+    return answer.length === 0 ? [] : [{ question: q.id, answer, tokens: tokens[q.id] ?? 0 }];
   });
   return (
     <div className="admin-subsection">
@@ -478,7 +484,9 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
               <input className="input-antique" value={texts[q.id] ?? ''} onChange={(e) => setTexts({ ...texts, [q.id]: e.target.value })} />
             )}
             <span>
-              <input type="checkbox" checked={tokens[q.id] ?? false} onChange={(e) => setTokens({ ...tokens, [q.id]: e.target.checked })} /> Token
+              Tokens{' '}
+              <input className="input-antique" type="number" min={0} max={round.tokens_max ?? 99} aria-label={`${bot.name}, tokens on ${q.label}`} value={tokens[q.id] ?? 0}
+                onChange={(e) => setTokens({ ...tokens, [q.id]: Math.max(0, Math.trunc(Number(e.target.value))) })} />
             </span>
           </label>
         ))}

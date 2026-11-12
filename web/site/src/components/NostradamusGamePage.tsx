@@ -19,11 +19,14 @@ import {
   roundStage,
   shownName,
   timeLeft,
-  tokensLeft,
-  toggleToken,
+  stakeRange,
+  staked,
+  tokensShort,
+  withStake,
   valuesText,
   type Draft,
 } from '../lib/nostradamus';
+import { useKeptLoad } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 
@@ -34,8 +37,8 @@ export default function NostradamusGamePage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => setWanted(editionParam(window.location.search)), []);
   const editions = useLoad('editions', wanted === undefined ? null : () => nostradamusEditions(apiUrl));
   const edition = editions.kind === 'ready' ? chosenEdition(editions.data.editions, wanted ?? null) : null;
-  const game = useLoad(`game-${edition}-${asked}`, edition === null ? null : () => nostradamusGame(apiUrl, edition));
-  const place = useLoad(`mine-${edition}-${asked}`, edition === null ? null : () => myPlace(apiUrl, edition));
+  const game = useKeptLoad(`game-${edition}-${asked}`, edition === null ? null : () => nostradamusGame(apiUrl, edition));
+  const place = useKeptLoad(`mine-${edition}-${asked}`, edition === null ? null : () => myPlace(apiUrl, edition));
   const reload = () => setAsked((n) => n + 1);
 
   return (
@@ -44,8 +47,8 @@ export default function NostradamusGamePage({ apiUrl }: { apiUrl: string }) {
         <div>
           <h1 className="analysis-hero-title">Nostradamus</h1>
           <p className="analysis-hero-desc">
-            The community&apos;s prediction game for the World Championship. Each round, players predict the results before the deadline and may put tokens on
-            the answers they are surest of: a right one wins the token&apos;s points, a wrong one loses them. A round missed scores the lowest of the bots.
+            The community&apos;s prediction game for the World Championship. Each round, players predict the results before the deadline and may stake tokens on
+            the answers they are surest of: each token on a right answer wins its points, on a wrong one loses them. A round missed scores the lowest of the bots.
           </p>
         </div>
       </div>
@@ -150,7 +153,7 @@ function JoinBox({ apiUrl, game, place, onChange }: { apiUrl: string; game: Nost
   );
 }
 
-/** AnswerForm is an open round's questions for an accepted player, filled from their saved answers, with the round's tokens to place. */
+/** AnswerForm is an open round's questions for an accepted player, filled from their saved answers, with tokens to stake on each within the round's least and most. */
 function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string; edition: string; round: NostradamusRound; place: MyPlace; onSaved: () => void }) {
   const saved = place.kind === 'signed-in' ? place.mine.answers : [];
   const [draft, setDraft] = useState<Draft>(() => draftFrom(round.questions, saved));
@@ -171,8 +174,9 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
       </h2>
       <p className="muted">
         Closes {round.closes_at ? `${formatInstant(round.closes_at, zone)} (${timeLeft(round.closes_at, new Date())})` : ''}. Answered{' '}
-        {givenFrom(round.questions, draft).length} of {round.questions.length}. Tokens left: {tokensLeft(draft, round.tokens)} of {round.tokens} (±{round.token_points}{' '}
-        each).
+        {givenFrom(round.questions, draft).length} of {round.questions.length}. Tokens staked: {staked(draft)}
+        {round.tokens_max !== null && ` of ${round.tokens_max}`}
+        {round.tokens_min !== null && round.tokens_min > 0 && ` (at least ${round.tokens_min})`}, ±{round.token_points} each.
       </p>
       {round.questions.map((q) => (
         <fieldset key={q.id} className="nostradamus-question">
@@ -202,15 +206,13 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
               ))}
             </div>
           )}
-          {round.tokens > 0 && (
-            <label className="nostradamus-token">
-              <input type="checkbox" checked={draft[q.id]?.token ?? false} onChange={() => setDraft(toggleToken(draft, q.id, round.tokens))} /> Token
-            </label>
-          )}
+          {round.tokens_max !== 0 && <TokenStepper label={q.label} value={draft[q.id]?.tokens ?? 0} range={stakeRange(draft, q.id, round.tokens_max)}
+            onChange={(n) => setDraft(withStake(draft, q.id, n, round.tokens_max))} />}
         </fieldset>
       ))}
+      {tokensShort(draft, round.tokens_min) > 0 && <p className="nostradamus-nudge">Stake {tokensShort(draft, round.tokens_min)} more token{tokensShort(draft, round.tokens_min) === 1 ? '' : 's'} to save: this round asks for at least {round.tokens_min}.</p>}
       <p>
-        <button type="button" className="btn-antique" disabled={busy} onClick={() => void save()}>
+        <button type="button" className="btn-antique" disabled={busy || tokensShort(draft, round.tokens_min) > 0} onClick={() => void save()}>
           Save answers
         </button>
       </p>
@@ -308,7 +310,7 @@ function RoundCard({ round, place }: { round: NostradamusRound; place: MyPlace |
             {my && (
               <p>
                 Your answer: {valuesText(my.answer)}
-                {my.token && ' (token)'}
+                {my.tokens > 0 && ` (${my.tokens} token${my.tokens === 1 ? '' : 's'})`}
               </p>
             )}
             {stage === 'closed' && q.choices.length > 0 && (
@@ -339,5 +341,31 @@ function RoundCard({ round, place }: { round: NostradamusRound; place: MyPlace |
         );
       })}
     </section>
+  );
+}
+
+/** TokenStepper sets the tokens staked on an answer: a number field with − and + beside it, kept within range. */
+function TokenStepper({ label, value, range, onChange }: { label: string; value: number; range: { min: number; max: number }; onChange: (n: number) => void }) {
+  return (
+    <div className="nostradamus-stake">
+      <span>Tokens</span>
+      <button type="button" className="btn-antique" aria-label={`One token fewer: ${label}`} disabled={value <= range.min} onClick={() => onChange(value - 1)}>
+        −
+      </button>
+      <input
+        className="input-antique"
+        type="number"
+        inputMode="numeric"
+        min={range.min}
+        max={range.max}
+        step={1}
+        aria-label={`Tokens on ${label}`}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+      <button type="button" className="btn-antique" aria-label={`One token more: ${label}`} disabled={value >= range.max} onClick={() => onChange(value + 1)}>
+        +
+      </button>
+    </div>
   );
 }

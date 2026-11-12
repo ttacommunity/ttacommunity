@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, gameSlug, linkChoices, toggled, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
+import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, gameSlug, linkChoices, tokensText, toggled, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
 
 describe('outcomeValues', () => {
   it.each([
@@ -147,5 +147,27 @@ describe('toggled', () => {
     ['swaps a single pick', ['Ann'], 'Cy', 1, ['Cy']],
   ])('%s', (_name, values, value, limit, want) => {
     expect(toggled(values, value, limit)).toEqual(want);
+  });
+});
+
+describe('countOrNone', () => {
+  it.each([
+    ['a whole number', ' 3 ', 3],
+    ['nothing, for no bound', '  ', null],
+    ['nothing for what is not a whole number', '2.5', null],
+  ])('reads %s', (_name, text, want) => {
+    expect(countOrNone(text)).toBe(want);
+  });
+});
+
+describe('tokensText', () => {
+  it.each([
+    ['both bounds', 1, 3, 10, '1 to 3 tokens, ±10 each'],
+    ['a most only', null, 3, 10, 'up to 3 tokens, ±10 each'],
+    ['a least only', 2, null, 5, 'at least 2 tokens, ±5 each'],
+    ['no bounds', null, null, 10, 'any number of tokens, ±10 each'],
+    ['none allowed', null, 0, 10, 'no tokens'],
+  ])('says %s', (_name, min, max, points, want) => {
+    expect(tokensText(min, max, points)).toBe(want);
   });
 });

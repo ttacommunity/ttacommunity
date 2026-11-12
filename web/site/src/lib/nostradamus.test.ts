@@ -15,8 +15,10 @@ import {
   pollShare,
   roundStage,
   shownName,
-  tokensLeft,
-  toggleToken,
+  stakeRange,
+  staked,
+  tokensShort,
+  withStake,
   valuesText,
 } from './nostradamus';
 
@@ -122,9 +124,9 @@ const number = { id: 3, kind: 'number', picks: 1 } as const;
 
 describe('draftFrom', () => {
   it("starts from the player's saved answers, empty elsewhere", () => {
-    expect(draftFrom([pick, top2], [{ question: 2, answer: ['Ann', 'Cy'], token: true }])).toEqual({
-      1: { answer: [], token: false },
-      2: { answer: ['Ann', 'Cy'], token: true },
+    expect(draftFrom([pick, top2], [{ question: 2, answer: ['Ann', 'Cy'], tokens: 2 }])).toEqual({
+      1: { answer: [], tokens: 0 },
+      2: { answer: ['Ann', 'Cy'], tokens: 2 },
     });
   });
 });
@@ -138,28 +140,42 @@ describe('choose', () => {
     ['a number takes what is typed', number, ['3'], '12', ['12']],
     ['a number cleared is none', number, ['3'], ' ', []],
   ] as const)('%s', (_name, q, before, value, want) => {
-    expect(choose({ [q.id]: { answer: [...before], token: false } }, q, value)[q.id]?.answer).toEqual(want);
+    expect(choose({ [q.id]: { answer: [...before], tokens: 0 } }, q, value)[q.id]?.answer).toEqual(want);
   });
 });
 
 describe('tokens', () => {
-  const draft = { 1: { answer: ['Ann'], token: true }, 2: { answer: [], token: false }, 3: { answer: ['3'], token: false } };
-  it('counts what is left of the round', () => {
-    expect(tokensLeft(draft, 2)).toBe(1);
+  const draft = { 1: { answer: ['Ann'], tokens: 2 }, 2: { answer: [], tokens: 0 }, 3: { answer: ['3'], tokens: 1 } };
+  it('counts what is staked', () => {
+    expect(staked(draft)).toBe(3);
   });
   it.each([
-    ['puts one on while some are left', 2, 3, true],
-    ['takes one off', 1, 1, false],
-    ['puts none on when none is left', 1, 3, false],
-  ] as const)('%s', (_name, tokens, question, want) => {
-    expect(toggleToken(draft, question, tokens)[question]?.token).toBe(want);
+    ['up to what is left of the most', 2, 4, { min: 0, max: 1 }],
+    ['what is already on it, plus what is left', 1, 4, { min: 0, max: 3 }],
+    ['up to 99 with no most', 1, null, { min: 0, max: 99 }],
+  ] as const)('lets an answer take %s', (_name, question, most, want) => {
+    expect(stakeRange(draft, question, most)).toEqual(want);
+  });
+  it.each([
+    ['sets a stake', 2, 1, 4, 1],
+    ['keeps a stake within what is left', 2, 5, 4, 1],
+    ['never goes below none', 1, -2, 4, 0],
+  ] as const)('%s', (_name, question, tokens, most, want) => {
+    expect(withStake(draft, question, tokens, most)[question]?.tokens).toBe(want);
+  });
+  it.each([
+    ['nothing when the least is met', 3, 0],
+    ['how many more the least asks for', 5, 2],
+    ['nothing with no least', null, 0],
+  ] as const)('is short by %s', (_name, least, want) => {
+    expect(tokensShort(draft, least)).toBe(want);
   });
 });
 
 describe('givenFrom', () => {
   it('sends each answer complete, leaving out what is half done or empty', () => {
-    const draft = { 1: { answer: ['Ann'], token: true }, 2: { answer: ['Cy'], token: false }, 3: { answer: [], token: false } };
-    expect(givenFrom([pick, top2, number], draft)).toEqual([{ question: 1, answer: ['Ann'], token: true }]);
+    const draft = { 1: { answer: ['Ann'], tokens: 2 }, 2: { answer: ['Cy'], tokens: 0 }, 3: { answer: [], tokens: 0 } };
+    expect(givenFrom([pick, top2, number], draft)).toEqual([{ question: 1, answer: ['Ann'], tokens: 2 }]);
   });
 });
 

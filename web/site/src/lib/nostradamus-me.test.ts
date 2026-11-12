@@ -6,10 +6,10 @@ const answering = (status: number, body?: unknown) =>
 
 describe('fetchMyNostradamus', () => {
   it('reads the place with the session', async () => {
-    const ok = answering(200, { status: 'accepted', answers: [{ question: 6, answer: ['Ann'], token: true }] });
+    const ok = answering(200, { status: 'accepted', answers: [{ question: 6, answer: ['Ann'], tokens: 1 }] });
     expect(await fetchMyNostradamus('https://api.example/', 'wc-2031', ok as unknown as typeof fetch)).toEqual({
       kind: 'signed-in',
-      mine: { status: 'accepted', answers: [{ question: 6, answer: ['Ann'], token: true }] },
+      mine: { status: 'accepted', answers: [{ question: 6, answer: ['Ann'], tokens: 1 }] },
     });
     expect(ok).toHaveBeenCalledWith('https://api.example/v1/me/nostradamus/wc-2031', { credentials: 'include' });
   });
@@ -24,7 +24,7 @@ describe('fetchMyNostradamus', () => {
 describe('player changes', () => {
   it.each([
     ['asking to play', (f: typeof fetch) => askToPlay('https://api.example', 'wc-2031', f), 'POST', '/v1/me/nostradamus/wc-2031/entry'],
-    ['answers', (f: typeof fetch) => sendAnswers('https://api.example', 'wc-2031', 4, [{ question: 6, answer: ['Ann'], token: false }], f), 'PUT', '/v1/me/nostradamus/wc-2031/rounds/4/answers'],
+    ['answers', (f: typeof fetch) => sendAnswers('https://api.example', 'wc-2031', 4, [{ question: 6, answer: ['Ann'], tokens: 0 }], f), 'PUT', '/v1/me/nostradamus/wc-2031/rounds/4/answers'],
   ])('sends %s with the session and answers a refusal with its message', async (_name, send, method, path) => {
     const ok = answering(200, {});
     expect(await send(ok as unknown as typeof fetch)).toEqual({ ok: true });

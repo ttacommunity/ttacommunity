@@ -35,9 +35,15 @@
   background: var(--accent-gold);
   color: var(--bg-dark);
 }
-.nostradamus-token {
-  display: inline-block;
+.nostradamus-stake {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-top: 0.5rem;
+}
+.nostradamus-stake input {
+  width: 4.5rem;
+  text-align: center;
 }
 .nostradamus-poll {
   list-style: none;
