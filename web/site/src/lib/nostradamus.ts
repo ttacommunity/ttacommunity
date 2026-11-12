@@ -1,15 +1,9 @@
-/** Nostradamus pages' decisions: which game to show, each round's stage, what the join box offers, a player's answers as they fill them in, and how names, points and polls read. */
+/** Nostradamus pages' decisions: each round's stage, what the join box offers, a player's answers as they fill them in, and how names, points and polls read. */
 
 /** editionParam is the game the address names (?edition=), or null for none. */
 export function editionParam(search: string): string | null {
   const edition = (new URLSearchParams(search).get('edition') ?? '').trim();
   return edition === '' ? null : edition;
-}
-
-/** chosenEdition is the game asked for when it is one, else the newest (games come newest first), or null. */
-export function chosenEdition(editions: readonly { slug: string }[], wanted: string | null): string | null {
-  if (wanted !== null && editions.some((e) => e.slug === wanted)) return wanted;
-  return editions[0]?.slug ?? null;
 }
 
 /** nostradamusHref is the address of a game's page. */
@@ -151,7 +145,36 @@ export function answeredOf(questions: readonly { id: number }[], mine: readonly 
   return { answered: questions.filter((q) => mine.some((a) => a.question === q.id)).length, of: questions.length };
 }
 
-/** editionLabel names a game in the game picker, saying when it has a round open and how long is left. */
-export function editionLabel(e: { name: string; open_until?: string | null }, now: Date): string {
-  return e.open_until == null ? e.name : `${e.name} · round open, ${timeLeft(e.open_until, now)}`;
+/** shownGames are the games the list shows: the active ones, or every game when past ones are asked for too. */
+export function shownGames<T extends { finished: boolean }>(games: readonly T[], past: boolean): T[] {
+  return games.filter((g) => past || !g.finished);
+}
+
+/** gameStatus says where a game is at now: a round open with its time left, between rounds, or finished. */
+export function gameStatus(g: { finished: boolean; open_until?: string | null }, now: Date): string {
+  if (g.finished) return 'Finished';
+  if (g.open_until == null) return 'Between rounds';
+  const left = timeLeft(g.open_until, now);
+  return `Round open, ${left}`;
+}
+
+/** startingRound is the round the Rounds tab opens on: the first open one, else the latest; null with none. */
+export function startingRound(rounds: readonly { id: number; closed: boolean; closes_at?: string | null }[], now: Date): number | null {
+  return rounds.find((r) => roundStage(r, now) === 'open')?.id ?? rounds[rounds.length - 1]?.id ?? null;
+}
+
+/** openUntil is when a game's first open round closes, or null while none is open. */
+export function openUntil(rounds: readonly { closed: boolean; closes_at?: string | null }[], now: Date): string | null {
+  return rounds.find((r) => roundStage(r, now) === 'open')?.closes_at ?? null;
+}
+
+/** roundLabel names a round in the round picker with where it is at now. */
+export function roundLabel(r: { name: string; closed: boolean; closes_at?: string | null }, now: Date): string {
+  switch (roundStage(r, now)) {
+    case 'open':
+      return `${r.name} · open, ${r.closes_at ? timeLeft(r.closes_at, now) : ''}`;
+    case 'awaiting':
+      return `${r.name} · awaiting results`;
+  }
+  return `${r.name} · results in`;
 }

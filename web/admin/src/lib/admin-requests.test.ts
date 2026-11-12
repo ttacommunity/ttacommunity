@@ -83,6 +83,7 @@ describe('admin requests', () => {
     ['testing a notification endpoint', req.testEndpoint(3), '/api/notification-endpoints/3/test', 'POST', undefined],
     // Nostradamus
     ['a new game', req.addNostradamusGame({ slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }), '/api/nostradamus', 'POST', { slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }],
+    ['a game finished', req.setNostradamusFinished('wc-2031', true), '/api/nostradamus/wc-2031/finished', 'PUT', { finished: true }],
     ['a new round', req.addNostradamusRound('wc-2031', { label: 'S1', name: 'Stage 1', tokens_min: 1, tokens_max: 3, token_points: 10 }), '/api/nostradamus/wc-2031/rounds', 'POST', { label: 'S1', name: 'Stage 1', tokens_min: 1, tokens_max: 3, token_points: 10 }],
     ['a round changed', req.setNostradamusRound('wc-2031', 4, { label: 'S1', name: 'Stage 1', tokens_min: null, tokens_max: null, token_points: 10 }), '/api/nostradamus/wc-2031/rounds/4', 'PUT', { label: 'S1', name: 'Stage 1', tokens_min: null, tokens_max: null, token_points: 10 }],
     ['a round removed', req.removeNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4', 'DELETE', undefined],

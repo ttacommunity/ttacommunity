@@ -1656,18 +1656,34 @@ type AdminNostradamusEntrant struct {
 // AdminNostradamusEntrantBotRule defines model for AdminNostradamusEntrant.BotRule.
 type AdminNostradamusEntrantBotRule string
 
+// AdminNostradamusFinished defines model for AdminNostradamusFinished.
+type AdminNostradamusFinished struct {
+	Finished bool `json:"finished"`
+}
+
 // AdminNostradamusGame defines model for AdminNostradamusGame.
 type AdminNostradamusGame struct {
-	Name         string                        `json:"name"`
-	Participants []AdminNostradamusParticipant `json:"participants"`
-	Rounds       []NostradamusRound            `json:"rounds"`
-	Scored       []string                      `json:"scored"`
-	Series       string                        `json:"series"`
-	Slug         string                        `json:"slug"`
+	// Finished Past, as the site lists it - marked finished by an organiser, or its tournament finished
+	Finished bool `json:"finished"`
+
+	// MarkedFinished An organiser marked it finished
+	MarkedFinished bool                          `json:"marked_finished"`
+	Name           string                        `json:"name"`
+	Participants   []AdminNostradamusParticipant `json:"participants"`
+
+	// Players The accepted participants, people before bots
+	Players []NostradamusPlayer `json:"players"`
+	Rounds  []NostradamusRound  `json:"rounds"`
+	Scored  []string            `json:"scored"`
+	Series  string              `json:"series"`
+	Slug    string              `json:"slug"`
 
 	// Standings Over every round with an outcome, closed or not
 	Standings  []NostradamusStanding `json:"standings"`
 	Tournament string                `json:"tournament"`
+
+	// TournamentFinished Every CGE tournament of its season has finished, which finishes it too
+	TournamentFinished bool `json:"tournament_finished"`
 }
 
 // AdminNostradamusLink defines model for AdminNostradamusLink.
@@ -4043,7 +4059,12 @@ type NostradamusCreated struct {
 
 // NostradamusEdition defines model for NostradamusEdition.
 type NostradamusEdition struct {
-	Name string `json:"name"`
+	// Finished Past, as the site lists it - marked finished by an organiser, or its tournament finished
+	Finished bool `json:"finished"`
+
+	// MarkedFinished An organiser marked it finished
+	MarkedFinished bool   `json:"marked_finished"`
+	Name           string `json:"name"`
 
 	// OpenUntil When the game's first round open for answers closes; null while none is
 	OpenUntil *time.Time `json:"open_until"`
@@ -4054,6 +4075,9 @@ type NostradamusEdition struct {
 
 	// Tournament The tournament's label in its series
 	Tournament string `json:"tournament"`
+
+	// TournamentFinished Every CGE tournament of its season has finished, which finishes it too
+	TournamentFinished bool `json:"tournament_finished"`
 }
 
 // NostradamusEditions defines model for NostradamusEditions.
@@ -4063,8 +4087,16 @@ type NostradamusEditions struct {
 
 // NostradamusGame defines model for NostradamusGame.
 type NostradamusGame struct {
-	Name   string             `json:"name"`
-	Rounds []NostradamusRound `json:"rounds"`
+	// Finished Past, as the site lists it - marked finished by an organiser, or its tournament finished
+	Finished bool `json:"finished"`
+
+	// MarkedFinished An organiser marked it finished
+	MarkedFinished bool   `json:"marked_finished"`
+	Name           string `json:"name"`
+
+	// Players The accepted participants, people before bots
+	Players []NostradamusPlayer `json:"players"`
+	Rounds  []NostradamusRound  `json:"rounds"`
 
 	// Scored The labels of the rounds in the standings, in order
 	Scored []string `json:"scored"`
@@ -4074,6 +4106,9 @@ type NostradamusGame struct {
 	// Standings Highest total first
 	Standings  []NostradamusStanding `json:"standings"`
 	Tournament string                `json:"tournament"`
+
+	// TournamentFinished Every CGE tournament of its season has finished, which finishes it too
+	TournamentFinished bool `json:"tournament_finished"`
 }
 
 // NostradamusGiven defines model for NostradamusGiven.
@@ -4084,6 +4119,17 @@ type NostradamusGiven struct {
 
 	// Tokens The tokens staked on it, each winning or losing the round's token points
 	Tokens int `json:"tokens"`
+}
+
+// NostradamusPlayer defines model for NostradamusPlayer.
+type NostradamusPlayer struct {
+	Bot bool `json:"bot"`
+
+	// Member The TTA username of the member it is linked to
+	Member *string `json:"member"`
+
+	// Name The name the participant plays under
+	Name string `json:"name"`
 }
 
 // NostradamusQuestion defines model for NostradamusQuestion.
@@ -5565,6 +5611,9 @@ type PutAdminMemberBanJSONRequestBody = MemberBan
 // PostAdminNostradamusEditionJSONRequestBody defines body for PostAdminNostradamusEdition for application/json ContentType.
 type PostAdminNostradamusEditionJSONRequestBody = AdminNostradamusEditionNew
 
+// PutAdminNostradamusFinishedJSONRequestBody defines body for PutAdminNostradamusFinished for application/json ContentType.
+type PutAdminNostradamusFinishedJSONRequestBody = AdminNostradamusFinished
+
 // PostAdminNostradamusParticipantJSONRequestBody defines body for PostAdminNostradamusParticipant for application/json ContentType.
 type PostAdminNostradamusParticipantJSONRequestBody = AdminNostradamusEntrant
 
@@ -5849,6 +5898,9 @@ type ServerInterface interface {
 	// GetAdminNostradamusGame A Nostradamus game with drafts, outcomes and participants (admins and organisers)
 	// (GET /v1/admin/nostradamus/{edition})
 	GetAdminNostradamusGame(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug)
+	// PutAdminNostradamusFinished Mark a Nostradamus game finished, or not (admins and organisers)
+	// (PUT /v1/admin/nostradamus/{edition}/finished)
+	PutAdminNostradamusFinished(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug)
 	// PostAdminNostradamusParticipant Add a participant to a Nostradamus game (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/participants)
 	PostAdminNostradamusParticipant(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug)
@@ -8181,6 +8233,32 @@ func (siw *ServerInterfaceWrapper) GetAdminNostradamusGame(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminNostradamusGame(w, r, edition)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminNostradamusFinished operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminNostradamusFinished(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "edition" -------------
+	var edition NostradamusEditionSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminNostradamusFinished(w, r, edition)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12111,6 +12189,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/nostradamus", wrapper.GetAdminNostradamusEditions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus", wrapper.PostAdminNostradamusEdition)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}", wrapper.GetAdminNostradamusGame)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/finished", wrapper.PutAdminNostradamusFinished)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds", wrapper.PostAdminNostradamusRound)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}", wrapper.DeleteAdminNostradamusRound)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}", wrapper.PutAdminNostradamusRound)
@@ -17165,6 +17244,83 @@ func (response GetAdminNostradamusGame403JSONResponse) VisitGetAdminNostradamusG
 type GetAdminNostradamusGame404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetAdminNostradamusGame404JSONResponse) VisitGetAdminNostradamusGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusFinishedRequestObject struct {
+	Edition NostradamusEditionSlug `json:"edition"`
+	Body    *PutAdminNostradamusFinishedJSONRequestBody
+}
+
+type PutAdminNostradamusFinishedResponseObject interface {
+	VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error
+}
+
+type PutAdminNostradamusFinished204Response struct {
+}
+
+func (response PutAdminNostradamusFinished204Response) VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminNostradamusFinished400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminNostradamusFinished400JSONResponse) VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusFinished401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminNostradamusFinished401JSONResponse) VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusFinished403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminNostradamusFinished403JSONResponse) VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusFinished404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminNostradamusFinished404JSONResponse) VisitPutAdminNostradamusFinishedResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -24445,6 +24601,9 @@ type StrictServerInterface interface {
 	// GetAdminNostradamusGame A Nostradamus game with drafts, outcomes and participants (admins and organisers)
 	// (GET /v1/admin/nostradamus/{edition})
 	GetAdminNostradamusGame(ctx context.Context, request GetAdminNostradamusGameRequestObject) (GetAdminNostradamusGameResponseObject, error)
+	// PutAdminNostradamusFinished Mark a Nostradamus game finished, or not (admins and organisers)
+	// (PUT /v1/admin/nostradamus/{edition}/finished)
+	PutAdminNostradamusFinished(ctx context.Context, request PutAdminNostradamusFinishedRequestObject) (PutAdminNostradamusFinishedResponseObject, error)
 	// PostAdminNostradamusParticipant Add a participant to a Nostradamus game (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/participants)
 	PostAdminNostradamusParticipant(ctx context.Context, request PostAdminNostradamusParticipantRequestObject) (PostAdminNostradamusParticipantResponseObject, error)
@@ -26685,6 +26844,39 @@ func (sh *strictHandler) GetAdminNostradamusGame(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminNostradamusGameResponseObject); ok {
 		if err := validResponse.VisitGetAdminNostradamusGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminNostradamusFinished operation middleware
+func (sh *strictHandler) PutAdminNostradamusFinished(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug) {
+	var request PutAdminNostradamusFinishedRequestObject
+
+	request.Edition = edition
+
+	var body PutAdminNostradamusFinishedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminNostradamusFinished(ctx, request.(PutAdminNostradamusFinishedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminNostradamusFinished")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminNostradamusFinishedResponseObject); ok {
+		if err := validResponse.VisitPutAdminNostradamusFinishedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

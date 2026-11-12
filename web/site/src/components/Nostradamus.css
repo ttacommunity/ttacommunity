@@ -1,14 +1,4 @@
-/* Nostradamus pages: their cards, spaced as the blitz pages' are. */
-.nostradamus-card {
-  margin: 0 0 1.5rem;
-  padding: 1.5rem 1.75rem;
-}
-.nostradamus-card .rating-card-heading {
-  margin: 0 0 1rem;
-}
-.nostradamus-panel {
-  margin: 0 0 1.5rem;
-}
+/* Nostradamus pages: questions, choices, token stakes and polls, inside the blitz pages' cards. */
 .nostradamus-nudge {
   border-left: 3px solid var(--accent-gold);
   padding-left: 0.75rem;
@@ -56,8 +46,15 @@
 .nostradamus-poll li > span:first-child {
   min-width: 9rem;
 }
-.nostradamus-panel .stages-pick,
-.nostradamus-panel .stages-pick select {
-  max-width: 100%;
+/* The round picker: its long labels shrink to the card on a phone. */
+.nostradamus-round-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
+  max-width: 100%;
+}
+.nostradamus-round-pick select {
+  min-width: 0;
+  max-width: 100%;
 }

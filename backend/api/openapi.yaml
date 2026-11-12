@@ -2624,6 +2624,34 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/finished:
+    put:
+      operationId: putAdminNostradamusFinished
+      tags: [admin]
+      summary: Mark a Nostradamus game finished, or not (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A finished game is
+        listed among past games on the site; it also counts as finished,
+        whatever this says, once its tournament has. An unknown game is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusFinished"
+      responses:
+        "204":
+          description: Set
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/nostradamus/{edition}/rounds:
     post:
       operationId: postAdminNostradamusRound
@@ -10676,8 +10704,17 @@ components:
             $ref: "#/components/schemas/NostradamusEdition"
     NostradamusEdition:
       type: object
-      required: [slug, name, series, tournament, open_until]
+      required: [slug, name, series, tournament, open_until, finished, marked_finished, tournament_finished]
       properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
         open_until:
           description: When the game's first round open for answers closes; null while none is
           type: string
@@ -10695,8 +10732,22 @@ components:
           type: string
     NostradamusGame:
       type: object
-      required: [slug, name, series, tournament, rounds, scored, standings]
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings]
       properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
+        players:
+          description: The accepted participants, people before bots
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusPlayer"
         slug:
           type: string
         name:
@@ -10719,6 +10770,26 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NostradamusStanding"
+    NostradamusPlayer:
+      type: object
+      required: [name, member, bot]
+      properties:
+        name:
+          description: The name the participant plays under
+          type: string
+        member:
+          description: The TTA username of the member it is linked to
+          type: string
+          nullable: true
+        bot:
+          type: boolean
+    AdminNostradamusFinished:
+      type: object
+      additionalProperties: false
+      required: [finished]
+      properties:
+        finished:
+          type: boolean
     NostradamusRound:
       type: object
       required: [id, label, name, tokens_min, tokens_max, token_points, closes_at, zone, published, closed, questions]
@@ -10918,8 +10989,22 @@ components:
           format: int64
     AdminNostradamusGame:
       type: object
-      required: [slug, name, series, tournament, rounds, scored, standings, participants]
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings, participants]
       properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
+        players:
+          description: The accepted participants, people before bots
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusPlayer"
         slug:
           type: string
         name:

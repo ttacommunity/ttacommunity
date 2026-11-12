@@ -1,23 +1,29 @@
-/** A Nostradamus game: the join box and the open round's questions for a signed-in player, the standings, and each published round with, once closed, its outcomes and how many picked each answer. */
-import { useEffect, useState, type ReactNode } from 'react';
+/** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings, its rounds one at a time, and its players. */
+import { useState } from 'react';
+import BackLink from '@ttac/shared/BackLink';
+import SubTabs, { useHash } from '@ttac/shared/SubTabs';
+import { hashTab } from '@ttac/shared/tabs';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { nostradamusEditions, nostradamusGame, type NostradamusGame, type NostradamusQuestion, type NostradamusRound } from '@ttac/shared/ratings';
 import { browserStorage, seemsSignedIn } from '../lib/account';
 import { askToPlay, fetchMyNostradamus, sendAnswers, type MyPlace } from '../lib/nostradamus-me';
 import {
   answeredOf,
-  chosenEdition,
   choose,
   draftFrom,
-  editionLabel,
   editionParam,
+  gameStatus,
   givenFrom,
   joinState,
   nostradamusHref,
+  openUntil,
   places,
   pollShare,
+  roundLabel,
   roundStage,
+  shownGames,
   shownName,
+  startingRound,
   timeLeft,
   stakeRange,
   staked,
@@ -29,71 +35,131 @@ import {
 import { useKeptLoad } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
+import './Blitz.css';
 
-/** NostradamusGamePage loads the games, then the chosen one and, for someone signed in, their place in it. */
+const VIEWS = ['standings', 'rounds', 'players'] as const;
+const RULES =
+  "The community's prediction game for the World Championship. Each round, players predict the results before the deadline and may stake tokens on the answers they are surest of: each token on a right answer wins its points, on a wrong one loses them. A round missed scores the lowest of the bots.";
+
+/** NostradamusGamePage shows the game the address names, or the list of games. */
 export default function NostradamusGamePage({ apiUrl }: { apiUrl: string }) {
-  const [wanted, setWanted] = useState<string | null | undefined>(undefined);
-  const [asked, setAsked] = useState(0);
-  useEffect(() => setWanted(editionParam(window.location.search)), []);
-  const editions = useLoad('editions', wanted === undefined ? null : () => nostradamusEditions(apiUrl));
-  const edition = editions.kind === 'ready' ? chosenEdition(editions.data.editions, wanted ?? null) : null;
-  const game = useKeptLoad(`game-${edition}-${asked}`, edition === null ? null : () => nostradamusGame(apiUrl, edition));
-  const place = useKeptLoad(`mine-${edition}-${asked}`, edition === null ? null : () => myPlace(apiUrl, edition));
-  const reload = () => setAsked((n) => n + 1);
+  const [edition] = useState(() => editionParam(window.location.search));
+  return edition === null ? <GamesList apiUrl={apiUrl} /> : <GamePage apiUrl={apiUrl} edition={edition} />;
+}
 
+/** GamesList lists the games still running, and the past ones too when asked. */
+function GamesList({ apiUrl }: { apiUrl: string }) {
+  const [past, setPast] = useState(false);
+  const editions = useLoad('editions', () => nostradamusEditions(apiUrl));
+  const now = new Date();
   return (
     <>
-      <div className="analysis-hero-card">
-        <div>
-          <h1 className="analysis-hero-title">Nostradamus</h1>
-          <p className="analysis-hero-desc">
-            The community&apos;s prediction game for the World Championship. Each round, players predict the results before the deadline and may stake tokens on
-            the answers they are surest of: each token on a right answer wins its points, on a wrong one loses them. A round missed scores the lowest of the bots.
-          </p>
-        </div>
+      <div className="tournaments-header">
+        <h1 className="tournaments-title">
+          <span>🔮</span> Nostradamus
+        </h1>
+        <div className="tournaments-subtitle">{RULES}</div>
       </div>
       {editions.kind !== 'ready' ? (
         <Waiting load={editions} what="the games" />
-      ) : edition === null ? (
-        <div className="rating-card waiting-message">No game yet.</div>
       ) : (
-        <>
-          {game.kind !== 'ready' ? (
-            <Waiting load={game} what="the game" />
+        <section className="rating-card blitz-card" aria-labelledby="nostradamus-games">
+          <h2 id="nostradamus-games" className="rating-card-heading">
+            Games
+          </h2>
+          <div className="blitz-table-bar">
+            <span>{past ? 'Every game, newest first.' : 'The games still running, newest first.'}</span>
+            <label className="blitz-toggle">
+              <input type="checkbox" checked={past} onChange={(e) => setPast(e.target.checked)} /> Show past games
+            </label>
+          </div>
+          {shownGames(editions.data.editions, past).length === 0 ? (
+            <p className="muted">{past ? 'No game yet.' : 'No game is running.'}</p>
           ) : (
-            <>
-              <JoinBox
-                apiUrl={apiUrl}
-                game={game.data}
-                place={place.kind === 'ready' ? place.data : null}
-                onChange={reload}
-                picker={
-                  editions.data.editions.length > 1 && (
-                    <label className="stages-pick">
-                      <span className="visually-hidden">Game</span>
-                      <select className="input-antique" value={edition} onChange={(e) => window.location.assign(nostradamusHref(e.target.value))}>
-                        {editions.data.editions.map((e) => (
-                          <option key={e.slug} value={e.slug}>
-                            {editionLabel(e, new Date())}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )
-                }
-              />
-              {place.kind === 'ready' && place.data.kind === 'signed-in' && place.data.mine.status === 'accepted' &&
-                game.data.rounds
-                  .filter((r) => roundStage(r, new Date()) === 'open')
-                  .map((r) => <AnswerForm key={r.id} apiUrl={apiUrl} edition={game.data.slug} round={r} place={place.data} onSaved={reload} />)}
-              <Standings game={game.data} />
-              {[...game.data.rounds].reverse().map((r) => (
-                <RoundCard key={r.id} round={r} place={place.kind === 'ready' ? place.data : null} />
-              ))}
-            </>
+            <div className="blitz-table-wrap">
+              <table className="blitz-table">
+                <caption className="visually-hidden">Nostradamus games, newest first</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Game</th>
+                    <th scope="col">Tournament</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shownGames(editions.data.editions, past).map((g) => (
+                    <tr key={g.slug}>
+                      <th scope="row">
+                        <a href={nostradamusHref(g.slug)}>{g.name}</a>
+                      </th>
+                      <td>{g.tournament}</td>
+                      <td>{gameStatus(g, now)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </>
+        </section>
       )}
+    </>
+  );
+}
+
+/** GamePage is one game: its header, the player's place, and tabs for its standings, its rounds (one shown at a time, the open or latest first) and its players. */
+function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
+  const [asked, setAsked] = useState(0);
+  const [hash, setHash] = useHash();
+  const [round, setRound] = useState<number | null>(null);
+  const game = useKeptLoad(`game-${asked}`, () => nostradamusGame(apiUrl, edition));
+  const place = useKeptLoad(`mine-${asked}`, () => myPlace(apiUrl, edition));
+  const reload = () => setAsked((n) => n + 1);
+  const back = (
+    <div className="header-back">
+      <BackLink href="/nostradamus/">Every Nostradamus game</BackLink>
+    </div>
+  );
+  if (game.kind !== 'ready') {
+    return (
+      <>
+        <div className="tournaments-header">
+          {back}
+          <h1 className="tournaments-title">
+            <span>🔮</span> Nostradamus
+          </h1>
+        </div>
+        <Waiting load={game} what="the game" />
+      </>
+    );
+  }
+  const g = game.data;
+  const mine = place.kind === 'ready' ? place.data : null;
+  const shown = round ?? startingRound(g.rounds, new Date());
+  const openRound = (id: number) => {
+    setRound(id);
+    setHash('rounds');
+  };
+  const panels = {
+    standings: { label: 'Standings', panel: <Standings game={g} /> },
+    rounds: { label: 'Rounds', panel: <RoundsPanel apiUrl={apiUrl} game={g} place={mine} shown={shown} onPick={setRound} onSaved={reload} /> },
+    players: { label: 'Players', panel: <PlayersPanel game={g} /> },
+  };
+  return (
+    <>
+      <div className="tournaments-header">
+        {back}
+        <h1 className="tournaments-title">
+          <span>🔮</span> {g.name}
+        </h1>
+        <div className="tournaments-subtitle">
+          {g.tournament}. {gameStatus({ finished: g.finished, open_until: openUntil(g.rounds, new Date()) }, new Date())}.
+        </div>
+        <div className="tournaments-subtitle">{RULES}</div>
+      </div>
+      <JoinBox apiUrl={apiUrl} game={g} place={mine} onChange={reload} onOpen={openRound} />
+      <section className="rating-card blitz-card" aria-label="Standings, rounds and players">
+        <SubTabs label="Show" tabs={VIEWS.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(VIEWS, hash)} onChoose={setHash} />
+      </section>
     </>
   );
 }
@@ -103,8 +169,8 @@ function myPlace(apiUrl: string, edition: string): Promise<MyPlace> {
   return seemsSignedIn(browserStorage()) ? fetchMyNostradamus(apiUrl, edition) : Promise.resolve({ kind: 'signed-out' });
 }
 
-/** JoinBox heads the game, with the game picker beside its name as the tournament pages pick a season, and tells the player where they stand: sign in, link a TTA username, ask to play, waiting, refused, or in. */
-function JoinBox({ apiUrl, game, place, onChange, picker }: { apiUrl: string; game: NostradamusGame; place: MyPlace | null; onChange: () => void; picker: ReactNode }) {
+/** JoinBox tells the player where they stand (sign in, link a TTA username, ask to play, waiting, refused, or in) and, once in, how much of each open round they have answered. */
+function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; game: NostradamusGame; place: MyPlace | null; onChange: () => void; onOpen: (round: number) => void }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const state = place === null ? null : joinState(place.kind !== 'signed-out', place.kind === 'signed-in', place.kind === 'signed-in' ? place.mine.status : 'none');
@@ -116,13 +182,10 @@ function JoinBox({ apiUrl, game, place, onChange, picker }: { apiUrl: string; ga
     else setMessage(r.message);
   };
   return (
-    <section className="panel-card nostradamus-panel" aria-labelledby="nostradamus-join">
-      <div className="panel-header panel-header-split">
-        <h2 id="nostradamus-join" className="panel-header-title">
-          {game.name}
-        </h2>
-        {picker}
-      </div>
+    <section className="rating-card blitz-card" aria-labelledby="nostradamus-join">
+      <h2 id="nostradamus-join" className="rating-card-heading">
+        Your play
+      </h2>
       {state === 'sign-in' && (
         <p>
           <a href="/account/">Sign in</a> to ask to play.
@@ -153,12 +216,68 @@ function JoinBox({ apiUrl, game, place, onChange, picker }: { apiUrl: string; ga
             return (
               <p key={r.id} className={done.answered < done.of ? 'nostradamus-nudge' : undefined}>
                 <strong>{r.name}</strong> is open, {r.closes_at ? timeLeft(r.closes_at, new Date()) : ''}: you have answered {done.answered} of {done.of}.{' '}
-                <a href={`#answer-${r.id}`}>{done.answered < done.of ? 'Answer now' : 'Change your answers'}</a>
+                <button type="button" className="blitz-text-button" onClick={() => onOpen(r.id)}>
+                  {done.answered < done.of ? 'Answer now' : 'Change your answers'}
+                </button>
               </p>
             );
           })}
       {message !== '' && <p role="alert">{message}</p>}
     </section>
+  );
+}
+
+/** RoundsPanel shows one published round, picked from a list: its answer form for an accepted player while it is open, else its questions and, once closed, its results. */
+function RoundsPanel({ apiUrl, game, place, shown, onPick, onSaved }: { apiUrl: string; game: NostradamusGame; place: MyPlace | null; shown: number | null; onPick: (round: number) => void; onSaved: () => void }) {
+  const now = new Date();
+  const round = game.rounds.find((r) => r.id === shown);
+  if (round === undefined) return <p className="muted">No round is published yet.</p>;
+  const answering = roundStage(round, now) === 'open' && place?.kind === 'signed-in' && place.mine.status === 'accepted';
+  return (
+    <>
+      <div className="blitz-table-bar">
+        <span className="nostradamus-round-pick">
+          <label htmlFor="nostradamus-round">Round</label>
+          <select id="nostradamus-round" className="input-antique" value={round.id} onChange={(e) => onPick(Number(e.target.value))}>
+            {[...game.rounds].reverse().map((r) => (
+              <option key={r.id} value={r.id}>
+                {roundLabel(r, now)}
+              </option>
+            ))}
+          </select>
+        </span>
+      </div>
+      {answering ? <AnswerForm key={round.id} apiUrl={apiUrl} edition={game.slug} round={round} place={place} onSaved={onSaved} /> : <RoundView round={round} place={place} />}
+    </>
+  );
+}
+
+/** PlayersPanel lists the game's accepted players, people before bots. */
+function PlayersPanel({ game }: { game: NostradamusGame }) {
+  if (game.players.length === 0) return <p className="muted">Nobody is playing yet.</p>;
+  return (
+    <div className="blitz-table-wrap">
+      <table className="blitz-table">
+        <caption className="visually-hidden">{game.name}: its players</caption>
+        <thead>
+          <tr>
+            <th scope="col">Player</th>
+            <th scope="col">TTA username</th>
+          </tr>
+        </thead>
+        <tbody>
+          {game.players.map((p) => (
+            <tr key={p.name}>
+              <th scope="row">
+                {p.name}
+                {p.bot && <span className="muted"> (bot)</span>}
+              </th>
+              <td>{p.member ?? ''}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -177,7 +296,7 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
     if (r.ok) onSaved();
   };
   return (
-    <section className="rating-card nostradamus-card" aria-labelledby={`answer-${round.id}`}>
+    <section aria-labelledby={`answer-${round.id}`}>
       <h2 id={`answer-${round.id}`} className="rating-card-heading">
         {round.name}: your answers
       </h2>
@@ -241,7 +360,7 @@ function questionWorth(q: NostradamusQuestion): string {
 function Standings({ game }: { game: NostradamusGame }) {
   const ranks = places(game.standings.map((s) => s.total));
   return (
-    <section className="rating-card nostradamus-card" aria-labelledby="nostradamus-standings">
+    <section aria-labelledby="nostradamus-standings">
       <h2 id="nostradamus-standings" className="rating-card-heading">
         Standings
       </h2>
@@ -295,13 +414,13 @@ function Standings({ game }: { game: NostradamusGame }) {
   );
 }
 
-/** RoundCard shows a published round: its questions and deadline while open; once closed, each outcome, the player's own answer, and how many picked each choice. */
-function RoundCard({ round, place }: { round: NostradamusRound; place: MyPlace | null }) {
+/** RoundView shows a published round: its questions and deadline while open; once closed, each outcome, the player's own answer, and how many picked each choice. */
+function RoundView({ round, place }: { round: NostradamusRound; place: MyPlace | null }) {
   const stage = roundStage(round, new Date());
   const mine = place?.kind === 'signed-in' ? place.mine.answers : [];
   const zone = viewerZone();
   return (
-    <section className="rating-card nostradamus-card" aria-labelledby={`round-${round.id}`}>
+    <section aria-labelledby={`round-${round.id}`}>
       <h2 id={`round-${round.id}`} className="rating-card-heading">
         {round.name}
       </h2>

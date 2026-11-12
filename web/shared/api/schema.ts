@@ -1925,6 +1925,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/nostradamus/{edition}/finished": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark a Nostradamus game finished, or not (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A finished game is
+         *     listed among past games on the site; it also counts as finished,
+         *     whatever this says, once its tournament has. An unknown game is 404.
+         */
+        put: operations["putAdminNostradamusFinished"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/nostradamus/{edition}/rounds": {
         parameters: {
             query?: never;
@@ -6568,6 +6590,12 @@ export interface components {
             editions: components["schemas"]["NostradamusEdition"][];
         };
         NostradamusEdition: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
             /**
              * Format: date-time
              * @description When the game's first round open for answers closes; null while none is
@@ -6581,6 +6609,14 @@ export interface components {
             tournament: string;
         };
         NostradamusGame: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
+            /** @description The accepted participants, people before bots */
+            players: components["schemas"]["NostradamusPlayer"][];
             slug: string;
             name: string;
             series: string;
@@ -6590,6 +6626,16 @@ export interface components {
             scored: string[];
             /** @description Highest total first */
             standings: components["schemas"]["NostradamusStanding"][];
+        };
+        NostradamusPlayer: {
+            /** @description The name the participant plays under */
+            name: string;
+            /** @description The TTA username of the member it is linked to */
+            member: string | null;
+            bot: boolean;
+        };
+        AdminNostradamusFinished: {
+            finished: boolean;
         };
         NostradamusRound: {
             /** Format: int64 */
@@ -6692,6 +6738,14 @@ export interface components {
             id: number;
         };
         AdminNostradamusGame: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
+            /** @description The accepted participants, people before bots */
+            players: components["schemas"]["NostradamusPlayer"][];
             slug: string;
             name: string;
             series: string;
@@ -9338,6 +9392,34 @@ export interface operations {
                     "application/json": components["schemas"]["AdminNostradamusGame"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusFinished: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusFinished"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
