@@ -3,7 +3,7 @@ import { breadcrumb, placeOf, sections } from './nav';
 
 describe('sections', () => {
   it('lists Home, then the sections with pages', () => {
-    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments', 'Challenges']);
+    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments', 'Games']);
   });
   it('gives every page a description', () => {
     const pages = sections.flatMap((s) => s.pages);
@@ -32,7 +32,9 @@ describe('placeOf', () => {
     ['a Hall of Fame series', '/ratings/hall_of_fame/royal_league/', 'Tournaments', 'Hall of Fame'],
     ['the community leaderboard', '/ratings/community/', 'Tournaments', 'Community leaderboard'],
     ['blitz', '/blitz/', 'Tournaments', 'Blitz'],
-    ['Nostradamus', '/nostradamus/', 'Tournaments', 'Nostradamus'],
+    ['Nostradamus', '/nostradamus/', 'Games', 'Nostradamus'],
+    ['challenge highscores', '/challenges/', 'Games', 'Challenge highscores'],
+    ['a challenge', '/challenges/1ai/', 'Games', 'Challenge highscores'],
   ])('puts %s in its section and page', (_name, path, section, page) => {
     const place = placeOf(path);
     expect([place?.section.label, place?.page?.label]).toEqual([section, page]);

@@ -6,11 +6,15 @@
 .nostradamus-card .rating-card-heading {
   margin: 0 0 1rem;
 }
-.nostradamus-editions {
+.nostradamus-pick {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin: 0 0 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+.nostradamus-nudge {
+  border-left: 3px solid var(--accent-gold);
+  padding-left: 0.75rem;
 }
 .nostradamus-question {
   margin: 0 0 1.25rem;

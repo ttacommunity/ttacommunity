@@ -220,6 +220,10 @@ export const setNostradamusQuestion = (slug: string, id: number, q: Schemas['Adm
 export const removeNostradamusQuestion = (slug: string, id: number) => to(`${nostradamus(slug)}/questions/${id}`, 'DELETE');
 /** publishNostradamusRound opens a draft for answers until a day and time on the clocks of a zone. */
 export const publishNostradamusRound = (slug: string, id: number, deadline: Schemas['BlitzDeadlineSet']) => to(`${nostradamus(slug)}/rounds/${id}/publish`, 'POST', deadline);
+/** unpublishNostradamusRound takes a published round back to a draft, to fix its questions. */
+export const unpublishNostradamusRound = (slug: string, id: number) => to(`${nostradamus(slug)}/rounds/${id}/unpublish`, 'POST');
+/** setNostradamusDeadline moves a published round's deadline to a day and time on the clocks of a zone. */
+export const setNostradamusDeadline = (slug: string, id: number, deadline: Schemas['BlitzDeadlineSet']) => to(`${nostradamus(slug)}/rounds/${id}/deadline`, 'PUT', deadline);
 /** closeNostradamusRound closes a round, publishing its results. */
 export const closeNostradamusRound = (slug: string, id: number) => to(`${nostradamus(slug)}/rounds/${id}/close`, 'POST');
 /** setNostradamusOutcome sets what happened for a question; none clears it. */

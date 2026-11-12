@@ -91,6 +91,8 @@ describe('admin requests', () => {
     ['a question removed', req.removeNostradamusQuestion('wc-2031', 7), '/api/nostradamus/wc-2031/questions/7', 'DELETE', undefined],
     ['a round published', req.publishNostradamusRound('wc-2031', 4, { day: '2031-06-01', time: '18:00', zone: 'Europe/Berlin' }), '/api/nostradamus/wc-2031/rounds/4/publish', 'POST', { day: '2031-06-01', time: '18:00', zone: 'Europe/Berlin' }],
     ['a round closed', req.closeNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4/close', 'POST', undefined],
+    ['a round unpublished', req.unpublishNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4/unpublish', 'POST', undefined],
+    ['a deadline moved', req.setNostradamusDeadline('wc-2031', 4, { day: '2031-06-02', time: '09:30', zone: 'UTC' }), '/api/nostradamus/wc-2031/rounds/4/deadline', 'PUT', { day: '2031-06-02', time: '09:30', zone: 'UTC' }],
     ['an outcome', req.setNostradamusOutcome('wc-2031', 7, ['Ann']), '/api/nostradamus/wc-2031/questions/7/outcome', 'PUT', { outcome: ['Ann'] }],
     ["a bot's answers", req.setNostradamusBotAnswers('wc-2031', 4, 9, [{ question: 7, answer: ['Ann'], token: false }]), '/api/nostradamus/wc-2031/rounds/4/bots/9/answers', 'PUT', { answers: [{ question: 7, answer: ['Ann'], token: false }] }],
     ['a new participant, as an entrant', req.addNostradamusParticipant('wc-2031', { member: 12, zone: 'UTC' }), '/api/nostradamus/wc-2031/participants', 'POST', { member: 12, zone: 'UTC' }],
