@@ -311,18 +311,25 @@ func (s *server) PutAdminNostradamusOutcome(ctx context.Context, req PutAdminNos
 }
 
 func (s *server) PostAdminNostradamusParticipant(ctx context.Context, req PostAdminNostradamusParticipantRequestObject) (PostAdminNostradamusParticipantResponseObject, error) {
-	if req.Body == nil || strings.TrimSpace(req.Body.Name) == "" {
-		return PostAdminNostradamusParticipant400JSONResponse{badRequest400("the participant: a TTA username, or a bot's name")}, nil
+	if req.Body == nil {
+		return PostAdminNostradamusParticipant400JSONResponse{badRequest400("the participant: a member, a TTA username, or a bot's name and rule")}, nil
 	}
-	e := store.NostradamusEntrant{Name: req.Body.Name}
-	if req.Body.DiscordName != nil {
-		e.DiscordName = *req.Body.DiscordName
-	}
-	if req.Body.BotRule != nil {
-		e.BotRule = string(*req.Body.BotRule)
+	b := req.Body
+	var e store.NostradamusEntrant
+	if b.BotRule != nil && *b.BotRule != "" {
+		if b.Name == nil || strings.TrimSpace(*b.Name) == "" {
+			return PostAdminNostradamusParticipant400JSONResponse{badRequest400("a bot's name")}, nil
+		}
+		e = store.NostradamusEntrant{Entrant: store.BlitzEntrant{Name: strings.TrimSpace(*b.Name)}, BotRule: string(*b.BotRule)}
+	} else {
+		in, msg := entrantFrom(b.Member, b.Name, b.DiscordName, b.Email, b.Country, b.Zone)
+		if msg != "" {
+			return PostAdminNostradamusParticipant400JSONResponse{badRequest400(msg)}, nil
+		}
+		e = store.NostradamusEntrant{Entrant: in}
 	}
 	var id int64
-	status, msg, err := s.nostradamusChange(ctx, "nostradamus.participant.add", req.Edition, req.Body, func(tx Admins) error {
+	status, msg, err := s.nostradamusChange(ctx, "nostradamus.participant.add", req.Edition, b, func(tx Admins) error {
 		var err error
 		id, err = tx.AddNostradamusParticipant(ctx, req.Edition, e)
 		return err

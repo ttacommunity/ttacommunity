@@ -414,9 +414,9 @@ func TestNostradamusADraftIsShownOnlyInAdminUntilPublished(t *testing.T) {
 func TestNostradamusPublishingHasTheBotsAnswer(t *testing.T) {
 	g := newGame(t)
 	ctx := context.Background()
-	for _, e := range []NostradamusEntrant{{Name: "John Seed", BotRule: "seed"}, {Name: "Glickos", BotRule: "glicko"}} {
+	for _, e := range []NostradamusEntrant{{Entrant: BlitzEntrant{Name: "John Seed"}, BotRule: "seed"}, {Entrant: BlitzEntrant{Name: "Glickos"}, BotRule: "glicko"}} {
 		if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", e); err != nil {
-			t.Fatalf("AddNostradamusParticipant(%s): %v", e.Name, err)
+			t.Fatalf("AddNostradamusParticipant(%s): %v", e.Entrant.Name, err)
 		}
 	}
 	g.publish(t)
@@ -577,7 +577,7 @@ func TestNostradamusAnswersAreRefusedWhenTheyShouldBe(t *testing.T) {
 	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
 	approved(t, g.admin, p, l, "Bea")
 	hash := tokenHash("token-1")
-	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "Bea"}); err != nil {
+	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Entrant: BlitzEntrant{Name: "Bea", Zone: "UTC"}}); err != nil {
 		t.Fatalf("adding Bea: %v", err)
 	}
 	draft, err := g.admin.AddNostradamusRound(ctx, "wc-2031", NostradamusRoundDraft{Label: "R2", Name: "Round 2", Tokens: 1, TokenPoints: 10})
@@ -641,11 +641,11 @@ func TestNostradamusAdminAddsAndLinksMembers(t *testing.T) {
 	if _, err := g.pool.Exec(ctx, "INSERT INTO members (tta_name) VALUES ('Beatrix')"); err != nil {
 		t.Fatal(err)
 	}
-	id, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "Newcomer", DiscordName: "new_one"})
+	id, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Entrant: BlitzEntrant{Name: "Newcomer", DiscordName: "new_one", Zone: "UTC"}})
 	if err != nil {
 		t.Fatalf("AddNostradamusParticipant: %v", err)
 	}
-	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Name: "newcomer"}); !errors.Is(err, ErrBadNostradamus) {
+	if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", NostradamusEntrant{Entrant: BlitzEntrant{Name: "newcomer", Zone: "UTC"}}); !errors.Is(err, ErrBadNostradamus) {
 		t.Errorf("adding the same member again = %v, want ErrBadNostradamus", err)
 	}
 	if err := g.admin.LinkNostradamusParticipant(ctx, "wc-2031", id, "beatrix"); err != nil {
@@ -692,5 +692,25 @@ func TestNostradamusAdminAddsAGameOverATournament(t *testing.T) {
 		if err := g.admin.AddNostradamusEdition(ctx, tt.e); !errors.Is(err, tt.want) {
 			t.Errorf("%s: AddNostradamusEdition = %v, want %v", tt.name, err, tt.want)
 		}
+	}
+}
+
+func TestNostradamusLinkingARatedPlayerMakesThemAMember(t *testing.T) {
+	pool := nostradamusFixture(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, "INSERT INTO players (name) VALUES ('Rated_Rae')"); err != nil {
+		t.Fatal(err)
+	}
+	addRounds(t, pool, nround{"S1", []question{{label: "A", kind: "pick", points: 4, outcome: []string{"Ann"}}}, []entry{answered("rae", "A=Ann")}})
+	admin, err := a.NostradamusGame(ctx, "wc-2031")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.LinkNostradamusParticipant(ctx, "wc-2031", admin.Participants[0].ID, "rated_rae"); err != nil {
+		t.Fatalf("linking a rated player who is no member = %v, want them made a member and linked", err)
+	}
+	if got, want := boardLines(t, pool), []string{`rae "Rated_Rae" 4 S1=4`}; !slices.Equal(got, want) {
+		t.Errorf("board = %q, want %q", got, want)
 	}
 }
