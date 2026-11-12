@@ -1,5 +1,6 @@
 /** Admin's Nostradamus decisions: outcomes and choices as typed, the question form to and from the API's body, a round's stage, and what keeps it from closing. */
 import type { components } from '@ttac/shared/api';
+import { personChoices, type Candidate, type PersonChoice } from './person-form';
 
 type Kind = 'pick' | 'set' | 'number';
 type Choice = components['schemas']['NostradamusChoice'];
@@ -88,4 +89,17 @@ export function closeBlocker(round: { published: boolean; closed: boolean; close
 /** gameHref is a game's page in admin. */
 export function gameHref(slug: string): string {
   return `/nostradamus/?${new URLSearchParams({ edition: slug })}`;
+}
+
+/** roundLabel is a new round's label: the one typed, else the first of R1, R2, … the game has not taken. */
+export function roundLabel(typed: string, taken: readonly string[]): string {
+  if (typed.trim() !== '') return typed.trim();
+  let n = 1;
+  while (taken.includes(`R${n}`)) n++;
+  return `R${n}`;
+}
+
+/** linkChoices are whom a participant may be linked to: the members and rated players the search found, as personChoices offers them, without a new name, which a link cannot make. */
+export function linkChoices(found: readonly Candidate[], typed: string): PersonChoice[] {
+  return personChoices(found, typed, { entered: [], membersTaken: false }).filter((c) => c.key !== 'new' && c.key !== 'entered');
 }

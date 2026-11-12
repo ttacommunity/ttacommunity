@@ -9,11 +9,18 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
-import { closeBlocker, emptyQuestionForm, outcomeText, outcomeValues, questionBody, questionFormFrom, roundStatus, type QuestionForm } from '../lib/nostradamus-admin';
-import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
+import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, roundLabel, roundStatus, type QuestionForm } from '../lib/nostradamus-admin';
+import { countryNames, type Country } from '../lib/countries';
+import { entrantToAdd } from '../lib/person-form';
+import type { Region } from '../lib/zones';
+import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import AdminHeader from './AdminHeader';
 import Notice from './Notice';
 import PageError from './PageError';
+import PersonForm from './PersonForm';
+import PickBox from './PickBox';
+import usePeopleSearch from './usePeopleSearch';
+import ZonePick from './ZonePick';
 import './AdminApp.css';
 
 type Game = components['schemas']['AdminNostradamusGame'];
@@ -31,6 +38,8 @@ export default function NostradamusGamePage() {
   const [me, setMe] = useState<Load<AdminMe>>({ kind: 'loading' });
   const [game, setGame] = useState<Load<Game>>({ kind: 'loading' });
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   // The address is read once mounted: the page is prerendered, where there is no window.
   const load = async () => {
     const slug = new URLSearchParams(window.location.search).get('edition') ?? '';
@@ -43,6 +52,8 @@ export default function NostradamusGamePage() {
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) => setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }));
+    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
+    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
     void load();
   }, []);
   const error = firstError(me, game);
@@ -74,8 +85,8 @@ export default function NostradamusGamePage() {
               <SubTabs<View>
                 label="Show"
                 tabs={[
-                  { value: 'rounds', label: 'Rounds', panel: <RoundsTab game={game.data} onReload={load} outcome={outcome} say={setOutcome} /> },
-                  { value: 'members', label: 'Members', panel: <MembersTab game={game.data} onReload={load} outcome={outcome} say={setOutcome} /> },
+                  { value: 'rounds', label: 'Rounds', panel: <RoundsTab game={game.data} regions={regions} onReload={load} outcome={outcome} say={setOutcome} /> },
+                  { value: 'members', label: 'Members', panel: <MembersTab game={game.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} /> },
                   { value: 'standings', label: 'Standings', panel: <StandingsTab game={game.data} /> },
                 ]}
                 chosen={hashTab<View>(['rounds', 'members', 'standings'], hash)}
@@ -90,12 +101,13 @@ export default function NostradamusGamePage() {
 }
 
 /** RoundsTab drafts a new round and shows each round at its stage, newest last. */
-function RoundsTab(props: Props) {
+function RoundsTab(props: Props & { regions: readonly Region[] }) {
   const { game, onReload, outcome, say } = props;
   const [draft, setDraft] = useState({ label: '', name: '', tokens: 3, token_points: 10 });
   const add = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await req.send(req.addNostradamusRound(game.slug, { ...draft, label: draft.label.trim(), name: draft.name.trim() }));
+    const label = roundLabel(draft.label, game.rounds.map((r) => r.label));
+    const r = await req.send(req.addNostradamusRound(game.slug, { ...draft, label, name: draft.name.trim() }));
     say(outcomeOf(r, `Drafted ${draft.name.trim()}.`, 'new round'));
     if (r.ok) {
       setDraft({ label: '', name: '', tokens: draft.tokens, token_points: draft.token_points });
@@ -111,12 +123,13 @@ function RoundsTab(props: Props) {
         <h3>New round</h3>
         <div className="admin-add">
           <label>
-            Label (S1)
-            <input className="input-antique" value={draft.label} maxLength={20} pattern="[A-Za-z0-9 ]{1,20}" required onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
+            Name
+            <input className="input-antique" value={draft.name} maxLength={100} required placeholder="Stage 1" onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
           </label>
           <label>
-            Name
-            <input className="input-antique" value={draft.name} maxLength={100} required onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            Short label, for the standings (optional)
+            <input className="input-antique" value={draft.label} maxLength={20} placeholder={roundLabel('', game.rounds.map((r) => r.label))}
+              onChange={(e) => setDraft({ ...draft, label: e.target.value })} />
           </label>
           <label>
             Tokens
@@ -137,7 +150,7 @@ function RoundsTab(props: Props) {
 }
 
 /** RoundCard is one round, folded once closed: a draft's questions to edit and its deadline to publish by; a published round's outcomes, answers and bots; closing it. */
-function RoundCard({ game, round, onReload, outcome, say }: Props & { round: Round }) {
+function RoundCard({ game, round, regions, onReload, outcome, say }: Props & { round: Round; regions: readonly Region[] }) {
   const status = roundStatus(round, new Date());
   const at = `round ${round.id}`;
   const zone = viewerZone();
@@ -164,7 +177,7 @@ function RoundCard({ game, round, onReload, outcome, say }: Props & { round: Rou
       {status === 'draft' && (
         <>
           <QuestionEditor title="Add a question" start={emptyQuestionForm} onSave={(f) => run(req.addNostradamusQuestion(game.slug, round.id, questionBody(f)), `Added ${f.label.trim()}.`)} />
-          <PublishForm onPublish={(d) => run(req.publishNostradamusRound(game.slug, round.id, d), `Published ${round.name}.`)} />
+          <PublishForm regions={regions} onPublish={(d) => run(req.publishNostradamusRound(game.slug, round.id, d), `Published ${round.name}.`)} />
           <p>
             <button type="button" className="btn-antique" onClick={() => void run(req.removeNostradamusRound(game.slug, round.id), `Removed ${round.name}.`)}>
               Remove this draft
@@ -288,7 +301,7 @@ function QuestionEditor({ title, start, onSave }: { title: string; start: Questi
 }
 
 /** PublishForm sets a draft's deadline, a day and time on the clocks of a zone, and publishes it. */
-function PublishForm({ onPublish }: { onPublish: (d: { day: string; time: string; zone: string }) => Promise<void> }) {
+function PublishForm({ regions, onPublish }: { regions: readonly Region[]; onPublish: (d: { day: string; time: string; zone: string }) => Promise<void> }) {
   const [d, setD] = useState({ day: '', time: '18:00', zone: viewerZone() });
   const publish = async (e: FormEvent) => {
     e.preventDefault();
@@ -307,10 +320,7 @@ function PublishForm({ onPublish }: { onPublish: (d: { day: string; time: string
           Time
           <input className="input-antique" type="time" required value={d.time} onChange={(e) => setD({ ...d, time: e.target.value })} />
         </label>
-        <label>
-          Time zone
-          <input className="input-antique" required value={d.zone} maxLength={64} onChange={(e) => setD({ ...d, zone: e.target.value })} />
-        </label>
+        <ZonePick label="Time zone" regions={regions} value={d.zone} onChange={(zone) => setD({ ...d, zone })} />
         <button type="submit" className="btn-antique">
           Publish the round
         </button>
@@ -322,7 +332,7 @@ function PublishForm({ onPublish }: { onPublish: (d: { day: string; time: string
 /** AnswersView shows every answer in a published round, by participant, with each bot's answers to give while the round is open. */
 function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: req.Request, done: string) => Promise<void> }) {
   const [answers, setAnswers] = useState<Load<Answers> | null>(null);
-  const show = async () => {
+  const load = async () => {
     setAnswers({ kind: 'loading' });
     const r = await adminRequest<Answers>(`/api/nostradamus/${encodeURIComponent(game.slug)}/rounds/${round.id}/answers`, {});
     setAnswers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
@@ -332,8 +342,8 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
   return (
     <>
       <p>
-        <button type="button" className="btn-antique" onClick={() => void show()}>
-          {answers === null ? 'Show the answers' : 'Show them again'}
+        <button type="button" className="btn-antique" aria-expanded={answers !== null} onClick={() => (answers === null ? void load() : setAnswers(null))}>
+          {answers === null ? 'Show the answers' : 'Hide the answers'}
         </button>
       </p>
       {answers?.kind === 'error' && <p role="alert">{answers.message}</p>}
@@ -370,7 +380,7 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
         answers?.kind === 'ready' &&
         bots.map((b) => (
           <BotAnswers key={b.id} bot={b} round={round} saved={answers.data.answers.filter((a) => a.participant === b.name)}
-            onSave={(given) => run(req.setNostradamusBotAnswers(game.slug, round.id, b.id, given), `Saved ${b.name}'s answers.`).then(show)} />
+            onSave={(given) => run(req.setNostradamusBotAnswers(game.slug, round.id, b.id, given), `Saved ${b.name}'s answers.`).then(load)} />
         ))}
     </>
   );
@@ -410,8 +420,7 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
 }
 
 /** MembersTab answers the requests to play, adds people and bots, and links each participant to a TTA username. */
-function MembersTab({ game, onReload, outcome, say }: Props) {
-  const [person, setPerson] = useState({ name: '', discord_name: '' });
+function MembersTab({ game, regions, countries, onReload, outcome, say }: Props & { regions: readonly Region[]; countries: readonly Country[] }) {
   const [bot, setBot] = useState<{ name: string; bot_rule: 'seed' | 'glicko' | 'leaderboard' }>({ name: '', bot_rule: 'glicko' });
   const run = async (r: req.Request, done: string, at: string) => {
     const result = await req.send(r);
@@ -437,25 +446,28 @@ function MembersTab({ game, onReload, outcome, say }: Props) {
           </p>
         ))}
       </div>
-      <form className="admin-subsection" onSubmit={(e) => { e.preventDefault(); void run(req.addNostradamusParticipant(game.slug, { ...person, bot_rule: '' }), `Added ${person.name.trim()}.`, 'add').then(() => setPerson({ name: '', discord_name: '' })); }}>
+      <div className="admin-subsection">
         <h3>Add a player</h3>
-        <p className="muted">By TTA username: a new one becomes a member, with the Discord name given. They play at once.</p>
-        <div className="admin-add">
-          <label>
-            TTA username
-            <input className="input-antique" required maxLength={100} value={person.name} onChange={(e) => setPerson({ ...person, name: e.target.value })} />
-          </label>
-          <label>
-            Discord name
-            <input className="input-antique" maxLength={100} value={person.discord_name} onChange={(e) => setPerson({ ...person, discord_name: e.target.value })} />
-          </label>
-          <button type="submit" className="btn-antique">
-            Add
-          </button>
-        </div>
+        <p className="muted">
+          Search the members and the players the ratings know, or add someone new by their username as on CGE. What we know of them fills in; anything you add or change is saved on them. They play at once.
+        </p>
+        <PersonForm
+          searchBase="/api/people"
+          taken={{ entered: game.participants.flatMap((p) => [p.name, p.member ?? '']).filter((n) => n !== ''), membersTaken: false }}
+          regions={regions}
+          countries={countries}
+          submitLabel="Add"
+          onSubmit={async (d) => {
+            const r = await req.send(req.addNostradamusParticipant(game.slug, entrantToAdd(d)));
+            say(outcomeOf(r, `Added ${d.name.trim()}.`, 'add'));
+            if (r.ok) await onReload();
+            return r.ok;
+          }}
+          refresh={game}
+        />
         <Notice outcome={shownAt(outcome, 'add')} onClose={() => say(null)} />
-      </form>
-      <form className="admin-subsection" onSubmit={(e) => { e.preventDefault(); void run(req.addNostradamusParticipant(game.slug, { name: bot.name, discord_name: '', bot_rule: bot.bot_rule }), `Added ${bot.name.trim()}.`, 'add bot').then(() => setBot({ ...bot, name: '' })); }}>
+      </div>
+      <form className="admin-subsection" onSubmit={(e) => { e.preventDefault(); void run(req.addNostradamusParticipant(game.slug, { name: bot.name.trim(), bot_rule: bot.bot_rule }), `Added ${bot.name.trim()}.`, 'add bot').then(() => setBot({ ...bot, name: '' })); }}>
         <h3>Add a bot</h3>
         <div className="admin-add">
           <label>
@@ -504,6 +516,7 @@ function MembersTab({ game, onReload, outcome, say }: Props) {
 /** ParticipantRow is one participant: their status to change, and the member to link them to. */
 function ParticipantRow({ game, participant: p, run }: { game: Game; participant: Game['participants'][number]; run: (r: req.Request, done: string, at: string) => Promise<void> }) {
   const [member, setMember] = useState(p.member ?? '');
+  const found = usePeopleSearch('/api/people', member, member === (p.member ?? ''), game);
   return (
     <tr>
       <td>
@@ -522,7 +535,8 @@ function ParticipantRow({ game, participant: p, run }: { game: Game; participant
       <td>
         {!p.bot && (
           <>
-            <input className="input-antique" aria-label={`Member: ${p.name}`} value={member} maxLength={100} onChange={(e) => setMember(e.target.value)} />{' '}
+            <PickBox label={`Member: ${p.name}`} hideLabel text={member} placeholder="Search a TTA username" options={linkChoices(found, member)}
+              onText={setMember} onPick={(o) => setMember(o.label)} />{' '}
             <button type="button" className="btn-antique" disabled={member === (p.member ?? '')}
               onClick={() => void run(req.linkNostradamusParticipant(game.slug, p.id, member), member.trim() === '' ? `Unlinked ${p.name}.` : `Linked ${p.name} to ${member.trim()}.`, 'everyone')}>
               Save
