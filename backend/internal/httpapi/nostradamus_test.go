@@ -11,8 +11,10 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-func (f *fakeRatings) NostradamusEditions(context.Context) ([]store.NostradamusEdition, error) {
-	return []store.NostradamusEdition{{Slug: "wc-2031", Name: "Nostradamus #9", Series: "worlds", Tournament: "2031"}}, nil
+func (f *fakeRatings) NostradamusEditions(_ context.Context, now time.Time) ([]store.NostradamusEdition, error) {
+	until := now.Add(time.Hour)
+	return []store.NostradamusEdition{{Slug: "wc-2031", Name: "Nostradamus #9", Series: "worlds", Tournament: "2031", OpenUntil: &until},
+		{Slug: "wc-2030", Name: "Nostradamus #8", Series: "worlds", Tournament: "2030"}}, nil
 }
 
 // nostradamusGame is wc-2031: a closed round S1 (Bea linked to Beatrix, a bot who missed it) and an open round S2.
@@ -48,7 +50,10 @@ func TestNostradamusEditionsAndGame(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET editions = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "editions", `[{"slug": "wc-2031", "name": "Nostradamus #9", "series": "worlds", "tournament": "2031"}]`)
+	wantJSON(t, rec.Body.Bytes(), "editions", `[{"slug": "wc-2031", "name": "Nostradamus #9", "series": "worlds", "tournament": "2031"}, {"slug": "wc-2030", "open_until": null}]`)
+	if !strings.Contains(rec.Body.String(), `"open_until":"`) {
+		t.Errorf("the open game's open_until is missing: %s", rec.Body)
+	}
 	rec, _ = serve(t, &fakeRatings{}, "/v1/nostradamus/wc-2031")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET game = %d %s", rec.Code, rec.Body)
@@ -155,7 +160,7 @@ func TestPlayersNostradamusIsRefusedWithTheStatusItNeeds(t *testing.T) {
 	}
 }
 
-func (f *fakeAdmins) NostradamusEditions(context.Context) ([]store.NostradamusEdition, error) {
+func (f *fakeAdmins) NostradamusEditions(context.Context, time.Time) ([]store.NostradamusEdition, error) {
 	return []store.NostradamusEdition{{Slug: "wc-2031", Name: "Nostradamus #9", Series: "worlds", Tournament: "2031"}}, nil
 }
 
@@ -213,6 +218,14 @@ func (f *fakeAdmins) RemoveNostradamusQuestion(_ context.Context, slug string, q
 
 func (f *fakeAdmins) PublishNostradamusRound(_ context.Context, slug string, round int64, closes time.Time, zone string, _ time.Time) error {
 	return f.nostradamusChange(fmt.Sprintf("publish %d until %s in %s", round, closes.UTC().Format(time.RFC3339), zone), round)
+}
+
+func (f *fakeAdmins) UnpublishNostradamusRound(_ context.Context, slug string, round int64) error {
+	return f.nostradamusChange(fmt.Sprintf("unpublish %d", round), round)
+}
+
+func (f *fakeAdmins) SetNostradamusDeadline(_ context.Context, slug string, round int64, closes time.Time, zone string, _ time.Time) error {
+	return f.nostradamusChange(fmt.Sprintf("deadline %d %s in %s", round, closes.UTC().Format(time.RFC3339), zone), round)
 }
 
 func (f *fakeAdmins) CloseNostradamusRound(_ context.Context, slug string, round int64, _ time.Time) error {
@@ -281,6 +294,8 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/questions/7", `{"label": "Top2", "prompt": "", "kind": "set", "points": 6, "near_points": 0,
 			"picks": 2, "asks_last": false, "choices": []}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/publish", `{"day": "2031-06-01", "time": "18:00", "zone": "Europe/Berlin"}`},
+		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/deadline", `{"day": "2031-06-02", "time": "09:30", "zone": "UTC"}`},
+		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/unpublish", ``},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/bots/9/answers", `{"answers": [{"question": 7, "answer": ["Ann", "Cy"], "token": false}]}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/questions/7/outcome", `{"outcome": [" Cy ", "Ann"]}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/close", ``},
@@ -304,6 +319,8 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 		`question in 3: Top set ×2 [{Label:Ann Seed:1 LeaderboardRank:0} {Label:Cy Seed:0 LeaderboardRank:4}]`,
 		`set question 7 Top2`,
 		`publish 3 until 2031-06-01T16:00:00Z in Europe/Berlin`,
+		`deadline 3 2031-06-02T09:30:00Z in UTC`,
+		`unpublish 3`,
 		`bot 9 in 3: 1 answers`,
 		`outcome 7 ["Cy" "Ann"]`,
 		`close 3`,
@@ -336,6 +353,8 @@ func TestNostradamusChangesAreRefusedWhenTheyShould(t *testing.T) {
 		{"no such round", http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/99/close", challengeAdminSite, ``, nil, http.StatusNotFound},
 		{"a game over no tournament", http.MethodPost, "/v1/admin/nostradamus", challengeAdminSite,
 			`{"slug": "wc-2099", "name": "N", "series": "worlds", "tournament": "2099"}`, store.ErrNoTournament, http.StatusNotFound},
+		{"a deadline in no zone", http.MethodPut, round + "/deadline", challengeAdminSite, `{"day": "2031-06-01", "time": "18:00", "zone": "Mars/Base"}`, nil, http.StatusBadRequest},
+		{"unpublishing a closed round", http.MethodPost, round + "/unpublish", challengeAdminSite, ``, store.ErrNostradamusRoundState, http.StatusConflict},
 		{"publishing in no zone", http.MethodPost, round + "/publish", challengeAdminSite, `{"day": "2031-06-01", "time": "18:00", "zone": "Mars/Base"}`, nil, http.StatusBadRequest},
 		{"a member already in", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"name": "Bea"}`, store.ErrBadNostradamus, http.StatusBadRequest},
 		{"a banned member", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"name": "Bea"}`, store.ErrMemberBanned, http.StatusBadRequest},

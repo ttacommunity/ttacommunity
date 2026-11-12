@@ -334,7 +334,7 @@ func TestTheSiteLoginCannotReadAnAnswer(t *testing.T) {
 
 func TestNostradamusEditionsListsEachGame(t *testing.T) {
 	pool := nostradamusFixture(t)
-	got, err := NewRatingsReader(asReader(t, pool)).NostradamusEditions(context.Background())
+	got, err := NewRatingsReader(asReader(t, pool)).NostradamusEditions(context.Background(), time.Now())
 	if err != nil {
 		t.Fatalf("NostradamusEditions: %v", err)
 	}
@@ -712,5 +712,114 @@ func TestNostradamusLinkingARatedPlayerMakesThemAMember(t *testing.T) {
 	}
 	if got, want := boardLines(t, pool), []string{`rae "Rated_Rae" 4 S1=4`}; !slices.Equal(got, want) {
 		t.Errorf("board = %q, want %q", got, want)
+	}
+}
+
+// answerAs signs player Bea in on a game with round R1 open, accepted, and saves her answer; it returns her session.
+func answerAs(t *testing.T, g game, p *PlayerStore, answer string) []byte {
+	t.Helper()
+	ctx := context.Background()
+	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
+	approved(t, g.admin, p, l, "Bea")
+	hash := tokenHash("token-1")
+	if _, err := p.RequestNostradamusEntry(ctx, hash, "wc-2031", g.now); err != nil {
+		t.Fatal(err)
+	}
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.admin.SetNostradamusStatus(ctx, "wc-2031", admin.Participants[0].ID, "accepted"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, []NostradamusGiven{{Question: g.q, Answer: []string{answer}}}, g.now); err != nil {
+		t.Fatalf("answering: %v", err)
+	}
+	return hash
+}
+
+func TestNostradamusUnpublishingKeepsTheAnswersThatStillFit(t *testing.T) {
+	tests := []struct {
+		name   string
+		change NostradamusQuestion
+		kept   bool
+	}{
+		{"a question reworded", NostradamusQuestion{Label: "Win", Prompt: "Who will win it all?", Kind: "pick", Points: 5,
+			Choices: []NostradamusChoice{{Label: "Ann"}, {Label: "Cy"}}}, true},
+		{"its choices changed", NostradamusQuestion{Label: "Win", Kind: "pick", Points: 4,
+			Choices: []NostradamusChoice{{Label: "Ann"}, {Label: "Cy"}, {Label: "Dee"}}}, false},
+		{"its kind changed", NostradamusQuestion{Label: "Win", Kind: "set", Picks: 2, Points: 4,
+			Choices: []NostradamusChoice{{Label: "Ann"}, {Label: "Cy"}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g, p := nostradamusPlayers(t)
+			ctx := context.Background()
+			hash := answerAs(t, g, p, "Cy")
+			if err := g.admin.UnpublishNostradamusRound(ctx, "wc-2031", g.round); err != nil {
+				t.Fatalf("UnpublishNostradamusRound: %v", err)
+			}
+			if got := g.siteGame(t).Rounds; len(got) != 0 {
+				t.Errorf("the site's rounds after unpublishing = %d, want none", len(got))
+			}
+			if err := g.admin.SetNostradamusQuestion(ctx, "wc-2031", g.q, tt.change); err != nil {
+				t.Fatalf("SetNostradamusQuestion: %v", err)
+			}
+			g.publish(t)
+			mine, err := p.MyNostradamus(ctx, hash, "wc-2031", g.now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, kept := mine.Answers[g.q]; kept != tt.kept {
+				t.Errorf("after %s, the answer kept = %t, want %t", tt.name, kept, tt.kept)
+			}
+		})
+	}
+}
+
+func TestNostradamusDeadlinesMoveAndUnpublishingIsRefusedWhenItShouldBe(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	later := g.now.Add(72 * time.Hour)
+	if err := g.admin.SetNostradamusDeadline(ctx, "wc-2031", g.round, later, "UTC", g.now); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("a draft's deadline = %v, want ErrNostradamusRoundState (it is set on publishing)", err)
+	}
+	if err := g.admin.UnpublishNostradamusRound(ctx, "wc-2031", g.round); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("unpublishing a draft = %v, want ErrNostradamusRoundState", err)
+	}
+	g.publish(t)
+	if err := g.admin.SetNostradamusDeadline(ctx, "wc-2031", g.round, later, "Europe/Berlin", g.now); err != nil {
+		t.Fatalf("SetNostradamusDeadline: %v", err)
+	}
+	site := g.siteGame(t).Rounds[0]
+	if site.ClosesAt == nil || !site.ClosesAt.Equal(later) || site.Zone != "Europe/Berlin" {
+		t.Errorf("the deadline after moving it = %v in %q, want %v in Europe/Berlin", site.ClosesAt, site.Zone, later)
+	}
+	if err := g.admin.SetNostradamusDeadline(ctx, "wc-2031", g.round, g.now, "UTC", g.now); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("a deadline of now = %v, want ErrNostradamusRoundState", err)
+	}
+	if err := g.admin.SetNostradamusOutcome(ctx, "wc-2031", g.q, []string{"Ann"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.admin.CloseNostradamusRound(ctx, "wc-2031", g.round, later); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.admin.UnpublishNostradamusRound(ctx, "wc-2031", g.round); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("unpublishing a closed round = %v, want ErrNostradamusRoundState", err)
+	}
+	if err := g.admin.SetNostradamusDeadline(ctx, "wc-2031", g.round, later.Add(time.Hour), "UTC", later); !errors.Is(err, ErrNostradamusRoundState) {
+		t.Errorf("a closed round's deadline = %v, want ErrNostradamusRoundState", err)
+	}
+}
+
+func TestNostradamusEditionsSayWhenARoundIsOpen(t *testing.T) {
+	g := newGame(t)
+	g.publish(t)
+	got, err := NewRatingsReader(asReader(t, g.pool)).NostradamusEditions(context.Background(), g.now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := g.now.Add(24 * time.Hour); got[0].OpenUntil == nil || !got[0].OpenUntil.Equal(want) {
+		t.Errorf("the game's open round closes at %v, want %v", got[0].OpenUntil, want)
 	}
 }

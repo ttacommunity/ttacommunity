@@ -20,9 +20,11 @@ var ErrNoNostradamus = errors.New("no such Nostradamus game")
 // of range. Its message says which where it can.
 var ErrBadNostradamus = errors.New("not allowed by the Nostradamus rules")
 
-// NostradamusEdition is a game and the tournament it is played over.
+// NostradamusEdition is a game and the tournament it is played over; OpenUntil is when its first round open for
+// answers closes, or nil while none is.
 type NostradamusEdition struct {
 	Slug, Name, Series, Tournament string
+	OpenUntil                      *time.Time
 }
 
 // NostradamusChoice is a choice a question offers; Seed and LeaderboardRank, 0 when not given, feed the bots.
@@ -96,27 +98,29 @@ type NostradamusGame struct {
 	Participants []NostradamusParticipant
 }
 
-// NostradamusEditions returns every game, the newest tournament's first.
-func (r *RatingsReader) NostradamusEditions(ctx context.Context) ([]NostradamusEdition, error) {
-	return nostradamusEditions(ctx, r.pool)
+// NostradamusEditions returns every game, the newest tournament's first, each with its round open at now.
+func (r *RatingsReader) NostradamusEditions(ctx context.Context, now time.Time) ([]NostradamusEdition, error) {
+	return nostradamusEditions(ctx, r.pool, now)
 }
 
-// NostradamusEditions returns every game for admin, the newest tournament's first.
-func (a *AdminStore) NostradamusEditions(ctx context.Context) ([]NostradamusEdition, error) {
-	return nostradamusEditions(ctx, a.pool)
+// NostradamusEditions returns every game for admin, the newest tournament's first, each with its round open at now.
+func (a *AdminStore) NostradamusEditions(ctx context.Context, now time.Time) ([]NostradamusEdition, error) {
+	return nostradamusEditions(ctx, a.pool, now)
 }
 
-func nostradamusEditions(ctx context.Context, db conn) ([]NostradamusEdition, error) {
+func nostradamusEditions(ctx context.Context, db conn, now time.Time) ([]NostradamusEdition, error) {
 	rows, err := db.Query(ctx, `
-		SELECT e.slug, e.name, s.slug, t.label
+		SELECT e.slug, e.name, s.slug, t.label,
+		       (SELECT min(r.closes_at) FROM nostradamus_rounds r
+		        WHERE r.edition_id = e.edition_id AND r.published_at IS NOT NULL AND r.closed_at IS NULL AND r.closes_at > $1)
 		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		ORDER BY t.tournament_id DESC, e.slug`)
+		ORDER BY t.tournament_id DESC, e.slug`, now)
 	if err != nil {
 		return nil, fmt.Errorf("reading Nostradamus games: %w", err)
 	}
 	editions, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusEdition, error) {
 		var e NostradamusEdition
-		return e, row.Scan(&e.Slug, &e.Name, &e.Series, &e.Tournament)
+		return e, row.Scan(&e.Slug, &e.Name, &e.Series, &e.Tournament, &e.OpenUntil)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading Nostradamus games: %w", err)

@@ -15,7 +15,7 @@ import (
 
 // NostradamusAdmin is admin's Nostradamus: each read and change of a game's rounds, questions and participants.
 type NostradamusAdmin interface {
-	NostradamusEditions(ctx context.Context) ([]store.NostradamusEdition, error)
+	NostradamusEditions(ctx context.Context, now time.Time) ([]store.NostradamusEdition, error)
 	NostradamusGame(ctx context.Context, slug string) (store.NostradamusGame, error)
 	AddNostradamusEdition(ctx context.Context, e store.NostradamusEdition) error
 	AddNostradamusRound(ctx context.Context, slug string, d store.NostradamusRoundDraft) (int64, error)
@@ -26,6 +26,8 @@ type NostradamusAdmin interface {
 	RemoveNostradamusQuestion(ctx context.Context, slug string, question int64) error
 	PublishNostradamusRound(ctx context.Context, slug string, round int64, closes time.Time, zone string, now time.Time) error
 	CloseNostradamusRound(ctx context.Context, slug string, round int64, now time.Time) error
+	UnpublishNostradamusRound(ctx context.Context, slug string, round int64) error
+	SetNostradamusDeadline(ctx context.Context, slug string, round int64, closes time.Time, zone string, now time.Time) error
 	SetNostradamusOutcome(ctx context.Context, slug string, question int64, outcome []string) error
 	NostradamusRoundAnswers(ctx context.Context, slug string, round int64) ([]store.NostradamusAnswer, error)
 	SetNostradamusBotAnswers(ctx context.Context, slug string, round, participant int64, answers []store.NostradamusGiven, now time.Time) error
@@ -72,7 +74,7 @@ func questionDraft(b AdminNostradamusQuestionDraft) store.NostradamusQuestion {
 }
 
 func (s *server) GetAdminNostradamusEditions(ctx context.Context, _ GetAdminNostradamusEditionsRequestObject) (GetAdminNostradamusEditionsResponseObject, error) {
-	editions, err := s.admins.NostradamusEditions(ctx)
+	editions, err := s.admins.NostradamusEditions(ctx, s.now())
 	if err != nil {
 		return nil, err
 	}
@@ -250,6 +252,41 @@ func (s *server) PostAdminNostradamusPublish(ctx context.Context, req PostAdminN
 		return PostAdminNostradamusPublish409JSONResponse{conflict409(msg)}, nil
 	}
 	return PostAdminNostradamusPublish400JSONResponse{badRequest400(msg)}, nil
+}
+
+func (s *server) PostAdminNostradamusUnpublish(ctx context.Context, req PostAdminNostradamusUnpublishRequestObject) (PostAdminNostradamusUnpublishResponseObject, error) {
+	status, msg, err := s.nostradamusChange(ctx, "nostradamus.round.unpublish", fmt.Sprint(req.Round), map[string]any{"edition": req.Edition}, func(tx Admins) error {
+		return tx.UnpublishNostradamusRound(ctx, req.Edition, req.Round)
+	})
+	switch status {
+	case 0:
+		return PostAdminNostradamusUnpublish204Response{}, err
+	case 404:
+		return PostAdminNostradamusUnpublish404JSONResponse{notFound404(msg)}, nil
+	}
+	return PostAdminNostradamusUnpublish409JSONResponse{conflict409(msg)}, nil
+}
+
+func (s *server) PutAdminNostradamusDeadline(ctx context.Context, req PutAdminNostradamusDeadlineRequestObject) (PutAdminNostradamusDeadlineResponseObject, error) {
+	if req.Body == nil {
+		return PutAdminNostradamusDeadline400JSONResponse{badRequest400("the deadline: day, time and zone")}, nil
+	}
+	closes, err := blitz.FinishedAt(req.Body.Day.String(), req.Body.Time, req.Body.Zone)
+	if err != nil {
+		return PutAdminNostradamusDeadline400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	status, msg, err := s.nostradamusChange(ctx, "nostradamus.round.deadline", fmt.Sprint(req.Round), req.Body, func(tx Admins) error {
+		return tx.SetNostradamusDeadline(ctx, req.Edition, req.Round, closes, req.Body.Zone, s.now())
+	})
+	switch status {
+	case 0:
+		return PutAdminNostradamusDeadline204Response{}, err
+	case 404:
+		return PutAdminNostradamusDeadline404JSONResponse{notFound404(msg)}, nil
+	case 409:
+		return PutAdminNostradamusDeadline409JSONResponse{conflict409(msg)}, nil
+	}
+	return PutAdminNostradamusDeadline400JSONResponse{badRequest400(msg)}, nil
 }
 
 func (s *server) PostAdminNostradamusClose(ctx context.Context, req PostAdminNostradamusCloseRequestObject) (PostAdminNostradamusCloseResponseObject, error) {

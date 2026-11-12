@@ -7,13 +7,14 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	"ttacommunity/backend/internal/store"
 )
 
 // NostradamusReads are the site's Nostradamus reads: the games, and one as the site shows it.
 type NostradamusReads interface {
-	NostradamusEditions(ctx context.Context) ([]store.NostradamusEdition, error)
+	NostradamusEditions(ctx context.Context, now time.Time) ([]store.NostradamusEdition, error)
 	NostradamusGame(ctx context.Context, slug string) (store.NostradamusGame, error)
 }
 
@@ -22,6 +23,10 @@ func nostradamusEditions(editions []store.NostradamusEdition) NostradamusEdition
 	body := NostradamusEditions{Editions: make([]NostradamusEdition, len(editions))}
 	for i, e := range editions {
 		body.Editions[i] = NostradamusEdition{Slug: e.Slug, Name: e.Name, Series: e.Series, Tournament: e.Tournament}
+		if e.OpenUntil != nil {
+			until := e.OpenUntil.UTC()
+			body.Editions[i].OpenUntil = &until
+		}
 	}
 	return body
 }
@@ -69,7 +74,7 @@ func nostradamusStandings(standings []store.NostradamusStanding) []NostradamusSt
 }
 
 func (s *server) GetNostradamusEditions(ctx context.Context, _ GetNostradamusEditionsRequestObject) (GetNostradamusEditionsResponseObject, error) {
-	editions, err := s.ratings.NostradamusEditions(ctx)
+	editions, err := s.ratings.NostradamusEditions(ctx, s.now())
 	if err != nil {
 		return nil, err
 	}
