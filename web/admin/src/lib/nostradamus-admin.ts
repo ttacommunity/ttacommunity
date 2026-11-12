@@ -103,3 +103,27 @@ export function roundLabel(typed: string, taken: readonly string[]): string {
 export function linkChoices(found: readonly Candidate[], typed: string): PersonChoice[] {
   return personChoices(found, typed, { entered: [], membersTaken: false }).filter((c) => c.key !== 'new' && c.key !== 'entered');
 }
+
+/** seriesChoices offers the series (not groups) whose name or slug holds the text typed, in any case, as PickBox options naming their slug. */
+export function seriesChoices(list: readonly { slug: string; name: string; is_group: boolean }[], typed: string): { key: string; label: string; detail: string }[] {
+  const t = typed.trim().toLowerCase();
+  return list
+    .filter((s) => !s.is_group && (s.name.toLowerCase().includes(t) || s.slug.includes(t)))
+    .map((s) => ({ key: s.slug, label: s.name, detail: s.slug }));
+}
+
+/** gameSlug makes a game's address name from its name: lower case, words joined by dashes, at most 40 characters. */
+export function gameSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/, '');
+}
+
+/** withChoice adds name to typed choices on a line of its own, unless a line already names it. */
+export function withChoice(text: string, name: string): string {
+  if (choicesFromText(text).some((c) => c.label.toLowerCase() === name.toLowerCase())) return text;
+  return text.trim() === '' ? name : `${text.replace(/\n+$/, '')}\n${name}`;
+}
