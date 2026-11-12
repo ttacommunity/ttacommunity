@@ -52,11 +52,12 @@ type NostradamusQuestion struct {
 }
 
 // NostradamusRound is a round: a draft until PublishedAt, open until ClosesAt (shown in Zone), scored on the site
-// from ClosedAt.
+// from ClosedAt. A player stakes at least TokensMin and at most TokensMax tokens in all, nil for no bound.
 type NostradamusRound struct {
 	ID                    int64
 	Label, Name, Zone     string
-	Tokens, TokenPoints   int
+	TokensMin, TokensMax  *int
+	TokenPoints           int
 	ClosesAt              *time.Time
 	PublishedAt, ClosedAt *time.Time
 	Questions             []NostradamusQuestion
@@ -171,7 +172,7 @@ func nostradamusGame(ctx context.Context, db conn, slug string, public bool) (No
 // only, with outcomes and polls for closed ones and no seeds or ranks.
 func nostradamusRounds(ctx context.Context, db conn, edition int64, public bool) ([]NostradamusRound, error) {
 	rows, err := db.Query(ctx, `
-		SELECT r.round_id, r.label, r.name, coalesce(r.deadline_zone, ''), r.tokens, r.token_points, r.closes_at, r.published_at,
+		SELECT r.round_id, r.label, r.name, coalesce(r.deadline_zone, ''), r.tokens_min, r.tokens_max, r.token_points, r.closes_at, r.published_at,
 		       r.closed_at, n.question_id, n.label, n.prompt, n.kind, n.points, n.near_points, n.picks, n.asks_last,
 		       CASE WHEN $2 AND r.closed_at IS NULL THEN '{}' ELSE coalesce(n.outcome, '{}') END,
 		       coalesce((SELECT array_agg(c.label ORDER BY c.position) FROM nostradamus_choices c WHERE c.question_id = n.question_id), '{}'),
@@ -201,7 +202,7 @@ func nostradamusRounds(ctx context.Context, db conn, edition int64, public bool)
 		var q NostradamusQuestion
 		var choices, values []string
 		var seeds, ranks, answers []int
-		if err := rows.Scan(&r.ID, &r.Label, &r.Name, &r.Zone, &r.Tokens, &r.TokenPoints, &r.ClosesAt, &r.PublishedAt, &r.ClosedAt,
+		if err := rows.Scan(&r.ID, &r.Label, &r.Name, &r.Zone, &r.TokensMin, &r.TokensMax, &r.TokenPoints, &r.ClosesAt, &r.PublishedAt, &r.ClosedAt,
 			&id, &label, &prompt, &kind, &points, &near, &picks, &last, &q.Outcome, &choices, &seeds, &ranks, &values, &answers); err != nil {
 			return nil, fmt.Errorf("reading Nostradamus rounds: %w", err)
 		}

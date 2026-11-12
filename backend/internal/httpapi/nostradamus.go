@@ -50,7 +50,7 @@ func nostradamusRounds(rounds []store.NostradamusRound) []NostradamusRound {
 				questions[j].Outcome = &outcome
 			}
 		}
-		out[i] = NostradamusRound{Id: r.ID, Label: r.Label, Name: r.Name, Tokens: r.Tokens, TokenPoints: r.TokenPoints, Zone: r.Zone,
+		out[i] = NostradamusRound{Id: r.ID, Label: r.Label, Name: r.Name, TokensMin: r.TokensMin, TokensMax: r.TokensMax, TokenPoints: r.TokenPoints, Zone: r.Zone,
 			Published: r.PublishedAt != nil, Closed: r.ClosedAt != nil, Questions: questions}
 		if r.ClosesAt != nil {
 			closes := r.ClosesAt.UTC()
@@ -108,6 +108,8 @@ func nostradamusRefusal(err error) (status int, msg string, ok bool) {
 		return 409, err.Error(), true
 	case errors.Is(err, store.ErrBadNostradamus):
 		return 400, "an answer the rules refuse: a name not among the choices, too many tokens, or one question twice", true
+	case errors.Is(err, store.ErrFewTokens):
+		return 400, err.Error(), true
 	}
 	return 0, "", false
 }
@@ -126,7 +128,7 @@ func (s *server) GetMyNostradamus(ctx context.Context, req GetMyNostradamusReque
 	}
 	body := MyNostradamus{Status: MyNostradamusStatus(mine.Status), Answers: []NostradamusGiven{}}
 	for _, a := range mine.Answers {
-		body.Answers = append(body.Answers, NostradamusGiven{Question: a.Question, Answer: append([]string{}, a.Answer...), Token: a.Token})
+		body.Answers = append(body.Answers, NostradamusGiven{Question: a.Question, Answer: append([]string{}, a.Answer...), Tokens: a.Tokens})
 	}
 	sort.Slice(body.Answers, func(i, j int) bool { return body.Answers[i].Question < body.Answers[j].Question })
 	return GetMyNostradamus200JSONResponse{Body: body, Headers: GetMyNostradamus200ResponseHeaders{CacheControl: cacheNone}}, nil
@@ -154,7 +156,7 @@ func (s *server) PostMyNostradamusEntry(ctx context.Context, req PostMyNostradam
 func givenAnswers(answers []NostradamusGiven) ([]store.NostradamusGiven, bool) {
 	out := make([]store.NostradamusGiven, len(answers))
 	for i, a := range answers {
-		out[i] = store.NostradamusGiven{Question: a.Question, Token: a.Token}
+		out[i] = store.NostradamusGiven{Question: a.Question, Tokens: a.Tokens}
 		for _, v := range a.Answer {
 			if v = strings.TrimSpace(v); v == "" {
 				return nil, false
@@ -167,7 +169,7 @@ func givenAnswers(answers []NostradamusGiven) ([]store.NostradamusGiven, bool) {
 
 func (s *server) PutMyNostradamusAnswers(ctx context.Context, req PutMyNostradamusAnswersRequestObject) (PutMyNostradamusAnswersResponseObject, error) {
 	if req.Body == nil {
-		return PutMyNostradamusAnswers400JSONResponse{badRequest400("the answers: question, answer and token")}, nil
+		return PutMyNostradamusAnswers400JSONResponse{badRequest400("the answers: question, answer and tokens")}, nil
 	}
 	answers, ok := givenAnswers(req.Body.Answers)
 	if !ok {

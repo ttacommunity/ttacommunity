@@ -2101,8 +2101,8 @@ paths:
       description: |
         The Origin must be the site. For an accepted participant: replaces
         their answers in the round, all or none, until its deadline. A pick
-        or set names choices of the question; a token goes on at most the
-        round's number of answers. A round not open is 409; after the
+        or set names choices of the question; tokens staked stay within
+        the round's least and most. A round not open is 409; after the
         deadline, 409; not accepted, 403.
       parameters:
         - $ref: "#/components/parameters/NostradamusEditionSlug"
@@ -11115,7 +11115,7 @@ components:
             $ref: "#/components/schemas/NostradamusStanding"
     NostradamusRound:
       type: object
-      required: [id, label, name, tokens, token_points, closes_at, zone, published, closed, questions]
+      required: [id, label, name, tokens_min, tokens_max, token_points, closes_at, zone, published, closed, questions]
       properties:
         id:
           type: integer
@@ -11124,11 +11124,16 @@ components:
           type: string
         name:
           type: string
-        tokens:
-          description: How many answers may carry a token
+        tokens_min:
+          description: The fewest tokens a player stakes in all; null for none asked
           type: integer
+          nullable: true
+        tokens_max:
+          description: The most tokens a player stakes in all; null for no limit (at most 99 on an answer)
+          type: integer
+          nullable: true
         token_points:
-          description: What a token wins on a right answer, and loses on a wrong one
+          description: What each token wins on a right answer, and loses on a wrong one
           type: integer
         closes_at:
           description: The deadline for answers; null for a draft
@@ -11264,7 +11269,7 @@ components:
     NostradamusGiven:
       type: object
       additionalProperties: false
-      required: [question, answer, token]
+      required: [question, answer, tokens]
       properties:
         question:
           type: integer
@@ -11277,8 +11282,11 @@ components:
           items:
             type: string
             maxLength: 100
-        token:
-          type: boolean
+        tokens:
+          description: The tokens staked on it, each winning or losing the round's token points
+          type: integer
+          minimum: 0
+          maximum: 99
     NostradamusAnswersGiven:
       type: object
       additionalProperties: false
@@ -11379,7 +11387,7 @@ components:
     AdminNostradamusRoundDraft:
       type: object
       additionalProperties: false
-      required: [label, name, tokens, token_points]
+      required: [label, name, token_points]
       properties:
         label:
           type: string
@@ -11388,10 +11396,18 @@ components:
           type: string
           minLength: 1
           maxLength: 100
-        tokens:
+        tokens_min:
+          description: The fewest tokens a player stakes in all; null or left out for none asked
           type: integer
+          nullable: true
           minimum: 0
-          maximum: 10
+          maximum: 99
+        tokens_max:
+          description: The most tokens a player stakes in all; null or left out for no limit
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 99
         token_points:
           type: integer
           minimum: 0
@@ -11440,7 +11456,7 @@ components:
             $ref: "#/components/schemas/AdminNostradamusAnswer"
     AdminNostradamusAnswer:
       type: object
-      required: [participant, question, answer, token, points]
+      required: [participant, question, answer, tokens, points]
       properties:
         participant:
           type: string
@@ -11451,8 +11467,8 @@ components:
           type: array
           items:
             type: string
-        token:
-          type: boolean
+        tokens:
+          type: integer
         points:
           description: Null until the question's outcome is known
           type: integer
