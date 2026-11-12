@@ -161,28 +161,9 @@ func (s *server) PostAdminBlitzEntrants(ctx context.Context, req PostAdminBlitzE
 	}
 	entrants := make([]store.BlitzEntrant, len(req.Body.Entrants))
 	for i, e := range req.Body.Entrants {
-		in := store.BlitzEntrant{}
-		if e.Member != nil {
-			in.MemberID = *e.Member
-		}
-		if e.Name != nil {
-			in.Name = strings.TrimSpace(*e.Name)
-		}
-		if in.MemberID == 0 && in.Name == "" {
-			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: a member or a name", i+1))}, nil
-		}
-		// A member entered by id keeps their zone unless one is given; a new one is Unknown until known.
-		if e.Zone != nil || in.MemberID == 0 {
-			zone, msg := memberZone(e.Zone)
-			if msg != "" {
-				return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: %s", i+1, msg))}, nil
-			}
-			in.Zone = zone
-		}
-		for field, given := range map[*string]*string{&in.DiscordName: e.DiscordName, &in.Email: e.Email, &in.Country: e.Country} {
-			if given != nil {
-				*field = *given
-			}
+		in, msg := entrantFrom(e.Member, e.Name, e.DiscordName, e.Email, e.Country, e.Zone)
+		if msg != "" {
+			return PostAdminBlitzEntrants400JSONResponse{badRequest400(fmt.Sprintf("row %d: %s", i+1, msg))}, nil
 		}
 		entrants[i] = in
 	}
@@ -434,4 +415,33 @@ func (s *server) DeleteAdminBlitzPoints(ctx context.Context, req DeleteAdminBlit
 		return nil, err
 	}
 	return DeleteAdminBlitzPoints204Response{}, nil
+}
+
+// entrantFrom is someone to enter, as blitz and Nostradamus take them: a member by id, or a name, with the details
+// given; or what is wrong with it. A member entered by id keeps their zone unless one is given; a new one is Unknown
+// until known.
+func entrantFrom(member *int64, name, discord, email, country, zone *string) (store.BlitzEntrant, string) {
+	in := store.BlitzEntrant{}
+	if member != nil {
+		in.MemberID = *member
+	}
+	if name != nil {
+		in.Name = strings.TrimSpace(*name)
+	}
+	if in.MemberID == 0 && in.Name == "" {
+		return store.BlitzEntrant{}, "a member or a name"
+	}
+	if zone != nil || in.MemberID == 0 {
+		z, msg := memberZone(zone)
+		if msg != "" {
+			return store.BlitzEntrant{}, msg
+		}
+		in.Zone = z
+	}
+	for field, given := range map[*string]*string{&in.DiscordName: discord, &in.Email: email, &in.Country: country} {
+		if given != nil {
+			*field = *given
+		}
+	}
+	return in, ""
 }

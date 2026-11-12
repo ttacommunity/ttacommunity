@@ -42,6 +42,11 @@ type SignIns interface {
 	FlagBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, reason string, now time.Time) error
 	// SubmitChallengeEntries saves a player's own challenge entries, as the session hashing to tokenHash.
 	SubmitChallengeEntries(ctx context.Context, tokenHash []byte, entries []challenges.Submission, now time.Time) (int, error)
+	// MyNostradamus, RequestNostradamusEntry and SubmitNostradamusAnswers are a player's own Nostradamus: their status
+	// and answers, asking to join, and answering an open round, as the session hashing to tokenHash.
+	MyNostradamus(ctx context.Context, tokenHash []byte, slug string, now time.Time) (store.MyNostradamus, error)
+	RequestNostradamusEntry(ctx context.Context, tokenHash []byte, slug string, now time.Time) (string, error)
+	SubmitNostradamusAnswers(ctx context.Context, tokenHash []byte, round int64, answers []store.NostradamusGiven, now time.Time) (int, error)
 	// SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
 	SiteOrigin() string
 	// SupportAddress is where players write with trouble, or "" when none is set.

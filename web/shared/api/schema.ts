@@ -942,6 +942,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/nostradamus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every Nostradamus game, the prediction game
+         * @description Each game and the tournament it is played over, the newest
+         *     tournament's first. Cached for a minute.
+         */
+        get: operations["getNostradamusEditions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/nostradamus/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A Nostradamus game's rounds and standings
+         * @description The published rounds, in order, with their questions and choices.
+         *     Once a round is closed, its outcomes and how many picked each answer
+         *     (no one's answers: a player sees only their own). The standings over
+         *     the closed rounds, highest total first; a participant who gave no
+         *     answers in a round scores the lowest of the bots that did. An
+         *     unknown game is 404. Cached for a minute.
+         */
+        get: operations["getNostradamusGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/blitz": {
         parameters: {
             query?: never;
@@ -1464,6 +1510,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/nostradamus/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your place in a Nostradamus game, and your answers
+         * @description For a signed-in player linked to a member, and not banned: whether
+         *     they have asked to play (none, requested, accepted or refused), and
+         *     their answers in the game, by question. Never cached.
+         */
+        get: operations["getMyNostradamus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/nostradamus/{edition}/entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask to play a Nostradamus game
+         * @description The Origin must be the site. For a signed-in player linked to a
+         *     member, and not banned: asks an organiser to accept them, or links
+         *     them to the participant of their TTA username when an imported game
+         *     has one. Answers their status. An unknown game is 404.
+         */
+        post: operations["postMyNostradamusEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/nostradamus/{edition}/rounds/{round}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Answer an open Nostradamus round
+         * @description The Origin must be the site. For an accepted participant: replaces
+         *     their answers in the round, all or none, until its deadline. A pick
+         *     or set names choices of the question; tokens staked stay within
+         *     the round's least and most. A round not open is 409; after the
+         *     deadline, 409; not accepted, 403.
+         */
+        put: operations["putMyNostradamusAnswers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/blitz/{tournament}/{edition}": {
         parameters: {
             query?: never;
@@ -1755,6 +1870,399 @@ export interface paths {
          *     for Members to remove.
          */
         post: operations["postAdminChallengeName"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every Nostradamus game (admins and organisers)
+         * @description Each game and its tournament, the newest first.
+         */
+        get: operations["getAdminNostradamusEditions"];
+        put?: never;
+        /**
+         * Make a Nostradamus game over a tournament (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A slug taken, or not
+         *     of lower-case letters, digits and dashes, is 400; no such
+         *     tournament, 404.
+         */
+        post: operations["postAdminNostradamusEdition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A Nostradamus game with drafts, outcomes and participants (admins and organisers)
+         * @description Every round, drafts included, with each question's choices (their
+         *     seeds and leaderboard ranks) and outcome as entered; standings
+         *     over every round with an outcome, closed or not; and every
+         *     participant, requests first. An unknown game is 404.
+         */
+        get: operations["getAdminNostradamusGame"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/finished": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mark a Nostradamus game finished, or not (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A finished game is
+         *     listed among past games on the site; it also counts as finished,
+         *     whatever this says, once its tournament has. An unknown game is 404.
+         */
+        put: operations["putAdminNostradamusFinished"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft a Nostradamus round (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Adds a draft round
+         *     after the last. A label taken is 400.
+         */
+        post: operations["postAdminNostradamusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a draft Nostradamus round (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Only a draft changes:
+         *     a published round is 409.
+         */
+        put: operations["putAdminNostradamusRound"];
+        post?: never;
+        /**
+         * Remove a draft Nostradamus round (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Only a draft goes: a
+         *     published round is 409.
+         */
+        delete: operations["deleteAdminNostradamusRound"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a question to a draft Nostradamus round (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A question the rules
+         *     refuse (a pick of several, near points on a pick, a label taken)
+         *     is 400; a published round, 409.
+         */
+        post: operations["postAdminNostradamusQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish a Nostradamus round until its deadline (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Opens a draft for
+         *     answers until closes_at, shown in zone, and has each bot answer
+         *     what its rule can. A round already published, without questions,
+         *     or with a deadline not in the future is 409; an unknown zone, 400.
+         */
+        post: operations["postAdminNostradamusPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close a Nostradamus round, publishing its results (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Once the deadline has
+         *     passed and every question has an outcome, closes the round: its
+         *     outcomes, polls and scores show on the site. Otherwise 409, saying
+         *     what is missing.
+         */
+        post: operations["postAdminNostradamusClose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a published Nostradamus round back to a draft (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Hides the round from the
+         *     site so its questions can be fixed, keeping the answers given; a
+         *     question whose kind, picks or choices then change loses its answers.
+         *     The bots answer again when it is published. A draft or a closed
+         *     round is 409.
+         */
+        post: operations["postAdminNostradamusUnpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move a published Nostradamus round's deadline (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Sets the deadline to a
+         *     day and time on the clocks of zone, as publishing does. A draft, a
+         *     closed round, or a deadline not in the future is 409; a zone, day or
+         *     time it cannot read, 400.
+         */
+        put: operations["putAdminNostradamusDeadline"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every answer in a Nostradamus round (admins and organisers)
+         * @description Each participant's answers, tokens and points so far, by
+         *     participant. An unknown round is 404.
+         */
+        get: operations["getAdminNostradamusAnswers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/bots/{participant}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a bot's answers in an open Nostradamus round (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Replaces the bot's
+         *     answers, for questions its rule cannot answer. One who is not a
+         *     bot, or a round not open, is 409; an answer the rules refuse, 400.
+         */
+        put: operations["putAdminNostradamusBotAnswers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/questions/{question}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a draft round's Nostradamus question (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Replaces the question
+         *     and its choices. A published round's is 409.
+         */
+        put: operations["putAdminNostradamusQuestion"];
+        post?: never;
+        /**
+         * Remove a draft round's Nostradamus question (admins and organisers)
+         * @description Audited. The Origin must be the admin site. A published round's is
+         *     409.
+         */
+        delete: operations["deleteAdminNostradamusQuestion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/questions/{question}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set what happened for a Nostradamus question (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Sets a published
+         *     question's outcome; an empty one clears it. A pick's outcome names
+         *     everyone who tied; a set's, every name; a number's, one whole
+         *     number. One not of the question's kind is 400; a draft's or a
+         *     closed round's question, 409.
+         */
+        put: operations["putAdminNostradamusOutcome"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a participant to a Nostradamus game (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Adds, accepted, the
+         *     member whose TTA username is name (made when new, with the Discord
+         *     name given), or a bot with its rule. One already in the game is
+         *     400.
+         */
+        post: operations["postAdminNostradamusParticipant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/participants/{participant}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Accept or refuse a Nostradamus participant (admins and organisers)
+         * @description Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminNostradamusStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/participants/{participant}/member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a Nostradamus participant to a member (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Links the participant
+         *     to the member whose TTA username is member, ignoring case (made a
+         *     member first when it names a rated player who is none yet), or
+         *     unlinks it for an empty one. A name neither a member nor a rated
+         *     player, or a participant not in the game, is 404.
+         */
+        put: operations["putAdminNostradamusMember"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6078,6 +6586,260 @@ export interface components {
             /** @description Shown to the player; may be empty */
             reason: string;
         };
+        NostradamusEditions: {
+            editions: components["schemas"]["NostradamusEdition"][];
+        };
+        NostradamusEdition: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
+            /**
+             * Format: date-time
+             * @description When the game's first round open for answers closes; null while none is
+             */
+            open_until: string | null;
+            slug: string;
+            name: string;
+            /** @description The slug of the series whose tournament it is played over */
+            series: string;
+            /** @description The tournament's label in its series */
+            tournament: string;
+        };
+        NostradamusGame: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
+            /** @description The accepted participants, people before bots */
+            players: components["schemas"]["NostradamusPlayer"][];
+            slug: string;
+            name: string;
+            series: string;
+            tournament: string;
+            rounds: components["schemas"]["NostradamusRound"][];
+            /** @description The labels of the rounds in the standings, in order */
+            scored: string[];
+            /** @description Highest total first */
+            standings: components["schemas"]["NostradamusStanding"][];
+        };
+        NostradamusPlayer: {
+            /** @description The name the participant plays under */
+            name: string;
+            /** @description The TTA username of the member it is linked to */
+            member: string | null;
+            bot: boolean;
+        };
+        AdminNostradamusFinished: {
+            finished: boolean;
+        };
+        NostradamusRound: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            name: string;
+            /** @description The fewest tokens a player stakes in all; null for none asked */
+            tokens_min: number | null;
+            /** @description The most tokens a player stakes in all; null for no limit (at most 99 on an answer) */
+            tokens_max: number | null;
+            /** @description What each token wins on a right answer, and loses on a wrong one */
+            token_points: number;
+            /**
+             * Format: date-time
+             * @description The deadline for answers; null for a draft
+             */
+            closes_at: string | null;
+            /** @description The time zone the organiser set the deadline in; empty for a draft */
+            zone: string;
+            published: boolean;
+            /** @description Its outcomes and scores are published */
+            closed: boolean;
+            questions: components["schemas"]["NostradamusQuestion"][];
+        };
+        NostradamusQuestion: {
+            /** Format: int64 */
+            id: number;
+            label: string;
+            prompt: string;
+            /**
+             * @description One name or option; a set of picks names, all to be right; a whole number, one off scoring near_points
+             * @enum {string}
+             */
+            kind: "pick" | "set" | "number";
+            points: number;
+            near_points: number;
+            /** @description How many names a set takes; 1 otherwise */
+            picks: number;
+            /** @description The question is about who finishes last */
+            asks_last: boolean;
+            /** @description What may be answered; empty for a number or a free answer */
+            choices: components["schemas"]["NostradamusChoice"][];
+            /** @description What happened, null until known (on the site, until the round is closed); a pick's names everyone who tied */
+            outcome: string[] | null;
+            /** @description How many answers named each value, most first; only for a closed round */
+            counts: components["schemas"]["NostradamusCount"][];
+        };
+        NostradamusChoice: {
+            label: string;
+            /** @description The player's seed, for the seed bot; 0 for none (always 0 on the site) */
+            seed: number;
+            /** @description The player's leaderboard rank, for the leaderboard bot; 0 for none (always 0 on the site) */
+            leaderboard_rank: number;
+        };
+        NostradamusCount: {
+            value: string;
+            answers: number;
+        };
+        NostradamusStanding: {
+            /** @description The name the participant plays under */
+            name: string;
+            /** @description The TTA username of the member it is linked to */
+            member: string | null;
+            /** @description A participant that answers by a fixed rule */
+            bot: boolean;
+            total: number;
+            rounds: components["schemas"]["NostradamusRoundScore"][];
+        };
+        NostradamusRoundScore: {
+            round: string;
+            points: number;
+            /** @description The participant gave no answers in the round */
+            missed: boolean;
+        };
+        MyNostradamus: {
+            /** @enum {string} */
+            status: "none" | "requested" | "accepted" | "refused";
+            answers: components["schemas"]["NostradamusGiven"][];
+        };
+        MyNostradamusEntry: {
+            /** @enum {string} */
+            status: "requested" | "accepted" | "refused";
+        };
+        NostradamusGiven: {
+            /** Format: int64 */
+            question: number;
+            /** @description A pick's one name, a set's names, or a number's digits */
+            answer: string[];
+            /** @description The tokens staked on it, each winning or losing the round's token points */
+            tokens: number;
+        };
+        NostradamusAnswersGiven: {
+            answers: components["schemas"]["NostradamusGiven"][];
+        };
+        NostradamusSaved: {
+            saved: number;
+        };
+        NostradamusCreated: {
+            /** Format: int64 */
+            id: number;
+        };
+        AdminNostradamusGame: {
+            /** @description Past, as the site lists it - marked finished by an organiser, or its tournament finished */
+            finished: boolean;
+            /** @description An organiser marked it finished */
+            marked_finished: boolean;
+            /** @description Every CGE tournament of its season has finished, which finishes it too */
+            tournament_finished: boolean;
+            /** @description The accepted participants, people before bots */
+            players: components["schemas"]["NostradamusPlayer"][];
+            slug: string;
+            name: string;
+            series: string;
+            tournament: string;
+            rounds: components["schemas"]["NostradamusRound"][];
+            scored: string[];
+            /** @description Over every round with an outcome, closed or not */
+            standings: components["schemas"]["NostradamusStanding"][];
+            participants: components["schemas"]["AdminNostradamusParticipant"][];
+        };
+        AdminNostradamusParticipant: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            member: string | null;
+            discord_name: string;
+            bot: boolean;
+            /**
+             * @description How a bot answers; empty for a person or a bot an organiser answers for
+             * @enum {string}
+             */
+            bot_rule: "" | "seed" | "glicko" | "leaderboard";
+            /** @enum {string} */
+            status: "requested" | "accepted" | "refused";
+            /** Format: date-time */
+            requested_at: string | null;
+        };
+        AdminNostradamusEditionNew: {
+            slug: string;
+            name: string;
+            series: string;
+            tournament: string;
+        };
+        AdminNostradamusRoundDraft: {
+            label: string;
+            name: string;
+            /** @description The fewest tokens a player stakes in all; null or left out for none asked */
+            tokens_min?: number | null;
+            /** @description The most tokens a player stakes in all; null or left out for no limit */
+            tokens_max?: number | null;
+            token_points: number;
+        };
+        AdminNostradamusQuestionDraft: {
+            label: string;
+            prompt: string;
+            /** @enum {string} */
+            kind: "pick" | "set" | "number";
+            points: number;
+            near_points: number;
+            picks: number;
+            asks_last: boolean;
+            choices: components["schemas"]["NostradamusChoice"][];
+        };
+        AdminNostradamusAnswers: {
+            answers: components["schemas"]["AdminNostradamusAnswer"][];
+        };
+        AdminNostradamusAnswer: {
+            participant: string;
+            /** Format: int64 */
+            question: number;
+            answer: string[];
+            tokens: number;
+            /** @description Null until the question's outcome is known */
+            points: number | null;
+        };
+        /**
+         * @description Someone to add: a member by id, or by TTA username (a member made when new, with the details given), as a
+         *     blitz entrant is; or a bot, by name and the rule it answers by
+         */
+        AdminNostradamusEntrant: {
+            /** Format: int64 */
+            member?: number;
+            name?: string;
+            discord_name?: string;
+            email?: string;
+            /** @description A two-letter country code */
+            country?: string;
+            /** @description An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default */
+            zone?: string;
+            /** @enum {string} */
+            bot_rule?: "" | "seed" | "glicko" | "leaderboard";
+        };
+        AdminNostradamusStatus: {
+            /** @enum {string} */
+            status: "accepted" | "refused";
+        };
+        AdminNostradamusOutcome: {
+            /** @description Empty to clear it */
+            outcome: string[];
+        };
+        AdminNostradamusLink: {
+            /** @description A TTA username, or empty to unlink */
+            member: string;
+        };
     };
     responses: {
         /** @description Not signed in, or the session has ended */
@@ -6206,6 +6968,10 @@ export interface components {
         };
     };
     parameters: {
+        NostradamusEditionSlug: string;
+        NostradamusRoundId: number;
+        NostradamusQuestionId: number;
+        NostradamusParticipantId: number;
         /** @description Count only entries that link a Discord proof (the official records), or every entry */
         ChallengeVerified: boolean;
         /** @description The edition's label, as admin lists it (a season) */
@@ -7399,6 +8165,51 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getNostradamusEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The games */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusEditions"];
+                };
+            };
+        };
+    };
+    getNostradamusGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The game */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusGame"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     getBlitzEditions: {
         parameters: {
             query?: never;
@@ -7987,6 +8798,87 @@ export interface operations {
             403: components["responses"]["NotLinked"];
         };
     };
+    getMyNostradamus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your place */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyNostradamus"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
+        };
+    };
+    postMyNostradamusEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyNostradamusEntry"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putMyNostradamusAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NostradamusAnswersGiven"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusSaved"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     getMyBlitzMatch: {
         parameters: {
             query?: never;
@@ -8425,6 +9317,564 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminChallengeNameMerged"];
                 };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminNostradamusEditions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The games */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusEditions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminNostradamusEdition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusEditionNew"];
+            };
+        };
+        responses: {
+            /** @description Made */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminNostradamusGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The game */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNostradamusGame"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusFinished: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusFinished"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminNostradamusRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusRoundDraft"];
+            };
+        };
+        responses: {
+            /** @description Drafted */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusRoundDraft"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminNostradamusRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusQuestionDraft"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzDeadlineSet"];
+            };
+        };
+        responses: {
+            /** @description Published */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusClose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusUnpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unpublished */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminNostradamusDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzDeadlineSet"];
+            };
+        };
+        responses: {
+            /** @description Moved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAdminNostradamusAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The answers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNostradamusAnswers"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusBotAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+                participant: components["parameters"]["NostradamusParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NostradamusAnswersGiven"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminNostradamusQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                question: components["parameters"]["NostradamusQuestionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusQuestionDraft"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminNostradamusQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                question: components["parameters"]["NostradamusQuestionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminNostradamusOutcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                question: components["parameters"]["NostradamusQuestionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusOutcome"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusParticipant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusEntrant"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NostradamusCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                participant: components["parameters"]["NostradamusParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusStatus"];
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminNostradamusMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                participant: components["parameters"]["NostradamusParticipantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminNostradamusLink"];
+            };
+        };
+        responses: {
+            /** @description Linked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
@@ -10470,3 +11920,11 @@ export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["sche
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
+export const nostradamusQuestionKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NostradamusQuestion"]["kind"]> = ["pick", "set", "number"];
+export const myNostradamusStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamus"]["status"]> = ["none", "requested", "accepted", "refused"];
+export const myNostradamusEntryStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamusEntry"]["status"]> = ["requested", "accepted", "refused"];
+export const adminNostradamusParticipantBot_ruleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminNostradamusParticipant"]["bot_rule"]> = ["", "seed", "glicko", "leaderboard"];
+export const adminNostradamusParticipantStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminNostradamusParticipant"]["status"]> = ["requested", "accepted", "refused"];
+export const adminNostradamusQuestionDraftKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminNostradamusQuestionDraft"]["kind"]> = ["pick", "set", "number"];
+export const adminNostradamusEntrantBot_ruleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminNostradamusEntrant"]["bot_rule"]> = ["", "seed", "glicko", "leaderboard"];
+export const adminNostradamusStatusStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminNostradamusStatus"]["status"]> = ["accepted", "refused"];

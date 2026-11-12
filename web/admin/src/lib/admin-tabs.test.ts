@@ -3,8 +3,8 @@ import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } f
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'members', 'data', 'titles', 'admins', 'notifications', 'audit']],
-    ['organiser', ['tournaments', 'blitz', 'challenges', 'members', 'data']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'titles', 'admins', 'notifications', 'audit']],
+    ['organiser', ['tournaments', 'blitz', 'challenges', 'nostradamus', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
@@ -24,6 +24,7 @@ describe('admin tabs', () => {
     ['#data', 'organiser', 'data'],
     ['#blitz', 'organiser', 'blitz'],
     ['#challenges', 'organiser', 'challenges'],
+    ['#nostradamus', 'organiser', 'nostradamus'],
     ['#signins', 'organiser', 'members'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
@@ -67,8 +68,8 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Challenges', ['challenges']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'notifications', 'audit']]]],
-    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Challenges', ['challenges']], ['Players', ['members']], ['Site', ['data']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'notifications', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
   });
@@ -78,7 +79,7 @@ describe('admin tabs', () => {
   });
 
   it('drops a group with no tab left', () => {
-    expect(groupsFor(tabsFor('admin').filter((t) => t.key !== 'members' && t.key !== 'titles'), {}).map((g) => g.label)).toEqual(['Tournaments', 'Challenges', 'Site']);
+    expect(groupsFor(tabsFor('admin').filter((t) => t.key !== 'members' && t.key !== 'titles'), {}).map((g) => g.label)).toEqual(['Tournaments', 'Bread & Circuses', 'Site']);
   });
 
   it.each([

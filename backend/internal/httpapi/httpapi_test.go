@@ -222,6 +222,7 @@ type readsOnly struct {
 	CatalogueReads
 	BlitzReads
 	ChallengeReads
+	NostradamusReads
 }
 
 type observed struct {

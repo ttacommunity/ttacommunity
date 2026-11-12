@@ -879,3 +879,9 @@
   box-sizing: border-box;
   width: 100%;
 }
+details.admin-subsection > summary {
+  cursor: pointer;
+}
+details.admin-subsection > summary h3 {
+  display: inline;
+}

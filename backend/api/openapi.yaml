@@ -1274,6 +1274,48 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/nostradamus:
+    get:
+      operationId: getNostradamusEditions
+      summary: Every Nostradamus game, the prediction game
+      description: |
+        Each game and the tournament it is played over, the newest
+        tournament's first. Cached for a minute.
+      responses:
+        "200":
+          description: The games
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusEditions"
+  /v1/nostradamus/{edition}:
+    get:
+      operationId: getNostradamusGame
+      summary: A Nostradamus game's rounds and standings
+      description: |
+        The published rounds, in order, with their questions and choices.
+        Once a round is closed, its outcomes and how many picked each answer
+        (no one's answers: a player sees only their own). The standings over
+        the closed rounds, highest total first; a participant who gave no
+        answers in a round scores the lowest of the bots that did. An
+        unknown game is 404. Cached for a minute.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: The game
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusGame"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/blitz:
     get:
       operationId: getBlitzEditions
@@ -1961,6 +2003,91 @@ paths:
           $ref: "#/components/responses/SignedOut"
         "403":
           $ref: "#/components/responses/NotLinked"
+  /v1/me/nostradamus/{edition}:
+    get:
+      operationId: getMyNostradamus
+      tags: [players]
+      summary: Your place in a Nostradamus game, and your answers
+      description: |
+        For a signed-in player linked to a member, and not banned: whether
+        they have asked to play (none, requested, accepted or refused), and
+        their answers in the game, by question. Never cached.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: Your place
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyNostradamus"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
+  /v1/me/nostradamus/{edition}/entry:
+    post:
+      operationId: postMyNostradamusEntry
+      tags: [players]
+      summary: Ask to play a Nostradamus game
+      description: |
+        The Origin must be the site. For a signed-in player linked to a
+        member, and not banned: asks an organiser to accept them, or links
+        them to the participant of their TTA username when an imported game
+        has one. Answers their status. An unknown game is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: Your status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyNostradamusEntry"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/me/nostradamus/{edition}/rounds/{round}/answers:
+    put:
+      operationId: putMyNostradamusAnswers
+      tags: [players]
+      summary: Answer an open Nostradamus round
+      description: |
+        The Origin must be the site. For an accepted participant: replaces
+        their answers in the round, all or none, until its deadline. A pick
+        or set names choices of the question; tokens staked stay within
+        the round's least and most. A round not open is 409; after the
+        deadline, 409; not accepted, 403.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NostradamusAnswersGiven"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusSaved"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/me/blitz/{tournament}/{edition}:
     get:
       operationId: getMyBlitzMatch
@@ -2421,6 +2548,563 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminChallengeNameMerged"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus:
+    get:
+      operationId: getAdminNostradamusEditions
+      tags: [admin]
+      summary: Every Nostradamus game (admins and organisers)
+      description: |
+        Each game and its tournament, the newest first.
+      responses:
+        "200":
+          description: The games
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusEditions"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminNostradamusEdition
+      tags: [admin]
+      summary: Make a Nostradamus game over a tournament (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A slug taken, or not
+        of lower-case letters, digits and dashes, is 400; no such
+        tournament, 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusEditionNew"
+      responses:
+        "204":
+          description: Made
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}:
+    get:
+      operationId: getAdminNostradamusGame
+      tags: [admin]
+      summary: A Nostradamus game with drafts, outcomes and participants (admins and organisers)
+      description: |
+        Every round, drafts included, with each question's choices (their
+        seeds and leaderboard ranks) and outcome as entered; standings
+        over every round with an outcome, closed or not; and every
+        participant, requests first. An unknown game is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      responses:
+        "200":
+          description: The game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNostradamusGame"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/finished:
+    put:
+      operationId: putAdminNostradamusFinished
+      tags: [admin]
+      summary: Mark a Nostradamus game finished, or not (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A finished game is
+        listed among past games on the site; it also counts as finished,
+        whatever this says, once its tournament has. An unknown game is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusFinished"
+      responses:
+        "204":
+          description: Set
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/rounds:
+    post:
+      operationId: postAdminNostradamusRound
+      tags: [admin]
+      summary: Draft a Nostradamus round (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Adds a draft round
+        after the last. A label taken is 400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusRoundDraft"
+      responses:
+        "201":
+          description: Drafted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/rounds/{round}:
+    put:
+      operationId: putAdminNostradamusRound
+      tags: [admin]
+      summary: Change a draft Nostradamus round (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Only a draft changes:
+        a published round is 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusRoundDraft"
+      responses:
+        "204":
+          description: Changed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminNostradamusRound
+      tags: [admin]
+      summary: Remove a draft Nostradamus round (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Only a draft goes: a
+        published round is 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/questions:
+    post:
+      operationId: postAdminNostradamusQuestion
+      tags: [admin]
+      summary: Add a question to a draft Nostradamus round (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A question the rules
+        refuse (a pick of several, near points on a pick, a label taken)
+        is 400; a published round, 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusQuestionDraft"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/publish:
+    post:
+      operationId: postAdminNostradamusPublish
+      tags: [admin]
+      summary: Publish a Nostradamus round until its deadline (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Opens a draft for
+        answers until closes_at, shown in zone, and has each bot answer
+        what its rule can. A round already published, without questions,
+        or with a deadline not in the future is 409; an unknown zone, 400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzDeadlineSet"
+      responses:
+        "204":
+          description: Published
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/close:
+    post:
+      operationId: postAdminNostradamusClose
+      tags: [admin]
+      summary: Close a Nostradamus round, publishing its results (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Once the deadline has
+        passed and every question has an outcome, closes the round: its
+        outcomes, polls and scores show on the site. Otherwise 409, saying
+        what is missing.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      responses:
+        "204":
+          description: Closed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/unpublish:
+    post:
+      operationId: postAdminNostradamusUnpublish
+      tags: [admin]
+      summary: Take a published Nostradamus round back to a draft (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Hides the round from the
+        site so its questions can be fixed, keeping the answers given; a
+        question whose kind, picks or choices then change loses its answers.
+        The bots answer again when it is published. A draft or a closed
+        round is 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      responses:
+        "204":
+          description: Unpublished
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/deadline:
+    put:
+      operationId: putAdminNostradamusDeadline
+      tags: [admin]
+      summary: Move a published Nostradamus round's deadline (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Sets the deadline to a
+        day and time on the clocks of zone, as publishing does. A draft, a
+        closed round, or a deadline not in the future is 409; a zone, day or
+        time it cannot read, 400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzDeadlineSet"
+      responses:
+        "204":
+          description: Moved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/answers:
+    get:
+      operationId: getAdminNostradamusAnswers
+      tags: [admin]
+      summary: Every answer in a Nostradamus round (admins and organisers)
+      description: |
+        Each participant's answers, tokens and points so far, by
+        participant. An unknown round is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      responses:
+        "200":
+          description: The answers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNostradamusAnswers"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/bots/{participant}/answers:
+    put:
+      operationId: putAdminNostradamusBotAnswers
+      tags: [admin]
+      summary: Give a bot's answers in an open Nostradamus round (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Replaces the bot's
+        answers, for questions its rule cannot answer. One who is not a
+        bot, or a round not open, is 409; an answer the rules refuse, 400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+        - $ref: "#/components/parameters/NostradamusParticipantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NostradamusAnswersGiven"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/questions/{question}:
+    put:
+      operationId: putAdminNostradamusQuestion
+      tags: [admin]
+      summary: Change a draft round's Nostradamus question (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Replaces the question
+        and its choices. A published round's is 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusQuestionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusQuestionDraft"
+      responses:
+        "204":
+          description: Changed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteAdminNostradamusQuestion
+      tags: [admin]
+      summary: Remove a draft round's Nostradamus question (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. A published round's is
+        409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusQuestionId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/questions/{question}/outcome:
+    put:
+      operationId: putAdminNostradamusOutcome
+      tags: [admin]
+      summary: Set what happened for a Nostradamus question (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Sets a published
+        question's outcome; an empty one clears it. A pick's outcome names
+        everyone who tied; a set's, every name; a number's, one whole
+        number. One not of the question's kind is 400; a draft's or a
+        closed round's question, 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusQuestionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusOutcome"
+      responses:
+        "204":
+          description: Set
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/participants:
+    post:
+      operationId: postAdminNostradamusParticipant
+      tags: [admin]
+      summary: Add a participant to a Nostradamus game (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Adds, accepted, the
+        member whose TTA username is name (made when new, with the Discord
+        name given), or a bot with its rule. One already in the game is
+        400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusEntrant"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NostradamusCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/participants/{participant}/status:
+    put:
+      operationId: putAdminNostradamusStatus
+      tags: [admin]
+      summary: Accept or refuse a Nostradamus participant (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusParticipantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusStatus"
+      responses:
+        "204":
+          description: Set
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/nostradamus/{edition}/participants/{participant}/member:
+    put:
+      operationId: putAdminNostradamusMember
+      tags: [admin]
+      summary: Link a Nostradamus participant to a member (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Links the participant
+        to the member whose TTA username is member, ignoring case (made a
+        member first when it names a rated player who is none yet), or
+        unlinks it for an empty one. A name neither a member nor a rated
+        player, or a participant not in the game, is 404.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusParticipantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminNostradamusLink"
+      responses:
+        "204":
+          description: Linked
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4338,6 +5022,37 @@ paths:
           $ref: "#/components/responses/NotFound"
 components:
   parameters:
+    NostradamusEditionSlug:
+      name: edition
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9-]{1,40}$"
+    NostradamusRoundId:
+      name: round
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    NostradamusQuestionId:
+      name: question
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    NostradamusParticipantId:
+      name: participant
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     ChallengeVerified:
       name: verified
       in: query
@@ -9979,3 +10694,535 @@ components:
           description: Shown to the player; may be empty
           type: string
           maxLength: 500
+    NostradamusEditions:
+      type: object
+      required: [editions]
+      properties:
+        editions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusEdition"
+    NostradamusEdition:
+      type: object
+      required: [slug, name, series, tournament, open_until, finished, marked_finished, tournament_finished]
+      properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
+        open_until:
+          description: When the game's first round open for answers closes; null while none is
+          type: string
+          format: date-time
+          nullable: true
+        slug:
+          type: string
+        name:
+          type: string
+        series:
+          description: The slug of the series whose tournament it is played over
+          type: string
+        tournament:
+          description: The tournament's label in its series
+          type: string
+    NostradamusGame:
+      type: object
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings]
+      properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
+        players:
+          description: The accepted participants, people before bots
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusPlayer"
+        slug:
+          type: string
+        name:
+          type: string
+        series:
+          type: string
+        tournament:
+          type: string
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusRound"
+        scored:
+          description: The labels of the rounds in the standings, in order
+          type: array
+          items:
+            type: string
+        standings:
+          description: Highest total first
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusStanding"
+    NostradamusPlayer:
+      type: object
+      required: [name, member, bot]
+      properties:
+        name:
+          description: The name the participant plays under
+          type: string
+        member:
+          description: The TTA username of the member it is linked to
+          type: string
+          nullable: true
+        bot:
+          type: boolean
+    AdminNostradamusFinished:
+      type: object
+      additionalProperties: false
+      required: [finished]
+      properties:
+        finished:
+          type: boolean
+    NostradamusRound:
+      type: object
+      required: [id, label, name, tokens_min, tokens_max, token_points, closes_at, zone, published, closed, questions]
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+        name:
+          type: string
+        tokens_min:
+          description: The fewest tokens a player stakes in all; null for none asked
+          type: integer
+          nullable: true
+        tokens_max:
+          description: The most tokens a player stakes in all; null for no limit (at most 99 on an answer)
+          type: integer
+          nullable: true
+        token_points:
+          description: What each token wins on a right answer, and loses on a wrong one
+          type: integer
+        closes_at:
+          description: The deadline for answers; null for a draft
+          type: string
+          format: date-time
+          nullable: true
+        zone:
+          description: The time zone the organiser set the deadline in; empty for a draft
+          type: string
+        published:
+          type: boolean
+        closed:
+          description: Its outcomes and scores are published
+          type: boolean
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusQuestion"
+    NostradamusQuestion:
+      type: object
+      required: [id, label, prompt, kind, points, near_points, picks, asks_last, choices, outcome, counts]
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+        prompt:
+          type: string
+        kind:
+          description: One name or option; a set of picks names, all to be right; a whole number, one off scoring near_points
+          type: string
+          enum: [pick, set, number]
+        points:
+          type: integer
+        near_points:
+          type: integer
+        picks:
+          description: How many names a set takes; 1 otherwise
+          type: integer
+        asks_last:
+          description: The question is about who finishes last
+          type: boolean
+        choices:
+          description: What may be answered; empty for a number or a free answer
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusChoice"
+        outcome:
+          description: What happened, null until known (on the site, until the round is closed); a pick's names everyone who tied
+          type: array
+          nullable: true
+          items:
+            type: string
+        counts:
+          description: How many answers named each value, most first; only for a closed round
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusCount"
+    NostradamusChoice:
+      type: object
+      required: [label, seed, leaderboard_rank]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        seed:
+          description: The player's seed, for the seed bot; 0 for none (always 0 on the site)
+          type: integer
+          minimum: 0
+        leaderboard_rank:
+          description: The player's leaderboard rank, for the leaderboard bot; 0 for none (always 0 on the site)
+          type: integer
+          minimum: 0
+    NostradamusCount:
+      type: object
+      required: [value, answers]
+      properties:
+        value:
+          type: string
+        answers:
+          type: integer
+    NostradamusStanding:
+      type: object
+      required: [name, member, bot, total, rounds]
+      properties:
+        name:
+          description: The name the participant plays under
+          type: string
+        member:
+          description: The TTA username of the member it is linked to
+          type: string
+          nullable: true
+        bot:
+          description: A participant that answers by a fixed rule
+          type: boolean
+        total:
+          type: integer
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusRoundScore"
+    NostradamusRoundScore:
+      type: object
+      required: [round, points, missed]
+      properties:
+        round:
+          type: string
+        points:
+          type: integer
+        missed:
+          description: The participant gave no answers in the round
+          type: boolean
+    MyNostradamus:
+      type: object
+      required: [status, answers]
+      properties:
+        status:
+          type: string
+          enum: [none, requested, accepted, refused]
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusGiven"
+    MyNostradamusEntry:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [requested, accepted, refused]
+    NostradamusGiven:
+      type: object
+      additionalProperties: false
+      required: [question, answer, tokens]
+      properties:
+        question:
+          type: integer
+          format: int64
+        answer:
+          description: A pick's one name, a set's names, or a number's digits
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 100
+        tokens:
+          description: The tokens staked on it, each winning or losing the round's token points
+          type: integer
+          minimum: 0
+          maximum: 99
+    NostradamusAnswersGiven:
+      type: object
+      additionalProperties: false
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/NostradamusGiven"
+    NostradamusSaved:
+      type: object
+      required: [saved]
+      properties:
+        saved:
+          type: integer
+    NostradamusCreated:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+    AdminNostradamusGame:
+      type: object
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings, participants]
+      properties:
+        finished:
+          description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
+          type: boolean
+        marked_finished:
+          description: An organiser marked it finished
+          type: boolean
+        tournament_finished:
+          description: Every CGE tournament of its season has finished, which finishes it too
+          type: boolean
+        players:
+          description: The accepted participants, people before bots
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusPlayer"
+        slug:
+          type: string
+        name:
+          type: string
+        series:
+          type: string
+        tournament:
+          type: string
+        rounds:
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusRound"
+        scored:
+          type: array
+          items:
+            type: string
+        standings:
+          description: Over every round with an outcome, closed or not
+          type: array
+          items:
+            $ref: "#/components/schemas/NostradamusStanding"
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNostradamusParticipant"
+    AdminNostradamusParticipant:
+      type: object
+      required: [id, name, member, discord_name, bot, bot_rule, status, requested_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        member:
+          type: string
+          nullable: true
+        discord_name:
+          type: string
+        bot:
+          type: boolean
+        bot_rule:
+          description: How a bot answers; empty for a person or a bot an organiser answers for
+          type: string
+          enum: ["", seed, glicko, leaderboard]
+        status:
+          type: string
+          enum: [requested, accepted, refused]
+        requested_at:
+          type: string
+          format: date-time
+          nullable: true
+    AdminNostradamusEditionNew:
+      type: object
+      additionalProperties: false
+      required: [slug, name, series, tournament]
+      properties:
+        slug:
+          type: string
+          pattern: "^[a-z0-9-]{1,40}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        series:
+          type: string
+          maxLength: 100
+        tournament:
+          type: string
+          maxLength: 100
+    AdminNostradamusRoundDraft:
+      type: object
+      additionalProperties: false
+      required: [label, name, token_points]
+      properties:
+        label:
+          type: string
+          pattern: "^[A-Za-z0-9 ]{1,20}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tokens_min:
+          description: The fewest tokens a player stakes in all; null or left out for none asked
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 99
+        tokens_max:
+          description: The most tokens a player stakes in all; null or left out for no limit
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 99
+        token_points:
+          type: integer
+          minimum: 0
+          maximum: 100
+    AdminNostradamusQuestionDraft:
+      type: object
+      additionalProperties: false
+      required: [label, prompt, kind, points, near_points, picks, asks_last, choices]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        prompt:
+          type: string
+          maxLength: 500
+        kind:
+          type: string
+          enum: [pick, set, number]
+        points:
+          type: integer
+          minimum: 0
+          maximum: 100
+        near_points:
+          type: integer
+          minimum: 0
+          maximum: 100
+        picks:
+          type: integer
+          minimum: 1
+          maximum: 20
+        asks_last:
+          type: boolean
+        choices:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/NostradamusChoice"
+    AdminNostradamusAnswers:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNostradamusAnswer"
+    AdminNostradamusAnswer:
+      type: object
+      required: [participant, question, answer, tokens, points]
+      properties:
+        participant:
+          type: string
+        question:
+          type: integer
+          format: int64
+        answer:
+          type: array
+          items:
+            type: string
+        tokens:
+          type: integer
+        points:
+          description: Null until the question's outcome is known
+          type: integer
+          nullable: true
+    AdminNostradamusEntrant:
+      description: |
+        Someone to add: a member by id, or by TTA username (a member made when new, with the details given), as a
+        blitz entrant is; or a bot, by name and the rule it answers by
+      type: object
+      additionalProperties: false
+      properties:
+        member:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        discord_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
+          type: string
+          minLength: 1
+          maxLength: 64
+        bot_rule:
+          type: string
+          enum: ["", seed, glicko, leaderboard]
+    AdminNostradamusStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, refused]
+    AdminNostradamusOutcome:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          description: Empty to clear it
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 100
+    AdminNostradamusLink:
+      type: object
+      additionalProperties: false
+      required: [member]
+      properties:
+        member:
+          description: A TTA username, or empty to unlink
+          type: string
+          maxLength: 100

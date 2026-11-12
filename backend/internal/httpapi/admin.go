@@ -34,6 +34,7 @@ type Admins interface {
 	MemberAdmin
 	AccountAdmin
 	ChallengeAdmin
+	NostradamusAdmin
 	NotificationAdmin
 }
 

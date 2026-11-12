@@ -20,6 +20,7 @@ type Ratings interface {
 	CatalogueReads
 	BlitzReads
 	ChallengeReads
+	NostradamusReads
 }
 
 // ChallengeReads are challenges.go's reads: the challenges, every entry not hidden, and the weekly challenge.

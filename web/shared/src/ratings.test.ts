@@ -7,6 +7,8 @@ import {
   challengePlayer,
   challengePlayers,
   challengeWeeks,
+  nostradamusEditions,
+  nostradamusGame,
   isSlug,
   RatingsApiError,
   seasonBracket,
@@ -355,6 +357,8 @@ describe('the challenge routes', () => {
     ['every entry', (f: typeof fetch) => challengeEntries('https://api.example', f), '/v1/challenges/entries'],
     ['the weekly winners', (f: typeof fetch) => challengeWeeks('https://api.example', f), '/v1/challenges/weekly'],
     ['a player, all entries', (f: typeof fetch) => challengePlayer('https://api.example', 'Ann', false, false, f), '/v1/challenges/players/Ann?verified=false'],
+    ['the Nostradamus editions', (f: typeof fetch) => nostradamusEditions('https://api.example', f), '/v1/nostradamus'],
+    ['a Nostradamus game', (f: typeof fetch) => nostradamusGame('https://api.example', 'wc-2031', f), '/v1/nostradamus/wc-2031'],
   ])('asks for %s', async (_name, call, path) => {
     const f = fakeFetch(200, '{}');
     await call(f.fetch);

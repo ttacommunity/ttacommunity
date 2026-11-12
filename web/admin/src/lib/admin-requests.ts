@@ -202,3 +202,41 @@ export const createCommunityEdition = (body: Schemas['CommunityEditionItem']) =>
 /** setCommunityEdition updates an edition of the community leaderboard. */
 export const setCommunityEdition = (slug: string, patch: Schemas['CommunityEditionPatch']) =>
   to(`/api/community/editions/${encodeURIComponent(slug)}`, 'PATCH', patch);
+
+const nostradamus = (slug: string) => `/api/nostradamus/${encodeURIComponent(slug)}`;
+/** addNostradamusGame makes a Nostradamus game over a tournament. */
+export const addNostradamusGame = (body: Schemas['AdminNostradamusEditionNew']) => to('/api/nostradamus', 'POST', body);
+/** setNostradamusFinished marks a game finished, or running again. */
+export const setNostradamusFinished = (slug: string, finished: boolean) => to(`${nostradamus(slug)}/finished`, 'PUT', { finished });
+/** addNostradamusRound drafts a round after the game's last. */
+export const addNostradamusRound = (slug: string, round: Schemas['AdminNostradamusRoundDraft']) => to(`${nostradamus(slug)}/rounds`, 'POST', round);
+/** setNostradamusRound changes a draft round. */
+export const setNostradamusRound = (slug: string, id: number, round: Schemas['AdminNostradamusRoundDraft']) => to(`${nostradamus(slug)}/rounds/${id}`, 'PUT', round);
+/** removeNostradamusRound removes a draft round. */
+export const removeNostradamusRound = (slug: string, id: number) => to(`${nostradamus(slug)}/rounds/${id}`, 'DELETE');
+/** addNostradamusQuestion adds a question to a draft round. */
+export const addNostradamusQuestion = (slug: string, round: number, q: Schemas['AdminNostradamusQuestionDraft']) => to(`${nostradamus(slug)}/rounds/${round}/questions`, 'POST', q);
+/** setNostradamusQuestion changes a draft round's question and its choices. */
+export const setNostradamusQuestion = (slug: string, id: number, q: Schemas['AdminNostradamusQuestionDraft']) => to(`${nostradamus(slug)}/questions/${id}`, 'PUT', q);
+/** removeNostradamusQuestion removes a draft round's question. */
+export const removeNostradamusQuestion = (slug: string, id: number) => to(`${nostradamus(slug)}/questions/${id}`, 'DELETE');
+/** publishNostradamusRound opens a draft for answers until a day and time on the clocks of a zone. */
+export const publishNostradamusRound = (slug: string, id: number, deadline: Schemas['BlitzDeadlineSet']) => to(`${nostradamus(slug)}/rounds/${id}/publish`, 'POST', deadline);
+/** unpublishNostradamusRound takes a published round back to a draft, to fix its questions. */
+export const unpublishNostradamusRound = (slug: string, id: number) => to(`${nostradamus(slug)}/rounds/${id}/unpublish`, 'POST');
+/** setNostradamusDeadline moves a published round's deadline to a day and time on the clocks of a zone. */
+export const setNostradamusDeadline = (slug: string, id: number, deadline: Schemas['BlitzDeadlineSet']) => to(`${nostradamus(slug)}/rounds/${id}/deadline`, 'PUT', deadline);
+/** closeNostradamusRound closes a round, publishing its results. */
+export const closeNostradamusRound = (slug: string, id: number) => to(`${nostradamus(slug)}/rounds/${id}/close`, 'POST');
+/** setNostradamusOutcome sets what happened for a question; none clears it. */
+export const setNostradamusOutcome = (slug: string, id: number, outcome: string[]) => to(`${nostradamus(slug)}/questions/${id}/outcome`, 'PUT', { outcome });
+/** setNostradamusBotAnswers replaces a bot's answers in an open round. */
+export const setNostradamusBotAnswers = (slug: string, round: number, bot: number, answers: Schemas['NostradamusGiven'][]) =>
+  to(`${nostradamus(slug)}/rounds/${round}/bots/${bot}/answers`, 'PUT', { answers });
+/** addNostradamusParticipant adds a member as a blitz entrant names one (by id, or by TTA username with their details), or a bot by name and rule. */
+export const addNostradamusParticipant = (slug: string, p: Schemas['AdminNostradamusEntrant']) => to(`${nostradamus(slug)}/participants`, 'POST', p);
+/** setNostradamusStatus accepts or refuses a participant. */
+export const setNostradamusStatus = (slug: string, id: number, status: Schemas['AdminNostradamusStatus']['status']) =>
+  to(`${nostradamus(slug)}/participants/${id}/status`, 'PUT', { status });
+/** linkNostradamusParticipant links a participant to the member of a TTA username; empty unlinks it. */
+export const linkNostradamusParticipant = (slug: string, id: number, member: string) => to(`${nostradamus(slug)}/participants/${id}/member`, 'PUT', { member: member.trim() });

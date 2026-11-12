@@ -100,6 +100,14 @@ export type ChallengePlayerEntry = components['schemas']['ChallengePlayerEntry']
 export type ChallengeWeeks = components['schemas']['ChallengeWeeks'];
 export type ChallengeEntries = components['schemas']['ChallengeEntries'];
 export type ChallengePlacing = components['schemas']['ChallengePlacing'];
+export type NostradamusEditions = components['schemas']['NostradamusEditions'];
+export type NostradamusEdition = components['schemas']['NostradamusEdition'];
+export type NostradamusGame = components['schemas']['NostradamusGame'];
+export type NostradamusRound = components['schemas']['NostradamusRound'];
+export type NostradamusQuestion = components['schemas']['NostradamusQuestion'];
+export type NostradamusStanding = components['schemas']['NostradamusStanding'];
+export type NostradamusGiven = components['schemas']['NostradamusGiven'];
+export type MyNostradamus = components['schemas']['MyNostradamus'];
 
 /** isSlug says whether s matches the API's pattern for a tournament in a path. */
 export function isSlug(s: string): boolean {
@@ -434,6 +442,16 @@ export async function challengePlayers(base: string, verified: boolean, fetchFn:
 /** Returns every challenge entry not hidden, for download. */
 export async function challengeEntries(base: string, fetchFn: typeof fetch = fetch): Promise<ChallengeEntries> {
   return get<ChallengeEntries>(fetchFn, base, '/v1/challenges/entries');
+}
+
+/** Returns every Nostradamus game, the newest tournament's first. */
+export async function nostradamusEditions(base: string, fetchFn: typeof fetch = fetch): Promise<NostradamusEditions> {
+  return get<NostradamusEditions>(fetchFn, base, '/v1/nostradamus');
+}
+
+/** Returns a Nostradamus game: its published rounds (outcomes and polls once closed) and its standings. */
+export async function nostradamusGame(base: string, edition: string, fetchFn: typeof fetch = fetch): Promise<NostradamusGame> {
+  return get<NostradamusGame>(fetchFn, base, `/v1/nostradamus/${encodeURIComponent(edition)}`);
 }
 
 /** Returns the weekly challenge's weeks, each with its winners and runners-up. */
