@@ -1,5 +1,5 @@
 /** A Nostradamus game: the join box and the open round's questions for a signed-in player, the standings, and each published round with, once closed, its outcomes and how many picked each answer. */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { nostradamusEditions, nostradamusGame, type NostradamusGame, type NostradamusQuestion, type NostradamusRound } from '@ttac/shared/ratings';
 import { browserStorage, seemsSignedIn } from '../lib/account';
@@ -58,23 +58,30 @@ export default function NostradamusGamePage({ apiUrl }: { apiUrl: string }) {
         <div className="rating-card waiting-message">No game yet.</div>
       ) : (
         <>
-          {editions.data.editions.length > 1 && (
-            <label className="nostradamus-pick">
-              <span>Game</span>
-              <select className="input-antique" value={edition} onChange={(e) => window.location.assign(nostradamusHref(e.target.value))}>
-                {editions.data.editions.map((e) => (
-                  <option key={e.slug} value={e.slug}>
-                    {editionLabel(e, new Date())}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           {game.kind !== 'ready' ? (
             <Waiting load={game} what="the game" />
           ) : (
             <>
-              <JoinBox apiUrl={apiUrl} game={game.data} place={place.kind === 'ready' ? place.data : null} onChange={reload} />
+              <JoinBox
+                apiUrl={apiUrl}
+                game={game.data}
+                place={place.kind === 'ready' ? place.data : null}
+                onChange={reload}
+                picker={
+                  editions.data.editions.length > 1 && (
+                    <label className="stages-pick">
+                      <span className="visually-hidden">Game</span>
+                      <select className="input-antique" value={edition} onChange={(e) => window.location.assign(nostradamusHref(e.target.value))}>
+                        {editions.data.editions.map((e) => (
+                          <option key={e.slug} value={e.slug}>
+                            {editionLabel(e, new Date())}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )
+                }
+              />
               {place.kind === 'ready' && place.data.kind === 'signed-in' && place.data.mine.status === 'accepted' &&
                 game.data.rounds
                   .filter((r) => roundStage(r, new Date()) === 'open')
@@ -96,12 +103,11 @@ function myPlace(apiUrl: string, edition: string): Promise<MyPlace> {
   return seemsSignedIn(browserStorage()) ? fetchMyNostradamus(apiUrl, edition) : Promise.resolve({ kind: 'signed-out' });
 }
 
-/** JoinBox tells the player where they stand: sign in, link a TTA username, ask to play, waiting, refused, or in. */
-function JoinBox({ apiUrl, game, place, onChange }: { apiUrl: string; game: NostradamusGame; place: MyPlace | null; onChange: () => void }) {
+/** JoinBox heads the game, with the game picker beside its name as the tournament pages pick a season, and tells the player where they stand: sign in, link a TTA username, ask to play, waiting, refused, or in. */
+function JoinBox({ apiUrl, game, place, onChange, picker }: { apiUrl: string; game: NostradamusGame; place: MyPlace | null; onChange: () => void; picker: ReactNode }) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  if (place === null) return null;
-  const state = joinState(place.kind !== 'signed-out', place.kind === 'signed-in', place.kind === 'signed-in' ? place.mine.status : 'none');
+  const state = place === null ? null : joinState(place.kind !== 'signed-out', place.kind === 'signed-in', place.kind === 'signed-in' ? place.mine.status : 'none');
   const ask = async () => {
     setBusy(true);
     const r = await askToPlay(apiUrl, game.slug);
@@ -110,10 +116,13 @@ function JoinBox({ apiUrl, game, place, onChange }: { apiUrl: string; game: Nost
     else setMessage(r.message);
   };
   return (
-    <section className="rating-card nostradamus-card" aria-labelledby="nostradamus-join">
-      <h2 id="nostradamus-join" className="rating-card-heading">
-        Play {game.name}
-      </h2>
+    <section className="panel-card nostradamus-panel" aria-labelledby="nostradamus-join">
+      <div className="panel-header panel-header-split">
+        <h2 id="nostradamus-join" className="panel-header-title">
+          {game.name}
+        </h2>
+        {picker}
+      </div>
       {state === 'sign-in' && (
         <p>
           <a href="/account/">Sign in</a> to ask to play.
@@ -136,7 +145,7 @@ function JoinBox({ apiUrl, game, place, onChange }: { apiUrl: string; game: Nost
       {state === 'refused' && <p>An organiser did not let you into this game. Ask them on Discord if you think that is wrong.</p>}
       {state === 'play' && <p>You are in. Answer each round before its deadline; you can change your answers until then.</p>}
       {state === 'play' &&
-        place.kind === 'signed-in' &&
+        place?.kind === 'signed-in' &&
         game.rounds
           .filter((r) => roundStage(r, new Date()) === 'open')
           .map((r) => {
@@ -344,8 +353,17 @@ function RoundCard({ round, place }: { round: NostradamusRound; place: MyPlace |
   );
 }
 
-/** TokenStepper sets the tokens staked on an answer: a number field with − and + beside it, kept within range. */
+/** TokenStepper sets the tokens staked on an answer: a number field with − and + beside it, kept within range. The field may be cleared while typing; left empty, it counts as none. */
 function TokenStepper({ label, value, range, onChange }: { label: string; value: number; range: { min: number; max: number }; onChange: (n: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const type = (t: string) => {
+    setText(t);
+    if (/^\d+$/.test(t.trim())) onChange(Number(t));
+  };
+  const settle = () => {
+    if (text !== null && text.trim() === '') onChange(0);
+    setText(null);
+  };
   return (
     <div className="nostradamus-stake">
       <span>Tokens</span>
@@ -354,14 +372,14 @@ function TokenStepper({ label, value, range, onChange }: { label: string; value:
       </button>
       <input
         className="input-antique"
-        type="number"
+        type="text"
         inputMode="numeric"
-        min={range.min}
-        max={range.max}
-        step={1}
+        pattern="[0-9]*"
         aria-label={`Tokens on ${label}`}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        value={text ?? String(value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => type(e.target.value)}
+        onBlur={settle}
       />
       <button type="button" className="btn-antique" aria-label={`One token more: ${label}`} disabled={value >= range.max} onClick={() => onChange(value + 1)}>
         +
