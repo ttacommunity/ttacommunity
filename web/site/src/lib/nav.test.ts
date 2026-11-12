@@ -3,7 +3,7 @@ import { breadcrumb, placeOf, sections } from './nav';
 
 describe('sections', () => {
   it('lists Home, then the sections with pages', () => {
-    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments', 'Games']);
+    expect(sections.map((s) => s.label)).toEqual(['Home', 'Ratings', 'Tournaments', 'Bread & Circuses']);
   });
   it('gives every page a description', () => {
     const pages = sections.flatMap((s) => s.pages);
@@ -32,10 +32,10 @@ describe('placeOf', () => {
     ['a Hall of Fame series', '/ratings/hall_of_fame/royal_league/', 'Tournaments', 'Hall of Fame'],
     ['the community leaderboard', '/ratings/community/', 'Tournaments', 'Community leaderboard'],
     ['blitz', '/blitz/', 'Tournaments', 'Blitz'],
-    ['Nostradamus', '/nostradamus/', 'Games', 'Nostradamus'],
-    ['challenges', '/challenges/', 'Games', 'Challenges'],
-    ['a challenge', '/challenges/1ai/', 'Games', 'Challenges'],
-    ["a challenge tab's page", '/challenges/weekly/', 'Games', 'Challenges'],
+    ['Nostradamus', '/nostradamus/', 'Bread & Circuses', 'Nostradamus'],
+    ['challenges', '/challenges/', 'Bread & Circuses', 'Challenges'],
+    ['a challenge', '/challenges/1ai/', 'Bread & Circuses', 'Challenges'],
+    ["a challenge tab's page", '/challenges/weekly/', 'Bread & Circuses', 'Challenges'],
   ])('puts %s in its section and page', (_name, path, section, page) => {
     const place = placeOf(path);
     expect([place?.section.label, place?.page?.label]).toEqual([section, page]);

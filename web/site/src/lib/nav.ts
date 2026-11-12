@@ -37,7 +37,7 @@ export const sections: readonly NavSection[] = [
     ],
   },
   {
-    label: 'Games',
+    label: 'Bread & Circuses',
     pages: [
       { label: 'Nostradamus', href: '/nostradamus/', description: 'Predict the World Championship, round by round' },
       { label: 'Challenges', href: '/challenges/', description: 'Highscores, players, the weekly winners, and submitting yours' },

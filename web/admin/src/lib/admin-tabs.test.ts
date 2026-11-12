@@ -68,8 +68,8 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Games', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'notifications', 'audit']]]],
-    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Games', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'admins', 'notifications', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
   });
@@ -79,7 +79,7 @@ describe('admin tabs', () => {
   });
 
   it('drops a group with no tab left', () => {
-    expect(groupsFor(tabsFor('admin').filter((t) => t.key !== 'members' && t.key !== 'titles'), {}).map((g) => g.label)).toEqual(['Tournaments', 'Games', 'Site']);
+    expect(groupsFor(tabsFor('admin').filter((t) => t.key !== 'members' && t.key !== 'titles'), {}).map((g) => g.label)).toEqual(['Tournaments', 'Bread & Circuses', 'Site']);
   });
 
   it.each([
