@@ -2797,6 +2797,63 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/unpublish:
+    post:
+      operationId: postAdminNostradamusUnpublish
+      tags: [admin]
+      summary: Take a published Nostradamus round back to a draft (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Hides the round from the
+        site so its questions can be fixed, keeping the answers given; a
+        question whose kind, picks or choices then change loses its answers.
+        The bots answer again when it is published. A draft or a closed
+        round is 409.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      responses:
+        "204":
+          description: Unpublished
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/nostradamus/{edition}/rounds/{round}/deadline:
+    put:
+      operationId: putAdminNostradamusDeadline
+      tags: [admin]
+      summary: Move a published Nostradamus round's deadline (admins and organisers)
+      description: |
+        Audited. The Origin must be the admin site. Sets the deadline to a
+        day and time on the clocks of zone, as publishing does. A draft, a
+        closed round, or a deadline not in the future is 409; a zone, day or
+        time it cannot read, 400.
+      parameters:
+        - $ref: "#/components/parameters/NostradamusEditionSlug"
+        - $ref: "#/components/parameters/NostradamusRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzDeadlineSet"
+      responses:
+        "204":
+          description: Moved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/nostradamus/{edition}/rounds/{round}/answers:
     get:
       operationId: getAdminNostradamusAnswers
@@ -10619,8 +10676,13 @@ components:
             $ref: "#/components/schemas/NostradamusEdition"
     NostradamusEdition:
       type: object
-      required: [slug, name, series, tournament]
+      required: [slug, name, series, tournament, open_until]
       properties:
+        open_until:
+          description: When the game's first round open for answers closes; null while none is
+          type: string
+          format: date-time
+          nullable: true
         slug:
           type: string
         name:

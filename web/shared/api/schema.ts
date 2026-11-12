@@ -2040,6 +2040,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a published Nostradamus round back to a draft (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Hides the round from the
+         *     site so its questions can be fixed, keeping the answers given; a
+         *     question whose kind, picks or choices then change loses its answers.
+         *     The bots answer again when it is published. A draft or a closed
+         *     round is 409.
+         */
+        post: operations["postAdminNostradamusUnpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/nostradamus/{edition}/rounds/{round}/deadline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move a published Nostradamus round's deadline (admins and organisers)
+         * @description Audited. The Origin must be the admin site. Sets the deadline to a
+         *     day and time on the clocks of zone, as publishing does. A draft, a
+         *     closed round, or a deadline not in the future is 409; a zone, day or
+         *     time it cannot read, 400.
+         */
+        put: operations["putAdminNostradamusDeadline"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/nostradamus/{edition}/rounds/{round}/answers": {
         parameters: {
             query?: never;
@@ -6521,6 +6568,11 @@ export interface components {
             editions: components["schemas"]["NostradamusEdition"][];
         };
         NostradamusEdition: {
+            /**
+             * Format: date-time
+             * @description When the game's first round open for answers closes; null while none is
+             */
+            open_until: string | null;
             slug: string;
             name: string;
             /** @description The slug of the series whose tournament it is played over */
@@ -9451,6 +9503,61 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postAdminNostradamusUnpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unpublished */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminNostradamusDeadline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                edition: components["parameters"]["NostradamusEditionSlug"];
+                round: components["parameters"]["NostradamusRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzDeadlineSet"];
+            };
+        };
+        responses: {
+            /** @description Moved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

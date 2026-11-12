@@ -4040,6 +4040,9 @@ type NostradamusCreated struct {
 type NostradamusEdition struct {
 	Name string `json:"name"`
 
+	// OpenUntil When the game's first round open for answers closes; null while none is
+	OpenUntil *time.Time `json:"open_until"`
+
 	// Series The slug of the series whose tournament it is played over
 	Series string `json:"series"`
 	Slug   string `json:"slug"`
@@ -5576,6 +5579,9 @@ type PutAdminNostradamusRoundJSONRequestBody = AdminNostradamusRoundDraft
 // PutAdminNostradamusBotAnswersJSONRequestBody defines body for PutAdminNostradamusBotAnswers for application/json ContentType.
 type PutAdminNostradamusBotAnswersJSONRequestBody = NostradamusAnswersGiven
 
+// PutAdminNostradamusDeadlineJSONRequestBody defines body for PutAdminNostradamusDeadline for application/json ContentType.
+type PutAdminNostradamusDeadlineJSONRequestBody = BlitzDeadlineSet
+
 // PostAdminNostradamusPublishJSONRequestBody defines body for PostAdminNostradamusPublish for application/json ContentType.
 type PostAdminNostradamusPublishJSONRequestBody = BlitzDeadlineSet
 
@@ -5869,12 +5875,18 @@ type ServerInterface interface {
 	// PostAdminNostradamusClose Close a Nostradamus round, publishing its results (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/close)
 	PostAdminNostradamusClose(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
+	// PutAdminNostradamusDeadline Move a published Nostradamus round's deadline (admins and organisers)
+	// (PUT /v1/admin/nostradamus/{edition}/rounds/{round}/deadline)
+	PutAdminNostradamusDeadline(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
 	// PostAdminNostradamusPublish Publish a Nostradamus round until its deadline (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/publish)
 	PostAdminNostradamusPublish(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
 	// PostAdminNostradamusQuestion Add a question to a draft Nostradamus round (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/questions)
 	PostAdminNostradamusQuestion(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
+	// PostAdminNostradamusUnpublish Take a published Nostradamus round back to a draft (admins and organisers)
+	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/unpublish)
+	PostAdminNostradamusUnpublish(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
 	// GetAdminNotificationEndpoints The webhooks admin posts notifications to (admins only)
 	// (GET /v1/admin/notification-endpoints)
 	GetAdminNotificationEndpoints(w http.ResponseWriter, r *http.Request)
@@ -8579,6 +8591,41 @@ func (siw *ServerInterfaceWrapper) PostAdminNostradamusClose(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// PutAdminNostradamusDeadline operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminNostradamusDeadline(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "edition" -------------
+	var edition NostradamusEditionSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round NostradamusRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminNostradamusDeadline(w, r, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAdminNostradamusPublish operation middleware
 func (siw *ServerInterfaceWrapper) PostAdminNostradamusPublish(w http.ResponseWriter, r *http.Request) {
 
@@ -8640,6 +8687,41 @@ func (siw *ServerInterfaceWrapper) PostAdminNostradamusQuestion(w http.ResponseW
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminNostradamusQuestion(w, r, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminNostradamusUnpublish operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminNostradamusUnpublish(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "edition" -------------
+	var edition NostradamusEditionSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "edition", r.PathValue("edition"), &edition, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "edition", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "round" -------------
+	var round NostradamusRoundId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "round", r.PathValue("round"), &round, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "round", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminNostradamusUnpublish(w, r, edition, round)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12025,6 +12107,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/questions", wrapper.PostAdminNostradamusQuestion)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/publish", wrapper.PostAdminNostradamusPublish)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/close", wrapper.PostAdminNostradamusClose)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/unpublish", wrapper.PostAdminNostradamusUnpublish)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/deadline", wrapper.PutAdminNostradamusDeadline)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/answers", wrapper.GetAdminNostradamusAnswers)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/rounds/{round}/bots/{participant}/answers", wrapper.PutAdminNostradamusBotAnswers)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/nostradamus/{edition}/questions/{question}", wrapper.DeleteAdminNostradamusQuestion)
@@ -18077,6 +18161,99 @@ func (response PostAdminNostradamusClose409JSONResponse) VisitPostAdminNostradam
 	return err
 }
 
+type PutAdminNostradamusDeadlineRequestObject struct {
+	Edition NostradamusEditionSlug `json:"edition"`
+	Round   NostradamusRoundId     `json:"round"`
+	Body    *PutAdminNostradamusDeadlineJSONRequestBody
+}
+
+type PutAdminNostradamusDeadlineResponseObject interface {
+	VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error
+}
+
+type PutAdminNostradamusDeadline204Response struct {
+}
+
+func (response PutAdminNostradamusDeadline204Response) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminNostradamusDeadline400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminNostradamusDeadline400JSONResponse) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusDeadline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminNostradamusDeadline401JSONResponse) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusDeadline403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminNostradamusDeadline403JSONResponse) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusDeadline404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminNostradamusDeadline404JSONResponse) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminNostradamusDeadline409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminNostradamusDeadline409JSONResponse) VisitPutAdminNostradamusDeadlineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAdminNostradamusPublishRequestObject struct {
 	Edition NostradamusEditionSlug `json:"edition"`
 	Round   NostradamusRoundId     `json:"round"`
@@ -18257,6 +18434,83 @@ func (response PostAdminNostradamusQuestion404JSONResponse) VisitPostAdminNostra
 type PostAdminNostradamusQuestion409JSONResponse struct{ ConflictJSONResponse }
 
 func (response PostAdminNostradamusQuestion409JSONResponse) VisitPostAdminNostradamusQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNostradamusUnpublishRequestObject struct {
+	Edition NostradamusEditionSlug `json:"edition"`
+	Round   NostradamusRoundId     `json:"round"`
+}
+
+type PostAdminNostradamusUnpublishResponseObject interface {
+	VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error
+}
+
+type PostAdminNostradamusUnpublish204Response struct {
+}
+
+func (response PostAdminNostradamusUnpublish204Response) VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAdminNostradamusUnpublish401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminNostradamusUnpublish401JSONResponse) VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNostradamusUnpublish403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminNostradamusUnpublish403JSONResponse) VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNostradamusUnpublish404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminNostradamusUnpublish404JSONResponse) VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminNostradamusUnpublish409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminNostradamusUnpublish409JSONResponse) VisitPostAdminNostradamusUnpublishResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -24217,12 +24471,18 @@ type StrictServerInterface interface {
 	// PostAdminNostradamusClose Close a Nostradamus round, publishing its results (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/close)
 	PostAdminNostradamusClose(ctx context.Context, request PostAdminNostradamusCloseRequestObject) (PostAdminNostradamusCloseResponseObject, error)
+	// PutAdminNostradamusDeadline Move a published Nostradamus round's deadline (admins and organisers)
+	// (PUT /v1/admin/nostradamus/{edition}/rounds/{round}/deadline)
+	PutAdminNostradamusDeadline(ctx context.Context, request PutAdminNostradamusDeadlineRequestObject) (PutAdminNostradamusDeadlineResponseObject, error)
 	// PostAdminNostradamusPublish Publish a Nostradamus round until its deadline (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/publish)
 	PostAdminNostradamusPublish(ctx context.Context, request PostAdminNostradamusPublishRequestObject) (PostAdminNostradamusPublishResponseObject, error)
 	// PostAdminNostradamusQuestion Add a question to a draft Nostradamus round (admins and organisers)
 	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/questions)
 	PostAdminNostradamusQuestion(ctx context.Context, request PostAdminNostradamusQuestionRequestObject) (PostAdminNostradamusQuestionResponseObject, error)
+	// PostAdminNostradamusUnpublish Take a published Nostradamus round back to a draft (admins and organisers)
+	// (POST /v1/admin/nostradamus/{edition}/rounds/{round}/unpublish)
+	PostAdminNostradamusUnpublish(ctx context.Context, request PostAdminNostradamusUnpublishRequestObject) (PostAdminNostradamusUnpublishResponseObject, error)
 	// GetAdminNotificationEndpoints The webhooks admin posts notifications to (admins only)
 	// (GET /v1/admin/notification-endpoints)
 	GetAdminNotificationEndpoints(ctx context.Context, request GetAdminNotificationEndpointsRequestObject) (GetAdminNotificationEndpointsResponseObject, error)
@@ -26801,6 +27061,40 @@ func (sh *strictHandler) PostAdminNostradamusClose(w http.ResponseWriter, r *htt
 	}
 }
 
+// PutAdminNostradamusDeadline operation middleware
+func (sh *strictHandler) PutAdminNostradamusDeadline(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId) {
+	var request PutAdminNostradamusDeadlineRequestObject
+
+	request.Edition = edition
+	request.Round = round
+
+	var body PutAdminNostradamusDeadlineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminNostradamusDeadline(ctx, request.(PutAdminNostradamusDeadlineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminNostradamusDeadline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminNostradamusDeadlineResponseObject); ok {
+		if err := validResponse.VisitPutAdminNostradamusDeadlineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAdminNostradamusPublish operation middleware
 func (sh *strictHandler) PostAdminNostradamusPublish(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId) {
 	var request PostAdminNostradamusPublishRequestObject
@@ -26862,6 +27156,33 @@ func (sh *strictHandler) PostAdminNostradamusQuestion(w http.ResponseWriter, r *
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminNostradamusQuestionResponseObject); ok {
 		if err := validResponse.VisitPostAdminNostradamusQuestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminNostradamusUnpublish operation middleware
+func (sh *strictHandler) PostAdminNostradamusUnpublish(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId) {
+	var request PostAdminNostradamusUnpublishRequestObject
+
+	request.Edition = edition
+	request.Round = round
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminNostradamusUnpublish(ctx, request.(PostAdminNostradamusUnpublishRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminNostradamusUnpublish")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminNostradamusUnpublishResponseObject); ok {
+		if err := validResponse.VisitPostAdminNostradamusUnpublishResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -147,7 +147,8 @@ func (a *AdminStore) AddNostradamusQuestion(ctx context.Context, slug string, ro
 	return id, nil
 }
 
-// SetNostradamusQuestion changes a draft round's question and replaces its choices. It returns ErrNoNostradamus,
+// SetNostradamusQuestion changes a draft round's question and replaces its choices. Answers already given (to a round
+// unpublished to be fixed) are kept unless its kind, picks or choices change. It returns ErrNoNostradamus,
 // ErrNostradamusRoundState once published, or ErrBadNostradamus.
 func (a *AdminStore) SetNostradamusQuestion(ctx context.Context, slug string, question int64, q NostradamusQuestion) error {
 	round, err := questionRound(ctx, a.pool, slug, question)
@@ -158,16 +159,42 @@ func (a *AdminStore) SetNostradamusQuestion(ctx context.Context, slug string, qu
 		return err
 	}
 	err = pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var shapeKept bool
+		if err := tx.QueryRow(ctx, "SELECT kind = $2 AND picks = $3 FROM nostradamus_questions WHERE question_id = $1",
+			question, q.Kind, max(q.Picks, 1)).Scan(&shapeKept); err != nil {
+			return err
+		}
+		if !shapeKept {
+			if _, err := tx.Exec(ctx, "DELETE FROM nostradamus_answers WHERE question_id = $1", question); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE nostradamus_questions SET label = $2, prompt = $3, kind = $4, points = $5, near_points = $6, picks = $7, asks_last = $8
 			WHERE question_id = $1`, question, strings.TrimSpace(q.Label), strings.TrimSpace(q.Prompt), q.Kind, q.Points, q.NearPoints,
 			max(q.Picks, 1), q.AsksLast); err != nil {
 			return err
 		}
+		var same bool
+		labels := make([]string, len(q.Choices))
+		for i, c := range q.Choices {
+			labels[i] = strings.ToLower(strings.TrimSpace(c.Label))
+		}
+		if err := tx.QueryRow(ctx, `SELECT coalesce((SELECT array_agg(lower(label) ORDER BY lower(label)) FROM nostradamus_choices WHERE question_id = $1), '{}')
+			= coalesce((SELECT array_agg(l ORDER BY l) FROM unnest($2::text[]) l), '{}')`, question, labels).Scan(&same); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, "DELETE FROM nostradamus_choices WHERE question_id = $1", question); err != nil {
 			return err
 		}
-		return setChoices(ctx, tx, question, q.Choices)
+		if err := setChoices(ctx, tx, question, q.Choices); err != nil {
+			return err
+		}
+		if !same {
+			_, err := tx.Exec(ctx, "DELETE FROM nostradamus_answers WHERE question_id = $1", question)
+			return err
+		}
+		return nil
 	})
 	return nostradamusRefusal(err)
 }
@@ -233,6 +260,52 @@ func (a *AdminStore) PublishNostradamusRound(ctx context.Context, slug string, r
 		}
 		return answerForBots(ctx, tx, round)
 	})
+}
+
+// openRound reports a round of the game published and not closed, or ErrNoNostradamus or ErrNostradamusRoundState
+// saying why it is not.
+func openRound(ctx context.Context, db conn, slug string, round int64) error {
+	var published, closed bool
+	err := db.QueryRow(ctx, `SELECT r.published_at IS NOT NULL, r.closed_at IS NOT NULL
+		FROM nostradamus_rounds r JOIN nostradamus_editions e USING (edition_id) WHERE e.slug = $1 AND r.round_id = $2`,
+		slug, round).Scan(&published, &closed)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return ErrNoNostradamus
+	case err != nil:
+		return fmt.Errorf("reading a Nostradamus round: %w", err)
+	case !published:
+		return roundState("the round is a draft: its deadline is set on publishing")
+	case closed:
+		return roundState("the round is closed")
+	}
+	return nil
+}
+
+// UnpublishNostradamusRound takes a published round back to a draft, hidden from the site, to fix its questions;
+// answers already given are kept, and the bots answer again when it is published. It returns ErrNoNostradamus, or
+// ErrNostradamusRoundState for a draft or a closed round.
+func (a *AdminStore) UnpublishNostradamusRound(ctx context.Context, slug string, round int64) error {
+	if err := openRound(ctx, a.pool, slug, round); err != nil {
+		return err
+	}
+	if _, err := a.pool.Exec(ctx, "UPDATE nostradamus_rounds SET published_at = NULL WHERE round_id = $1", round); err != nil {
+		return fmt.Errorf("unpublishing a Nostradamus round: %w", err)
+	}
+	return nil
+}
+
+// SetNostradamusDeadline moves a published round's deadline to closes, set on the clocks of zone. It returns
+// ErrNoNostradamus, or ErrNostradamusRoundState for a draft, a closed round, or a deadline not after now.
+func (a *AdminStore) SetNostradamusDeadline(ctx context.Context, slug string, round int64, closes time.Time, zone string, now time.Time) error {
+	if err := openRound(ctx, a.pool, slug, round); err != nil {
+		return err
+	}
+	if !closes.After(now) {
+		return roundState("the deadline must be after now")
+	}
+	_, err := a.pool.Exec(ctx, "UPDATE nostradamus_rounds SET closes_at = $2, deadline_zone = $3 WHERE round_id = $1", round, closes, zone)
+	return nostradamusRefusal(err)
 }
 
 // SetNostradamusOutcome sets what happened for a published question of the game, or clears it with none. It returns
