@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, roundStatus } from './nostradamus-admin';
+import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, linkChoices, roundLabel, roundStatus } from './nostradamus-admin';
 
 describe('outcomeValues', () => {
   it.each([
@@ -82,5 +82,25 @@ describe('closeBlocker', () => {
 describe('gameHref', () => {
   it("is the game's page in admin", () => {
     expect(gameHref('wc-2031')).toBe('/nostradamus/?edition=wc-2031');
+  });
+});
+
+describe('roundLabel', () => {
+  it.each([
+    ['the one typed, trimmed', ' S8 ', ['S4', 'S7'], 'S8'],
+    ['the first R free when none is typed', '', ['S4', 'R1', 'R2'], 'R3'],
+    ['R1 in a new game', '  ', [], 'R1'],
+  ])('is %s', (_name, typed, taken, want) => {
+    expect(roundLabel(typed, taken)).toBe(want);
+  });
+});
+
+describe('linkChoices', () => {
+  const found = [
+    { member: 4, name: 'Ann', player: 'Ann', discord_name: 'ann_d', email: '', country: null, zone: null, banned: false },
+    { member: null, name: 'Rated_Rae', player: 'Rated_Rae', discord_name: '', email: '', country: null, zone: null, banned: false },
+  ];
+  it('offers the members and rated players found, not a new name, which a link cannot make', () => {
+    expect(linkChoices(found, 'Zed').map((c) => c.label)).toEqual(['Ann', 'Rated_Rae']);
   });
 });

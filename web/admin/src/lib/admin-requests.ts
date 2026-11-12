@@ -227,9 +227,8 @@ export const setNostradamusOutcome = (slug: string, id: number, outcome: string[
 /** setNostradamusBotAnswers replaces a bot's answers in an open round. */
 export const setNostradamusBotAnswers = (slug: string, round: number, bot: number, answers: Schemas['NostradamusGiven'][]) =>
   to(`${nostradamus(slug)}/rounds/${round}/bots/${bot}/answers`, 'PUT', { answers });
-/** addNostradamusParticipant adds a member by TTA username (with a Discord name for a new one), or a bot by its rule. */
-export const addNostradamusParticipant = (slug: string, p: { name: string; discord_name: string; bot_rule: Schemas['AdminNostradamusEntrant']['bot_rule'] }) =>
-  to(`${nostradamus(slug)}/participants`, 'POST', { name: p.name.trim(), discord_name: p.discord_name.trim(), bot_rule: p.bot_rule });
+/** addNostradamusParticipant adds a member as a blitz entrant names one (by id, or by TTA username with their details), or a bot by name and rule. */
+export const addNostradamusParticipant = (slug: string, p: Schemas['AdminNostradamusEntrant']) => to(`${nostradamus(slug)}/participants`, 'POST', p);
 /** setNostradamusStatus accepts or refuses a participant. */
 export const setNostradamusStatus = (slug: string, id: number, status: Schemas['AdminNostradamusStatus']['status']) =>
   to(`${nostradamus(slug)}/participants/${id}/status`, 'PUT', { status });

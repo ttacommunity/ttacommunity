@@ -93,7 +93,8 @@ describe('admin requests', () => {
     ['a round closed', req.closeNostradamusRound('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4/close', 'POST', undefined],
     ['an outcome', req.setNostradamusOutcome('wc-2031', 7, ['Ann']), '/api/nostradamus/wc-2031/questions/7/outcome', 'PUT', { outcome: ['Ann'] }],
     ["a bot's answers", req.setNostradamusBotAnswers('wc-2031', 4, 9, [{ question: 7, answer: ['Ann'], token: false }]), '/api/nostradamus/wc-2031/rounds/4/bots/9/answers', 'PUT', { answers: [{ question: 7, answer: ['Ann'], token: false }] }],
-    ['a new participant, trimmed', req.addNostradamusParticipant('wc-2031', { name: ' Ann ', discord_name: ' ann_d ', bot_rule: '' }), '/api/nostradamus/wc-2031/participants', 'POST', { name: 'Ann', discord_name: 'ann_d', bot_rule: '' }],
+    ['a new participant, as an entrant', req.addNostradamusParticipant('wc-2031', { member: 12, zone: 'UTC' }), '/api/nostradamus/wc-2031/participants', 'POST', { member: 12, zone: 'UTC' }],
+    ['a new bot', req.addNostradamusParticipant('wc-2031', { name: 'Seed', bot_rule: 'seed' }), '/api/nostradamus/wc-2031/participants', 'POST', { name: 'Seed', bot_rule: 'seed' }],
     ['a participant accepted', req.setNostradamusStatus('wc-2031', 8, 'accepted'), '/api/nostradamus/wc-2031/participants/8/status', 'PUT', { status: 'accepted' }],
     ['a participant linked, trimmed', req.linkNostradamusParticipant('wc-2031', 8, ' Ann '), '/api/nostradamus/wc-2031/participants/8/member', 'PUT', { member: 'Ann' }],
   ])('sends %s', (_, got, path, method, json) => {
