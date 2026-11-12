@@ -1567,8 +1567,8 @@ export interface paths {
          * Answer an open Nostradamus round
          * @description The Origin must be the site. For an accepted participant: replaces
          *     their answers in the round, all or none, until its deadline. A pick
-         *     or set names choices of the question; a token goes on at most the
-         *     round's number of answers. A round not open is 409; after the
+         *     or set names choices of the question; tokens staked stay within
+         *     the round's least and most. A round not open is 409; after the
          *     deadline, 409; not accepted, 403.
          */
         put: operations["putMyNostradamusAnswers"];
@@ -6596,9 +6596,11 @@ export interface components {
             id: number;
             label: string;
             name: string;
-            /** @description How many answers may carry a token */
-            tokens: number;
-            /** @description What a token wins on a right answer, and loses on a wrong one */
+            /** @description The fewest tokens a player stakes in all; null for none asked */
+            tokens_min: number | null;
+            /** @description The most tokens a player stakes in all; null for no limit (at most 99 on an answer) */
+            tokens_max: number | null;
+            /** @description What each token wins on a right answer, and loses on a wrong one */
             token_points: number;
             /**
              * Format: date-time
@@ -6676,7 +6678,8 @@ export interface components {
             question: number;
             /** @description A pick's one name, a set's names, or a number's digits */
             answer: string[];
-            token: boolean;
+            /** @description The tokens staked on it, each winning or losing the round's token points */
+            tokens: number;
         };
         NostradamusAnswersGiven: {
             answers: components["schemas"]["NostradamusGiven"][];
@@ -6725,7 +6728,10 @@ export interface components {
         AdminNostradamusRoundDraft: {
             label: string;
             name: string;
-            tokens: number;
+            /** @description The fewest tokens a player stakes in all; null or left out for none asked */
+            tokens_min?: number | null;
+            /** @description The most tokens a player stakes in all; null or left out for no limit */
+            tokens_max?: number | null;
             token_points: number;
         };
         AdminNostradamusQuestionDraft: {
@@ -6747,7 +6753,7 @@ export interface components {
             /** Format: int64 */
             question: number;
             answer: string[];
-            token: boolean;
+            tokens: number;
             /** @description Null until the question's outcome is known */
             points: number | null;
         };

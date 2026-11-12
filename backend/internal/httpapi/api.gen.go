@@ -1621,7 +1621,7 @@ type AdminNostradamusAnswer struct {
 	// Points Null until the question's outcome is known
 	Points   *int  `json:"points"`
 	Question int64 `json:"question"`
-	Token    bool  `json:"token"`
+	Tokens   int   `json:"tokens"`
 }
 
 // AdminNostradamusAnswers defines model for AdminNostradamusAnswers.
@@ -1722,7 +1722,12 @@ type AdminNostradamusRoundDraft struct {
 	Label       string `json:"label"`
 	Name        string `json:"name"`
 	TokenPoints int    `json:"token_points"`
-	Tokens      int    `json:"tokens"`
+
+	// TokensMax The most tokens a player stakes in all; null or left out for no limit
+	TokensMax *int `json:"tokens_max,omitempty"`
+
+	// TokensMin The fewest tokens a player stakes in all; null or left out for none asked
+	TokensMin *int `json:"tokens_min,omitempty"`
 }
 
 // AdminNostradamusStatus defines model for AdminNostradamusStatus.
@@ -4076,7 +4081,9 @@ type NostradamusGiven struct {
 	// Answer A pick's one name, a set's names, or a number's digits
 	Answer   []string `json:"answer"`
 	Question int64    `json:"question"`
-	Token    bool     `json:"token"`
+
+	// Tokens The tokens staked on it, each winning or losing the round's token points
+	Tokens int `json:"tokens"`
 }
 
 // NostradamusQuestion defines model for NostradamusQuestion.
@@ -4121,11 +4128,14 @@ type NostradamusRound struct {
 	Published bool                  `json:"published"`
 	Questions []NostradamusQuestion `json:"questions"`
 
-	// TokenPoints What a token wins on a right answer, and loses on a wrong one
+	// TokenPoints What each token wins on a right answer, and loses on a wrong one
 	TokenPoints int `json:"token_points"`
 
-	// Tokens How many answers may carry a token
-	Tokens int `json:"tokens"`
+	// TokensMax The most tokens a player stakes in all; null for no limit (at most 99 on an answer)
+	TokensMax *int `json:"tokens_max"`
+
+	// TokensMin The fewest tokens a player stakes in all; null for none asked
+	TokensMin *int `json:"tokens_min"`
 
 	// Zone The time zone the organiser set the deadline in; empty for a draft
 	Zone string `json:"zone"`

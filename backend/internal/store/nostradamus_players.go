@@ -18,6 +18,9 @@ var ErrNotEntered = errors.New("you are not entered in this game yet")
 // ErrRoundNotOpen is a round not open for answers: not published yet, or closed.
 var ErrRoundNotOpen = errors.New("the round is not open for answers")
 
+// ErrFewTokens is answers staking fewer tokens in all than the round's least.
+var ErrFewTokens = errors.New("you have staked fewer tokens than this round asks for")
+
 // ErrPastDeadline is an answer after the round's deadline.
 var ErrPastDeadline = errors.New("the round's deadline has passed")
 
@@ -40,6 +43,8 @@ func nostradamusPlayerError(refusal string) error {
 		return ErrPastDeadline
 	case "bad":
 		return ErrBadNostradamus
+	case "few-tokens":
+		return ErrFewTokens
 	}
 	return nil
 }
@@ -66,7 +71,7 @@ type MyNostradamus struct {
 // MyNostradamus returns the session's member's status and answers in the game. It returns ErrNoSession,
 // ErrNotLinked or ErrMemberBanned.
 func (s *PlayerStore) MyNostradamus(ctx context.Context, tokenHash []byte, slug string, now time.Time) (MyNostradamus, error) {
-	rows, err := s.pool.Query(ctx, "SELECT status, question_id, answer, token FROM my_nostradamus($1, $2, $3)", tokenHash, now, slug)
+	rows, err := s.pool.Query(ctx, "SELECT status, question_id, answer, tokens FROM my_nostradamus($1, $2, $3)", tokenHash, now, slug)
 	if err != nil {
 		return MyNostradamus{}, fmt.Errorf("reading your Nostradamus answers: %w", err)
 	}
@@ -75,12 +80,12 @@ func (s *PlayerStore) MyNostradamus(ctx context.Context, tokenHash []byte, slug 
 	for rows.Next() {
 		var question *int64
 		var answer []string
-		var token *bool
-		if err := rows.Scan(&mine.Status, &question, &answer, &token); err != nil {
+		var tokens *int
+		if err := rows.Scan(&mine.Status, &question, &answer, &tokens); err != nil {
 			return MyNostradamus{}, fmt.Errorf("reading your Nostradamus answers: %w", err)
 		}
 		if question != nil {
-			mine.Answers[*question] = NostradamusGiven{Question: *question, Answer: answer, Token: *token}
+			mine.Answers[*question] = NostradamusGiven{Question: *question, Answer: answer, Tokens: *tokens}
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -94,12 +99,12 @@ func (s *PlayerStore) MyNostradamus(ctx context.Context, tokenHash []byte, slug 
 
 // SubmitNostradamusAnswers replaces the session's member's answers in an open round, all or none, and returns how
 // many it saved. It returns ErrNoSession, ErrNotLinked, ErrMemberBanned, ErrRoundNotOpen, ErrNotEntered,
-// ErrPastDeadline, or ErrBadNostradamus for an answer the rules refuse.
+// ErrPastDeadline, ErrFewTokens, or ErrBadNostradamus for an answer the rules refuse.
 func (s *PlayerStore) SubmitNostradamusAnswers(ctx context.Context, tokenHash []byte, round int64, answers []NostradamusGiven, now time.Time) (int, error) {
 	type given struct {
 		Question int64    `json:"question"`
 		Answer   []string `json:"answer"`
-		Token    bool     `json:"token"`
+		Tokens   int      `json:"tokens"`
 	}
 	list := make([]given, len(answers))
 	for i, a := range answers {

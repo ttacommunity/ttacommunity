@@ -1,5 +1,5 @@
 -- Nostradamus: a prediction game over a tournament. Organisers draft a round of questions, publish it with a deadline,
--- and close it once its outcomes are known; accepted participants answer before the deadline, putting tokens on some.
+-- and close it once its outcomes are known; accepted participants answer before the deadline, staking tokens on some.
 -- Scoring lives here (nostradamus_points, nostradamus_round_scores); players write only through the functions below.
 -- +goose Up
 CREATE TABLE nostradamus_editions (
@@ -16,7 +16,9 @@ CREATE TABLE nostradamus_rounds (
     position integer NOT NULL CHECK (position >= 0),
     label text NOT NULL CHECK (label ~ '^[A-Za-z0-9 ]{1,20}$'),
     name text NOT NULL CHECK (name <> '' AND char_length(name) <= 100),
-    tokens integer NOT NULL CHECK (tokens BETWEEN 0 AND 10),
+    -- A player stakes at least tokens_min and at most tokens_max tokens in all, either left unset for no bound.
+    tokens_min integer CHECK (tokens_min BETWEEN 0 AND 99),
+    tokens_max integer CHECK (tokens_max BETWEEN 0 AND 99 AND tokens_max >= coalesce(tokens_min, 0)),
     token_points integer NOT NULL CHECK (token_points BETWEEN 0 AND 100),
     closes_at timestamptz,
     deadline_zone text CHECK (deadline_zone ~ '^[A-Za-z0-9_+/ -]{1,64}$'),
@@ -93,21 +95,21 @@ CREATE TABLE nostradamus_answers (
     question_id bigint NOT NULL REFERENCES nostradamus_questions ON DELETE CASCADE,
     participant_id bigint NOT NULL REFERENCES nostradamus_participants ON DELETE CASCADE,
     answer text[] NOT NULL,
-    token boolean NOT NULL DEFAULT false,
+    tokens integer NOT NULL DEFAULT 0 CHECK (tokens BETWEEN 0 AND 99),
     PRIMARY KEY (question_id, participant_id)
 );
 CREATE INDEX nostradamus_answers_participant ON nostradamus_answers (participant_id);
 
 -- +goose StatementBegin
 -- nostradamus_check_answer refuses an answer not of its question's kind, of the wrong size, not among its choices, in
--- a closed round, from another edition's participant, or whose token takes its participant past the round's tokens.
+-- a closed round, from another edition's participant, or whose tokens take its participant past the round's most.
 CREATE FUNCTION nostradamus_check_answer() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
     q record;
 BEGIN
-    SELECT n.kind, n.picks, n.round_id, r.edition_id, r.tokens, r.closed_at INTO q
+    SELECT n.kind, n.picks, n.round_id, r.edition_id, r.tokens_max, r.closed_at INTO q
     FROM nostradamus_questions n JOIN nostradamus_rounds r USING (round_id)
     WHERE n.question_id = NEW.question_id;
     IF NOT nostradamus_valid(q.kind, NEW.answer) OR (q.kind = 'set' AND cardinality(NEW.answer) <> q.picks) THEN
@@ -124,10 +126,10 @@ BEGIN
     IF NOT EXISTS (SELECT FROM nostradamus_participants p WHERE p.participant_id = NEW.participant_id AND p.edition_id = q.edition_id) THEN
         RAISE EXCEPTION 'a participant of another edition' USING ERRCODE = 'check_violation';
     END IF;
-    IF NEW.token AND (SELECT count(*) FROM nostradamus_answers a JOIN nostradamus_questions n USING (question_id)
-                      WHERE n.round_id = q.round_id AND a.participant_id = NEW.participant_id AND a.token
-                        AND a.question_id <> NEW.question_id) >= q.tokens THEN
-        RAISE EXCEPTION 'more than % tokens in a round', q.tokens USING ERRCODE = 'check_violation';
+    IF NEW.tokens > 0 AND q.tokens_max IS NOT NULL
+       AND NEW.tokens + (SELECT coalesce(sum(a.tokens), 0) FROM nostradamus_answers a JOIN nostradamus_questions n USING (question_id)
+                         WHERE n.round_id = q.round_id AND a.participant_id = NEW.participant_id AND a.question_id <> NEW.question_id) > q.tokens_max THEN
+        RAISE EXCEPTION 'more than % tokens in a round', q.tokens_max USING ERRCODE = 'check_violation';
     END IF;
     RETURN NEW;
 END
@@ -139,9 +141,9 @@ CREATE TRIGGER nostradamus_check_answer BEFORE INSERT OR UPDATE ON nostradamus_a
 -- +goose StatementBegin
 -- nostradamus_points scores an answer against its question's outcome, null while the outcome is unknown. A pick is
 -- right when it is any of the outcome's names, a set when it holds exactly the outcome's names, a number when it is
--- the outcome; a number one off scores the near points. A token wins or loses token_points on whether it is right.
+-- the outcome; a number one off scores the near points. Each token staked wins or loses token_points on whether it is right.
 CREATE FUNCTION nostradamus_points(kind text, points integer, near_points integer, outcome text[], answer text[],
-                                   token boolean, token_points integer) RETURNS integer
+                                   tokens integer, token_points integer) RETURNS integer
     LANGUAGE plpgsql IMMUTABLE
     AS $$
 DECLARE
@@ -166,7 +168,7 @@ BEGIN
         near := abs(answer[1]::integer - outcome[1]::integer) = 1;
     END IF;
     RETURN CASE WHEN right_answer THEN points WHEN near THEN near_points ELSE 0 END
-         + CASE WHEN NOT token THEN 0 WHEN right_answer THEN token_points ELSE -token_points END;
+         + CASE WHEN right_answer THEN tokens * token_points ELSE -tokens * token_points END;
 END
 $$;
 -- +goose StatementEnd
@@ -176,7 +178,7 @@ $$;
 CREATE VIEW nostradamus_round_scores AS
 WITH answered AS (
     SELECT n.round_id, a.participant_id,
-           coalesce(sum(nostradamus_points(n.kind, n.points, n.near_points, n.outcome, a.answer, a.token, r.token_points)), 0)::integer AS points
+           coalesce(sum(nostradamus_points(n.kind, n.points, n.near_points, n.outcome, a.answer, a.tokens, r.token_points)), 0)::integer AS points
     FROM nostradamus_answers a
     JOIN nostradamus_questions n USING (question_id)
     JOIN nostradamus_rounds r USING (round_id)
@@ -265,9 +267,9 @@ $$;
 
 -- +goose StatementBegin
 -- submit_nostradamus_answers replaces the session's member's answers in a round with answers, a JSON list of
--- {question, answer, token}, all or none. It returns the refusal of nostradamus_member_of, 'not-open' for a round
+-- {question, answer, tokens}, all or none. It returns the refusal of nostradamus_member_of, 'not-open' for a round
 -- unpublished or closed, 'not-entered' unless the member is accepted in the round's edition, 'past-deadline', 'bad'
--- for an answer the rules refuse, or 'saved:<n>'.
+-- for an answer the rules refuse, 'few-tokens' for fewer tokens in all than the round's least, or 'saved:<n>'.
 CREATE FUNCTION submit_nostradamus_answers(session bytea, at timestamptz, round bigint, answers jsonb) RETURNS text
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO public, pg_temp
@@ -282,7 +284,7 @@ BEGIN
     IF who.refusal IS NOT NULL THEN
         RETURN who.refusal;
     END IF;
-    SELECT x.edition_id, x.published_at, x.closed_at, x.closes_at INTO r FROM nostradamus_rounds x WHERE x.round_id = round;
+    SELECT x.edition_id, x.published_at, x.closed_at, x.closes_at, x.tokens_min INTO r FROM nostradamus_rounds x WHERE x.round_id = round;
     IF NOT FOUND OR r.published_at IS NULL OR r.closed_at IS NOT NULL THEN
         RETURN 'not-open';
     END IF;
@@ -302,13 +304,20 @@ BEGIN
     END IF;
     DELETE FROM nostradamus_answers a USING nostradamus_questions n
     WHERE a.question_id = n.question_id AND n.round_id = round AND a.participant_id = participant;
-    INSERT INTO nostradamus_answers (question_id, participant_id, answer, token)
-    SELECT a.question, participant, ARRAY(SELECT btrim(x) FROM jsonb_array_elements_text(a.answer) x), coalesce(a.token, false)
-    FROM jsonb_to_recordset(answers) AS a(question bigint, answer jsonb, token boolean);
+    INSERT INTO nostradamus_answers (question_id, participant_id, answer, tokens)
+    SELECT a.question, participant, ARRAY(SELECT btrim(x) FROM jsonb_array_elements_text(a.answer) x), coalesce(a.tokens, 0)
+    FROM jsonb_to_recordset(answers) AS a(question bigint, answer jsonb, tokens integer);
     GET DIAGNOSTICS saved = ROW_COUNT;
+    IF r.tokens_min IS NOT NULL AND (SELECT coalesce(sum(a.tokens), 0) FROM nostradamus_answers a JOIN nostradamus_questions n USING (question_id)
+                                     WHERE n.round_id = round AND a.participant_id = participant) < r.tokens_min THEN
+        RAISE EXCEPTION 'few-tokens';
+    END IF;
     RETURN 'saved:' || saved;
-EXCEPTION WHEN check_violation OR unique_violation OR not_null_violation OR invalid_text_representation THEN
-    RETURN 'bad';
+EXCEPTION
+    WHEN check_violation OR unique_violation OR not_null_violation OR invalid_text_representation OR numeric_value_out_of_range THEN
+        RETURN 'bad';
+    WHEN raise_exception THEN
+        RETURN 'few-tokens';
 END
 $$;
 -- +goose StatementEnd
@@ -318,7 +327,7 @@ $$;
 -- answers there: a first row with the status alone, then one per answer; or one row with the refusal of
 -- nostradamus_member_of as the status.
 CREATE FUNCTION my_nostradamus(session bytea, at timestamptz, edition text)
-    RETURNS TABLE (status text, question_id bigint, answer text[], token boolean)
+    RETURNS TABLE (status text, question_id bigint, answer text[], tokens integer)
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO public, pg_temp
     AS $$
@@ -328,18 +337,18 @@ DECLARE
 BEGIN
     who := nostradamus_member_of(session, at);
     IF who.refusal IS NOT NULL THEN
-        RETURN QUERY SELECT who.refusal, NULL::bigint, NULL::text[], NULL::boolean;
+        RETURN QUERY SELECT who.refusal, NULL::bigint, NULL::text[], NULL::integer;
         RETURN;
     END IF;
     SELECT x.participant_id, x.status INTO p FROM nostradamus_participants x JOIN nostradamus_editions e USING (edition_id)
     WHERE e.slug = edition AND x.member_id = who.member;
     IF NOT FOUND THEN
-        RETURN QUERY SELECT 'none'::text, NULL::bigint, NULL::text[], NULL::boolean;
+        RETURN QUERY SELECT 'none'::text, NULL::bigint, NULL::text[], NULL::integer;
         RETURN;
     END IF;
-    RETURN QUERY SELECT p.status::text, NULL::bigint, NULL::text[], NULL::boolean
+    RETURN QUERY SELECT p.status::text, NULL::bigint, NULL::text[], NULL::integer
         UNION ALL
-        SELECT p.status::text, a.question_id, a.answer, a.token FROM nostradamus_answers a WHERE a.participant_id = p.participant_id;
+        SELECT p.status::text, a.question_id, a.answer, a.tokens FROM nostradamus_answers a WHERE a.participant_id = p.participant_id;
 END
 $$;
 -- +goose StatementEnd
@@ -374,6 +383,6 @@ DROP TABLE nostradamus_choices;
 DROP TABLE nostradamus_questions;
 DROP TABLE nostradamus_rounds;
 DROP TABLE nostradamus_editions;
-DROP FUNCTION nostradamus_points(text, integer, integer, text[], text[], boolean, integer);
+DROP FUNCTION nostradamus_points(text, integer, integer, text[], text[], integer, integer);
 DROP FUNCTION nostradamus_check_answer();
 DROP FUNCTION nostradamus_valid(text, text[]);

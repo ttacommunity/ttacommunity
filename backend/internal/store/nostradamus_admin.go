@@ -77,10 +77,12 @@ func draftRound(ctx context.Context, db conn, slug string, round int64) error {
 	return nil
 }
 
-// NostradamusRoundDraft is what an organiser sets of a round: its label, name, and tokens with their worth.
+// NostradamusRoundDraft is what an organiser sets of a round: its label, name, the least and most tokens a player
+// stakes (nil for no bound), and what each is worth.
 type NostradamusRoundDraft struct {
-	Label, Name         string
-	Tokens, TokenPoints int
+	Label, Name          string
+	TokensMin, TokensMax *int
+	TokenPoints          int
 }
 
 // AddNostradamusRound adds a draft round after the game's last and returns its id. It returns ErrNoNostradamus, or
@@ -92,9 +94,9 @@ func (a *AdminStore) AddNostradamusRound(ctx context.Context, slug string, d Nos
 	}
 	var id int64
 	err = a.pool.QueryRow(ctx, `
-		INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens, token_points)
-		SELECT $1, coalesce(max(position) + 1, 0), $2, $3, $4, $5 FROM nostradamus_rounds WHERE edition_id = $1
-		RETURNING round_id`, edition, strings.TrimSpace(d.Label), strings.TrimSpace(d.Name), d.Tokens, d.TokenPoints).Scan(&id)
+		INSERT INTO nostradamus_rounds (edition_id, position, label, name, tokens_min, tokens_max, token_points)
+		SELECT $1, coalesce(max(position) + 1, 0), $2, $3, $4, $5, $6 FROM nostradamus_rounds WHERE edition_id = $1
+		RETURNING round_id`, edition, strings.TrimSpace(d.Label), strings.TrimSpace(d.Name), d.TokensMin, d.TokensMax, d.TokenPoints).Scan(&id)
 	if err != nil {
 		return 0, nostradamusRefusal(err)
 	}
@@ -107,8 +109,8 @@ func (a *AdminStore) SetNostradamusRound(ctx context.Context, slug string, round
 	if err := draftRound(ctx, a.pool, slug, round); err != nil {
 		return err
 	}
-	_, err := a.pool.Exec(ctx, "UPDATE nostradamus_rounds SET label = $2, name = $3, tokens = $4, token_points = $5 WHERE round_id = $1",
-		round, strings.TrimSpace(d.Label), strings.TrimSpace(d.Name), d.Tokens, d.TokenPoints)
+	_, err := a.pool.Exec(ctx, "UPDATE nostradamus_rounds SET label = $2, name = $3, tokens_min = $4, tokens_max = $5, token_points = $6 WHERE round_id = $1",
+		round, strings.TrimSpace(d.Label), strings.TrimSpace(d.Name), d.TokensMin, d.TokensMax, d.TokenPoints)
 	return nostradamusRefusal(err)
 }
 
@@ -366,7 +368,7 @@ type NostradamusAnswer struct {
 	Participant string
 	Question    int64
 	Answer      []string
-	Token       bool
+	Tokens      int
 	Points      *int
 }
 
@@ -382,8 +384,8 @@ func (a *AdminStore) NostradamusRoundAnswers(ctx context.Context, slug string, r
 		return nil, ErrNoNostradamus
 	}
 	rows, err := a.pool.Query(ctx, `
-		SELECT p.name, a.question_id, a.answer, a.token,
-		       nostradamus_points(n.kind, n.points, n.near_points, n.outcome, a.answer, a.token, r.token_points)
+		SELECT p.name, a.question_id, a.answer, a.tokens,
+		       nostradamus_points(n.kind, n.points, n.near_points, n.outcome, a.answer, a.tokens, r.token_points)
 		FROM nostradamus_answers a
 		JOIN nostradamus_questions n USING (question_id)
 		JOIN nostradamus_rounds r USING (round_id)
@@ -395,7 +397,7 @@ func (a *AdminStore) NostradamusRoundAnswers(ctx context.Context, slug string, r
 	}
 	answers, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusAnswer, error) {
 		var x NostradamusAnswer
-		return x, row.Scan(&x.Participant, &x.Question, &x.Answer, &x.Token, &x.Points)
+		return x, row.Scan(&x.Participant, &x.Question, &x.Answer, &x.Tokens, &x.Points)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading Nostradamus answers: %w", err)
@@ -403,11 +405,11 @@ func (a *AdminStore) NostradamusRoundAnswers(ctx context.Context, slug string, r
 	return answers, nil
 }
 
-// NostradamusGiven is an answer as given: the question, its names or number, and whether a token is on it.
+// NostradamusGiven is an answer as given: the question, its names or number, and the tokens staked on it.
 type NostradamusGiven struct {
 	Question int64
 	Answer   []string
-	Token    bool
+	Tokens   int
 }
 
 // SetNostradamusBotAnswers replaces a bot's answers in a published round before its deadline. It returns
@@ -436,9 +438,9 @@ func (a *AdminStore) SetNostradamusBotAnswers(ctx context.Context, slug string, 
 			return err
 		}
 		for _, g := range answers {
-			tag, err := tx.Exec(ctx, `INSERT INTO nostradamus_answers (question_id, participant_id, answer, token)
+			tag, err := tx.Exec(ctx, `INSERT INTO nostradamus_answers (question_id, participant_id, answer, tokens)
 				SELECT question_id, $3, $4, $5 FROM nostradamus_questions WHERE question_id = $1 AND round_id = $2`,
-				g.Question, round, participant, g.Answer, g.Token)
+				g.Question, round, participant, g.Answer, g.Tokens)
 			if err != nil {
 				return err
 			}

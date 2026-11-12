@@ -108,7 +108,7 @@ func (s *server) GetAdminNostradamusAnswers(ctx context.Context, req GetAdminNos
 	}
 	body := AdminNostradamusAnswers{Answers: make([]AdminNostradamusAnswer, len(answers))}
 	for i, a := range answers {
-		body.Answers[i] = AdminNostradamusAnswer{Participant: a.Participant, Question: a.Question, Answer: append([]string{}, a.Answer...), Token: a.Token, Points: a.Points}
+		body.Answers[i] = AdminNostradamusAnswer{Participant: a.Participant, Question: a.Question, Answer: append([]string{}, a.Answer...), Tokens: a.Tokens, Points: a.Points}
 	}
 	return GetAdminNostradamusAnswers200JSONResponse(body), nil
 }
@@ -130,9 +130,9 @@ func (s *server) PostAdminNostradamusEdition(ctx context.Context, req PostAdminN
 
 func (s *server) PostAdminNostradamusRound(ctx context.Context, req PostAdminNostradamusRoundRequestObject) (PostAdminNostradamusRoundResponseObject, error) {
 	if req.Body == nil {
-		return PostAdminNostradamusRound400JSONResponse{badRequest400("the round: label, name, tokens and token_points")}, nil
+		return PostAdminNostradamusRound400JSONResponse{badRequest400("the round: label, name and token_points, with tokens_min and tokens_max as wanted")}, nil
 	}
-	d := store.NostradamusRoundDraft{Label: req.Body.Label, Name: req.Body.Name, Tokens: req.Body.Tokens, TokenPoints: req.Body.TokenPoints}
+	d := store.NostradamusRoundDraft{Label: req.Body.Label, Name: req.Body.Name, TokensMin: req.Body.TokensMin, TokensMax: req.Body.TokensMax, TokenPoints: req.Body.TokenPoints}
 	var id int64
 	status, msg, err := s.nostradamusChange(ctx, "nostradamus.round.add", req.Edition, req.Body, func(tx Admins) error {
 		var err error
@@ -150,9 +150,9 @@ func (s *server) PostAdminNostradamusRound(ctx context.Context, req PostAdminNos
 
 func (s *server) PutAdminNostradamusRound(ctx context.Context, req PutAdminNostradamusRoundRequestObject) (PutAdminNostradamusRoundResponseObject, error) {
 	if req.Body == nil {
-		return PutAdminNostradamusRound400JSONResponse{badRequest400("the round: label, name, tokens and token_points")}, nil
+		return PutAdminNostradamusRound400JSONResponse{badRequest400("the round: label, name and token_points, with tokens_min and tokens_max as wanted")}, nil
 	}
-	d := store.NostradamusRoundDraft{Label: req.Body.Label, Name: req.Body.Name, Tokens: req.Body.Tokens, TokenPoints: req.Body.TokenPoints}
+	d := store.NostradamusRoundDraft{Label: req.Body.Label, Name: req.Body.Name, TokensMin: req.Body.TokensMin, TokensMax: req.Body.TokensMax, TokenPoints: req.Body.TokenPoints}
 	status, msg, err := s.nostradamusChange(ctx, "nostradamus.round.set", fmt.Sprint(req.Round), req.Body, func(tx Admins) error {
 		return tx.SetNostradamusRound(ctx, req.Edition, req.Round, d)
 	})
@@ -304,7 +304,7 @@ func (s *server) PostAdminNostradamusClose(ctx context.Context, req PostAdminNos
 
 func (s *server) PutAdminNostradamusBotAnswers(ctx context.Context, req PutAdminNostradamusBotAnswersRequestObject) (PutAdminNostradamusBotAnswersResponseObject, error) {
 	if req.Body == nil {
-		return PutAdminNostradamusBotAnswers400JSONResponse{badRequest400("the answers: question, answer and token")}, nil
+		return PutAdminNostradamusBotAnswers400JSONResponse{badRequest400("the answers: question, answer and tokens")}, nil
 	}
 	answers, ok := givenAnswers(req.Body.Answers)
 	if !ok {

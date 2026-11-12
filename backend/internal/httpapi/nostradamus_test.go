@@ -20,14 +20,15 @@ func (f *fakeRatings) NostradamusEditions(_ context.Context, now time.Time) ([]s
 // nostradamusGame is wc-2031: a closed round S1 (Bea linked to Beatrix, a bot who missed it) and an open round S2.
 func nostradamusGame() store.NostradamusGame {
 	closes := time.Date(2031, 4, 1, 12, 0, 0, 0, time.UTC)
+	three := 3
 	return store.NostradamusGame{
 		NostradamusEdition: store.NostradamusEdition{Slug: "wc-2031", Name: "Nostradamus #9", Series: "worlds", Tournament: "2031"},
 		Rounds: []store.NostradamusRound{
-			{ID: 1, Label: "S1", Name: "Stage 1", Zone: "Europe/Berlin", Tokens: 3, TokenPoints: 10, ClosesAt: &closes, PublishedAt: &closes, ClosedAt: &closes,
+			{ID: 1, Label: "S1", Name: "Stage 1", Zone: "Europe/Berlin", TokensMax: &three, TokenPoints: 10, ClosesAt: &closes, PublishedAt: &closes, ClosedAt: &closes,
 				Questions: []store.NostradamusQuestion{{ID: 5, Label: "Win", Prompt: "Who wins?", Kind: "pick", Points: 4, Picks: 1,
 					Choices: []store.NostradamusChoice{{Label: "Ann", Seed: 2}, {Label: "Cy"}}, Outcome: []string{"Ann"},
 					Counts: []store.NostradamusCount{{Value: "Ann", Answers: 3}}}}},
-			{ID: 2, Label: "S2", Name: "Stage 2", Zone: "UTC", Tokens: 3, TokenPoints: 10, ClosesAt: &closes, PublishedAt: &closes,
+			{ID: 2, Label: "S2", Name: "Stage 2", Zone: "UTC", TokensMax: &three, TokenPoints: 10, ClosesAt: &closes, PublishedAt: &closes,
 				Questions: []store.NostradamusQuestion{{ID: 6, Label: "Top", Kind: "set", Points: 6, Picks: 2}}},
 		},
 		Scored: []string{"S1"},
@@ -59,7 +60,7 @@ func TestNostradamusEditionsAndGame(t *testing.T) {
 		t.Fatalf("GET game = %d %s", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "rounds", `[
-		{"label": "S1", "zone": "Europe/Berlin", "closes_at": "2031-04-01T12:00:00Z", "published": true, "closed": true, "questions": [
+		{"label": "S1", "tokens_min": null, "tokens_max": 3, "zone": "Europe/Berlin", "closes_at": "2031-04-01T12:00:00Z", "published": true, "closed": true, "questions": [
 			{"id": 5, "kind": "pick", "picks": 1, "choices": [{"label": "Ann"}, {"label": "Cy"}], "outcome": ["Ann"], "counts": [{"value": "Ann", "answers": 3}]}]},
 		{"label": "S2", "closed": false, "questions": [{"kind": "set", "picks": 2, "choices": [], "outcome": null, "counts": []}]}]`)
 	wantJSON(t, rec.Body.Bytes(), "standings", `[{"name": "Bea", "member": "Beatrix", "total": 14, "rounds": [{"round": "S1", "points": 14}]},
@@ -77,7 +78,7 @@ func (f *fakeSignIns) MyNostradamus(_ context.Context, hash []byte, slug string,
 		return store.MyNostradamus{}, f.reportErr
 	}
 	f.notes = append(f.notes, fmt.Sprintf("mine in %s by %s", slug, f.sessions[string(hash)].Username))
-	return store.MyNostradamus{Status: "accepted", Answers: map[int64]store.NostradamusGiven{6: {Question: 6, Answer: []string{"Ann", "Cy"}, Token: true}}}, nil
+	return store.MyNostradamus{Status: "accepted", Answers: map[int64]store.NostradamusGiven{6: {Question: 6, Answer: []string{"Ann", "Cy"}, Tokens: 2}}}, nil
 }
 
 func (f *fakeSignIns) RequestNostradamusEntry(_ context.Context, hash []byte, slug string, _ time.Time) (string, error) {
@@ -93,7 +94,7 @@ func (f *fakeSignIns) SubmitNostradamusAnswers(_ context.Context, hash []byte, r
 		return 0, f.reportErr
 	}
 	for _, a := range answers {
-		f.notes = append(f.notes, fmt.Sprintf("round %d by %s: %d %q %t", round, f.sessions[string(hash)].Username, a.Question, a.Answer, a.Token))
+		f.notes = append(f.notes, fmt.Sprintf("round %d by %s: %d %q %d", round, f.sessions[string(hash)].Username, a.Question, a.Answer, a.Tokens))
 	}
 	return len(answers), nil
 }
@@ -110,24 +111,24 @@ func TestAPlayerJoinsReadsAndAnswersTheirNostradamus(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET mine = %d %s, want 200", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "", `{"status": "accepted", "answers": [{"question": 6, "answer": ["Ann", "Cy"], "token": true}]}`)
+	wantJSON(t, rec.Body.Bytes(), "", `{"status": "accepted", "answers": [{"question": 6, "answer": ["Ann", "Cy"], "tokens": 2}]}`)
 	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
 	rec = playerDo(t, f, http.MethodPut, "/v1/me/nostradamus/wc-2031/rounds/2/answers", siteOrigin,
-		`{"answers": [{"question": 6, "answer": [" Ann ", "Cy"], "token": true}]}`, cookie)
+		`{"answers": [{"question": 6, "answer": [" Ann ", "Cy"], "tokens": 2}]}`, cookie)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT answers = %d %s, want 200", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "saved", `1`)
-	want := `join wc-2031 by ann|mine in wc-2031 by ann|round 2 by ann: 6 ["Ann" "Cy"] true`
+	want := `join wc-2031 by ann|mine in wc-2031 by ann|round 2 by ann: 6 ["Ann" "Cy"] 2`
 	if got := strings.Join(f.notes, "|"); got != want {
 		t.Errorf("what reached the store = %q, want %q", got, want)
 	}
 }
 
 func TestPlayersNostradamusIsRefusedWithTheStatusItNeeds(t *testing.T) {
-	answers, path := `{"answers": [{"question": 6, "answer": ["Ann"], "token": false}]}`, "/v1/me/nostradamus/wc-2031/rounds/2/answers"
+	answers, path := `{"answers": [{"question": 6, "answer": ["Ann"], "tokens": 0}]}`, "/v1/me/nostradamus/wc-2031/rounds/2/answers"
 	tests := []struct {
 		name, method, path, origin, body string
 		err                              error
@@ -138,8 +139,9 @@ func TestPlayersNostradamusIsRefusedWithTheStatusItNeeds(t *testing.T) {
 		{"not accepted", http.MethodPut, path, siteOrigin, answers, store.ErrNotEntered, http.StatusForbidden},
 		{"a round not open", http.MethodPut, path, siteOrigin, answers, store.ErrRoundNotOpen, http.StatusConflict},
 		{"after the deadline", http.MethodPut, path, siteOrigin, answers, store.ErrPastDeadline, http.StatusConflict},
+		{"fewer tokens than the round's least", http.MethodPut, path, siteOrigin, answers, store.ErrFewTokens, http.StatusBadRequest},
 		{"an answer the rules refuse", http.MethodPut, path, siteOrigin, answers, store.ErrBadNostradamus, http.StatusBadRequest},
-		{"an empty answer", http.MethodPut, path, siteOrigin, `{"answers": [{"question": 6, "answer": [" "], "token": false}]}`, nil, http.StatusBadRequest},
+		{"an empty answer", http.MethodPut, path, siteOrigin, `{"answers": [{"question": 6, "answer": [" "], "tokens": 0}]}`, nil, http.StatusBadRequest},
 		{"answers not from the site", http.MethodPut, path, "https://elsewhere.example", answers, nil, http.StatusForbidden},
 		{"joining no game", http.MethodPost, "/v1/me/nostradamus/wc-2099/entry", siteOrigin, "", store.ErrNoNostradamus, http.StatusNotFound},
 		{"joining banned", http.MethodPost, "/v1/me/nostradamus/wc-2031/entry", siteOrigin, "", store.ErrMemberBanned, http.StatusForbidden},
@@ -193,7 +195,7 @@ func (f *fakeAdmins) AddNostradamusEdition(_ context.Context, e store.Nostradamu
 }
 
 func (f *fakeAdmins) AddNostradamusRound(_ context.Context, slug string, d store.NostradamusRoundDraft) (int64, error) {
-	return 3, f.nostradamusChange(fmt.Sprintf("round %s %s %q %d×%d", slug, d.Label, d.Name, d.Tokens, d.TokenPoints))
+	return 3, f.nostradamusChange(fmt.Sprintf("round %s %s %q %s-%s×%d", slug, d.Label, d.Name, intText(d.TokensMin), intText(d.TokensMax), d.TokenPoints))
 }
 
 func (f *fakeAdmins) SetNostradamusRound(_ context.Context, slug string, round int64, d store.NostradamusRoundDraft) error {
@@ -241,7 +243,7 @@ func (f *fakeAdmins) NostradamusRoundAnswers(_ context.Context, slug string, rou
 		return nil, store.ErrNoNostradamus
 	}
 	points := 14
-	return []store.NostradamusAnswer{{Participant: "Bea", Question: 5, Answer: []string{"Ann"}, Token: true, Points: &points}}, nil
+	return []store.NostradamusAnswer{{Participant: "Bea", Question: 5, Answer: []string{"Ann"}, Tokens: 1, Points: &points}}, nil
 }
 
 func (f *fakeAdmins) SetNostradamusBotAnswers(_ context.Context, slug string, round, participant int64, answers []store.NostradamusGiven, _ time.Time) error {
@@ -280,15 +282,15 @@ func TestAnOrganiserReadsANostradamusGame(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET answers = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "answers", `[{"participant": "Bea", "question": 5, "answer": ["Ann"], "token": true, "points": 14}]`)
+	wantJSON(t, rec.Body.Bytes(), "answers", `[{"participant": "Bea", "question": 5, "answer": ["Ann"], "tokens": 1, "points": 14}]`)
 }
 
 func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 	f := &fakeAdmins{}
 	steps := []struct{ method, path, body string }{
 		{http.MethodPost, "/v1/admin/nostradamus", `{"slug": "wc-2032", "name": "Nostradamus #10", "series": "worlds", "tournament": "2032"}`},
-		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds", `{"label": "S3", "name": " Stage 3 ", "tokens": 3, "token_points": 10}`},
-		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3", `{"label": "S3", "name": "Stage 3", "tokens": 2, "token_points": 10}`},
+		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds", `{"label": "S3", "name": " Stage 3 ", "tokens_min": 1, "tokens_max": 3, "token_points": 10}`},
+		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3", `{"label": "S3", "name": "Stage 3", "token_points": 10}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/questions", `{"label": "Top", "prompt": "", "kind": "set", "points": 6, "near_points": 0,
 			"picks": 2, "asks_last": false, "choices": [{"label": "Ann", "seed": 1, "leaderboard_rank": 0}, {"label": "Cy", "seed": 0, "leaderboard_rank": 4}]}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/questions/7", `{"label": "Top2", "prompt": "", "kind": "set", "points": 6, "near_points": 0,
@@ -296,7 +298,7 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/publish", `{"day": "2031-06-01", "time": "18:00", "zone": "Europe/Berlin"}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/deadline", `{"day": "2031-06-02", "time": "09:30", "zone": "UTC"}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/unpublish", ``},
-		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/bots/9/answers", `{"answers": [{"question": 7, "answer": ["Ann", "Cy"], "token": false}]}`},
+		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/bots/9/answers", `{"answers": [{"question": 7, "answer": ["Ann", "Cy"], "tokens": 0}]}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/questions/7/outcome", `{"outcome": [" Cy ", "Ann"]}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/close", ``},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", `{"name": " Dee ", "discord_name": "dee_d", "zone": "Europe/Berlin"}`},
@@ -314,7 +316,7 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 	}
 	want := []string{
 		`edition wc-2032 "Nostradamus #10" over worlds 2032`,
-		`round wc-2031 S3 " Stage 3 " 3×10`,
+		`round wc-2031 S3 " Stage 3 " 1-3×10`,
 		`set round 3 S3`,
 		`question in 3: Top set ×2 [{Label:Ann Seed:1 LeaderboardRank:0} {Label:Cy Seed:0 LeaderboardRank:4}]`,
 		`set question 7 Top2`,
@@ -385,4 +387,12 @@ func TestNostradamusAdminIsRefusedToOneWhoIsNotAnAdmin(t *testing.T) {
 	if len(f.notes) != 0 {
 		t.Errorf("a stranger's change reached the store: %q", f.notes)
 	}
+}
+
+// intText writes n, or "none" for nil.
+func intText(n *int) string {
+	if n == nil {
+		return "none"
+	}
+	return fmt.Sprint(*n)
 }
