@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, linkChoices, roundLabel, roundStatus } from './nostradamus-admin';
+import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, gameSlug, linkChoices, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
 
 describe('outcomeValues', () => {
   it.each([
@@ -102,5 +102,39 @@ describe('linkChoices', () => {
   ];
   it('offers the members and rated players found, not a new name, which a link cannot make', () => {
     expect(linkChoices(found, 'Zed').map((c) => c.label)).toEqual(['Ann', 'Rated_Rae']);
+  });
+});
+
+describe('seriesChoices', () => {
+  const list = [
+    { slug: 'worlds', name: 'World Championship', is_group: false },
+    { slug: 'us_open', name: 'US Open', is_group: false },
+    { slug: 'opens', name: 'Opens', is_group: true },
+  ];
+  it.each([
+    ['a series whose name holds the text, in any case', 'open', ['US Open']],
+    ['a series by its slug', 'worl', ['World Championship']],
+    ['every series, not a group, for no text', '', ['World Championship', 'US Open']],
+  ])('offers %s', (_name, typed, want) => {
+    expect(seriesChoices(list, typed).map((c) => c.label)).toEqual(want);
+  });
+});
+
+describe('gameSlug', () => {
+  it.each([
+    ['a name, lower case with dashes', 'Nostradamus #6: WC 2027!', 'nostradamus-6-wc-2027'],
+    ['no name', '  ', ''],
+  ])('makes %s', (_name, name, want) => {
+    expect(gameSlug(name)).toBe(want);
+  });
+});
+
+describe('withChoice', () => {
+  it.each([
+    ['adds a name on its own line', 'Ann | 2', 'Cy', 'Ann | 2\nCy'],
+    ['starts the list', '', 'Cy', 'Cy'],
+    ['leaves a name already there, in any case', 'Ann\ncy | 3', 'Cy', 'Ann\ncy | 3'],
+  ])('%s', (_name, text, name, want) => {
+    expect(withChoice(text, name)).toBe(want);
   });
 });
