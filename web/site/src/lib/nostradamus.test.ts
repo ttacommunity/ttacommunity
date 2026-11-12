@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  chosenEdition,
   choose,
   draftFrom,
   answeredOf,
-  editionLabel,
+  gameStatus,
+  roundLabel,
+  shownGames,
+  startingRound,
+  openUntil,
   editionParam,
   timeLeft,
   givenFrom,
@@ -21,22 +24,6 @@ import {
   withStake,
   valuesText,
 } from './nostradamus';
-
-const editions = [{ slug: 'wc-2032' }, { slug: 'wc-2031' }];
-
-describe('chosenEdition', () => {
-  it.each([
-    ['the one asked for', 'wc-2031', 'wc-2031'],
-    ['the newest when none is asked for', null, 'wc-2032'],
-    ['the newest when the one asked for is not an edition', 'wc-1999', 'wc-2032'],
-  ])('is %s', (_name, wanted, want) => {
-    expect(chosenEdition(editions, wanted)).toBe(want);
-  });
-
-  it('is none without editions', () => {
-    expect(chosenEdition([], 'wc-2031')).toBeNull();
-  });
-});
 
 describe('editionParam', () => {
   it.each([
@@ -208,12 +195,64 @@ describe('answeredOf', () => {
   });
 });
 
-describe('editionLabel', () => {
+describe('shownGames', () => {
+  const games = [
+    { slug: 'a', finished: false },
+    { slug: 'b', finished: true },
+  ];
+  it.each([
+    ['only the active ones', false, ['a']],
+    ['every game, past ones too', true, ['a', 'b']],
+  ])('shows %s', (_name, past, want) => {
+    expect(shownGames(games, past).map((g) => g.slug)).toEqual(want);
+  });
+});
+
+describe('gameStatus', () => {
   const now = new Date('2031-04-01T12:00:00Z');
   it.each([
-    ['a game with a round open', { name: 'Nostradamus #9', open_until: '2031-04-02T12:00:00Z' }, 'Nostradamus #9 · round open, 1 day left'],
-    ['a game without', { name: 'Nostradamus #8', open_until: null }, 'Nostradamus #8'],
-  ])('names %s', (_name, e, want) => {
-    expect(editionLabel(e, now)).toBe(want);
+    ['a round open', { finished: false, open_until: '2031-04-02T12:00:00Z' }, 'Round open, 1 day left'],
+    ['between rounds', { finished: false, open_until: null }, 'Between rounds'],
+    ['finished', { finished: true, open_until: null }, 'Finished'],
+  ])('says %s', (_name, g, want) => {
+    expect(gameStatus(g, now)).toBe(want);
+  });
+});
+
+describe('startingRound', () => {
+  const now = new Date('2031-04-01T12:00:00Z');
+  const closed = { id: 1, closed: true, closes_at: '2031-03-01T00:00:00Z' };
+  const awaiting = { id: 2, closed: false, closes_at: '2031-03-20T00:00:00Z' };
+  const open = { id: 3, closed: false, closes_at: '2031-04-03T00:00:00Z' };
+  it.each([
+    ['the open round', [closed, open, awaiting], 3],
+    ['the latest, with none open', [closed, awaiting], 2],
+    ['none, with no round', [], null],
+  ])('is %s', (_name, rounds, want) => {
+    expect(startingRound(rounds, now)).toBe(want);
+  });
+});
+
+describe('openUntil', () => {
+  const now = new Date('2031-04-01T12:00:00Z');
+  const closed = { closed: true, closes_at: '2031-03-01T00:00:00Z' };
+  const awaiting = { closed: false, closes_at: '2031-03-20T00:00:00Z' };
+  const open = { closed: false, closes_at: '2031-04-03T00:00:00Z' };
+  it.each([
+    ['the open round\'s deadline', [closed, open, awaiting], '2031-04-03T00:00:00Z'],
+    ['null, with none open', [closed, awaiting], null],
+  ])('is %s', (_name, rounds, want) => {
+    expect(openUntil(rounds, now)).toBe(want);
+  });
+});
+
+describe('roundLabel', () => {
+  const now = new Date('2031-04-01T12:00:00Z');
+  it.each([
+    ['an open round with its time left', { name: 'Stage 8', closed: false, closes_at: '2031-04-02T12:00:00Z' }, 'Stage 8 · open, 1 day left'],
+    ['one awaiting results', { name: 'Stage 7', closed: false, closes_at: '2031-03-20T00:00:00Z' }, 'Stage 7 · awaiting results'],
+    ['a closed one', { name: 'Stage 6', closed: true, closes_at: '2031-03-01T00:00:00Z' }, 'Stage 6 · results in'],
+  ])('names %s', (_name, r, want) => {
+    expect(roundLabel(r, now)).toBe(want);
   });
 });

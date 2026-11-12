@@ -206,6 +206,8 @@ export const setCommunityEdition = (slug: string, patch: Schemas['CommunityEditi
 const nostradamus = (slug: string) => `/api/nostradamus/${encodeURIComponent(slug)}`;
 /** addNostradamusGame makes a Nostradamus game over a tournament. */
 export const addNostradamusGame = (body: Schemas['AdminNostradamusEditionNew']) => to('/api/nostradamus', 'POST', body);
+/** setNostradamusFinished marks a game finished, or running again. */
+export const setNostradamusFinished = (slug: string, finished: boolean) => to(`${nostradamus(slug)}/finished`, 'PUT', { finished });
 /** addNostradamusRound drafts a round after the game's last. */
 export const addNostradamusRound = (slug: string, round: Schemas['AdminNostradamusRoundDraft']) => to(`${nostradamus(slug)}/rounds`, 'POST', round);
 /** setNostradamusRound changes a draft round. */

@@ -16,7 +16,8 @@ import (
 // NostradamusAdmin is admin's Nostradamus: each read and change of a game's rounds, questions and participants.
 type NostradamusAdmin interface {
 	NostradamusEditions(ctx context.Context, now time.Time) ([]store.NostradamusEdition, error)
-	NostradamusGame(ctx context.Context, slug string) (store.NostradamusGame, error)
+	NostradamusGame(ctx context.Context, slug string, now time.Time) (store.NostradamusGame, error)
+	SetNostradamusFinished(ctx context.Context, slug string, finished bool, now time.Time) error
 	AddNostradamusEdition(ctx context.Context, e store.NostradamusEdition) error
 	AddNostradamusRound(ctx context.Context, slug string, d store.NostradamusRoundDraft) (int64, error)
 	SetNostradamusRound(ctx context.Context, slug string, round int64, d store.NostradamusRoundDraft) error
@@ -82,14 +83,15 @@ func (s *server) GetAdminNostradamusEditions(ctx context.Context, _ GetAdminNost
 }
 
 func (s *server) GetAdminNostradamusGame(ctx context.Context, req GetAdminNostradamusGameRequestObject) (GetAdminNostradamusGameResponseObject, error) {
-	g, err := s.admins.NostradamusGame(ctx, req.Edition)
+	g, err := s.admins.NostradamusGame(ctx, req.Edition, s.now())
 	if errors.Is(err, store.ErrNoNostradamus) {
 		return GetAdminNostradamusGame404JSONResponse{notFound404("no such Nostradamus game")}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	body := AdminNostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Rounds: nostradamusRounds(g.Rounds),
+	body := AdminNostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Finished: g.Finished, MarkedFinished: g.MarkedFinished,
+		TournamentFinished: g.TournamentFinished, Players: nostradamusPlayers(g.Players), Rounds: nostradamusRounds(g.Rounds),
 		Scored: append([]string{}, g.Scored...), Standings: nostradamusStandings(g.Standings), Participants: make([]AdminNostradamusParticipant, len(g.Participants))}
 	for i, p := range g.Participants {
 		body.Participants[i] = AdminNostradamusParticipant{Id: p.ID, Name: p.Name, Member: nullableText(p.Member), DiscordName: p.DiscordName, Bot: p.Bot,
@@ -126,6 +128,22 @@ func (s *server) PostAdminNostradamusEdition(ctx context.Context, req PostAdminN
 		return PostAdminNostradamusEdition404JSONResponse{notFound404(msg)}, nil
 	}
 	return PostAdminNostradamusEdition400JSONResponse{badRequest400(msg)}, nil
+}
+
+func (s *server) PutAdminNostradamusFinished(ctx context.Context, req PutAdminNostradamusFinishedRequestObject) (PutAdminNostradamusFinishedResponseObject, error) {
+	if req.Body == nil {
+		return PutAdminNostradamusFinished400JSONResponse{badRequest400("finished: true or false")}, nil
+	}
+	status, msg, err := s.nostradamusChange(ctx, "nostradamus.edition.finished", req.Edition, req.Body, func(tx Admins) error {
+		return tx.SetNostradamusFinished(ctx, req.Edition, req.Body.Finished, s.now())
+	})
+	switch status {
+	case 0:
+		return PutAdminNostradamusFinished204Response{}, err
+	case 404:
+		return PutAdminNostradamusFinished404JSONResponse{notFound404(msg)}, nil
+	}
+	return PutAdminNostradamusFinished400JSONResponse{badRequest400(msg)}, nil
 }
 
 func (s *server) PostAdminNostradamusRound(ctx context.Context, req PostAdminNostradamusRoundRequestObject) (PostAdminNostradamusRoundResponseObject, error) {

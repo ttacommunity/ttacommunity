@@ -141,7 +141,7 @@ func picksOf(q question) int {
 // boardLines writes the game's standings, read as the site, as "name member total [round points (missed)]".
 func boardLines(t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
-	g, err := NewRatingsReader(asReader(t, pool)).NostradamusGame(context.Background(), "wc-2031")
+	g, err := NewRatingsReader(asReader(t, pool)).NostradamusGame(context.Background(), "wc-2031", time.Now())
 	if err != nil {
 		t.Fatalf("NostradamusGame: %v", err)
 	}
@@ -392,7 +392,7 @@ func (g game) publish(t *testing.T) {
 // siteGame reads wc-2031 as the site.
 func (g game) siteGame(t *testing.T) NostradamusGame {
 	t.Helper()
-	got, err := NewRatingsReader(asReader(t, g.pool)).NostradamusGame(context.Background(), "wc-2031")
+	got, err := NewRatingsReader(asReader(t, g.pool)).NostradamusGame(context.Background(), "wc-2031", time.Now())
 	if err != nil {
 		t.Fatalf("NostradamusGame: %v", err)
 	}
@@ -404,7 +404,7 @@ func TestNostradamusADraftIsShownOnlyInAdminUntilPublished(t *testing.T) {
 	if got := g.siteGame(t).Rounds; len(got) != 0 {
 		t.Errorf("the site's rounds before publishing = %+v, want none", got)
 	}
-	admin, err := g.admin.NostradamusGame(context.Background(), "wc-2031")
+	admin, err := g.admin.NostradamusGame(context.Background(), "wc-2031", time.Now())
 	if err != nil {
 		t.Fatalf("admin's NostradamusGame: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestNostradamusAdminEditsADraftsQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetNostradamusQuestion: %v", err)
 	}
-	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
 	if err != nil {
 		t.Fatalf("NostradamusGame: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestNostradamusAPlayerAsksToJoinAndAnswersOnceAccepted(t *testing.T) {
 	if _, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, answer, g.now); !errors.Is(err, ErrNotEntered) {
 		t.Errorf("answering while requested = %v, want ErrNotEntered", err)
 	}
-	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -662,7 +662,7 @@ func TestNostradamusAdminAddsAndLinksMembers(t *testing.T) {
 	if err := g.admin.LinkNostradamusParticipant(ctx, "wc-2031", id, "beatrix"); err != nil {
 		t.Fatalf("LinkNostradamusParticipant: %v", err)
 	}
-	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -714,7 +714,7 @@ func TestNostradamusLinkingARatedPlayerMakesThemAMember(t *testing.T) {
 		t.Fatal(err)
 	}
 	addRounds(t, pool, nround{"S1", []question{{label: "A", kind: "pick", points: 4, outcome: []string{"Ann"}}}, []entry{answered("rae", "A=Ann")}})
-	admin, err := a.NostradamusGame(ctx, "wc-2031")
+	admin, err := a.NostradamusGame(ctx, "wc-2031", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -736,7 +736,7 @@ func answerAs(t *testing.T, g game, p *PlayerStore, answer string) []byte {
 	if _, err := p.RequestNostradamusEntry(ctx, hash, "wc-2031", g.now); err != nil {
 		t.Fatal(err)
 	}
-	admin, err := g.admin.NostradamusGame(ctx, "wc-2031")
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -854,5 +854,82 @@ func TestNostradamusAPlayerStakesAtLeastTheRoundsLeast(t *testing.T) {
 	}
 	if _, err := p.SubmitNostradamusAnswers(ctx, hash, g.round, []NostradamusGiven{{Question: g.q, Answer: []string{"Ann"}, Tokens: 1}}, g.now); err != nil {
 		t.Errorf("answers staking the least = %v, want saved", err)
+	}
+}
+
+func TestNostradamusGamesFinishByTheirMarkOrTheirTournament(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	reader := NewRatingsReader(asReader(t, g.pool))
+	state := func() (marked, tournament, finished bool) {
+		t.Helper()
+		list, err := reader.NostradamusEditions(ctx, g.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e := list[0]
+		return e.MarkedFinished, e.TournamentFinished, e.Finished
+	}
+	if m, tf, f := state(); m || tf || f {
+		t.Errorf("a new game: marked %t, tournament %t, finished %t; want none", m, tf, f)
+	}
+	if _, err := g.pool.Exec(ctx, `INSERT INTO cge_tournaments (cge_tournament, name, status, series_id, tournament_id, finished)
+		SELECT 9001, 'WC 2031 stage 1', 'running', series_id, tournament_id, NULL FROM tournaments`); err != nil {
+		t.Fatalf("adding a CGE tournament: %v", err)
+	}
+	if _, _, f := state(); f {
+		t.Error("a game whose CGE tournament is still running is finished, want not")
+	}
+	if _, err := g.pool.Exec(ctx, "UPDATE cge_tournaments SET finished = '2031-12-01'"); err != nil {
+		t.Fatal(err)
+	}
+	if m, tf, f := state(); m || !tf || !f {
+		t.Errorf("once its CGE tournament finished: marked %t, tournament %t, finished %t; want finished by the tournament", m, tf, f)
+	}
+	if _, err := g.pool.Exec(ctx, "UPDATE cge_tournaments SET finished = NULL"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.admin.SetNostradamusFinished(ctx, "wc-2031", true, g.now); err != nil {
+		t.Fatalf("SetNostradamusFinished: %v", err)
+	}
+	if m, _, f := state(); !m || !f {
+		t.Errorf("once marked: marked %t, finished %t; want both", m, f)
+	}
+	if err := g.admin.SetNostradamusFinished(ctx, "wc-2031", false, g.now); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, f := state(); f {
+		t.Error("unmarked again, the game is finished, want not")
+	}
+	if err := g.admin.SetNostradamusFinished(ctx, "wc-2099", true, g.now); !errors.Is(err, ErrNoNostradamus) {
+		t.Errorf("finishing no game = %v, want ErrNoNostradamus", err)
+	}
+}
+
+func TestNostradamusGameListsItsAcceptedPlayers(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	for _, e := range []NostradamusEntrant{{Entrant: BlitzEntrant{Name: "Bea", Zone: "UTC"}}, {Entrant: BlitzEntrant{Name: "Seed"}, BotRule: "seed"}, {Entrant: BlitzEntrant{Name: "Cy", Zone: "UTC"}}} {
+		if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range admin.Participants {
+		if p.Name == "Cy" {
+			if err := g.admin.SetNostradamusStatus(ctx, "wc-2031", p.ID, "refused"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	var got []string
+	for _, p := range g.siteGame(t).Players {
+		got = append(got, fmt.Sprintf("%s %q %t", p.Name, p.Member, p.Bot))
+	}
+	if want := []string{`Bea "Bea" false`, `Seed "" true`}; !slices.Equal(got, want) {
+		t.Errorf("the site's players = %q, want the accepted ones, people first: %q", got, want)
 	}
 }

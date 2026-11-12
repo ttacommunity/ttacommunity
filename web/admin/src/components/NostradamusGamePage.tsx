@@ -81,6 +81,7 @@ export default function NostradamusGamePage() {
                 {game.data.participants.filter((p) => p.status === 'accepted').length} playing, {game.data.participants.filter((p) => p.status === 'requested').length}{' '}
                 asking to.
               </p>
+              <FinishedSwitch game={game.data} onReload={load} say={setOutcome} />
             </section>
             <Notice outcome={shownAt(outcome, 'page')} />
             <section className="rating-card admin-card" aria-label="Rounds, members and standings">
@@ -98,6 +99,29 @@ export default function NostradamusGamePage() {
           </>
         )}
       </main>
+    </>
+  );
+}
+
+/** FinishedSwitch marks the game finished, which moves it to the site's past games; its tournament finishing does that too. */
+function FinishedSwitch({ game, onReload, say }: Pick<Props, 'game' | 'onReload' | 'say'>) {
+  const [busy, setBusy] = useState(false);
+  const toggle = async (finished: boolean) => {
+    setBusy(true);
+    const r = await req.send(req.setNostradamusFinished(game.slug, finished));
+    setBusy(false);
+    say(outcomeOf(r, finished ? `${game.name} is finished: the site lists it with the past games.` : `${game.name} is running again.`, 'page'));
+    if (r.ok) await onReload();
+  };
+  return (
+    <>
+      <label className="setting-inline">
+        <input type="checkbox" checked={game.marked_finished} disabled={busy} onChange={(e) => void toggle(e.target.checked)} /> Finished
+      </label>
+      <p className="muted">
+        A finished game moves to the site&apos;s past games. It also finishes on its own once its tournament has.{' '}
+        {game.tournament_finished ? 'Its tournament has finished, so it is finished either way.' : 'Its tournament has not finished yet.'}
+      </p>
     </>
   );
 }

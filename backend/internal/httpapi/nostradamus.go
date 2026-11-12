@@ -15,14 +15,15 @@ import (
 // NostradamusReads are the site's Nostradamus reads: the games, and one as the site shows it.
 type NostradamusReads interface {
 	NostradamusEditions(ctx context.Context, now time.Time) ([]store.NostradamusEdition, error)
-	NostradamusGame(ctx context.Context, slug string) (store.NostradamusGame, error)
+	NostradamusGame(ctx context.Context, slug string, now time.Time) (store.NostradamusGame, error)
 }
 
 // nostradamusEditions are games as the API sends them.
 func nostradamusEditions(editions []store.NostradamusEdition) NostradamusEditions {
 	body := NostradamusEditions{Editions: make([]NostradamusEdition, len(editions))}
 	for i, e := range editions {
-		body.Editions[i] = NostradamusEdition{Slug: e.Slug, Name: e.Name, Series: e.Series, Tournament: e.Tournament}
+		body.Editions[i] = NostradamusEdition{Slug: e.Slug, Name: e.Name, Series: e.Series, Tournament: e.Tournament, Finished: e.Finished,
+			MarkedFinished: e.MarkedFinished, TournamentFinished: e.TournamentFinished}
 		if e.OpenUntil != nil {
 			until := e.OpenUntil.UTC()
 			body.Editions[i].OpenUntil = &until
@@ -60,6 +61,15 @@ func nostradamusRounds(rounds []store.NostradamusRound) []NostradamusRound {
 	return out
 }
 
+// nostradamusPlayers are accepted players as the API sends them.
+func nostradamusPlayers(players []store.NostradamusPlayer) []NostradamusPlayer {
+	out := make([]NostradamusPlayer, len(players))
+	for i, p := range players {
+		out[i] = NostradamusPlayer{Name: p.Name, Member: nullableText(p.Member), Bot: p.Bot}
+	}
+	return out
+}
+
 // nostradamusStandings are standings as the API sends them.
 func nostradamusStandings(standings []store.NostradamusStanding) []NostradamusStanding {
 	out := make([]NostradamusStanding, len(standings))
@@ -82,14 +92,15 @@ func (s *server) GetNostradamusEditions(ctx context.Context, _ GetNostradamusEdi
 }
 
 func (s *server) GetNostradamusGame(ctx context.Context, req GetNostradamusGameRequestObject) (GetNostradamusGameResponseObject, error) {
-	g, err := s.ratings.NostradamusGame(ctx, req.Edition)
+	g, err := s.ratings.NostradamusGame(ctx, req.Edition, s.now())
 	if errors.Is(err, store.ErrNoNostradamus) {
 		return GetNostradamusGame404JSONResponse{notFound404("no such Nostradamus game")}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	body := NostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Rounds: nostradamusRounds(g.Rounds),
+	body := NostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Finished: g.Finished, MarkedFinished: g.MarkedFinished,
+		TournamentFinished: g.TournamentFinished, Players: nostradamusPlayers(g.Players), Rounds: nostradamusRounds(g.Rounds),
 		Scored: append([]string{}, g.Scored...), Standings: nostradamusStandings(g.Standings)}
 	return GetNostradamusGame200JSONResponse{Body: body, Headers: GetNostradamusGame200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }

@@ -264,6 +264,23 @@ func (a *AdminStore) PublishNostradamusRound(ctx context.Context, slug string, r
 	})
 }
 
+// SetNostradamusFinished marks the game finished at now, so the site lists it among past games, or takes the mark
+// off; a game also counts as finished once its tournament has. It returns ErrNoNostradamus.
+func (a *AdminStore) SetNostradamusFinished(ctx context.Context, slug string, finished bool, now time.Time) error {
+	var at *time.Time
+	if finished {
+		at = &now
+	}
+	tag, err := a.pool.Exec(ctx, "UPDATE nostradamus_editions SET finished_at = $2 WHERE slug = $1", slug, at)
+	if err != nil {
+		return fmt.Errorf("finishing a Nostradamus game: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoNostradamus
+	}
+	return nil
+}
+
 // openRound reports a round of the game published and not closed, or ErrNoNostradamus or ErrNostradamusRoundState
 // saying why it is not.
 func openRound(ctx context.Context, db conn, slug string, round int64) error {
