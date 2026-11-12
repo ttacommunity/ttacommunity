@@ -456,10 +456,10 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
     Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.answer ?? []])),
   );
   const fromChoices = (q: Question) => q.kind !== 'number' && q.choices.length > 0;
-  const [tokens, setTokens] = useState<Record<number, number>>(() => Object.fromEntries(round.questions.map((q) => [q.id, saved.find((a) => a.question === q.id)?.tokens ?? 0])));
+  const [tokens, setTokens] = useState<Record<number, string>>(() => Object.fromEntries(round.questions.map((q) => [q.id, String(saved.find((a) => a.question === q.id)?.tokens ?? 0)])));
   const given = round.questions.flatMap((q) => {
     const answer = fromChoices(q) ? (picked[q.id] ?? []) : outcomeValues(q.kind, texts[q.id] ?? '');
-    return answer.length === 0 ? [] : [{ question: q.id, answer, tokens: tokens[q.id] ?? 0 }];
+    return answer.length === 0 ? [] : [{ question: q.id, answer, tokens: countOrNone(tokens[q.id] ?? '') ?? 0 }];
   });
   return (
     <div className="admin-subsection">
@@ -485,8 +485,8 @@ function BotAnswers({ bot, round, saved, onSave }: { bot: Game['participants'][n
             )}
             <span>
               Tokens{' '}
-              <input className="input-antique" type="number" min={0} max={round.tokens_max ?? 99} aria-label={`${bot.name}, tokens on ${q.label}`} value={tokens[q.id] ?? 0}
-                onChange={(e) => setTokens({ ...tokens, [q.id]: Math.max(0, Math.trunc(Number(e.target.value))) })} />
+              <input className="input-antique" type="text" inputMode="numeric" pattern="[0-9]*" aria-label={`${bot.name}, tokens on ${q.label}`} value={tokens[q.id] ?? ''}
+                onChange={(e) => setTokens({ ...tokens, [q.id]: e.target.value })} />
             </span>
           </label>
         ))}

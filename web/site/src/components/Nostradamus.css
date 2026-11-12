@@ -6,10 +6,7 @@
 .nostradamus-card .rating-card-heading {
   margin: 0 0 1rem;
 }
-.nostradamus-pick {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.nostradamus-panel {
   margin: 0 0 1.5rem;
 }
 .nostradamus-nudge {
@@ -58,4 +55,9 @@
 }
 .nostradamus-poll li > span:first-child {
   min-width: 9rem;
+}
+.nostradamus-panel .stages-pick,
+.nostradamus-panel .stages-pick select {
+  max-width: 100%;
+  min-width: 0;
 }
