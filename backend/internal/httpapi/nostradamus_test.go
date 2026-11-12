@@ -236,7 +236,7 @@ func (f *fakeAdmins) SetNostradamusBotAnswers(_ context.Context, slug string, ro
 }
 
 func (f *fakeAdmins) AddNostradamusParticipant(_ context.Context, slug string, e store.NostradamusEntrant) (int64, error) {
-	return 10, f.nostradamusChange(fmt.Sprintf("add %s %q %q", e.Name, e.DiscordName, e.BotRule))
+	return 10, f.nostradamusChange(fmt.Sprintf("add %d %s %q %q %q", e.Entrant.MemberID, e.Entrant.Name, e.Entrant.DiscordName, e.Entrant.Zone, e.BotRule))
 }
 
 func (f *fakeAdmins) SetNostradamusStatus(_ context.Context, slug string, participant int64, status string) error {
@@ -284,7 +284,9 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/rounds/3/bots/9/answers", `{"answers": [{"question": 7, "answer": ["Ann", "Cy"], "token": false}]}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/questions/7/outcome", `{"outcome": [" Cy ", "Ann"]}`},
 		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/rounds/3/close", ``},
-		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", `{"name": "Dee", "discord_name": "dee_d"}`},
+		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", `{"name": " Dee ", "discord_name": "dee_d", "zone": "Europe/Berlin"}`},
+		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", `{"member": 12}`},
+		{http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", `{"name": "Seed", "bot_rule": "seed"}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/participants/8/status", `{"status": "refused"}`},
 		{http.MethodPut, "/v1/admin/nostradamus/wc-2031/participants/8/member", `{"member": " Beatrix "}`},
 		{http.MethodDelete, "/v1/admin/nostradamus/wc-2031/questions/7", ``},
@@ -305,7 +307,9 @@ func TestAnOrganiserRunsANostradamusRoundAudited(t *testing.T) {
 		`bot 9 in 3: 1 answers`,
 		`outcome 7 ["Cy" "Ann"]`,
 		`close 3`,
-		`add Dee "dee_d" ""`,
+		`add 0 Dee "dee_d" "Europe/Berlin" ""`,
+		`add 12  "" "" ""`,
+		`add 0 Seed "" "" "seed"`,
 		`status 8 refused`,
 		`link 8 "Beatrix"`,
 		`remove question 7`,
@@ -335,6 +339,8 @@ func TestNostradamusChangesAreRefusedWhenTheyShould(t *testing.T) {
 		{"publishing in no zone", http.MethodPost, round + "/publish", challengeAdminSite, `{"day": "2031-06-01", "time": "18:00", "zone": "Mars/Base"}`, nil, http.StatusBadRequest},
 		{"a member already in", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"name": "Bea"}`, store.ErrBadNostradamus, http.StatusBadRequest},
 		{"a banned member", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"name": "Bea"}`, store.ErrMemberBanned, http.StatusBadRequest},
+		{"no one to add", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"discord_name": "x"}`, nil, http.StatusBadRequest},
+		{"a zone that is not one", http.MethodPost, "/v1/admin/nostradamus/wc-2031/participants", challengeAdminSite, `{"name": "Dee", "zone": "Mars/Base"}`, nil, http.StatusBadRequest},
 		{"linking no member", http.MethodPut, "/v1/admin/nostradamus/wc-2031/participants/8/member", challengeAdminSite, `{"member": "Zed"}`, nil, http.StatusNotFound},
 		{"not from the admin site", http.MethodPost, round + "/close", "https://elsewhere.example", ``, nil, http.StatusForbidden},
 	}

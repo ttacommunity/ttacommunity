@@ -378,27 +378,27 @@ func (a *AdminStore) SetNostradamusBotAnswers(ctx context.Context, slug string, 
 	return nostradamusRefusal(err)
 }
 
-// NostradamusEntrant is someone an organiser adds to a game: a member by TTA name (made when new, with the Discord
-// name given), or a bot with its rule.
+// NostradamusEntrant is someone an organiser adds to a game: a member, as a blitz entrant names one (made when new,
+// with the details given), or a bot by Entrant.Name with its rule.
 type NostradamusEntrant struct {
-	Name, DiscordName, BotRule string
+	Entrant BlitzEntrant
+	BotRule string
 }
 
 // AddNostradamusParticipant adds an accepted participant to the game and returns its id. It returns
-// ErrNoNostradamus, ErrMemberBanned, ErrBadMember, or ErrBadNostradamus for one already in the game.
+// ErrNoNostradamus, ErrNoMember, ErrMemberBanned, ErrBadMember, or ErrBadNostradamus for one already in the game.
 func (a *AdminStore) AddNostradamusParticipant(ctx context.Context, slug string, e NostradamusEntrant) (int64, error) {
 	edition, err := editionID(ctx, a.pool, slug)
 	if err != nil {
 		return 0, err
 	}
-	e.Name = strings.TrimSpace(e.Name)
 	var id int64
 	err = pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		if e.BotRule != "" {
 			return tx.QueryRow(ctx, `INSERT INTO nostradamus_participants (edition_id, name, bot, bot_rule) VALUES ($1, $2, true, $3)
-				RETURNING participant_id`, edition, e.Name, e.BotRule).Scan(&id)
+				RETURNING participant_id`, edition, strings.TrimSpace(e.Entrant.Name), e.BotRule).Scan(&id)
 		}
-		member, name, err := entrantMember(ctx, tx, BlitzEntrant{Name: e.Name, DiscordName: strings.TrimSpace(e.DiscordName), Zone: "UTC"})
+		member, name, err := entrantMember(ctx, tx, e.Entrant)
 		if err != nil {
 			return err
 		}
@@ -425,28 +425,39 @@ func (a *AdminStore) SetNostradamusStatus(ctx context.Context, slug string, part
 	return nil
 }
 
-// LinkNostradamusParticipant links a participant of the game to the member of that TTA name, ignoring case, or
-// unlinks it for an empty name. It returns ErrNoMember, ErrNoNostradamus, or ErrBadNostradamus for a member already
-// in the game.
+// LinkNostradamusParticipant links a participant of the game to the member of that TTA name, ignoring case (made a
+// member first when it names a rated player who is none yet), or unlinks it for an empty name. It returns
+// ErrNoMember for a name neither a member nor a rated player, ErrMemberBanned, ErrNoNostradamus, or ErrBadNostradamus
+// for a member already in the game.
 func (a *AdminStore) LinkNostradamusParticipant(ctx context.Context, slug string, participant int64, member string) error {
-	var id *int64
-	if member != "" {
-		if err := a.pool.QueryRow(ctx, "SELECT min(member_id) FROM members WHERE lower(tta_name) = lower($1)", member).Scan(&id); err != nil {
-			return fmt.Errorf("finding the member to link: %w", err)
+	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var id *int64
+		if member != "" {
+			var known bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT FROM members WHERE lower(tta_name) = lower($1))
+				OR EXISTS (SELECT FROM players WHERE lower(name) = lower($1))`, member).Scan(&known); err != nil {
+				return fmt.Errorf("finding the member to link: %w", err)
+			}
+			if !known {
+				return ErrNoMember
+			}
+			found, _, err := entrantMember(ctx, tx, BlitzEntrant{Name: member, Zone: "UTC"})
+			if err != nil {
+				return err
+			}
+			id = &found
 		}
-		if id == nil {
-			return ErrNoMember
+		tag, err := tx.Exec(ctx, `
+			UPDATE nostradamus_participants p SET member_id = $3
+			FROM nostradamus_editions e
+			WHERE p.edition_id = e.edition_id AND e.slug = $1 AND p.participant_id = $2`, slug, participant, id)
+		if err != nil {
+			return nostradamusRefusal(err)
 		}
-	}
-	tag, err := a.pool.Exec(ctx, `
-		UPDATE nostradamus_participants p SET member_id = $3
-		FROM nostradamus_editions e
-		WHERE p.edition_id = e.edition_id AND e.slug = $1 AND p.participant_id = $2`, slug, participant, id)
-	if err != nil {
-		return nostradamusRefusal(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNoNostradamus
-	}
-	return nil
+		if tag.RowsAffected() == 0 {
+			return ErrNoNostradamus
+		}
+		return nil
+	})
+	return err
 }

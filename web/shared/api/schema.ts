@@ -2187,9 +2187,10 @@ export interface paths {
         /**
          * Link a Nostradamus participant to a member (admins and organisers)
          * @description Audited. The Origin must be the admin site. Links the participant
-         *     to the member whose TTA username is member, ignoring case, or
-         *     unlinks it for an empty one. No such member, or a participant not
-         *     in the game, is 404.
+         *     to the member whose TTA username is member, ignoring case (made a
+         *     member first when it names a rated player who is none yet), or
+         *     unlinks it for an empty one. A name neither a member nor a rated
+         *     player, or a participant not in the game, is 404.
          */
         put: operations["putAdminNostradamusMember"];
         post?: never;
@@ -6698,9 +6699,20 @@ export interface components {
             /** @description Null until the question's outcome is known */
             points: number | null;
         };
+        /**
+         * @description Someone to add: a member by id, or by TTA username (a member made when new, with the details given), as a
+         *     blitz entrant is; or a bot, by name and the rule it answers by
+         */
         AdminNostradamusEntrant: {
-            name: string;
+            /** Format: int64 */
+            member?: number;
+            name?: string;
             discord_name?: string;
+            email?: string;
+            /** @description A two-letter country code */
+            country?: string;
+            /** @description An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default */
+            zone?: string;
             /** @enum {string} */
             bot_rule?: "" | "seed" | "glicko" | "leaderboard";
         };

@@ -3004,9 +3004,10 @@ paths:
       summary: Link a Nostradamus participant to a member (admins and organisers)
       description: |
         Audited. The Origin must be the admin site. Links the participant
-        to the member whose TTA username is member, ignoring case, or
-        unlinks it for an empty one. No such member, or a participant not
-        in the game, is 404.
+        to the member whose TTA username is member, ignoring case (made a
+        member first when it names a rated player who is none yet), or
+        unlinks it for an empty one. A name neither a member nor a rated
+        player, or a participant not in the game, is 404.
       parameters:
         - $ref: "#/components/parameters/NostradamusEditionSlug"
         - $ref: "#/components/parameters/NostradamusParticipantId"
@@ -11001,10 +11002,16 @@ components:
           type: integer
           nullable: true
     AdminNostradamusEntrant:
+      description: |
+        Someone to add: a member by id, or by TTA username (a member made when new, with the details given), as a
+        blitz entrant is; or a bot, by name and the rule it answers by
       type: object
       additionalProperties: false
-      required: [name]
       properties:
+        member:
+          type: integer
+          format: int64
+          minimum: 1
         name:
           type: string
           minLength: 1
@@ -11012,6 +11019,18 @@ components:
         discord_name:
           type: string
           maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        country:
+          description: A two-letter country code
+          type: string
+          maxLength: 2
+        zone:
+          description: An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
+          type: string
+          minLength: 1
+          maxLength: 64
         bot_rule:
           type: string
           enum: ["", seed, glicko, leaderboard]

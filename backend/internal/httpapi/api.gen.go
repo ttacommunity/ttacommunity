@@ -1637,11 +1637,20 @@ type AdminNostradamusEditionNew struct {
 	Tournament string `json:"tournament"`
 }
 
-// AdminNostradamusEntrant defines model for AdminNostradamusEntrant.
+// AdminNostradamusEntrant Someone to add: a member by id, or by TTA username (a member made when new, with the details given), as a
+// blitz entrant is; or a bot, by name and the rule it answers by
 type AdminNostradamusEntrant struct {
-	BotRule     *AdminNostradamusEntrantBotRule `json:"bot_rule,omitempty"`
-	DiscordName *string                         `json:"discord_name,omitempty"`
-	Name        string                          `json:"name"`
+	BotRule *AdminNostradamusEntrantBotRule `json:"bot_rule,omitempty"`
+
+	// Country A two-letter country code
+	Country     *string `json:"country,omitempty"`
+	DiscordName *string `json:"discord_name,omitempty"`
+	Email       *string `json:"email,omitempty"`
+	Member      *int64  `json:"member,omitempty"`
+	Name        *string `json:"name,omitempty"`
+
+	// Zone An IANA time zone (Europe/Berlin), a region (US East) from GET /v1/admin/regions, or Unknown, the default
+	Zone *string `json:"zone,omitempty"`
 }
 
 // AdminNostradamusEntrantBotRule defines model for AdminNostradamusEntrant.BotRule.
