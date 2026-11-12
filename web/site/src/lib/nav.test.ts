@@ -34,8 +34,9 @@ describe('placeOf', () => {
     ['blitz', '/blitz/', 'Tournaments', 'Blitz'],
     ['movies', '/movies/', 'Movies', undefined],
     ['Nostradamus', '/nostradamus/', 'Games', 'Nostradamus'],
-    ['challenge highscores', '/challenges/', 'Games', 'Challenge highscores'],
-    ['a challenge', '/challenges/1ai/', 'Games', 'Challenge highscores'],
+    ['challenges', '/challenges/', 'Games', 'Challenges'],
+    ['a challenge', '/challenges/1ai/', 'Games', 'Challenges'],
+    ["a challenge tab's page", '/challenges/weekly/', 'Games', 'Challenges'],
   ])('puts %s in its section and page', (_name, path, section, page) => {
     const place = placeOf(path);
     expect([place?.section.label, place?.page?.label]).toEqual([section, page]);
