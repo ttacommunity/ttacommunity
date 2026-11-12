@@ -65,24 +65,24 @@ export function joinState(signedIn: boolean, linked: boolean, status: 'none' | '
 }
 
 type Question = { id: number; kind: 'pick' | 'set' | 'number'; picks: number };
-type Given = { question: number; answer: string[]; token: boolean };
+type Given = { question: number; answer: string[]; tokens: number };
 
-/** Draft is a player's answers to a round as they fill them in, by question. */
-export type Draft = Record<number, { answer: string[]; token: boolean }>;
+/** Draft is a player's answers to a round as they fill them in, by question, with the tokens staked on each. */
+export type Draft = Record<number, { answer: string[]; tokens: number }>;
 
 /** draftFrom starts a round's form from the player's saved answers, empty where they gave none. */
 export function draftFrom(questions: readonly Question[], saved: readonly Given[]): Draft {
   const draft: Draft = {};
   for (const q of questions) {
     const given = saved.find((g) => g.question === q.id);
-    draft[q.id] = { answer: given ? [...given.answer] : [], token: given?.token ?? false };
+    draft[q.id] = { answer: given ? [...given.answer] : [], tokens: given?.tokens ?? 0 };
   }
   return draft;
 }
 
 /** choose answers q with value: a pick takes it instead, a set adds it (or drops it when chosen again) up to its picks, a number takes what is typed. */
 export function choose(draft: Draft, q: Question, value: string): Draft {
-  const now = draft[q.id] ?? { answer: [], token: false };
+  const now = draft[q.id] ?? { answer: [], tokens: 0 };
   let answer: string[];
   if (q.kind === 'set') {
     if (now.answer.includes(value)) answer = now.answer.filter((v) => v !== value);
@@ -93,16 +93,30 @@ export function choose(draft: Draft, q: Question, value: string): Draft {
   return { ...draft, [q.id]: { ...now, answer } };
 }
 
-/** tokensLeft is how many of the round's tokens the form has not used. */
-export function tokensLeft(draft: Draft, tokens: number): number {
-  return tokens - Object.values(draft).filter((a) => a.token).length;
+/** staked is how many tokens the form stakes in all. */
+export function staked(draft: Draft): number {
+  return Object.values(draft).reduce((n, a) => n + a.tokens, 0);
 }
 
-/** toggleToken puts a token on question's answer, or takes it off; none goes on once the round's tokens are used. */
-export function toggleToken(draft: Draft, question: number, tokens: number): Draft {
-  const now = draft[question] ?? { answer: [], token: false };
-  if (!now.token && tokensLeft(draft, tokens) <= 0) return draft;
-  return { ...draft, [question]: { ...now, token: !now.token } };
+/** MOST_ON_ONE is the most tokens one answer takes, as the database allows, when the round sets no most. */
+const MOST_ON_ONE = 99;
+
+/** stakeRange is how many tokens question's answer may take: from none to what is on it plus what is left of the round's most (null for none set). */
+export function stakeRange(draft: Draft, question: number, most: number | null): { min: number; max: number } {
+  const on = draft[question]?.tokens ?? 0;
+  return { min: 0, max: most === null ? MOST_ON_ONE : Math.min(MOST_ON_ONE, on + most - staked(draft)) };
+}
+
+/** withStake stakes tokens on question's answer, kept within stakeRange. */
+export function withStake(draft: Draft, question: number, tokens: number, most: number | null): Draft {
+  const { min, max } = stakeRange(draft, question, most);
+  const now = draft[question] ?? { answer: [], tokens: 0 };
+  return { ...draft, [question]: { ...now, tokens: Math.max(min, Math.min(max, Math.trunc(tokens))) } };
+}
+
+/** tokensShort is how many more tokens the round's least asks for (null for none set), 0 once met. */
+export function tokensShort(draft: Draft, least: number | null): number {
+  return least === null ? 0 : Math.max(0, least - staked(draft));
 }
 
 /** givenFrom is what the form sends: each answer complete (a set with all its picks), in question order; one half done or empty is left out. */
@@ -110,7 +124,7 @@ export function givenFrom(questions: readonly Question[], draft: Draft): Given[]
   return questions.flatMap((q) => {
     const a = draft[q.id];
     if (!a || a.answer.length === 0 || (q.kind === 'set' && a.answer.length !== q.picks)) return [];
-    return [{ question: q.id, answer: [...a.answer], token: a.token }];
+    return [{ question: q.id, answer: [...a.answer], tokens: a.tokens }];
   });
 }
 

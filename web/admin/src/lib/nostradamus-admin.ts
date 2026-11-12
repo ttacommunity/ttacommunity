@@ -134,3 +134,19 @@ export function toggled(values: readonly string[], value: string, limit: number)
   if (limit === 1) return [value];
   return limit > 0 && values.length >= limit ? [...values] : [...values, value];
 }
+
+/** countOrNone reads an optional count field: a whole number, or null for one left empty or not whole. */
+export function countOrNone(text: string): number | null {
+  const n = Number(text.trim());
+  return text.trim() === '' || !Number.isInteger(n) || n < 0 ? null : n;
+}
+
+/** tokensText says what a round lets a player stake: its least and most (null for no bound), and each token's worth. */
+export function tokensText(min: number | null, max: number | null, points: number): string {
+  if (max === 0) return 'no tokens';
+  const each = `, ±${points} each`;
+  if (min !== null && min > 0 && max !== null) return `${min} to ${max} tokens${each}`;
+  if (max !== null) return `up to ${max} tokens${each}`;
+  if (min !== null && min > 0) return `at least ${min} tokens${each}`;
+  return `any number of tokens${each}`;
+}
