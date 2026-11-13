@@ -1,5 +1,5 @@
 /** The community leaderboard page: standings, dynamic best-N highlights, and tournament or event columns. */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   communityEditions,
   communityLeaderboard,
@@ -29,8 +29,8 @@ import SearchBox, { type SearchPlayer } from './SearchBox';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
-import { errorText, type Load } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import { useLoad } from './useLoad';
 
 
 /** href is the page's address for a view, carrying edition, view, search and page. */
@@ -332,30 +332,12 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
 /** CommunityPage renders the edition, view, search and page named in the address, from the current run. */
 export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const [view] = useState(() => parseCommunityView(new URLSearchParams(window.location.search)));
-  const [state, setState] = useState<Load<{ board: LeaderboardData; editions: CommunityEditionItem[] }>>({ kind: 'loading' });
-
-  useEffect(() => {
-    let stale = false;
-    Promise.all([communityEditions(apiUrl), currentRun(apiUrl)])
-      .then(async ([editions, run]) => {
-        const edition = editionToShow(view.edition, editions);
-        if (edition === null) throw new Error('no community edition is shown');
-        return [editions, await communityLeaderboard(apiUrl, run.run_id, edition)] as const;
-      })
-      .then(([editions, data]) => {
-        if (!stale) {
-          setState({ kind: 'ready', data: { board: data, editions } });
-        }
-      })
-      .catch((e: unknown) => {
-        if (!stale) {
-          setState({ kind: 'error', message: errorText(e) });
-        }
-      });
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.edition]);
+  const state = useLoad(String(view.edition), async () => {
+    const [editions, run] = await Promise.all([communityEditions(apiUrl), currentRun(apiUrl)]);
+    const edition = editionToShow(view.edition, editions);
+    if (edition === null) throw new Error('no community edition is shown');
+    return { board: await communityLeaderboard(apiUrl, run.run_id, edition), editions };
+  });
 
   if (state.kind !== 'ready') return <Waiting load={state} what="the community leaderboard" />;
 

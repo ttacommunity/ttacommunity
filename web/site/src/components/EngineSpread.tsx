@@ -7,7 +7,7 @@ import { formatName } from '../lib/leaderboard-display';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
+import { useKeptLoad } from './useLoad';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -29,33 +29,12 @@ function means(d: Distribution) {
 /** EngineSpread loads the current run's distribution for the format in the address, or the remembered one. */
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(browserStorage())).format);
-  const [load, setLoad] = useState<Load<Distribution>>({ kind: 'loading' });
-  const [distData, setDistData] = useState<Distribution | null>(null);
+  const load = useKeptLoad(String(format), () => currentRun(apiUrl).then((r) => distribution(apiUrl, r.run_id, format)));
+  const distData = load.kind === 'ready' ? load.data : null;
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'bar'> | null>(null);
 
   useEffect(() => onFormat(window, setFormat), []);
-
-  useEffect(() => {
-    let current = true;
-    if (distData === null) {
-      setLoad({ kind: 'loading' });
-    }
-    currentRun(apiUrl)
-      .then((r) => distribution(apiUrl, r.run_id, format))
-      .then((data) => {
-        if (!current) return;
-        setDistData(data);
-        setLoad({ kind: 'ready', data });
-      })
-      .catch((e: unknown) => {
-        if (!current) return;
-        setLoad({ kind: 'error', message: errorText(e) });
-      });
-    return () => {
-      current = false;
-    };
-  }, [apiUrl, format]);
 
   // Create chart instance once when canvas is mounted
   useIsomorphicLayoutEffect(() => {

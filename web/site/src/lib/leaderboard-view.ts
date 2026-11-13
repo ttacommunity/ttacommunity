@@ -1,4 +1,5 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
+import type { Load } from '@ttac/shared/load';
 import type { DeltaWindow as PastWindow, Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
 
 /** Upstream's fixed cutoff, kept for a run that recorded no last game. */
@@ -511,4 +512,17 @@ export function yearDeltas(board: YearLeaderboard): Map<string, Delta> {
         : { c_rating: 0, rating: 0, pastRank: null },
     ]),
   );
+}
+
+/** shownChanges is the delta column: nothing while it is off or its board loads, a year's own changes, else against the past board (none when that could not load). */
+export function shownChanges(
+  shown: { board: { players: readonly LeaderboardRow[] }; year: YearLeaderboard | null } | null,
+  delta: DeltaWindow,
+  past: Load<{ players: History['players'] }>,
+): Map<string, Delta> | null {
+  if (shown === null || delta === 'none') return null;
+  if (shown.year !== null) return yearDeltas(shown.year);
+  if (past.kind === 'loading') return null;
+  if (past.kind === 'error') return new Map();
+  return deltas(shown.board.players, past.data.players);
 }

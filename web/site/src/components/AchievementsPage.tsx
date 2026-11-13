@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  currentRun,
-  player as fetchPlayer,
-  playerAchievements,
-  type Player,
-  type PlayerAchievements,
-  type TournamentRecord,
-} from '@ttac/shared/ratings';
-import { errorText, type Load } from '@ttac/shared/load';
+import { currentRun, player as fetchPlayer, playerAchievements, type Player, type TournamentRecord } from '@ttac/shared/ratings';
 import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
@@ -46,6 +38,7 @@ import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { counted } from '@ttac/shared/numbers';
+import { useLoad } from './useLoad';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -699,27 +692,14 @@ function Records({ records }: { records: TournamentRecord[] }) {
 
 /** AchievementsPage renders the achievements of the player named in the address, from the current run. */
 export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
-  const [state, setState] = useState<Load<{ player: Player; ach: PlayerAchievements }>>({ kind: 'loading' });
-
-  useEffect(() => {
+  const state = useLoad('achievements', async () => {
     const name = new URLSearchParams(window.location.search).get('name') ?? '';
-    if (name === '') {
-      setState({ kind: 'error', message: 'No player named in the address.' });
-      return;
-    }
-    let stale = false;
-    currentRun(apiUrl)
-      .then((run) => Promise.all([fetchPlayer(apiUrl, run.run_id, name), playerAchievements(apiUrl, run.run_id, name)]))
-      .then(([player, ach]) => {
-        if (stale) return;
-        document.title = `${player.name} - Tournament Achievements & Records | Through the Ages`;
-        setState({ kind: 'ready', data: { player, ach } });
-      })
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl]);
+    if (name === '') throw new Error('No player named in the address.');
+    const run = await currentRun(apiUrl);
+    const [player, ach] = await Promise.all([fetchPlayer(apiUrl, run.run_id, name), playerAchievements(apiUrl, run.run_id, name)]);
+    document.title = `${player.name} - Tournament Achievements & Records | Through the Ages`;
+    return { player, ach };
+  });
 
   if (state.kind !== 'ready') return <Waiting load={state} what="this player" />;
   const { player, ach } = state.data;

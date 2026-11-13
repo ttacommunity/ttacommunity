@@ -12,7 +12,6 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
-import { errorText } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
 import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
@@ -25,7 +24,6 @@ import {
   inactiveCutoff,
   csvUrl,
   defaultMinOpps,
-  deltas,
   rankChange,
   rankNow,
   hasFilters,
@@ -45,7 +43,7 @@ import {
   titleOptions,
   viewParams,
   withRanking,
-  yearDeltas,
+  shownChanges,
   yearRows,
   type Delta,
   type RankedRow,
@@ -60,11 +58,9 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import { useLoad } from './useLoad';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; board: Board; year: YearLeaderboard | null; lastGame: string | null };
+type Shown = { board: Board; year: YearLeaderboard | null; lastGame: string | null };
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
@@ -77,7 +73,6 @@ function readView(): View {
 /** Shows the chosen leaderboard. Every choice is part of the address, so a view can be shared. */
 export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<View>(readView);
-  const [state, setState] = useState<State>({ kind: 'loading' });
   const [optionsOpen, setOptionsOpen] = useState(false);
   const model = modelOf(view);
 
@@ -96,34 +91,17 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  useEffect(() => {
-    let stale = false;
-    setState({ kind: 'loading' });
-    currentRun(apiUrl, view.ranking)
-      .then(async (run): Promise<State> => {
-        if (view.year === null)
-          return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
-        const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
-        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
-      })
-      .then((next) => !stale && setState(next))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking, model, view.format, view.year]);
+  const loaded = useLoad(JSON.stringify([view.ranking, model, view.format, view.year]), async (): Promise<Shown> => {
+    const run = await currentRun(apiUrl, view.ranking);
+    if (view.year === null) return { board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
+    const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
+    return { board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
+  });
+  const state = loaded.kind === 'ready' ? { kind: 'ready' as const, ...loaded.data } : loaded;
 
-  const [archive, setArchive] = useState<YearEntry[] | null>(null);
-  useEffect(() => {
-    let stale = false;
-    currentRun(apiUrl, view.ranking)
-      .then((run) => fetchYears(apiUrl, run.run_id))
-      .then((y) => !stale && setArchive(y.years))
-      .catch(() => !stale && setArchive([]));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking]);
+  // Without the archive the years menu is empty rather than broken.
+  const years = useLoad(view.ranking, () => currentRun(apiUrl, view.ranking).then((run) => fetchYears(apiUrl, run.run_id)));
+  const archive: YearEntry[] | null = years.kind === 'ready' ? years.data.years : years.kind === 'error' ? [] : null;
 
   const toggleOptions = (open: boolean) => {
     setOptionsOpen(open);
@@ -138,24 +116,13 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   const yearBoard = state.kind === 'ready' ? state.year : null;
   const fromYear = useMemo(() => (yearBoard === null ? null : yearRows(yearBoard, view.stats)), [yearBoard, view.stats]);
   const players = useMemo(() => fromYear?.rows ?? (state.kind === 'ready' ? state.board.players : []), [fromYear, state]);
-  const [changes, setChanges] = useState<Map<string, Delta> | null>(null);
-
-  useEffect(() => {
-    setChanges(null);
-    if (state.kind !== 'ready' || view.delta === 'none') return;
-    if (state.year !== null) {
-      setChanges(yearDeltas(state.year));
-      return;
-    }
-    let stale = false;
-    const { board } = state;
-    history(apiUrl, board.run_id, board.model, board.format, view.delta)
-      .then((past) => !stale && setChanges(deltas(board.players, past.players)))
-      .catch(() => !stale && setChanges(new Map()));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, state, view.delta]);
+  const pastWindow = view.delta === 'none' ? null : view.delta;
+  const pastBoard = state.kind === 'ready' && state.year === null ? state.board : null;
+  const past = useLoad(
+    JSON.stringify([pastBoard?.run_id, pastBoard?.model, pastBoard?.format, pastWindow]),
+    pastBoard === null || pastWindow === null ? null : () => history(apiUrl, pastBoard.run_id, pastBoard.model, pastBoard.format, pastWindow),
+  );
+  const changes = useMemo(() => shownChanges(state.kind === 'ready' ? state : null, view.delta, past), [state, view.delta, past]);
   const cutoff = inactiveCutoff(state.kind === 'ready' ? state.lastGame : null);
   const pool = useMemo(() => rankPool(players, view, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);

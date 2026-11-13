@@ -1,7 +1,7 @@
 /** Upstream's head-to-head popup: two players' latest shared games, filtered by format. */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useModal } from '@ttac/shared/modal';
-import { currentRun, playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
+import { currentRun, playerVersus, type Format } from '@ttac/shared/ratings';
 import type { Track } from '../lib/leaderboard-view';
 import { versusTally, type GameRatingFilter } from '../lib/career';
 import { formatTournamentDisplay } from '../lib/achievements';
@@ -10,9 +10,9 @@ import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from './CopyCode';
-import { errorText, type Load } from '@ttac/shared/load';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
+import { useLoad } from './useLoad';
 
 const TRACKS: { value: Track; label: string }[] = [
   { value: 'community', label: 'Standard' },
@@ -45,29 +45,17 @@ export default function VersusDialog({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [state, setState] = useState<Load<PlayerVersus>>({ kind: 'loading' });
   const [format, setFormat] = useState<Format>(initial);
   const [track, setTrack] = useState<Track>(initialTrack);
   const [ratingFilter, setRatingFilter] = useState<GameRatingFilter>(initialFilter);
   // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
-  useEffect(() => {
-    if (!ratingFilter.rated && !ratingFilter.unrated) {
-      setState({ kind: 'ready', data: { run_id: runId, name, other, matches: [] } });
-      return;
-    }
-    setState({ kind: 'loading' });
-    let stale = false;
-    const resolveRun = track === initialTrack ? Promise.resolve(runId) : currentRun(apiUrl, track).then((r) => r.run_id);
-    resolveRun
-      .then((id) => playerVersus(apiUrl, id, name, other, ratingFilter.unrated, ratingFilter.rated))
-      .then((data) => !stale && setState({ kind: 'ready', data }))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, runId, initialTrack, track, name, other, ratingFilter]);
+  const state = useLoad(JSON.stringify([runId, initialTrack, track, name, other, ratingFilter]), async () => {
+    if (!ratingFilter.rated && !ratingFilter.unrated) return { run_id: runId, name, other, matches: [] };
+    const id = track === initialTrack ? runId : (await currentRun(apiUrl, track)).run_id;
+    return playerVersus(apiUrl, id, name, other, ratingFilter.unrated, ratingFilter.rated);
+  });
 
   const tally = state.kind === 'ready' ? versusTally(state.data.matches, format) : null;
   const a = state.kind === 'ready' ? state.data.name : name;

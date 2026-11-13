@@ -1,11 +1,11 @@
 /** "Data we keep" on the account page: a button that opens a dialog listing everything kept about the signed-in player, fetched when it opens. */
-import { useEffect, useRef, useState } from 'react';
-import { errorText, type Load } from '@ttac/shared/load';
+import { useRef, useState } from 'react';
 import { useModal } from '@ttac/shared/modal';
 import { viewerZone } from '@ttac/shared/time';
-import { fetchMyData, keptGroups, shownZone, type KeptGroup, type MyData } from '../lib/kept-data';
+import { fetchMyData, keptGroups, shownZone, type KeptGroup } from '../lib/kept-data';
 import Waiting from './Waiting';
 import './KeptData.css';
+import { useLoad } from './useLoad';
 
 /** KeptData is the button, and the dialog while it is open; savedZone is the player's own zone, for the times. */
 export default function KeptData({ apiUrl, savedZone }: { apiUrl: string; savedZone: string }) {
@@ -22,23 +22,16 @@ export default function KeptData({ apiUrl, savedZone }: { apiUrl: string; savedZ
 
 function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; savedZone: string; opener: HTMLElement; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [load, setLoad] = useState<Load<MyData>>({ kind: 'loading' });
   const zone = shownZone(savedZone, viewerZone());
   // A click on the backdrop closes it; Esc and Close are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
-  useEffect(() => {
-    let stale = false;
-    fetchMyData(apiUrl)
-      .then((data) => {
-        if (stale) return;
-        setLoad(data === null ? { kind: 'error', message: 'You are signed out. Sign in again to see what we keep.' } : { kind: 'ready', data });
-      })
-      .catch((e: unknown) => !stale && setLoad({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl]);
+  const load = useLoad('kept', () =>
+    fetchMyData(apiUrl).then((data) => {
+      if (data === null) throw new Error('You are signed out. Sign in again to see what we keep.');
+      return data;
+    }),
+  );
 
   const names = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
   const groups = load.kind === 'ready' ? keptGroups(load.data, zone, (code) => names?.of(code) ?? code) : [];
