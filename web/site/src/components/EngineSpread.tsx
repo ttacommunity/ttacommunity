@@ -2,7 +2,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js';
 import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
-import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
+import { onFormat, parseAnalysisParams } from '../lib/analysis';
+import { formatName } from '../lib/leaderboard-display';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
@@ -139,7 +140,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         <div>
           <h3>Rating Distribution Density Curves</h3>
           <div className="card-sub">
-            Player rating distribution across 100-point skill bins for active format (<strong>{FORMAT_NAMES[format]}</strong>)
+            Player rating distribution across 100-point skill bins for active format (<strong>{formatName(format)}</strong>)
           </div>
         </div>
         <div className="density-means">
