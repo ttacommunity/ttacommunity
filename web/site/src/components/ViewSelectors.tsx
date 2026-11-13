@@ -5,13 +5,7 @@ import Segmented from '@ttac/shared/Segmented';
 import * as show from '../lib/leaderboard-display';
 import { FORMATS, type ResetMode, type Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
-
-const TRACKS: { value: Track; name: string; desc: string }[] = [
-  { value: 'community', name: 'Standard', desc: 'Classical asynchronous community tournaments' },
-  { value: 'superblitz', name: 'SuperBlitz', desc: 'Exclusive SuperBlitz tournament ratings' },
-  { value: 'community_superblitz', name: 'Standard + SB', desc: 'Standard tournaments with SuperBlitz included' },
-  { value: 'pulse', name: 'Pulse', desc: 'TTA Pulse real-time blitz queue ratings' },
-];
+import { TRACKS } from '@ttac/shared/tracks';
 
 /**
  * ViewSelectors links each reset mode and format to the address linkReset or linkFormat gives.
