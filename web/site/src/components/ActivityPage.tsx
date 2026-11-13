@@ -1,13 +1,13 @@
 /** Upstream's activity and demographics page: players, games per format, titles and the leading countries. */
-import { useEffect, useMemo, useState } from 'react';
-import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
+import { useMemo, useState } from 'react';
+import { activity, currentRun } from '@ttac/shared/ratings';
 import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
 import { Flag } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import { useLoad } from './useLoad';
 
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
@@ -24,15 +24,9 @@ const avg = (x: number | null) => (x === null ? '-' : x.toFixed(1));
 
 /** ActivityPage loads the current run's activity and shows it as upstream's page does. */
 export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<{ activity: Activity; years: [number, number] | null }>>({ kind: 'loading' });
+  const load = useLoad('activity', () => currentRun(apiUrl).then((r) => activity(apiUrl, r.run_id).then((a) => ({ activity: a, years: runYears(r.first_game, r.last_game) }))));
   const [sort, setSort] = useState<{ col: CountryColumn; asc: boolean } | null>(null);
   const [directions, setDirections] = useState<Partial<Record<CountryColumn, boolean>>>({});
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => activity(apiUrl, r.run_id).then((a) => setLoad({ kind: 'ready', data: { activity: a, years: runYears(r.first_game, r.last_game) } })))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
 
   const ranked = useMemo(() => (load.kind === 'ready' ? load.data.activity.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
   const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
