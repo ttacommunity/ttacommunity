@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errorText, failed, settled } from './load';
+import { errorText, failed, settled, shownLoad } from './load';
 import { RatingsApiError } from './ratings';
 
 describe('errorText', () => {
@@ -32,5 +32,19 @@ describe('settled', () => {
     ['anything else', 'timed out', 'timed out'],
   ])('gives a failure with %s as an error with its message', async (_, reason, message) => {
     expect(await settled(Promise.reject(reason))).toEqual({ kind: 'error', message });
+  });
+});
+
+describe('shownLoad', () => {
+  const ready = { kind: 'ready' as const, data: 1 };
+  const loading = { kind: 'loading' as const };
+  const failed = { kind: 'error' as const, message: 'down' };
+  it.each([
+    ['the last data while loading again', ready, loading, ready],
+    ['loading the first time', null, loading, loading],
+    ['new data once it is here', ready, { kind: 'ready' as const, data: 2 }, { kind: 'ready', data: 2 }],
+    ['a failure, not old data', ready, failed, failed],
+  ])('shows %s', (_name, last, next, want) => {
+    expect(shownLoad(last, next)).toEqual(want);
   });
 });
