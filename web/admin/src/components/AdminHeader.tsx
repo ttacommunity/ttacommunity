@@ -2,19 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import homeButton from '@ttac/shared/styles/img/home-button.webp';
 import { groupsFor, siteUrlFor, type TABS, type TabKey } from '../lib/admin-tabs';
-
-/** Count shows a number of waiting items beside a label, and says what it is to a screen reader. */
-function Count({ n }: { n: number }) {
-  if (n === 0) return null;
-  return (
-    <>
-      <span className="count-badge" aria-hidden="true">
-        {n}
-      </span>
-      <span className="visually-hidden">, {n} waiting</span>
-    </>
-  );
-}
+import Count from './Count';
 
 /** AdminHeader shows tabs in groupsFor's menus (current marked, counts beside them) linking to admin's home; a menu with one tab is a plain link. */
 export default function AdminHeader({
@@ -128,7 +116,7 @@ export default function AdminHeader({
                         onClick={close}
                       >
                         {t.label}
-                        <Count n={counts[t.key] ?? 0} />
+                        <Count n={counts[t.key] ?? 0} what="waiting" />
                       </a>
                     </li>
                   );
@@ -144,7 +132,7 @@ export default function AdminHeader({
                     >
                       {g.label}
                       {isHere && <span className="visually-hidden">(current section)</span>}
-                      <Count n={g.count} />
+                      <Count n={g.count} what="waiting" />
                       <svg className="caret" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
                         <path d="M6 9l6 6 6-6"></path>
                       </svg>
@@ -160,7 +148,7 @@ export default function AdminHeader({
                           >
                             <span className="page-label">
                               {t.label}
-                              <Count n={counts[t.key] ?? 0} />
+                              <Count n={counts[t.key] ?? 0} what="waiting" />
                             </span>
                           </a>
                         </li>

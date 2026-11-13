@@ -7,6 +7,7 @@ import { editionHref } from '@ttac/shared/blitz';
 import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { LoadNotice } from './Notice';
+import Count from './Count';
 
 export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
@@ -68,12 +69,7 @@ function EditionsTable({ editions }: { editions: AdminBlitzEditionRow[] }) {
                 <a href={editionHref(r.tournament, r.edition)}>
                   {r.name} {r.edition}
                 </a>
-                {r.flagged > 0 && (
-                  <span className="count-badge">
-                    {r.flagged}
-                    <span className="visually-hidden"> flagged</span>
-                  </span>
-                )}
+                <Count n={r.flagged} what="flagged" />
               </th>
               <td>{r.edition}</td>
               <td>{formatLabel(r.format)}</td>
