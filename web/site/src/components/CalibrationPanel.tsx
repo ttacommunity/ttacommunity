@@ -6,7 +6,6 @@ import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale,
 import { calibration, currentRun, type Calibration, type Format } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import {
-  FORMAT_NAMES,
   MODELS,
   MODE_NAMES,
   activeModels,
@@ -24,18 +23,15 @@ import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { toggledSet } from '@ttac/shared/toggle';
+import { formatName } from '../lib/leaderboard-display';
+import { FORMATS } from '../lib/leaderboard-view';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
 const ALL_ENGINES: Family[] = ['glicko2_daneo', 'glicko2_std'];
 const ALL_RESETS: Reset[] = ['continuous', 'softer'];
 const BIN_LABELS = ['50-55%', '55-60%', '60-65%', '65-70%', '70-75%', '75-80%', '80-85%', '85-90%', '90-95%', '95-100%'];
-const FORMATS: { value: Format; label: string }[] = [
-  { value: 0, label: 'All Formats' },
-  { value: 2, label: '2-Player' },
-  { value: 3, label: '3-Player' },
-  { value: 4, label: '4-Player' },
-];
+const FORMAT_OPTIONS: { value: Format; label: string }[] = FORMATS.map((f) => ({ value: f, label: formatName(f) }));
 const FAMILY_BUTTONS: { family: Family; label: string; className: string }[] = [
   { family: 'glicko2_daneo', label: '👑 GlickoD', className: 'family-daneo' },
   { family: 'glicko2_std', label: 'G2 Std', className: 'family-std' },
@@ -193,7 +189,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
             </div>
             <div className="card-badges">
               <span className="mode-badge">{MODE_NAMES[mode]}</span>
-              <span className="format-badge">{FORMAT_NAMES[format]}</span>
+              <span className="format-badge">{formatName(format)}</span>
             </div>
           </div>
           <div className="hero-chart-container">
@@ -289,7 +285,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           <div role="group" aria-label="Player Format">
             <div className="opt-section-title">🎮 Player Format</div>
             <div className="opt-btn-grid">
-              {FORMATS.map((f) => (
+              {FORMAT_OPTIONS.map((f) => (
                 <Toggle key={f.value} active={format === f.value} onClick={() => setFormat(f.value)}>
                   {f.label}
                 </Toggle>

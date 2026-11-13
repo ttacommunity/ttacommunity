@@ -11,6 +11,8 @@ import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from './CopyCode';
 import { errorText, type Load } from '@ttac/shared/load';
+import { formatName } from '../lib/leaderboard-display';
+import { FORMATS } from '../lib/leaderboard-view';
 
 const TRACKS: { value: Track; label: string }[] = [
   { value: 'community', label: 'Standard' },
@@ -18,12 +20,7 @@ const TRACKS: { value: Track; label: string }[] = [
   { value: 'community_superblitz', label: 'Standard + SB' },
 ];
 
-const FORMATS: { value: Format; label: string }[] = [
-  { value: 0, label: 'All Formats' },
-  { value: 2, label: '2-Player' },
-  { value: 3, label: '3-Player' },
-  { value: 4, label: '4-Player' },
-];
+const FORMAT_OPTIONS: { value: Format; label: string }[] = FORMATS.map((f) => ({ value: f, label: formatName(f) }));
 
 /** VersusDialog shows name's shared games with other, opening at format; onClose runs when it closes, focus back on opener. */
 export default function VersusDialog({
@@ -93,7 +90,7 @@ export default function VersusDialog({
       </div>
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
-        <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
+        <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
         <Segmented label="Rating track" look="raised" groupClass="format-bar h2h-formats" options={TRACKS} value={track} onChange={setTrack} />
         <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
       </div>

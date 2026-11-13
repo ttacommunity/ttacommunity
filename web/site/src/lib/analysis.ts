@@ -116,7 +116,6 @@ export function eceClass(pct: number): 'good' | 'fair' | 'poor' {
   return pct < 1.5 ? 'good' : pct < 2.5 ? 'fair' : 'poor';
 }
 
-export const FORMAT_NAMES: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 export const MODE_NAMES: Record<EvalMode, string> = { standard: 'Standard (Match-Time)', walk_forward: 'Walk-Forward (Out-of-Sample)' };
 
 /** parseAnalysisParams reads the address's eval_mode and format, falling back to the remembered format, as upstream's session. */
