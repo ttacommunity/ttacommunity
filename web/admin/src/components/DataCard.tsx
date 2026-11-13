@@ -4,9 +4,10 @@ import type { components } from '@ttac/shared/api';
 import { count, counted } from '@ttac/shared/numbers';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
-import { refusalOf, type Outcome } from '../lib/outcome';
 import { sizeText } from '../lib/runs-view';
-import Notice, { LoadNotice } from './Notice';
+import { LoadNotice } from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 type DataSummary = components['schemas']['DataSummary'];
 
@@ -15,24 +16,17 @@ type DataSummary = components['schemas']['DataSummary'];
 export default function DataCard() {
   const [d, setD] = useState<DataSummary | null>(null);
   const [message, setMessage] = useState('');
-  const [download, setDownload] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const takeExport = async () => {
-    setDownload('Preparing the download…');
-    setRefusal(null);
-    const r = await adminDownload('/api/export');
-    setRefusal(refusalOf(r));
-    if (!r.ok) {
-      setDownload('');
-      return;
-    }
+    const done = 'Downloaded. The load job restores it: load restore <folder> (unzipped).';
+    const r = await saving.run(() => adminDownload('/api/export'), { done, working: 'Preparing the download…' });
+    if (!r?.ok) return;
     const url = URL.createObjectURL(r.data);
     const a = document.createElement('a');
     a.href = url;
     a.download = exportFileName(new Date());
     a.click();
     URL.revokeObjectURL(url);
-    setDownload('Downloaded. The load job restores it: load restore <folder> (unzipped).');
   };
   useEffect(() => {
     void adminRequest<DataSummary>('/api/data', {}).then((r) => (r.ok ? setD(r.data) : setMessage(r.message)));
@@ -81,15 +75,11 @@ export default function DataCard() {
               </dd>
             </div>
           </dl>
-          <div className="note-actions">
+          <SaveBar save={saving}>
             <button type="button" className="btn-antique" onClick={() => void takeExport()}>
               Download all data (.zip)
             </button>
-            <span className="note-status" role="status">
-              {download}
-            </span>
-          </div>
-          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+          </SaveBar>
           {d.unplaced > 0 && (
             <p className="row-error" role="alert">
               {counted(d.unplaced, 'game is', 'games are')} in no tournament. A rating run will not start
