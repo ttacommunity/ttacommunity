@@ -161,8 +161,3 @@
 .btn-google img {
   flex: none;
 }
-.account-contact {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid var(--accent-gold);
-}
