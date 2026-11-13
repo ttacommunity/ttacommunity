@@ -21,6 +21,8 @@ import {
   hiddenNote,
   titleOptions,
   viewParams,
+  withRanking,
+  defaultMinOpps,
   yearDeltas,
   yearRows,
   parseSearch,
@@ -43,6 +45,7 @@ describe('defaults', () => {
   it('are upstream defaults', () => {
     expect(PER_PAGE).toBe(50);
     expect(DEFAULT_VIEW).toEqual({
+      ranking: 'community',
       engine: 'glicko2_daneo', reset: 'continuous', format: 0, status: 'active', title: null,
       minOpps: 30, delta: 'none', search: '', sort: 'rank', order: 'asc', page: 1, year: null, stats: 'season',
     });
@@ -56,6 +59,7 @@ describe('parseView and viewParams', () => {
       {},
     );
     expect(got).toEqual({
+      ranking: 'community',
       engine: 'glicko2_std', reset: 'softer', format: 3, status: 'all', title: 'GM',
       minOpps: 5, delta: 'month', search: 'ann', sort: 'opps', order: 'desc', page: 4, year: null, stats: 'season',
     });
@@ -497,5 +501,30 @@ describe('hiddenMatches and hiddenNote', () => {
     expect(hiddenMatches(rows, view(), 'grebe')).toBeNull();
     expect(hiddenMatches(rows, view(), 'nobody')).toBeNull();
     expect(hiddenMatches(rows, view(), '')).toBeNull();
+  });
+});
+
+describe('ranking tracks', () => {
+  it('defaults to community and parses/writes ranking param', () => {
+    expect(DEFAULT_VIEW.ranking).toBe('community');
+    const sb = parseView(new URLSearchParams('ranking=superblitz'), {});
+    expect(sb.ranking).toBe('superblitz');
+    expect(sb.minOpps).toBe(0);
+    expect(viewParams(sb).get('ranking')).toBe('superblitz');
+    expect(viewParams(sb).has('min_opps')).toBe(false);
+  });
+
+  it('sets minOpps to 0 for superblitz/pulse and restores 30 when returning to community or combined', () => {
+    expect(defaultMinOpps(null, 'superblitz')).toBe(0);
+    expect(defaultMinOpps(null, 'pulse')).toBe(0);
+    expect(defaultMinOpps(null, 'community')).toBe(30);
+    expect(defaultMinOpps(null, 'community_superblitz')).toBe(30);
+
+    const sb = withRanking(DEFAULT_VIEW, 'superblitz');
+    expect(sb).toMatchObject({ ranking: 'superblitz', minOpps: 0, page: 1 });
+    const back = withRanking(sb, 'community');
+    expect(back).toMatchObject({ ranking: 'community', minOpps: 30, page: 1 });
+    const combined = withRanking(sb, 'community_superblitz');
+    expect(combined).toMatchObject({ ranking: 'community_superblitz', minOpps: 30, page: 1 });
   });
 });

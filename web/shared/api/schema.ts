@@ -6334,7 +6334,10 @@ export interface operations {
     };
     getCurrentRun: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The ranking track to read (community, superblitz, pulse, community_superblitz). Defaults to community. */
+                ranking?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

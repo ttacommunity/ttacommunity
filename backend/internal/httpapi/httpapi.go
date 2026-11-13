@@ -301,8 +301,12 @@ func (s *server) GetReadyz(ctx context.Context, _ GetReadyzRequestObject) (GetRe
 }
 
 // GetCurrentRun returns the published run the site shows now.
-func (s *server) GetCurrentRun(ctx context.Context, _ GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error) {
-	run, err := s.ratings.CurrentRun(ctx)
+func (s *server) GetCurrentRun(ctx context.Context, req GetCurrentRunRequestObject) (GetCurrentRunResponseObject, error) {
+	ranking := "community"
+	if req.Params.Ranking != nil && *req.Params.Ranking != "" {
+		ranking = *req.Params.Ranking
+	}
+	run, err := s.ratings.CurrentRun(ctx, ranking)
 	if errors.Is(err, store.ErrNoPublishedRun) {
 		return GetCurrentRun503JSONResponse{NoPublishedRunJSONResponse{
 			Body:    Error{Error: err.Error()},

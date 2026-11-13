@@ -3,10 +3,16 @@ import type { ReactNode } from 'react';
 import type { Format } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import * as show from '../lib/leaderboard-display';
-import type { ResetMode } from '../lib/leaderboard-view';
+import type { ResetMode, Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
 
 const FORMATS: Format[] = [0, 2, 3, 4];
+const TRACKS: { value: Track; name: string; desc: string }[] = [
+  { value: 'community', name: 'Standard', desc: 'Classical asynchronous community tournaments' },
+  { value: 'superblitz', name: 'SuperBlitz', desc: 'Exclusive SuperBlitz tournament ratings' },
+  { value: 'community_superblitz', name: 'Standard + SB', desc: 'Standard tournaments with SuperBlitz included' },
+  { value: 'pulse', name: 'Pulse', desc: 'TTA Pulse real-time blitz queue ratings' },
+];
 const RESET_MODES: { value: ResetMode; name: string; desc: string }[] = [
   {
     value: 'continuous',
@@ -23,14 +29,18 @@ const RESET_MODES: { value: ResetMode; name: string; desc: string }[] = [
 export default function ViewSelectors({
   reset,
   format,
+  ranking,
   linkReset,
   linkFormat,
+  linkRanking,
   children,
 }: {
   reset: ResetMode;
   format: Format;
+  ranking?: Track;
   linkReset: (reset: ResetMode) => Link;
   linkFormat: (format: Format) => Link;
+  linkRanking?: (ranking: Track) => Link;
   children?: ReactNode;
 }) {
   return (
@@ -55,6 +65,19 @@ export default function ViewSelectors({
           link={linkReset}
         />
       </div>
+      {ranking !== undefined && linkRanking !== undefined && (
+        <div className="view-bar view-bar-row">
+          <Segmented
+            label="Rating track"
+            look="raised"
+            groupClass="view-group"
+            prefix={<span className="view-bar-label">Track:</span>}
+            options={TRACKS.map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }))}
+            value={ranking}
+            link={linkRanking}
+          />
+        </div>
+      )}
       {children}
     </div>
   );

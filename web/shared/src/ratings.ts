@@ -151,15 +151,22 @@ export function errorFields(body: unknown): ErrorFields {
 // One answer per page for every caller, as browsers do not all merge identical requests from their cache.
 const currentRuns = new WeakMap<typeof fetch, Map<string, Promise<Run>>>();
 
-/** Returns the run the site shows now, asking the API once per page for every caller; a failure is asked again. */
-export function currentRun(base: string, fetchFn: typeof fetch = fetch): Promise<Run> {
+/** Returns the run the site shows now for a ranking track, asking the API once per page for every caller; a failure is asked again. */
+export function currentRun(base: string, ranking?: string, fetchFn?: typeof fetch): Promise<Run>;
+export function currentRun(base: string, fetchFn?: typeof fetch): Promise<Run>;
+export function currentRun(base: string, rankingOrFetch?: string | typeof fetch, fetchFnParam: typeof fetch = fetch): Promise<Run> {
+  const ranking = typeof rankingOrFetch === 'string' ? rankingOrFetch : undefined;
+  const fetchFn = typeof rankingOrFetch === 'function' ? rankingOrFetch : fetchFnParam;
   const byBase = currentRuns.get(fetchFn) ?? new Map<string, Promise<Run>>();
   currentRuns.set(fetchFn, byBase);
-  let run = byBase.get(base);
+  const track = ranking && ranking !== 'community' ? ranking : '';
+  const cacheKey = track ? `${base}|${track}` : base;
+  const path = track ? `/v1/runs/current?ranking=${encodeURIComponent(track)}` : '/v1/runs/current';
+  let run = byBase.get(cacheKey);
   if (run === undefined) {
-    run = get<Run>(fetchFn, base, '/v1/runs/current');
-    byBase.set(base, run);
-    run.catch(() => byBase.delete(base));
+    run = get<Run>(fetchFn, base, path);
+    byBase.set(cacheKey, run);
+    run.catch(() => byBase.delete(cacheKey));
   }
   return run;
 }

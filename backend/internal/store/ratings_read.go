@@ -137,14 +137,18 @@ func (r *RatingsReader) CheckReadOnly(ctx context.Context) error {
 	return nil
 }
 
-// CurrentRun returns the run the site shows now, the community ranking's,
+// CurrentRun returns the run the site shows now, for the given ranking (defaulting to community),
 // with what the engine recorded about it, or ErrNoPublishedRun.
-func (r *RatingsReader) CurrentRun(ctx context.Context) (PublishedRun, error) {
+func (r *RatingsReader) CurrentRun(ctx context.Context, ranking ...string) (PublishedRun, error) {
+	rank := "community"
+	if len(ranking) > 0 && ranking[0] != "" {
+		rank = ranking[0]
+	}
 	var run PublishedRun
 	err := r.pool.QueryRow(ctx, `
 		SELECT c.run_id, r.published_at, r.engine_version, r.finished_at, r.games, r.players, r.first_game, r.last_game
 		FROM current_run c JOIN rating_runs r USING (run_id)
-		WHERE c.ranking_id = community_ranking()`).Scan(&run.ID, &run.PublishedAt, &run.EngineVersion, &run.FinishedAt,
+		WHERE c.ranking_id = (SELECT ranking_id FROM rankings WHERE slug = $1)`, rank).Scan(&run.ID, &run.PublishedAt, &run.EngineVersion, &run.FinishedAt,
 		&run.Games, &run.Players, &run.FirstGame, &run.LastGame)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PublishedRun{}, ErrNoPublishedRun

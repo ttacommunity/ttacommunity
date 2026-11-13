@@ -68,6 +68,14 @@ paths:
       tags: [ratings]
       summary: The run the site shows now
       description: Cached for a minute, so a newly published run shows within one.
+      parameters:
+        - name: ranking
+          in: query
+          required: false
+          description: The ranking track to read (community, superblitz, pulse, community_superblitz). Defaults to community.
+          schema:
+            type: string
+            default: community
       responses:
         "200":
           description: The current run

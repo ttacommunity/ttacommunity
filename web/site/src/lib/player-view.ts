@@ -1,7 +1,7 @@
 /** Upstream's player page in the browser: its address, options, chart series and rivals table. */
 import { signed } from '@ttac/shared/numbers';
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
-import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode } from './leaderboard-view';
+import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode, type Track } from './leaderboard-view';
 
 /** Below this many games in a format an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
@@ -12,6 +12,7 @@ export const RIVALS_SHOWN = 30;
 /** What the reader has chosen on a player's page, as upstream's query parameters carry it. */
 export interface PlayerView {
   name: string;
+  ranking?: Track;
   engine: Engine;
   reset: ResetMode;
   format: Format;
@@ -19,8 +20,10 @@ export interface PlayerView {
 }
 
 /** playerHref returns the address of a player's page. */
-export function playerHref(name: string): string {
-  return `/ratings/player/?${new URLSearchParams({ name })}`;
+export function playerHref(name: string, ranking?: Track): string {
+  const p = new URLSearchParams({ name });
+  if (ranking && ranking !== 'community') p.set('ranking', ranking);
+  return `/ratings/player/?${p}`;
 }
 
 /** searchHref returns where the header's search leads: a rated name typed in full (any case) to its page, anything else to the leaderboard's search. */
@@ -42,10 +45,11 @@ export function hasPlayerPage(name: string): boolean {
 
 /** parsePlayerView reads the page's choices from its address, then remembered choices, then the defaults. */
 export function parsePlayerView(params: URLSearchParams, remembered: Remembered): PlayerView {
-  const { engine, reset, format } = parseView(params, remembered);
+  const { ranking, engine, reset, format } = parseView(params, remembered);
   const page = params.get('match_page') ?? '';
   return {
     name: params.get('name') ?? '',
+    ranking,
     engine,
     reset,
     format,
@@ -56,6 +60,7 @@ export function parsePlayerView(params: URLSearchParams, remembered: Remembered)
 /** playerParams writes the page's choices as upstream's links do, always naming the options. */
 export function playerParams(view: PlayerView): URLSearchParams {
   const p = new URLSearchParams({ name: view.name, model: view.engine, format: String(view.format), reset_mode: view.reset });
+  if (view.ranking && view.ranking !== 'community') p.set('ranking', view.ranking);
   if (view.matchPage > 1) p.set('match_page', String(view.matchPage));
   return p;
 }

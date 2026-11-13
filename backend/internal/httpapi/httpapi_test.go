@@ -38,11 +38,12 @@ type fakeRatings struct {
 	histAt  time.Time
 	histErr error
 
-	calls     int
-	gotRun    int64
-	gotMod    string
-	gotFmt    int
-	gotWindow string
+	calls      int
+	gotRun     int64
+	gotMod     string
+	gotFmt     int
+	gotWindow  string
+	gotRanking string
 }
 
 func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, window string) (time.Time, []store.HistoryRow, error) {
@@ -60,8 +61,11 @@ func (f *fakeRatings) RunLastGame(context.Context, int64) (*time.Time, error) {
 	return f.lastGame, nil
 }
 
-func (f *fakeRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
+func (f *fakeRatings) CurrentRun(_ context.Context, ranking ...string) (store.PublishedRun, error) {
 	f.calls++
+	if len(ranking) > 0 {
+		f.gotRanking = ranking[0]
+	}
 	return f.run, f.runErr
 }
 
@@ -453,10 +457,26 @@ func TestCurrentRun(t *testing.T) {
 			wantCache: "no-store",
 			wantBody:  `{"error":"internal error"}`,
 		},
+		{
+			name: "ranking parameter passed",
+			ratings: &fakeRatings{run: store.PublishedRun{ID: 10, PublishedAt: at, FirstGame: &first, LastGame: &last,
+				Games: &games, Players: &players, EngineVersion: "abc1234", FinishedAt: &finished}},
+			wantCode:  http.StatusOK,
+			wantCache: "public, max-age=60",
+			wantBody: `{"engine_version":"abc1234","finished_at":"2026-09-27T03:59:00Z","first_game":"2017-03-04","games":135393,` +
+				`"last_game":"2026-08-31","players":3526,"published_at":"2026-09-27T04:00:00Z","run_id":10}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec, _ := serve(t, tt.ratings, "/v1/runs/current")
+			path := "/v1/runs/current"
+			if tt.name == "ranking parameter passed" {
+				path = "/v1/runs/current?ranking=superblitz"
+			}
+			rec, _ := serve(t, tt.ratings, path)
+			if tt.name == "ranking parameter passed" && tt.ratings.gotRanking != "superblitz" {
+				t.Errorf("gotRanking = %q, want superblitz", tt.ratings.gotRanking)
+			}
 
 			if rec.Code != tt.wantCode {
 				t.Errorf("code = %d, want %d", rec.Code, tt.wantCode)
@@ -693,7 +713,7 @@ type deadlineRatings struct {
 	hasDeadline bool
 }
 
-func (d *deadlineRatings) CurrentRun(ctx context.Context) (store.PublishedRun, error) {
+func (d *deadlineRatings) CurrentRun(ctx context.Context, _ ...string) (store.PublishedRun, error) {
 	_, d.hasDeadline = ctx.Deadline()
 	return store.PublishedRun{}, errors.New("no run")
 }
@@ -709,7 +729,7 @@ func TestTheAPIGivesEachRequestADeadline(t *testing.T) {
 
 type panickingRatings struct{ fakeRatings }
 
-func (*panickingRatings) CurrentRun(context.Context) (store.PublishedRun, error) {
+func (*panickingRatings) CurrentRun(context.Context, ...string) (store.PublishedRun, error) {
 	panic("kaboom")
 }
 
