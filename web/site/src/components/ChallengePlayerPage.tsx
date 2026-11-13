@@ -8,6 +8,7 @@ import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, mea
 import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
 import Message from './Message';
+import { counted, plural } from '@ttac/shared/numbers';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -84,7 +85,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
       </div>
       {counting === 'as-if' && (
         <p className="rating-card challenges-what-if">
-          <strong>What if:</strong> all {p.unproven} unproven {p.unproven === 1 ? 'entry' : 'entries'} of {p.player} count as verified, measured against the
+          <strong>What if:</strong> all {p.unproven} unproven {plural(p.unproven, 'entry', 'entries')} of {p.player} count as verified, measured against the
           official records (which stay as they are), so a best above the record rates over 100%. Post the screenshots in Discord and add the links to make it
           official.
         </p>
@@ -256,7 +257,7 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
             )}
             {unplayed > 0 && (
               <p className="muted">
-                Plus {unplayed} {unplayed === 1 ? 'challenge' : 'challenges'} not played yet, each counting as 0%.
+                Plus {counted(unplayed, 'challenge')} not played yet, each counting as 0%.
               </p>
             )}
           </div>

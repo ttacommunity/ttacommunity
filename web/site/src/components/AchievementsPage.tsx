@@ -45,6 +45,7 @@ import { playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { counted } from '@ttac/shared/numbers';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -374,7 +375,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           </td>
                           <td className="ach-seasons-cell">
                             <span className="seasons-count-badge">
-                              {t.seasonsCount} {t.seasonsCount === 1 ? 'season' : 'seasons'}
+                              {counted(t.seasonsCount, 'season')}
                             </span>
                           </td>
                           <td>
@@ -447,7 +448,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                   </div>
                   <div className="ach-drilldown-summary">
                     <span className="seasons-count-badge">
-                      {selectedOverview.seasonsCount} {selectedOverview.seasonsCount === 1 ? 'edition' : 'editions'}
+                      {counted(selectedOverview.seasonsCount, 'edition')}
                     </span>
                     <span className="record-stat">
                       {selectedOverview.totalMatches} matches: {selectedOverview.wins}W - {selectedOverview.losses}L

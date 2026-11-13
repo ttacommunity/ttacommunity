@@ -31,6 +31,7 @@ import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
+import { plural } from '@ttac/shared/numbers';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -713,7 +714,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
     if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }, opener))) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
+    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
   };
   const save = async (e: FormEvent) => {
@@ -732,7 +733,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true }, opener);
     if (!sure) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
+    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
     await onReload();
   };
   return (
@@ -1309,7 +1310,7 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
       <Notice outcome={shownAt(outcome, 'format')} onClose={() => say(null)} />
       {!locked && (
         <p className="muted round-hint">
-          Up to {advice.limit} Swiss {advice.limit === 1 ? 'round' : 'rounds'} can always be paired without anyone meeting twice.
+          Up to {advice.limit} Swiss {plural(advice.limit, 'round')} can always be paired without anyone meeting twice.
         </p>
       )}
       {!locked && <FormatWarnings warnings={advice.warnings} />}

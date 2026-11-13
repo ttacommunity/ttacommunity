@@ -2,6 +2,7 @@
 import type { components } from '../api/schema';
 import { isSlug } from './ratings';
 import type { SortColumns } from './sort';
+import { counted } from './numbers';
 
 /** editionParams returns the tournament slug (?t=) and edition label (?e=) the address names, or null for none. */
 export function editionParams(search: URLSearchParams): { slug: string; edition: string } | null {
@@ -109,7 +110,7 @@ export function roundSummary(matches: readonly { b: unknown; result: unknown }[]
   const played = games.filter((m) => m.result !== null).length;
   const done = played === games.length ? 'all played' : played === 0 ? 'none played' : `${played} played`;
   const bye = games.length < matches.length ? ', and a bye' : '';
-  return `${games.length} ${games.length === 1 ? 'game' : 'games'}, ${done}${bye}`;
+  return `${counted(games.length, 'game')}, ${done}${bye}`;
 }
 
 /** roundShown says whether a round's matches show: the newest round's unless its button hid them, an earlier one's only once its button showed them. toggled holds the round numbers whose button was pressed. */
