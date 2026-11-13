@@ -9,6 +9,8 @@ import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/chall
 import { LoadNotice } from './Notice';
 import './ChallengesPanel.css';
 import { counted } from '@ttac/shared/numbers';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -214,14 +216,13 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
 function MergeNames({ onMerged }: { onMerged: () => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [said, setSaid] = useState<string | null>(null);
+  const saving = useSave();
   const merge = async () => {
-    const r = await adminRequest<Merged>('/api/challenges/names', { method: 'POST', json: { from, to } });
-    if (!r.ok) {
-      setSaid(r.message);
-      return;
-    }
-    setSaid(`Moved ${counted(r.data.moved, 'entry', 'entries')} to the member ${to.trim()}.`);
+    const r = await saving.run(() => adminRequest<Merged>('/api/challenges/names', { method: 'POST', json: { from, to } }), {
+      done: (d) => `Moved ${counted(d.moved, 'entry', 'entries')} to the member ${to.trim()}.`,
+      working: 'Merging…',
+    });
+    if (!r?.ok) return;
     setFrom('');
     setTo('');
     onMerged();
@@ -233,19 +234,14 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
         Moves every entry and weekly placing under the first name to the member whose TTA username is the second: for a misspelt name, or a name the import
         gave a member of its own. The first name&apos;s member stays, empty, for Members to remove.
       </p>
-      <span className="note-actions">
+      <SaveBar save={saving}>
         <input className="input-antique" aria-label="From name" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} />
         <span aria-hidden="true">→</span>
         <input className="input-antique" aria-label="To member" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
         <button type="button" className="btn-antique" disabled={from.trim() === '' || to.trim() === ''} onClick={() => void merge()}>
           Merge
         </button>
-      </span>
-      {said !== null && (
-        <p className="note-status" role="status">
-          {said}
-        </p>
-      )}
+      </SaveBar>
     </div>
   );
 }

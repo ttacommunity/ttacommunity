@@ -2,25 +2,21 @@
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { fieldId, penaltySavable, penaltyValue } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import { SaveStatus } from './SaveBar';
+import { useSave } from './useSave';
 
 /** PenaltyBox edits the points a numbered season's standings take off for each game a player times out of. */
 export default function PenaltyBox({ slug, season, initial }: { slug: string; season: string; initial: number }) {
   const [text, setText] = useState(String(initial));
   const [saved, setSaved] = useState(initial);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const id = fieldId('penalty', slug, season);
   const value = penaltyValue(text);
   const save = async () => {
     if (value === null) return;
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setPenalty(slug, season, value));
-    setStatus(r.ok ? 'Saved' : '');
-    setRefusal(refusalOf(r));
-    if (r.ok) setSaved(value);
+    const r = await saving.run(() => req.send(req.setPenalty(slug, season, value)), { done: 'Saved' });
+    if (r?.ok) setSaved(value);
   };
   return (
     <div className="setting">
@@ -31,10 +27,14 @@ export default function PenaltyBox({ slug, season, initial }: { slug: string; se
       <button type="button" className="btn-antique" onClick={save} disabled={!penaltySavable(value, saved)}>
         Save
       </button>{' '}
-      <span className="note-status" role="status">
-        {value === null ? 'A number, 0 or below' : status}
-      </span>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      {value === null ? (
+        <span className="note-status" role="status">
+          A number, 0 or below
+        </span>
+      ) : (
+        <SaveStatus save={saving} />
+      )}
+      <Notice outcome={saving.refusal} onClose={saving.close} />
     </div>
   );
 }

@@ -3,15 +3,14 @@ import { isRemoval, shownSource, textChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { fieldId } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 /** OrganiserBox edits who organised a season; cge is its CGE tournament's organiser, shown while none is set. */
 export default function OrganiserBox({ slug, season, initial, cge }: { slug: string; season: string; initial: string; cge: string }) {
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const id = fieldId('organiser', slug, season);
   const hint = {
     ours: cge === '' ? 'Set here. Empty it to show none.' : `Set here. Empty it to show CGE's, ${cge}, again.`,
@@ -19,16 +18,8 @@ export default function OrganiserBox({ slug, season, initial, cge }: { slug: str
     none: 'None shown on the site.',
   }[shownSource(saved, cge)];
   const save = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setOrganiser(slug, season, text));
-    setRefusal(refusalOf(r));
-    if (r.ok) {
-      setSaved(text.trim());
-      setStatus(isRemoval(text) ? 'Removed' : 'Saved');
-    } else {
-      setStatus('');
-    }
+    const r = await saving.run(() => req.send(req.setOrganiser(slug, season, text)), { done: isRemoval(text) ? 'Removed' : 'Saved' });
+    if (r?.ok) setSaved(text.trim());
   };
   return (
     <div className="note-box">
@@ -36,15 +27,11 @@ export default function OrganiserBox({ slug, season, initial, cge }: { slug: str
         Organiser <span className="muted">· {hint}</span>
       </label>
       <input className="input-antique" id={id} value={text} maxLength={100} placeholder={cge} onChange={(e) => setText(e.target.value)} />
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={save} disabled={!textChanged(saved, text)}>
           Save organiser
         </button>
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      </SaveBar>
     </div>
   );
 }

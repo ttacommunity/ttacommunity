@@ -3,26 +3,21 @@ import { addedStory, canAddStory, editedStory, movedStory, removedStory, stories
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 type Story = AdminTournament['stories'][number];
 
 /** StoriesSettings edits the tournament's stories, as DANeo's pages tell them, and saves them all at once in this order. */
 export default function StoriesSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [list, setList] = useState<Story[]>(t.stories);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const changed = storiesChanged(t.stories, list);
   const set = (i: number, field: keyof Story, value: string) => setList(editedStory(list, i, field, value));
   const move = (i: number, by: number) => setList(movedStory(list, i, by));
   const save = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setStories(t.slug, list));
-    setStatus(r.ok ? 'Saved. The tournament page shows them at once.' : '');
-    setRefusal(refusalOf(r));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.setStories(t.slug, list)), { done: 'Saved. The tournament page shows them at once.' });
+    if (r?.ok) await onReload();
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="stories-heading">
@@ -79,18 +74,14 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
           </div>
         </fieldset>
       ))}
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={() => setList(addedStory(list))} disabled={!canAddStory(list)}>
           Add a story
         </button>
         <button type="button" className="btn-antique" onClick={() => void save()} disabled={!changed}>
           Save stories
         </button>
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      </SaveBar>
     </section>
   );
 }

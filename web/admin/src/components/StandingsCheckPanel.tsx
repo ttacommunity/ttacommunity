@@ -2,24 +2,19 @@
 import { useState } from 'react';
 import { count } from '@ttac/shared/numbers';
 import { adminRequest } from '../lib/admin-api';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
 import { toggledSet } from '@ttac/shared/toggle';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {
   const [check, setCheck] = useState<StandingsCheck | null>(null);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const [shown, setShown] = useState<ReadonlySet<Kind>>(DEFAULT_KINDS);
   const run = async () => {
-    setStatus('Checking every stage…');
-    setRefusal(null);
-    const r = await adminRequest<StandingsCheck>('/api/standings-check', {});
-    setStatus('');
-    setRefusal(refusalOf(r));
-    if (r.ok) setCheck(r.data);
+    const r = await saving.run(() => adminRequest<StandingsCheck>('/api/standings-check', {}), { done: '', working: 'Checking every stage…' });
+    if (r?.ok) setCheck(r.data);
   };
   const toggle = (kind: Kind) => setShown(toggledSet(shown, kind));
   const summary = check === null ? null : checkSummary(check);
@@ -34,15 +29,11 @@ export default function StandingsCheckPanel() {
         Each player's games and places in every CGE stage we hold, against CGE's own standings table for it. Loaded with the
         load job (<code>-facts cge_standings</code>).
       </p>
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={() => void run()}>
           {check === null ? 'Run the check' : 'Run it again'}
         </button>
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      </SaveBar>
       {summary !== null && (
         <>
           <p>
