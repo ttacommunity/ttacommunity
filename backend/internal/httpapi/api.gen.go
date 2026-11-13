@@ -1700,13 +1700,10 @@ type AdminNostradamusGame struct {
 	MarkedFinished bool                          `json:"marked_finished"`
 	Name           string                        `json:"name"`
 	Participants   []AdminNostradamusParticipant `json:"participants"`
-
-	// Players The accepted participants, people before bots
-	Players []NostradamusPlayer `json:"players"`
-	Rounds  []NostradamusRound  `json:"rounds"`
-	Scored  []string            `json:"scored"`
-	Series  string              `json:"series"`
-	Slug    string              `json:"slug"`
+	Rounds         []NostradamusRound            `json:"rounds"`
+	Scored         []string                      `json:"scored"`
+	Series         string                        `json:"series"`
+	Slug           string                        `json:"slug"`
 
 	// Standings Over every round with an outcome, closed or not
 	Standings  []NostradamusStanding `json:"standings"`
@@ -4212,12 +4209,9 @@ type NostradamusGame struct {
 	Finished bool `json:"finished"`
 
 	// MarkedFinished An organiser marked it finished
-	MarkedFinished bool   `json:"marked_finished"`
-	Name           string `json:"name"`
-
-	// Players The accepted participants, people before bots
-	Players []NostradamusPlayer `json:"players"`
-	Rounds  []NostradamusRound  `json:"rounds"`
+	MarkedFinished bool               `json:"marked_finished"`
+	Name           string             `json:"name"`
+	Rounds         []NostradamusRound `json:"rounds"`
 
 	// Scored The labels of the rounds in the standings, in order
 	Scored []string `json:"scored"`
@@ -4240,17 +4234,6 @@ type NostradamusGiven struct {
 
 	// Tokens The tokens staked on it, each winning or losing the round's token points
 	Tokens int `json:"tokens"`
-}
-
-// NostradamusPlayer defines model for NostradamusPlayer.
-type NostradamusPlayer struct {
-	Bot bool `json:"bot"`
-
-	// Member The TTA username of the member it is linked to
-	Member *string `json:"member"`
-
-	// Name The name the participant plays under
-	Name string `json:"name"`
 }
 
 // NostradamusQuestion defines model for NostradamusQuestion.

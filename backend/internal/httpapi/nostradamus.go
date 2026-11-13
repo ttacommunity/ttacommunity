@@ -61,15 +61,6 @@ func nostradamusRounds(rounds []store.NostradamusRound) []NostradamusRound {
 	return out
 }
 
-// nostradamusPlayers are accepted players as the API sends them.
-func nostradamusPlayers(players []store.NostradamusPlayer) []NostradamusPlayer {
-	out := make([]NostradamusPlayer, len(players))
-	for i, p := range players {
-		out[i] = NostradamusPlayer{Name: p.Name, Member: nullableText(p.Member), Bot: p.Bot}
-	}
-	return out
-}
-
 // nostradamusStandings are standings as the API sends them.
 func nostradamusStandings(standings []store.NostradamusStanding) []NostradamusStanding {
 	out := make([]NostradamusStanding, len(standings))
@@ -100,7 +91,7 @@ func (s *server) GetNostradamusGame(ctx context.Context, req GetNostradamusGameR
 		return nil, err
 	}
 	body := NostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Finished: g.Finished, MarkedFinished: g.MarkedFinished,
-		TournamentFinished: g.TournamentFinished, Players: nostradamusPlayers(g.Players), Rounds: nostradamusRounds(g.Rounds),
+		TournamentFinished: g.TournamentFinished, Rounds: nostradamusRounds(g.Rounds),
 		Scored: append([]string{}, g.Scored...), Standings: nostradamusStandings(g.Standings)}
 	return GetNostradamusGame200JSONResponse{Body: body, Headers: GetNostradamusGame200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }

@@ -91,7 +91,7 @@ func (s *server) GetAdminNostradamusGame(ctx context.Context, req GetAdminNostra
 		return nil, err
 	}
 	body := AdminNostradamusGame{Slug: g.Slug, Name: g.Name, Series: g.Series, Tournament: g.Tournament, Finished: g.Finished, MarkedFinished: g.MarkedFinished,
-		TournamentFinished: g.TournamentFinished, Players: nostradamusPlayers(g.Players), Rounds: nostradamusRounds(g.Rounds),
+		TournamentFinished: g.TournamentFinished, Rounds: nostradamusRounds(g.Rounds),
 		Scored: append([]string{}, g.Scored...), Standings: nostradamusStandings(g.Standings), Participants: make([]AdminNostradamusParticipant, len(g.Participants))}
 	for i, p := range g.Participants {
 		body.Participants[i] = AdminNostradamusParticipant{Id: p.ID, Name: p.Name, Member: nullableText(p.Member), DiscordName: p.DiscordName, Bot: p.Bot,

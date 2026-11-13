@@ -6835,8 +6835,6 @@ export interface components {
             marked_finished: boolean;
             /** @description Every CGE tournament of its season has finished, which finishes it too */
             tournament_finished: boolean;
-            /** @description The accepted participants, people before bots */
-            players: components["schemas"]["NostradamusPlayer"][];
             slug: string;
             name: string;
             series: string;
@@ -6846,13 +6844,6 @@ export interface components {
             scored: string[];
             /** @description Highest total first */
             standings: components["schemas"]["NostradamusStanding"][];
-        };
-        NostradamusPlayer: {
-            /** @description The name the participant plays under */
-            name: string;
-            /** @description The TTA username of the member it is linked to */
-            member: string | null;
-            bot: boolean;
         };
         AdminNostradamusFinished: {
             finished: boolean;
@@ -6964,8 +6955,6 @@ export interface components {
             marked_finished: boolean;
             /** @description Every CGE tournament of its season has finished, which finishes it too */
             tournament_finished: boolean;
-            /** @description The accepted participants, people before bots */
-            players: components["schemas"]["NostradamusPlayer"][];
             slug: string;
             name: string;
             series: string;

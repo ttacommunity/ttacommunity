@@ -1,11 +1,11 @@
-/** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings, its rounds one at a time, and its players. */
+/** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings and its rounds one at a time. */
 import { useState } from 'react';
 import BackLink from '@ttac/shared/BackLink';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { nostradamusEditions, nostradamusGame, type NostradamusGame, type NostradamusQuestion, type NostradamusRound } from '@ttac/shared/ratings';
-import { browserStorage, seemsSignedIn } from '../lib/account';
+import { accountHref, browserStorage, seemsSignedIn } from '../lib/account';
 import { askToPlay, fetchMyNostradamus, sendAnswers, type MyPlace } from '../lib/nostradamus-me';
 import {
   answeredOf,
@@ -37,7 +37,7 @@ import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Blitz.css';
 
-const VIEWS = ['standings', 'rounds', 'players'] as const;
+const VIEWS = ['standings', 'rounds'] as const;
 const RULES =
   "The community's prediction game for the World Championship. Each round, players predict the results before the deadline and may stake tokens on the answers they are surest of: each token on a right answer wins its points, on a wrong one loses them. A round missed scores the lowest of the bots.";
 
@@ -106,7 +106,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-/** GamePage is one game: its header, the player's place, and tabs for its standings, its rounds (one shown at a time, the open or latest first) and its players. */
+/** GamePage is one game: its header, the player's place, and tabs for its standings and its rounds (one shown at a time, the open or latest first). */
 function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
   const [asked, setAsked] = useState(0);
   const [hash, setHash] = useHash();
@@ -142,7 +142,6 @@ function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
   const panels = {
     standings: { label: 'Standings', panel: <Standings game={g} /> },
     rounds: { label: 'Rounds', panel: <RoundsPanel apiUrl={apiUrl} game={g} place={mine} shown={shown} onPick={setRound} onSaved={reload} /> },
-    players: { label: 'Players', panel: <PlayersPanel game={g} /> },
   };
   return (
     <>
@@ -157,7 +156,7 @@ function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
         <div className="tournaments-subtitle">{RULES}</div>
       </div>
       <JoinBox apiUrl={apiUrl} game={g} place={mine} onChange={reload} onOpen={openRound} />
-      <section className="rating-card blitz-card" aria-label="Standings, rounds and players">
+      <section className="rating-card blitz-card" aria-label="Standings and rounds">
         <SubTabs label="Show" tabs={VIEWS.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(VIEWS, hash)} onChoose={setHash} />
       </section>
     </>
@@ -187,13 +186,13 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
         Your play
       </h2>
       {state === 'sign-in' && (
-        <p>
-          <a href="/account/">Sign in</a> to ask to play.
+        <p className="blitz-sign-in" role="note">
+          <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to ask to play.
         </p>
       )}
       {state === 'link' && (
-        <p>
-          Link your account to your TTA username on <a href="/account/">your account page</a>, then ask to play here.
+        <p className="blitz-sign-in" role="note">
+          Link your account to your TTA username on <a href={accountHref(window.location.pathname, window.location.search)}>your account page</a>, then ask to play here.
         </p>
       )}
       {state === 'ask' && (
@@ -249,35 +248,6 @@ function RoundsPanel({ apiUrl, game, place, shown, onPick, onSaved }: { apiUrl: 
       </div>
       {answering ? <AnswerForm key={round.id} apiUrl={apiUrl} edition={game.slug} round={round} place={place} onSaved={onSaved} /> : <RoundView round={round} place={place} />}
     </>
-  );
-}
-
-/** PlayersPanel lists the game's accepted players, people before bots. */
-function PlayersPanel({ game }: { game: NostradamusGame }) {
-  if (game.players.length === 0) return <p className="muted">Nobody is playing yet.</p>;
-  return (
-    <div className="blitz-table-wrap">
-      <table className="blitz-table">
-        <caption className="visually-hidden">{game.name}: its players</caption>
-        <thead>
-          <tr>
-            <th scope="col">Player</th>
-            <th scope="col">TTA username</th>
-          </tr>
-        </thead>
-        <tbody>
-          {game.players.map((p) => (
-            <tr key={p.name}>
-              <th scope="row">
-                {p.name}
-                {p.bot && <span className="muted"> (bot)</span>}
-              </th>
-              <td>{p.member ?? ''}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

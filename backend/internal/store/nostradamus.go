@@ -108,21 +108,13 @@ type NostradamusParticipant struct {
 	RequestedAt               *time.Time
 }
 
-// NostradamusPlayer is an accepted participant as the site lists it: the name it plays under, the member it is
-// linked to (empty for none), and whether it is a bot.
-type NostradamusPlayer struct {
-	Name, Member string
-	Bot          bool
-}
-
-// NostradamusGame is a game with its rounds, in order, its standings and its accepted players. Scored are the labels
+// NostradamusGame is a game with its rounds, in order, and its standings. Scored are the labels
 // of the rounds in the standings. Participants, whatever their status, are given to admin only.
 type NostradamusGame struct {
 	NostradamusEdition
 	Rounds       []NostradamusRound
 	Scored       []string
 	Standings    []NostradamusStanding
-	Players      []NostradamusPlayer
 	Participants []NostradamusParticipant
 }
 
@@ -181,9 +173,6 @@ func nostradamusGame(ctx context.Context, db conn, slug string, public bool, now
 		return NostradamusGame{}, err
 	}
 	if g.Scored, g.Standings, err = nostradamusStandings(ctx, db, edition, public); err != nil {
-		return NostradamusGame{}, err
-	}
-	if g.Players, err = acceptedPlayers(ctx, db, edition); err != nil {
 		return NostradamusGame{}, err
 	}
 	if !public {
@@ -294,26 +283,6 @@ func nostradamusStandings(ctx context.Context, db conn, edition int64, public bo
 		return nil, nil, fmt.Errorf("reading Nostradamus standings: %w", err)
 	}
 	return scored, standings, nil
-}
-
-// acceptedPlayers reads the edition's accepted participants, people before bots, then by name.
-func acceptedPlayers(ctx context.Context, db conn, edition int64) ([]NostradamusPlayer, error) {
-	rows, err := db.Query(ctx, `
-		SELECT p.name, coalesce(m.tta_name, ''), p.bot
-		FROM nostradamus_participants p LEFT JOIN members m ON m.member_id = p.member_id
-		WHERE p.edition_id = $1 AND p.status = 'accepted'
-		ORDER BY p.bot, lower(coalesce(m.tta_name, p.name))`, edition)
-	if err != nil {
-		return nil, fmt.Errorf("reading Nostradamus players: %w", err)
-	}
-	players, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (NostradamusPlayer, error) {
-		var p NostradamusPlayer
-		return p, row.Scan(&p.Name, &p.Member, &p.Bot)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("reading Nostradamus players: %w", err)
-	}
-	return players, nil
 }
 
 // nostradamusParticipants reads every participant of the edition, requests first, then by name.

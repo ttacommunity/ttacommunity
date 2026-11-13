@@ -905,31 +905,3 @@ func TestNostradamusGamesFinishByTheirMarkOrTheirTournament(t *testing.T) {
 		t.Errorf("finishing no game = %v, want ErrNoNostradamus", err)
 	}
 }
-
-func TestNostradamusGameListsItsAcceptedPlayers(t *testing.T) {
-	g := newGame(t)
-	ctx := context.Background()
-	for _, e := range []NostradamusEntrant{{Entrant: BlitzEntrant{Name: "Bea", Zone: "UTC"}}, {Entrant: BlitzEntrant{Name: "Seed"}, BotRule: "seed"}, {Entrant: BlitzEntrant{Name: "Cy", Zone: "UTC"}}} {
-		if _, err := g.admin.AddNostradamusParticipant(ctx, "wc-2031", e); err != nil {
-			t.Fatal(err)
-		}
-	}
-	admin, err := g.admin.NostradamusGame(ctx, "wc-2031", time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range admin.Participants {
-		if p.Name == "Cy" {
-			if err := g.admin.SetNostradamusStatus(ctx, "wc-2031", p.ID, "refused"); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	var got []string
-	for _, p := range g.siteGame(t).Players {
-		got = append(got, fmt.Sprintf("%s %q %t", p.Name, p.Member, p.Bot))
-	}
-	if want := []string{`Bea "Bea" false`, `Seed "" true`}; !slices.Equal(got, want) {
-		t.Errorf("the site's players = %q, want the accepted ones, people first: %q", got, want)
-	}
-}

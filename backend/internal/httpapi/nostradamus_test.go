@@ -31,8 +31,7 @@ func nostradamusGame() store.NostradamusGame {
 			{ID: 2, Label: "S2", Name: "Stage 2", Zone: "UTC", TokensMax: &three, TokenPoints: 10, ClosesAt: &closes, PublishedAt: &closes,
 				Questions: []store.NostradamusQuestion{{ID: 6, Label: "Top", Kind: "set", Points: 6, Picks: 2}}},
 		},
-		Scored:  []string{"S1"},
-		Players: []store.NostradamusPlayer{{Name: "Bea", Member: "Beatrix"}, {Name: "Seed", Bot: true}},
+		Scored: []string{"S1"},
 		Standings: []store.NostradamusStanding{
 			{Name: "Bea", Member: "Beatrix", Total: 14, Rounds: []store.NostradamusRoundScore{{Label: "S1", Points: 14}}},
 			{Name: "Seed", Bot: true, Rounds: []store.NostradamusRoundScore{{Label: "S1", Missed: true}}},
@@ -64,7 +63,6 @@ func TestNostradamusEditionsAndGame(t *testing.T) {
 		{"label": "S1", "tokens_min": null, "tokens_max": 3, "zone": "Europe/Berlin", "closes_at": "2031-04-01T12:00:00Z", "published": true, "closed": true, "questions": [
 			{"id": 5, "kind": "pick", "picks": 1, "choices": [{"label": "Ann"}, {"label": "Cy"}], "outcome": ["Ann"], "counts": [{"value": "Ann", "answers": 3}]}]},
 		{"label": "S2", "closed": false, "questions": [{"kind": "set", "picks": 2, "choices": [], "outcome": null, "counts": []}]}]`)
-	wantJSON(t, rec.Body.Bytes(), "players", `[{"name": "Bea", "member": "Beatrix", "bot": false}, {"name": "Seed", "member": null, "bot": true}]`)
 	wantJSON(t, rec.Body.Bytes(), "standings", `[{"name": "Bea", "member": "Beatrix", "total": 14, "rounds": [{"round": "S1", "points": 14}]},
 		{"name": "Seed", "member": null, "bot": true, "rounds": [{"round": "S1", "points": 0, "missed": true}]}]`)
 	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=60" {

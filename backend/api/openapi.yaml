@@ -11126,7 +11126,7 @@ components:
           type: string
     NostradamusGame:
       type: object
-      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings]
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, rounds, scored, standings]
       properties:
         finished:
           description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
@@ -11137,11 +11137,6 @@ components:
         tournament_finished:
           description: Every CGE tournament of its season has finished, which finishes it too
           type: boolean
-        players:
-          description: The accepted participants, people before bots
-          type: array
-          items:
-            $ref: "#/components/schemas/NostradamusPlayer"
         slug:
           type: string
         name:
@@ -11164,19 +11159,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NostradamusStanding"
-    NostradamusPlayer:
-      type: object
-      required: [name, member, bot]
-      properties:
-        name:
-          description: The name the participant plays under
-          type: string
-        member:
-          description: The TTA username of the member it is linked to
-          type: string
-          nullable: true
-        bot:
-          type: boolean
     AdminNostradamusFinished:
       type: object
       additionalProperties: false
@@ -11383,7 +11365,7 @@ components:
           format: int64
     AdminNostradamusGame:
       type: object
-      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, players, rounds, scored, standings, participants]
+      required: [slug, name, series, tournament, finished, marked_finished, tournament_finished, rounds, scored, standings, participants]
       properties:
         finished:
           description: Past, as the site lists it - marked finished by an organiser, or its tournament finished
@@ -11394,11 +11376,6 @@ components:
         tournament_finished:
           description: Every CGE tournament of its season has finished, which finishes it too
           type: boolean
-        players:
-          description: The accepted participants, people before bots
-          type: array
-          items:
-            $ref: "#/components/schemas/NostradamusPlayer"
         slug:
           type: string
         name:
