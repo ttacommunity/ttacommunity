@@ -19,7 +19,7 @@ import {
   type Reset,
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';

@@ -6,7 +6,7 @@ import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
 import { useCopy } from '@ttac/shared/copy';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { toggledSet } from '@ttac/shared/toggle';
 import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';

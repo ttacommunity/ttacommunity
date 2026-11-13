@@ -171,15 +171,6 @@ export function withoutSignInParam(path: string, search: string): string {
 
 const SIGNED_IN = 'ttac.signedIn';
 
-/** browserStorage is the browser's local storage, or null where touching it throws (blocked site data). */
-export function browserStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 /** rememberSignedIn marks this browser as one that has signed in, or not, so pages ask the api who it is only then; a refusing store, or none, is ignored. */
 export function rememberSignedIn(store: Storage | null, on: boolean): void {
   if (store === null) return;

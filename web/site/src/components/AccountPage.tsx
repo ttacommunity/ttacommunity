@@ -6,45 +6,8 @@ import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
 import { viewerZone } from '@ttac/shared/time';
-import {
-  accountState,
-  addWayInHref,
-  addEmail,
-  askToBeLinked,
-  backLabel,
-  backPath,
-  banNotice,
-  browserStorage,
-  changeMyDetails,
-  countryOptions,
-  deleteAccount,
-  deleteQuestion,
-  draftChanges,
-  fetchCountries,
-  fetchMe,
-  isFirstSignIn,
-  needsContact,
-  rememberSignedIn,
-  removeWayIn,
-  saveOutcome,
-  sharedMe,
-  signedInAs,
-  signInHref,
-  signInNotice,
-  SIGNERS,
-  signOut,
-  suggestedCountry,
-  waysIn,
-  withoutSignInParam,
-  zoneOptions,
-  type AccountState,
-  type Country,
-  type Done,
-  type Draft,
-  type Me,
-  type SaveOutcome,
-  type Signer,
-} from '../lib/account';
+import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPath, banNotice, changeMyDetails, countryOptions, deleteAccount, deleteQuestion, draftChanges, fetchCountries, fetchMe, isFirstSignIn, needsContact, rememberSignedIn, removeWayIn, saveOutcome, sharedMe, signedInAs, signInHref, signInNotice, SIGNERS, signOut, suggestedCountry, waysIn, withoutSignInParam, zoneOptions, type AccountState, type Country, type Done, type Draft, type Me, type SaveOutcome, type Signer } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import KeptData from './KeptData';

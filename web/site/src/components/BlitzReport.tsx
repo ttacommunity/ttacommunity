@@ -4,7 +4,8 @@ import { useDialog } from '@ttac/shared/Dialog';
 import { turnMark, turnOrder } from '@ttac/shared/blitz';
 import { chooseTurn, gameRecordFrom, TURNS, type GameForm } from '@ttac/shared/game-form';
 import { todayIn } from '@ttac/shared/time';
-import { browserStorage, seemsSignedIn, sharedMe } from '../lib/account';
+import { seemsSignedIn, sharedMe } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { confirmReport, fetchMyBlitz, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitz, type MyBlitzMatch } from '../lib/blitz-report';
 
 const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [

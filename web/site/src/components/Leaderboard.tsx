@@ -54,7 +54,7 @@ import {
   type View,
 } from '../lib/leaderboard-view';
 import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
@@ -92,11 +92,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
     remember(browserStorage(), readView());
-    try {
-      if (!narrow()) setOptionsOpen(window.localStorage.getItem(OPTIONS_OPEN) === 'true');
-    } catch {
-      // Without storage the drawer starts closed.
-    }
+    if (!narrow()) setOptionsOpen(browserStorage()?.getItem(OPTIONS_OPEN) === 'true');
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
@@ -132,7 +128,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   const toggleOptions = (open: boolean) => {
     setOptionsOpen(open);
     try {
-      window.localStorage.setItem(OPTIONS_OPEN, String(open));
+      browserStorage()?.setItem(OPTIONS_OPEN, String(open));
     } catch {
       // The drawer simply starts closed next time.
     }

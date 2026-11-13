@@ -1,6 +1,7 @@
 /** The page an emailed sign-in link opens: the player presses to finish, so a mail scanner opening the link spends nothing, then goes back where they were. */
 import { useState } from 'react';
-import { browserStorage, rememberSignedIn } from '../lib/account';
+import { rememberSignedIn } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { emailFinishTarget, finishEmailLink, tokenFromHash } from '../lib/email-sign-in';
 import './Account.css';
 
