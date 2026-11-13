@@ -1,6 +1,7 @@
 /** The nav's account link: Sign in, or who is signed in, leading to the account page with the way back to this one, and for admins and organisers a link to admin. It asks the api only in a browser that has signed in. */
 import { useEffect, useState } from 'react';
-import { accountHref, browserStorage, navLabel, rememberSignedIn, seemsSignedIn, sharedMe, showsAdminLink, withoutSignInParam } from '../lib/account';
+import { accountHref, navLabel, rememberSignedIn, seemsSignedIn, sharedMe, showsAdminLink, withoutSignInParam } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 
 /** NavAccount marks a sign-in that just finished, then names whoever is signed in. */
 export default function NavAccount({ apiUrl, adminUrl, current }: { apiUrl: string; adminUrl: string; current: boolean }) {

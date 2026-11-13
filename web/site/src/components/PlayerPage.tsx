@@ -47,7 +47,7 @@ import {
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
