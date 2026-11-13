@@ -61,7 +61,7 @@ import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
-import { counted, score } from '@ttac/shared/numbers';
+import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 
 function readView(): PlayerView {
@@ -728,7 +728,7 @@ function PositionSeatStats({
                             <span
                               key={p.place}
                               className={`place-rate-pill place-pill-${p.place}`}
-                              title={`${p.place}${p.place === 1 ? 'st' : p.place === 2 ? 'nd' : p.place === 3 ? 'rd' : 'th'} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
+                              title={`${ordinal(p.place)} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
                             >
                               <span className="pill-place">{p.place}:</span> {p.count}{' '}
                               <span className="pill-pct">({p.rate.toFixed(0)}%)</span>
