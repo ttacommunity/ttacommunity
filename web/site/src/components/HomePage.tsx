@@ -23,6 +23,7 @@ import FeedOptionsModal from './FeedOptionsModal';
 import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
 import CopyCode from './CopyCode';
+import Message from './Message';
 
 interface HomeData {
   run: Run;
@@ -137,7 +138,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         </div>
 
         {data === null ? (
-          <div className="home-waiting-message">{waiting ?? 'Loading the latest highlights…'}</div>
+          <Message form="inline">{waiting ?? 'Loading the latest highlights…'}</Message>
         ) : (
           <div className="home-feed-grid">
             {/* ── Left Column: Recent Matches (Top Contenders & Premier Divisions) ── */}
