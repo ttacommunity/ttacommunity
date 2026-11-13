@@ -28,6 +28,7 @@ import Waiting from './Waiting';
 import { waitingText } from '../lib/waiting';
 import { errorText, failed, type Found } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import Message from './Message';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -38,9 +39,9 @@ export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
 
 function Missing() {
   return (
-    <div className="rating-card waiting-message">
+    <Message>
       No tournament with games has that name. <a href={catalogueHref()}>See every tournament</a>.
-    </div>
+    </Message>
   );
 }
 

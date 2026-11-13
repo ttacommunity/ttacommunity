@@ -22,6 +22,7 @@ import {
 import ScrollTable from './ScrollTable';
 import { waitingText } from '../lib/waiting';
 import { errorText, type Load } from '@ttac/shared/load';
+import Message from './Message';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
@@ -209,11 +210,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             </thead>
             <tbody>
               {data === null ? (
-                <tr>
-                  <td colSpan={8} className="waiting-row">
-                    {waiting}
-                  </td>
-                </tr>
+                <Message form="row" colSpan={8}>
+                  {waiting}
+                </Message>
               ) : (
                 data.legends.map((l, i) => {
                   const mark = legendMark(l);
@@ -270,11 +269,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.grand_slams.map((g, i) => (
                     <tr key={g.name}>
@@ -326,11 +323,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.ladders.map((l, i) => (
                     <tr key={l.name}>

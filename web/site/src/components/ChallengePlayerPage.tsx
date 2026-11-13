@@ -7,6 +7,7 @@ import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
 import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKeptLoad } from './ChallengeParts';
 import Waiting from './Waiting';
+import Message from './Message';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -40,7 +41,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
     setAsIf(c === 'as-if');
   };
 
-  if (name === '') return <div className="rating-card waiting-message">Choose a player from the players list.</div>;
+  if (name === '') return <Message>Choose a player from the players list.</Message>;
   if (load.kind !== 'ready') return <Waiting load={load} what="this player" />;
   if (load.data === null) {
     return (
@@ -89,12 +90,12 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
         </p>
       )}
       {p.summary === null ? (
-        <div className="rating-card waiting-message">
+        <Message>
           {p.player} has no verified entries yet.{' '}
           <button type="button" className="btn-antique" onClick={() => choose('all')}>
             Show all entries
           </button>
-        </div>
+        </Message>
       ) : (
         <Results player={p} summary={p.summary} list={list} set={set} measure={measure} />
       )}
