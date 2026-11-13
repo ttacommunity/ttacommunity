@@ -137,12 +137,12 @@
 }
 
 .delta-pos {
-  background: rgba(102, 187, 106, 0.12);
+  background: color-mix(in srgb, var(--win) 12%, transparent);
   color: var(--win);
 }
 
 .delta-neg {
-  background: rgba(239, 83, 80, 0.12);
+  background: color-mix(in srgb, var(--loss) 12%, transparent);
   color: var(--loss);
 }
 

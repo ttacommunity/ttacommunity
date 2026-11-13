@@ -63,7 +63,7 @@
 }
 
 .seat-cell-delta.delta-pos {
-  color: var(--accent-green, #4ade80);
+  color: var(--win);
 }
 
 .seat-cell-delta.delta-neg {

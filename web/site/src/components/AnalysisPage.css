@@ -214,7 +214,7 @@
 }
 
 .options-live {
-  color: #81c784;
+  color: var(--win);
 }
 
 /* The four-metric ranked table. */
@@ -301,7 +301,7 @@
   font-weight: 600;
 }
 
-.ece-good { color: #81c784; }
+.ece-good { color: var(--win); }
 .ece-fair { color: var(--accent-gold-soft); }
 .ece-poor { color: var(--loss); }
 .brier-cell { color: var(--accent-gold-bright); }
@@ -317,7 +317,7 @@
   font-size: 0.75rem;
 }
 
-.soll-up { color: #81c784; }
+.soll-up { color: var(--win); }
 .soll-down { color: #ffb74d; }
 
 .score-badge {
@@ -424,7 +424,7 @@
   text-transform: uppercase;
 }
 
-.corr-strong { color: #81c784; }
+.corr-strong { color: var(--win); }
 .corr-weak { color: var(--accent-gold-soft); }
 
 .corr-pair-row {

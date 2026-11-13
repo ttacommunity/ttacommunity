@@ -490,7 +490,7 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-wins {
-  color: #4ade80;
+  color: var(--win);
   font-weight: 800;
   text-align: right;
 }
