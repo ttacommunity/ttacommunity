@@ -26,3 +26,10 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 export function counted(n: number, one: string, many = `${one}s`, locale?: string): string {
   return `${count(n, locale)} ${plural(n, one, many)}`;
 }
+
+/** ordinal writes a place in English: "1st", "2nd", "3rd", "4th", "11th", "21st". */
+export function ordinal(n: number): string {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  const suffix = teen ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  return `${n}${suffix}`;
+}
