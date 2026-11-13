@@ -16,3 +16,13 @@ export function signed(value: number, decimals: number): string {
   if (Number(size) === 0) return size;
   return value > 0 ? `+${size}` : `-${size}`;
 }
+
+/** plural returns one for exactly 1, else many (one with an s by default). */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return n === 1 ? one : many;
+}
+
+/** counted writes n, as count does, then its word: "1 entry", "3 entries". */
+export function counted(n: number, one: string, many = `${one}s`, locale?: string): string {
+  return `${count(n, locale)} ${plural(n, one, many)}`;
+}

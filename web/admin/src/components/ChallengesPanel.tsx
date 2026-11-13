@@ -8,6 +8,7 @@ import { adminRequest } from '../lib/admin-api';
 import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice } from './Notice';
 import './ChallengesPanel.css';
+import { counted } from '@ttac/shared/numbers';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -220,7 +221,7 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
       setSaid(r.message);
       return;
     }
-    setSaid(`Moved ${r.data.moved} ${r.data.moved === 1 ? 'entry' : 'entries'} to the member ${to.trim()}.`);
+    setSaid(`Moved ${counted(r.data.moved, 'entry', 'entries')} to the member ${to.trim()}.`);
     setFrom('');
     setTo('');
     onMerged();

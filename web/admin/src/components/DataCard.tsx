@@ -1,7 +1,7 @@
 /** The loaded data at a glance: games, players, and when they were last loaded. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
-import { count } from '@ttac/shared/numbers';
+import { count, counted } from '@ttac/shared/numbers';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
 import { refusalOf, type Outcome } from '../lib/outcome';
@@ -92,7 +92,7 @@ export default function DataCard() {
           <Notice outcome={refusal} onClose={() => setRefusal(null)} />
           {d.unplaced > 0 && (
             <p className="row-error" role="alert">
-              {count(d.unplaced)} {d.unplaced === 1 ? 'game is' : 'games are'} in no tournament. A rating run will not start
+              {counted(d.unplaced, 'game is', 'games are')} in no tournament. A rating run will not start
               until every game is placed.
             </p>
           )}

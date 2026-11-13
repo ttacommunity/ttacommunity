@@ -14,6 +14,7 @@ import Notice from './Notice';
 import PenaltyBox from './PenaltyBox';
 import PodiumBox from './PodiumBox';
 import StagesTable from './StagesTable';
+import { counted } from '@ttac/shared/numbers';
 
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
@@ -87,7 +88,7 @@ export default function SeasonsCard({
             </h3>
             <p className="season-summary">
               <span className="muted">
-                {sum.stages} {sum.stages === 1 ? 'stage' : 'stages'} · {sum.players} players · {sum.games} games
+                {counted(sum.stages, 'stage')} · {sum.players} players · {sum.games} games
               </span>{' '}
               {sum.stages > 0 && (
                 <button type="button" className="btn-antique btn-settings" aria-expanded={shown.includes(se.label)} onClick={() => toggle(se.label)}>
