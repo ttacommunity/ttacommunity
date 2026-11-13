@@ -5,11 +5,12 @@ import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { toggled } from '@ttac/shared/toggle';
 import { candidatesFor, groupChange, membersOf } from '../lib/tournament-groups';
 import { opensSettings, settingsHref } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
 import MoveButton from './MoveButton';
 import Notice from './Notice';
 import { GROUP_KINDS } from './NewGroupForm';
 import TournamentTable from './TournamentTable';
+import SaveBar, { SaveStatus } from './SaveBar';
+import { useSave } from './useSave';
 
 type Kind = AdminTournamentRow['kind'];
 
@@ -19,20 +20,11 @@ function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly
   const [name, setName] = useState(g.name);
   const [kind, setKind] = useState<Kind>(g.kind);
   const [description, setDescription] = useState(g.description);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const change = groupChange(g, { name, kind, description });
   const save = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    if (change === null) return;
-    const r = await req.send(req.setTournament(g.slug, change));
-    setRefusal(refusalOf(r));
-    if (!r.ok) {
-      setStatus('');
-      return;
-    }
-    await onReload();
+    const r = await saving.run(change === null ? null : () => req.send(req.setTournament(g.slug, change)), { done: 'Saved' });
+    if (r?.ok) await onReload();
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="group-settings-heading">
@@ -61,15 +53,11 @@ function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly
             <label htmlFor="group-description">Description</label>
             <textarea className="input-antique" id="group-description" value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          <p>
+          <SaveBar save={saving}>
             <button type="button" className="btn-antique" onClick={save} disabled={change === null}>
               Save
-            </button>{' '}
-            <span className="note-status" role="status">
-              {status}
-            </span>
-          </p>
-          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+            </button>
+          </SaveBar>
           <p>
             <MoveButton t={g} all={all} onReload={onReload} />
           </p>
@@ -85,26 +73,17 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
   const [modifying, setModifying] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
   const [everyType, setEveryType] = useState(false);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const start = () => {
     setChosen(members.map((m) => m.slug));
-    setStatus('');
-    setRefusal(null);
+    saving.reset();
     setModifying(true);
   };
   const done = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setMembers(g.slug, chosen));
-    setRefusal(refusalOf(r));
-    if (!r.ok) {
-      setStatus('');
-      return;
-    }
+    const r = await saving.run(() => req.send(req.setMembers(g.slug, chosen)), { done: 'Saved' });
+    if (!r?.ok) return;
     await onReload();
     setModifying(false);
-    setStatus('Saved');
   };
   const toggle = (slug: string) => setChosen((c) => toggled(c, slug));
   return (
@@ -117,10 +96,7 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
           <p>
             <button type="button" className="btn-antique" onClick={start}>
               Modify
-            </button>{' '}
-            <span className="note-status" role="status">
-              {status}
-            </span>
+            </button> <SaveStatus save={saving} />
           </p>
           {members.length === 0 ? (
             <p className="muted">Nothing yet. Modify adds tournaments and groups.</p>
@@ -150,11 +126,9 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
             <label className="group-member">
               <input type="checkbox" checked={everyType} onChange={(e) => setEveryType(e.target.checked)} /> Show every type
             </label>{' '}
-            <span className="note-status" role="status">
-              {chosen.length} chosen{status !== '' && ` · ${status}`}
-            </span>
+            <SaveStatus save={saving} prefix={`${chosen.length} chosen`} />
           </p>
-          <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+          <Notice outcome={saving.refusal} onClose={saving.close} />
           <TournamentTable
             rows={candidatesFor(all, g.slug, everyType)}
             all={all}
