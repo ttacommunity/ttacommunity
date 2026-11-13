@@ -278,13 +278,6 @@
   letter-spacing: 0.5px;
 }
 
-.home-waiting-message {
-  padding: 2.5rem 1rem;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-}
-
 .home-feed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -1045,7 +1038,6 @@
     gap: 1.25rem;
   }
 }
-
 
 .home-replay {
   margin-left: auto;
