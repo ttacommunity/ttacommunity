@@ -1969,7 +1969,8 @@ paths:
       description: |
         For a signed-in player linked to a member entered in a shown edition:
         their match in the latest round once it is published, as it stands
-        now, with the opponent's flag if any. Null for anyone else, and
+        now, with the opponent's flag if any, and who reported each game of
+        the edition. Null and empty for anyone else; the match is null
         before the round is published. Never cached.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
@@ -6278,15 +6279,8 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled, reported_by, confirmed]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled]
       properties:
-        reported_by:
-          description: The player who reported the game, by username; null when an organiser entered it or no one has
-          type: string
-          nullable: true
-        confirmed:
-          description: Whether the opponent confirmed the reported game
-          type: boolean
         a_seed:
           description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
           type: integer
@@ -7073,12 +7067,31 @@ components:
       enum: [reported, confirmed, flagged, resolved]
     MyBlitz:
       type: object
-      required: [match]
+      required: [match, reports]
       properties:
         match:
           allOf:
             - $ref: "#/components/schemas/MyBlitzMatch"
           nullable: true
+        reports:
+          description: For a player entered in the edition, each game a player reported, in round order; empty for anyone else
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzMatchReport"
+    BlitzMatchReport:
+      description: Who reported a match's game, the match named by its round and side a
+      type: object
+      required: [round, a, reported_by, confirmed]
+      properties:
+        round:
+          type: integer
+        a:
+          type: string
+        reported_by:
+          type: string
+        confirmed:
+          description: Whether the opponent confirmed the report
+          type: boolean
     MyBlitzMatch:
       description: A signed-in player's match, sides as the match names them, and what they may do with it now
       type: object

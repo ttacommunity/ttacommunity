@@ -218,11 +218,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
-			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != "",
-				Confirmed: m.Report == "confirmed"}
-			if m.ReportedBy != nil {
-				pm.ReportedBy = new(named[*m.ReportedBy].Name)
-			}
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != ""}
 			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
 				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())
 			}

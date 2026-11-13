@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { confirmReport, fetchMyMatch, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, yourRow, type MyBlitzMatch } from './blitz-report';
+import { confirmReport, fetchMyBlitz, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, yourRow, type MyBlitzMatch } from './blitz-report';
 
 const match = (extra: Partial<MyBlitzMatch> = {}): MyBlitzMatch => ({
   id: 21,
@@ -71,11 +71,12 @@ describe('formFor', () => {
 
 describe('the requests', () => {
   const answering = (status: number, body: unknown = null) => vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));
-  it('reads the match with the session, null when signed out', async () => {
-    const ok = answering(200, { match: match() });
-    expect((await fetchMyMatch('https://api.example/', 'us_open', '2026', ok))?.id).toBe(21);
+  it('reads the match and the reports with the session, null when signed out', async () => {
+    const reports = [{ round: 1, a: 'Ann', reported_by: 'Ann', confirmed: false }];
+    const ok = answering(200, { match: match(), reports });
+    expect(await fetchMyBlitz('https://api.example/', 'us_open', '2026', ok)).toEqual({ match: match(), reports });
     expect(ok).toHaveBeenCalledWith('https://api.example/v1/me/blitz/us_open/2026', { credentials: 'include' });
-    expect(await fetchMyMatch('https://api.example', 'us_open', '2026', answering(401, { error: 'not signed in' }))).toBeNull();
+    expect(await fetchMyBlitz('https://api.example', 'us_open', '2026', answering(401, { error: 'not signed in' }))).toBeNull();
   });
   it.each([
     ['a report', (f: typeof fetch) => reportGame('https://api.example', 'us_open', '2026', 21, { share_code: 'REP-1', a: { culture: 50, outcome: 'finished', turn: 2 }, b: { culture: 40, outcome: 'finished', turn: 1 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }, f), 'PUT', '/game'],

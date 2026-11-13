@@ -8,6 +8,8 @@ import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzMatch = components['schemas']['BlitzPublicMatch'];
+type BlitzMatchReport = components['schemas']['BlitzMatchReport'];
+type MyBlitz = components['schemas']['MyBlitz'];
 
 /** ratingText shows a rating to the point, or a dash for a player without one. */
 export function ratingText(rating: number | null): string {
@@ -47,24 +49,29 @@ export const BLITZ_GAME_COLUMNS: SortColumns<KeptMatch, GamesColumn> = {
   code: { value: ({ m }) => (coded(m) ? (m.game?.share_code ?? null) : null), first: 'asc' },
 };
 
-/** blitzGames lists the matches of rounds, in the order given or by sort, as games-table rows narrowed by filter, with dates on the clocks of zone, the signed-in player's game marked: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
-export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string, you: YourRow | null = null, sort: Sort<GamesColumn> = null) {
+/** blitzGames lists the matches of rounds, in the order given or by sort, as games-table rows narrowed by filter, with dates on the clocks of zone, the signed-in player's game marked and who reported each game, from reports: one page of them, the page and pages, and how many games (byes aside) and how many with a replay code the filter keeps. */
+export function blitzGames(rounds: readonly BlitzRound[], format: BlitzFormat, filter: BlitzGamesFilter, zone: string, you: YourRow | null = null, sort: Sort<GamesColumn> = null, reports: readonly BlitzMatchReport[] = []) {
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
   const kept = rounds
     .filter((r) => filter.round === null || r.number === filter.round)
     .flatMap((r) => r.matches.map((m, i) => ({ r, m, i })))
     .filter(({ m }) => (filter.player === '' || m.a === filter.player || m.b === filter.player) && (!filter.coded || coded(m)));
   const rows = sortRows(kept, BLITZ_GAME_COLUMNS, sort).map(({ r, m, i }) => {
-    const row = blitzRow(r.number, i + 1, m, format, day);
+    const row = blitzRow(r.number, i + 1, m, format, day, reports.find((p) => p.round === r.number && p.a === m.a) ?? null);
     return you !== null && r.number === you.round && m.a === you.sideA ? { ...row, you: you.label } : row;
   });
   return { ...pageOf(rows, filter.page), games: kept.filter(({ m }) => m.b !== null).length, coded: kept.filter(({ m }) => coded(m)).length };
 }
 
-/** reportTag says who reported a match's game, and whether the opponent confirmed it; '' for an organiser's entry. */
-function reportTag(m: BlitzMatch): string {
-  if (m.reported_by === null) return '';
-  return m.confirmed ? `Reported by ${m.reported_by}, confirmed` : `Reported by ${m.reported_by}`;
+/** reportTag says who reported a match's game, and whether the opponent confirmed it; '' for an organiser's entry or a viewer not told. */
+function reportTag(report: BlitzMatchReport | null): string {
+  if (report === null) return '';
+  return report.confirmed ? `Reported by ${report.reported_by}, confirmed` : `Reported by ${report.reported_by}`;
+}
+
+/** asksToSignIn says whether the pairings ask a visitor to sign in to report: once the page knows nobody is signed in (seen null; undefined while it asks), while the edition has no champion. */
+export function asksToSignIn(seen: MyBlitz | null | undefined, champion: string | null): boolean {
+  return seen === null && champion === null;
 }
 
 /** coded says whether a match's game was recorded with a replay code. */
@@ -72,8 +79,8 @@ function coded(m: BlitzMatch): boolean {
   return m.game !== null && m.game.share_code !== '';
 }
 
-/** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout, each player's turn in a played game, and who reported the game. */
-function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, day: Intl.DateTimeFormat): GameRow {
+/** blitzRow is game number n of a round as a games-table row: rated players linked with their ratings, seeds in the knockout, each player's turn in a played game, and who reported the game (report null for nobody, or a viewer not told). */
+function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, day: Intl.DateTimeFormat, report: BlitzMatchReport | null): GameRow {
   const g = m.game;
   const seat = (name: string, rating: number | null, seed: number | null, score: number | null, note: string, turn: string): GameSeat => ({
     label: seededName(name, seed),
@@ -89,7 +96,7 @@ function blitzRow(round: number, n: number, m: BlitzMatch, format: BlitzFormat, 
     date: g === null ? '' : day.format(new Date(g.finished_at)),
     context: roundTitle(round, format),
     where: `Game ${n}`,
-    tag: [resultTag(m), reportTag(m)].filter((t) => t !== '').join(' · '),
+    tag: [resultTag(m), reportTag(report)].filter((t) => t !== '').join(' · '),
     unplayed: m.b === null || (m.result !== null && g === null),
     seats,
     code: g === null || g.share_code === '' ? null : g.share_code,

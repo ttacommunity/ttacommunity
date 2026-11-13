@@ -102,8 +102,8 @@ func TestAPlayerReadsTheirMatchAndWhatTheyMayDo(t *testing.T) {
 		want    map[string]string // JSON paths in the answer
 	}{
 		{"not linked", store.Account{ID: 1, Provider: "discord", Username: "newcomer"}, reportsEdition(nil),
-			map[string]string{"match": `null`}},
-		{"not entered", member(1050, "Eve"), reportsEdition(nil), map[string]string{"match": `null`}},
+			map[string]string{"match": `null`, "reports": `[]`}},
+		{"not entered", member(1050, "Eve"), reportsEdition(reportedByAnn("reported")), map[string]string{"match": `null`, "reports": `[]`}},
 		{"undecided", member(1008, "bob"), reportsEdition(nil), map[string]string{
 			"match.id": `21`, "match.round": `1`, "match.a": `"Ann"`, "match.b": `"bob"`, "match.me": `"b"`, "match.result": `null`,
 			"match.report": `null`, "match.reported_by": `null`, "match.actions": `["report"]`}},
@@ -121,7 +121,13 @@ func TestAPlayerReadsTheirMatchAndWhatTheyMayDo(t *testing.T) {
 		{"the next round paired", member(1008, "bob"), reportsEdition(func(ed *store.BlitzEdition, _ *store.BlitzMatch) {
 			ed.PairedRound = new(2)
 		}), map[string]string{"match.id": `21`, "match.actions": `[]`}},
-		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "match.actions": `[]`}},
+		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "match.actions": `[]`, "reports": `[]`}},
+		{"another entrant's report", member(1009, "Cy"), reportsEdition(reportedByAnn("confirmed")), map[string]string{
+			"reports": `[{"round": 1, "a": "Ann", "reported_by": "Ann", "confirmed": true}]`}},
+		{"a dropped entrant", member(1009, "Cy"), reportsEdition(func(ed *store.BlitzEdition, m *store.BlitzMatch) {
+			reportedByAnn("reported")(ed, m)
+			ed.Entrants[2].Status = "withdrawn"
+		}), map[string]string{"reports": `[{"round": 1, "a": "Ann", "reported_by": "Ann", "confirmed": false}]`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -248,26 +254,21 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 	})
 }
 
-func TestTheSiteShowsWhoReportedAGameAndWhenResultsChanged(t *testing.T) {
-	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: reportsEdition(reportedByAnn("confirmed"))}
-	rec, _ := serve(t, ratings, "/v1/blitz/us_open/2026")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
+func TestTheSiteShowsWhenResultsChangedButNotWhoReported(t *testing.T) {
+	for _, report := range []string{"reported", "confirmed", "flagged"} {
+		rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: reportsEdition(reportedByAnn(report))}, "/v1/blitz/us_open/2026")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s = %d %s", report, rec.Code, rec.Body)
+		}
+		wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.result", `"a"`)
+		wantJSON(t, rec.Body.Bytes(), "results_updated_at", `"2026-10-13T20:00:00Z"`)
+		for _, hidden := range []string{"reported", "confirmed", "flag", "I won"} {
+			if strings.Contains(rec.Body.String(), hidden) {
+				t.Errorf("%s: the public edition says %q: %s", report, hidden, rec.Body)
+			}
+		}
 	}
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.reported_by", `"Ann"`)
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.confirmed", `true`)
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.1.reported_by", `null`)
-	wantJSON(t, rec.Body.Bytes(), "results_updated_at", `"2026-10-13T20:00:00Z"`)
-	if strings.Contains(rec.Body.String(), "flag") {
-		t.Errorf("the site's edition mentions a flag: %s", rec.Body)
-	}
-
-	rec, _ = serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: reportsEdition(reportedByAnn("flagged"))}, "/v1/blitz/us_open/2026")
-	if strings.Contains(rec.Body.String(), "I won") {
-		t.Errorf("the site's edition shows a flag's reason: %s", rec.Body)
-	}
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.confirmed", `false`)
-	rec, _ = serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: reportsEdition(nil)}, "/v1/blitz/us_open/2026")
+	rec, _ := serve(t, &fakeRatings{run: store.PublishedRun{ID: 7}, blitzEdition: reportsEdition(nil)}, "/v1/blitz/us_open/2026")
 	wantJSON(t, rec.Body.Bytes(), "results_updated_at", `null`)
 }
 

@@ -5,7 +5,7 @@ import { turnMark, turnOrder } from '@ttac/shared/blitz';
 import { chooseTurn, gameRecordFrom, TURNS, type GameForm } from '@ttac/shared/game-form';
 import { todayIn } from '@ttac/shared/time';
 import { browserStorage, seemsSignedIn, sharedMe } from '../lib/account';
-import { confirmReport, fetchMyMatch, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitzMatch } from '../lib/blitz-report';
+import { confirmReport, fetchMyBlitz, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitz, type MyBlitzMatch } from '../lib/blitz-report';
 
 const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
   { value: 'finished', label: 'finished' },
@@ -13,10 +13,10 @@ const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
   { value: 'timed_out', label: 'timed out' },
 ];
 
-type Props = { apiUrl: string; slug: string; edition: string; onChanged: () => void; onMatch: (m: MyBlitzMatch | null) => void };
+type Props = { apiUrl: string; slug: string; edition: string; onChanged: () => void; onSeen: (mine: MyBlitz | null) => void };
 
-/** BlitzReport shows the player's match once the api names one, tells the page which it is, and refreshes the page's edition after a change. */
-export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch }: Props) {
+/** BlitzReport shows the player's match once the api names one, tells the page what the api says to this viewer (null for nobody signed in), and refreshes the page's edition after a change. */
+export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }: Props) {
   const dialog = useDialog();
   const [match, setMatch] = useState<MyBlitzMatch | null>(null);
   const [zone, setZone] = useState('Unknown');
@@ -24,12 +24,15 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onMatch 
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
-    if (!seemsSignedIn(browserStorage())) return;
-    const [me, mine] = await Promise.all([sharedMe(apiUrl), fetchMyMatch(apiUrl, slug, edition)]);
+    if (!seemsSignedIn(browserStorage())) {
+      onSeen(null);
+      return;
+    }
+    const [me, mine] = await Promise.all([sharedMe(apiUrl), fetchMyBlitz(apiUrl, slug, edition)]);
     if (me !== null) setZone(me.zone);
-    setMatch(mine);
-    onMatch(mine);
-  }, [apiUrl, slug, edition, onMatch]);
+    setMatch(mine?.match ?? null);
+    onSeen(mine);
+  }, [apiUrl, slug, edition, onSeen]);
   useEffect(() => {
     load().catch(() => undefined);
   }, [load]);

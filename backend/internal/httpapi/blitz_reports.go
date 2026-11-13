@@ -72,6 +72,28 @@ func myBlitzMatch(ed store.BlitzEdition, member int64) *MyBlitzMatch {
 	return nil
 }
 
+// blitzReports lists who reported each game of the edition, round by round, when member is entered in it; empty
+// otherwise.
+func blitzReports(ed store.BlitzEdition, member int64) []BlitzMatchReport {
+	out := []BlitzMatchReport{}
+	names, entered := map[int64]string{}, false
+	for _, e := range ed.Entrants {
+		names[e.ID] = e.Name
+		entered = entered || e.MemberID == member
+	}
+	if !entered {
+		return out
+	}
+	for _, r := range ed.Rounds {
+		for _, m := range r.Matches {
+			if m.ReportedBy != nil {
+				out = append(out, BlitzMatchReport{Round: r.Number, A: names[m.A], ReportedBy: names[*m.ReportedBy], Confirmed: m.Report == "confirmed"})
+			}
+		}
+	}
+	return out
+}
+
 func (s *server) GetMyBlitzMatch(ctx context.Context, req GetMyBlitzMatchRequestObject) (GetMyBlitzMatchResponseObject, error) {
 	l, err := accountFrom(ctx)
 	if err != nil {
@@ -87,9 +109,10 @@ func (s *server) GetMyBlitzMatch(ctx context.Context, req GetMyBlitzMatchRequest
 	if err != nil {
 		return nil, err
 	}
-	var body MyBlitz
+	body := MyBlitz{Reports: []BlitzMatchReport{}}
 	if l.Member != nil {
 		body.Match = myBlitzMatch(ed, l.Member.ID)
+		body.Reports = blitzReports(ed, l.Member.ID)
 	}
 	return GetMyBlitzMatch200JSONResponse{Body: body, Headers: GetMyBlitzMatch200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
