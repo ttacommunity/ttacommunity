@@ -209,7 +209,7 @@ export async function playerHistory(
   return get<PlayerHistory>(fetchFn, base, playerPath(run, name, `/history?format=${format}`));
 }
 
-/** Returns one page of a player's games in a format, with each rated game's estimated rating change in model; with unrated, also the games the run did not rate. */
+/** Returns one page of a player's games in a format, with each rated game's estimated rating change in model; rated and unrated choose which games count. */
 export async function playerMatches(
   base: string,
   run: number,
@@ -218,10 +218,12 @@ export async function playerMatches(
   model: Model,
   page: number,
   unrated: boolean = false,
+  rated: boolean = true,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerMatches> {
   const query = new URLSearchParams({ format: String(format), model, page: String(page) });
   if (unrated) query.set('unrated', 'true');
+  if (!rated) query.set('rated', 'false');
   return get<PlayerMatches>(fetchFn, base, playerPath(run, name, `/matches?${query}`));
 }
 

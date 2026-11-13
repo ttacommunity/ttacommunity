@@ -313,6 +313,7 @@ paths:
         - $ref: "#/components/parameters/Format"
         - $ref: "#/components/parameters/Model"
         - $ref: "#/components/parameters/Unrated"
+        - $ref: "#/components/parameters/Rated"
         - name: page
           in: query
           required: false

@@ -172,8 +172,9 @@ describe('player routes', () => {
     const f = fakeFetch(200, '{}');
     await player('https://api.example', 5, 'a/b c?', f.fetch);
     await playerHistory('https://api.example', 5, 'Ann', 3, f.fetch);
-    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, false, f.fetch);
-    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, true, f.fetch);
+    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, false, true, f.fetch);
+    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, true, true, f.fetch);
+    await playerMatches('https://api.example', 5, 'Ann', 0, 'glicko2_daneo_softer', 2, true, false, f.fetch);
     await playerRivals('https://api.example', 5, 'Ann', 4, false, true, f.fetch);
     await playerRivals('https://api.example', 5, 'Ann', 4, true, false, f.fetch);
     await playerCareer('https://api.example', 5, 'Ann', 2, 'glicko2_daneo_softer', f.fetch);
@@ -190,6 +191,7 @@ describe('player routes', () => {
       'https://api.example/v1/runs/5/players/Ann/history?format=3',
       'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=glicko2_daneo_softer&page=2',
       'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=glicko2_daneo_softer&page=2&unrated=true',
+      'https://api.example/v1/runs/5/players/Ann/matches?format=0&model=glicko2_daneo_softer&page=2&unrated=true&rated=false',
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4',
       'https://api.example/v1/runs/5/players/Ann/rivals?format=4&unrated=true&rated=false',
       'https://api.example/v1/runs/5/players/Ann/career?format=2&model=glicko2_daneo_softer',

@@ -6529,6 +6529,8 @@ export interface operations {
                 model?: components["parameters"]["Model"];
                 /** @description Also the finished games the run did not rate, marked unrated */
                 unrated?: components["parameters"]["Unrated"];
+                /** @description The games the run rated (true by default; set false with unrated=true for unrated only) */
+                rated?: components["parameters"]["Rated"];
                 page?: number;
             };
             header?: never;

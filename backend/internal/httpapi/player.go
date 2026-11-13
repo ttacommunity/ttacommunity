@@ -140,7 +140,9 @@ func (s *server) GetPlayerMatches(ctx context.Context, req GetPlayerMatchesReque
 		return GetPlayerMatches400JSONResponse{badRequestBody(msg)}, nil
 	}
 
-	name, mp, err := s.ratings.PlayerMatches(ctx, req.Run, req.Name, int(format), page, req.Params.Unrated != nil && *req.Params.Unrated)
+	unrated := req.Params.Unrated != nil && *req.Params.Unrated
+	rated := req.Params.Rated == nil || *req.Params.Rated
+	name, mp, err := s.ratings.PlayerMatches(ctx, req.Run, req.Name, int(format), page, rated, unrated)
 	if nf, ok := notFound(err); ok {
 		return GetPlayerMatches404JSONResponse{nf}, nil
 	}
