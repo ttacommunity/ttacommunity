@@ -1,35 +1,41 @@
-/* What a save did, as admin shows an action's outcome: its word in colour on a dark panel, bordered green when done, red when not. */
-.save-outcome {
+/* An action's outcome beside it (OutcomeNotice): its word in colour on a dark panel, bordered green when done, red when not. */
+.notice {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
-  margin-top: 0.25rem;
+  margin: 0.6rem 0;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-subtle);
   border-left: 4px solid var(--win);
   border-radius: 6px;
   background: var(--surface-well);
+  color: var(--text-main);
+  font-family: var(--font-body);
   font-size: var(--size-body-short);
+  text-align: left;
+  white-space: normal;
   scroll-margin: 5.5rem 0 1rem;
 }
-.save-outcome > div {
+.notice-refused,
+.notice-failed {
+  border-left-color: var(--loss);
+}
+.notice-body {
   flex: 1;
   min-width: 0;
 }
-.save-outcome-heading,
-.save-outcome-text {
+.notice-heading,
+.notice-text {
   display: block;
 }
-.save-outcome-heading {
+.notice-heading {
   color: var(--win);
 }
-.save-outcome-refused {
-  border-left-color: var(--loss);
-}
-.save-outcome-refused .save-outcome-heading {
+.notice-refused .notice-heading,
+.notice-failed .notice-heading {
   color: var(--loss);
 }
-.save-outcome-close {
+.notice-close {
   min-width: 1.5rem;
   min-height: 1.5rem;
   padding: 0 0.3rem;
@@ -40,6 +46,6 @@
   line-height: 1;
   cursor: pointer;
 }
-.save-outcome-close:hover {
+.notice-close:hover {
   color: var(--text-main);
 }

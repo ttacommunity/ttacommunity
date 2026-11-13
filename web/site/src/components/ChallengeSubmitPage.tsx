@@ -8,7 +8,7 @@ import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission, type Row 
 import { challengePicture, challengePlayerHref, challengeSets, setLabel, type SetId } from '../lib/challenges';
 import { ProofLink } from './ChallengeParts';
 import Note from '@ttac/shared/Note';
-import SaveNotice from './SaveNotice';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import SignInNote from './SignInNote';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
@@ -75,10 +75,10 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
     const done = await change(fetch, apiUrl, 'POST', '/v1/me/challenges/entries', { entries: chosen });
     setBusy(false);
     if (!done.ok) {
-      setStatus({ kind: 'refused', heading: 'Not done', text: done.message });
+      setStatus({ kind: 'refused', text: done.message });
       return;
     }
-    setStatus({ kind: 'done', heading: 'Done', text: `Saved ${counted(chosen.length, 'entry', 'entries')}.` });
+    setStatus({ kind: 'done', text: `Saved ${counted(chosen.length, 'entry', 'entries')}.` });
     setRows({});
     setShared('');
     setReviewing(false);
@@ -164,7 +164,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
               ))}
             </ul>
           )}
-          <SaveNotice outcome={status} onClose={() => setStatus(null)} />
+          {status !== null && <OutcomeNotice kind={status.kind} text={status.text} onClose={() => setStatus(null)} />}
         </div>
         {reviewing ? (
           <div className="challenges-bar-group">
