@@ -1,5 +1,6 @@
 /** How the leaderboard shows models, formats and numbers, in upstream's wording and precision. */
 import { titleName, type Format, type Model, type TitleCode } from '@ttac/shared/ratings';
+import type { ResetMode } from './leaderboard-view';
 
 const formatNames: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 
@@ -23,9 +24,20 @@ export function engineNote(model: Model): string {
   return engineNotes[model.replace(/_softer$/, '')] ?? '';
 }
 
+/** RESET_MODES are the season reset modes in upstream's order, with its names and descriptions. */
+export const RESET_MODES: readonly { value: ResetMode; name: string; desc: string }[] = [
+  { value: 'continuous', name: 'Continuous (Career)', desc: 'Standard uninterrupted career rating trajectory across all tournament history' },
+  { value: 'softer', name: 'Season Reset', desc: 'Gentle annual reset balancing career achievement with current season form' },
+];
+
+/** resetName returns upstream's name for a reset mode. */
+export function resetName(mode: ResetMode): string {
+  return RESET_MODES.find((m) => m.value === mode)?.name ?? '';
+}
+
 /** resetModeName returns upstream's name for a model's season reset mode. */
 export function resetModeName(model: Model): string {
-  return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';
+  return resetName(model.includes('_softer') ? 'softer' : 'continuous');
 }
 
 /** modelLabel names a model by its engine, then its reset mode when it is not the default. */
