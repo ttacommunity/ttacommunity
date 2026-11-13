@@ -188,17 +188,15 @@ export default function RunsPanel() {
         A run recomputes every rating from the games. It is not shown on the site until it is published, and an older run
         can be published again to roll back.
       </p>
-      <div className="runs-actions">
-        <label>
-          <span className="visually-hidden">Rating track</span>
-          <select value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
-            {TRACKS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="note-actions runs-actions">
+        <label htmlFor="run-track">Rating track</label>
+        <select className="input-antique" id="run-track" value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
+          {TRACKS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.name}
+            </option>
+          ))}
+        </select>
         <button type="button" className="btn-antique" onClick={(e) => void start(e.currentTarget)} disabled={going}>
           {going ? 'A run is going' : 'Start a run now'}
         </button>
