@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AdminResult } from './admin-api';
-import { announcement, loadFailure, noticeHeading, outcomeOf, refusalOf, refused, revealed, shownAt, succeeded, type Outcome } from './outcome';
+import { announcement, loadFailure, outcomeOf, refusalOf, refused, revealed, shownAt, succeeded, type Outcome } from './outcome';
 
 const OK: AdminResult<unknown> = { ok: true, data: null };
 const NO: AdminResult<unknown> = { ok: false, status: 409, message: 'Refused: round 1 is not finished.' };
@@ -48,16 +48,6 @@ describe('shownAt', () => {
     ['nothing when there is no outcome', null, 'entrant 7', null],
   ])('shows %s', (_, outcome, at, want) => {
     expect(shownAt(outcome, at)).toEqual(want);
-  });
-});
-
-describe('noticeHeading', () => {
-  it.each([
-    ['done', 'Done'],
-    ['refused', 'Not done'],
-    ['failed', 'Could not load'],
-  ] as const)('names a %s outcome in words', (kind, want) => {
-    expect(noticeHeading(kind)).toBe(want);
   });
 });
 
