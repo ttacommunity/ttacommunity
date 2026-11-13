@@ -7,7 +7,7 @@ import type { AdminAccount, AdminMe, LinkApproved } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';
-import Notice, { LoadNotice, NoticeRow } from './Notice';
+import Notice, { Loading, NoticeRow } from './Notice';
 import Count from './Count';
 
 const ZONE = viewerZone();
@@ -50,8 +50,7 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
       </h3>
       <p className="muted">Check a request is really that player before approving it.</p>
       <Notice outcome={shownAt(outcome, 'waiting')} onClose={close} />
-      {accounts.kind === 'loading' && <p className="muted">Loading…</p>}
-      {accounts.kind === 'error' && <LoadNotice message={accounts.message} />}
+      <Loading load={accounts} />
       {accounts.kind === 'ready' && waiting.length === 0 && <p className="muted">No requests waiting.</p>}
       {waiting.length > 0 && (
         <div className="table-responsive">

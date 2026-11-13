@@ -4,6 +4,7 @@ import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, type AdminAuditPage, loadOf } from '../lib/admin-api';
 import { auditBy, auditPath, auditSummary, defaultView, detailText, type AuditView } from '../lib/audit-log';
+import { Loading } from './Notice';
 
 /** AuditPanel opens on the last seven days in the viewer's zone; a new filter goes back to page 1. */
 export default function AuditPanel() {
@@ -70,8 +71,7 @@ export default function AuditPanel() {
         </button>
       </form>
       {path === null && <p role="alert">The From day is after the To day.</p>}
-      {path !== null && log.kind === 'loading' && <p className="muted">Loading the audit log…</p>}
-      {path !== null && log.kind === 'error' && <p role="alert">{log.message}</p>}
+      {path !== null && <Loading load={log} what="the audit log" />}
       {path !== null && page !== null && (
         <>
           <p className="muted" role="status">
