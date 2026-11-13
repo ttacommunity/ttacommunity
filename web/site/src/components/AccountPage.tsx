@@ -1,7 +1,7 @@
 /** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; the data we keep, signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import SaveNotice from './SaveNotice';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
@@ -431,7 +431,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
         <BackLink back={back} changed={changed} saved={outcome?.kind === 'done' && !changed} />
       </div>
       <div role="status">
-        <SaveNotice outcome={outcome} onClose={() => setOutcome(null)} />
+        {outcome !== null && <OutcomeNotice kind={outcome.kind} text={outcome.text} onClose={() => setOutcome(null)} />}
       </div>
     </form>
   );

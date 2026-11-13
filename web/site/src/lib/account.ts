@@ -301,13 +301,13 @@ export function draftChanges(saved: Draft, draft: Draft): { name: boolean; detai
   return { name: name !== '' && name !== saved.name.trim(), details: draft.country !== saved.country || draft.zone !== saved.zone };
 }
 
-/** SaveOutcome is what a save of the account form did, in the words admin uses: Done, or Not done and why. */
-export type SaveOutcome = { kind: 'done' | 'refused'; heading: 'Done' | 'Not done'; text: string };
+/** SaveOutcome is what a save did: done, or refused and why; OutcomeNotice gives it its word. */
+export type SaveOutcome = { kind: 'done' | 'refused'; text: string };
 
 /** saveOutcome says what a save did from the request to be linked and the details change, each null when not sent. */
 export function saveOutcome(asked: Done | null, details: Done | null): SaveOutcome {
-  const refused = (text: string): SaveOutcome => ({ kind: 'refused', heading: 'Not done', text });
-  const done = (text: string): SaveOutcome => ({ kind: 'done', heading: 'Done', text });
+  const refused = (text: string): SaveOutcome => ({ kind: 'refused', text });
+  const done = (text: string): SaveOutcome => ({ kind: 'done', text });
   if (asked !== null && !asked.ok) return refused(asked.message);
   if (details !== null && !details.ok) {
     return refused(asked === null ? details.message : `Sent your request to be linked, but your country and time zone were not saved: ${details.message}`);
