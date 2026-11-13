@@ -13,12 +13,10 @@ import CopyCode from './CopyCode';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
+import { TRACKS } from '@ttac/shared/tracks';
 
-const TRACKS: { value: Track; label: string }[] = [
-  { value: 'community', label: 'Standard' },
-  { value: 'superblitz', label: 'SuperBlitz' },
-  { value: 'community_superblitz', label: 'Standard + SB' },
-];
+// Head-to-head offers every track but Pulse.
+const TRACK_OPTIONS = TRACKS.filter((t) => t.value !== 'pulse').map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }));
 
 const FORMAT_OPTIONS: { value: Format; label: string }[] = FORMATS.map((f) => ({ value: f, label: formatName(f) }));
 
@@ -79,7 +77,7 @@ export default function VersusDialog({
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
         <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
-        <Segmented label="Rating track" look="raised" groupClass="format-bar h2h-formats" options={TRACKS} value={track} onChange={setTrack} />
+        <Segmented label="Rating track" look="raised" groupClass="format-bar h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
         <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
       </div>
       <div className="h2h-stats">

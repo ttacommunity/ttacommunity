@@ -2,19 +2,13 @@
 import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { RESET_MODES, engineName, resetName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type Status, type Track, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type Status, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
 import type { Link } from '../lib/navigate';
+import { TRACKS } from '@ttac/shared/tracks';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => Link;
-
-const trackOptions: [Track, string, string][] = [
-  ['community', 'Standard', 'Classical asynchronous community tournaments'],
-  ['superblitz', 'SuperBlitz', 'Exclusive SuperBlitz tournament Glicko (sets min opponents to 0)'],
-  ['community_superblitz', 'Standard + SuperBlitz', 'Include SuperBlitz tournaments alongside Standard'],
-  ['pulse', 'Pulse', 'TTA Pulse real-time blitz queue (sets min opponents to 0)'],
-];
 
 const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',
@@ -99,15 +93,15 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           label="Rating track"
           look="banner"
           groupClass="reset-btn-group stacked"
-          options={trackOptions.map(([id, name, tip]) => ({
-            value: id,
+          options={TRACKS.map((t) => ({
+            value: t.value,
             label: (
               <>
-                <span>{name}</span>
-                {id === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
+                <span>{t.name}</span>
+                {t.value === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
               </>
             ),
-            tooltip: tip,
+            tooltip: defaultMinOpps(null, t.value) === 0 ? `${t.desc} (sets min opponents to 0)` : t.desc,
           }))}
           value={view.ranking}
           link={(ranking) => linkTo(withRanking(view, ranking))}

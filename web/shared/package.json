@@ -28,6 +28,7 @@
     "./toggle": "./src/toggle.ts",
     "./storage": "./src/storage.ts",
     "./outcome": "./src/outcome.ts",
+    "./tracks": "./src/tracks.ts",
     "./OutcomeNotice": "./src/OutcomeNotice.tsx",
     "./SortHeader": "./src/SortHeader.tsx",
     "./Note": "./src/Note.tsx"

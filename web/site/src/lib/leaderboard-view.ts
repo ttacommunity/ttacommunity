@@ -1,6 +1,7 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
 import type { Load } from '@ttac/shared/load';
 import type { DeltaWindow as PastWindow, Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
+import { TRACKS, type Track } from '@ttac/shared/tracks';
 
 /** Upstream's fixed cutoff, kept for a run that recorded no last game. */
 const UPSTREAM_CUTOFF = '2025-05-31';
@@ -22,8 +23,8 @@ const PROVISIONAL_BELOW = 15;
 
 export const ENGINES = ['glicko2_daneo', 'glicko2_std'] as const;
 export type Engine = (typeof ENGINES)[number];
-export const TRACKS = ['community', 'superblitz', 'community_superblitz', 'pulse'] as const;
-export type Track = (typeof TRACKS)[number];
+export type { Track };
+const TRACK_SLUGS: readonly Track[] = TRACKS.map((t) => t.value);
 export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
@@ -111,7 +112,7 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
   const order = oneOf<Order>(['asc', 'desc'], get('order'));
   const y = get('year') ?? '';
   const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
-  const ranking = oneOf(TRACKS, get('ranking')) ?? DEFAULT_VIEW.ranking;
+  const ranking = oneOf(TRACK_SLUGS, get('ranking')) ?? DEFAULT_VIEW.ranking;
   return {
     ranking,
     engine: oneOf(ENGINES, get('model')) ?? remembered.engine ?? DEFAULT_VIEW.engine,

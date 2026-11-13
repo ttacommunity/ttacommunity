@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText, trackLabel } from './runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -104,11 +104,6 @@ describe('runs panel', () => {
     ['a first run in another track publishes', RUN(3, { ranking: 'superblitz' }), 'Publish'],
   ])('%s', (_, run, want) => {
     expect(publishVerb([RUN(5, { current: true }), RUN(7), RUN(3)], run)).toBe(want);
-  });
-
-  it('names ranking tracks', () => {
-    expect(trackLabel('superblitz')).toBe('SuperBlitz');
-    expect(trackLabel('other')).toBe('other');
   });
 
   it.each([
