@@ -564,12 +564,12 @@
 
 .game-delta.up {
   font-weight: 700;
-  color: #4ade80;
+  color: var(--win);
 }
 
 .game-delta.down {
   font-weight: 700;
-  color: #f87171;
+  color: var(--loss);
 }
 
 .data-table th a.th-link {
@@ -1222,21 +1222,21 @@
 }
 
 .delta-pos {
-  color: #4ade80;
+  color: var(--win);
 }
 
 .delta-tag.delta-pos {
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: color-mix(in srgb, var(--win) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--win) 30%, transparent);
 }
 
 .delta-neg {
-  color: #f87171;
+  color: var(--loss);
 }
 
 .delta-tag.delta-neg {
-  background: rgba(248, 113, 113, 0.15);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: color-mix(in srgb, var(--loss) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--loss) 30%, transparent);
 }
 
 .delta-zero {
@@ -1422,7 +1422,7 @@
 }
 
 .chart-options-panel .btn-options-close:hover {
-  background: rgba(239, 83, 80, 0.2);
+  background: color-mix(in srgb, var(--loss) 20%, transparent);
   border-color: var(--loss);
   color: var(--loss-light);
 }

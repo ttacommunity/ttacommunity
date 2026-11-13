@@ -193,7 +193,7 @@
 
 .feed-row-remove:hover {
   color: var(--loss);
-  background: rgba(220, 38, 38, 0.12);
+  background: color-mix(in srgb, var(--loss) 12%, transparent);
 }
 
 .feed-add-tourney-row {
