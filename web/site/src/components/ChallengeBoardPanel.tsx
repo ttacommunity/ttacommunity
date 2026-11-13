@@ -4,7 +4,8 @@ import { viewerZone } from '@ttac/shared/time';
 import { challengeBoard, type ChallengeBoard, type ChallengeRecordStep } from '@ttac/shared/ratings';
 import { entryDay } from '../lib/challenges';
 import { CHART, notCounted, recordChart } from '../lib/record-chart';
-import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
