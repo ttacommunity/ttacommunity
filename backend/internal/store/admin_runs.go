@@ -17,6 +17,7 @@ var ErrRunNotComplete = errors.New("only a complete run can be published")
 // AdminRun is one rating run as admin sees it.
 type AdminRun struct {
 	ID                      int64
+	Ranking                 string
 	Status                  string
 	StartedAt               time.Time
 	FinishedAt, PublishedAt *time.Time
@@ -29,22 +30,21 @@ type AdminRun struct {
 	Bytes, DiskBytes        int64 // of the rows it wrote, and with its share of their indexes; recorded as it ended, 0 while going
 }
 
-// Runs returns the community ranking's runs, newest first, each with its latest progress line.
+// Runs returns all rankings' runs, newest first, each with its latest progress line.
 func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 	rows, err := a.pool.Query(ctx, `
-		SELECT r.run_id, r.status, r.started_at, r.finished_at, r.published_at,
+		SELECT r.run_id, k.slug, r.status, r.started_at, r.finished_at, r.published_at,
 		       EXISTS (SELECT 1 FROM current_run c WHERE c.run_id = r.run_id),
 		       coalesce(r.games, 0), coalesce(r.players, 0), r.engine_version,
 		       coalesce(p.line, ''), p.updated_at, r.protected, r.deleting, r.result_bytes, r.disk_bytes
-		FROM rating_runs r LEFT JOIN run_progress p USING (run_id)
-		WHERE r.ranking_id = community_ranking()
+		FROM rating_runs r JOIN rankings k USING (ranking_id) LEFT JOIN run_progress p USING (run_id)
 		ORDER BY r.run_id DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("reading runs for admin: %w", err)
 	}
 	runs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (AdminRun, error) {
 		var r AdminRun
-		err := row.Scan(&r.ID, &r.Status, &r.StartedAt, &r.FinishedAt, &r.PublishedAt, &r.Current,
+		err := row.Scan(&r.ID, &r.Ranking, &r.Status, &r.StartedAt, &r.FinishedAt, &r.PublishedAt, &r.Current,
 			&r.Games, &r.Players, &r.EngineVersion, &r.Progress, &r.ProgressAt, &r.Protected, &r.Deleting, &r.Bytes, &r.DiskBytes)
 		return r, err
 	})
@@ -54,12 +54,12 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 	return runs, nil
 }
 
-// Publish makes a complete run the community ranking's current one, which also rolls back to an older run.
+// Publish makes a complete run its ranking's current one, which also rolls back to an older run.
 // It returns ErrRunNotFound or ErrRunNotComplete.
 func (a *AdminStore) Publish(ctx context.Context, run int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var status string
-		err := tx.QueryRow(ctx, "SELECT status FROM rating_runs WHERE run_id = $1 AND ranking_id = community_ranking()", run).Scan(&status)
+		err := tx.QueryRow(ctx, "SELECT status FROM rating_runs WHERE run_id = $1", run).Scan(&status)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRunNotFound
 		}
@@ -70,7 +70,8 @@ func (a *AdminStore) Publish(ctx context.Context, run int64) error {
 			return ErrRunNotComplete
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO current_run (ranking_id, run_id) VALUES (community_ranking(), $1)
+			INSERT INTO current_run (ranking_id, run_id)
+			SELECT ranking_id, run_id FROM rating_runs WHERE run_id = $1
 			ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id`, run); err != nil {
 			return fmt.Errorf("publishing run %d: %w", run, err)
 		}

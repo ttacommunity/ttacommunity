@@ -40,7 +40,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 			r.Status, r.Progress = "failed", "the engine ended without finishing this run"
 		}
 		out[i] = AdminRun{
-			Id: r.ID, Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
+			Id: r.ID, Ranking: RankingTrack(r.Ranking), Status: AdminRunStatus(r.Status), StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, PublishedAt: r.PublishedAt,
 			Current: r.Current, Games: r.Games, Players: r.Players, EngineVersion: r.EngineVersion, Progress: r.Progress, ProgressAt: r.ProgressAt,
 			Protected: r.Protected, Deleting: r.Deleting, Bytes: r.Bytes, DiskBytes: r.DiskBytes,
 		}
@@ -48,7 +48,7 @@ func (s *server) GetAdminRuns(ctx context.Context, _ GetAdminRunsRequestObject) 
 	return GetAdminRuns200JSONResponse{Body: out, Headers: GetAdminRuns200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
-func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) (PostAdminRunResponseObject, error) {
+func (s *server) PostAdminRun(ctx context.Context, req PostAdminRunRequestObject) (PostAdminRunResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
 	if err != nil {
 		return nil, err
@@ -56,14 +56,21 @@ func (s *server) PostAdminRun(ctx context.Context, _ PostAdminRunRequestObject) 
 	if !ok {
 		return PostAdminRun403JSONResponse{forbidden(onlyAdminsRun)}, nil
 	}
+	ranking := Community
+	if req.Body != nil && req.Body.Ranking != nil {
+		ranking = *req.Body.Ranking
+		if !ranking.Valid() {
+			return PostAdminRun400JSONResponse{badRequest400("unknown ranking track")}, nil
+		}
+	}
 	// The Job starts before the commit, so it runs unaudited only if the audit row or the commit fails.
 	var job string
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		var err error
-		if job, err = tx.StartRun(ctx); err != nil {
+		if job, err = tx.StartRun(ctx, string(ranking)); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "run.start", job, map[string]any{})
+		return tx.Audit(ctx, me.DiscordID, "run.start", job, map[string]any{"ranking": string(ranking)})
 	})
 	switch {
 	case errors.Is(err, enginejob.ErrRunning):
@@ -188,23 +195,30 @@ func (s *server) PostAdminRunStop(ctx context.Context, req PostAdminRunStopReque
 // most recently before it. It is 0 when there is none.
 func defaultAgainst(runs []store.AdminRun, run int64) int64 {
 	var this *store.AdminRun
-	var current int64
 	for i, r := range runs {
 		if r.ID == run {
 			this = &runs[i]
+			break
+		}
+	}
+	if this == nil {
+		return 0
+	}
+	var current int64
+	var before *store.AdminRun
+	for i, r := range runs {
+		if r.Ranking != this.Ranking {
+			continue
 		}
 		if r.Current {
 			current = r.ID
 		}
-	}
-	if this == nil || this.PublishedAt == nil {
-		return current
-	}
-	var before *store.AdminRun
-	for i, r := range runs {
-		if r.PublishedAt != nil && r.PublishedAt.Before(*this.PublishedAt) && (before == nil || r.PublishedAt.After(*before.PublishedAt)) {
+		if this.PublishedAt != nil && r.PublishedAt != nil && r.PublishedAt.Before(*this.PublishedAt) && (before == nil || r.PublishedAt.After(*before.PublishedAt)) {
 			before = &runs[i]
 		}
+	}
+	if this.PublishedAt == nil {
+		return current
 	}
 	if before == nil {
 		return 0

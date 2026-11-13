@@ -23,7 +23,7 @@ var (
 func (a *AdminStore) SetRunProtected(ctx context.Context, run int64, protected bool) error {
 	tag, err := a.pool.Exec(ctx, `
 		UPDATE rating_runs SET protected = $2, deleting = deleting AND NOT $2
-		WHERE run_id = $1 AND ranking_id = community_ranking()`, run, protected)
+		WHERE run_id = $1`, run, protected)
 	if err != nil {
 		return fmt.Errorf("protecting run %d: %w", run, err)
 	}
@@ -83,7 +83,7 @@ func deletable(ctx context.Context, tx pgx.Tx, run int64, engineGoing bool) erro
 	var protected, current bool
 	err := tx.QueryRow(ctx, `
 		SELECT status, protected, EXISTS (SELECT 1 FROM current_run c WHERE c.run_id = r.run_id)
-		FROM rating_runs r WHERE run_id = $1 AND ranking_id = community_ranking()`, run).Scan(&status, &protected, &current)
+		FROM rating_runs r WHERE run_id = $1`, run).Scan(&status, &protected, &current)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		return ErrRunNotFound

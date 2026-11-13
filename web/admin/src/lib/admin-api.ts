@@ -13,6 +13,7 @@ export type LeagueDivision = components['schemas']['LeagueDivision'];
 export type AdminPerson = components['schemas']['AdminPerson'];
 export type AdminAuditPage = components['schemas']['AdminAuditPage'];
 export type AdminRun = components['schemas']['AdminRun'];
+export type RankingTrack = components['schemas']['RankingTrack'];
 export type RunChanges = components['schemas']['RunChanges'];
 export type StartedRun = components['schemas']['StartedRun'];
 export type AdminBlitzEditionRow = components['schemas']['AdminBlitzEditionRow'];

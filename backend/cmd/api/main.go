@@ -187,11 +187,11 @@ func (d adminDeps) Change(ctx context.Context, fn func(tx httpapi.Admins) error)
 }
 
 // StartRun starts the engine now, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.
-func (d adminDeps) StartRun(ctx context.Context) (string, error) {
+func (d adminDeps) StartRun(ctx context.Context, ranking string) (string, error) {
 	if d.starter == nil {
 		return "", enginejob.ErrNotSetUp
 	}
-	return d.starter.Start(ctx)
+	return d.starter.Start(ctx, ranking)
 }
 
 // StopRun stops the engine's unfinished Jobs, or returns enginejob.ErrNotSetUp when ENGINE_CRONJOB is not set.

@@ -102,9 +102,10 @@ type jobList struct {
 	} `json:"items"`
 }
 
-// Start creates a Job from the CronJob's template and returns its name. It returns ErrRunning when one of the
-// CronJob's Jobs, scheduled or started by hand, has not finished.
-func (s *Starter) Start(ctx context.Context) (string, error) {
+// Start creates a Job from the CronJob's template for ranking (defaulting to the template's args when empty)
+// and returns its name. It returns ErrRunning when one of the CronJob's Jobs, scheduled or started by hand, has
+// not finished.
+func (s *Starter) Start(ctx context.Context, ranking string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	token, err := s.Token()
@@ -127,6 +128,10 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 	for k, v := range cj.Spec.JobTemplate.Metadata.Annotations {
 		annotations[k] = v
 	}
+	spec, err := withRanking(cj.Spec.JobTemplate.Spec, ranking)
+	if err != nil {
+		return "", fmt.Errorf("building the engine job: %w", err)
+	}
 	job := map[string]any{
 		"apiVersion": "batch/v1", "kind": "Job",
 		"metadata": map[string]any{
@@ -135,7 +140,7 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 				"apiVersion": "batch/v1", "kind": "CronJob", "name": cj.Metadata.Name, "uid": cj.Metadata.UID, "controller": true,
 			}},
 		},
-		"spec": cj.Spec.JobTemplate.Spec,
+		"spec": spec,
 	}
 	body, err := json.Marshal(job)
 	if err != nil {
@@ -150,6 +155,27 @@ func (s *Starter) Start(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return created.Metadata.Name, nil
+}
+
+// withRanking appends "--ranking", ranking to the first container's args in a Job spec when ranking is non-empty.
+func withRanking(raw json.RawMessage, ranking string) (json.RawMessage, error) {
+	if ranking == "" {
+		return raw, nil
+	}
+	var spec map[string]any
+	if err := json.Unmarshal(raw, &spec); err != nil {
+		return nil, err
+	}
+	tmpl, _ := spec["template"].(map[string]any)
+	podSpec, _ := tmpl["spec"].(map[string]any)
+	containers, _ := podSpec["containers"].([]any)
+	if len(containers) == 0 {
+		return nil, fmt.Errorf("engine job template has no containers")
+	}
+	first, _ := containers[0].(map[string]any)
+	args, _ := first["args"].([]any)
+	first["args"] = append(args, "--ranking", ranking)
+	return json.Marshal(spec)
 }
 
 // Going reports whether one of the CronJob's Jobs has not finished.
