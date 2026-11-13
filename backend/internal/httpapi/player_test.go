@@ -29,6 +29,7 @@ type fakePlayers struct {
 	ratedAs    string
 	seatStats  store.PlayerSeatStats
 	unrated    bool
+	askedRated bool
 }
 
 func (f *fakePlayers) PlayerSeats(_ context.Context, run int64, name string, unrated bool) (store.PlayerSeatStats, error) {
@@ -80,9 +81,10 @@ func (f *fakePlayers) HiddenNames(context.Context, []string) (map[string]bool, e
 	return f.hidden, nil
 }
 
-func (f *fakePlayers) PlayerRivals(_ context.Context, run int64, name string, format int) (string, []store.Rival, error) {
+func (f *fakePlayers) PlayerRivals(_ context.Context, run int64, name string, format int, rated, unrated bool) (string, []store.Rival, error) {
 	f.calls++
-	f.gotRun, f.asked, f.format = run, name, format
+	f.gotRun, f.asked, f.format, f.unrated = run, name, format, unrated
+	f.askedRated = rated
 	return "Ann", f.rivals, f.err
 }
 
@@ -360,6 +362,29 @@ func TestPlayerRivalsGivesWinRates(t *testing.T) {
 	}
 }
 
+func TestPlayerRivalsPassesRatedAndUnrated(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		wantRated   bool
+		wantUnrated bool
+	}{
+		{"default", "", true, false},
+		{"both", "?unrated=true", true, true},
+		{"unrated only", "?unrated=true&rated=false", false, true},
+		{"neither", "?rated=false", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakePlayers{}
+			rec, _ := serve(t, f, "/v1/runs/7/players/ann/rivals"+tt.query)
+			if rec.Code != http.StatusOK || f.askedRated != tt.wantRated || f.unrated != tt.wantUnrated {
+				t.Errorf("GET rivals%s = %d (rated=%t, unrated=%t); want 200 (%t, %t)", tt.query, rec.Code, f.askedRated, f.unrated, tt.wantRated, tt.wantUnrated)
+			}
+		})
+	}
+}
+
 func intp(n int) *int { return &n }
 
 type fakeCareer struct {
@@ -385,9 +410,9 @@ func (f *fakeCareer) PlayerMatrix(_ context.Context, run int64, name string, for
 	return "Ann", f.cells, f.err
 }
 
-func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string, unrated bool) (string, string, []store.PlayerMatch, error) {
+func (f *fakeCareer) Versus(_ context.Context, run int64, name, other string, rated, unrated bool) (string, string, []store.PlayerMatch, error) {
 	f.calls++
-	f.gotRun, f.asked, f.other, f.unrated = run, name, other, unrated
+	f.gotRun, f.asked, f.other, f.askedRated, f.unrated = run, name, other, rated, unrated
 	return "Ann", "Bob", f.shared, f.err
 }
 
@@ -446,10 +471,13 @@ func TestPlayerVersusAsksForUnratedGamesAndMarksThem(t *testing.T) {
 	tests := []struct {
 		name        string
 		query       string
+		wantRated   bool
 		wantUnrated bool
 	}{
-		{"not asked", "", false},
-		{"asked", "?unrated=true", true},
+		{"not asked", "", true, false},
+		{"both", "?unrated=true", true, true},
+		{"unrated only", "?unrated=true&rated=false", false, true},
+		{"neither", "?rated=false", false, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -461,8 +489,8 @@ func TestPlayerVersusAsksForUnratedGamesAndMarksThem(t *testing.T) {
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || len(got.Matches) != 1 {
 				t.Fatalf("GET versus%s: %d %s", tt.query, rec.Code, rec.Body)
 			}
-			if f.unrated != tt.wantUnrated || got.Matches[0].Rated {
-				t.Errorf("GET versus%s: store asked unrated %t, game rated %t; want %t, false", tt.query, f.unrated, got.Matches[0].Rated, tt.wantUnrated)
+			if f.askedRated != tt.wantRated || f.unrated != tt.wantUnrated || got.Matches[0].Rated {
+				t.Errorf("GET versus%s: store asked rated %t unrated %t, game rated %t; want %t %t, false", tt.query, f.askedRated, f.unrated, got.Matches[0].Rated, tt.wantRated, tt.wantUnrated)
 			}
 		})
 	}

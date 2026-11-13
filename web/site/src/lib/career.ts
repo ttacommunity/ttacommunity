@@ -68,3 +68,17 @@ export function versusTally(
   const otherWins = rows.filter((m) => m.other_place < m.name_place).length;
   return { games: rows.length, nameWins, otherWins, draws: rows.length - nameWins - otherWins, rows };
 }
+
+/** Whether rated and unrated games are included in a panel. */
+export interface GameRatingFilter {
+  rated: boolean;
+  unrated: boolean;
+}
+
+/** ratedFilterStatus describes which game types a GameRatingFilter selects, for screen readers. */
+export function ratedFilterStatus(filter: GameRatingFilter): string {
+  if (filter.rated && filter.unrated) return 'Showing rated and unrated games';
+  if (filter.rated) return 'Showing rated games only';
+  if (filter.unrated) return 'Showing unrated games only';
+  return 'No game types selected';
+}

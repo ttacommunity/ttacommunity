@@ -163,11 +163,11 @@ func (f *fakeRatings) PlayerMatrix(context.Context, int64, string, int, *int) (s
 	return "", nil, nil
 }
 
-func (f *fakeRatings) Versus(context.Context, int64, string, string, bool) (string, string, []store.PlayerMatch, error) {
+func (f *fakeRatings) Versus(context.Context, int64, string, string, bool, bool) (string, string, []store.PlayerMatch, error) {
 	return "", "", nil, nil
 }
 
-func (f *fakeRatings) PlayerRivals(context.Context, int64, string, int) (string, []store.Rival, error) {
+func (f *fakeRatings) PlayerRivals(context.Context, int64, string, int, bool, bool) (string, []store.Rival, error) {
 	return "", nil, nil
 }
 

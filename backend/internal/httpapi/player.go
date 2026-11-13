@@ -226,7 +226,9 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	if msg := playerRefusal(req.Run, req.Name, format); msg != "" {
 		return GetPlayerRivals400JSONResponse{badRequestBody(msg)}, nil
 	}
-	name, got, err := s.ratings.PlayerRivals(ctx, req.Run, req.Name, int(format))
+	unrated := req.Params.Unrated != nil && *req.Params.Unrated
+	rated := req.Params.Rated == nil || *req.Params.Rated
+	name, got, err := s.ratings.PlayerRivals(ctx, req.Run, req.Name, int(format), rated, unrated)
 	if nf, ok := notFound(err); ok {
 		return GetPlayerRivals404JSONResponse{nf}, nil
 	}
@@ -324,7 +326,9 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 	if msg != "" {
 		return GetPlayerVersus400JSONResponse{badRequestBody(msg)}, nil
 	}
-	name, other, shared, err := s.ratings.Versus(ctx, req.Run, req.Name, req.Other, req.Params.Unrated != nil && *req.Params.Unrated)
+	unrated := req.Params.Unrated != nil && *req.Params.Unrated
+	rated := req.Params.Rated == nil || *req.Params.Rated
+	name, other, shared, err := s.ratings.Versus(ctx, req.Run, req.Name, req.Other, rated, unrated)
 	if nf, ok := notFound(err); ok {
 		return GetPlayerVersus404JSONResponse{nf}, nil
 	}

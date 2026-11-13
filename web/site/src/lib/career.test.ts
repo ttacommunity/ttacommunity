@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CareerYear, VersusMatch } from '@ttac/shared/ratings';
-import { careerPeakYear, isPeakHigher, scoreYears, versusTally, wcLabel } from './career';
+import { careerPeakYear, isPeakHigher, ratedFilterStatus, scoreYears, versusTally, wcLabel } from './career';
 
 const year = (y: number, wins: number, winRate: number, peak: number | null, title: CareerYear['title'] = null): CareerYear => ({
   year: y,
@@ -111,5 +111,16 @@ describe('careerPeakYear ties', () => {
     const a = { ...year(2023, 0, 50.02, null) };
     const b = { ...year(2024, 0, 50.005, null) };
     expect(careerPeakYear([b, a], null)?.year).toBe(2023);
+  });
+});
+
+describe('ratedFilterStatus', () => {
+  it.each([
+    ['both', { rated: true, unrated: true }, 'Showing rated and unrated games'],
+    ['rated only', { rated: true, unrated: false }, 'Showing rated games only'],
+    ['unrated only', { rated: false, unrated: true }, 'Showing unrated games only'],
+    ['neither', { rated: false, unrated: false }, 'No game types selected'],
+  ] as const)('describes %s', (_name, filter, want) => {
+    expect(ratedFilterStatus(filter)).toBe(want);
   });
 });

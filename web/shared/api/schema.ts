@@ -6239,6 +6239,8 @@ export interface components {
         Format: components["schemas"]["Format"];
         /** @description Also the finished games the run did not rate, marked unrated */
         Unrated: boolean;
+        /** @description The games the run rated (true by default; set false with unrated=true for unrated only) */
+        Rated: boolean;
         /**
          * @description The player's name, as the leaderboard gives it. A name they went by
          *     before also finds them (the one who used it most recently, when
@@ -6565,6 +6567,10 @@ export interface operations {
         parameters: {
             query?: {
                 format?: components["parameters"]["Format"];
+                /** @description Also the finished games the run did not rate, marked unrated */
+                unrated?: components["parameters"]["Unrated"];
+                /** @description The games the run rated (true by default; set false with unrated=true for unrated only) */
+                rated?: components["parameters"]["Rated"];
             };
             header?: never;
             path: {
@@ -6667,6 +6673,8 @@ export interface operations {
             query?: {
                 /** @description Also the finished games the run did not rate, marked unrated */
                 unrated?: components["parameters"]["Unrated"];
+                /** @description The games the run rated (true by default; set false with unrated=true for unrated only) */
+                rated?: components["parameters"]["Rated"];
             };
             header?: never;
             path: {

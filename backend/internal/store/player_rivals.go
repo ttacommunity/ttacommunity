@@ -4,6 +4,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -19,19 +20,40 @@ type Rival struct {
 
 // PlayerRivals returns the stored name and a player's record against the
 // 200 opponents they met most in a format (0 is all), most games first, then
-// most wins. Opponents with a deleted or banned CGE account are left out.
-func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked string, format int) (string, []Rival, error) {
+// most wins. rated and unrated choose which games count. Opponents with a
+// deleted or banned CGE account are left out.
+func (r *RatingsReader) PlayerRivals(ctx context.Context, run int64, asked string, format int, rated, unrated bool) (string, []Rival, error) {
 	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", nil, err
 	}
-	rows, err := r.pool.Query(ctx, `
-		WITH mine AS (
+	if !rated && !unrated {
+		return who.Name, []Rival{}, nil
+	}
+	var parts []string
+	if rated {
+		parts = append(parts, `
 			SELECT player_b AS opponent, outcome_a AS outcome FROM pairwise_matches
 			WHERE run_id = $1 AND player_a = $2 AND ($3 = 0 OR player_count = $3)
 			UNION ALL
 			SELECT player_a, 1 - outcome_a FROM pairwise_matches
-			WHERE run_id = $1 AND player_b = $2 AND ($3 = 0 OR player_count = $3))
+			WHERE run_id = $1 AND player_b = $2 AND ($3 = 0 OR player_count = $3)`)
+	}
+	if unrated {
+		parts = append(parts, `
+			SELECT s_other.player_id AS opponent,
+				CASE WHEN s_me.place < s_other.place THEN 1::double precision
+				     WHEN s_me.place > s_other.place THEN 0::double precision
+				     ELSE 0.5::double precision END AS outcome
+			FROM seats s_me
+			JOIN games g ON g.game_id = s_me.game_id AND g.state = 'played'
+			JOIN seats s_other ON s_other.game_id = s_me.game_id AND s_other.player_id <> s_me.player_id
+			WHERE s_me.player_id = $2
+				AND NOT EXISTS (SELECT 1 FROM pairwise_matches p WHERE p.run_id = $1 AND p.match_id = g.game_id)
+				AND ($3 = 0 OR (SELECT count(*) FROM seats c WHERE c.game_id = g.game_id) = $3)`)
+	}
+	rows, err := r.pool.Query(ctx, `
+		WITH mine AS (`+strings.Join(parts, " UNION ALL ")+`)
 		SELECT o.name, g.games, g.wins, g.losses, g.draws
 		FROM (SELECT opponent, count(*) AS games, count(*) FILTER (WHERE outcome = 1) AS wins,
 				count(*) FILTER (WHERE outcome = 0) AS losses, count(*) FILTER (WHERE outcome = 0.5) AS draws
@@ -197,10 +219,9 @@ func (r *RatingsReader) careerYears(ctx context.Context, run int64, player int64
 	return years, nil
 }
 
-// Versus returns both stored names and the latest 100 games run rated with
-// both players, newest first; with unrated, also the finished games the run
-// did not rate.
-func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other string, unrated bool) (string, string, []PlayerMatch, error) {
+// Versus returns both stored names and the latest 100 games both players
+// played together, newest first; rated and unrated choose which games count.
+func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other string, rated, unrated bool) (string, string, []PlayerMatch, error) {
 	a, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", "", nil, err
@@ -209,13 +230,23 @@ func (r *RatingsReader) Versus(ctx context.Context, run int64, asked, other stri
 	if err != nil {
 		return "", "", nil, err
 	}
-	shared := `
+	if !rated && !unrated {
+		return a.Name, b.Name, nil, nil
+	}
+	ratedSQL := `
 		SELECT match_id, date, player_count, true FROM pairwise_matches WHERE run_id = $1 AND player_a = $2 AND player_b = $3
 		UNION
 		SELECT match_id, date, player_count, true FROM pairwise_matches WHERE run_id = $1 AND player_a = $3 AND player_b = $2`
-	if unrated {
+	var shared string
+	switch {
+	case rated && !unrated:
+		shared = ratedSQL
+	case rated && unrated:
 		shared = `WITH mine AS (SELECT s.game_id FROM seats s JOIN seats o ON o.game_id = s.game_id AND o.player_id = $3
-			WHERE s.player_id = $2) ` + shared + ` UNION ALL ` + notRatedGames
+			WHERE s.player_id = $2) ` + ratedSQL + ` UNION ALL ` + notRatedGames
+	case !rated && unrated:
+		shared = `WITH mine AS (SELECT s.game_id FROM seats s JOIN seats o ON o.game_id = s.game_id AND o.player_id = $3
+			WHERE s.player_id = $2) ` + notRatedGames
 	}
 	rows, err := r.pool.Query(ctx, `
 		SELECT match_id, date, player_count, rated FROM (`+shared+`) shared (match_id, date, player_count, rated)

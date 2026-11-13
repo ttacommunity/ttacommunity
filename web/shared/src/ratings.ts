@@ -232,15 +232,20 @@ export async function playerMatches(
   return get<PlayerMatches>(fetchFn, base, playerPath(run, name, `/matches?${query}`));
 }
 
-/** Returns a player's record against the opponents they met most, in one format. */
+/** Returns a player's record against the opponents they met most, in one format; rated and unrated choose which games count. */
 export async function playerRivals(
   base: string,
   run: number,
   name: string,
   format: Format,
+  unrated: boolean = false,
+  rated: boolean = true,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerRivals> {
-  return get<PlayerRivals>(fetchFn, base, playerPath(run, name, `/rivals?format=${format}`));
+  const query = new URLSearchParams({ format: String(format) });
+  if (unrated) query.set('unrated', 'true');
+  if (!rated) query.set('rated', 'false');
+  return get<PlayerRivals>(fetchFn, base, playerPath(run, name, `/rivals?${query}`));
 }
 
 /** Returns a player's record each year and their peak, in one format and model. */
@@ -256,17 +261,21 @@ export async function playerCareer(
   return get<PlayerCareer>(fetchFn, base, playerPath(run, name, `/career?${query}`));
 }
 
-/** Returns the latest games two players played together, with where each finished; with unrated, also the games the run did not rate. */
+/** Returns the latest games two players played together, with where each finished; rated and unrated choose which games count. */
 export async function playerVersus(
   base: string,
   run: number,
   name: string,
   other: string,
   unrated: boolean = false,
+  rated: boolean = true,
   fetchFn: typeof fetch = fetch,
 ): Promise<PlayerVersus> {
-  const query = unrated ? '?unrated=true' : '';
-  return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}${query}`));
+  const query = new URLSearchParams();
+  if (unrated) query.set('unrated', 'true');
+  if (!rated) query.set('rated', 'false');
+  const qs = query.toString();
+  return get<PlayerVersus>(fetchFn, base, playerPath(run, name, `/versus/${encodeURIComponent(other)}${qs ? `?${qs}` : ''}`));
 }
 
 /** Returns a player's rating in each page model for a format: the run's, or at the end of year. */
