@@ -32,7 +32,7 @@ func TestAnAdminStartsAndPublishesRunsAndEachIsAudited(t *testing.T) {
 	if rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs/8/publish", site, ""); rec.Code != http.StatusNoContent {
 		t.Errorf("publish 8 = %d %s, want 204", rec.Code, rec.Body)
 	}
-	if want := "start|publish 8"; strings.Join(f.notes, "|") != want {
+	if want := "start community|publish 8"; strings.Join(f.notes, "|") != want {
 		t.Errorf("changes = %q, want %q", f.notes, want)
 	}
 	if want := owner + " run.start engine-dev-admin-x7k2p|" + owner + " run.publish 8"; strings.Join(f.audits, "|") != want {
@@ -229,5 +229,20 @@ func TestProtectingARunIsRefusedWhenItShouldBe(t *testing.T) {
 		if rec.Code != http.StatusForbidden || len(f.notes)+len(f.audits) != 0 {
 			t.Errorf("%s: PATCH protected = %d %s, changes %q; want 403 and nothing changed", tt.name, rec.Code, rec.Body, f.notes)
 		}
+	}
+}
+
+func TestAnAdminStartsARunForASpecificTrack(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs", site, `{"ranking":"superblitz"}`)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("POST runs superblitz = %d %s, want 202", rec.Code, rec.Body)
+	}
+	if len(f.notes) != 1 || f.notes[0] != "start superblitz" {
+		t.Errorf("notes = %q, want [start superblitz]", f.notes)
+	}
+	if bad := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/runs", site, `{"ranking":"snail"}`); bad.Code != http.StatusBadRequest {
+		t.Errorf("POST runs snail = %d %s, want 400", bad.Code, bad.Body)
 	}
 }

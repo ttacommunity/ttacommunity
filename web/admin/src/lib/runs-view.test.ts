@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText, trackLabel } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -78,8 +78,9 @@ describe('awaitStartedRun', () => {
   });
 });
 
-const RUN = (id: number, over: Partial<{ status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean }> = {}) => ({
+const RUN = (id: number, over: Partial<{ ranking: string; status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean }> = {}) => ({
   id,
+  ranking: 'community',
   status: 'complete' as const,
   current: false,
   deleting: false,
@@ -98,10 +99,16 @@ describe('runs panel', () => {
   });
 
   it.each([
-    ['a later run publishes', 7, 'Publish'],
-    ['an earlier run rolls back', 3, 'Roll back to'],
-  ])('%s', (_, id, want) => {
-    expect(publishVerb([RUN(5, { current: true }), RUN(7), RUN(3)], RUN(id))).toBe(want);
+    ['a later run publishes', RUN(7), 'Publish'],
+    ['an earlier run rolls back', RUN(3), 'Roll back to'],
+    ['a first run in another track publishes', RUN(3, { ranking: 'superblitz' }), 'Publish'],
+  ])('%s', (_, run, want) => {
+    expect(publishVerb([RUN(5, { current: true }), RUN(7), RUN(3)], run)).toBe(want);
+  });
+
+  it('names ranking tracks', () => {
+    expect(trackLabel('superblitz')).toBe('SuperBlitz');
+    expect(trackLabel('other')).toBe('other');
   });
 
   it.each([

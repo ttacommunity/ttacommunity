@@ -4,10 +4,10 @@ import { useDialog } from '@ttac/shared/Dialog';
 import { count, signed } from '@ttac/shared/numbers';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
-import { adminRequest, type AdminRun, type RunChanges, type StartedRun } from '../lib/admin-api';
+import { adminRequest, type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, TRACKS, trackLabel } from '../lib/runs-view';
 
 const POLL_MS = 5000;
 const ZONE = viewerZone();
@@ -97,6 +97,7 @@ export default function RunsPanel() {
   const [waitingUntil, setWaitingUntil] = useState(0);
   const [comparing, setComparing] = useState<number | null>(null);
   const [all, setAll] = useState(false);
+  const [track, setTrack] = useState<RankingTrack>('community');
 
   const load = async () => {
     const r = await adminRequest<AdminRun[]>('/api/runs', {});
@@ -117,7 +118,7 @@ export default function RunsPanel() {
   const start = async (opener: HTMLElement) => {
     const sure = await dialog.confirm(
       {
-        heading: 'Start a rating run now?',
+        heading: `Start a ${trackLabel(track)} rating run now?`,
         text: 'It is not shown on the site until you publish it.',
         action: 'Start run',
       },
@@ -125,7 +126,7 @@ export default function RunsPanel() {
     );
     if (!sure) return;
     setOutcome(null);
-    const r = await req.send<StartedRun>(req.startRun());
+    const r = await req.send<StartedRun>(req.startRun(track));
     if (!r.ok) {
       setOutcome(refused(r.message, 'runs'));
       return;
@@ -186,6 +187,16 @@ export default function RunsPanel() {
         can be published again to roll back.
       </p>
       <div className="runs-actions">
+        <label>
+          <span className="visually-hidden">Rating track</span>
+          <select value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
+            {TRACKS.map((t) => (
+              <option key={t.slug} value={t.slug}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="button" className="btn-antique" onClick={(e) => void start(e.currentTarget)} disabled={going}>
           {going ? 'A run is going' : 'Start a run now'}
         </button>
@@ -209,6 +220,7 @@ export default function RunsPanel() {
             <thead>
               <tr>
                 <th scope="col">Run</th>
+                <th scope="col">Track</th>
                 <th scope="col">State</th>
                 <th scope="col">Started ({ZONE})</th>
                 <th scope="col" className="run-wide">Games</th>
@@ -231,7 +243,7 @@ export default function RunsPanel() {
                     onProtect={(on) => void protect(r, on)}
                     onDelete={(opener) => void remove(r, opener)}
                   />
-                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={10} onClose={close} />
+                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={11} onClose={close} />
                 </Fragment>
               ))}
             </tbody>
@@ -271,6 +283,7 @@ function RunRow({
   return (
     <tr>
       <th scope="row">{run.id}</th>
+      <td>{trackLabel(run.ranking)}</td>
       <td>
         <span className={`run-state run-${state}`}>{runLabel(run)}</span>
       </td>

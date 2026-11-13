@@ -598,6 +598,30 @@ func (e PodiumSource) Valid() bool {
 	}
 }
 
+// Defines values for RankingTrack.
+const (
+	Community           RankingTrack = "community"
+	CommunitySuperblitz RankingTrack = "community_superblitz"
+	Pulse               RankingTrack = "pulse"
+	Superblitz          RankingTrack = "superblitz"
+)
+
+// Valid indicates whether the value is a known member of the RankingTrack enum.
+func (e RankingTrack) Valid() bool {
+	switch e {
+	case Community:
+		return true
+	case CommunitySuperblitz:
+		return true
+	case Pulse:
+		return true
+	case Superblitz:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RanksFixedBy.
 const (
 	RanksFixedByLot    RanksFixedBy = "lot"
@@ -1484,6 +1508,7 @@ type AdminRun struct {
 
 	// PublishedAt When it was first published
 	PublishedAt *time.Time     `json:"published_at,omitempty"`
+	Ranking     RankingTrack   `json:"ranking"`
 	StartedAt   time.Time      `json:"started_at"`
 	Status      AdminRunStatus `json:"status"`
 }
@@ -4020,6 +4045,9 @@ type PreviousRating struct {
 	Rd      float64 `json:"rd"`
 }
 
+// RankingTrack defines model for RankingTrack.
+type RankingTrack string
+
 // RanksFixedBy What fixed a blitz edition's starting ranks
 type RanksFixedBy string
 
@@ -4349,6 +4377,11 @@ type StandingsCheck struct {
 
 	// StagesOnlyOnCge Stages CGE has a table for and we hold no game of
 	StagesOnlyOnCge int `json:"stages_only_on_cge"`
+}
+
+// StartRunRequest defines model for StartRunRequest.
+type StartRunRequest struct {
+	Ranking *RankingTrack `json:"ranking,omitempty"`
 }
 
 // StartedRun defines model for StartedRun.
@@ -5113,6 +5146,9 @@ type PostAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
 
 // PutAdminNotificationEndpointJSONRequestBody defines body for PutAdminNotificationEndpoint for application/json ContentType.
 type PutAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
+
+// PostAdminRunJSONRequestBody defines body for PostAdminRun for application/json ContentType.
+type PostAdminRunJSONRequestBody = StartRunRequest
 
 // PatchAdminRunJSONRequestBody defines body for PatchAdminRun for application/json ContentType.
 type PatchAdminRunJSONRequestBody = RunProtection
@@ -16274,6 +16310,7 @@ func (response GetAdminRuns403JSONResponse) VisitGetAdminRunsResponse(w http.Res
 }
 
 type PostAdminRunRequestObject struct {
+	Body *PostAdminRunJSONRequestBody
 }
 
 type PostAdminRunResponseObject interface {
@@ -16298,6 +16335,21 @@ func (response PostAdminRun202JSONResponse) VisitPostAdminRunResponse(w http.Res
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRun400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminRun400JSONResponse) VisitPostAdminRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -23675,6 +23727,16 @@ func (sh *strictHandler) GetAdminRuns(w http.ResponseWriter, r *http.Request) {
 // PostAdminRun operation middleware
 func (sh *strictHandler) PostAdminRun(w http.ResponseWriter, r *http.Request) {
 	var request PostAdminRunRequestObject
+
+	var body PostAdminRunJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.PostAdminRun(ctx, request.(PostAdminRunRequestObject))

@@ -1,6 +1,6 @@
 /** Every change admin sends: each a path and the method and body adminRequest takes, names in paths escaped. */
 import type { components } from '@ttac/shared/api';
-import { adminRequest, type AdminResult } from './admin-api';
+import { adminRequest, type AdminResult, type RankingTrack } from './admin-api';
 
 type Schemas = components['schemas'];
 type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -186,7 +186,7 @@ export const setTitle = (player: string, title: string, reason: string) =>
 export const clearTitle = (player: string) => to(`/api/titles/${encodeURIComponent(player.trim())}`, 'DELETE');
 
 /** startRun starts a rating run. */
-export const startRun = () => to('/api/runs', 'POST');
+export const startRun = (ranking: RankingTrack = 'community') => to('/api/runs', 'POST', { ranking });
 /** stopRun stops run, which must be the one going. */
 export const stopRun = (run: number) => to(`/api/runs/${run}/stop`, 'POST');
 /** publishRun makes a run the one the site shows. */

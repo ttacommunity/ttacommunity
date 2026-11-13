@@ -3191,8 +3191,15 @@ paths:
       tags: [admin]
       summary: Start a rating run now (admins only)
       description: >
-        Starts the engine as a Job. The run is not published: publish it once
-        it is complete. Audited. The Origin must be the admin site.
+        Starts the engine as a Job for the requested ranking track (default
+        community). The run is not published: publish it once it is complete.
+        Audited. The Origin must be the admin site.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRunRequest"
       responses:
         "202":
           description: The engine Job was created
@@ -3203,6 +3210,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StartedRun"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -4642,8 +4651,10 @@ components:
   schemas:
     AdminRun:
       type: object
-      required: [id, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes, disk_bytes]
+      required: [id, ranking, status, started_at, current, games, players, engine_version, progress, protected, deleting, bytes, disk_bytes]
       properties:
+        ranking:
+          $ref: "#/components/schemas/RankingTrack"
         bytes:
           description: >-
             The bytes of the rows the run wrote to the run tables, as a dump of
@@ -4701,6 +4712,14 @@ components:
       properties:
         protected:
           type: boolean
+    RankingTrack:
+      type: string
+      enum: [community, superblitz, community_superblitz, pulse]
+    StartRunRequest:
+      type: object
+      properties:
+        ranking:
+          $ref: "#/components/schemas/RankingTrack"
     StartedRun:
       type: object
       required: [job]

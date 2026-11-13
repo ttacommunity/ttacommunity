@@ -75,7 +75,7 @@ func ownedJob(name, conditions string) string {
 
 func TestStartCreatesAJobFromTheCronJobsTemplate(t *testing.T) {
 	f := &fakeAPI{jobs: ownedJob("engine-dev-29", `{"type": "Complete", "status": "True"}`)}
-	name, err := starter(t, f).Start(context.Background())
+	name, err := starter(t, f).Start(context.Background(), "")
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -102,6 +102,18 @@ func TestStartCreatesAJobFromTheCronJobsTemplate(t *testing.T) {
 	}
 }
 
+func TestStartPassesRankingArg(t *testing.T) {
+	f := &fakeAPI{}
+	if _, err := starter(t, f).Start(context.Background(), "superblitz"); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	job, _ := json.Marshal(f.created[0])
+	want := `"args":["-m","tta_ratings_engine.run","--ranking","superblitz"]`
+	if !strings.Contains(string(job), want) {
+		t.Errorf("job = %s, want it to contain %s", job, want)
+	}
+}
+
 func TestStartRefusesWhileARunIsGoing(t *testing.T) {
 	for _, tt := range []struct{ name, jobs string }{
 		{"no conditions yet", ownedJob("engine-dev-29", "")},
@@ -110,7 +122,7 @@ func TestStartRefusesWhileARunIsGoing(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeAPI{jobs: tt.jobs}
-			if _, err := starter(t, f).Start(context.Background()); !errors.Is(err, ErrRunning) {
+			if _, err := starter(t, f).Start(context.Background(), ""); !errors.Is(err, ErrRunning) {
 				t.Errorf("Start = %v, want ErrRunning", err)
 			}
 			if len(f.created) != 0 {
@@ -127,14 +139,14 @@ func TestStartIgnoresFinishedAndOtherJobs(t *testing.T) {
 		`{"metadata": {"name": "load-1"}, "status": {}}`,
 		`{"metadata": {"name": "other", "ownerReferences": [{"kind": "CronJob", "name": "backup"}]}, "status": {}}`,
 	}, ",")}
-	if _, err := starter(t, f).Start(context.Background()); err != nil {
+	if _, err := starter(t, f).Start(context.Background(), ""); err != nil {
 		t.Errorf("Start: %v", err)
 	}
 }
 
 func TestStartFailsWithoutCreatingWhenTheClusterRefuses(t *testing.T) {
 	f := &fakeAPI{status: http.StatusForbidden}
-	_, err := starter(t, f).Start(context.Background())
+	_, err := starter(t, f).Start(context.Background(), "")
 	if err == nil || errors.Is(err, ErrRunning) {
 		t.Errorf("Start = %v, want an error", err)
 	}
@@ -147,7 +159,7 @@ func TestStartFailsWithoutAToken(t *testing.T) {
 	f := &fakeAPI{}
 	s := starter(t, f)
 	s.Token = func() (string, error) { return "", errors.New("no token file") }
-	if _, err := s.Start(context.Background()); err == nil {
+	if _, err := s.Start(context.Background(), ""); err == nil {
 		t.Error("Start without a token succeeded")
 	}
 	if len(f.auths) != 0 {

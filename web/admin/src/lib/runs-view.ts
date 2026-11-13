@@ -48,7 +48,19 @@ export function awaitStartedRun(now: number): number {
   return now + 3 * 60 * 1000;
 }
 
-type Run = { id: number; status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean };
+export const TRACKS = [
+  { slug: 'community', label: 'Standard' },
+  { slug: 'superblitz', label: 'SuperBlitz' },
+  { slug: 'community_superblitz', label: 'Standard + SuperBlitz' },
+  { slug: 'pulse', label: 'TTA Pulse' },
+] as const;
+
+/** trackLabel names a ranking track slug for the admin UI. */
+export function trackLabel(slug: string): string {
+  return TRACKS.find((t) => t.slug === slug)?.label ?? slug;
+}
+
+type Run = { id: number; ranking?: string; status: 'running' | 'complete' | 'failed'; current: boolean; deleting: boolean };
 const STATES: Record<Run['status'], string> = { running: 'Running', complete: 'Complete', failed: 'Failed' };
 
 /** runLabel names a run's state: on the site, being deleted, else running, complete or failed. */
@@ -59,7 +71,7 @@ export function runLabel(run: Run): string {
 
 /** publishVerb says what publishing run does: roll back to an earlier run than the one shown, else publish. */
 export function publishVerb(runs: readonly Run[], run: Run): 'Publish' | 'Roll back to' {
-  const current = runs.find((r) => r.current);
+  const current = runs.find((r) => r.current && r.ranking === run.ranking);
   return current !== undefined && current.id > run.id ? 'Roll back to' : 'Publish';
 }
 

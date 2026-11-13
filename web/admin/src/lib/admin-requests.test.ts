@@ -71,7 +71,8 @@ describe('admin requests', () => {
     ['a title, the name escaped', req.setTitle(' ann b ', 'GM', ' Earned '), '/api/titles/ann%20b', 'PUT', { title: 'GM', reason: 'Earned' }],
     ['clearing a title', req.clearTitle('ann'), '/api/titles/ann', 'DELETE', undefined],
     // Rating runs
-    ['starting a run', req.startRun(), '/api/runs', 'POST', undefined],
+    ['starting a run', req.startRun(), '/api/runs', 'POST', { ranking: 'community' }],
+    ['starting a SuperBlitz run', req.startRun('superblitz'), '/api/runs', 'POST', { ranking: 'superblitz' }],
     ['stopping a run', req.stopRun(45), '/api/runs/45/stop', 'POST', undefined],
     ['publishing a run', req.publishRun(12), '/api/runs/12/publish', 'POST', undefined],
     ['protecting a run', req.protectRun(12, true), '/api/runs/12', 'PATCH', { protected: true }],

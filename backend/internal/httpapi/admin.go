@@ -112,7 +112,7 @@ type RunAdmin interface {
 	PrewarmPlayerPages(ctx context.Context, run int64) (int64, error)
 	RunChanges(ctx context.Context, run, before int64) (store.RunChanges, error)
 	// StartRun starts the engine now and returns its Job's name, or enginejob.ErrRunning or ErrNotSetUp.
-	StartRun(ctx context.Context) (string, error)
+	StartRun(ctx context.Context, ranking string) (string, error)
 	// StopRun stops the engine's unfinished Jobs and returns their names, or enginejob.ErrNotRunning or ErrNotSetUp.
 	StopRun(ctx context.Context) ([]string, error)
 	// EngineGoing reports whether an engine Job has not finished, or returns enginejob.ErrNotSetUp.

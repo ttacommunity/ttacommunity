@@ -2222,7 +2222,7 @@ export interface paths {
         put?: never;
         /**
          * Start a rating run now (admins only)
-         * @description Starts the engine as a Job. The run is not published: publish it once it is complete. Audited. The Origin must be the admin site.
+         * @description Starts the engine as a Job for the requested ranking track (default community). The run is not published: publish it once it is complete. Audited. The Origin must be the admin site.
          */
         post: operations["postAdminRun"];
         delete?: never;
@@ -3042,6 +3042,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AdminRun: {
+            ranking: components["schemas"]["RankingTrack"];
             /**
              * Format: int64
              * @description The bytes of the rows the run wrote to the run tables, as a dump of it would weigh, recorded as it ended and unmoved by later deletes. 0 while it is going
@@ -3081,6 +3082,11 @@ export interface components {
         };
         RunProtection: {
             protected: boolean;
+        };
+        /** @enum {string} */
+        RankingTrack: "community" | "superblitz" | "community_superblitz" | "pulse";
+        StartRunRequest: {
+            ranking?: components["schemas"]["RankingTrack"];
         };
         StartedRun: {
             /** @description The engine Job's name */
@@ -9251,7 +9257,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartRunRequest"];
+            };
+        };
         responses: {
             /** @description The engine Job was created */
             202: {
@@ -9263,6 +9273,7 @@ export interface operations {
                     "application/json": components["schemas"]["StartedRun"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
@@ -10454,6 +10465,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyA
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
+export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
