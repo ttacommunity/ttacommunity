@@ -2,12 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useModal } from '@ttac/shared/modal';
 import { playerVersus, type Format, type PlayerVersus } from '@ttac/shared/ratings';
-import { versusTally } from '../lib/career';
+import { versusTally, type GameRatingFilter } from '../lib/career';
 import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
-import UnratedToggle from './UnratedToggle';
+import RatedFilter from './RatedFilter';
 import CopyCode from './CopyCode';
 import { errorText, type Load } from '@ttac/shared/load';
 
@@ -25,6 +25,7 @@ export default function VersusDialog({
   name,
   other,
   format: initial,
+  initialFilter = { rated: true, unrated: false },
   opener,
   onClose,
 }: {
@@ -33,25 +34,31 @@ export default function VersusDialog({
   name: string;
   other: string;
   format: Format;
+  initialFilter?: GameRatingFilter;
   opener: HTMLElement;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [state, setState] = useState<Load<PlayerVersus>>({ kind: 'loading' });
   const [format, setFormat] = useState<Format>(initial);
-  const [unrated, setUnrated] = useState(false);
+  const [ratingFilter, setRatingFilter] = useState<GameRatingFilter>(initialFilter);
   // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
   const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   useEffect(() => {
+    if (!ratingFilter.rated && !ratingFilter.unrated) {
+      setState({ kind: 'ready', data: { run_id: runId, name, other, matches: [] } });
+      return;
+    }
+    setState({ kind: 'loading' });
     let stale = false;
-    playerVersus(apiUrl, runId, name, other, unrated)
+    playerVersus(apiUrl, runId, name, other, ratingFilter.unrated, ratingFilter.rated)
       .then((data) => !stale && setState({ kind: 'ready', data }))
       .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
     return () => {
       stale = true;
     };
-  }, [apiUrl, runId, name, other, unrated]);
+  }, [apiUrl, runId, name, other, ratingFilter]);
 
   const tally = state.kind === 'ready' ? versusTally(state.data.matches, format) : null;
   const a = state.kind === 'ready' ? state.data.name : name;
@@ -75,7 +82,7 @@ export default function VersusDialog({
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
         <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMATS} value={format} onChange={setFormat} />
-        <UnratedToggle on={unrated} onChange={setUnrated} className="unrated-toggle-end" />
+        <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
       </div>
       <div className="h2h-stats">
         {tally === null ? (
@@ -104,7 +111,7 @@ export default function VersusDialog({
       <div className="h2h-body">
         <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (
-          <div className="h2h-message">No direct tournament encounters found for this player format.</div>
+          <div className="h2h-message">{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see shared matches.' : 'No direct encounters found for this player format and filter.'}</div>
         )}
         {tally !== null && tally.games > 0 && (
           <table className="data-table">

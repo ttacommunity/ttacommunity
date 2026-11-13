@@ -347,6 +347,8 @@ paths:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
         - $ref: "#/components/parameters/Format"
+        - $ref: "#/components/parameters/Unrated"
+        - $ref: "#/components/parameters/Rated"
       responses:
         "200":
           description: The player's rivals
@@ -436,6 +438,7 @@ paths:
         - $ref: "#/components/parameters/RunId"
         - $ref: "#/components/parameters/PlayerName"
         - $ref: "#/components/parameters/Unrated"
+        - $ref: "#/components/parameters/Rated"
         - name: other
           in: path
           required: true
@@ -4484,6 +4487,14 @@ components:
       schema:
         type: boolean
         default: false
+    Rated:
+      name: rated
+      in: query
+      required: false
+      description: The games the run rated (true by default; set false with unrated=true for unrated only)
+      schema:
+        type: boolean
+        default: true
     PlayerName:
       name: name
       in: path
