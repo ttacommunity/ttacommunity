@@ -277,20 +277,28 @@ func (r *RatingsReader) PlayerHistory(ctx context.Context, run int64, asked stri
 	return who.Name, points, nil
 }
 
-// PlayerMatches returns the stored name and one page of the games run rated
-// for a player in a format (0 is all), newest first, each with the date and
-// format the run took; with unrated, also the finished games the run did not
-// rate, with their own. A page past the last gives the last. Seats keep their
-// stored names, for rating estimates: the caller masks the HiddenNames before
+// PlayerMatches returns the stored name and one page of the games for a
+// player in a format (0 is all), newest first; rated and unrated choose which
+// games count. A page past the last gives the last. Seats keep their stored
+// names, for rating estimates: the caller masks the HiddenNames before
 // answering.
-func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int, unrated bool) (string, MatchPage, error) {
+func (r *RatingsReader) PlayerMatches(ctx context.Context, run int64, asked string, format, page int, rated, unrated bool) (string, MatchPage, error) {
 	who, err := r.resolve(ctx, run, asked)
 	if err != nil {
 		return "", MatchPage{}, err
 	}
-	games := `SELECT match_id, date, player_count, true FROM (` + playerRunGames + `) rated`
-	if unrated {
-		games = `WITH mine AS (SELECT game_id FROM seats WHERE player_id = $2) ` + games + ` UNION ALL ` + notRatedGames
+	if !rated && !unrated {
+		return who.Name, MatchPage{Page: 1, Pages: 1}, nil
+	}
+	ratedSQL := `SELECT match_id, date, player_count, true FROM (` + playerRunGames + `) rated`
+	var games string
+	switch {
+	case rated && !unrated:
+		games = ratedSQL
+	case rated && unrated:
+		games = `WITH mine AS (SELECT game_id FROM seats WHERE player_id = $2) ` + ratedSQL + ` UNION ALL ` + notRatedGames
+	case !rated && unrated:
+		games = `WITH mine AS (SELECT game_id FROM seats WHERE player_id = $2) ` + notRatedGames
 	}
 	mine := `(` + games + `) all_games (match_id, date, player_count, rated) WHERE $3 = 0 OR player_count = $3`
 	var mp MatchPage

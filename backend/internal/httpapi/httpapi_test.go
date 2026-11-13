@@ -79,7 +79,7 @@ func (f *fakeRatings) PlayerHistory(context.Context, int64, string, int) (string
 	return "", nil, nil
 }
 
-func (f *fakeRatings) PlayerMatches(context.Context, int64, string, int, int, bool) (string, store.MatchPage, error) {
+func (f *fakeRatings) PlayerMatches(context.Context, int64, string, int, int, bool, bool) (string, store.MatchPage, error) {
 	return "", store.MatchPage{}, nil
 }
 

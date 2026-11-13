@@ -122,7 +122,7 @@ export async function fetchFeedMatches(
   );
 
   const playerPromises = settings.players.slice(0, 12).map((player) =>
-    playerMatches(apiUrl, runId, player, 0, 'glicko2_daneo', 1, false, fetchFn)
+    playerMatches(apiUrl, runId, player, 0, 'glicko2_daneo', 1, false, true, fetchFn)
       .then((res) => res.matches.map(playerMatchToFeedMatch))
       .catch(skipMissing),
   );

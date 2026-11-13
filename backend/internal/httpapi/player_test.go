@@ -50,9 +50,9 @@ func (f *fakePlayers) PlayerHistory(_ context.Context, run int64, name string, f
 	return "Ann", f.hist, f.err
 }
 
-func (f *fakePlayers) PlayerMatches(_ context.Context, run int64, name string, format, page int, unrated bool) (string, store.MatchPage, error) {
+func (f *fakePlayers) PlayerMatches(_ context.Context, run int64, name string, format, page int, rated, unrated bool) (string, store.MatchPage, error) {
 	f.calls++
-	f.gotRun, f.asked, f.format, f.pageNo, f.unrated = run, name, format, page, unrated
+	f.gotRun, f.asked, f.format, f.pageNo, f.askedRated, f.unrated = run, name, format, page, rated, unrated
 	return "Ann", f.page, f.err
 }
 
@@ -359,6 +359,29 @@ func TestPlayerRivalsGivesWinRates(t *testing.T) {
 	}
 	if rec.Header().Get("Cache-Control") != "public, max-age=300" {
 		t.Errorf("GET rivals: Cache-Control = %q, want five minutes", rec.Header().Get("Cache-Control"))
+	}
+}
+
+func TestPlayerMatchesPassesRatedAndUnrated(t *testing.T) {
+	tests := []struct {
+		name        string
+		query       string
+		wantRated   bool
+		wantUnrated bool
+	}{
+		{"default", "", true, false},
+		{"both", "?unrated=true", true, true},
+		{"unrated only", "?unrated=true&rated=false", false, true},
+		{"neither", "?rated=false", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakePlayers{}
+			rec, _ := serve(t, f, "/v1/runs/7/players/ann/matches"+tt.query)
+			if rec.Code != http.StatusOK || f.askedRated != tt.wantRated || f.unrated != tt.wantUnrated {
+				t.Errorf("GET matches%s = %d (rated=%t, unrated=%t); want 200 (%t, %t)", tt.query, rec.Code, f.askedRated, f.unrated, tt.wantRated, tt.wantUnrated)
+			}
+		})
 	}
 }
 
