@@ -8,6 +8,7 @@ import * as req from '../lib/admin-requests';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
+import Count from './Count';
 
 const ZONE = viewerZone();
 
@@ -45,7 +46,7 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
       {dialog.element}
       <h3>
         Waiting to be linked
-        {waiting.length > 0 && <span className="count-badge">{waiting.length}</span>}
+        <Count n={waiting.length} what="waiting" />
       </h3>
       <p className="muted">Check a request is really that player before approving it.</p>
       <Notice outcome={shownAt(outcome, 'waiting')} onClose={close} />
