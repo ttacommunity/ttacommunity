@@ -29,6 +29,13 @@ select.input-antique {
   box-sizing: border-box;
 }
 
+/* Checkboxes, radios and progress bars in the site's gold. */
+input[type='checkbox'],
+input[type='radio'],
+progress {
+  accent-color: var(--accent-gold);
+}
+
 /* A checkbox in a row of fields, centred on them. */
 .check-inline {
   display: inline-flex;
