@@ -14,7 +14,6 @@ import {
   newGroupBody,
   rowTotals,
   seasonDestinations,
-  toggled,
   topLevel,
   typeLabel,
   unrelated,
@@ -164,13 +163,6 @@ describe('tournament groups', () => {
     ['a group with nowhere to go', 'worlds', [['leagues', 'Leagues']]],
   ])('offers moving %s', (_, slug, want) => {
     expect(moveChoices(LIST, slug).map((c) => [c.parent, c.label])).toEqual(want);
-  });
-
-  it.each([
-    ['adds one not chosen', ['a'], 'b', ['a', 'b']],
-    ['removes one chosen', ['a', 'b'], 'a', ['b']],
-  ])('toggles a choice: %s', (_, chosen, slug, want) => {
-    expect(toggled(chosen, slug)).toEqual(want);
   });
 
   it('finds destinations for moving a season excluding groups and self', () => {

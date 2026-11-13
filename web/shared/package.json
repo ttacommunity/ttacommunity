@@ -25,6 +25,7 @@
     "./modal": "./src/modal.ts",
     "./tabs": "./src/tabs.ts",
     "./sort": "./src/sort.ts",
+    "./toggle": "./src/toggle.ts",
     "./SortHeader": "./src/SortHeader.tsx",
     "./Note": "./src/Note.tsx"
   },

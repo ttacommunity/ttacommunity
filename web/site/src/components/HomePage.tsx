@@ -7,7 +7,8 @@ import { errorText, settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
 import { useCopy } from '@ttac/shared/copy';
 import { browserStorage } from '../lib/account';
-import { seatRankClass, toggled } from '../lib/home-view';
+import { toggledSet } from '@ttac/shared/toggle';
+import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -140,8 +141,8 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
     setFeedSettings(next);
     saveFeedSettings(browserStorage(), next);
   };
-  const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggled(prev, matchId));
-  const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggled(prev, key));
+  const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggledSet(prev, matchId));
+  const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggledSet(prev, key));
 
   return (
     <>
