@@ -123,13 +123,6 @@
   color: var(--text-soft);
   font-size: var(--size-body-short);
 }
-.report-said {
-  margin: 0.75rem 0 0;
-  color: var(--text-soft);
-}
-.report-said.report-refused {
-  color: var(--loss);
-}
 
 /* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */
 .blitz-draw-slot {

@@ -42,7 +42,7 @@ function SignerLink({ signer, href, children }: { signer: Signer; href: string; 
 /** AccountPage asks who is signed in and shows what they can do next. */
 export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   const [params] = useState(() => new URLSearchParams(window.location.search));
-  const notice = signInNotice(params);
+  const [notice, setNotice] = useState(() => signInNotice(params));
   const first = isFirstSignIn(params);
   const back = backPath(params.get('back'));
   const [load, setLoad] = useState<Load<Me | null>>({ kind: 'loading' });
@@ -70,9 +70,9 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
         <div className="tournaments-subtitle">Sign in to take part in what the community runs, as the player you are on CGE.</div>
       </div>
       {notice !== null && (
-        <p className={`rating-card account-card account-notice account-notice-${notice.kind}`} role="alert">
-          {notice.text}
-        </p>
+        <div className="rating-card account-card">
+          <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
+        </div>
       )}
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="your account" />
@@ -217,6 +217,7 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
         round={round}
         busy={busy}
         problem={problem}
+        clearProblem={() => setProblem('')}
         turnstileSitekey={turnstileSitekey}
         send={send}
       />
@@ -232,12 +233,13 @@ type EmailFormProps = {
   round: number;
   busy: boolean;
   problem: string;
+  clearProblem: () => void;
   turnstileSitekey: string;
   send: (e: FormEvent) => Promise<void>;
 };
 
 /** EmailForm asks for the address, with Turnstile's check, once the player opens it. */
-function EmailForm({ address, setAddress, token, setToken, round, busy, problem, turnstileSitekey, send }: EmailFormProps) {
+function EmailForm({ address, setAddress, token, setToken, round, busy, problem, clearProblem, turnstileSitekey, send }: EmailFormProps) {
   return (
     <form className="account-form" onSubmit={(e) => void send(e)}>
       <label htmlFor="account-email">Your email address</label>
@@ -257,11 +259,7 @@ function EmailForm({ address, setAddress, token, setToken, round, busy, problem,
           {busy ? 'Sending…' : 'Email me a sign-in link'}
         </button>
       </div>
-      {problem !== '' && (
-        <p className="account-problem" role="alert">
-          {problem}
-        </p>
-      )}
+      {problem !== '' && <OutcomeNotice kind="refused" text={problem} onClose={clearProblem} />}
     </form>
   );
 }
@@ -534,11 +532,7 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           </div>
         </form>
       )}
-      {said !== null && (
-        <p className={said.ok ? undefined : 'account-problem'} role={said.ok ? 'status' : 'alert'}>
-          {said.text}
-        </p>
-      )}
+      {said !== null && <OutcomeNotice kind={said.ok ? 'done' : 'refused'} text={said.text} onClose={() => setSaid(null)} />}
     </div>
   );
 }
@@ -569,11 +563,7 @@ function SignOut({ apiUrl, state, zone }: { apiUrl: string; state: AccountState;
       <button type="button" className="btn-antique btn-danger" onClick={(e) => void remove(e.currentTarget)}>
         Delete account
       </button>
-      {problem !== '' && (
-        <p className="account-problem" role="alert">
-          {problem}
-        </p>
-      )}
+      {problem !== '' && <OutcomeNotice kind="refused" text={problem} onClose={() => setProblem('')} />}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 /** An action's outcome: its word and text on a dark panel edged green when done, red when not, with a close button when onClose is given. Spans throughout, so it fits inside a paragraph too. */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { noticeHeading, type OutcomeKind } from './outcome';
 
-/** OutcomeNotice shows kind's word and text, scrolled into view when scroll is set. */
-export default function OutcomeNotice({ kind, text, onClose, scroll = true }: { kind: OutcomeKind; text: string; onClose?: () => void; scroll?: boolean }) {
+/** OutcomeNotice shows kind's word and text, scrolled into view when scroll is set. An action's outcome takes onClose; a load that failed stays, as it stays true until a reload. */
+export default function OutcomeNotice({ kind, text, onClose, scroll = true }: { kind: OutcomeKind; text: ReactNode; onClose?: () => void; scroll?: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (scroll) box.current?.scrollIntoView({ block: 'nearest' });
