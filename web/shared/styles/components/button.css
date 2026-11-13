@@ -32,7 +32,7 @@
 /* An action that cannot be undone, such as deleting a run: crimson where the antique button is gold. */
 .btn-antique.btn-danger {
   background: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
-  border-color: var(--loss);
+  border-color: var(--loss-edge);
   box-shadow:
     0 3px 8px var(--shadow-deep),
     inset 0 1px 0 color-mix(in srgb, var(--loss) 35%, transparent);

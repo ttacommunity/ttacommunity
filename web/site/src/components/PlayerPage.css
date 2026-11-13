@@ -1435,7 +1435,7 @@
 .chart-options-panel .btn-options-close:hover {
   background: rgba(239, 83, 80, 0.2);
   border-color: var(--loss);
-  color: #ff8a80;
+  color: var(--loss-light);
 }
 
 .options-section-divider {
