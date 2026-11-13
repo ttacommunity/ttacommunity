@@ -554,32 +554,6 @@
   font-family: var(--font-stats);
 }
 
-.home-replay-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
-  padding: 0.15rem 0.45rem;
-  background: rgba(18, 12, 8, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-soft);
-  font-family: monospace;
-  font-size: 0.75rem;
-  transition: all 0.15s ease;
-}
-
-.home-replay-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
-}
-
-.home-replay-hint {
-  font-size: 0.68rem;
-  color: var(--accent-gold);
-}
-
 .match-seats-row {
   display: flex;
   flex-wrap: wrap;
@@ -1072,3 +1046,7 @@
   }
 }
 
+
+.home-replay {
+  margin-left: auto;
+}

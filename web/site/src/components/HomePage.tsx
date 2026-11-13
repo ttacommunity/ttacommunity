@@ -5,7 +5,6 @@ import { formatDay } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
 import { errorText, settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
-import { useCopy } from '@ttac/shared/copy';
 import { browserStorage } from '@ttac/shared/storage';
 import { toggledSet } from '@ttac/shared/toggle';
 import { seatRankClass } from '../lib/home-view';
@@ -23,28 +22,11 @@ import { fetchFeedMatches, type FeedMatch } from '../lib/feed-data';
 import FeedOptionsModal from './FeedOptionsModal';
 import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
+import CopyCode from './CopyCode';
 
 interface HomeData {
   run: Run;
   recentTournaments: Load<PodiumCard[]>;
-}
-
-/** One-click copyable replay code */
-function ReplayBadge({ code }: { code: string | null }) {
-  const { copied, copy } = useCopy();
-  if (!code) return null;
-  return (
-    <button
-      type="button"
-      className="home-replay-btn"
-      onClick={() => copy(code)}
-      title="Click to copy CGE replay code"
-      aria-label={`Copy replay code ${code}`}
-    >
-      <code>{code}</code>
-      <span className="home-replay-hint">{copied === true ? '✓ Copied' : 'Copy'}</span>
-    </button>
-  );
 }
 
 interface Spoiler {
@@ -255,7 +237,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                           {m.division && <span className="badge badge-division">{m.division}</span>}
                           <span className="badge badge-seats">{m.playerCount}P</span>
                           <span className="match-date">{m.date}</span>
-                          <ReplayBadge code={m.replayCode} />
+                          {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
                         </div>
 
                         {/* Participants and Scores with Spoiler Protection for Points */}

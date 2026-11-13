@@ -1,0 +1,37 @@
+/* A replay code in a dark box, a copy button beside it that ticks, and a note when copying is refused. */
+.replay {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.replay code {
+  padding: 0.15rem 0.4rem;
+  background: rgba(18, 12, 8, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: var(--accent-gold-soft);
+  letter-spacing: 0.5px;
+  user-select: all;
+}
+
+.btn-copy-code {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  font-size: 0.85rem;
+  color: var(--accent-gold);
+  cursor: pointer;
+}
+
+.replay-note {
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+}
+
+.replay-none {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
