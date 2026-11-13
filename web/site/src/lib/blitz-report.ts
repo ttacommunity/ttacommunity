@@ -7,6 +7,7 @@ import { AccountApiError, change, failureMessage, type Done } from './account';
 import type { YourRow } from './blitz';
 
 export type MyBlitzMatch = components['schemas']['MyBlitzMatch'];
+export type MyBlitz = components['schemas']['MyBlitz'];
 
 function url(base: string, path: string): string {
   return base.replace(/\/+$/, '') + path;
@@ -16,12 +17,12 @@ function matchPath(slug: string, edition: string, id: number, end: string): stri
   return `/v1/me/blitz/${encodeURIComponent(slug)}/${encodeURIComponent(edition)}/matches/${id}/${end}`;
 }
 
-/** fetchMyMatch returns the signed-in player's match in the edition's latest round, or null for none or nobody signed in. */
-export async function fetchMyMatch(base: string, slug: string, edition: string, fetchFn: typeof fetch = fetch): Promise<MyBlitzMatch | null> {
+/** fetchMyBlitz returns the signed-in player's match in the edition's latest round (null for none) and who reported each game (empty unless they are entered); null when nobody is signed in. */
+export async function fetchMyBlitz(base: string, slug: string, edition: string, fetchFn: typeof fetch = fetch): Promise<MyBlitz | null> {
   const res = await fetchFn(url(base, `/v1/me/blitz/${encodeURIComponent(slug)}/${encodeURIComponent(edition)}`), { credentials: 'include' });
   if (res.status === 401) return null;
   if (!res.ok) throw new AccountApiError(res.status, await failureMessage(res));
-  return ((await res.json()) as { match: MyBlitzMatch | null }).match;
+  return (await res.json()) as MyBlitz;
 }
 
 /** reportGame reports the match's game, or corrects the player's own report. */

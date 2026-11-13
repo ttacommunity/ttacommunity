@@ -1475,7 +1475,8 @@ export interface paths {
          * Your match in a blitz edition's latest round, and what you may do with it
          * @description For a signed-in player linked to a member entered in a shown edition:
          *     their match in the latest round once it is published, as it stands
-         *     now, with the opponent's flag if any. Null for anyone else, and
+         *     now, with the opponent's flag if any, and who reported each game of
+         *     the edition. Null and empty for anyone else; the match is null
          *     before the round is published. Never cached.
          */
         get: operations["getMyBlitzMatch"];
@@ -3933,10 +3934,6 @@ export interface components {
         };
         /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
-            /** @description The player who reported the game, by username; null when an organiser entered it or no one has */
-            reported_by: string | null;
-            /** @description Whether the opponent confirmed the reported game */
-            confirmed: boolean;
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
             a_seed: number | null;
             /** @description In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
@@ -4412,6 +4409,16 @@ export interface components {
         BlitzReport: "reported" | "confirmed" | "flagged" | "resolved";
         MyBlitz: {
             match: components["schemas"]["MyBlitzMatch"] | null;
+            /** @description For a player entered in the edition, each game a player reported, in round order; empty for anyone else */
+            reports: components["schemas"]["BlitzMatchReport"][];
+        };
+        /** @description Who reported a match's game, the match named by its round and side a */
+        BlitzMatchReport: {
+            round: number;
+            a: string;
+            reported_by: string;
+            /** @description Whether the opponent confirmed the report */
+            confirmed: boolean;
         };
         /** @description A signed-in player's match, sides as the match names them, and what they may do with it now */
         MyBlitzMatch: {

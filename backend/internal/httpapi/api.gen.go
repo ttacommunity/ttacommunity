@@ -1900,6 +1900,16 @@ type BlitzMatchChange struct {
 	B *int64 `json:"b,omitempty"`
 }
 
+// BlitzMatchReport Who reported a match's game, the match named by its round and side a
+type BlitzMatchReport struct {
+	A string `json:"a"`
+
+	// Confirmed Whether the opponent confirmed the report
+	Confirmed  bool   `json:"confirmed"`
+	ReportedBy string `json:"reported_by"`
+	Round      int    `json:"round"`
+}
+
 // BlitzOrganiserAdd The member to add as an organiser
 type BlitzOrganiserAdd struct {
 	Member int64 `json:"member"`
@@ -2000,14 +2010,8 @@ type BlitzPublicMatch struct {
 	// BSeed In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
 	BSeed *int `json:"b_seed"`
 
-	// Confirmed Whether the opponent confirmed the reported game
-	Confirmed bool `json:"confirmed"`
-
 	// Game The game played, null for none recorded
 	Game *BlitzPlayedGame `json:"game"`
-
-	// ReportedBy The player who reported the game, by username; null when an organiser entered it or no one has
-	ReportedBy *string `json:"reported_by"`
 
 	// Result Null until the match is decided (a bye never is)
 	Result *BlitzResult `json:"result"`
@@ -3410,6 +3414,9 @@ type ModelPair struct {
 // MyBlitz defines model for MyBlitz.
 type MyBlitz struct {
 	Match *MyBlitzMatch `json:"match"`
+
+	// Reports For a player entered in the edition, each game a player reported, in round order; empty for anyone else
+	Reports []BlitzMatchReport `json:"reports"`
 }
 
 // MyBlitzMatch A signed-in player's match, sides as the match names them, and what they may do with it now

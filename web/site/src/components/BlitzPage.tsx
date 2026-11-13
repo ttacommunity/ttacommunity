@@ -11,9 +11,10 @@ import BackLink from '@ttac/shared/BackLink';
 import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
-import { BLITZ_GAME_COLUMNS, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
-import { yourRow, type MyBlitzMatch } from '../lib/blitz-report';
+import { yourRow, type MyBlitz } from '../lib/blitz-report';
+import { accountHref } from '../lib/account';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
@@ -121,7 +122,8 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const [hash, setHash] = useHash();
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
-  const [mine, setMine] = useState<MyBlitzMatch | null>(null);
+  // What the api says to this viewer: undefined while asking, null for nobody signed in.
+  const [mine, setMine] = useState<MyBlitz | null | undefined>(undefined);
   // The dialog opens at its top from the header, or at "How ties are broken" from the standings.
   const [howPaired, setHowPaired] = useState<{ opener: HTMLElement; at: 'top' | 'ties' } | null>(null);
   useEffect(() => {
@@ -154,7 +156,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const views = editionViews(ed.rounds);
   const panels: Record<EditionView, { label: string; panel: ReactNode }> = {
     standings: { label: 'Standings', panel: <StandingsPanel standings={ed.standings} scoring={scoringLine(ed.points, ed.fide_points)} fixedBy={ed.ranks_fixed_by} onHow={(e) => setHowPaired({ opener: e.currentTarget, at: 'ties' })} /> },
-    pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine)} /> },
+    pairings: { label: 'Pairings', panel: <PairingsPanel ed={ed} swiss={swiss} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} signIn={asksToSignIn(mine, ed.champion)} /> },
     players: { label: 'Players', panel: <PlayersPanel entrants={ed.entrants} start={startLabel(ed.ranks_fixed_by)} /> },
   };
   return (
@@ -178,7 +180,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </button>
       </div>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
-      <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onMatch={setMine} />
+      <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
       {ed.rounds.length === 0 && (
         <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
           <h2 id="blitz-not-started" className="rating-card-heading">
@@ -211,7 +213,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
               <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
             </p>
           )}
-          <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine)} />
+          <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
         </section>
       )}
       <section className="rating-card blitz-card" aria-label="Standings, pairings and players">
@@ -430,9 +432,9 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
 }
 
 /** KnockoutGames lists the knockout's games, first round to final, sortable by any column. */
-function KnockoutGames({ rounds, format, you }: { rounds: BlitzRound[]; format: BlitzEdition['format']; you: YourRow | null }) {
+function KnockoutGames({ rounds, format, you, reports }: { rounds: BlitzRound[]; format: BlitzEdition['format']; you: YourRow | null; reports: MyBlitz['reports'] }) {
   const [sort, setSort] = useState<Sort<GamesColumn>>(null);
-  const games = blitzGames(rounds, format, { round: null, player: '', coded: false, page: 1 }, viewerZone(), you, sort);
+  const games = blitzGames(rounds, format, { round: null, player: '', coded: false, page: 1 }, viewerZone(), you, sort, reports);
   return (
     <GamesTable
       caption="The knockout's games, first round to final"
@@ -446,8 +448,8 @@ function KnockoutGames({ rounds, format, you }: { rounds: BlitzRound[]; format: 
 }
 
 
-/** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time, the signed-in player's game marked. */
-function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound[]; you: YourRow | null }) {
+/** PairingsPanel lists the Swiss rounds' games as the games list does: narrowed by round (the latest at first), player and replay code, a page at a time, the signed-in player's game marked; and, when signIn, asks a visitor to sign in to report. */
+function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; swiss: BlitzRound[]; you: YourRow | null; reports: MyBlitz['reports']; signIn: boolean }) {
   const [filter, setFilter] = useState<BlitzGamesFilter>({ round: swiss[0]?.number ?? null, player: '', coded: false, page: 1 });
   const [sort, setSort] = useState<Sort<GamesColumn>>(null);
   const narrow = (next: Partial<BlitzGamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
@@ -456,7 +458,7 @@ function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound
     narrow({});
   };
   const zone = viewerZone();
-  const games = blitzGames(swiss, ed.format, filter, zone, you, sort);
+  const games = blitzGames(swiss, ed.format, filter, zone, you, sort, reports);
   return (
     <section aria-labelledby="blitz-rounds">
       <div className="panel-header panel-header-split">
@@ -465,6 +467,11 @@ function PairingsPanel({ ed, swiss, you }: { ed: BlitzEdition; swiss: BlitzRound
         </h2>
         <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </div>
+      {signIn && (
+        <p className="blitz-sign-in" role="note">
+          Playing in this tournament? <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to report your game&apos;s result.
+        </p>
+      )}
       <div className="games-filters">
         <label>
           <span>Round</span>
