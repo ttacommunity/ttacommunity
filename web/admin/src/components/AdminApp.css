@@ -40,7 +40,6 @@
 .admin-table input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--accent-gold);
 }
 .admin-table .btn-settings {
   display: inline-block;
@@ -87,7 +86,6 @@
   width: 1.1rem;
   height: 1.1rem;
   margin-top: 0.2rem;
-  accent-color: var(--accent-gold);
 }
 .regulations-text {
   box-sizing: border-box;
@@ -247,7 +245,6 @@
 }
 .run-progress progress {
   width: 100%;
-  accent-color: var(--accent-gold);
 }
 .run-changes p {
   margin: 0 0 0.5rem;
@@ -417,10 +414,6 @@
 .setting-counts legend {
   margin-bottom: 0.4rem;
 }
-.setting-counts input,
-.season-rated input {
-  accent-color: var(--accent-gold);
-}
 .season-rated {
   color: var(--text-soft);
   font-size: 0.9rem;
@@ -456,9 +449,6 @@
 .group-members legend {
   padding: 0 0.3rem;
   color: var(--text-muted);
-}
-.group-member input[type='checkbox'] {
-  accent-color: var(--accent-gold);
 }
 .group-member-list {
   display: grid;
@@ -537,7 +527,6 @@
 .setting-inline input[type='radio'] {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--accent-gold);
 }
 .round-hint {
   margin-top: 0.5rem;
