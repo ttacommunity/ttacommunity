@@ -31,7 +31,8 @@ export type DeltaWindow = 'none' | PastWindow;
 export type StatsView = 'season' | 'career';
 const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
-const FORMATS: readonly Format[] = [0, 2, 3, 4];
+/** FORMATS are the formats a view can show, all first. */
+export const FORMATS: readonly Format[] = [0, 2, 3, 4];
 const STATUSES: readonly Status[] = ['active', 'all', 'inactive'];
 const SORTS: readonly SortKey[] = ['rank', 'name', 'c_rating', 'rating', 'opps', 'win_rate', 'last_played'];
 // Upstream orders GM, M, P and G; the rest come in its database's order, which both its sites show as this.

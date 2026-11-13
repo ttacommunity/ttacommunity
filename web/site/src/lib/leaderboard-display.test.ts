@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleBadge, badgeHover, flagSrc, engineName, resetModeName, engineNote, delta } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleBadge, badgeHover, flagSrc, engineName, resetModeName, resetName, engineNote, delta } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -65,6 +65,15 @@ describe('engineName and resetModeName', () => {
   ] as const)('splits %s into upstream engine and reset mode names', (model, engine, mode) => {
     expect(engineName(model)).toBe(engine);
     expect(resetModeName(model)).toBe(mode);
+  });
+});
+
+describe('resetName', () => {
+  it.each([
+    ['continuous', 'Continuous (Career)'],
+    ['softer', 'Season Reset'],
+  ] as const)('names reset mode %s as upstream does', (mode, name) => {
+    expect(resetName(mode)).toBe(name);
   });
 });
 
