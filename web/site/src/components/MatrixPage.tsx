@@ -1,5 +1,5 @@
 /** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -25,6 +25,7 @@ import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import { viewLinks } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
+import Message from './Message';
 
 function readView(): MatrixView {
   return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -207,9 +208,6 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card waiting-message">{children}</div>;
-}
 
 function Header({ player, view }: { player: Player; view: MatrixView }) {
   const wc = wcLabel(player.title, player.peak);

@@ -12,6 +12,7 @@ import SaveNotice from './SaveNotice';
 import SignInNote from './SignInNote';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
+import Message from './Message';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -29,7 +30,7 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
 function Gate({ apiUrl, list, me }: { apiUrl: string; list: ChallengeTile[]; me: Me | null }) {
   if (me === null || me.member === null) return null;
   if (me.member.banned) {
-    return <div className="rating-card waiting-message">Your account may not submit dominations.</div>;
+    return <Message>Your account may not submit dominations.</Message>;
   }
   return <Form apiUrl={apiUrl} list={list} name={me.member.name} />;
 }

@@ -8,6 +8,7 @@ import { cardView } from '../lib/tournament-card';
 import BracketView from './BracketView';
 import TournamentCard from './TournamentCard';
 import Waiting from './Waiting';
+import Message from './Message';
 
 /** BracketsPage shows the bracket the address names, or the list of every tournament shown as one. */
 export default function BracketsPage({ apiUrl }: { apiUrl: string }) {
@@ -17,9 +18,9 @@ export default function BracketsPage({ apiUrl }: { apiUrl: string }) {
 
 function Missing() {
   return (
-    <div className="rating-card waiting-message">
+    <Message>
       No tournament shown as a bracket has that name. <a href={bracketHref()}>See every bracket</a>.
-    </div>
+    </Message>
   );
 }
 
@@ -42,7 +43,7 @@ function BracketList({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
       {load.kind !== 'ready' && <Waiting load={load} what="the brackets" />}
-      {load.kind === 'ready' && brackets.length === 0 && <div className="rating-card waiting-message">No tournament is shown as a bracket yet.</div>}
+      {load.kind === 'ready' && brackets.length === 0 && <Message>No tournament is shown as a bracket yet.</Message>}
       {brackets.length > 0 && (
         <div className="series-grid">
           {brackets.map((t) => {

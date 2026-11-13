@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { boardCells } from '../lib/tournament-series';
 import type { BoardEntry } from '../lib/trophyboard';
 import PlayerLink from './PlayerLink';
+import Message from './Message';
 
 /** TrophyboardPanel shows the board, or waiting while rows is null; mark adds a player's title, honours their titles column. */
 export default function TrophyboardPanel<R extends BoardEntry & { details?: string | null }>({
@@ -49,11 +50,9 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
           </thead>
           <tbody>
             {rows === null || rows.length === 0 ? (
-              <tr>
-                <td colSpan={span} className="waiting-row">
-                  {rows === null ? waiting : 'No podiums recorded yet.'}
-                </td>
-              </tr>
+              <Message form="row" colSpan={span}>
+                {rows === null ? waiting : 'No podiums recorded yet.'}
+              </Message>
             ) : (
               rows.map((b, i) => (
                 <tr key={b.name}>

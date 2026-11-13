@@ -7,6 +7,7 @@ import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
+import Message from './Message';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -80,9 +81,9 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
           (name, i) =>
             name.trim() !== '' &&
             !find(name) && (
-              <p key={i} className="rating-card waiting-message">
+              <Message key={i}>
                 No {v ? 'verified ' : ''}entries for “{name}”.
-              </p>
+              </Message>
             ),
         )}
       {pa && pb && sideA.kind === 'ready' && sideB.kind === 'ready' && sideA.data && sideB.data && (
