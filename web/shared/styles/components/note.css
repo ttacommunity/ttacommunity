@@ -1,0 +1,10 @@
+/* A note a page puts in front of the reader: a gold edge, thicker on the left, on its own panel so it reads on a card or the page. */
+.page-note {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent-gold);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: var(--surface-panel);
+  line-height: 1.5;
+}
