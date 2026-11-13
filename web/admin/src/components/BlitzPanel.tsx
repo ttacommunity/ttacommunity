@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminBlitzEditionRow } from '../lib/admin-api';
+import { adminRequest, type AdminBlitzEditionRow, loadOf } from '../lib/admin-api';
 import { editionHref } from '@ttac/shared/blitz';
 import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
@@ -13,7 +13,7 @@ export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
   useEffect(() => {
     void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((r) =>
-      setRows(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setRows(loadOf(r)),
     );
   }, []);
   return (

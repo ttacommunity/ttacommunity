@@ -4,7 +4,7 @@ import type { components } from '@ttac/shared/api';
 import Segmented from '@ttac/shared/Segmented';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest } from '../lib/admin-api';
+import { adminRequest, loadOf } from '../lib/admin-api';
 import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice } from './Notice';
 import './ChallengesPanel.css';
@@ -26,7 +26,7 @@ export default function ChallengesPanel() {
   const [entries, setEntries] = useState<Load<AdminChallengeEntries>>({ kind: 'loading' });
   useEffect(() => {
     void adminRequest<AdminChallengeEntries>(entriesPath(view), {}).then((r) =>
-      setEntries(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setEntries(loadOf(r)),
     );
   }, [view, round]);
   const shown = entries.kind === 'ready' ? entriesMatching(entries.data.entries, search) : [];
