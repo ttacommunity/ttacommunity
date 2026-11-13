@@ -1,11 +1,10 @@
 /** Upstream's Hall of Fame series page: the series' text, figures, trophyboard, and best seasons and games. */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import RegulationsPanel from './RegulationsPanel';
 import TrophyboardPanel from './TrophyboardPanel';
 import GameRecordsPanel from './GameRecordsPanel';
 import StoriesPanel, { type StoryView } from './StoriesPanel';
 import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } from '@ttac/shared/ratings';
-import { errorText, type Load } from '@ttac/shared/load';
 import { catalogueHref } from '../lib/catalogue-view';
 import { cardView } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
@@ -14,6 +13,7 @@ import { waitingText } from '../lib/waiting';
 import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, showsWorldChampion, type Circuit, type Major } from '../lib/tournament-series';
 import { count } from '@ttac/shared/numbers';
 import Message from './Message';
+import { useLoad } from './useLoad';
 
 
 function WorldChampion() {
@@ -29,14 +29,7 @@ function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
 
 /** TournamentSeriesPage loads the current run's results for a circuit, with its card, rules and stories as admin writes them. */
 export default function TournamentSeriesPage({ apiUrl, slug }: { apiUrl: string; slug: Circuit }) {
-  const [load, setLoad] = useState<Load<TournamentSeries>>({ kind: 'loading' });
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => tournamentSeries(apiUrl, r.run_id, slug))
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl, slug]);
+  const load = useLoad(slug, () => currentRun(apiUrl).then((r) => tournamentSeries(apiUrl, r.run_id, slug)));
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the records') ?? '';

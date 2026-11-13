@@ -3,8 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
-import { calibration, currentRun, type Calibration, type Format } from '@ttac/shared/ratings';
-import { errorText, type Load } from '@ttac/shared/load';
+import { calibration, currentRun, type Format } from '@ttac/shared/ratings';
 import {
   MODELS,
   MODE_NAMES,
@@ -25,6 +24,7 @@ import Waiting from './Waiting';
 import { toggledSet } from '@ttac/shared/toggle';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
+import { useLoad } from './useLoad';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -65,16 +65,9 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
   const [resets, setResets] = useState<ReadonlySet<Reset>>(new Set<Reset>(['continuous']));
-  const [load, setLoad] = useState<Load<Calibration>>({ kind: 'loading' });
+  const load = useLoad('calibration', () => currentRun(apiUrl).then((r) => calibration(apiUrl, r.run_id)));
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => calibration(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
 
   const filters = useMemo(() => ({ engines, resets }), [engines, resets]);
   const active = useMemo(() => new Set(activeModels(filters)), [filters]);
