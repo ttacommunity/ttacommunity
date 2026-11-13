@@ -30,6 +30,7 @@ import { editionHref } from '@ttac/shared/blitz';
 import { seasonName } from '../lib/catalogue-view';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
+import Message from './Message';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
 
@@ -106,9 +107,9 @@ export default function BracketView({
       </div>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (
-        <p className="waiting-message">
+        <Message form="inline">
           The knockout is not drawn yet. <a href={editionHref(slug, season)}>Swiss rounds: see the standings</a>.
-        </p>
+        </Message>
       )}
       {phone !== undefined && (
         <>

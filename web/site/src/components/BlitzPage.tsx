@@ -25,6 +25,7 @@ import { bracketHref } from '../lib/bracket';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
+import Message from './Message';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -136,9 +137,9 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
     return (
       <>
         <Header />
-        <div className="rating-card waiting-message">
+        <Message>
           No blitz tournament has that edition. <a href="/blitz/">See every blitz tournament</a>.
-        </div>
+        </Message>
       </>
     );
   }

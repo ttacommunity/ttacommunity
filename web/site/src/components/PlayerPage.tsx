@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -62,6 +62,7 @@ import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
+import Message from './Message';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -210,9 +211,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card waiting-message">{children}</div>;
-}
 
 function Header({
   player,

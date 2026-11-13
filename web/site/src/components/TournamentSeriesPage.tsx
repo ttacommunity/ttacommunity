@@ -13,6 +13,7 @@ import PlayerLink from './PlayerLink';
 import { waitingText } from '../lib/waiting';
 import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, showsWorldChampion, type Circuit, type Major } from '../lib/tournament-series';
 import { count } from '@ttac/shared/numbers';
+import Message from './Message';
 
 
 function WorldChampion() {
@@ -151,11 +152,9 @@ export function SeriesSections({
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={6} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={6}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.season_records.map((s, i) => (
                     <tr key={`${s.season} ${s.name}`}>
