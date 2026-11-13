@@ -54,6 +54,8 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import UnratedToggle from './UnratedToggle';
+import RatedFilter from './RatedFilter';
+import type { GameRatingFilter } from '../lib/career';
 import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
@@ -99,9 +101,15 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}|${model}|${matchPage}|${gamesUnrated}`,
     runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage, gamesUnrated),
   );
+  const [rivalsFilter, setRivalsFilter] = useState<GameRatingFilter>({ rated: true, unrated: false });
   const rivals = useLoad<PlayerRivals>(
-    `${runId}|${name}|${format}`,
-    runId === null ? null : () => playerRivals(apiUrl, runId, name, format),
+    `${runId}|${name}|${format}|${rivalsFilter.rated}|${rivalsFilter.unrated}`,
+    runId === null
+      ? null
+      : () =>
+          !rivalsFilter.rated && !rivalsFilter.unrated
+            ? Promise.resolve({ run_id: runId, name, format, rivals: [] })
+            : playerRivals(apiUrl, runId, name, format, rivalsFilter.unrated, rivalsFilter.rated),
   );
   const career = useLoad<PlayerCareer>(
     `${runId}|${name}|${format}|${model}`,
@@ -174,7 +182,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
             if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
           }}
         />
-        <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} />
+        <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
       </div>
 
       <PositionSeatStats
@@ -440,7 +448,17 @@ const MIN_GAMES = [1, 2, 3, 5, 10, 20];
 
 type Compare = { apiUrl: string; runId: number; format: Format };
 
-function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compare | null }) {
+function Rivals({
+  state,
+  compare,
+  ratingFilter,
+  onRatingFilter,
+}: {
+  state: Load<PlayerRivals>;
+  compare: Compare | null;
+  ratingFilter: GameRatingFilter;
+  onRatingFilter: (next: GameRatingFilter) => void;
+}) {
   const [rv, setRv] = useState<RivalsView>({ filter: '', minGames: 1, expanded: false, sort: null });
   const [versus, setVersus] = useState<{ other: string; opener: HTMLElement } | null>(null);
   const all = state.kind === 'ready' ? state.data.rivals : [];
@@ -464,6 +482,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
       <div className="panel-head">
         <h3>Head-to-Head vs Rivals ({filtering ? rows.length : all.length})</h3>
         <div className="rivals-controls">
+          <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
           <select
             aria-label="Minimum matches"
             value={rv.minGames}
@@ -504,7 +523,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
             {state.kind === 'ready' && all.length === 0 && (
               <tr>
                 <td colSpan={5} className="cell-empty">
-                  No head-to-head records found.
+{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see rivals.' : 'No head-to-head records found.'}
                 </td>
               </tr>
             )}
@@ -540,6 +559,7 @@ function Rivals({ state, compare }: { state: Load<PlayerRivals>; compare: Compar
           name={state.data.name}
           other={versus.other}
           format={compare.format}
+          initialFilter={ratingFilter}
           opener={versus.opener}
           onClose={() => setVersus(null)}
         />

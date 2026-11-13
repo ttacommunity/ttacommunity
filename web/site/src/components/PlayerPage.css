@@ -1185,6 +1185,20 @@
   color: var(--text-muted);
 }
 
+.rated-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rated-filter-btn {
+  height: var(--control-height);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
+}
+
 .unrated-toggle-btn {
   padding: 0.4rem 0.85rem;
   font-size: 0.82rem;

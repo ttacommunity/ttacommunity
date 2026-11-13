@@ -4714,6 +4714,9 @@ type MemberId = int64
 // PlayerName defines model for PlayerName.
 type PlayerName = string
 
+// Rated defines model for Rated.
+type Rated = bool
+
 // RunId defines model for RunId.
 type RunId = int64
 
@@ -4995,6 +4998,12 @@ type GetPlayerMatrixParams struct {
 // GetPlayerRivalsParams defines parameters for GetPlayerRivals.
 type GetPlayerRivalsParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+
+	// Unrated Also the finished games the run did not rate, marked unrated
+	Unrated *Unrated `form:"unrated,omitempty" json:"unrated,omitempty"`
+
+	// Rated The games the run rated (true by default; set false with unrated=true for unrated only)
+	Rated *Rated `form:"rated,omitempty" json:"rated,omitempty"`
 }
 
 // GetPlayerSeatsParams defines parameters for GetPlayerSeats.
@@ -5007,6 +5016,9 @@ type GetPlayerSeatsParams struct {
 type GetPlayerVersusParams struct {
 	// Unrated Also the finished games the run did not rate, marked unrated
 	Unrated *Unrated `form:"unrated,omitempty" json:"unrated,omitempty"`
+
+	// Rated The games the run rated (true by default; set false with unrated=true for unrated only)
+	Rated *Rated `form:"rated,omitempty" json:"rated,omitempty"`
 }
 
 // GetYearLeaderboardParams defines parameters for GetYearLeaderboard.
@@ -10274,6 +10286,32 @@ func (siw *ServerInterfaceWrapper) GetPlayerRivals(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// ------------- Optional query parameter "unrated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unrated", r.URL.Query(), &params.Unrated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rated", r.URL.Query(), &params.Rated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rated", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPlayerRivals(w, r, run, name, params)
 	}))
@@ -10381,6 +10419,19 @@ func (siw *ServerInterfaceWrapper) GetPlayerVersus(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rated", r.URL.Query(), &params.Rated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rated", Err: err})
 		}
 		return
 	}

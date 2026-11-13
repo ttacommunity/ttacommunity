@@ -146,7 +146,7 @@ func TestPlayerFindsAnOldNameAndAnswersWithTheCurrentOne(t *testing.T) {
 			}
 		})
 	}
-	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert", false)
+	a, b, _, err := r.Versus(ctx, run, "Annie", "Robert", true, false)
 	if err != nil || a != "ann" || b != "cat" {
 		t.Errorf("Versus(Annie, Robert) = %q, %q, %v; want ann, cat", a, b, err)
 	}
@@ -469,7 +469,7 @@ func TestVersusTakesGamesAsTheRunRatedThem(t *testing.T) {
 		t.Fatalf("removing a seat after the run: %v", err)
 	}
 
-	_, _, games, err := r.Versus(ctx, run, "ann", "bob", false)
+	_, _, games, err := r.Versus(ctx, run, "ann", "bob", true, false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}
@@ -560,20 +560,23 @@ func TestVersusAddsFinishedGamesTheRunDidNotRateWhenAsked(t *testing.T) {
 	blitz := fmt.Sprintf("%d 2025-02-01 2P rated=false", g.blitz)
 	tests := []struct {
 		name    string
+		rated   bool
 		unrated bool
 		want    []string
 	}{
-		{"rated only", false, []string{moved, rated}},
-		{"with unrated", true, []string{blitz, moved, rated}},
+		{"rated only", true, false, []string{moved, rated}},
+		{"with unrated", true, true, []string{blitz, moved, rated}},
+		{"unrated only", false, true, []string{blitz}},
+		{"neither", false, false, []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, games, err := r.Versus(context.Background(), g.run, "ann", "bob", tt.unrated)
+			_, _, games, err := r.Versus(context.Background(), g.run, "ann", "bob", tt.rated, tt.unrated)
 			if err != nil {
 				t.Fatalf("Versus: %v", err)
 			}
 			if got := gameList(games); !slices.Equal(got, tt.want) {
-				t.Errorf("Versus(ann, bob, unrated %t) = %q, want %q", tt.unrated, got, tt.want)
+				t.Errorf("Versus(ann, bob, rated %t, unrated %t) = %q, want %q", tt.rated, tt.unrated, got, tt.want)
 			}
 		})
 	}
@@ -684,7 +687,7 @@ func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 	addGame(t, pool, run, "2025-01-05", "Cup", Seat{"bob", 9}, Seat{"cy", 5})
 	addGame(t, pool, other, "2025-01-06", "Cup", Seat{"ann", 9}, Seat{"dee", 5})
 
-	name, got, err := r.PlayerRivals(ctx, run, "ann", 0)
+	name, got, err := r.PlayerRivals(ctx, run, "ann", 0, true, false)
 	if err != nil {
 		t.Fatalf("PlayerRivals: %v", err)
 	}
@@ -696,9 +699,41 @@ func TestPlayerRivalsCountsEachOpponentsRecord(t *testing.T) {
 	if name != "ann" || !slices.Equal(got, want) {
 		t.Errorf("PlayerRivals(ann, 0) = %q, %v; want ann, %v", name, got, want)
 	}
-	_, duels, err := r.PlayerRivals(ctx, run, "ann", 2)
+	_, duels, err := r.PlayerRivals(ctx, run, "ann", 2, true, false)
 	if err != nil || len(duels) != 1 || duels[0].Name != "bob" {
 		t.Errorf("PlayerRivals(ann, 2) = %v, %v; want bob only", duels, err)
+	}
+}
+
+func TestPlayerRivalsFiltersRatedAndUnrated(t *testing.T) {
+	pool := migrated(t)
+	r := NewRatingsReader(asReader(t, pool))
+	ctx := context.Background()
+	g := withUnratedGames(t, pool)
+	tests := []struct {
+		name    string
+		format  int
+		rated   bool
+		unrated bool
+		want    []Rival
+	}{
+		{"rated only", 0, true, false, []Rival{{Name: "bob", Games: 2, Wins: 2}, {Name: "cy", Games: 1, Wins: 1}}},
+		{"both", 0, true, true, []Rival{{Name: "bob", Games: 3, Wins: 2, Losses: 1}, {Name: "cy", Games: 2, Wins: 1, Losses: 1}}},
+		{"unrated only", 0, false, true, []Rival{{Name: "bob", Games: 1, Losses: 1}, {Name: "cy", Games: 1, Losses: 1}}},
+		{"unrated 2P only", 2, false, true, []Rival{{Name: "bob", Games: 1, Losses: 1}, {Name: "cy", Games: 1, Losses: 1}}},
+		{"unrated 3P only", 3, false, true, []Rival{}},
+		{"neither", 0, false, false, []Rival{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got, err := r.PlayerRivals(ctx, g.run, "ann", tt.format, tt.rated, tt.unrated)
+			if err != nil {
+				t.Fatalf("PlayerRivals: %v", err)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("PlayerRivals(%s) = %+v, want %+v", tt.name, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -815,7 +850,7 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 		addGame(t, pool, run, day("2020-01-01").AddDate(0, 0, i).Format(time.DateOnly), "Old", Seat{"bob", 1}, Seat{"ann", 2})
 	}
 
-	a, b, got, err := r.Versus(ctx, run, "ANN", "Bob", false)
+	a, b, got, err := r.Versus(ctx, run, "ANN", "Bob", true, false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}
@@ -825,7 +860,7 @@ func TestVersusGivesTwoPlayersSharedGamesNewestFirst(t *testing.T) {
 	if !slices.Equal(got[0].Seats, []Seat{{"cy", 9}, {"bob", 7}, {"ann", 5}}) {
 		t.Errorf("trio seats = %v, want seat order", got[0].Seats)
 	}
-	if _, _, _, err := r.Versus(ctx, run, "ann", "zed", false); !errors.Is(err, ErrPlayerNotFound) {
+	if _, _, _, err := r.Versus(ctx, run, "ann", "zed", true, false); !errors.Is(err, ErrPlayerNotFound) {
 		t.Errorf("Versus(ann, zed): err = %v, want ErrPlayerNotFound", err)
 	}
 }
@@ -841,7 +876,7 @@ func TestVersusMasksAHiddenPlayersSeat(t *testing.T) {
 		t.Fatalf("setting up player account: %v", err)
 	}
 
-	_, _, got, err := r.Versus(ctx, run, "ann", "bob", false)
+	_, _, got, err := r.Versus(ctx, run, "ann", "bob", true, false)
 	if err != nil {
 		t.Fatalf("Versus: %v", err)
 	}
@@ -1281,7 +1316,7 @@ func TestPlayerRivalsLeavesOutHiddenPlayers(t *testing.T) {
 	addGame(t, pool, run, "2025-01-02", "Cup", Seat{"ann", 9}, Seat{"bob", 5})
 	hideAccount(t, pool, "bob", "banned")
 
-	_, got, err := NewRatingsReader(asReader(t, pool)).PlayerRivals(ctx, run, "ann", 0)
+	_, got, err := NewRatingsReader(asReader(t, pool)).PlayerRivals(ctx, run, "ann", 0, true, false)
 	if err != nil {
 		t.Fatalf("PlayerRivals: %v", err)
 	}
