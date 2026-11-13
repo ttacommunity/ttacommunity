@@ -5,6 +5,7 @@ import { adminRequest } from '../lib/admin-api';
 import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
+import { toggledSet } from '@ttac/shared/toggle';
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {
@@ -20,11 +21,7 @@ export default function StandingsCheckPanel() {
     setRefusal(refusalOf(r));
     if (r.ok) setCheck(r.data);
   };
-  const toggle = (kind: Kind) => {
-    const next = new Set(shown);
-    if (!next.delete(kind)) next.add(kind);
-    setShown(next);
-  };
+  const toggle = (kind: Kind) => setShown(toggledSet(shown, kind));
   const summary = check === null ? null : checkSummary(check);
   const rows = check === null ? [] : differenceRows(check, shown);
 

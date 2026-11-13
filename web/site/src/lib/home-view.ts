@@ -18,11 +18,3 @@ export function seatRankClass(score: number, scores: readonly number[]): string 
   if (rank === 3) return 'rank-bronze';
   return 'rank-gray';
 }
-
-/** toggled returns a copy of items with item added, or removed if it was there. */
-export function toggled<T>(items: ReadonlySet<T>, item: T): Set<T> {
-  const next = new Set(items);
-  if (next.has(item)) next.delete(item);
-  else next.add(item);
-  return next;
-}

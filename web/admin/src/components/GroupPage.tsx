@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
-import { candidatesFor, groupChange, membersOf, toggled } from '../lib/tournament-groups';
+import { toggled } from '@ttac/shared/toggle';
+import { candidatesFor, groupChange, membersOf } from '../lib/tournament-groups';
 import { opensSettings, settingsHref } from '../lib/tournament-page';
 import { refusalOf, type Outcome } from '../lib/outcome';
 import MoveButton from './MoveButton';
