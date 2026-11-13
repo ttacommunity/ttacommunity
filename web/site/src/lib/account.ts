@@ -134,8 +134,8 @@ export function backLabel(changed: boolean, saved: boolean): string {
   return changed ? 'Back without saving' : 'Back';
 }
 
-/** SignInNotice is what the account page says on arriving: a sign-in or an addition that did not finish, a way in added, or an account just deleted. */
-export type SignInNotice = { kind: 'failed' | 'deleted' | 'added'; text: string };
+/** SignInNotice is what the account page says on arriving: done (a way in added, an account deleted), or refused (a sign-in or an addition that did not finish). */
+export type SignInNotice = SaveOutcome;
 
 /** signInNotice reads the address the browser arrived at: a sign-in that did not finish, a way in added or refused (naming it), an account just deleted, or nothing to say. */
 export function signInNotice(params: URLSearchParams): SignInNotice | null {
@@ -143,20 +143,20 @@ export function signInNotice(params: URLSearchParams): SignInNotice | null {
   const way = named === 'microsoft' || named === 'google' ? PROVIDER_NAMES[named] : 'Discord';
   switch (params.get('signin')) {
     case 'failed':
-      return { kind: 'failed', text: 'Signing in did not finish. Try again.' };
+      return { kind: 'refused', text: 'Signing in did not finish. Try again.' };
     case 'deleted':
-      return { kind: 'deleted', text: 'Your account is deleted, and this browser is signed out. Sign in again any time to start a new one.' };
+      return { kind: 'done', text: 'Your account is deleted, and this browser is signed out. Sign in again any time to start a new one.' };
     case 'added':
-      return { kind: 'added', text: `${way} is added: you can sign in with it from now on.` };
+      return { kind: 'done', text: `${way} is added: you can sign in with it from now on.` };
     case 'email-added':
-      return { kind: 'added', text: 'Your email address is saved: you can sign in with a link sent to it from now on.' };
+      return { kind: 'done', text: 'Your email address is saved: you can sign in with a link sent to it from now on.' };
     case 'taken':
       return {
-        kind: 'failed',
+        kind: 'refused',
         text: `That ${way} account has an account of its own here. To add it, sign in with it and delete that account, then sign in here again and add it.`,
       };
     case 'has-kind':
-      return { kind: 'failed', text: `Your account has a ${way} account already. Remove it first to add another.` };
+      return { kind: 'refused', text: `Your account has a ${way} account already. Remove it first to add another.` };
   }
   return null;
 }

@@ -7,6 +7,7 @@ import { todayIn } from '@ttac/shared/time';
 import { seemsSignedIn, sharedMe } from '../lib/account';
 import { browserStorage } from '@ttac/shared/storage';
 import { confirmReport, fetchMyBlitz, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitz, type MyBlitzMatch } from '../lib/blitz-report';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 
 const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
   { value: 'finished', label: 'finished' },
@@ -171,11 +172,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
           </div>
         </form>
       )}
-      {said !== null && (
-        <p className={said.ok ? 'report-said' : 'report-said report-refused'} role="status">
-          {said.text}
-        </p>
-      )}
+      {said !== null && <OutcomeNotice kind={said.ok ? 'done' : 'refused'} text={said.text} onClose={() => setSaid(null)} />}
       {dialog.element}
     </section>
   );

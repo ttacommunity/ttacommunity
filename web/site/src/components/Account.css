@@ -92,10 +92,6 @@
   flex: 1 1 14rem;
   min-width: 0;
 }
-.account-problem {
-  margin: 0;
-  color: var(--loss);
-}
 /* A button that cannot be used now looks it, and does not light up, as in admin. */
 .account-form .btn-antique:disabled,
 .account-form .btn-antique:disabled:hover {
@@ -106,9 +102,6 @@
   box-shadow: none;
   color: var(--text-muted);
   transform: none;
-}
-.account-notice-failed {
-  border-color: var(--accent-crimson);
 }
 .account-ban {
   display: flex;
