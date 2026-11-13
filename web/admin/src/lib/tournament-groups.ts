@@ -161,11 +161,6 @@ export function moveChoices<T extends Grouped>(list: readonly T[], slug: string)
   ];
 }
 
-/** toggled returns chosen with slug added, or taken out when it is there. */
-export function toggled(chosen: readonly string[], slug: string): string[] {
-  return chosen.includes(slug) ? chosen.filter((s) => s !== slug) : [...chosen, slug];
-}
-
 /** seasonDestinations returns non-group tournaments other than currentSlug, sorted by name. */
 export function seasonDestinations<T extends Grouped>(list: readonly T[], currentSlug: string): T[] {
   return list

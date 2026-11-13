@@ -20,7 +20,6 @@ import {
   opensSettings,
   settingsHref,
   slugParam,
-  toggled,
   toggledCounts,
   tournamentLoad,
 } from './tournament-page';
@@ -238,15 +237,6 @@ describe('fieldId', () => {
     ['a season label with spaces and a slash', ['season-rated', '2023 Play Off/A'], 'season-rated-2023_Play_Off_A'],
   ])('builds an element id from %s', (_name, parts, want) => {
     expect(fieldId(...parts)).toBe(want);
-  });
-});
-
-describe('toggled', () => {
-  it.each([
-    ['adds one not there', ['1'], '2', ['1', '2']],
-    ['removes one there', ['1', '2'], '1', ['2']],
-  ])('%s', (_name, list, item, want) => {
-    expect(toggled(list, item)).toEqual(want);
   });
 });
 

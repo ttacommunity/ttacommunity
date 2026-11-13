@@ -23,6 +23,7 @@ import { browserStorage } from '../lib/account';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { toggledSet } from '@ttac/shared/toggle';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -58,10 +59,7 @@ function Toggle({ active, onClick, className, tip, children }: { active: boolean
 /** toggled adds or removes one value; "all" selects every value, or none when all are already selected. */
 function toggled<T>(set: ReadonlySet<T>, value: T | 'all', every: readonly T[]): Set<T> {
   if (value === 'all') return set.size === every.length ? new Set() : new Set(every);
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
+  return toggledSet(set, value);
 }
 
 /** CalibrationPanel loads the current run's calibration and lets the reader choose which models to compare. */
