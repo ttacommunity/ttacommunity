@@ -1,5 +1,6 @@
 /** An action's outcome beside the action: its word and text on a panel bordered green or red, scrolled into view and read out by the page's live regions. */
 import { useEffect, useMemo, useRef } from 'react';
+import type { Load } from '@ttac/shared/load';
 import { announcement, loadFailure, noticeHeading, revealed, type Outcome } from '../lib/outcome';
 
 // The live regions AdminLayout puts on every page, empty until an outcome is announced.
@@ -56,4 +57,11 @@ export function NoticeRow({ outcome, columns, onClose }: { outcome: Outcome | nu
 export function LoadNotice({ message }: { message: string }) {
   const outcome = useMemo(() => loadFailure(message, ''), [message]);
   return <Notice outcome={outcome} />;
+}
+
+/** Loading shows "Loading…" (or "Loading what…") while load loads, why it failed when it did, and nothing once it is ready. */
+export function Loading({ load, what }: { load: Load<unknown>; what?: string }) {
+  if (load.kind === 'loading') return <p className="muted">{what === undefined ? 'Loading…' : `Loading ${what}…`}</p>;
+  if (load.kind === 'error') return <LoadNotice message={load.message} />;
+  return null;
 }

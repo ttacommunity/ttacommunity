@@ -13,7 +13,7 @@ import { memberToAdd, type PersonDetails } from '../lib/person-form';
 import { howLinked, signInGroups, who } from '../lib/sign-ins';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';
-import Notice, { LoadNotice, NoticeRow } from './Notice';
+import Notice, { Loading, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
 import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
@@ -155,8 +155,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
       <div className="admin-subsection">
         <h3>Every member</h3>
         <Notice outcome={shownAt(outcome, 'members')} onClose={close} />
-        {members.kind === 'loading' && <p className="muted">Loading…</p>}
-        {members.kind === 'error' && <LoadNotice message={members.message} />}
+        <Loading load={members} />
         {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
         {members.kind === 'ready' && members.data.length > 0 && (
           <fieldset className="check-kinds">

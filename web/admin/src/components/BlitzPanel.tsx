@@ -6,7 +6,7 @@ import { adminRequest, type AdminBlitzEditionRow, loadOf } from '../lib/admin-ap
 import { editionHref } from '@ttac/shared/blitz';
 import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
-import { LoadNotice } from './Notice';
+import { Loading } from './Notice';
 import Count from './Count';
 
 export default function BlitzPanel() {
@@ -25,8 +25,7 @@ export default function BlitzPanel() {
         Every edition of a tournament with the Blitz setting (Tournaments → Settings). A name opens the edition: its
         players, rounds and results.
       </p>
-      {rows.kind === 'loading' && <p className="muted">Loading…</p>}
-      {rows.kind === 'error' && <LoadNotice message={rows.message} />}
+      <Loading load={rows} />
       {rows.kind === 'ready' && rows.data.length === 0 && <p className="muted">No tournament has the Blitz setting yet.</p>}
       {rows.kind === 'ready' && rows.data.length > 0 && <EditionsTable editions={rows.data} />}
     </section>

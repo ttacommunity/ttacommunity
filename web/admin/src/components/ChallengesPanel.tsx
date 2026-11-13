@@ -6,7 +6,7 @@ import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, loadOf } from '../lib/admin-api';
 import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
-import { LoadNotice } from './Notice';
+import { LoadNotice, Loading } from './Notice';
 import './ChallengesPanel.css';
 import { counted } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
@@ -79,8 +79,7 @@ export default function ChallengesPanel() {
         </div>
       )}
       {status !== null && <LoadNotice message={status} />}
-      {entries.kind === 'loading' && <p className="muted">Loading…</p>}
-      {entries.kind === 'error' && <LoadNotice message={entries.message} />}
+      <Loading load={entries} />
       {entries.kind === 'ready' && entries.data.entries.length > 0 && shown.length === 0 && <p className="muted">No entry matches.</p>}
       {entries.kind === 'ready' && shown.length > 0 && (
         <>
