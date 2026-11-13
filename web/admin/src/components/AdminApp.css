@@ -781,11 +781,6 @@
 .round-view {
   margin-bottom: 0.75rem;
 }
-/* A warning on the format: amber, a choice to reconsider rather than an error. */
-.format-warning {
-  margin-top: 0.4rem;
-  color: var(--accent-gold-light);
-}
 
 /* A blitz edition's settings: summed up in a list under one Edit settings button, or every setting's form open. */
 .settings-head {

@@ -32,6 +32,7 @@ import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
 import { plural } from '@ttac/shared/numbers';
+import Note from '@ttac/shared/Note';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -990,9 +991,7 @@ function EditionSettings(props: Props) {
 /** FormatWarnings shows warnings about a format, one note each. */
 function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
   return warnings.map((w) => (
-    <p key={w} className="format-warning" role="note">
-      {w}
-    </p>
+    <Note key={w}>{w}</Note>
   ));
 }
 
