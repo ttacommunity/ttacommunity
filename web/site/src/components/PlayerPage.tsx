@@ -61,7 +61,7 @@ import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
 import { errorText, type Load } from '@ttac/shared/load';
-import { score } from '@ttac/shared/numbers';
+import { counted, score } from '@ttac/shared/numbers';
 import Message from './Message';
 
 function readView(): PlayerView {
@@ -625,8 +625,8 @@ function PositionSeatStats({
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
             <span className="banner-metric-sub">
-              ({overall.total_wins} {overall.total_wins === 1 ? 'win' : 'wins'}
-              {overall.total_draws > 0 ? ` · ${overall.total_draws} ${overall.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+              ({counted(overall.total_wins, 'win')}
+              {overall.total_draws > 0 ? ` · ${counted(overall.total_draws, 'draw')}` : ''}
               {' '}· {overall.win_rate.toFixed(1)}%)
             </span>
           </div>
@@ -692,7 +692,7 @@ function PositionSeatStats({
                     <strong>{group.player_count}-Player Tables</strong>
                     <span className="group-meta">
                       {' '}— {group.total_games} games · {group.total_wins} wins
-                      {group.total_draws > 0 ? ` · ${group.total_draws} ${group.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+                      {group.total_draws > 0 ? ` · ${counted(group.total_draws, 'draw')}` : ''}
                       {' '}({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
                     </span>
                   </td>

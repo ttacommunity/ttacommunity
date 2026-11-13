@@ -13,6 +13,7 @@ import SignInNote from './SignInNote';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import Message from './Message';
+import { counted, plural } from '@ttac/shared/numbers';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -77,7 +78,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
       setStatus({ kind: 'refused', heading: 'Not done', text: done.message });
       return;
     }
-    setStatus({ kind: 'done', heading: 'Done', text: `Saved ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}.` });
+    setStatus({ kind: 'done', heading: 'Done', text: `Saved ${counted(chosen.length, 'entry', 'entries')}.` });
     setRows({});
     setShared('');
     setReviewing(false);
@@ -155,7 +156,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
         <div>
           {chosen.length === 0 && errors.length === 0
             ? 'Nothing entered yet.'
-            : `${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'} · ${chosen.filter((e) => e.proof_url !== '').length} with proof`}
+            : `${counted(chosen.length, 'entry', 'entries')} · ${chosen.filter((e) => e.proof_url !== '').length} with proof`}
           {errors.length > 0 && (
             <ul className="challenges-errors" role="alert">
               {errors.slice(0, 5).map((e) => (
@@ -214,8 +215,8 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
         Check your entries
       </h2>
       <p>
-        Saving <strong>{chosen.length}</strong> {chosen.length === 1 ? 'entry' : 'entries'} as <strong>{name}</strong>.
-        {newRecords > 0 && ` ★ ${newRecords} ${newRecords === 1 ? 'beats a record' : 'beat records'}.`}
+        Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
+        {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
       </p>
       <div className="table-responsive">
         <table className="leaderboard-table">
