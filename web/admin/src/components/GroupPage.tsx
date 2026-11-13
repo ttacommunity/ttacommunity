@@ -10,17 +10,16 @@ import Notice from './Notice';
 import { GROUP_KINDS } from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 import SaveBar, { SaveStatus } from './SaveBar';
-import { useSave } from './useSave';
+import { useSave, type Save } from './useSave';
 
 type Kind = AdminTournamentRow['kind'];
 
 /** GroupSettings edits a group's name, type and description and moves it, open when the address asks for it. */
-function GroupSettings({ g, all, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; onReload: () => Promise<void> }) {
+function GroupSettings({ g, all, saving, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; saving: Save; onReload: () => Promise<void> }) {
   const [shown, setShown] = useState(() => opensSettings(new URLSearchParams(window.location.search)));
   const [name, setName] = useState(g.name);
   const [kind, setKind] = useState<Kind>(g.kind);
   const [description, setDescription] = useState(g.description);
-  const saving = useSave();
   const change = groupChange(g, { name, kind, description });
   const save = async () => {
     const r = await saving.run(change === null ? null : () => req.send(req.setTournament(g.slug, change)), { done: 'Saved' });
@@ -154,9 +153,11 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
 
 /** GroupPage shows a group's settings at the top, then what it holds. */
 export default function GroupPage({ g, all, onReload }: { g: TournamentBrief; all: readonly AdminTournamentRow[]; onReload: () => Promise<void> }) {
+  // Held here, so the settings' Saved outlives the remount their new values cause.
+  const saving = useSave();
   return (
     <>
-      <GroupSettings key={`${g.name}-${g.kind}-${g.description}-${g.parent}`} g={g} all={all} onReload={onReload} />
+      <GroupSettings key={`${g.name}-${g.kind}-${g.description}-${g.parent}`} g={g} all={all} saving={saving} onReload={onReload} />
       <Members g={g} all={all} onReload={onReload} />
     </>
   );
