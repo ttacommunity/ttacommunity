@@ -14,7 +14,8 @@ import { hashTab } from '@ttac/shared/tabs';
 import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitz } from '../lib/blitz-report';
-import { accountHref } from '../lib/account';
+import { TTA_DISCORD } from '../lib/links';
+import SignInNote from './SignInNote';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
@@ -467,11 +468,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         </h2>
         <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </div>
-      {signIn && (
-        <p className="blitz-sign-in" role="note">
-          Playing in this tournament? <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to report your game&apos;s result.
-        </p>
-      )}
+      {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">
         <label>
           <span>Round</span>
@@ -491,7 +488,8 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         </label>
       </div>
       <p className="records-intro">
-        Who plays whom and how each game went, ratings beside the names. Arrange your game with your opponent on Discord. Dates are on your clocks ({zone}). Click a
+        Who plays whom and how each game went, ratings beside the names. Opponents arrange their games through the official{' '}
+        <a href={TTA_DISCORD}>TTA Discord</a>. Dates are on your clocks ({zone}). Click a
         code to copy it. A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." sort={sort} onSort={sortBy} />

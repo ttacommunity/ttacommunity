@@ -2,12 +2,14 @@
 import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengeEntries, challengeHighscores, type ChallengeEntries, type ChallengeHighscores } from '@ttac/shared/ratings';
-import { change, sharedMe, signInHref, type Me, type SaveOutcome } from '../lib/account';
+import { change, sharedMe, type Me, type SaveOutcome } from '../lib/account';
 import type { ChallengeTile } from '../lib/challenge-list';
 import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission, type Row } from '../lib/challenge-submit';
 import { challengePicture, challengePlayerHref, challengeSets, setLabel, type SetId } from '../lib/challenges';
 import { ProofLink } from './ChallengeParts';
+import Note from '@ttac/shared/Note';
 import SaveNotice from './SaveNotice';
+import SignInNote from './SignInNote';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 
@@ -18,7 +20,7 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
   const me = useLoad('me', () => sharedMe(apiUrl));
   return (
     <>
-      <Examples apiUrl={apiUrl} me={me.kind === 'ready' ? me.data : undefined} />
+      <Examples me={me.kind === 'ready' ? me.data : undefined} />
       {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
     </>
   );
@@ -33,21 +35,15 @@ function Gate({ apiUrl, list, me }: { apiUrl: string; list: ChallengeTile[]; me:
 }
 
 /** FirstStep says, in the page's introduction, what a visitor must do before submitting: sign in, or get linked. */
-function FirstStep({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
+function FirstStep({ me }: { me: Me | null | undefined }) {
   if (me === undefined) return null;
-  if (me === null) {
-    return (
-      <p className="analysis-hero-desc">
-        <a href={signInHref(apiUrl, 'discord', '/challenges/submit/')}>Sign in</a> to submit: your entries are saved under your TTA username.
-      </p>
-    );
-  }
+  if (me === null) return <SignInNote to="submit: your entries are saved under your TTA username." />;
   if (me.member === null) {
     return (
-      <p className="analysis-hero-desc">
+      <Note>
         Your account is not linked to a TTA username yet: <a href="/account/">ask to be linked</a> on your account page, and once an organiser approves it
         you can submit here.
-      </p>
+      </Note>
     );
   }
   return null;
@@ -279,7 +275,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
 }
 
 /** Examples introduces the page, with the visitor's first step when they have one, and shows what to post in Discord for a verified entry. */
-function Examples({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
+function Examples({ me }: { me: Me | null | undefined }) {
   return (
     <>
       <div className="analysis-hero-card challenges-hero">
@@ -291,7 +287,7 @@ function Examples({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined })
             then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
             the official highscores.
           </p>
-          <FirstStep apiUrl={apiUrl} me={me} />
+          <FirstStep me={me} />
         </div>
       </div>
       <section className="rating-card challenges-card" aria-labelledby="examples">
