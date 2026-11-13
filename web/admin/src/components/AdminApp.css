@@ -31,7 +31,7 @@
 }
 .rating-card.page-error {
   max-width: 48rem;
-  border-left: 4px solid var(--loss);
+  border-left: 4px solid var(--loss-edge);
 }
 .page-error p {
   margin: 0;

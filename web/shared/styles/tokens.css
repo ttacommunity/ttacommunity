@@ -16,15 +16,18 @@
   --crimson-top: #5c1716;
   --crimson-bottom: #2a0908;
   --crimson-hover: #7a1f1e;
-  --loss-light: #ff8a80;
+  --loss-light: #f0907e;
   --text-main: #f3e5c8;
   --text-soft: #cfbeab;
   --text-muted: #a89880;
   --text-on-gold: #120904;
   --text-bright: #fff;
   --border-subtle: #4a3525;
-  --win: #66bb6a;
-  --loss: #ef5350;
+  /* Win and loss in the game's own colours: text in its lighter shades, edges and fills in its resource bar's. */
+  --win: #8fb86a;
+  --loss: #e76f5b;
+  --win-edge: #477d29;
+  --loss-edge: #a93325;
   --draw: #ffa726;
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */

@@ -1,14 +1,14 @@
-/* An action's outcome beside it (OutcomeNotice): its word in colour on a dark panel, bordered green when done, red when not. */
+/* An action's outcome beside it (OutcomeNotice): its word in colour on a dark panel edged green when done, red when not, with a wash of that colour behind the word. */
 .notice {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   margin: 0.6rem 0;
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--win);
+  border: 1px solid var(--win-edge);
+  border-left-width: 4px;
   border-radius: 6px;
-  background: var(--surface-well);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--win-edge) 28%, transparent), var(--surface-well) 60%), var(--surface-well);
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: var(--size-body-short);
@@ -18,7 +18,8 @@
 }
 .notice-refused,
 .notice-failed {
-  border-left-color: var(--loss);
+  border-color: var(--loss-edge);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--loss-edge) 30%, transparent), var(--surface-well) 60%), var(--surface-well);
 }
 .notice-body {
   flex: 1;
