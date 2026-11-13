@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, loadOf } from '../lib/admin-api';
 import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
@@ -33,7 +33,7 @@ function Tournaments() {
   const [rated, setRated] = useState(true);
   useEffect(() => {
     void adminRequest<AdminTournamentRow[]>('/api/tournaments', {}).then((r) =>
-      setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setTournaments(loadOf(r)),
     );
   }, []);
   return (
@@ -122,14 +122,14 @@ export default function AdminApp() {
   const [accounts, setAccounts] = useState<Load<AdminAccount[]>>({ kind: 'loading' });
   const reloadAccounts = async () => {
     const r = await adminRequest<AdminAccount[]>('/api/accounts', {});
-    setAccounts(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setAccounts(loadOf(r));
   };
   const waiting = accounts.kind === 'ready' ? signInGroups(accounts.data).waiting.length : 0;
   // flagged counts the players' reports waiting for an organiser, across every blitz edition, for the Blitz tab.
   const [flagged, setFlagged] = useState(0);
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) => {
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+      setMe(loadOf(r));
       if (!r.ok) return;
       void reloadAccounts();
       void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((b) => b.ok && setFlagged(b.data.reduce((n, e) => n + e.flagged, 0)));

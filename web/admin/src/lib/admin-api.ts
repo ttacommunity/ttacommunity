@@ -28,6 +28,11 @@ export type LinkApproved = components['schemas']['LinkApproved'];
 /** AdminResult is an answer's data, or why the request was refused. */
 export type AdminResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
 
+/** loadOf is an answer as a page holds it: ready with its data, or an error with the API's reason. */
+export function loadOf<T>(r: AdminResult<T>): Load<T> {
+  return r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message };
+}
+
 /** firstError returns the message of the first load that failed, or null when none did: a page shows one. */
 export function firstError(...loads: Load<unknown>[]): string | null {
   for (const l of loads) if (l.kind === 'error') return l.message;
