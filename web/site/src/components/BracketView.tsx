@@ -1,7 +1,6 @@
 /** A season shown as a bracket: rounds to pick, the late rounds as a tree, a round's groups as a list, and a player's road. */
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { seasonBracket, type CatalogueSeason, type BracketGroup, type SeasonBracket } from '@ttac/shared/ratings';
-import type { Load } from '@ttac/shared/load';
+import { seasonBracket, type CatalogueSeason, type BracketGroup } from '@ttac/shared/ratings';
 import {
   allView,
   bracketGrid,
@@ -31,6 +30,7 @@ import { seasonName } from '../lib/catalogue-view';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 import Message from './Message';
+import { useLoad } from './useLoad';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
 
@@ -53,23 +53,15 @@ export default function BracketView({
   onSeason: (season: string) => void;
 }) {
   const played = seasons.filter((s) => s.games > 0);
-  const [load, setLoad] = useState<Load<SeasonBracket>>({ kind: 'loading' });
+  const load = useLoad(JSON.stringify([run, slug, season]), () => seasonBracket(apiUrl, run, slug, season));
   const [chosen, setChosen] = useState<View | null>(null);
   const [entrant, setEntrant] = useState<number | null>(null);
   const [q, setQ] = useState('');
   const [single, setSingle] = useState<'tree' | 'grid'>('grid');
   useEffect(() => {
-    let live = true;
-    setLoad({ kind: 'loading' });
     setChosen(null);
     setEntrant(null);
-    seasonBracket(apiUrl, run, slug, season)
-      .then((data) => live && setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => live && setLoad({ kind: 'error', message: e instanceof Error ? e.message : 'The bracket could not be loaded.' }));
-    return () => {
-      live = false;
-    };
-  }, [apiUrl, run, slug, season]);
+  }, [run, slug, season]);
   if (season === '') return null;
 
   const rounds = load.kind === 'ready' ? bracketRounds(load.data) : [];

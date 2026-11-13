@@ -60,7 +60,7 @@ import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
-import { errorText, type Load } from '@ttac/shared/load';
+import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 
@@ -71,7 +71,7 @@ function readView(): PlayerView {
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<PlayerView>(readView);
-  const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const run = useLoad(String(view.ranking), () => currentRun(apiUrl, view.ranking).then((r) => r.run_id));
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
@@ -85,17 +85,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-
-  useEffect(() => {
-    let stale = false;
-    setRun({ kind: 'loading' });
-    currentRun(apiUrl, view.ranking)
-      .then((r) => !stale && setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => !stale && setRun({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const model = pageModel(view.engine, view.reset);
