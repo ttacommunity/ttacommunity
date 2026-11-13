@@ -25,6 +25,7 @@ import {
   defaultMinOpps,
   yearDeltas,
   yearRows,
+  shownChanges,
   parseSearch,
   excludePlayer,
   includePlayer,
@@ -321,6 +322,23 @@ describe('titleOptions', () => {
   });
 });
 
+describe('shownChanges', () => {
+  const shown = { board: { players: [row('ann', 1600)] }, year: null };
+  const past = [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550, rank: 7 }];
+  it.each([
+    ['nothing while the column is off', 'none', { kind: 'ready' as const, data: { players: past } }, null],
+    ['nothing while the past board loads', 'month', { kind: 'loading' as const }, null],
+    ['no changes when it could not load', 'month', { kind: 'error' as const, message: 'down' }, new Map()],
+    ['each change against the past board', 'month', { kind: 'ready' as const, data: { players: past } }, new Map([['ann', { c_rating: 50, rating: 50, pastRank: 7 }]])],
+  ] as const)('shows %s', (_, delta, load, want) => {
+    expect(shownChanges(shown, delta, load)).toEqual(want);
+  });
+
+  it('shows nothing before the board is here', () => {
+    expect(shownChanges(null, 'month', { kind: 'loading' })).toBeNull();
+  });
+});
+
 describe('deltas', () => {
   it('is each shown player now minus their rating on the past board, and 0 for a player not on it', () => {
     const got = deltas([row('ann', 1600), row('bob', 1500)], [{ name: 'ann', rating: 1650, rd: 30, c_rating: 1550, rank: 7 }]);
@@ -441,6 +459,10 @@ describe('year view', () => {
       ['bob', false],
       ['ann', true],
     ]);
+  });
+
+  it("shows a year's own changes, without asking for a past board", () => {
+    expect(shownChanges({ board: { players: [] }, year: board }, 'year', { kind: 'loading' })).toEqual(yearDeltas(board));
   });
 
   it("compares with the previous year's end, 0 for a player without one", () => {

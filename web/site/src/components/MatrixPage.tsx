@@ -24,7 +24,6 @@ import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import { viewLinks } from '../lib/navigate';
-import { errorText, type Load } from '@ttac/shared/load';
 import Message from './Message';
 
 function readView(): MatrixView {
@@ -41,7 +40,7 @@ function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
 /** Shows the player's career years and peak season evaluation. */
 export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<MatrixView>(readView);
-  const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const run = useLoad('run', () => currentRun(apiUrl).then((r) => r.run_id));
 
   const go = useCallback((next: MatrixView) => {
     window.history.pushState(null, '', `?${matrixParams(next)}`);
@@ -53,11 +52,8 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
-    currentRun(apiUrl)
-      .then((r) => setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => setRun({ kind: 'error', message: errorText(e) }));
     return () => window.removeEventListener('popstate', onPop);
-  }, [apiUrl]);
+  }, []);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const { name, format } = view;

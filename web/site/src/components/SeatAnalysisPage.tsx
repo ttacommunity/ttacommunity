@@ -1,21 +1,12 @@
 /** Turn order and starting seat advantage page: win rates and placement rates by player count and skill tier. */
-import { useEffect, useState } from 'react';
-import {
-  currentRun,
-  seatAnalysis,
-  type Format,
-  type SeatAnalysis,
-  type SeatAnalysisTier,
-  type SeatStatsGroup,
-  type SeatWinrateRow,
-  type SeatPlaceRate,
-} from '@ttac/shared/ratings';
+import { useState } from 'react';
+import { currentRun, seatAnalysis, type Format, type SeatAnalysisTier, type SeatStatsGroup, type SeatWinrateRow, type SeatPlaceRate } from '@ttac/shared/ratings';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
 import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysis';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import { useKeptLoad } from './useLoad';
 
 const FORMAT_OPTIONS: Option<Format>[] = [
   { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
@@ -39,24 +30,10 @@ const SEAT_NAMES: Record<number, string> = {
 
 /** SeatAnalysisPage displays empirical win rates and finishing placements by turn order. */
 export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<SeatAnalysis>>({ kind: 'loading' });
   const [tier, setTier] = useState<SeatAnalysisTier>('all');
   const [format, setFormat] = useState<Format>(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    currentRun(apiUrl)
-      .then((r) => seatAnalysis(apiUrl, r.run_id, tier, format))
-      .then((data) => {
-        if (!cancelled) setLoad({ kind: 'ready', data });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setLoad({ kind: 'error', message: errorText(e) });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiUrl, tier, format]);
+  const load = useKeptLoad(`${tier}/${format}`, () => currentRun(apiUrl).then((r) => seatAnalysis(apiUrl, r.run_id, tier, format)));
 
   if (load.kind !== 'ready') return <Waiting load={load} what="seat win rates" />;
 
