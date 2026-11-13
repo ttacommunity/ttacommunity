@@ -5,7 +5,8 @@ import type { SortColumns } from '@ttac/shared/sort';
 import { viewerZone } from '@ttac/shared/time';
 import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import { byMeasure, entryDay, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
-import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import FilterInput from './FilterInput';
 import Waiting from './Waiting';
 

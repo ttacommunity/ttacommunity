@@ -4,7 +4,8 @@ import Segmented from '@ttac/shared/Segmented';
 import { challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
 import { downloadUrls } from '../lib/challenge-download';
 import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
-import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
 
 const SETS: { value: SetId; label: string }[] = [
