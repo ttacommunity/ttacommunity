@@ -21,7 +21,6 @@ import {
   playNext,
   scopeLeaders,
   setLabel,
-  signed,
 } from './challenges';
 
 const challenge = (id: string, set: 'original' | 'expansion' | 'mix', group: string) => ({ id, set, group });
@@ -136,16 +135,6 @@ describe('compareBests', () => {
     const a = [best('x', 10, 0, 0), best('y', 5, 0, 0), best('z', 7, 0, 0), best('only-a', 1, 0, 0)];
     const b = [best('x', 3, 0, 0), best('y', 9, 0, 0), best('z', 7, 0, 0), best('only-b', 1, 0, 0)];
     expect(compareBests(a, b)).toEqual({ winsA: 1, winsB: 1, ties: 1, both: 3 });
-  });
-});
-
-describe('signed', () => {
-  it.each([
-    [5, '+5'],
-    [-3, '-3'],
-    [0, '±0'],
-  ])('writes %d as %s', (value, want) => {
-    expect(signed(value)).toBe(want);
   });
 });
 

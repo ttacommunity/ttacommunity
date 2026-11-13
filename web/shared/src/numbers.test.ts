@@ -40,6 +40,14 @@ describe('signed', () => {
   ])('writes %s', (_name, value, decimals, want) => {
     expect(signed(value, decimals)).toBe(want);
   });
+
+  it.each([
+    ['zero', 0, '±0'],
+    ['a small move that rounds to zero', 0.4, '±0'],
+    ['a rise', 5, '+5'],
+  ])('writes %s with a zero of its own', (_name, value, want) => {
+    expect(signed(value, 0, '±0')).toBe(want);
+  });
 });
 
 describe('plural', () => {

@@ -10,10 +10,10 @@ export function score(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-/** signed writes value to decimals places with a sign, and none when it rounds to zero: "+2.1", "-3.0", "0.0". */
-export function signed(value: number, decimals: number): string {
+/** signed writes value to decimals places with a sign, and zero (unsigned by default) when it rounds to zero: "+2.1", "-3.0", "0.0". */
+export function signed(value: number, decimals: number, zero?: string): string {
   const size = Math.abs(value).toFixed(decimals);
-  if (Number(size) === 0) return size;
+  if (Number(size) === 0) return zero ?? size;
   return value > 0 ? `+${size}` : `-${size}`;
 }
 

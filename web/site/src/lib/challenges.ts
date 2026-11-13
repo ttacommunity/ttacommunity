@@ -132,12 +132,6 @@ export function compareBests(
   return got;
 }
 
-/** signed writes a difference with its sign, ±0 for none. */
-export function signed(value: number): string {
-  if (value === 0) return '±0';
-  return value > 0 ? `+${value}` : String(value);
-}
-
 /** niceTicks are round values from at most min (and 0) to at least max, about count steps apart. */
 export function niceTicks(min: number, max: number, count = 4): number[] {
   const lo = Math.min(0, min);
