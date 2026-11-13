@@ -330,6 +330,14 @@ agent runs them itself.
 - **Plain CSS**: tokens as custom properties in `shared`, scoped `<style>` per
   component. No Tailwind, no CSS-in-JS, **no inline `style="…"`**
 - **Don't redesign a page's look without the maintainers' say-so**
+- **A piece of UI is a component the first time, not the second.** A
+  note, a prompt, a control or a state that another page could show goes
+  in its own component (`SignInNote`, `Note`, `SaveNotice`, `Waiting`,
+  `Pager`), with its CSS beside it (in `shared`: `styles/components/`),
+  and on `/design`. Before writing one, look in `shared/src/` and the
+  app's `components/` for one that already does it, and use it; when you
+  find a page's own copy of one, move it over. Used by one app: its
+  `components/`. By both: `shared`
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC
