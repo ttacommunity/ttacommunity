@@ -380,7 +380,7 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 	addGame(t, pool, run, "2025-01-01", "Without ann", Seat{"bob", 1}, Seat{"cy", 2})
 	addGame(t, pool, other, "2025-01-01", "Another run", Seat{"ann", 1}, Seat{"cy", 2})
 
-	name, first, err := r.PlayerMatches(ctx, run, "ann", 0, 1, false)
+	name, first, err := r.PlayerMatches(ctx, run, "ann", 0, 1, true, false)
 	if err != nil {
 		t.Fatalf("PlayerMatches: %v", err)
 	}
@@ -402,15 +402,15 @@ func TestPlayerMatchesPagesTheRunsGamesNewestFirst(t *testing.T) {
 		t.Errorf("the 3P game = %+v, want seats %v in seat order", first.Matches, wantSeats)
 	}
 
-	_, past, err := r.PlayerMatches(ctx, run, "ann", 0, 9, false)
+	_, past, err := r.PlayerMatches(ctx, run, "ann", 0, 9, true, false)
 	if err != nil || past.Page != 2 || len(past.Matches) != 2 {
 		t.Errorf("page 9 = page %d, %d games, %v; want the last page, 2, 2 games", past.Page, len(past.Matches), err)
 	}
-	_, trios, err := r.PlayerMatches(ctx, run, "ann", 3, 1, false)
+	_, trios, err := r.PlayerMatches(ctx, run, "ann", 3, 1, true, false)
 	if err != nil || trios.Total != 1 || trios.Pages != 1 || len(trios.Matches) != 1 || trios.Matches[0].ID != three {
 		t.Errorf("3P games = %+v, %v; want only the trio", trios, err)
 	}
-	_, none, err := r.PlayerMatches(ctx, run, "ann", 4, 1, false)
+	_, none, err := r.PlayerMatches(ctx, run, "ann", 4, 1, true, false)
 	if err != nil || none.Total != 0 || none.Pages != 1 || none.Page != 1 || len(none.Matches) != 0 {
 		t.Errorf("4P games = %+v, %v; want none, on page 1 of 1", none, err)
 	}
@@ -442,7 +442,7 @@ func TestPlayerTakesGamesAsTheRunRatedThem(t *testing.T) {
 		t.Errorf("last played = %v, want the run's 2025-01-10", p.LastPlayed)
 	}
 
-	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1, false)
+	_, page, err := r.PlayerMatches(ctx, run, "ann", 3, 1, true, false)
 	if err != nil {
 		t.Fatalf("PlayerMatches: %v", err)
 	}
@@ -529,23 +529,27 @@ func TestPlayerMatchesAddsFinishedGamesTheRunDidNotRateWhenAsked(t *testing.T) {
 	elsewhere := fmt.Sprintf("%d 2025-02-05 2P rated=false", g.elsewhere)
 	tests := []struct {
 		name    string
+		rated   bool
 		unrated bool
 		format  int
 		want    []string
 	}{
-		{"rated only", false, 0, []string{moved, rated}},
-		{"with unrated", true, 0, []string{elsewhere, blitz, moved, rated}},
-		{"with unrated, 2P", true, 2, []string{elsewhere, blitz, rated}},
-		{"with unrated, 3P", true, 3, []string{moved}},
+		{"rated only", true, false, 0, []string{moved, rated}},
+		{"with unrated", true, true, 0, []string{elsewhere, blitz, moved, rated}},
+		{"with unrated, 2P", true, true, 2, []string{elsewhere, blitz, rated}},
+		{"with unrated, 3P", true, true, 3, []string{moved}},
+		{"unrated only", false, true, 0, []string{elsewhere, blitz}},
+		{"unrated only, 3P", false, true, 3, []string{}},
+		{"neither", false, false, 0, []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, page, err := r.PlayerMatches(context.Background(), g.run, "ann", tt.format, 1, tt.unrated)
+			_, page, err := r.PlayerMatches(context.Background(), g.run, "ann", tt.format, 1, tt.rated, tt.unrated)
 			if err != nil {
 				t.Fatalf("PlayerMatches: %v", err)
 			}
 			if got := gameList(page.Matches); !slices.Equal(got, tt.want) || page.Total != len(tt.want) {
-				t.Errorf("PlayerMatches(ann, %dP, unrated %t) = %q, total %d; want %q", tt.format, tt.unrated, got, page.Total, tt.want)
+				t.Errorf("PlayerMatches(ann, %dP, rated %t, unrated %t) = %q, total %d; want %q", tt.format, tt.rated, tt.unrated, got, page.Total, tt.want)
 			}
 		})
 	}

@@ -4992,7 +4992,10 @@ type GetPlayerMatchesParams struct {
 
 	// Unrated Also the finished games the run did not rate, marked unrated
 	Unrated *Unrated `form:"unrated,omitempty" json:"unrated,omitempty"`
-	Page    *int     `form:"page,omitempty" json:"page,omitempty"`
+
+	// Rated The games the run rated (true by default; set false with unrated=true for unrated only)
+	Rated *Rated `form:"rated,omitempty" json:"rated,omitempty"`
+	Page  *int   `form:"page,omitempty" json:"page,omitempty"`
 }
 
 // GetPlayerMatrixParams defines parameters for GetPlayerMatrix.
@@ -10179,6 +10182,19 @@ func (siw *ServerInterfaceWrapper) GetPlayerMatches(w http.ResponseWriter, r *ht
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unrated"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unrated", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rated" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rated", r.URL.Query(), &params.Rated, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rated"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rated", Err: err})
 		}
 		return
 	}

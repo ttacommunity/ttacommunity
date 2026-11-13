@@ -104,10 +104,15 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     `${runId}|${name}|${format}`,
     runId === null ? null : () => playerHistory(apiUrl, runId, name, format),
   );
-  const [gamesUnrated, setGamesUnrated] = useState(false);
+  const [gamesFilter, setGamesFilter] = useState<GameRatingFilter>({ rated: true, unrated: false });
   const games = useLoad<PlayerMatches>(
-    `${runId}|${name}|${format}|${model}|${matchPage}|${gamesUnrated}`,
-    runId === null ? null : () => playerMatches(apiUrl, runId, name, format, model, matchPage, gamesUnrated),
+    `${runId}|${name}|${format}|${model}|${matchPage}|${gamesFilter.rated}|${gamesFilter.unrated}`,
+    runId === null
+      ? null
+      : () =>
+          !gamesFilter.rated && !gamesFilter.unrated
+            ? Promise.resolve({ run_id: runId, name, format, model, page: 1, pages: 1, total: 0, matches: [] })
+            : playerMatches(apiUrl, runId, name, format, model, matchPage, gamesFilter.unrated, gamesFilter.rated),
   );
   const [rivalsFilter, setRivalsFilter] = useState<GameRatingFilter>({ rated: true, unrated: false });
   const rivals = useLoad<PlayerRivals>(
@@ -186,9 +191,9 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           gamesInFormat={gamesInFormat}
           linkTo={linkTo}
           go={go}
-          unrated={gamesUnrated}
-          onUnrated={(on) => {
-            setGamesUnrated(on);
+          ratingFilter={gamesFilter}
+          onRatingFilter={(next) => {
+            setGamesFilter(next);
             if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
           }}
         />
@@ -333,8 +338,8 @@ function Games({
   gamesInFormat,
   linkTo,
   go,
-  unrated,
-  onUnrated,
+  ratingFilter,
+  onRatingFilter,
 }: {
   state: Load<PlayerMatches>;
   view: PlayerView;
@@ -342,8 +347,8 @@ function Games({
   gamesInFormat: number;
   linkTo: LinkTo;
   go: (next: PlayerView) => void;
-  unrated: boolean;
-  onUnrated: (on: boolean) => void;
+  ratingFilter: GameRatingFilter;
+  onRatingFilter: (next: GameRatingFilter) => void;
 }) {
   const data = state.kind === 'ready' ? state.data : null;
   const total = data?.total ?? gamesInFormat;
@@ -361,7 +366,7 @@ function Games({
             ⏳ Prior Calibration ({gamesInFormat}/15)
           </span>
         )}
-        <UnratedToggle on={unrated} onChange={onUnrated} className="unrated-toggle-end" />
+        <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
       </div>
       <ScrollTable hint="full match details">
         <table className="data-table">
@@ -388,7 +393,7 @@ function Games({
             {data !== null && data.matches.length === 0 && (
               <tr>
                 <td colSpan={7} className="cell-empty">
-                  No recent match history found.
+                  {!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see matches.' : 'No recent match history found.'}
                 </td>
               </tr>
             )}

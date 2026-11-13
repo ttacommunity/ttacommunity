@@ -52,7 +52,7 @@ type BoardReads interface {
 type PlayerReads interface {
 	Player(ctx context.Context, run int64, name string) (store.Player, error)
 	PlayerHistory(ctx context.Context, run int64, name string, format int) (string, []store.HistoryPoint, error)
-	PlayerMatches(ctx context.Context, run int64, name string, format, page int, unrated bool) (string, store.MatchPage, error)
+	PlayerMatches(ctx context.Context, run int64, name string, format, page int, rated, unrated bool) (string, store.MatchPage, error)
 	RatingsOf(ctx context.Context, run int64, model string, format int, names []string) (map[string]store.Rated, error)
 	HistoricalRatingsOf(ctx context.Context, run int64, model string, format int, at []store.PlayerAt) (map[store.PlayerAt]store.Rated, error)
 	HiddenNames(ctx context.Context, names []string) (map[string]bool, error)
