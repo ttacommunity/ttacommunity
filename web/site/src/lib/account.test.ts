@@ -171,12 +171,12 @@ describe('signInNotice', () => {
   it.each([
     ['a sign-in that finished', '?signin=ok', null],
     ['nothing to say', '', null],
-    ['one that did not', '?signin=failed', 'failed'],
-    ['an account just deleted', '?signin=deleted', 'deleted'],
-    ['Discord added', '?signin=added', 'added'],
-    ['an email added', '?signin=email-added', 'added'],
-    ['a Discord account with an account of its own', '?signin=taken', 'failed'],
-    ['an account with another Discord', '?signin=has-kind', 'failed'],
+    ['one that did not', '?signin=failed', 'refused'],
+    ['an account just deleted', '?signin=deleted', 'done'],
+    ['Discord added', '?signin=added', 'done'],
+    ['an email added', '?signin=email-added', 'done'],
+    ['a Discord account with an account of its own', '?signin=taken', 'refused'],
+    ['an account with another Discord', '?signin=has-kind', 'refused'],
     ['anything else', '?signin=other', null],
   ])('%s', (_name, search, want) => {
     expect(signInNotice(new URLSearchParams(search))?.kind ?? null).toBe(want);

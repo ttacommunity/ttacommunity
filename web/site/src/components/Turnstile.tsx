@@ -1,6 +1,7 @@
 /** Cloudflare's Turnstile widget for the email form: its script loaded once from Cloudflare, each token passed up, and an empty one when a token expires or the check fails. */
 import { useEffect, useRef, useState } from 'react';
 import { TURNSTILE_ACTION, TURNSTILE_SCRIPT } from '../lib/email-sign-in';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 
 type Widget = {
   render(container: HTMLElement, options: Record<string, unknown>): string;
@@ -67,7 +68,7 @@ export default function Turnstile({ sitekey, round, onToken }: { sitekey: string
   return (
     <>
       <div ref={box} />
-      {failed && <p className="account-problem">The check that you are a person did not load. Reload the page to try again.</p>}
+      {failed && <OutcomeNotice kind="failed" text="The check that you are a person did not load. Reload the page to try again." />}
     </>
   );
 }
