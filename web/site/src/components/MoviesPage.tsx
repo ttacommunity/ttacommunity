@@ -1,6 +1,7 @@
 /** The public Movies page: chronological YouTube thumbnail cards, creator filter pills, and a nocookie modal player. */
 import { useEffect, useRef, useState } from 'react';
-import { browserStorage, seemsSignedIn } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
+import { seemsSignedIn } from '../lib/account';
 import {
   creatorVideoCounts,
   filterVideosByCreators,

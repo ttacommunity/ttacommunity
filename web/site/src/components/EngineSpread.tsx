@@ -4,7 +4,7 @@ import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, T
 import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
 import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
 import { recall } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
 import { errorText, type Load } from '@ttac/shared/load';
 

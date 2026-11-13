@@ -5,23 +5,16 @@ import Segmented from '@ttac/shared/Segmented';
 import { recallChoice, rememberChoice, shownLoad, type Choice, type ChoiceValue } from '../lib/challenge-view';
 import { useLoad } from './useLoad';
 import { challengeHref, challengePicture, challengePlayerHref, groupLabel, type ChallengeGroup, type Measure } from '../lib/challenges';
-
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
+import { browserStorage } from '@ttac/shared/storage';
 
 /** useChoice holds a remembered switch: its value, and a function that sets and remembers it. */
 export function useChoice<C extends Choice>(choice: C): [ChoiceValue<C>, (value: ChoiceValue<C>) => void] {
-  const [value, setValue] = useState(() => recallChoice(storage(), choice));
+  const [value, setValue] = useState(() => recallChoice(browserStorage(), choice));
   return [
     value,
     (v) => {
       setValue(v);
-      rememberChoice(storage(), choice, v);
+      rememberChoice(browserStorage(), choice, v);
     },
   ];
 }
