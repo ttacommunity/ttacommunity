@@ -38,7 +38,7 @@ type BlitzReads interface {
 // RunReads are the reads every area shares: whether the database answers, the run the site shows, a run's last game.
 type RunReads interface {
 	Ping(ctx context.Context) error
-	CurrentRun(ctx context.Context) (store.PublishedRun, error)
+	CurrentRun(ctx context.Context, ranking ...string) (store.PublishedRun, error)
 	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
 }
 

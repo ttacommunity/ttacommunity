@@ -4867,6 +4867,12 @@ type GetChallengeBoardParams struct {
 	Verified *ChallengeVerified `form:"verified,omitempty" json:"verified,omitempty"`
 }
 
+// GetCurrentRunParams defines parameters for GetCurrentRun.
+type GetCurrentRunParams struct {
+	// Ranking The ranking track to read (community, superblitz, pulse, community_superblitz). Defaults to community.
+	Ranking *string `form:"ranking,omitempty" json:"ranking,omitempty"`
+}
+
 // GetAgreementParams defines parameters for GetAgreement.
 type GetAgreementParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
@@ -5502,7 +5508,7 @@ type ServerInterface interface {
 	DeleteMyLogin(w http.ResponseWriter, r *http.Request, provider LoginProvider)
 	// GetCurrentRun The run the site shows now
 	// (GET /v1/runs/current)
-	GetCurrentRun(w http.ResponseWriter, r *http.Request)
+	GetCurrentRun(w http.ResponseWriter, r *http.Request, params GetCurrentRunParams)
 	// GetActivity Who plays, and where
 	// (GET /v1/runs/{run}/analysis/activity)
 	GetActivity(w http.ResponseWriter, r *http.Request, run RunId)
@@ -9080,8 +9086,27 @@ func (siw *ServerInterfaceWrapper) DeleteMyLogin(w http.ResponseWriter, r *http.
 // GetCurrentRun operation middleware
 func (siw *ServerInterfaceWrapper) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCurrentRunParams
+
+	// ------------- Optional query parameter "ranking" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ranking", r.URL.Query(), &params.Ranking, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ranking"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ranking", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCurrentRun(w, r)
+		siw.Handler.GetCurrentRun(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -19239,6 +19264,7 @@ func (response DeleteMyLogin409JSONResponse) VisitDeleteMyLoginResponse(w http.R
 }
 
 type GetCurrentRunRequestObject struct {
+	Params GetCurrentRunParams
 }
 
 type GetCurrentRunResponseObject interface {
@@ -24954,8 +24980,10 @@ func (sh *strictHandler) DeleteMyLogin(w http.ResponseWriter, r *http.Request, p
 }
 
 // GetCurrentRun operation middleware
-func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetCurrentRun(w http.ResponseWriter, r *http.Request, params GetCurrentRunParams) {
 	var request GetCurrentRunRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetCurrentRun(ctx, request.(GetCurrentRunRequestObject))
