@@ -131,6 +131,17 @@ describe('currentRun', () => {
 
     expect(err).toMatchObject({ status: 502, message: 'request failed (502)' });
   });
+
+  it('passes ranking query param and caches separately per ranking', async () => {
+    const f = fakeFetch(200, '{"run_id":9,"published_at":"2026-11-13T00:00:00Z"}');
+    await currentRun('https://api.example', 'superblitz', f.fetch);
+    await currentRun('https://api.example', 'superblitz', f.fetch);
+    await currentRun('https://api.example', 'community', f.fetch);
+
+    expect(f.calls).toHaveLength(2);
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/runs/current?ranking=superblitz');
+    expect(f.calls[1]?.url).toBe('https://api.example/v1/runs/current');
+  });
 });
 
 describe('leaderboard', () => {

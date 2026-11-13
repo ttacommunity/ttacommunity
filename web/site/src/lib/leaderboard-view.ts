@@ -21,6 +21,8 @@ const PROVISIONAL_BELOW = 15;
 
 export const ENGINES = ['glicko2_daneo', 'glicko2_std'] as const;
 export type Engine = (typeof ENGINES)[number];
+export const TRACKS = ['community', 'superblitz', 'community_superblitz', 'pulse'] as const;
+export type Track = (typeof TRACKS)[number];
 export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
@@ -37,6 +39,7 @@ const TITLES: readonly TitleCode[] = ['GM', 'M', 'P', 'G', 'SGM', 'WC', 'WCS', '
 
 /** Everything the reader has chosen, as upstream's query parameters carry it. */
 export interface View {
+  ranking: Track;
   engine: Engine;
   reset: ResetMode;
   format: Format;
@@ -58,6 +61,7 @@ export interface View {
 export type Remembered = Partial<Pick<View, 'engine' | 'reset' | 'format'>>;
 
 export const DEFAULT_VIEW: View = {
+  ranking: 'community',
   engine: 'glicko2_daneo',
   reset: 'continuous',
   format: 0,
@@ -73,9 +77,18 @@ export const DEFAULT_VIEW: View = {
   stats: 'season',
 };
 
-/** defaultMinOpps is upstream's default minimum opponents: 30 live, none in a year's archive. */
-export function defaultMinOpps(year: number | null): number {
-  return year === null ? MIN_OPPONENTS : 0;
+/** defaultMinOpps is upstream's default minimum opponents: 30 live (0 for blitz/pulse), none in a year's archive. */
+export function defaultMinOpps(year: number | null, ranking: Track = 'community'): number {
+  if (year !== null || ranking === 'superblitz' || ranking === 'pulse') return 0;
+  return MIN_OPPONENTS;
+}
+
+/** withRanking switches the rating track and updates minOpps to the new track's default when moving between standard and blitz/pulse. */
+export function withRanking(view: View, ranking: Track): View {
+  const prevDefault = defaultMinOpps(view.year, view.ranking);
+  const nextDefault = defaultMinOpps(view.year, ranking);
+  const minOpps = view.minOpps === prevDefault || prevDefault !== nextDefault ? nextDefault : view.minOpps;
+  return { ...view, ranking, minOpps, page: 1 };
 }
 
 export type RankedRow = LeaderboardRow & { displayRank: number; active: boolean; provisional: boolean };
@@ -96,13 +109,15 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
   const order = oneOf<Order>(['asc', 'desc'], get('order'));
   const y = get('year') ?? '';
   const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
+  const ranking = oneOf(TRACKS, get('ranking')) ?? DEFAULT_VIEW.ranking;
   return {
+    ranking,
     engine: oneOf(ENGINES, get('model')) ?? remembered.engine ?? DEFAULT_VIEW.engine,
     reset: oneOf<ResetMode>(['continuous', 'softer'], get('reset_mode')) ?? remembered.reset ?? DEFAULT_VIEW.reset,
     format: oneOf(FORMATS, get('format')) ?? remembered.format ?? DEFAULT_VIEW.format,
     status: oneOf(STATUSES, get('status')) ?? DEFAULT_VIEW.status,
     title: oneOf(TITLES, get('title')) ?? null,
-    minOpps: whole(get('min_opps'), 0) ?? defaultMinOpps(year),
+    minOpps: whole(get('min_opps'), 0) ?? defaultMinOpps(year, ranking),
     delta: oneOf(DELTAS, get('delta')) ?? DEFAULT_VIEW.delta,
     search: (get('search') ?? '').trim(),
     sort: oneOf(SORTS, get('sort')) ?? DEFAULT_VIEW.sort,
@@ -121,12 +136,13 @@ export function viewParams(view: View, explicit = false): URLSearchParams {
   const p = new URLSearchParams();
   const remembered = new Set(['model', 'reset_mode', 'format']);
   const put = (k: string, v: string, d: string) => (v !== d || (explicit && remembered.has(k))) && p.set(k, v);
+  put('ranking', view.ranking, DEFAULT_VIEW.ranking);
   put('model', view.engine, DEFAULT_VIEW.engine);
   put('reset_mode', view.reset, DEFAULT_VIEW.reset);
   put('format', String(view.format), String(DEFAULT_VIEW.format));
   put('status', view.status, DEFAULT_VIEW.status);
   put('title', view.title ?? '', '');
-  put('min_opps', String(view.minOpps), String(defaultMinOpps(view.year)));
+  put('min_opps', String(view.minOpps), String(defaultMinOpps(view.year, view.ranking)));
   put('delta', view.delta, DEFAULT_VIEW.delta);
   put('search', view.search, '');
   put('sort', view.sort, DEFAULT_VIEW.sort);
@@ -358,7 +374,7 @@ export function page(rows: RankedRow[], asked: number, jumpTo: string | null) {
 
 /** hasOptions reports whether any option differs from upstream's defaults (the Options button's "Active"). */
 export function hasOptions(view: View): boolean {
-  return view.engine !== DEFAULT_VIEW.engine || view.reset !== DEFAULT_VIEW.reset || hasFilters({ ...view, search: '' });
+  return view.ranking !== DEFAULT_VIEW.ranking || view.engine !== DEFAULT_VIEW.engine || view.reset !== DEFAULT_VIEW.reset || hasFilters({ ...view, search: '' });
 }
 
 /** hasFilters reports whether a filter pill shows, and so "Clear Filters". */
@@ -367,7 +383,7 @@ export function hasFilters(view: View): boolean {
     view.search !== '' ||
     view.title !== null ||
     view.status !== DEFAULT_VIEW.status ||
-    view.minOpps !== defaultMinOpps(view.year) ||
+    view.minOpps !== defaultMinOpps(view.year, view.ranking) ||
     view.delta !== DEFAULT_VIEW.delta
   );
 }

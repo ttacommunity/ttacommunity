@@ -2,12 +2,19 @@
 import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, type DeltaWindow, type Engine, type ResetMode, type Status, type View } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type ResetMode, type Status, type Track, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
 import type { Link } from '../lib/navigate';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => Link;
+
+const trackOptions: [Track, string, string][] = [
+  ['community', 'Standard', 'Classical asynchronous community tournaments'],
+  ['superblitz', 'SuperBlitz', 'Exclusive SuperBlitz tournament Glicko (sets min opponents to 0)'],
+  ['community_superblitz', 'Standard + SuperBlitz', 'Include SuperBlitz tournaments alongside Standard'],
+  ['pulse', 'Pulse', 'TTA Pulse real-time blitz queue (sets min opponents to 0)'],
+];
 
 const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',
@@ -40,7 +47,7 @@ interface Props {
 
 /** archiveView is where upstream's archive pills go: the year, keeping the model and format, other filters reset. */
 function archiveView(view: View, year: number | null): View {
-  return { ...DEFAULT_VIEW, engine: view.engine, reset: view.reset, format: view.format, year, minOpps: defaultMinOpps(year) };
+  return { ...DEFAULT_VIEW, ranking: view.ranking, engine: view.engine, reset: view.reset, format: view.format, year, minOpps: defaultMinOpps(year, view.ranking) };
 }
 
 /** OptionsDrawer shows every option; choosing one goes to that view at page 1. */
@@ -87,6 +94,29 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
             </a>
           ))}
         </div>
+      </div>
+
+      <div>
+        <div className="options-group-title">
+          <span>🎯 Rating Track</span>
+        </div>
+        <Segmented
+          label="Rating track"
+          look="banner"
+          groupClass="reset-btn-group stacked"
+          options={trackOptions.map(([id, name, tip]) => ({
+            value: id,
+            label: (
+              <>
+                <span>{name}</span>
+                {id === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
+              </>
+            ),
+            tooltip: tip,
+          }))}
+          value={view.ranking}
+          link={(ranking) => linkTo(withRanking(view, ranking))}
+        />
       </div>
 
       <div>

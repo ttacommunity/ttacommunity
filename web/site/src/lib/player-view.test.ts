@@ -37,6 +37,14 @@ describe('playerHref', () => {
   ])('puts the name in the query, encoded: %s', (_name, name, want) => {
     expect(playerHref(name)).toBe(want);
   });
+
+  it('includes ranking in playerHref and parsePlayerView/playerParams when not community', () => {
+    expect(playerHref('alder440', 'superblitz')).toBe('/ratings/player/?name=alder440&ranking=superblitz');
+    expect(playerHref('alder440', 'community')).toBe('/ratings/player/?name=alder440');
+    const v = parsePlayerView(new URLSearchParams('name=alder440&ranking=superblitz'), {});
+    expect(v.ranking).toBe('superblitz');
+    expect(playerParams(v).get('ranking')).toBe('superblitz');
+  });
 });
 
 describe('searchHref', () => {
@@ -77,12 +85,13 @@ describe('hasPlayerPage', () => {
 describe('parsePlayerView', () => {
   it('reads the name, upstream options and the games page', () => {
     const p = new URLSearchParams('name=Ann&model=glicko2_std&reset_mode=softer&format=3&match_page=4');
-    expect(parsePlayerView(p, {})).toEqual({ name: 'Ann', engine: 'glicko2_std', reset: 'softer', format: 3, matchPage: 4 });
+    expect(parsePlayerView(p, {})).toEqual({ name: 'Ann', ranking: 'community', engine: 'glicko2_std', reset: 'softer', format: 3, matchPage: 4 });
   });
 
   it('falls back to remembered choices, then the defaults', () => {
     expect(parsePlayerView(new URLSearchParams('name=Ann'), { engine: 'glicko2_std', format: 2 })).toEqual({
       name: 'Ann',
+      ranking: 'community',
       engine: 'glicko2_std',
       reset: 'continuous',
       format: 2,
@@ -102,7 +111,7 @@ describe('parsePlayerView', () => {
 });
 
 describe('playerParams', () => {
-  const view = { name: 'Ann B', engine: 'glicko2_std', reset: 'softer', format: 4, matchPage: 1 } as const;
+  const view = { name: 'Ann B', ranking: 'community', engine: 'glicko2_std', reset: 'softer', format: 4, matchPage: 1 } as const;
 
   it('always names the options, as upstream links do, and leaves out page 1', () => {
     expect(playerParams(view).toString()).toBe('name=Ann+B&model=glicko2_std&format=4&reset_mode=softer');

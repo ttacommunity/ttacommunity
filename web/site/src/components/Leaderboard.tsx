@@ -44,11 +44,13 @@ import {
   sortRows,
   titleOptions,
   viewParams,
+  withRanking,
   yearDeltas,
   yearRows,
   type Delta,
   type RankedRow,
   type SortKey,
+  type Track,
   type View,
 } from '../lib/leaderboard-view';
 import { recall, remember } from '../lib/remembered';
@@ -101,7 +103,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     let stale = false;
     setState({ kind: 'loading' });
-    currentRun(apiUrl)
+    currentRun(apiUrl, view.ranking)
       .then(async (run): Promise<State> => {
         if (view.year === null)
           return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
@@ -113,19 +115,19 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     return () => {
       stale = true;
     };
-  }, [apiUrl, model, view.format, view.year]);
+  }, [apiUrl, view.ranking, model, view.format, view.year]);
 
   const [archive, setArchive] = useState<YearEntry[] | null>(null);
   useEffect(() => {
     let stale = false;
-    currentRun(apiUrl)
+    currentRun(apiUrl, view.ranking)
       .then((run) => fetchYears(apiUrl, run.run_id))
       .then((y) => !stale && setArchive(y.years))
       .catch(() => !stale && setArchive([]));
     return () => {
       stale = true;
     };
-  }, [apiUrl]);
+  }, [apiUrl, view.ranking]);
 
   const toggleOptions = (open: boolean) => {
     setOptionsOpen(open);
@@ -283,10 +285,18 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                 </a>
               </span>
             )}
-            {view.minOpps !== defaultMinOpps(view.year) && (
+            {view.ranking !== DEFAULT_VIEW.ranking && (
+              <span className="filter-pill">
+                Track: {trackNames[view.ranking]}{' '}
+                <a {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
+                  ✕
+                </a>
+              </span>
+            )}
+            {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
               <span className="filter-pill">
                 Min Opponents: &ge;{view.minOpps}{' '}
-                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year), page: 1 })} aria-label="Clear minimum opponents">
+                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
                   ✕
                 </a>
               </span>
@@ -295,12 +305,13 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               <a
                 {...linkTo({
                   ...DEFAULT_VIEW,
+                  ranking: view.ranking,
                   engine: view.engine,
                   reset: view.reset,
                   format: view.format,
                   year: view.year,
                   stats: view.stats,
-                  minOpps: defaultMinOpps(view.year),
+                  minOpps: defaultMinOpps(view.year, view.ranking),
                 })}
                 className="btn-reset"
               >
@@ -410,6 +421,12 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   );
 }
 
+const trackNames: Record<Track, string> = {
+  community: 'Standard',
+  superblitz: 'SuperBlitz',
+  community_superblitz: 'Standard + SuperBlitz',
+  pulse: 'Pulse',
+};
 const deltaNames: Record<View['delta'], string> = {
   none: 'None',
   last_update: 'Last Update',
@@ -570,7 +587,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
               <th scope="row">
                 <div className="player-row-content">
                   <span className="player-name-wrapper">
-                    <PlayerLink name={p.name} className="player-link" />
+                    <PlayerLink name={p.name} ranking={view.ranking} className="player-link" />
                     {p.provisional && (
                       <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>
                         ⏳

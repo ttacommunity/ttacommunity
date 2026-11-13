@@ -80,11 +80,19 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const onPop = () => setView(readView());
     window.addEventListener('popstate', onPop);
-    currentRun(apiUrl)
-      .then((r) => setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => setRun({ kind: 'error', message: errorText(e) }));
     return () => window.removeEventListener('popstate', onPop);
-  }, [apiUrl]);
+  }, []);
+
+  useEffect(() => {
+    let stale = false;
+    setRun({ kind: 'loading' });
+    currentRun(apiUrl, view.ranking)
+      .then((r) => !stale && setRun({ kind: 'ready', data: r.run_id }))
+      .catch((e: unknown) => !stale && setRun({ kind: 'error', message: errorText(e) }));
+    return () => {
+      stale = true;
+    };
+  }, [apiUrl, view.ranking]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const model = pageModel(view.engine, view.reset);
@@ -145,8 +153,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <ViewSelectors
         reset={view.reset}
         format={view.format}
+        ranking={view.ranking}
         linkReset={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
         linkFormat={(format) => linkTo({ ...view, format, matchPage: 1 })}
+        linkRanking={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })}
       />
 
       <CareerBox
