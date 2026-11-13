@@ -109,7 +109,7 @@
   margin: 0.75rem 0;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--loss);
+  border-left: 4px solid var(--loss-edge);
   border-radius: 6px;
   background: var(--surface-well);
 }
