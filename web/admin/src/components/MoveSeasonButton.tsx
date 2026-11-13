@@ -3,8 +3,9 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow } from '../lib/admin-api';
 import { seasonDestinations } from '../lib/tournament-groups';
-import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import { SaveStatus } from './SaveBar';
+import { useSave } from './useSave';
 
 /** MoveSeasonButton allows moving a tournament season to another tournament, optionally with a new label. */
 export default function MoveSeasonButton({
@@ -21,25 +22,17 @@ export default function MoveSeasonButton({
   const [open, setOpen] = useState(false);
   const [dest, setDest] = useState('');
   const [newLabel, setNewLabel] = useState(season);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
 
   const destinations = seasonDestinations(all, fromSlug);
 
   const move = async () => {
     if (!dest) return;
-    setStatus('Moving…');
-    setRefusal(null);
     const trimmed = newLabel.trim();
-    const r = await req.send(req.moveSeason(fromSlug, season, dest, trimmed !== season ? trimmed : undefined));
-    setRefusal(refusalOf(r, `move season ${season}`));
-    if (!r.ok) {
-      setStatus('');
-      return;
-    }
+    const r = await saving.run(() => req.send(req.moveSeason(fromSlug, season, dest, trimmed !== season ? trimmed : undefined)), { done: 'Moved', working: 'Moving…' });
+    if (!r?.ok) return;
     await onReload();
     setOpen(false);
-    setStatus('Moved');
   };
 
   return (
@@ -93,10 +86,8 @@ export default function MoveSeasonButton({
           </button>
         </span>
       )}{' '}
-      <span className="note-status" role="status">
-        {status}
-      </span>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      <SaveStatus save={saving} />
+      <Notice outcome={saving.refusal} onClose={saving.close} />
     </span>
   );
 }

@@ -3,8 +3,9 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow, TournamentBrief } from '../lib/admin-api';
 import { moveChoices } from '../lib/tournament-groups';
-import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import { SaveStatus } from './SaveBar';
+import { useSave } from './useSave';
 
 /** MoveButton moves t into a group from all, or out of every group, then calls onReload. */
 export default function MoveButton({
@@ -17,21 +18,13 @@ export default function MoveButton({
   onReload: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const choices = moveChoices(all, t.slug);
   const move = async (parent: string) => {
-    setStatus('Moving…');
-    setRefusal(null);
-    const r = await req.send(req.moveInto(t.slug, parent));
-    setRefusal(refusalOf(r));
-    if (!r.ok) {
-      setStatus('');
-      return;
-    }
+    const r = await saving.run(() => req.send(req.moveInto(t.slug, parent)), { done: 'Moved', working: 'Moving…' });
+    if (!r?.ok) return;
     await onReload();
     setOpen(false);
-    setStatus('Moved');
   };
   return (
     <span className="move-button">
@@ -62,10 +55,8 @@ export default function MoveButton({
           </button>
         </>
       )}{' '}
-      <span className="note-status" role="status">
-        {status}
-      </span>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      <SaveStatus save={saving} />
+      <Notice outcome={saving.refusal} onClose={saving.close} />
     </span>
   );
 }
