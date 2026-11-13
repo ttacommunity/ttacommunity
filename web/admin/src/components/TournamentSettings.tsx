@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { isCircuit } from '@ttac/shared/circuits';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, loadOf } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
 import { tabsFor } from '../lib/admin-tabs';
 import AdminHeader from './AdminHeader';
@@ -38,7 +38,7 @@ export default function TournamentSettings() {
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setMe(loadOf(r)),
     );
     void load();
   }, []);

@@ -4,7 +4,7 @@ import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
 import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
@@ -62,7 +62,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     });
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
-    setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setMembers(loadOf(r));
   };
   useEffect(() => {
     void load();
