@@ -9,6 +9,7 @@ import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKep
 import Waiting from './Waiting';
 import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
+import Note from '@ttac/shared/Note';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -84,11 +85,11 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
         </div>
       </div>
       {counting === 'as-if' && (
-        <p className="rating-card challenges-what-if">
+        <Note>
           <strong>What if:</strong> all {p.unproven} unproven {plural(p.unproven, 'entry', 'entries')} of {p.player} count as verified, measured against the
           official records (which stay as they are), so a best above the record rates over 100%. Post the screenshots in Discord and add the links to make it
           official.
-        </p>
+        </Note>
       )}
       {p.summary === null ? (
         <Message>

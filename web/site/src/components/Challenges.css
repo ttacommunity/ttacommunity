@@ -446,12 +446,6 @@
   font-size: var(--size-label);
   text-transform: uppercase;
 }
-.challenges-what-if {
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border-color: var(--draw);
-  color: var(--text-soft);
-}
 .challenges-record strong {
   color: var(--accent-gold-light);
 }

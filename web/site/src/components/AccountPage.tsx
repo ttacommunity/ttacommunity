@@ -16,6 +16,7 @@ import Turnstile from './Turnstile';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Account.css';
+import Note from '@ttac/shared/Note';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
@@ -494,10 +495,10 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
         </div>
       )}
       {needsContact(me) && !changing && (
-        <p className="account-contact" role="note">
+        <Note>
           We have no way to reach you: you don&apos;t use Discord here, and we have no email address for you. Add one below, so organisers can contact you
           about events you sign up for.
-        </p>
+        </Note>
       )}
       {(canAdd.email || changing) && (
         <form className="account-form" onSubmit={(e) => void add(e)}>
