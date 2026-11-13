@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { count, score, signed, counted, plural } from './numbers';
+import { count, score, signed, counted, ordinal, plural } from './numbers';
 
 describe('count', () => {
   it.each([
@@ -63,5 +63,23 @@ describe('counted', () => {
     [1234, 'en', '1,234 entries'],
   ])('writes %i in %s', (n, locale, want) => {
     expect(counted(n, 'entry', 'entries', locale)).toBe(want);
+  });
+});
+
+describe('ordinal', () => {
+  it.each([
+    [1, '1st'],
+    [2, '2nd'],
+    [3, '3rd'],
+    [4, '4th'],
+    [11, '11th'],
+    [12, '12th'],
+    [13, '13th'],
+    [21, '21st'],
+    [22, '22nd'],
+    [103, '103rd'],
+    [111, '111th'],
+  ])('writes %i as %s', (n, want) => {
+    expect(ordinal(n)).toBe(want);
   });
 });

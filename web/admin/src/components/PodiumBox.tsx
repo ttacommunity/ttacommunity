@@ -5,8 +5,9 @@ import { podiumNoteStart, podiumRequest, podiumStart, type PodiumEntry } from '.
 import { fieldId } from '../lib/tournament-page';
 import { refusalOf, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import { ordinal } from '@ttac/shared/numbers';
 
-const PLACES = ['1st', '2nd', '3rd'];
+const PLACES = [1, 2, 3].map(ordinal);
 
 // What the box's legend says of where its names came from.
 const ORIGIN = {
