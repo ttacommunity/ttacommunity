@@ -937,7 +937,7 @@
   background: rgba(142, 30, 29, 0.25);
   border: 1px solid var(--accent-crimson);
   border-radius: 4px;
-  color: #ffb4a2;
+  color: var(--loss-light);
   font-family: var(--font-stats);
   font-size: 0.78rem;
   font-weight: 700;

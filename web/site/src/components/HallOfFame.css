@@ -436,7 +436,7 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-titles {
-  color: #4ade80;
+  color: var(--win);
   font-size: 1.05rem;
   font-weight: 800;
   text-align: center;
