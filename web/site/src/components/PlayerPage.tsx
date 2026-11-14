@@ -19,8 +19,6 @@ import {
   type PlayerSeatStats,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
-import BackLink from '@ttac/shared/BackLink';
-import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import { formatTournamentDisplay } from '../lib/achievements';
@@ -69,6 +67,7 @@ import { viewLinks, type Link } from '../lib/navigate';
 import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
+import PlayerHeader from './PlayerHeader';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -279,63 +278,32 @@ function Header({
   provisional: boolean;
   gamesInFormat: number;
 }) {
-  const t = player.title;
   const board = new URLSearchParams({ model: view.engine, format: String(view.format) });
   return (
-    <div className="profile-header">
-      <div className="header-back">
-        <BackLink href={`/ratings/?${board}`}>Competitive Leaderboard</BackLink>
-      </div>
-      <div className="player-identity">
-        <div className="player-identity-name">
-          {t !== null && (
-            <span
-              className={`badge badge-${t.code.toLowerCase()}${t.code === 'WC' || t.code === 'SGM' ? ' badge-profile-lg' : ''}`}
-              data-tooltip={t.reason || show.titleName(t.code)}
-            >
-              {show.titleName(t.code)}
+    <PlayerHeader
+      player={player}
+      back={{ href: `/ratings/?${board}`, label: 'Competitive Leaderboard' }}
+      nameExtra={
+        provisional && (
+          <>
+            {' '}
+            <span className="profile-calibrating" data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 opponents faced`}>
+              ⏳
             </span>
-          )}
-          <ExtraBadges badges={player.badges} tooltip />
-          <h1 className="player-profile-name">
-            {player.name}
-            {provisional && (
-              <>
-                {' '}
-                <span
-                  className="profile-calibrating"
-                  data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 opponents faced`}
-                >
-                  ⏳
-                </span>
-              </>
-            )}
-          </h1>
-        </div>
-        <div className="player-meta-pill">
-          <Flag country={player.country} />
-          {player.peak !== null && (
-            <>
-              <span className="meta-separator">•</span>
-              <span>
-                Peak Rank:{' '}
-                <span className={`badge badge-inline badge-${player.peak.code.toLowerCase()}`}>
-                  {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-                </span>
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="profile-links">
-        <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
-          <span aria-hidden="true">🏆</span> Tournament Achievements »
-        </a>
-        <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
-          <span aria-hidden="true">📊</span> Career Years »
-        </a>
-      </div>
-    </div>
+          </>
+        )
+      }
+      links={
+        <>
+          <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
+            <span aria-hidden="true">🏆</span> Tournament Achievements »
+          </a>
+          <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
+            <span aria-hidden="true">📊</span> Career Years »
+          </a>
+        </>
+      }
+    />
   );
 }
 

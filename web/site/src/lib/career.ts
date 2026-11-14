@@ -45,13 +45,6 @@ export function careerPeakYear(years: readonly CareerYear[], peak: Peak): Scored
   return best;
 }
 
-/** wcLabel is upstream's header badge for a World Champion: the reigning one, else the year of a past title. */
-export function wcLabel(title: Player['title'], peak: Peak): string | null {
-  if (title?.code === 'WC') return 'Reigning WC';
-  if (peak?.code === 'WC' && peak.year !== null) return `${peak.year} WC`;
-  return null;
-}
-
 /** isPeakHigher reports whether the career peak, with its year, outranks the current title, as upstream decides it. */
 export function isPeakHigher(title: TitleCode | null, peak: Peak): boolean {
   if (peak === null || peak.year === null) return false;

@@ -8,11 +8,9 @@ import {
   type PlayerCareer,
   type TitleCode,
 } from '@ttac/shared/ratings';
-import BackLink from '@ttac/shared/BackLink';
-import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
-import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
+import { careerPeakYear, scoreYears } from '../lib/career';
 import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
@@ -25,6 +23,7 @@ import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import { viewLinks } from '../lib/navigate';
 import Message from './Message';
+import PlayerHeader from './PlayerHeader';
 
 function readView(): MatrixView {
   return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -206,39 +205,21 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
 
 function Header({ player, view }: { player: Player; view: MatrixView }) {
-  const wc = wcLabel(player.title, player.peak);
-  const { format } = view;
   return (
-    <div className="matrix-header-card">
-      <div className="header-back">
-        <BackLink href={profileHref(player.name, view)}>Return to Profile</BackLink>
-      </div>
-      <div>
-        <div className="matrix-identity">
-          <Flag country={player.country} />
-          <h1>{player.name}</h1>
-          {wc !== null ? (
-            <span className="badge-wc">💎 {wc}</span>
-          ) : (
-            player.title !== null && (
-              <span className={`badge badge-${player.title.code.toLowerCase()}`}>{show.titleName(player.title.code)}</span>
-            )
-          )}
-          {player.peak !== null && (
-            <span className={`badge badge-inline badge-${player.peak.code.toLowerCase()}`}>
-              Peak: {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-            </span>
-          )}
-        </div>
-        <div className="matrix-subtitle">
-          Career Peak Year Evaluation • Format: <strong>{show.formatName(format)}</strong>
-        </div>
-      </div>
-      <div className="matrix-header-links">
+    <PlayerHeader
+      player={player}
+      back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
+      compact
+      subtitle={
+        <>
+          Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>
+        </>
+      }
+      links={
         <a href={achievementsHref(player.name)} className="btn-antique">
           🏆 Achievements »
         </a>
-      </div>
-    </div>
+      }
+    />
   );
 }

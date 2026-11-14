@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { currentRun, player as fetchPlayer, playerAchievements, type Player, type TournamentRecord } from '@ttac/shared/ratings';
-import { Flag } from './PlayerMarks';
-import * as show from '../lib/leaderboard-display';
 import {
   bestResultsPerTournament,
   canonicalTournamentName,
@@ -23,7 +21,6 @@ import {
   sortCareer,
   sortSeasons,
   sortTournaments,
-  titleBadge,
   tournamentCategory,
   tournamentOverviews,
   CATEGORY_ICON,
@@ -32,13 +29,13 @@ import {
 } from '../lib/achievements';
 import './PlayerPage.css';
 import './AchievementsPage.css';
-import BackLink from '@ttac/shared/BackLink';
 import { playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { counted } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
+import PlayerHeader from './PlayerHeader';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -106,43 +103,7 @@ function TournamentName({ r }: { r: TournamentRecord }) {
 }
 
 function Header({ player }: { player: Player }) {
-  const badge = titleBadge(player.title, player.peak);
-  return (
-    <div className="achievements-header">
-      <div className="header-back">
-        <BackLink href={playerHref(player.name)}>Player Profile</BackLink>
-      </div>
-      <div className="player-identity">
-        <div className="ach-identity-name">
-          {badge && (
-            <span
-              className={`badge badge-${badge.code}${badge.code === 'wc' ? ' ach-wc' : ''}${badge.reigning ? ' ach-wc-reigning' : ''}`}
-              title={badge.tooltip}
-            >
-              {badge.text}
-            </span>
-          )}
-          <h1 className="player-profile-name ach-name">{player.name}</h1>
-        </div>
-        <div className="player-meta-pill">
-          <span title="Nationality / Flag">
-            <Flag country={player.country} />
-          </span>
-          {player.peak !== null && (
-            <>
-              <span className="meta-separator">•</span>
-              <span className="peak-meta-wrap">
-                Peak Rank:{' '}
-                <span className={`badge badge-${player.peak.code.toLowerCase()} ach-peak-badge`}>
-                  {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-                </span>
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <PlayerHeader player={player} back={{ href: playerHref(player.name), label: 'Player Profile' }} />;
 }
 
 type HighlightMode = 'medals' | 'promotions' | 'best' | 'hof';

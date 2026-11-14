@@ -1,56 +1,4 @@
 /* Upstream's comparison matrix page: player_matrix.html's styles, the leaderboard's year pills, and its inline styles as classes. */
-.matrix-header-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-  padding: 1.75rem 2rem;
-  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px var(--shadow-light);
-}
-
-.matrix-header-card .header-back {
-  margin-bottom: 0;
-}
-
-.matrix-identity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.4rem;
-}
-
-.matrix-identity h1 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--size-page-title);
-  color: var(--text-bright);
-}
-
-.matrix-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.matrix-subtitle strong {
-  color: var(--accent-gold);
-}
-
-.matrix-header-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.matrix-header-links .btn-antique {
-  font-size: var(--size-button);
-}
-
 .peak-year-card {
   display: flex;
   flex-wrap: wrap;
@@ -162,7 +110,6 @@
   color: #665544;
 }
 
-
 .career-history-table {
   width: 100%;
   border-collapse: collapse;
@@ -237,9 +184,6 @@
 }
 
 @media (max-width: 768px) {
-  .matrix-header-card {
-    padding: 1.25rem 1rem;
-  }
 
   .peak-year-card {
     gap: 0.75rem;
