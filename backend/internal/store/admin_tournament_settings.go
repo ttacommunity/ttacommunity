@@ -16,7 +16,7 @@ import (
 // TournamentSettings are the settings to change; a nil field is left as it is. RatedPlayerCounts are the player
 // counts whose games count towards ratings (2, 3, 4).
 type TournamentSettings struct {
-	Visible, Rated, Community *bool
+	Visible, Rated, SuperBlitzRated, Community *bool
 	// Blitz marks a series run from admin as a blitz tournament: entrants, weekly pairings and results.
 	Blitz *bool
 	// Bracket shows each season as a bracket: its stages as rounds of groups, up to the final.
@@ -280,11 +280,17 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 			}
 		}
 		if s.Rated != nil {
-			q := `DELETE FROM ranking_series WHERE series_id = $1 AND ranking_id = community_ranking()`
-			if *s.Rated {
-				q = `INSERT INTO ranking_series (ranking_id, series_id) VALUES (community_ranking(), $1) ON CONFLICT DO NOTHING`
+			if err := setRankingSeries(ctx, tx, id, "community", *s.Rated); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
 			}
-			if _, err := tx.Exec(ctx, q, id); err != nil {
+		}
+		if s.SuperBlitzRated != nil {
+			if err := setRankingSeries(ctx, tx, id, "superblitz", *s.SuperBlitzRated); err != nil {
+				return fmt.Errorf("setting %s: %w", slug, err)
+			}
+		}
+		if s.Rated != nil || s.SuperBlitzRated != nil {
+			if err := syncCombinedRankingSeries(ctx, tx, id); err != nil {
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
@@ -431,4 +437,36 @@ func (a *AdminStore) SetStories(ctx context.Context, slug string, list []Story) 
 		}
 		return nil
 	})
+}
+
+func setRankingSeries(ctx context.Context, tx pgx.Tx, seriesID int64, rankingSlug string, on bool) error {
+	q := `DELETE FROM ranking_series WHERE series_id = $1
+		AND ranking_id = (SELECT ranking_id FROM rankings WHERE slug = $2)`
+	if on {
+		q = `INSERT INTO ranking_series (ranking_id, series_id)
+			SELECT ranking_id, $1 FROM rankings WHERE slug = $2
+			ON CONFLICT DO NOTHING`
+	}
+	_, err := tx.Exec(ctx, q, seriesID, rankingSlug)
+	return err
+}
+
+func syncCombinedRankingSeries(ctx context.Context, tx pgx.Tx, seriesID int64) error {
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM ranking_series WHERE series_id = $1
+		  AND ranking_id = (SELECT ranking_id FROM rankings WHERE slug = 'community_superblitz')`, seriesID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO ranking_series (ranking_id, series_id)
+		SELECT cs.ranking_id, $1
+		FROM rankings cs
+		WHERE cs.slug = 'community_superblitz'
+		  AND EXISTS (
+			SELECT 1 FROM ranking_series rt
+			JOIN rankings r USING (ranking_id)
+			WHERE rt.series_id = $1 AND r.slug IN ('community', 'superblitz')
+		  )
+		ON CONFLICT DO NOTHING`, seriesID)
+	return err
 }

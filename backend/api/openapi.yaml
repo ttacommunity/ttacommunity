@@ -5159,7 +5159,7 @@ components:
           $ref: "#/components/schemas/Role"
     AdminTournament:
       type: object
-      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, community, blitz, bracket, card, stories, regulations, cge_regulations, format_summary, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
+      required: [slug, name, original_name, kind, top_divisions, points_2p, points_3p, points_4p, season_name, stage_name, visible, rated, superblitz_rated, community, blitz, bracket, card, stories, regulations, cge_regulations, format_summary, rated_player_counts, seasons, parent, description, is_group, games, first_game, last_game, divisions, super_gm, record_min_games]
       properties:
         original_name:
           description: The name it came in with, kept when it is renamed
@@ -5249,7 +5249,10 @@ components:
           description: Shown on the site though not rated
           type: boolean
         rated:
-          description: In the community ratings
+          description: In the Standard (community) ratings
+          type: boolean
+        superblitz_rated:
+          description: In the SuperBlitz ratings (and Standard + SuperBlitz)
           type: boolean
         community:
           description: Counted in the overall community leaderboard
@@ -5358,7 +5361,7 @@ components:
       x-enum-varnames: [KindLeague, KindCup, KindLadder, KindSeries, KindGroup]
     AdminTournamentRow:
       type: object
-      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, community, blitz, bracket, games, first_game, last_game]
+      required: [slug, name, kind, parent, is_group, description, cge_about, visible, rated, superblitz_rated, community, blitz, bracket, games, first_game, last_game]
       properties:
         slug:
           type: string
@@ -5380,6 +5383,8 @@ components:
         visible:
           type: boolean
         rated:
+          type: boolean
+        superblitz_rated:
           type: boolean
         community:
           type: boolean
@@ -5553,6 +5558,8 @@ components:
         visible:
           type: boolean
         rated:
+          type: boolean
+        superblitz_rated:
           type: boolean
         community:
           type: boolean

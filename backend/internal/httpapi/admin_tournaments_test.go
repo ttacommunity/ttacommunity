@@ -397,3 +397,15 @@ func TestAnOrganiserChangesASeasonAndItIsAuditedOnce(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "seasons.0", `{"in_community": true, "in_champions": true, "run_here": true,
 		"organiser": "Ember_Wolf", "cge_organiser": "Lantern_Keeper"}`)
 }
+
+func TestAnAdminTogglesSuperBlitzRated(t *testing.T) {
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, "111111111111111111", http.MethodPatch, "/v1/admin/tournaments/worlds",
+		"https://ttac-admin.example", `{"superblitz_rated": true}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH us_open = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if len(f.settings) != 1 || f.settings[0].SuperBlitzRated == nil || !*f.settings[0].SuperBlitzRated || f.settings[0].Rated != nil {
+		t.Errorf("settings = %+v, want SuperBlitzRated=true and Rated=nil", f.settings)
+	}
+}

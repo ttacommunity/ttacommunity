@@ -3373,8 +3373,10 @@ export interface components {
             name: string;
             /** @description Shown on the site though not rated */
             visible: boolean;
-            /** @description In the community ratings */
+            /** @description In the Standard (community) ratings */
             rated: boolean;
+            /** @description In the SuperBlitz ratings (and Standard + SuperBlitz) */
+            superblitz_rated: boolean;
             /** @description Counted in the overall community leaderboard */
             community: boolean;
             /** @description Run from admin as a blitz tournament */
@@ -3455,6 +3457,7 @@ export interface components {
             cge_about: string;
             visible: boolean;
             rated: boolean;
+            superblitz_rated: boolean;
             community: boolean;
             blitz: boolean;
             bracket: boolean;
@@ -3532,6 +3535,7 @@ export interface components {
             rated_player_counts?: number[];
             visible?: boolean;
             rated?: boolean;
+            superblitz_rated?: boolean;
             community?: boolean;
             /** @description Run from admin as a blitz tournament, a round a week, with its entrants, pairings, results and standings */
             blitz?: boolean;

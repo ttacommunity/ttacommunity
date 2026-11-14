@@ -74,7 +74,7 @@ export default function SeasonsCard({
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => {
         const sum = seasonSummary(se);
-        const rated = seasonBox(t.rated, se.rated);
+        const rated = seasonBox(t.rated || t.superblitz_rated, se.rated);
         const community = seasonBox(t.community, se.in_community);
         return (
           <div key={se.label} className="season-notes">
@@ -107,7 +107,7 @@ export default function SeasonsCard({
               Counts towards ratings{' '}
               <span className="muted">
                 {rated.locked
-                  ? "(the tournament isn't rated: tick Rated in its settings first)"
+                  ? "(the tournament isn't rated: tick Rated (Standard) or Rated (SuperBlitz) in its settings first)"
                   : '(from the next engine run; its games still show, marked not rated)'}
               </span>
             </label>

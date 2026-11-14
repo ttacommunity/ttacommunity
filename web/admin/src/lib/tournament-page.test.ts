@@ -154,15 +154,16 @@ describe('seasonBox', () => {
 
 describe('settingBox', () => {
   it.each([
-    ['shown', { visible: true, rated: false, bracket: true }, { checked: true, locked: false }],
-    ['rated', { visible: false, rated: true, bracket: false }, { checked: false, locked: false }],
-    ['neither shown nor rated', { visible: false, rated: false, bracket: true }, { checked: false, locked: true }],
+    ['shown', { visible: true, rated: false, superblitz_rated: false, bracket: true }, { checked: true, locked: false }],
+    ['rated', { visible: false, rated: true, superblitz_rated: false, bracket: false }, { checked: false, locked: false }],
+    ['superblitz rated', { visible: false, rated: false, superblitz_rated: true, bracket: false }, { checked: false, locked: false }],
+    ['neither shown nor rated', { visible: false, rated: false, superblitz_rated: false, bracket: true }, { checked: false, locked: true }],
   ])('locks the bracket box of a tournament %s until it is shown or rated', (_name, t, want) => {
     expect(settingBox('bracket', { ...t, community: false, blitz: false })).toMatchObject(want);
   });
 
   it('never locks another setting', () => {
-    const t = { visible: false, rated: false, community: true, blitz: false, bracket: false };
+    const t = { visible: false, rated: false, superblitz_rated: false, community: true, blitz: false, bracket: false };
     expect(settingBox('community', t)).toMatchObject({ checked: true, locked: false });
   });
 });

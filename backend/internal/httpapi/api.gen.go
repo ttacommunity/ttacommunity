@@ -1650,7 +1650,7 @@ type AdminTournament struct {
 	// Points4p Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 	Points4p PlacePoints `json:"points_4p"`
 
-	// Rated In the community ratings
+	// Rated In the Standard (community) ratings
 	Rated bool `json:"rated"`
 
 	// RatedPlayerCounts The player counts whose games count towards ratings
@@ -1673,6 +1673,9 @@ type AdminTournament struct {
 
 	// SuperGm Whether a win in its top divisions makes a Super GM
 	SuperGm bool `json:"super_gm"`
+
+	// SuperblitzRated In the SuperBlitz ratings (and Standard + SuperBlitz)
+	SuperblitzRated bool `json:"superblitz_rated"`
 
 	// TopDivisions A league's divisions whose final standings make its podium; empty for none
 	TopDivisions []string `json:"top_divisions"`
@@ -1702,10 +1705,11 @@ type AdminTournamentRow struct {
 	Name     string              `json:"name"`
 
 	// Parent The slug of the group it is in; empty for none
-	Parent  string `json:"parent"`
-	Rated   bool   `json:"rated"`
-	Slug    string `json:"slug"`
-	Visible bool   `json:"visible"`
+	Parent          string `json:"parent"`
+	Rated           bool   `json:"rated"`
+	Slug            string `json:"slug"`
+	SuperblitzRated bool   `json:"superblitz_rated"`
+	Visible         bool   `json:"visible"`
 }
 
 // Agreement defines model for Agreement.
@@ -4576,7 +4580,8 @@ type TournamentSettings struct {
 	Stories   *[]Story `json:"stories,omitempty"`
 
 	// SuperGm Whether a win in its top divisions makes a Super GM (admins only)
-	SuperGm *bool `json:"super_gm,omitempty"`
+	SuperGm         *bool `json:"super_gm,omitempty"`
+	SuperblitzRated *bool `json:"superblitz_rated,omitempty"`
 
 	// TopDivisions A league's divisions whose final standings make its podium on the site; empty for none
 	TopDivisions *[]string `json:"top_divisions,omitempty"`
