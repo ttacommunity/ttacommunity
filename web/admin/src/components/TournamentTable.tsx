@@ -78,14 +78,7 @@ export default function TournamentTable({
                   {!t.is_group && <YesNo on={t[SHOWN_SETTING.key]} label={SHOWN_SETTING.label} name={t.name} />}
                 </td>
                 <td className="col-setting">
-                  {(() => {
-                    const track = ratedLabel(all, t.slug);
-                    return (
-                      <span className={track === '?' ? 'no' : 'yes'} title={`Rated for ${t.name}: ${track}`} aria-label={`Rated for ${t.name}: ${track}`}>
-                        {track}
-                      </span>
-                    );
-                  })()}
+                  <RatedCell track={ratedLabel(all, t.slug)} name={t.name} />
                 </td>
                 {TAIL_SETTINGS.map((s) => (
                   <td key={s.key} className="col-setting">
@@ -100,5 +93,14 @@ export default function TournamentTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** RatedCell shows the tracks a tournament is rated in (track, as ratedLabel writes them), named for a screen reader. */
+function RatedCell({ track, name }: { track: string; name: string }) {
+  return (
+    <span className={track === '?' ? 'no' : 'yes'} title={`Rated for ${name}: ${track}`} aria-label={`Rated for ${name}: ${track}`}>
+      {track}
+    </span>
   );
 }
