@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, pointsNote, resultsLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { editionHref, editionParams } from './blitz';
 
@@ -243,13 +243,14 @@ describe('TIE_BREAKS', () => {
 });
 
 describe('STANDING_COLUMNS', () => {
-  const standing = (name: string, rank: number, points: number, buchholz: number, cut1: number, sb: number) => ({ rank, place_from: rank, place_to: rank, name, country: null, starting_rank: rank === 1 ? 3 : rank === 2 ? null : 1, points, games: 1, byes: 0, buchholz_cut1: cut1, buchholz, sonneborn_berger: sb, opponents_buchholz: 0, opponents_sonneborn_berger: 0, status: 'active' as const });
-  const rows = [standing('cy', 1, 2, 1, 0.5, 2), standing('Ann', 2, 1, 3, 2, 0), standing('bo', 3, 1, 2, 1.5, 1)];
+  const standing = (name: string, rank: number, points: number, buchholz: number, cut1: number, sb: number, wins = 1, losses = 0, draws = 0) => ({ rank, place_from: rank, place_to: rank, name, country: null, starting_rank: rank === 1 ? 3 : rank === 2 ? null : 1, points, games: wins + losses + draws, wins, losses, draws, byes: 0, forfeit_points: 0, bye_points: 0, buchholz_cut1: cut1, buchholz, sonneborn_berger: sb, opponents_buchholz: 0, opponents_sonneborn_berger: 0, status: 'active' as const });
+  const rows = [standing('cy', 1, 2, 1, 0.5, 2, 2, 0, 0), standing('Ann', 2, 1, 3, 2, 0, 1, 1, 0), standing('bo', 3, 1, 2, 1.5, 1, 0, 0, 2)];
   it.each([
     ['rank', { col: 'rank', desc: false }, ['cy', 'Ann', 'bo']],
     ['starting rank, none last', { col: 'start', desc: false }, ['bo', 'cy', 'Ann']],
     ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
     ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
+    ['results, by wins then draws then games', { col: 'results', desc: true }, ['cy', 'Ann', 'bo']],
     ['Buchholz Cut 1', { col: 'cut1', desc: true }, ['Ann', 'bo', 'cy']],
     ['Buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
     ['Sonneborn-Berger', { col: 'sb', desc: true }, ['cy', 'bo', 'Ann']],
@@ -358,5 +359,24 @@ describe('startLabel and fixedByLabel', () => {
   ] as const)('for ranks fixed by %s', (fixedBy, start, by) => {
     expect(startLabel(fixedBy)).toBe(start);
     expect(fixedByLabel(fixedBy)).toBe(by);
+  });
+});
+
+describe('resultsLabel', () => {
+  it('formats wins-losses-ties', () => {
+    expect(resultsLabel({ wins: 2, losses: 1, draws: 3 })).toBe('2-1-3');
+  });
+});
+
+describe('pointsNote', () => {
+  it.each([
+    ['none when all points come from played games', 0, 0, null],
+    ['one forfeit point', 1, 0, "1 point by opponent's forfeit"],
+    ['multiple forfeit points', 2, 0, "2 points by opponents' forfeit"],
+    ['one bye point', 0, 1, '1 point by bye'],
+    ['fractional bye point', 0, 0.5, '0.5 points by bye'],
+    ['both forfeit and bye points', 1, 1, "1 point by opponent's forfeit, 1 point by bye"],
+  ] as const)('%s', (_name, forfeit_points, bye_points, want) => {
+    expect(pointsNote({ forfeit_points, bye_points })).toBe(want);
   });
 });

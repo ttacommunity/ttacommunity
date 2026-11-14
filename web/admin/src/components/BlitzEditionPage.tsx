@@ -7,7 +7,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pointsNote, resultsLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds } from '../lib/admin-api';
@@ -1623,8 +1623,8 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
                 <SortHeader col="points" sort={sort} onSort={sortBy}>
                   Points
                 </SortHeader>
-                <SortHeader col="played" sort={sort} onSort={sortBy}>
-                  Played
+                <SortHeader col="results" sort={sort} onSort={sortBy}>
+                  <abbr title="Win–Loss–Tie">Results</abbr>
                 </SortHeader>
                 <SortHeader col="byes" sort={sort} onSort={sortBy}>
                   Byes
@@ -1650,7 +1650,9 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
               </tr>
             </thead>
             <tbody>
-              {rows.map((s) => (
+              {rows.map((s) => {
+                const note = pointsNote(s);
+                return (
                 <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
                   <td>
                     <span className="blitz-draw-slot">
@@ -1666,8 +1668,17 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
                     {s.name}
                     {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
                   </th>
-                  <td>{s.points}</td>
-                  <td>{s.games}</td>
+                  <td>
+                    {note !== null ? (
+                      <span title={note}>
+                        {s.points}
+                        <span className="blitz-draw">*</span>
+                      </span>
+                    ) : (
+                      s.points
+                    )}
+                  </td>
+                  <td>{resultsLabel(s)}</td>
                   <td>{s.byes}</td>
                   {tieBreaks && (
                     <>
@@ -1678,7 +1689,8 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
                   )}
                   {start !== null && <td>{s.starting_rank ?? '–'}</td>}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -48,17 +48,18 @@ type Played struct {
 // Standing is one row: the rank, the place it shares with those only the draw separates it from (PlaceFrom to
 // PlaceTo), points, games played (forfeits and byes aside), byes, the tie-breaks in the order they apply, and dropped.
 type Standing struct {
-	ID                       int64
-	Rank                     int
-	PlaceFrom, PlaceTo       int
-	Points                   float64
-	Games, Byes              int
-	BuchholzCut1             float64
-	Buchholz                 float64
-	SonnebornBerger          float64
-	OpponentsBuchholz        float64
-	OpponentsSonnebornBerger float64
-	Dropped                  bool
+	ID                               int64
+	Rank                             int
+	PlaceFrom, PlaceTo               int
+	Points                           float64
+	Games, Wins, Losses, Draws, Byes int
+	ForfeitPoints, ByePoints         float64
+	BuchholzCut1                     float64
+	Buchholz                         float64
+	SonnebornBerger                  float64
+	OpponentsBuchholz                float64
+	OpponentsSonnebornBerger         float64
+	Dropped                          bool
 }
 
 // tieBreaks are a standing's tie-breaks in the order they apply, for comparing two.
@@ -142,6 +143,7 @@ func Standings(entrants []Entrant, matches []Played, rounds int, scoring Scoring
 		a, b := rows[m.A], rows[m.B]
 		if m.B == 0 && a != nil {
 			a.Points += scoring.Bye
+			a.ByePoints += scoring.Bye
 			a.Byes++
 			paired[m.A][m.Round] = true
 			continue
@@ -157,11 +159,27 @@ func Standings(entrants []Entrant, matches []Played, rounds int, scoring Scoring
 		a.Points += pa
 		b.Points += pb
 		if m.Forfeit {
+			a.ForfeitPoints += pa
+			b.ForfeitPoints += pb
 			lostByForfeit[m.A][m.Round], lostByForfeit[m.B][m.Round] = lostA, lostB
 			continue
 		}
 		a.Games++
 		b.Games++
+		switch m.Result {
+		case WinA:
+			a.Wins++
+			b.Losses++
+		case WinB:
+			b.Wins++
+			a.Losses++
+		case Draw:
+			a.Draws++
+			b.Draws++
+		case DoubleLoss:
+			a.Losses++
+			b.Losses++
+		}
 		encounters[[2]int64{m.A, m.B}] = append(encounters[[2]int64{m.A, m.B}], pa)
 		encounters[[2]int64{m.B, m.A}] = append(encounters[[2]int64{m.B, m.A}], pb)
 	}

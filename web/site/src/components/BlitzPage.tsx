@@ -4,7 +4,7 @@ import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } fr
 import { failed, type Found } from '@ttac/shared/load';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, pointsNote, resultsLabel, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
 import BackLink from '@ttac/shared/BackLink';
@@ -299,8 +299,8 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
               <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
                 Points
               </SortHeader>
-              <SortHeader col="played" sort={sort} onSort={sortBy} className="num">
-                Played
+              <SortHeader col="results" sort={sort} onSort={sortBy} className="num">
+                <span data-tooltip="Win–Loss–Tie">Results</span>
               </SortHeader>
               <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
                 Byes
@@ -326,7 +326,9 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
             </tr>
           </thead>
           <tbody>
-            {rows.map((s) => (
+            {rows.map((s) => {
+              const note = pointsNote(s);
+              return (
               <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
                 <td className="num">
                   <DrawMark s={s} fixedBy={fixedBy} />
@@ -339,8 +341,17 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
                   {s.name}
                   {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
                 </th>
-                <td className="num">{s.points}</td>
-                <td className="num">{s.games}</td>
+                <td className="num">
+                  {note !== null ? (
+                    <span className="blitz-points-note" data-tooltip={note}>
+                      {s.points}
+                      <span className="blitz-draw">*</span>
+                    </span>
+                  ) : (
+                    s.points
+                  )}
+                </td>
+                <td className="num">{resultsLabel(s)}</td>
                 <td className="num">{s.byes}</td>
                 {tieBreaks && (
                   <>
@@ -351,7 +362,8 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
                 )}
                 {start !== null && <td className="num">{s.starting_rank ?? '–'}</td>}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

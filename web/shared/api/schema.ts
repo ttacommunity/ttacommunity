@@ -4013,7 +4013,23 @@ export interface components {
             points: number;
             /** @description Games played (finished, resigned or timed out); forfeits and byes aside */
             games: number;
+            /** @description Non-forfeit games won */
+            wins: number;
+            /** @description Non-forfeit games lost */
+            losses: number;
+            /** @description Non-forfeit games drawn */
+            draws: number;
             byes: number;
+            /**
+             * Format: double
+             * @description Points scored from forfeit outcomes
+             */
+            forfeit_points: number;
+            /**
+             * Format: double
+             * @description Points scored from pairing-allocated byes
+             */
+            bye_points: number;
             /**
              * Format: double
              * @description Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)

@@ -6401,7 +6401,7 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, place_from, place_to, name, country, starting_rank, points, games, byes, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
+      required: [rank, place_from, place_to, name, country, starting_rank, points, games, wins, losses, draws, byes, forfeit_points, bye_points, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
       properties:
         rank:
           type: integer
@@ -6431,8 +6431,25 @@ components:
         games:
           description: Games played (finished, resigned or timed out); forfeits and byes aside
           type: integer
+        wins:
+          description: Non-forfeit games won
+          type: integer
+        losses:
+          description: Non-forfeit games lost
+          type: integer
+        draws:
+          description: Non-forfeit games drawn
+          type: integer
         byes:
           type: integer
+        forfeit_points:
+          description: Points scored from forfeit outcomes
+          type: number
+          format: double
+        bye_points:
+          description: Points scored from pairing-allocated byes
+          type: number
+          format: double
         buchholz_cut1:
           description: Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
           type: number

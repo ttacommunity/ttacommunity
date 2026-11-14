@@ -2111,14 +2111,26 @@ type BlitzStanding struct {
 
 	// BuchholzCut1 Buchholz with the lowest opponent's score left out (FIDE's Buchholz Cut 1)
 	BuchholzCut1 float64 `json:"buchholz_cut1"`
-	Byes         int     `json:"byes"`
+
+	// ByePoints Points scored from pairing-allocated byes
+	ByePoints float64 `json:"bye_points"`
+	Byes      int     `json:"byes"`
 
 	// Country A two-letter country code, null for none
 	Country *string `json:"country"`
 
+	// Draws Non-forfeit games drawn
+	Draws int `json:"draws"`
+
+	// ForfeitPoints Points scored from forfeit outcomes
+	ForfeitPoints float64 `json:"forfeit_points"`
+
 	// Games Games played (finished, resigned or timed out); forfeits and byes aside
-	Games int    `json:"games"`
-	Name  string `json:"name"`
+	Games int `json:"games"`
+
+	// Losses Non-forfeit games lost
+	Losses int    `json:"losses"`
+	Name   string `json:"name"`
 
 	// OpponentsBuchholz The sum of the opponents' Buchholz; an unplayed round counts the player's own
 	OpponentsBuchholz float64 `json:"opponents_buchholz"`
@@ -2148,6 +2160,9 @@ type BlitzStanding struct {
 
 	// Status Dropped players come last
 	Status EntrantStatus `json:"status"`
+
+	// Wins Non-forfeit games won
+	Wins int `json:"wins"`
 }
 
 // BlitzThreadTextSet An edition's own thread text, written as typed, surrounding spaces

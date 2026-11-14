@@ -102,8 +102,8 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	}
 	// bob beat Ann in a game, so he goes first despite the lower Buchholz; round 2 is unplayed for both.
 	wantStandings := []BlitzStanding{
-		{Rank: 1, PlaceFrom: 1, PlaceTo: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Byes: 0, BuchholzCut1: 1, Buchholz: 2, SonnebornBerger: 1, OpponentsBuchholz: 4.5, OpponentsSonnebornBerger: 2, Status: "active"},
-		{Rank: 2, PlaceFrom: 2, PlaceTo: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Byes: 1, BuchholzCut1: 1.5, Buchholz: 2.5, SonnebornBerger: 1, OpponentsBuchholz: 4.5, OpponentsSonnebornBerger: 2, Status: "active"},
+		{Rank: 1, PlaceFrom: 1, PlaceTo: 1, Name: "bob", Country: nil, Points: 1, Games: 1, Wins: 1, Losses: 0, Draws: 0, Byes: 0, ForfeitPoints: 0, ByePoints: 0, BuchholzCut1: 1, Buchholz: 2, SonnebornBerger: 1, OpponentsBuchholz: 4.5, OpponentsSonnebornBerger: 2, Status: "active"},
+		{Rank: 2, PlaceFrom: 2, PlaceTo: 2, Name: "Ann", Country: &de, Points: 1, Games: 1, Wins: 0, Losses: 1, Draws: 0, Byes: 1, ForfeitPoints: 0, ByePoints: 1, BuchholzCut1: 1.5, Buchholz: 2.5, SonnebornBerger: 1, OpponentsBuchholz: 4.5, OpponentsSonnebornBerger: 2, Status: "active"},
 	}
 	if diff := cmp.Diff(wantStandings, ed.Standings); diff != "" {
 		t.Errorf("standings (-want +got):\n%s", diff)

@@ -537,3 +537,39 @@ func TestStandingsBreakTiesInOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestStandingsResultsAndBonusPoints(t *testing.T) {
+	entrants := []blitz.Entrant{{ID: 1}, {ID: 2}, {ID: 3}}
+	matches := []blitz.Played{
+		game(1, 1, 2, blitz.WinA),
+		{Round: 1, A: 3, B: 0},
+		game(2, 1, 3, blitz.Draw),
+		{Round: 3, A: 2, B: 3, Result: blitz.WinA, Forfeit: true},
+	}
+	scoring := blitz.Scoring{Win: 3, Draw: 1, Loss: 0, ForfeitWin: 3, ForfeitLoss: 0, Bye: 2, Skip: 0}
+	got := map[int64]blitz.Standing{}
+	for _, s := range blitz.Standings(entrants, matches, 3, scoring) {
+		got[s.ID] = s
+	}
+	tests := []struct {
+		id                         int64
+		wins, losses, draws, games int
+		byes                       int
+		points, forfeitPts, byePts float64
+	}{
+		{1, 1, 0, 1, 2, 0, 4, 0, 0},
+		{2, 0, 1, 0, 1, 0, 3, 3, 0},
+		{3, 0, 0, 1, 1, 1, 3, 0, 2},
+	}
+	for _, tt := range tests {
+		s := got[tt.id]
+		if s.Wins != tt.wins || s.Losses != tt.losses || s.Draws != tt.draws || s.Games != tt.games || s.Byes != tt.byes {
+			t.Errorf("player %d record = %d-%d-%d (games=%d, byes=%d), want %d-%d-%d (games=%d, byes=%d)",
+				tt.id, s.Wins, s.Losses, s.Draws, s.Games, s.Byes, tt.wins, tt.losses, tt.draws, tt.games, tt.byes)
+		}
+		if s.Points != tt.points || s.ForfeitPoints != tt.forfeitPts || s.ByePoints != tt.byePts {
+			t.Errorf("player %d points = %g (forfeit=%g, bye=%g), want %g (forfeit=%g, bye=%g)",
+				tt.id, s.Points, s.ForfeitPoints, s.ByePoints, tt.points, tt.forfeitPts, tt.byePts)
+		}
+	}
+}
