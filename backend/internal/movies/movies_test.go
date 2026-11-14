@@ -89,20 +89,60 @@ func TestParseFeed(t *testing.T) {
 }
 
 func TestResolveChannelHandle(t *testing.T) {
-	f := NewFetcher(&http.Client{
-		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`<html><meta itemprop="identifier" content="UC0l8n6q2SsB-Dg3BEvrX_Xg">{"channelId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`)),
-			}, nil
-		}),
-	})
-	got, err := f.ResolveChannel(context.Background(), "https://www.youtube.com/@DANeoTTA")
-	if err != nil {
-		t.Fatalf("ResolveChannel failed: %v", err)
+	cases := []struct {
+		name string
+		raw  string
+		body string
+		want string
+	}{
+		{
+			name: "channelId in json",
+			raw:  "https://www.youtube.com/@DANeoTTA",
+			body: `<html>{"channelId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
+			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+		},
+		{
+			name: "bare @handle with externalId",
+			raw:  "@daneo1952",
+			body: `<html>{"externalId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
+			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+		},
+		{
+			name: "browseId in json",
+			raw:  "https://www.youtube.com/@daneo1952",
+			body: `<html>{"browseId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
+			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+		},
+		{
+			name: "canonical channel url in html",
+			raw:  "https://www.youtube.com/@daneo1952",
+			body: `<html><link rel="canonical" href="https://www.youtube.com/channel/UC0l8n6q2SsB-Dg3BEvrX_Xg"></html>`,
+			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+		},
 	}
-	if got != "UC0l8n6q2SsB-Dg3BEvrX_Xg" {
-		t.Fatalf("got = %q, want UC0l8n6q2SsB-Dg3BEvrX_Xg", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotCookie string
+			f := NewFetcher(&http.Client{
+				Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+					gotCookie = r.Header.Get("Cookie")
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(tc.body)),
+					}, nil
+				}),
+			})
+			got, err := f.ResolveChannel(context.Background(), tc.raw)
+			if err != nil {
+				t.Fatalf("ResolveChannel failed: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("got = %q, want %q", got, tc.want)
+			}
+			if !strings.Contains(gotCookie, "SOCS=CAI") {
+				t.Fatalf("Cookie = %q, want SOCS=CAI", gotCookie)
+			}
+		})
 	}
 }
 
