@@ -8,6 +8,7 @@ import { currentRun, tournamentSeries, type TournamentSeries, type TrophyRow } f
 import { catalogueHref } from '../lib/catalogue-view';
 import { cardView } from '../lib/tournament-card';
 import TournamentHero from './TournamentHero';
+import { TitleBadge } from './PlayerMarks';
 import PlayerLink from './PlayerLink';
 import { waitingText } from '../lib/waiting';
 import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, showsWorldChampion, type Circuit, type Major } from '../lib/tournament-series';
@@ -17,14 +18,14 @@ import { useLoad } from './useLoad';
 
 
 function WorldChampion() {
-  return <span className="badge badge-wc trophy-mark">WC</span>;
+  return <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />;
 }
 
 /** TitleMark shows the board's title in the site's title badges; WC only on the World Championship's board. */
 function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
   if (series === 'worlds' && (row.title === 'WC' || row.world_champion)) return <WorldChampion />;
   if (row.title === 'WC') return null;
-  return row.title ? <span className={`badge badge-${row.title.toLowerCase()} trophy-mark`}>{row.title}</span> : null;
+  return row.title ? <TitleBadge title={{ code: row.title }} className="trophy-mark" /> : null;
 }
 
 /** TournamentSeriesPage loads the current run's results for a circuit, with its card, rules and stories as admin writes them. */

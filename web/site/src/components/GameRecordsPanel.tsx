@@ -2,6 +2,7 @@
 import type { GameRecord } from '@ttac/shared/ratings';
 import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tournament-series';
 import PlayerLink from './PlayerLink';
+import { TitleBadge } from './PlayerMarks';
 import Message from './Message';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
@@ -58,7 +59,7 @@ export default function GameRecordsPanel({
                   <td className="cell-rank">#{i + 1}</td>
                   <td>
                     <PlayerLink name={g.name} className="trophy-player" />{' '}
-                    {showsWorldChampion(slug, g.world_champion) && <span className="badge badge-wc trophy-mark">WC</span>}
+                    {showsWorldChampion(slug, g.world_champion) && <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />}
                   </td>
                   <td className="cell-points">{cultureScore(g.score)}</td>
                   <td className="cell-opponents">

@@ -4,6 +4,7 @@ import TournamentCard from './TournamentCard';
 import { cardView } from '../lib/tournament-card';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
 import PlayerLink from './PlayerLink';
+import { TitleBadge } from './PlayerMarks';
 import {
   derivedMatches,
   legendMark,
@@ -89,19 +90,19 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                   <div className="wcs-podium-places">
                     {gold && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wc">WC</span>
+                        <TitleBadge title={{ code: 'WC' }} />
                         <PlayerLink name={gold.name} className="champ-highlight-name" />
                       </div>
                     )}
                     {silver && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wcs">WCS</span>
+                        <TitleBadge title={{ code: 'WCS' }} />
                         <PlayerLink name={silver.name} className="podium-runner-up" />
                       </div>
                     )}
                     {bronze && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wcb">WCB</span>
+                        <TitleBadge title={{ code: 'WCB' }} />
                         <PlayerLink name={bronze.name} className="podium-third" />
                       </div>
                     )}
@@ -207,8 +208,8 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
                         <PlayerLink name={l.name} className="legend-player" />{' '}
-                        {mark === 'WC' && <span className="badge-wc legend-mark">👑 WC</span>}
-                        {mark === 'GM' && <span className="legend-mark">GM</span>}
+                        {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
+                        {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
                       </td>
                       <td className="cell-titles">{majorTitles(l)}</td>
                       <td className="cell-world">{titleCell(l.world_titles, true)}</td>

@@ -83,9 +83,15 @@ export { titleName };
 export type TitleBadgeView = { code: TitleCode; text: string; hover: string };
 
 /** titleBadge shows a run's title: a Super GM as GM in its own colour (as upstream), the reason or else the title's name on hover; null for none. */
-export function titleBadge(title: { code: TitleCode; reason: string } | null): TitleBadgeView | null {
+export function titleBadge(title: { code: TitleCode; reason?: string } | null, long = false): TitleBadgeView | null {
   if (title === null) return null;
-  return { code: title.code, text: title.code === 'SGM' ? 'GM' : title.code, hover: title.reason || titleName(title.code) };
+  return { code: title.code, text: titleText(title.code, long), hover: title.reason || titleName(title.code) };
+}
+
+/** titleText is a title badge's words: its code where room is short (a Super GM as GM, its crown from CSS), else its name, World Champion with 💎. */
+export function titleText(code: TitleCode, long: boolean): string {
+  if (!long) return code === 'SGM' ? 'GM' : code;
+  return code === 'WC' ? `💎 ${titleName(code)}` : titleName(code);
 }
 
 /** badgeHover is an admin badge's hover text: its description, or its label when it has none. */

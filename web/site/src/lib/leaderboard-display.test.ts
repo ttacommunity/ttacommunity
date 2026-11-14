@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleBadge, badgeHover, flagSrc, engineName, resetModeName, resetName, engineNote, delta } from './leaderboard-display';
+import { formatName, modelLabel, rank, rating, cRating, rd, winRate, isTopThree, titleBadge, titleText, badgeHover, flagSrc, engineName, resetModeName, resetName, engineNote, delta } from './leaderboard-display';
 
 describe('formatName', () => {
   it.each([
@@ -117,6 +117,19 @@ describe('titleBadge', () => {
 
   it('gives nothing for a player without a title', () => {
     expect(titleBadge(null)).toBeNull();
+  });
+});
+
+describe('titleText', () => {
+  it.each([
+    ['SGM', false, 'GM'],
+    ['SGM', true, 'Super GM'],
+    ['WC', false, 'WC'],
+    ['WC', true, '💎 World Champion'],
+    ['GM', false, 'GM'],
+    ['GM', true, 'Grandmaster'],
+  ] as const)('writes %s (long: %s) as %s', (code, long, want) => {
+    expect(titleText(code, long)).toBe(want);
   });
 });
 

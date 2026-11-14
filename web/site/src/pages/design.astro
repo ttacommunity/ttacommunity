@@ -91,8 +91,11 @@ const rows = [
       <span class="badge badge-mode">Continuous (Career)</span>
     </p>
     <p class="design-row">
-      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, count: 1, reason: `Sample ${code} reason` }} />)}
+      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, reason: `Sample ${code} reason` }} />)}
       <TitleBadge title={null} />
+    </p>
+    <p class="design-row">
+      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code }} long />)}
     </p>
 
     <h2>Flags</h2>
@@ -149,7 +152,7 @@ const rows = [
               <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
               <td><Flag country={p.country} /></td>
               <th scope="row"><span class="player-name">{p.name}</span></th>
-              <td><TitleBadge title={p.title === null ? null : { code: p.title, count: 1, reason: 'Sample reason' }} /></td>
+              <td><TitleBadge title={p.title === null ? null : { code: p.title, reason: 'Sample reason' }} /></td>
               <td><span class="c-rating-val">{p.c}</span></td>
               <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
               <td>{p.opps}</td>

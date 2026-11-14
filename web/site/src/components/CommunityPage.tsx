@@ -8,7 +8,7 @@ import {
   type CommunityLeaderboard as LeaderboardData,
   type CommunityRow,
 } from '@ttac/shared/ratings';
-import { Flag } from './PlayerMarks';
+import { Flag, TitleBadge } from './PlayerMarks';
 import {
   columnTitle,
   countingColumns,
@@ -22,7 +22,6 @@ import {
   whole,
   type CommunityView,
 } from '../lib/community';
-import { titleName } from '../lib/leaderboard-display';
 import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
@@ -117,7 +116,7 @@ function Hero({
           <div className="stat-tile-num">
             {info.wc ? (
               <PlayerLink name={info.wc} className="comm-wc-link">
-                <span className="badge badge-wc comm-wc-badge">WC</span> {info.wc}
+                <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
               </PlayerLink>
             ) : (
               <span className="comm-muted">—</span>
@@ -280,13 +279,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
                     <PlayerLink name={r.name} className="player-link comm-player" />
                   </td>
                   <td>
-                    {mark === null ? (
-                      <span className="comm-dash">-</span>
-                    ) : (
-                      <span className={`badge badge-${mark.toLowerCase()}`} title={titleName(mark)}>
-                        {mark}
-                      </span>
-                    )}
+                    {mark === null ? <span className="comm-dash">-</span> : <TitleBadge title={{ code: mark }} />}
                   </td>
                   <td>
                     <span className="points-total">{whole(r.points)}</span>

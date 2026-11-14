@@ -6,7 +6,6 @@ import {
   playerCareer,
   type Player,
   type PlayerCareer,
-  type TitleCode,
 } from '@ttac/shared/ratings';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
@@ -24,16 +23,10 @@ import { useLoad } from './useLoad';
 import { viewLinks } from '../lib/navigate';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
+import { TitleBadge } from './PlayerMarks';
 
 function readView(): MatrixView {
   return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
-
-/** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
-function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
-  if (code === 'WC' && card) return <span className="badge-wc badge-small">💎 World Champion</span>;
-  if (code === 'SGM') return <span className="badge badge-small badge-sgm">👑 GM</span>;
-  return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
 }
 
 /** Shows the player's career years and peak season evaluation. */
@@ -96,7 +89,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             <div className="peak-year-kicker">Career Benchmark Evaluation</div>
             <div className="peak-year-title">
               Peak Career Season: <span className="peak-year-year">{best.year}</span>
-              {best.title !== null && <TitleBadge code={best.title} card />}
+              {best.title !== null && <TitleBadge title={{ code: best.title }} long className="badge-small" />}
             </div>
             <div className="peak-year-text">
               In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
@@ -167,7 +160,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
                       <strong className="career-year">{y.year}</strong>
                       {shown === 'WC' && <span className="badge-wc badge-tiny">WC</span>}
                     </td>
-                    <td>{shown !== null ? <TitleBadge code={shown} /> : <span className="career-none">-</span>}</td>
+                    <td>{shown !== null ? <TitleBadge title={{ code: shown }} long className="badge-small" /> : <span className="career-none">-</span>}</td>
                     <td>{y.opponents}</td>
                     <td>
                       <span className="wld-num win">{y.wins}</span> - <span className="wld-num loss">{y.losses}</span> -{' '}

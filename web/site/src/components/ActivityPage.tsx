@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { activity, currentRun } from '@ttac/shared/ratings';
 import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
-import { Flag } from './PlayerMarks';
+import { Flag, TitleBadge } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
@@ -94,7 +94,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
             {a.titles.map((t) => (
               <div key={t.code} className="activity-item">
                 <div className="activity-title">
-                  <span className={`badge badge-${t.code.toLowerCase()} activity-badge`}>{t.code}</span>
+                  <TitleBadge title={{ code: t.code }} className="activity-badge" />
                   <strong>{titleLabel(t.code)}</strong>
                 </div>
                 <div className="activity-item-value activity-title-count">{t.players} players</div>
