@@ -1,4 +1,5 @@
 /** Groups of related tournaments in admin: what the list shows, a group's members, and what can join a group. */
+import { trackShort } from '@ttac/shared/tracks';
 
 /** Grouped is the part of a tournament grouping reads: its slug, name, the group it is in ("" for none), its type, and
  * whether it is a group. */
@@ -121,9 +122,8 @@ export function ratedTracks<T extends RatedItem>(list: readonly T[], slug: strin
 /** ratedLabel formats a tournament or group's rating tracks for the admin table. */
 export function ratedLabel<T extends RatedItem>(list: readonly T[], slug: string): string {
   const { standard, superblitz } = ratedTracks(list, slug);
-  if (standard && superblitz) return 'Std, SB';
-  if (standard) return 'Std';
-  if (superblitz) return 'SB';
+  const shorts = [standard && trackShort('community'), superblitz && trackShort('superblitz')].filter((t) => t !== false);
+  if (shorts.length > 0) return shorts.join(', ');
   return '–';
 }
 

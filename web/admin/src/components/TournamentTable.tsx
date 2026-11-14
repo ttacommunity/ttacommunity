@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { AdminTournamentRow } from '../lib/admin-api';
 import { dateSpan, detail, membersOf, ratedLabel, rowTotals, typeLabel } from '../lib/tournament-groups';
 import { SETTINGS, settingsHref } from '../lib/tournament-page';
+import { trackName, trackShort } from '@ttac/shared/tracks';
 
 /** YesNo marks a setting on or off in the read-only list. */
 function YesNo({ on, label, name }: { on: boolean; label: string; name: string }) {
@@ -45,7 +46,7 @@ export default function TournamentTable({
             <th scope="col" title={`${SHOWN_SETTING.label}: ${SHOWN_SETTING.hint}`} className="col-setting">
               {SHOWN_SETTING.short}
             </th>
-            <th scope="col" title="Rated track: Std (Standard), SB (SuperBlitz), or ? (unrated)" className="col-setting">
+            <th scope="col" title={`Rated track: ${trackShort('community')} (${trackName('community')}), ${trackShort('superblitz')} (${trackName('superblitz')}), or ? (unrated)`} className="col-setting">
               Rated
             </th>
             {TAIL_SETTINGS.map((s) => (

@@ -2,14 +2,15 @@
 import type { Load } from '@ttac/shared/load';
 import { isSlug } from '@ttac/shared/ratings';
 import type { AdminResult, AdminTournament, AdminTournamentRow } from './admin-api';
+import { trackName } from '@ttac/shared/tracks';
 
 export type Setting = 'visible' | 'rated' | 'superblitz_rated' | 'community' | 'blitz' | 'bracket';
 
 /** SETTINGS are a tournament's on/off settings, in the order admin shows them. */
 export const SETTINGS: { key: Setting; label: string; short: string; hint: string }[] = [
   { key: 'visible', label: 'Shown', short: 'Shown', hint: 'Shown on the site even when not rated' },
-  { key: 'rated', label: 'Rated (Standard)', short: 'Standard', hint: 'In the Standard ratings, from the next engine run' },
-  { key: 'superblitz_rated', label: 'Rated (SuperBlitz)', short: 'SuperBlitz', hint: 'In the SuperBlitz ratings (and Standard + SuperBlitz), from the next engine run' },
+  { key: 'rated', label: `Rated (${trackName('community')})`, short: trackName('community'), hint: 'In the Standard ratings, from the next engine run' },
+  { key: 'superblitz_rated', label: `Rated (${trackName('superblitz')})`, short: trackName('superblitz'), hint: 'In the SuperBlitz ratings (and Standard + SuperBlitz), from the next engine run' },
   { key: 'community', label: 'Community leaderboard', short: 'Community', hint: 'Counted in the overall community leaderboard' },
   { key: 'blitz', label: 'Blitz', short: 'Blitz', hint: 'Run from admin as a blitz tournament: its editions, entrants, weekly pairings and results are on the Blitz tab' },
   { key: 'bracket', label: 'Shown as a bracket', short: 'Bracket', hint: 'Each season shown on the site as a knockout bracket: its stages as rounds of groups or matches, up to the final' },

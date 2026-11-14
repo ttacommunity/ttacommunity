@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { trackName } from './tracks';
+import { trackName, trackShort } from './tracks';
 
 describe('trackName', () => {
   it.each([
@@ -10,5 +10,17 @@ describe('trackName', () => {
     ['other', 'other'],
   ])('names %s', (slug, want) => {
     expect(trackName(slug)).toBe(want);
+  });
+});
+
+describe('trackShort', () => {
+  it.each([
+    ['community', 'Std'],
+    ['superblitz', 'SB'],
+    ['community_superblitz', 'Std + SB'],
+    ['pulse', 'Pulse'],
+    ['other', 'other'],
+  ])('shortens %s', (slug, want) => {
+    expect(trackShort(slug)).toBe(want);
   });
 });
