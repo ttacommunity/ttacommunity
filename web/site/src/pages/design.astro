@@ -3,6 +3,9 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import Segmented from '@ttac/shared/Segmented';
 import DialogSamples from '../components/DialogSamples';
+import Note from '@ttac/shared/Note';
+import SignInNote from '../components/SignInNote';
+import Message from '../components/Message';
 import { Flag, TitleBadge } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
@@ -21,6 +24,8 @@ const colours = [
   'border-subtle',
   'win',
   'loss',
+  'win-edge',
+  'loss-edge',
   'draw',
 ];
 const fonts = [
@@ -105,6 +110,14 @@ const rows = [
 
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />
+
+    <h2>Notes</h2>
+    <Note>A note in front of the reader, such as what to do before taking part.</Note>
+    <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
+
+    <h2>Messages</h2>
+    <Message>A message where a page's content would be, such as nothing found.</Message>
+    <Message form="inline">The same, as a line in a panel.</Message>
 
     <h2>Tooltip</h2>
     <p class="design-row">
@@ -226,6 +239,8 @@ const rows = [
   .swatch-border-subtle { background: var(--border-subtle); }
   .swatch-win { background: var(--win); }
   .swatch-loss { background: var(--loss); }
+  .swatch-win-edge { background: var(--win-edge); }
+  .swatch-loss-edge { background: var(--loss-edge); }
   .swatch-draw { background: var(--draw); }
 
   .fonts {

@@ -10,7 +10,7 @@ import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds } from '../lib/admin-api';
+import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
@@ -31,6 +31,8 @@ import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
+import { plural } from '@ttac/shared/numbers';
+import Note from '@ttac/shared/Note';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -55,11 +57,11 @@ export default function BlitzEditionPage() {
       return;
     }
     const r = await adminRequest<AdminBlitzEdition>(`/api/blitz/${named.slug}/${encodeURIComponent(named.edition)}`, {});
-    setEd(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setEd(loadOf(r));
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setMe(loadOf(r)),
     );
     void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
     void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
@@ -713,7 +715,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
     if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }, opener))) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
+    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
   };
   const save = async (e: FormEvent) => {
@@ -732,7 +734,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true }, opener);
     if (!sure) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
+    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
     await onReload();
   };
   return (
@@ -989,9 +991,7 @@ function EditionSettings(props: Props) {
 /** FormatWarnings shows warnings about a format, one note each. */
 function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
   return warnings.map((w) => (
-    <p key={w} className="format-warning" role="note">
-      {w}
-    </p>
+    <Note key={w}>{w}</Note>
   ));
 }
 
@@ -1309,7 +1309,7 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
       <Notice outcome={shownAt(outcome, 'format')} onClose={() => say(null)} />
       {!locked && (
         <p className="muted round-hint">
-          Up to {advice.limit} Swiss {advice.limit === 1 ? 'round' : 'rounds'} can always be paired without anyone meeting twice.
+          Up to {advice.limit} Swiss {plural(advice.limit, 'round')} can always be paired without anyone meeting twice.
         </p>
       )}
       {!locked && <FormatWarnings warnings={advice.warnings} />}

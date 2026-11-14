@@ -1,6 +1,7 @@
 /** A season shown as a bracket: its rounds named, the rounds still to come, the tree, and a player's road. */
 import { isSlug, type BlitzEditionRow, type BracketGroup, type BracketSeat, type SeasonBracket } from '@ttac/shared/ratings';
 import { editionHref } from '@ttac/shared/blitz';
+import { ordinal } from '@ttac/shared/numbers';
 
 /**
  * ViewRound is one round as the bracket shows it: named, whether it is finished, being played or still to come, and
@@ -161,8 +162,6 @@ function pointsText(points: number): string {
   return points < 0 ? `−${text}` : text;
 }
 
-const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th'];
-
 /** RoadStep is one group of a player's road: the round (final when it has one group), the group and its label, the player's seat and how it went. */
 export type RoadStep = { round: string; final: boolean; group: BracketGroup; label: string; seat: BracketSeat; result: string };
 
@@ -179,7 +178,7 @@ export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
         result = `Seed ${s.seed ?? g.number}`;
       } else if (g.state === 'played') {
         const rank = g.seats.indexOf(s) + 1;
-        const place = view.to === 'Champion' ? 'Champion' : (ORDINALS[rank - 1] ?? `${rank}th`);
+        const place = view.to === 'Champion' ? 'Champion' : ordinal(rank);
         result = view.points === '' ? place : `${place} · ${view.points} pts`;
       }
       const final = r.groups.length === 1;

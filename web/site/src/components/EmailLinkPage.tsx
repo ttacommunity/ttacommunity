@@ -1,8 +1,10 @@
 /** The page an emailed sign-in link opens: the player presses to finish, so a mail scanner opening the link spends nothing, then goes back where they were. */
 import { useState } from 'react';
-import { browserStorage, rememberSignedIn } from '../lib/account';
+import { rememberSignedIn } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { emailFinishTarget, finishEmailLink, tokenFromHash } from '../lib/email-sign-in';
 import './Account.css';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 
 type Shown = { kind: 'ready' } | { kind: 'busy' } | { kind: 'expired' | 'refused'; text: string };
 
@@ -41,10 +43,16 @@ export default function EmailLinkPage({ apiUrl }: { apiUrl: string }) {
         </>
       )}
       {(shown.kind === 'expired' || shown.kind === 'refused') && (
-        <p className="account-problem" role="alert">
-          {shown.kind === 'expired' ? 'This link has expired or has been used. ' : `${shown.text} `}
-          <a href="/account/">Ask for a new link</a>.
-        </p>
+        <OutcomeNotice
+          kind="refused"
+          text={
+            <>
+              {shown.kind === 'expired' ? 'This link has expired or has been used. ' : `${shown.text} `}
+              <a href="/account/">Ask for a new link</a>.
+            </>
+          }
+          onClose={() => setShown({ kind: 'ready' })}
+        />
       )}
     </section>
   );

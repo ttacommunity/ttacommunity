@@ -151,11 +151,6 @@ export function fieldId(...parts: string[]): string {
   return parts.join('-').replace(/[^A-Za-z0-9-]/g, '_');
 }
 
-/** toggled returns list with item removed if it is there, else added at the end. */
-export function toggled(list: readonly string[], item: string): string[] {
-  return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
-}
-
 /** noteAction is what a stage's note button does: close the open note, else add one or edit the one there. */
 export function noteAction(open: boolean, note: string): 'close' | 'add' | 'edit' {
   if (open) return 'close';

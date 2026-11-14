@@ -26,3 +26,8 @@ export async function settled<T>(request: Promise<T>): Promise<Load<T>> {
     return { kind: 'error', message: errorText(e) };
   }
 }
+
+/** shownLoad is what a page shows of next: while it loads again, the last ready data, so the page keeps its height and scroll. */
+export function shownLoad<S extends Found<unknown>>(last: S | null, next: S): S {
+  return next.kind === 'loading' && last !== null && last.kind === 'ready' ? last : next;
+}

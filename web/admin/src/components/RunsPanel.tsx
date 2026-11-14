@@ -7,7 +7,8 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, TRACKS, trackLabel } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { TRACKS, trackName } from '@ttac/shared/tracks';
 
 const POLL_MS = 5000;
 const ZONE = viewerZone();
@@ -118,7 +119,7 @@ export default function RunsPanel() {
   const start = async (opener: HTMLElement) => {
     const sure = await dialog.confirm(
       {
-        heading: `Start a ${trackLabel(track)} rating run now?`,
+        heading: `Start a ${trackName(track)} rating run now?`,
         text: 'It is not shown on the site until you publish it.',
         action: 'Start run',
       },
@@ -186,17 +187,15 @@ export default function RunsPanel() {
         A run recomputes every rating from the games. It is not shown on the site until it is published, and an older run
         can be published again to roll back.
       </p>
-      <div className="runs-actions">
-        <label>
-          <span className="visually-hidden">Rating track</span>
-          <select value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
-            {TRACKS.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="note-actions runs-actions">
+        <label htmlFor="run-track">Rating track</label>
+        <select className="input-antique" id="run-track" value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
+          {TRACKS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.name}
+            </option>
+          ))}
+        </select>
         <button type="button" className="btn-antique" onClick={(e) => void start(e.currentTarget)} disabled={going}>
           {going ? 'A run is going' : 'Start a run now'}
         </button>
@@ -283,7 +282,7 @@ function RunRow({
   return (
     <tr>
       <th scope="row">{run.id}</th>
-      <td>{trackLabel(run.ranking)}</td>
+      <td>{trackName(run.ranking)}</td>
       <td>
         <span className={`run-state run-${state}`}>{runLabel(run)}</span>
       </td>

@@ -1,6 +1,5 @@
 /** Upstream's Hall of Fame overview: the World Champions, each series' card, and the all-time, cups and ladders tables. */
-import { useEffect, useState } from 'react';
-import { catalogue, catalogueTournament, currentRun, hallOfFame, type CatalogueEntry, type CatalogueSeason, type HallOfFame } from '@ttac/shared/ratings';
+import { catalogue, catalogueTournament, currentRun, hallOfFame } from '@ttac/shared/ratings';
 import TournamentCard from './TournamentCard';
 import { cardView } from '../lib/tournament-card';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
@@ -21,29 +20,17 @@ import {
 } from '../lib/tournament-series';
 import ScrollTable from './ScrollTable';
 import { waitingText } from '../lib/waiting';
-import { errorText, type Load } from '@ttac/shared/load';
+import Message from './Message';
+import { useLoad } from './useLoad';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<HallOfFame>>({ kind: 'loading' });
-
-  const [tournaments, setTournaments] = useState<CatalogueEntry[]>([]);
-  const [finals, setFinals] = useState<CatalogueSeason[]>([]);
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => {
-        catalogue(apiUrl, r.run_id)
-          .then((c) => setTournaments(c.tournaments))
-          .catch(() => setTournaments([]));
-        catalogueTournament(apiUrl, r.run_id, 'worlds')
-          .then((t) => setFinals(t.seasons))
-          .catch(() => setFinals([]));
-        return hallOfFame(apiUrl, r.run_id);
-      })
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
+  const load = useLoad('hall', () => currentRun(apiUrl).then((r) => hallOfFame(apiUrl, r.run_id)));
+  // Without these the page still shows, its links and finals left out.
+  const catalogueLoad = useLoad('catalogue', () => currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)));
+  const worldsLoad = useLoad('worlds', () => currentRun(apiUrl).then((r) => catalogueTournament(apiUrl, r.run_id, 'worlds')));
+  const tournaments = catalogueLoad.kind === 'ready' ? catalogueLoad.data.tournaments : [];
+  const finals = worldsLoad.kind === 'ready' ? worldsLoad.data.seasons : [];
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the Hall of Fame') ?? '';
@@ -209,11 +196,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             </thead>
             <tbody>
               {data === null ? (
-                <tr>
-                  <td colSpan={8} className="waiting-row">
-                    {waiting}
-                  </td>
-                </tr>
+                <Message form="row" colSpan={8}>
+                  {waiting}
+                </Message>
               ) : (
                 data.legends.map((l, i) => {
                   const mark = legendMark(l);
@@ -270,11 +255,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.grand_slams.map((g, i) => (
                     <tr key={g.name}>
@@ -326,11 +309,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.ladders.map((l, i) => (
                     <tr key={l.name}>

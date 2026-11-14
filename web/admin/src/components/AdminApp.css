@@ -31,7 +31,7 @@
 }
 .rating-card.page-error {
   max-width: 48rem;
-  border-left: 4px solid var(--loss);
+  border-left: 4px solid var(--loss-edge);
 }
 .page-error p {
   margin: 0;
@@ -40,7 +40,6 @@
 .admin-table input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--accent-gold);
 }
 .admin-table .btn-settings {
   display: inline-block;
@@ -87,7 +86,6 @@
   width: 1.1rem;
   height: 1.1rem;
   margin-top: 0.2rem;
-  accent-color: var(--accent-gold);
 }
 .regulations-text {
   box-sizing: border-box;
@@ -141,57 +139,6 @@
 }
 .rating-card.admin-card + .rating-card.admin-card {
   margin-top: 1.5rem;
-}
-/* An action's outcome beside it (Notice): its word in colour on a dark panel, bordered green when done, red when not. */
-.notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin: 0.6rem 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--win);
-  border-radius: 6px;
-  background: var(--surface-well);
-  color: var(--text-main);
-  font-family: var(--font-body);
-  font-size: var(--size-body-short);
-  text-align: left;
-  white-space: normal;
-  scroll-margin: 5.5rem 0 1rem;
-}
-.notice-refused,
-.notice-failed {
-  border-left-color: var(--loss);
-}
-.notice-body {
-  flex: 1;
-  min-width: 0;
-}
-.notice-heading,
-.notice-text {
-  display: block;
-}
-.notice-heading {
-  color: var(--win);
-}
-.notice-refused .notice-heading,
-.notice-failed .notice-heading {
-  color: var(--loss);
-}
-.notice-close {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  padding: 0 0.3rem;
-  border: 0;
-  background: none;
-  color: var(--text-soft);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.notice-close:hover {
-  color: var(--text-main);
 }
 /* A notice under a table row stays whole and in view while a wide table scrolls sideways: as wide as the table's visible part, less the cell's padding. */
 .admin-main .table-responsive {
@@ -298,7 +245,6 @@
 }
 .run-progress progress {
   width: 100%;
-  accent-color: var(--accent-gold);
 }
 .run-changes p {
   margin: 0 0 0.5rem;
@@ -468,10 +414,6 @@
 .setting-counts legend {
   margin-bottom: 0.4rem;
 }
-.setting-counts input,
-.season-rated input {
-  accent-color: var(--accent-gold);
-}
 .season-rated {
   color: var(--text-soft);
   font-size: 0.9rem;
@@ -507,9 +449,6 @@
 .group-members legend {
   padding: 0 0.3rem;
   color: var(--text-muted);
-}
-.group-member input[type='checkbox'] {
-  accent-color: var(--accent-gold);
 }
 .group-member-list {
   display: grid;
@@ -588,7 +527,6 @@
 .setting-inline input[type='radio'] {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--accent-gold);
 }
 .round-hint {
   margin-top: 0.5rem;
@@ -780,11 +718,6 @@
 }
 .round-view {
   margin-bottom: 0.75rem;
-}
-/* A warning on the format: amber, a choice to reconsider rather than an error. */
-.format-warning {
-  margin-top: 0.4rem;
-  color: var(--accent-gold-light);
 }
 
 /* A blitz edition's settings: summed up in a list under one Edit settings button, or every setting's form open. */

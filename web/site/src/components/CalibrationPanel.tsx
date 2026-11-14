@@ -3,10 +3,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
-import { calibration, currentRun, type Calibration, type Format } from '@ttac/shared/ratings';
-import { errorText, type Load } from '@ttac/shared/load';
+import { calibration, currentRun, type Format } from '@ttac/shared/ratings';
 import {
-  FORMAT_NAMES,
   MODELS,
   MODE_NAMES,
   activeModels,
@@ -19,22 +17,21 @@ import {
   type Reset,
 } from '../lib/analysis';
 import { recall } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { toggledSet } from '@ttac/shared/toggle';
+import { formatName } from '../lib/leaderboard-display';
+import { FORMATS } from '../lib/leaderboard-view';
+import { useLoad } from './useLoad';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
 const ALL_ENGINES: Family[] = ['glicko2_daneo', 'glicko2_std'];
 const ALL_RESETS: Reset[] = ['continuous', 'softer'];
 const BIN_LABELS = ['50-55%', '55-60%', '60-65%', '65-70%', '70-75%', '75-80%', '80-85%', '85-90%', '90-95%', '95-100%'];
-const FORMATS: { value: Format; label: string }[] = [
-  { value: 0, label: 'All Formats' },
-  { value: 2, label: '2-Player' },
-  { value: 3, label: '3-Player' },
-  { value: 4, label: '4-Player' },
-];
+const FORMAT_OPTIONS: { value: Format; label: string }[] = FORMATS.map((f) => ({ value: f, label: formatName(f) }));
 const FAMILY_BUTTONS: { family: Family; label: string; className: string }[] = [
   { family: 'glicko2_daneo', label: '👑 GlickoD', className: 'family-daneo' },
   { family: 'glicko2_std', label: 'G2 Std', className: 'family-std' },
@@ -58,10 +55,7 @@ function Toggle({ active, onClick, className, tip, children }: { active: boolean
 /** toggled adds or removes one value; "all" selects every value, or none when all are already selected. */
 function toggled<T>(set: ReadonlySet<T>, value: T | 'all', every: readonly T[]): Set<T> {
   if (value === 'all') return set.size === every.length ? new Set() : new Set(every);
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
+  return toggledSet(set, value);
 }
 
 /** CalibrationPanel loads the current run's calibration and lets the reader choose which models to compare. */
@@ -71,16 +65,9 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
   const [resets, setResets] = useState<ReadonlySet<Reset>>(new Set<Reset>(['continuous']));
-  const [load, setLoad] = useState<Load<Calibration>>({ kind: 'loading' });
+  const load = useLoad('calibration', () => currentRun(apiUrl).then((r) => calibration(apiUrl, r.run_id)));
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => calibration(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
 
   const filters = useMemo(() => ({ engines, resets }), [engines, resets]);
   const active = useMemo(() => new Set(activeModels(filters)), [filters]);
@@ -195,7 +182,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
             </div>
             <div className="card-badges">
               <span className="mode-badge">{MODE_NAMES[mode]}</span>
-              <span className="format-badge">{FORMAT_NAMES[format]}</span>
+              <span className="format-badge">{formatName(format)}</span>
             </div>
           </div>
           <div className="hero-chart-container">
@@ -291,7 +278,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           <div role="group" aria-label="Player Format">
             <div className="opt-section-title">🎮 Player Format</div>
             <div className="opt-btn-grid">
-              {FORMATS.map((f) => (
+              {FORMAT_OPTIONS.map((f) => (
                 <Toggle key={f.value} active={format === f.value} onClick={() => setFormat(f.value)}>
                   {f.label}
                 </Toggle>

@@ -564,12 +564,12 @@
 
 .game-delta.up {
   font-weight: 700;
-  color: #4ade80;
+  color: var(--win);
 }
 
 .game-delta.down {
   font-weight: 700;
-  color: #f87171;
+  color: var(--loss);
 }
 
 .data-table th a.th-link {
@@ -585,37 +585,6 @@
   font-size: 0.8em;
   opacity: 0.85;
   vertical-align: baseline;
-}
-
-.replay {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.replay code {
-  padding: 0.15rem 0.4rem;
-  background: rgba(18, 12, 8, 0.8);
-  border: 1px solid var(--border-subtle);
-  border-radius: 3px;
-  font-family: monospace;
-  font-size: 0.82rem;
-  color: var(--accent-gold-soft);
-  letter-spacing: 0.5px;
-}
-
-.btn-copy-code {
-  padding: 2px 4px;
-  background: transparent;
-  border: none;
-  font-size: 0.85rem;
-  color: var(--accent-gold);
-  cursor: pointer;
-}
-
-.replay-none {
-  font-size: 0.8rem;
-  color: var(--text-muted);
 }
 
 .seat {
@@ -1253,21 +1222,21 @@
 }
 
 .delta-pos {
-  color: #4ade80;
+  color: var(--win);
 }
 
 .delta-tag.delta-pos {
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: color-mix(in srgb, var(--win) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--win) 30%, transparent);
 }
 
 .delta-neg {
-  color: #f87171;
+  color: var(--loss);
 }
 
 .delta-tag.delta-neg {
-  background: rgba(248, 113, 113, 0.15);
-  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: color-mix(in srgb, var(--loss) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--loss) 30%, transparent);
 }
 
 .delta-zero {
@@ -1351,7 +1320,6 @@
 .pill-pct {
   opacity: 0.75;
 }
-
 
 /* Trajectory chart options button and sidebar modal (matching leaderboard options) */
 .btn-options-toggle {
@@ -1454,9 +1422,9 @@
 }
 
 .chart-options-panel .btn-options-close:hover {
-  background: rgba(239, 83, 80, 0.2);
+  background: color-mix(in srgb, var(--loss) 20%, transparent);
   border-color: var(--loss);
-  color: #ff8a80;
+  color: var(--loss-light);
 }
 
 .chart-options-body {

@@ -1,10 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Load } from '@ttac/shared/load';
-import { adminDownload, adminRequest, exportFileName, firstError } from './admin-api';
+import { adminDownload, adminRequest, exportFileName, firstError, loadOf } from './admin-api';
 
 function answer(status: number, body: unknown) {
   return vi.fn(async () => new Response(body === null ? null : JSON.stringify(body), { status }));
 }
+
+describe('loadOf', () => {
+  it.each([
+    ['ready with its data', { ok: true as const, data: [1, 2] }, { kind: 'ready', data: [1, 2] }],
+    ['an error with the API\'s reason', { ok: false as const, status: 403, message: 'not an admin' }, { kind: 'error', message: 'not an admin' }],
+  ])('makes an answer %s', (_, r, want) => {
+    expect(loadOf(r)).toEqual(want);
+  });
+});
 
 describe('adminRequest', () => {
   it('returns the data of a good answer, and nothing for 204', async () => {

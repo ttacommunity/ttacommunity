@@ -25,7 +25,13 @@
     "./modal": "./src/modal.ts",
     "./tabs": "./src/tabs.ts",
     "./sort": "./src/sort.ts",
-    "./SortHeader": "./src/SortHeader.tsx"
+    "./toggle": "./src/toggle.ts",
+    "./storage": "./src/storage.ts",
+    "./outcome": "./src/outcome.ts",
+    "./tracks": "./src/tracks.ts",
+    "./OutcomeNotice": "./src/OutcomeNotice.tsx",
+    "./SortHeader": "./src/SortHeader.tsx",
+    "./Note": "./src/Note.tsx"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",

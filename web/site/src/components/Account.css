@@ -92,10 +92,6 @@
   flex: 1 1 14rem;
   min-width: 0;
 }
-.account-problem {
-  margin: 0;
-  color: var(--loss);
-}
 /* A button that cannot be used now looks it, and does not light up, as in admin. */
 .account-form .btn-antique:disabled,
 .account-form .btn-antique:disabled:hover {
@@ -107,16 +103,13 @@
   color: var(--text-muted);
   transform: none;
 }
-.account-notice-failed {
-  border-color: var(--accent-crimson);
-}
 .account-ban {
   display: flex;
   flex-direction: column;
   margin: 0.75rem 0;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--loss);
+  border-left: 4px solid var(--loss-edge);
   border-radius: 6px;
   background: var(--surface-well);
 }
@@ -160,9 +153,4 @@
 }
 .btn-google img {
   flex: none;
-}
-.account-contact {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid var(--accent-gold);
 }

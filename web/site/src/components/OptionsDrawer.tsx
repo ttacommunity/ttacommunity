@@ -1,30 +1,19 @@
 /** Upstream's Options & Filters drawer: engine, reset mode, prior, and the status, title and opponent filters. */
 import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
-import { engineName } from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type ResetMode, type Status, type Track, type View } from '../lib/leaderboard-view';
+import { RESET_MODES, engineName, resetName } from '../lib/leaderboard-display';
+import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type Status, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
 import type { Link } from '../lib/navigate';
+import { TRACKS } from '@ttac/shared/tracks';
 
 /** A link to a view: a real address, followed in place. */
 export type LinkTo = (view: View) => Link;
-
-const trackOptions: [Track, string, string][] = [
-  ['community', 'Standard', 'Classical asynchronous community tournaments'],
-  ['superblitz', 'SuperBlitz', 'Exclusive SuperBlitz tournament Glicko (sets min opponents to 0)'],
-  ['community_superblitz', 'Standard + SuperBlitz', 'Include SuperBlitz tournaments alongside Standard'],
-  ['pulse', 'Pulse', 'TTA Pulse real-time blitz queue (sets min opponents to 0)'],
-];
 
 const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',
   glicko2_std: 'Standard naive 1v1 pairwise baseline without multiplayer calibration.',
 };
-
-const resetModes: [ResetMode, string, string][] = [
-  ['continuous', 'Continuous (Career)', 'Standard uninterrupted career rating trajectory across all tournament history'],
-  ['softer', 'Season Reset', 'Gentle annual reset balancing career achievement with current season form'],
-];
 
 const titleLabels: Partial<Record<TitleCode, string>> = { GM: 'Grandmaster (GM)', M: 'Master (M)', P: 'Platinum (P)', G: 'Gold (G)' };
 
@@ -55,7 +44,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
   const [minOpps, setMinOpps] = useState(String(view.minOpps));
   useEffect(() => setMinOpps(String(view.minOpps)), [view.minOpps]);
   const at = (change: Partial<View>) => ({ ...view, ...change, page: 1 });
-  const resetName = resetModes.find(([id]) => id === view.reset)?.[1];
+  const shownReset = resetName(view.reset);
 
   return (
     <div className="leaderboard-options-panel" role="dialog" aria-label="Options and filters">
@@ -104,15 +93,15 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           label="Rating track"
           look="banner"
           groupClass="reset-btn-group stacked"
-          options={trackOptions.map(([id, name, tip]) => ({
-            value: id,
+          options={TRACKS.map((t) => ({
+            value: t.value,
             label: (
               <>
-                <span>{name}</span>
-                {id === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
+                <span>{t.name}</span>
+                {t.value === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
               </>
             ),
-            tooltip: tip,
+            tooltip: defaultMinOpps(null, t.value) === 0 ? `${t.desc} (sets min opponents to 0)` : t.desc,
           }))}
           value={view.ranking}
           link={(ranking) => linkTo(withRanking(view, ranking))}
@@ -150,7 +139,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           <Segmented
             label="Season reset mode"
             look="banner"
-            options={resetModes.map(([id, name, tip]) => ({ value: id, label: name, tooltip: tip }))}
+            options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
             value={view.reset}
             link={(reset) => linkTo(at({ reset }))}
           />
@@ -261,7 +250,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
 
       <div className="options-footer">
         <div className="options-footer-active">
-          Active: <strong>{engineName(view.engine)}</strong> &bull; <strong>{resetName}</strong>
+          Active: <strong>{engineName(view.engine)}</strong> &bull; <strong>{shownReset}</strong>
         </div>
         <div className="options-footer-actions">
           <a {...linkTo({ ...DEFAULT_VIEW, format: view.format })} className="btn-reset reset-all">

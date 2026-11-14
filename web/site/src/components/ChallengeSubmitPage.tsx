@@ -2,14 +2,18 @@
 import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengeEntries, challengeHighscores, type ChallengeEntries, type ChallengeHighscores } from '@ttac/shared/ratings';
-import { change, sharedMe, signInHref, type Me, type SaveOutcome } from '../lib/account';
+import { change, sharedMe, type Me, type SaveOutcome } from '../lib/account';
 import type { ChallengeTile } from '../lib/challenge-list';
 import { bestsOf, proofOwners, recordsBeaten, reviewNotes, submission, type Row } from '../lib/challenge-submit';
 import { challengePicture, challengePlayerHref, challengeSets, setLabel, type SetId } from '../lib/challenges';
 import { ProofLink } from './ChallengeParts';
-import SaveNotice from './SaveNotice';
+import Note from '@ttac/shared/Note';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
+import SignInNote from './SignInNote';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
+import Message from './Message';
+import { counted, plural } from '@ttac/shared/numbers';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -18,7 +22,7 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
   const me = useLoad('me', () => sharedMe(apiUrl));
   return (
     <>
-      <Examples apiUrl={apiUrl} me={me.kind === 'ready' ? me.data : undefined} />
+      <Examples me={me.kind === 'ready' ? me.data : undefined} />
       {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
     </>
   );
@@ -27,27 +31,21 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
 function Gate({ apiUrl, list, me }: { apiUrl: string; list: ChallengeTile[]; me: Me | null }) {
   if (me === null || me.member === null) return null;
   if (me.member.banned) {
-    return <div className="rating-card waiting-message">Your account may not submit dominations.</div>;
+    return <Message>Your account may not submit dominations.</Message>;
   }
   return <Form apiUrl={apiUrl} list={list} name={me.member.name} />;
 }
 
 /** FirstStep says, in the page's introduction, what a visitor must do before submitting: sign in, or get linked. */
-function FirstStep({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
+function FirstStep({ me }: { me: Me | null | undefined }) {
   if (me === undefined) return null;
-  if (me === null) {
-    return (
-      <p className="analysis-hero-desc">
-        <a href={signInHref(apiUrl, 'discord', '/challenges/submit/')}>Sign in</a> to submit: your entries are saved under your TTA username.
-      </p>
-    );
-  }
+  if (me === null) return <SignInNote to="submit: your entries are saved under your TTA username." />;
   if (me.member === null) {
     return (
-      <p className="analysis-hero-desc">
+      <Note>
         Your account is not linked to a TTA username yet: <a href="/account/">ask to be linked</a> on your account page, and once an organiser approves it
         you can submit here.
-      </p>
+      </Note>
     );
   }
   return null;
@@ -77,10 +75,10 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
     const done = await change(fetch, apiUrl, 'POST', '/v1/me/challenges/entries', { entries: chosen });
     setBusy(false);
     if (!done.ok) {
-      setStatus({ kind: 'refused', heading: 'Not done', text: done.message });
+      setStatus({ kind: 'refused', text: done.message });
       return;
     }
-    setStatus({ kind: 'done', heading: 'Done', text: `Saved ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}.` });
+    setStatus({ kind: 'done', text: `Saved ${counted(chosen.length, 'entry', 'entries')}.` });
     setRows({});
     setShared('');
     setReviewing(false);
@@ -158,7 +156,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
         <div>
           {chosen.length === 0 && errors.length === 0
             ? 'Nothing entered yet.'
-            : `${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'} · ${chosen.filter((e) => e.proof_url !== '').length} with proof`}
+            : `${counted(chosen.length, 'entry', 'entries')} · ${chosen.filter((e) => e.proof_url !== '').length} with proof`}
           {errors.length > 0 && (
             <ul className="challenges-errors" role="alert">
               {errors.slice(0, 5).map((e) => (
@@ -166,7 +164,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
               ))}
             </ul>
           )}
-          <SaveNotice outcome={status} onClose={() => setStatus(null)} />
+          {status !== null && <OutcomeNotice kind={status.kind} text={status.text} onClose={() => setStatus(null)} />}
         </div>
         {reviewing ? (
           <div className="challenges-bar-group">
@@ -217,8 +215,8 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
         Check your entries
       </h2>
       <p>
-        Saving <strong>{chosen.length}</strong> {chosen.length === 1 ? 'entry' : 'entries'} as <strong>{name}</strong>.
-        {newRecords > 0 && ` ★ ${newRecords} ${newRecords === 1 ? 'beats a record' : 'beat records'}.`}
+        Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
+        {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
       </p>
       <div className="table-responsive">
         <table className="leaderboard-table">
@@ -279,7 +277,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
 }
 
 /** Examples introduces the page, with the visitor's first step when they have one, and shows what to post in Discord for a verified entry. */
-function Examples({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined }) {
+function Examples({ me }: { me: Me | null | undefined }) {
   return (
     <>
       <div className="analysis-hero-card challenges-hero">
@@ -291,7 +289,7 @@ function Examples({ apiUrl, me }: { apiUrl: string; me: Me | null | undefined })
             then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
             the official highscores.
           </p>
-          <FirstStep apiUrl={apiUrl} me={me} />
+          <FirstStep me={me} />
         </div>
       </div>
       <section className="rating-card challenges-card" aria-labelledby="examples">

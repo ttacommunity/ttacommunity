@@ -3,11 +3,11 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { currentRun, leaderboard, catalogue, recentPodiums, type Run } from '@ttac/shared/ratings';
 import { formatDay } from '@ttac/shared/time';
 import { podiumCard, seasonName, type PodiumCard } from '../lib/catalogue-view';
-import { errorText, settled, type Load } from '@ttac/shared/load';
+import { settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
-import { useCopy } from '@ttac/shared/copy';
-import { browserStorage } from '../lib/account';
-import { seatRankClass, toggled } from '../lib/home-view';
+import { browserStorage } from '@ttac/shared/storage';
+import { toggledSet } from '@ttac/shared/toggle';
+import { seatRankClass } from '../lib/home-view';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -18,32 +18,16 @@ import {
   withoutTournament,
   type FeedSettings,
 } from '../lib/feed-settings';
-import { fetchFeedMatches, type FeedMatch } from '../lib/feed-data';
+import { fetchFeedMatches } from '../lib/feed-data';
 import FeedOptionsModal from './FeedOptionsModal';
 import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
+import CopyCode from './CopyCode';
+import Message from './Message';
 
 interface HomeData {
   run: Run;
   recentTournaments: Load<PodiumCard[]>;
-}
-
-/** One-click copyable replay code */
-function ReplayBadge({ code }: { code: string | null }) {
-  const { copied, copy } = useCopy();
-  if (!code) return null;
-  return (
-    <button
-      type="button"
-      className="home-replay-btn"
-      onClick={() => copy(code)}
-      title="Click to copy CGE replay code"
-      aria-label={`Copy replay code ${code}`}
-    >
-      <code>{code}</code>
-      <span className="home-replay-hint">{copied === true ? '✓ Copied' : 'Copy'}</span>
-    </button>
-  );
 }
 
 interface Spoiler {
@@ -73,13 +57,11 @@ function RevealButton({ shown, what, onToggle }: Spoiler) {
 }
 
 export default function HomePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<HomeData>>({ kind: 'loading' });
 
   // Feed configuration and match state
   const [feedSettings, setFeedSettings] = useState<FeedSettings>(DEFAULT_FEED_SETTINGS);
   const [optionsOpener, setOptionsOpener] = useState<HTMLElement | null>(null);
   const [optionsOpened, setOptionsOpened] = useState(false);
-  const [feedMatches, setFeedMatches] = useState<Load<FeedMatch[]>>({ kind: 'loading' });
 
   // Spoilers state
   const [globalMatchSpoilers, setGlobalMatchSpoilers] = useState(false); // false = hidden, true = revealed
@@ -90,31 +72,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => setFeedSettings(loadFeedSettings(browserStorage())), []);
 
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then(async (run) => {
-        const podiums = await settled(recentPodiums(apiUrl, run.run_id).then((p) => p.podiums.map(podiumCard)));
-        setLoad({ kind: 'ready', data: { run, recentTournaments: podiums } });
-      })
-      .catch((e: unknown) => {
-        setLoad({ kind: 'error', message: errorText(e) });
-      });
-  }, [apiUrl]);
+  const load = useLoad<HomeData>('home', async () => {
+    const run = await currentRun(apiUrl);
+    return { run, recentTournaments: await settled(recentPodiums(apiUrl, run.run_id).then((p) => p.podiums.map(podiumCard))) };
+  });
 
   // Matches are asked for again whenever the run or the feed settings change.
-  useEffect(() => {
-    if (load.kind !== 'ready') return;
-    const runId = load.data.run.run_id;
-    let live = true;
-    setFeedMatches({ kind: 'loading' });
-    void settled(fetchFeedMatches(apiUrl, runId, feedSettings, 8)).then((matches) => {
-      if (live) setFeedMatches(matches);
-    });
-
-    return () => {
-      live = false;
-    };
-  }, [apiUrl, load, feedSettings]);
+  const feedRun = load.kind === 'ready' ? load.data.run.run_id : null;
+  const feedMatches = useLoad(JSON.stringify([feedRun, feedSettings]), feedRun === null ? null : () => fetchFeedMatches(apiUrl, feedRun, feedSettings, 8));
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the community feed');
@@ -140,8 +105,8 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
     setFeedSettings(next);
     saveFeedSettings(browserStorage(), next);
   };
-  const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggled(prev, matchId));
-  const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggled(prev, key));
+  const toggleMatchSpoiler = (matchId: number) => setRevealedMatchIds((prev) => toggledSet(prev, matchId));
+  const toggleTourneySpoiler = (key: string) => setRevealedTourneyKeys((prev) => toggledSet(prev, key));
 
   return (
     <>
@@ -154,7 +119,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         </div>
 
         {data === null ? (
-          <div className="home-waiting-message">{waiting ?? 'Loading the latest highlights…'}</div>
+          <Message form="inline">{waiting ?? 'Loading the latest highlights…'}</Message>
         ) : (
           <div className="home-feed-grid">
             {/* ── Left Column: Recent Matches (Top Contenders & Premier Divisions) ── */}
@@ -254,7 +219,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                           {m.division && <span className="badge badge-division">{m.division}</span>}
                           <span className="badge badge-seats">{m.playerCount}P</span>
                           <span className="match-date">{m.date}</span>
-                          <ReplayBadge code={m.replayCode} />
+                          {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
                         </div>
 
                         {/* Participants and Scores with Spoiler Protection for Points */}

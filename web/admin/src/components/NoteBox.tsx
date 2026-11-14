@@ -3,8 +3,8 @@ import { isRemoval, textChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { fieldId } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 /** NoteBox edits the note shown beside a season (stage '') or one of its stages. */
 export default function NoteBox({
@@ -24,20 +24,13 @@ export default function NoteBox({
 }) {
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const id = fieldId('note', slug, season, stage);
   const save = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setNote(slug, season, stage, text));
-    setRefusal(refusalOf(r));
-    if (r.ok) {
+    const r = await saving.run(() => req.send(req.setNote(slug, season, stage, text)), { done: isRemoval(text) ? 'Removed' : 'Saved' });
+    if (r?.ok) {
       setSaved(text.trim());
-      setStatus(isRemoval(text) ? 'Removed' : 'Saved');
       onSaved?.();
-    } else {
-      setStatus('');
     }
   };
   return (
@@ -47,15 +40,11 @@ export default function NoteBox({
         {original !== null && <span className="muted"> · imported as {original}</span>}
       </label>
       <textarea className="input-antique" id={id} value={text} maxLength={2000} rows={2} onChange={(e) => setText(e.target.value)} />
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={save} disabled={!textChanged(saved, text)}>
           Save note
         </button>
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      </SaveBar>
     </div>
   );
 }

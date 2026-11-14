@@ -171,12 +171,12 @@ describe('signInNotice', () => {
   it.each([
     ['a sign-in that finished', '?signin=ok', null],
     ['nothing to say', '', null],
-    ['one that did not', '?signin=failed', 'failed'],
-    ['an account just deleted', '?signin=deleted', 'deleted'],
-    ['Discord added', '?signin=added', 'added'],
-    ['an email added', '?signin=email-added', 'added'],
-    ['a Discord account with an account of its own', '?signin=taken', 'failed'],
-    ['an account with another Discord', '?signin=has-kind', 'failed'],
+    ['one that did not', '?signin=failed', 'refused'],
+    ['an account just deleted', '?signin=deleted', 'done'],
+    ['Discord added', '?signin=added', 'done'],
+    ['an email added', '?signin=email-added', 'done'],
+    ['a Discord account with an account of its own', '?signin=taken', 'refused'],
+    ['an account with another Discord', '?signin=has-kind', 'refused'],
     ['anything else', '?signin=other', null],
   ])('%s', (_name, search, want) => {
     expect(signInNotice(new URLSearchParams(search))?.kind ?? null).toBe(want);
@@ -451,18 +451,18 @@ describe('saveOutcome', () => {
   const ok = { ok: true } as const;
   const no = { ok: false, message: 'Not signed in.' } as const;
   it.each([
-    ['the request alone', ok, null, { kind: 'done', heading: 'Done', text: 'Sent your request to be linked.' }],
-    ['the details alone', null, ok, { kind: 'done', heading: 'Done', text: 'Saved your country and time zone.' }],
-    ['both', ok, ok, { kind: 'done', heading: 'Done', text: 'Sent your request to be linked, and saved your country and time zone.' }],
-    ['the request refused', no, null, { kind: 'refused', heading: 'Not done', text: 'Not signed in.' }],
-    ['the details refused', null, no, { kind: 'refused', heading: 'Not done', text: 'Not signed in.' }],
+    ['the request alone', ok, null, { kind: 'done', text: 'Sent your request to be linked.' }],
+    ['the details alone', null, ok, { kind: 'done', text: 'Saved your country and time zone.' }],
+    ['both', ok, ok, { kind: 'done', text: 'Sent your request to be linked, and saved your country and time zone.' }],
+    ['the request refused', no, null, { kind: 'refused', text: 'Not signed in.' }],
+    ['the details refused', null, no, { kind: 'refused', text: 'Not signed in.' }],
     [
       'the request sent, the details refused',
       ok,
       no,
-      { kind: 'refused', heading: 'Not done', text: 'Sent your request to be linked, but your country and time zone were not saved: Not signed in.' },
+      { kind: 'refused', text: 'Sent your request to be linked, but your country and time zone were not saved: Not signed in.' },
     ],
-    ['nothing sent', null, null, { kind: 'refused', heading: 'Not done', text: 'Nothing to save.' }],
+    ['nothing sent', null, null, { kind: 'refused', text: 'Nothing to save.' }],
   ] as const)('%s', (_name, asked, details, want) => {
     expect(saveOutcome(asked, details)).toEqual(want);
   });

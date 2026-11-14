@@ -4,10 +4,13 @@ import type { components } from '@ttac/shared/api';
 import Segmented from '@ttac/shared/Segmented';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest } from '../lib/admin-api';
+import { adminRequest, loadOf } from '../lib/admin-api';
 import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
-import { LoadNotice } from './Notice';
+import { LoadNotice, Loading } from './Notice';
 import './ChallengesPanel.css';
+import { counted } from '@ttac/shared/numbers';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -23,7 +26,7 @@ export default function ChallengesPanel() {
   const [entries, setEntries] = useState<Load<AdminChallengeEntries>>({ kind: 'loading' });
   useEffect(() => {
     void adminRequest<AdminChallengeEntries>(entriesPath(view), {}).then((r) =>
-      setEntries(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setEntries(loadOf(r)),
     );
   }, [view, round]);
   const shown = entries.kind === 'ready' ? entriesMatching(entries.data.entries, search) : [];
@@ -76,8 +79,7 @@ export default function ChallengesPanel() {
         </div>
       )}
       {status !== null && <LoadNotice message={status} />}
-      {entries.kind === 'loading' && <p className="muted">Loading…</p>}
-      {entries.kind === 'error' && <LoadNotice message={entries.message} />}
+      <Loading load={entries} />
       {entries.kind === 'ready' && entries.data.entries.length > 0 && shown.length === 0 && <p className="muted">No entry matches.</p>}
       {entries.kind === 'ready' && shown.length > 0 && (
         <>
@@ -213,14 +215,13 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
 function MergeNames({ onMerged }: { onMerged: () => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [said, setSaid] = useState<string | null>(null);
+  const saving = useSave();
   const merge = async () => {
-    const r = await adminRequest<Merged>('/api/challenges/names', { method: 'POST', json: { from, to } });
-    if (!r.ok) {
-      setSaid(r.message);
-      return;
-    }
-    setSaid(`Moved ${r.data.moved} ${r.data.moved === 1 ? 'entry' : 'entries'} to the member ${to.trim()}.`);
+    const r = await saving.run(() => adminRequest<Merged>('/api/challenges/names', { method: 'POST', json: { from, to } }), {
+      done: (d) => `Moved ${counted(d.moved, 'entry', 'entries')} to the member ${to.trim()}.`,
+      working: 'Merging…',
+    });
+    if (!r?.ok) return;
     setFrom('');
     setTo('');
     onMerged();
@@ -232,19 +233,14 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
         Moves every entry and weekly placing under the first name to the member whose TTA username is the second: for a misspelt name, or a name the import
         gave a member of its own. The first name&apos;s member stays, empty, for Members to remove.
       </p>
-      <span className="note-actions">
+      <SaveBar save={saving}>
         <input className="input-antique" aria-label="From name" placeholder="From" value={from} onChange={(e) => setFrom(e.target.value)} />
         <span aria-hidden="true">→</span>
         <input className="input-antique" aria-label="To member" placeholder="To" value={to} onChange={(e) => setTo(e.target.value)} />
         <button type="button" className="btn-antique" disabled={from.trim() === '' || to.trim() === ''} onClick={() => void merge()}>
           Merge
         </button>
-      </span>
-      {said !== null && (
-        <p className="note-status" role="status">
-          {said}
-        </p>
-      )}
+      </SaveBar>
     </div>
   );
 }

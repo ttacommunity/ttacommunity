@@ -1,0 +1,52 @@
+/* An action's outcome beside it (OutcomeNotice): its word in colour on a dark panel edged green when done, red when not, with a wash of that colour behind the word. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin: 0.6rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--win-edge);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--win-edge) 28%, transparent), var(--surface-well) 60%), var(--surface-well);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: var(--size-body-short);
+  text-align: left;
+  white-space: normal;
+  scroll-margin: 5.5rem 0 1rem;
+}
+.notice-refused,
+.notice-failed {
+  border-color: var(--loss-edge);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--loss-edge) 30%, transparent), var(--surface-well) 60%), var(--surface-well);
+}
+.notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.notice-heading,
+.notice-text {
+  display: block;
+}
+.notice-heading {
+  color: var(--win);
+}
+.notice-refused .notice-heading,
+.notice-failed .notice-heading {
+  color: var(--loss);
+}
+.notice-close {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.notice-close:hover {
+  color: var(--text-main);
+}

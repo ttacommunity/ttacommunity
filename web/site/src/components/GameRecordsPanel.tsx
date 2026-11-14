@@ -2,6 +2,7 @@
 import type { GameRecord } from '@ttac/shared/ratings';
 import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tournament-series';
 import PlayerLink from './PlayerLink';
+import Message from './Message';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -48,11 +49,9 @@ export default function GameRecordsPanel({
           </thead>
           <tbody>
             {records === null ? (
-              <tr>
-                <td colSpan={6} className="waiting-row">
-                  {waiting}
-                </td>
-              </tr>
+              <Message form="row" colSpan={6}>
+                {waiting}
+              </Message>
             ) : (
               records.map((g, i) => (
                 <tr key={`${g.tournament} ${g.date} ${g.name}`}>

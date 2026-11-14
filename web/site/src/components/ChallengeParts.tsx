@@ -1,27 +1,18 @@
 /** The pieces every challenge page shares: its remembered switches, links to players and proofs, difficulty pips and the compact set grid. */
-import { useEffect, useState, type ReactNode } from 'react';
-import type { Load } from '@ttac/shared/load';
+import { useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { recallChoice, rememberChoice, shownLoad, type Choice, type ChoiceValue } from '../lib/challenge-view';
-import { useLoad } from './useLoad';
+import { recallChoice, rememberChoice, type Choice, type ChoiceValue } from '../lib/challenge-view';
 import { challengeHref, challengePicture, challengePlayerHref, groupLabel, type ChallengeGroup, type Measure } from '../lib/challenges';
-
-function storage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
+import { browserStorage } from '@ttac/shared/storage';
 
 /** useChoice holds a remembered switch: its value, and a function that sets and remembers it. */
 export function useChoice<C extends Choice>(choice: C): [ChoiceValue<C>, (value: ChoiceValue<C>) => void] {
-  const [value, setValue] = useState(() => recallChoice(storage(), choice));
+  const [value, setValue] = useState(() => recallChoice(browserStorage(), choice));
   return [
     value,
     (v) => {
       setValue(v);
-      rememberChoice(storage(), choice, v);
+      rememberChoice(browserStorage(), choice, v);
     },
   ];
 }
@@ -149,14 +140,4 @@ export function SetGrid<C extends Gridded>({
       ))}
     </div>
   );
-}
-
-/** useKeptLoad loads as useLoad does, but while it loads again shows the last data, so a switch keeps the page's height and scroll. */
-export function useKeptLoad<T>(key: string, load: (() => Promise<T>) | null): Load<T> {
-  const next = useLoad(key, load);
-  const [last, setLast] = useState<Load<T> | null>(null);
-  useEffect(() => {
-    if (next.kind === 'ready') setLast(next);
-  }, [next]);
-  return shownLoad(last, next) as Load<T>;
 }

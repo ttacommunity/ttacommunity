@@ -1,7 +1,6 @@
 /** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
-import { failed, type Found } from '@ttac/shared/load';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
@@ -14,7 +13,8 @@ import { hashTab } from '@ttac/shared/tabs';
 import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitz } from '../lib/blitz-report';
-import { accountHref } from '../lib/account';
+import { TTA_DISCORD } from '../lib/links';
+import SignInNote from './SignInNote';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable, { GamesPages } from './GamesTable';
@@ -24,6 +24,8 @@ import { bracketHref } from '../lib/bracket';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
+import Message from './Message';
+import { useFound, useKeptFound } from './useLoad';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -49,12 +51,7 @@ function Header() {
 }
 
 function BlitzList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Found<BlitzEditions>>({ kind: 'loading' });
-  useEffect(() => {
-    blitzEditions(apiUrl)
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl]);
+  const load = useFound('blitz', () => blitzEditions(apiUrl));
   return (
     <>
       <Header />
@@ -118,7 +115,6 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
 }
 
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
-  const [load, setLoad] = useState<Found<BlitzEdition>>({ kind: 'loading' });
   const [hash, setHash] = useHash();
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
@@ -126,18 +122,14 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const [mine, setMine] = useState<MyBlitz | null | undefined>(undefined);
   // The dialog opens at its top from the header, or at "How ties are broken" from the standings.
   const [howPaired, setHowPaired] = useState<{ opener: HTMLElement; at: 'top' | 'ties' } | null>(null);
-  useEffect(() => {
-    blitzEdition(apiUrl, slug, edition)
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug, edition, asked]);
+  const load = useKeptFound(JSON.stringify([slug, edition, asked]), () => blitzEdition(apiUrl, slug, edition));
   if (load.kind === 'missing') {
     return (
       <>
         <Header />
-        <div className="rating-card waiting-message">
+        <Message>
           No blitz tournament has that edition. <a href="/blitz/">See every blitz tournament</a>.
-        </div>
+        </Message>
       </>
     );
   }
@@ -467,11 +459,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         </h2>
         <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </div>
-      {signIn && (
-        <p className="blitz-sign-in" role="note">
-          Playing in this tournament? <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to report your game&apos;s result.
-        </p>
-      )}
+      {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">
         <label>
           <span>Round</span>
@@ -491,7 +479,8 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         </label>
       </div>
       <p className="records-intro">
-        Who plays whom and how each game went, ratings beside the names. Arrange your game with your opponent on Discord. Dates are on your clocks ({zone}). Click a
+        Who plays whom and how each game went, ratings beside the names. Opponents arrange their games through the official{' '}
+        <a href={TTA_DISCORD}>TTA Discord</a>. Dates are on your clocks ({zone}). Click a
         code to copy it. A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." sort={sort} onSort={sortBy} />

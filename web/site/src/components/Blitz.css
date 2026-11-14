@@ -104,15 +104,6 @@
 }
 /* The player's own game: its card lands below the sticky header when the pairings link to it, its buttons, and the
    report form a row at a time, wrapping on a phone. */
-/* The pairings' note asking a visitor to sign in to report. */
-.blitz-sign-in {
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--accent-gold);
-  border-left-width: 4px;
-  border-radius: 4px;
-  line-height: 1.5;
-}
 .your-game {
   scroll-margin-top: 5.5rem;
 }
@@ -131,13 +122,6 @@
   gap: 0.25rem;
   color: var(--text-soft);
   font-size: var(--size-body-short);
-}
-.report-said {
-  margin: 0.75rem 0 0;
-  color: var(--text-soft);
-}
-.report-said.report-refused {
-  color: var(--loss);
 }
 
 /* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */

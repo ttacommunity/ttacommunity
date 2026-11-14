@@ -2,17 +2,18 @@
 import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminBlitzEditionRow } from '../lib/admin-api';
+import { adminRequest, type AdminBlitzEditionRow, loadOf } from '../lib/admin-api';
 import { editionHref } from '@ttac/shared/blitz';
 import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
-import { LoadNotice } from './Notice';
+import { Loading } from './Notice';
+import Count from './Count';
 
 export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
   useEffect(() => {
     void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((r) =>
-      setRows(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setRows(loadOf(r)),
     );
   }, []);
   return (
@@ -24,8 +25,7 @@ export default function BlitzPanel() {
         Every edition of a tournament with the Blitz setting (Tournaments → Settings). A name opens the edition: its
         players, rounds and results.
       </p>
-      {rows.kind === 'loading' && <p className="muted">Loading…</p>}
-      {rows.kind === 'error' && <LoadNotice message={rows.message} />}
+      <Loading load={rows} />
       {rows.kind === 'ready' && rows.data.length === 0 && <p className="muted">No tournament has the Blitz setting yet.</p>}
       {rows.kind === 'ready' && rows.data.length > 0 && <EditionsTable editions={rows.data} />}
     </section>
@@ -68,12 +68,7 @@ function EditionsTable({ editions }: { editions: AdminBlitzEditionRow[] }) {
                 <a href={editionHref(r.tournament, r.edition)}>
                   {r.name} {r.edition}
                 </a>
-                {r.flagged > 0 && (
-                  <span className="count-badge">
-                    {r.flagged}
-                    <span className="visually-hidden"> flagged</span>
-                  </span>
-                )}
+                <Count n={r.flagged} what="flagged" />
               </th>
               <td>{r.edition}</td>
               <td>{formatLabel(r.format)}</td>

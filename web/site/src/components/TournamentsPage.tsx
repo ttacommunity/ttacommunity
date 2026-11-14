@@ -1,15 +1,6 @@
 /** The Tournaments page: every tournament with games, or one tournament's champions, stages and games. */
-import { useEffect, useState } from 'react';
-import {
-  catalogue,
-  catalogueTournament,
-  currentRun,
-  tournamentSeries,
-  type Catalogue,
-  type CatalogueSeason,
-  type CatalogueTournament,
-  type TournamentSeries,
-} from '@ttac/shared/ratings';
+import { useState } from 'react';
+import { catalogue, catalogueTournament, currentRun, tournamentSeries, type Catalogue, type CatalogueSeason } from '@ttac/shared/ratings';
 import { MAJORS, majorName } from '../lib/tournament-series';
 import { SeriesSections } from './TournamentSeriesPage';
 import TournamentCard from './TournamentCard';
@@ -26,8 +17,9 @@ import { activeYears, catalogueHref, cgeYears, entryRows, hasPodiums, placeLabel
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import { waitingText } from '../lib/waiting';
-import { errorText, failed, type Found } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import Message from './Message';
+import { useFound, useLoad } from './useLoad';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -38,20 +30,14 @@ export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
 
 function Missing() {
   return (
-    <div className="rating-card waiting-message">
+    <Message>
       No tournament with games has that name. <a href={catalogueHref()}>See every tournament</a>.
-    </div>
+    </Message>
   );
 }
 
 function TournamentList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Found<Catalogue>>({ kind: 'loading' });
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => catalogue(apiUrl, r.run_id))
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl]);
+  const load = useFound('catalogue', () => currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)));
   return (
     <>
       <div className="tournaments-header">
@@ -138,23 +124,10 @@ function CgeList({ data }: { data: Catalogue }) {
 }
 
 function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
-  const [load, setLoad] = useState<Found<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
   const [pick, setPick] = useState<{ season: string; n: number }>({ season: '', n: 0 });
   const content = MAJORS.find((m) => m.slug === slug);
-  const [series, setSeries] = useState<{ data: TournamentSeries | null; waiting: string }>({ data: null, waiting: waitingText({ kind: 'loading' }, 'the records') ?? '' });
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => {
-        if (content !== undefined) {
-          tournamentSeries(apiUrl, r.run_id, content.slug)
-            .then((data) => setSeries({ data, waiting: '' }))
-            .catch((e: unknown) => setSeries({ data: null, waiting: waitingText({ kind: 'error', message: errorText(e) }, 'the records') ?? '' }));
-        }
-        return catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }));
-      })
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug, content]);
+  const load = useFound(slug, () => currentRun(apiUrl).then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }))));
+  const records = useLoad(String(content?.slug), content === undefined ? null : () => currentRun(apiUrl).then((r) => tournamentSeries(apiUrl, r.run_id, content.slug)));
   if (load.kind === 'missing') return <Missing />;
   if (load.kind !== 'ready') return <Waiting load={load} what="this tournament" />;
   const { run, t } = load.data;
@@ -192,8 +165,8 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       {content !== undefined && (
         <SeriesSections
           content={content}
-          data={series.data}
-          waiting={series.waiting}
+          data={records.kind === 'ready' ? records.data : null}
+          waiting={waitingText(records, 'the records') ?? ''}
           regulations={regulations}
           stories={t.stories}
         />

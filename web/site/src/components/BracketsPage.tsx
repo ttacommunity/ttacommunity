@@ -1,13 +1,14 @@
 /** The Brackets page: every tournament shown as a bracket, or one tournament's bracket (?t=, season ?s=). */
 import { useEffect, useState } from 'react';
-import { blitzEditions, catalogue, catalogueTournament, currentRun, type BlitzEditionRow, type Catalogue, type CatalogueTournament } from '@ttac/shared/ratings';
-import { failed, type Found } from '@ttac/shared/load';
+import { blitzEditions, catalogue, catalogueTournament, currentRun } from '@ttac/shared/ratings';
 import { bracketCard, bracketHref, bracketParams, openingSeason } from '../lib/bracket';
 import { catalogueHref, entryRows, seasonName, shownName } from '../lib/catalogue-view';
 import { cardView } from '../lib/tournament-card';
 import BracketView from './BracketView';
 import TournamentCard from './TournamentCard';
 import Waiting from './Waiting';
+import Message from './Message';
+import { useFound } from './useLoad';
 
 /** BracketsPage shows the bracket the address names, or the list of every tournament shown as one. */
 export default function BracketsPage({ apiUrl }: { apiUrl: string }) {
@@ -17,19 +18,17 @@ export default function BracketsPage({ apiUrl }: { apiUrl: string }) {
 
 function Missing() {
   return (
-    <div className="rating-card waiting-message">
+    <Message>
       No tournament shown as a bracket has that name. <a href={bracketHref()}>See every bracket</a>.
-    </div>
+    </Message>
   );
 }
 
 function BracketList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Found<{ cat: Catalogue; editions: BlitzEditionRow[] }>>({ kind: 'loading' });
-  useEffect(() => {
-    Promise.all([currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)), blitzEditions(apiUrl)])
-      .then(([cat, blitz]) => setLoad({ kind: 'ready', data: { cat, editions: blitz.editions } }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl]);
+  const load = useFound('brackets', async () => {
+    const [cat, blitz] = await Promise.all([currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)), blitzEditions(apiUrl)]);
+    return { cat, editions: blitz.editions };
+  });
   const brackets = load.kind === 'ready' ? load.data.cat.tournaments.filter((t) => t.bracket) : [];
   const editions = load.kind === 'ready' ? load.data.editions : [];
   return (
@@ -42,7 +41,7 @@ function BracketList({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
       {load.kind !== 'ready' && <Waiting load={load} what="the brackets" />}
-      {load.kind === 'ready' && brackets.length === 0 && <div className="rating-card waiting-message">No tournament is shown as a bracket yet.</div>}
+      {load.kind === 'ready' && brackets.length === 0 && <Message>No tournament is shown as a bracket yet.</Message>}
       {brackets.length > 0 && (
         <div className="series-grid">
           {brackets.map((t) => {
@@ -56,17 +55,11 @@ function BracketList({ apiUrl }: { apiUrl: string }) {
 }
 
 function TournamentBracket({ apiUrl, slug, asked }: { apiUrl: string; slug: string; asked: string | null }) {
-  const [load, setLoad] = useState<Found<{ run: number; t: CatalogueTournament }>>({ kind: 'loading' });
+  const load = useFound(slug, () => currentRun(apiUrl).then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t }))));
   const [season, setSeason] = useState<string | null>(null);
   useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => catalogueTournament(apiUrl, r.run_id, slug).then((t) => ({ run: r.run_id, t })))
-      .then((data) => {
-        setLoad({ kind: 'ready', data });
-        setSeason(openingSeason(data.t.seasons, asked));
-      })
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug, asked]);
+    if (load.kind === 'ready') setSeason(openingSeason(load.data.t.seasons, asked));
+  }, [load, asked]);
   if (load.kind === 'missing') return <Missing />;
   if (load.kind !== 'ready') return <Waiting load={load} what="this bracket" />;
   const { run, t } = load.data;

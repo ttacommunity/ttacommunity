@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -47,7 +47,7 @@ import {
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
@@ -60,8 +60,9 @@ import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
 import { viewLinks, type Link } from '../lib/navigate';
-import { errorText, type Load } from '@ttac/shared/load';
-import { score } from '@ttac/shared/numbers';
+import { type Load } from '@ttac/shared/load';
+import { counted, ordinal, score } from '@ttac/shared/numbers';
+import Message from './Message';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -70,7 +71,7 @@ function readView(): PlayerView {
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<PlayerView>(readView);
-  const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const run = useLoad(String(view.ranking), () => currentRun(apiUrl, view.ranking).then((r) => r.run_id));
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
@@ -84,17 +85,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-
-  useEffect(() => {
-    let stale = false;
-    setRun({ kind: 'loading' });
-    currentRun(apiUrl, view.ranking)
-      .then((r) => !stale && setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => !stale && setRun({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const model = pageModel(view.engine, view.reset);
@@ -210,9 +200,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card waiting-message">{children}</div>;
-}
 
 function Header({
   player,
@@ -627,8 +614,8 @@ function PositionSeatStats({
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
             <span className="banner-metric-sub">
-              ({overall.total_wins} {overall.total_wins === 1 ? 'win' : 'wins'}
-              {overall.total_draws > 0 ? ` · ${overall.total_draws} ${overall.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+              ({counted(overall.total_wins, 'win')}
+              {overall.total_draws > 0 ? ` · ${counted(overall.total_draws, 'draw')}` : ''}
               {' '}· {overall.win_rate.toFixed(1)}%)
             </span>
           </div>
@@ -694,7 +681,7 @@ function PositionSeatStats({
                     <strong>{group.player_count}-Player Tables</strong>
                     <span className="group-meta">
                       {' '}— {group.total_games} games · {group.total_wins} wins
-                      {group.total_draws > 0 ? ` · ${group.total_draws} ${group.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+                      {group.total_draws > 0 ? ` · ${counted(group.total_draws, 'draw')}` : ''}
                       {' '}({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
                     </span>
                   </td>
@@ -730,7 +717,7 @@ function PositionSeatStats({
                             <span
                               key={p.place}
                               className={`place-rate-pill place-pill-${p.place}`}
-                              title={`${p.place}${p.place === 1 ? 'st' : p.place === 2 ? 'nd' : p.place === 3 ? 'rd' : 'th'} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
+                              title={`${ordinal(p.place)} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
                             >
                               <span className="pill-place">{p.place}:</span> {p.count}{' '}
                               <span className="pill-pct">({p.rate.toFixed(0)}%)</span>

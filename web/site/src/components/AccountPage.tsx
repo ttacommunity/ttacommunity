@@ -1,50 +1,13 @@
 /** The account page: how to sign in, with Discord, an emailed link, Microsoft or Google; once signed in, the ways in (added or removed), asking to be linked to a TTA username, or, linked, the player's own country and zone and any ban; the data we keep, signing out, and deleting the account. A first sign-in lands here, with the way back to the page it started from. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import SaveNotice from './SaveNotice';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
 import { viewerZone } from '@ttac/shared/time';
-import {
-  accountState,
-  addWayInHref,
-  addEmail,
-  askToBeLinked,
-  backLabel,
-  backPath,
-  banNotice,
-  browserStorage,
-  changeMyDetails,
-  countryOptions,
-  deleteAccount,
-  deleteQuestion,
-  draftChanges,
-  fetchCountries,
-  fetchMe,
-  isFirstSignIn,
-  needsContact,
-  rememberSignedIn,
-  removeWayIn,
-  saveOutcome,
-  sharedMe,
-  signedInAs,
-  signInHref,
-  signInNotice,
-  SIGNERS,
-  signOut,
-  suggestedCountry,
-  waysIn,
-  withoutSignInParam,
-  zoneOptions,
-  type AccountState,
-  type Country,
-  type Done,
-  type Draft,
-  type Me,
-  type SaveOutcome,
-  type Signer,
-} from '../lib/account';
+import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPath, banNotice, changeMyDetails, countryOptions, deleteAccount, deleteQuestion, draftChanges, fetchCountries, fetchMe, isFirstSignIn, needsContact, rememberSignedIn, removeWayIn, saveOutcome, sharedMe, signedInAs, signInHref, signInNotice, SIGNERS, signOut, suggestedCountry, waysIn, withoutSignInParam, zoneOptions, type AccountState, type Country, type Done, type Draft, type Me, type SaveOutcome, type Signer } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import KeptData from './KeptData';
@@ -53,6 +16,7 @@ import Turnstile from './Turnstile';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Account.css';
+import Note from '@ttac/shared/Note';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
@@ -78,7 +42,7 @@ function SignerLink({ signer, href, children }: { signer: Signer; href: string; 
 /** AccountPage asks who is signed in and shows what they can do next. */
 export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   const [params] = useState(() => new URLSearchParams(window.location.search));
-  const notice = signInNotice(params);
+  const [notice, setNotice] = useState(() => signInNotice(params));
   const first = isFirstSignIn(params);
   const back = backPath(params.get('back'));
   const [load, setLoad] = useState<Load<Me | null>>({ kind: 'loading' });
@@ -106,9 +70,9 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
         <div className="tournaments-subtitle">Sign in to take part in what the community runs, as the player you are on CGE.</div>
       </div>
       {notice !== null && (
-        <p className={`rating-card account-card account-notice account-notice-${notice.kind}`} role="alert">
-          {notice.text}
-        </p>
+        <div className="rating-card account-card">
+          <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
+        </div>
       )}
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="your account" />
@@ -253,6 +217,7 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
         round={round}
         busy={busy}
         problem={problem}
+        clearProblem={() => setProblem('')}
         turnstileSitekey={turnstileSitekey}
         send={send}
       />
@@ -268,12 +233,13 @@ type EmailFormProps = {
   round: number;
   busy: boolean;
   problem: string;
+  clearProblem: () => void;
   turnstileSitekey: string;
   send: (e: FormEvent) => Promise<void>;
 };
 
 /** EmailForm asks for the address, with Turnstile's check, once the player opens it. */
-function EmailForm({ address, setAddress, token, setToken, round, busy, problem, turnstileSitekey, send }: EmailFormProps) {
+function EmailForm({ address, setAddress, token, setToken, round, busy, problem, clearProblem, turnstileSitekey, send }: EmailFormProps) {
   return (
     <form className="account-form" onSubmit={(e) => void send(e)}>
       <label htmlFor="account-email">Your email address</label>
@@ -293,11 +259,7 @@ function EmailForm({ address, setAddress, token, setToken, round, busy, problem,
           {busy ? 'Sending…' : 'Email me a sign-in link'}
         </button>
       </div>
-      {problem !== '' && (
-        <p className="account-problem" role="alert">
-          {problem}
-        </p>
-      )}
+      {problem !== '' && <OutcomeNotice kind="refused" text={problem} onClose={clearProblem} />}
     </form>
   );
 }
@@ -467,7 +429,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
         <BackLink back={back} changed={changed} saved={outcome?.kind === 'done' && !changed} />
       </div>
       <div role="status">
-        <SaveNotice outcome={outcome} onClose={() => setOutcome(null)} />
+        {outcome !== null && <OutcomeNotice kind={outcome.kind} text={outcome.text} onClose={() => setOutcome(null)} />}
       </div>
     </form>
   );
@@ -531,10 +493,10 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
         </div>
       )}
       {needsContact(me) && !changing && (
-        <p className="account-contact" role="note">
+        <Note>
           We have no way to reach you: you don&apos;t use Discord here, and we have no email address for you. Add one below, so organisers can contact you
           about events you sign up for.
-        </p>
+        </Note>
       )}
       {(canAdd.email || changing) && (
         <form className="account-form" onSubmit={(e) => void add(e)}>
@@ -570,11 +532,7 @@ function WaysIn({ apiUrl, me, refresh }: { apiUrl: string; me: Me; refresh: () =
           </div>
         </form>
       )}
-      {said !== null && (
-        <p className={said.ok ? undefined : 'account-problem'} role={said.ok ? 'status' : 'alert'}>
-          {said.text}
-        </p>
-      )}
+      {said !== null && <OutcomeNotice kind={said.ok ? 'done' : 'refused'} text={said.text} onClose={() => setSaid(null)} />}
     </div>
   );
 }
@@ -605,11 +563,7 @@ function SignOut({ apiUrl, state, zone }: { apiUrl: string; state: AccountState;
       <button type="button" className="btn-antique btn-danger" onClick={(e) => void remove(e.currentTarget)}>
         Delete account
       </button>
-      {problem !== '' && (
-        <p className="account-problem" role="alert">
-          {problem}
-        </p>
-      )}
+      {problem !== '' && <OutcomeNotice kind="refused" text={problem} onClose={() => setProblem('')} />}
     </div>
   );
 }

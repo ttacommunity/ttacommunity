@@ -4,7 +4,7 @@ import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '../lib/countries';
 import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
@@ -13,7 +13,7 @@ import { memberToAdd, type PersonDetails } from '../lib/person-form';
 import { howLinked, signInGroups, who } from '../lib/sign-ins';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';
-import Notice, { LoadNotice, NoticeRow } from './Notice';
+import Notice, { Loading, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
 import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
@@ -62,7 +62,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     });
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
-    setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setMembers(loadOf(r));
   };
   useEffect(() => {
     void load();
@@ -155,8 +155,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
       <div className="admin-subsection">
         <h3>Every member</h3>
         <Notice outcome={shownAt(outcome, 'members')} onClose={close} />
-        {members.kind === 'loading' && <p className="muted">Loading…</p>}
-        {members.kind === 'error' && <LoadNotice message={members.message} />}
+        <Loading load={members} />
         {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
         {members.kind === 'ready' && members.data.length > 0 && (
           <fieldset className="check-kinds">
