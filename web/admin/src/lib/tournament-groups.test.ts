@@ -12,6 +12,8 @@ import {
   membersOf,
   moveChoices,
   newGroupBody,
+  ratedLabel,
+  ratedTracks,
   rowTotals,
   seasonDestinations,
   toggled,
@@ -156,6 +158,31 @@ describe('tournament groups', () => {
     [false, ['b']],
   ])('lists the top level, rated %s', (rated, want) => {
     expect(slugs(listed(ROWS, rated))).toEqual(want);
+  });
+
+  const TRACKS = [
+    { slug: 'sb_only', parent: '', is_group: false, rated: false, superblitz_rated: true },
+    { slug: 'std_only', parent: '', is_group: false, rated: true, superblitz_rated: false },
+    { slug: 'mixed_group', parent: '', is_group: true, rated: false, superblitz_rated: false },
+    { slug: 'm_std', parent: 'mixed_group', is_group: false, rated: true, superblitz_rated: false },
+    { slug: 'm_sb', parent: 'mixed_group', is_group: false, rated: false, superblitz_rated: true },
+    { slug: 'sb_group', parent: '', is_group: true, rated: false, superblitz_rated: false },
+    { slug: 'g_sb', parent: 'sb_group', is_group: false, rated: false, superblitz_rated: true },
+    { slug: 'unrated', parent: '', is_group: false, rated: false, superblitz_rated: false },
+  ];
+  it.each([
+    ['standard tournament', 'std_only', { standard: true, superblitz: false }, 'Std'],
+    ['superblitz tournament', 'sb_only', { standard: false, superblitz: true }, 'SB'],
+    ['mixed group', 'mixed_group', { standard: true, superblitz: true }, 'Std, SB'],
+    ['superblitz-only group', 'sb_group', { standard: false, superblitz: true }, 'SB'],
+    ['unrated tournament', 'unrated', { standard: false, superblitz: false }, '–'],
+  ])('reports rated tracks and label for %s', (_, slug, wantTracks, wantLabel) => {
+    expect(ratedTracks(TRACKS, slug)).toEqual(wantTracks);
+    expect(ratedLabel(TRACKS, slug)).toBe(wantLabel);
+  });
+
+  it('lists standard-rated items before superblitz-only items', () => {
+    expect(slugs(listed(TRACKS, true))).toEqual(['std_only', 'mixed_group', 'sb_only', 'sb_group']);
   });
 
   it.each([

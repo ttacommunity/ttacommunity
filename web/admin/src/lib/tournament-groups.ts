@@ -98,15 +98,39 @@ export function groupTotals<T extends Played>(
   return { games, first, last };
 }
 
-/** isRated says whether slug counts as rated: a tournament by its own setting, a group when anything in it is. */
-export function isRated<T extends { slug: string; parent: string; is_group: boolean; rated: boolean; superblitz_rated?: boolean }>(
-  list: readonly T[],
-  slug: string,
-): boolean {
+type RatedItem = { slug: string; parent: string; is_group: boolean; rated: boolean; superblitz_rated?: boolean };
+
+/** ratedTracks reports which rating tracks (standard, superblitz) apply to slug, recursively for groups. */
+export function ratedTracks<T extends RatedItem>(list: readonly T[], slug: string, seen = new Set<string>()): { standard: boolean; superblitz: boolean } {
   const t = list.find((x) => x.slug === slug);
-  if (t === undefined) return false;
-  if (!t.is_group) return t.rated || Boolean(t.superblitz_rated);
-  return list.some((m) => m.parent === slug && isRated(list, m.slug));
+  if (t === undefined || seen.has(slug)) return { standard: false, superblitz: false };
+  if (!t.is_group) return { standard: t.rated, superblitz: Boolean(t.superblitz_rated) };
+  const next = new Set(seen);
+  next.add(slug);
+  let standard = false;
+  let superblitz = false;
+  for (const m of list) {
+    if (m.parent !== slug) continue;
+    const sub = ratedTracks(list, m.slug, next);
+    if (sub.standard) standard = true;
+    if (sub.superblitz) superblitz = true;
+  }
+  return { standard, superblitz };
+}
+
+/** ratedLabel formats a tournament or group's rating tracks for the admin table. */
+export function ratedLabel<T extends RatedItem>(list: readonly T[], slug: string): string {
+  const { standard, superblitz } = ratedTracks(list, slug);
+  if (standard && superblitz) return 'Std, SB';
+  if (standard) return 'Std';
+  if (superblitz) return 'SB';
+  return '–';
+}
+
+/** isRated says whether slug counts as rated: a tournament by its own setting, a group when anything in it is. */
+export function isRated<T extends RatedItem>(list: readonly T[], slug: string): boolean {
+  const { standard, superblitz } = ratedTracks(list, slug);
+  return standard || superblitz;
 }
 
 /** typeLabel names a row's type: a tournament's kind; a group says what it groups. */
@@ -121,9 +145,11 @@ export function rowTotals<T extends Played>(list: readonly T[], t: T): { games: 
   return t.is_group ? groupTotals(list, t.slug) : { games: t.games, first: t.first_game, last: t.last_game };
 }
 
-/** listed returns the top level that is rated, or that is not. */
-export function listed<T extends { slug: string; parent: string; is_group: boolean; rated: boolean; superblitz_rated?: boolean }>(list: readonly T[], rated: boolean): T[] {
-  return list.filter((t) => t.parent === '' && isRated(list, t.slug) === rated);
+/** listed returns the top level that is rated (Standard-rated before SuperBlitz-only), or that is not. */
+export function listed<T extends RatedItem>(list: readonly T[], rated: boolean): T[] {
+  const rows = list.filter((t) => t.parent === '' && isRated(list, t.slug) === rated);
+  if (!rated) return rows;
+  return rows.sort((a, b) => (ratedTracks(list, a.slug).standard ? 0 : 1) - (ratedTracks(list, b.slug).standard ? 0 : 1));
 }
 
 /** moveChoices returns where slug can move: out of every group ("" first, when it is in one), then each group it can join. */
