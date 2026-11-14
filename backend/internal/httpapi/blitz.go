@@ -145,7 +145,7 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 			start = new(starts[s.ID])
 		}
 		out = append(out, BlitzStanding{Rank: s.Rank, PlaceFrom: s.PlaceFrom, PlaceTo: s.PlaceTo, Name: names[s.ID], Country: nullableText(countries[s.ID]), StartingRank: start, Points: s.Points, Games: s.Games,
-			Byes: s.Byes, BuchholzCut1: s.BuchholzCut1, Buchholz: s.Buchholz, SonnebornBerger: s.SonnebornBerger, OpponentsBuchholz: s.OpponentsBuchholz,
+			Wins: s.Wins, Losses: s.Losses, Draws: s.Draws, Byes: s.Byes, ForfeitPoints: s.ForfeitPoints, ByePoints: s.ByePoints, BuchholzCut1: s.BuchholzCut1, Buchholz: s.Buchholz, SonnebornBerger: s.SonnebornBerger, OpponentsBuchholz: s.OpponentsBuchholz,
 			OpponentsSonnebornBerger: s.OpponentsSonnebornBerger, Status: EntrantStatus(status)})
 	}
 	return out

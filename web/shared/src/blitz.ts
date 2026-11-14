@@ -292,12 +292,25 @@ export const UNPLAYED_NOTE = "A bye, a forfeit or a missed round counts as a gam
 export type BlitzStanding = components['schemas']['BlitzStanding'];
 
 /** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
-export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'played' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
+/** resultsLabel formats a standing's non-forfeit record as Win-Loss-Tie. */
+export function resultsLabel(s: Pick<BlitzStanding, 'wins' | 'losses' | 'draws'>): string {
+  return `${s.wins}-${s.losses}-${s.draws}`;
+}
+
+/** pointsNote explains points scored outside played games (forfeits and byes), or null when none. */
+export function pointsNote(s: Pick<BlitzStanding, 'forfeit_points' | 'bye_points'>): string | null {
+  const parts: string[] = [];
+  if (s.forfeit_points > 0) parts.push(`${s.forfeit_points} ${s.forfeit_points === 1 ? "point by opponent's forfeit" : "points by opponents' forfeit"}`);
+  if (s.bye_points > 0) parts.push(`${s.bye_points} ${s.bye_points === 1 ? 'point by bye' : 'points by bye'}`);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'results' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
   rank: { value: (s) => s.rank, first: 'asc' },
   start: { value: (s) => s.starting_rank, first: 'asc' },
   player: { value: (s) => s.name, first: 'asc' },
   points: { value: (s) => s.points, first: 'desc' },
-  played: { value: (s) => s.games, first: 'desc' },
+  results: { value: (s) => [s.wins, s.draws, s.games], first: 'desc' },
   byes: { value: (s) => s.byes, first: 'desc' },
   cut1: { value: (s) => s.buchholz_cut1, first: 'desc' },
   buchholz: { value: (s) => s.buchholz, first: 'desc' },
