@@ -17,7 +17,7 @@ import (
 var (
 	channelIDPattern = regexp.MustCompile(`^UC[A-Za-z0-9_-]{22}$`)
 	channelInURL     = regexp.MustCompile(`/channel/(UC[A-Za-z0-9_-]{22})`)
-	channelInHTML    = regexp.MustCompile(`"channelId"\s*:\s*"(UC[A-Za-z0-9_-]{22})"`)
+	channelInHTML    = regexp.MustCompile(`"(?:channelId|externalId|browseId)"\s*:\s*"(UC[A-Za-z0-9_-]{22})"`)
 	keywordsMeta     = regexp.MustCompile(`<meta\s+name="keywords"\s+content="([^"]*)"`)
 	ttaWord          = regexp.MustCompile(`(?i)\btta\b`)
 )
@@ -131,11 +131,14 @@ func (f *Fetcher) ResolveChannel(ctx context.Context, raw string) (string, error
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || (!strings.HasSuffix(u.Hostname(), "youtube.com") && !strings.HasSuffix(u.Hostname(), "youtu.be")) {
 		return "", errors.New("invalid YouTube channel URL or id")
 	}
-	body, err := f.get(ctx, u.String(), 2<<20)
+	body, err := f.get(ctx, u.String(), 4<<20)
 	if err != nil {
 		return "", fmt.Errorf("fetching channel page: %w", err)
 	}
 	if m := channelInHTML.FindSubmatch(body); len(m) == 2 {
+		return string(m[1]), nil
+	}
+	if m := channelInURL.FindSubmatch(body); len(m) == 2 {
 		return string(m[1]), nil
 	}
 	return "", errors.New("could not find a YouTube channel id at that URL")
@@ -170,7 +173,9 @@ func (f *Fetcher) get(ctx context.Context, rawURL string, limit int64) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ttacommunity/1.0)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Cookie", "SOCS=CAI")
 	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, err

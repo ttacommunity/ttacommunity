@@ -879,3 +879,80 @@
   box-sizing: border-box;
   width: 100%;
 }
+
+/* Admin Movies panel: creator intake well, tabular listings, and compact video thumbnails. */
+.movies-add-card {
+  margin: 1rem 0 1.25rem;
+  padding: 0.9rem 1rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-well);
+}
+.movies-add-card h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.movies-add-card .admin-add {
+  margin-top: 0.65rem;
+}
+.movies-field-wide {
+  flex: 1 1 18rem;
+}
+.movies-include-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: var(--control-height);
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.movies-sections {
+  display: grid;
+  gap: 1.5rem;
+}
+.movies-subheading {
+  margin: 0 0 0.6rem;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  color: var(--accent-gold);
+}
+.movies-creator-name {
+  font-weight: 600;
+}
+.movies-channel-id code {
+  font-family: var(--font-stats);
+  font-size: 0.82rem;
+}
+.movies-video-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 16rem;
+}
+.movies-thumb {
+  flex: 0 0 auto;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--border-subtle);
+}
+.movies-date {
+  white-space: nowrap;
+}
+.movies-status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.movies-status-visible {
+  color: var(--win);
+  border: 1px solid var(--win);
+}
+.movies-status-hidden {
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
