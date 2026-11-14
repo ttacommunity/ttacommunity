@@ -6,15 +6,15 @@ import type { AdminTournament, AdminTournamentRow } from '../lib/admin-api';
 import { seasonSummary, stageRows } from '../lib/season-counts';
 import { toggled } from '@ttac/shared/toggle';
 import { fieldId, hasPenalty, renamedFrom, seasonBox } from '../lib/tournament-page';
-import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
 import MoveSeasonButton from './MoveSeasonButton';
 import NoteBox from './NoteBox';
 import OrganiserBox from './OrganiserBox';
-import Notice from './Notice';
 import PenaltyBox from './PenaltyBox';
 import PodiumBox from './PodiumBox';
 import StagesTable from './StagesTable';
 import { counted } from '@ttac/shared/numbers';
+import { PlacedRefusal, SaveWord } from './SaveBar';
+import { useSave } from './useSave';
 
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
@@ -27,35 +27,28 @@ export default function SeasonsCard({
   all?: readonly AdminTournamentRow[];
   onReload: () => Promise<void>;
 }) {
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
-  const close = () => setRefusal(null);
+  const saving = useSave();
   const dialog = useDialog();
   const [shown, setShown] = useState<string[]>([]);
   const toggle = (label: string) => setShown((s) => toggled(s, label));
   const [newSeason, setNewSeason] = useState('');
   const addSeason = async (e: FormEvent) => {
     e.preventDefault();
-    setRefusal(null);
-    const r = await req.send(req.addSeason(t.slug, newSeason));
-    setRefusal(refusalOf(r, 'add season'));
-    if (r.ok) {
+    const r = await saving.run(() => req.send(req.addSeason(t.slug, newSeason)), { done: 'Added', at: 'add season' });
+    if (r?.ok) {
       setNewSeason('');
       await onReload();
     }
   };
   const setFlag = async (label: string, flag: req.SeasonFlag, on: boolean) => {
-    setRefusal(null);
-    const r = await req.send(req.setSeasonFlag(t.slug, label, flag, on));
-    setRefusal(refusalOf(r, `season ${label}`));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.setSeasonFlag(t.slug, label, flag, on)), { done: 'Saved', at: `season ${label} ${flag}` });
+    if (r?.ok) await onReload();
   };
   const removeSeason = async (label: string, opener: HTMLElement) => {
     const sure = await dialog.confirm({ heading: `Remove ${t.name} season ${label}?`, text: 'Its notes go with it.', action: 'Remove season', final: true }, opener);
     if (!sure) return;
-    setRefusal(null);
-    const r = await req.send(req.removeSeason(t.slug, label));
-    setRefusal(refusalOf(r, `season ${label}`));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.removeSeason(t.slug, label)), { done: 'Removed', working: 'Removing…', at: `season ${label}` });
+    if (r?.ok) await onReload();
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="seasons-heading">
@@ -71,8 +64,9 @@ export default function SeasonsCard({
         <button type="submit" className="btn-antique" disabled={newSeason.trim() === ''}>
           Add season
         </button>
+        <SaveWord save={saving} at="add season" />
       </form>
-      <Notice outcome={shownAt(refusal, 'add season')} onClose={close} />
+      <PlacedRefusal save={saving} at="add season" />
       {t.seasons.length === 0 && <p className="muted">No seasons yet.</p>}
       {t.seasons.map((se) => {
         const sum = seasonSummary(se);
@@ -112,6 +106,7 @@ export default function SeasonsCard({
                   ? "(the tournament isn't rated: tick Rated (Standard) or Rated (SuperBlitz) in its settings first)"
                   : '(from the next engine run; its games still show, marked not rated)'}
               </span>
+              <SaveWord save={saving} at={`season ${se.label} rated`} />
             </label>
             <label className="season-rated">
               <input
@@ -121,6 +116,7 @@ export default function SeasonsCard({
                 onChange={(e) => void setFlag(se.label, 'champions', e.target.checked)}
               />{' '}
               Winner listed among the champions <span className="muted">(such as the Hall of Fame's World Champions; untick a play-off)</span>
+              <SaveWord save={saving} at={`season ${se.label} champions`} />
             </label>
             <label className="season-rated">
               <input
@@ -136,6 +132,7 @@ export default function SeasonsCard({
                   ? "(the tournament doesn't count: tick Community leaderboard in its settings first)"
                   : '(from the next engine run; untick a play-off that should not score)'}
               </span>
+              <SaveWord save={saving} at={`season ${se.label} community`} />
             </label>
             <label className="season-rated">
               <input
@@ -146,6 +143,7 @@ export default function SeasonsCard({
               />{' '}
               Run on this site{' '}
               <span className="muted">(CGE only advertises it: its CGE page shows, but CGE's loads never add its stages, games or settings)</span>
+              <SaveWord save={saving} at={`season ${se.label} here`} />
             </label>
             {!se.has_games && (
               <div className="season-empty">
@@ -155,7 +153,12 @@ export default function SeasonsCard({
                 </button>
               </div>
             )}
-            <Notice outcome={shownAt(refusal, `season ${se.label}`)} onClose={close} />
+            <PlacedRefusal save={saving} at={`season ${se.label} rated`} />
+            <PlacedRefusal save={saving} at={`season ${se.label} champions`} />
+            <PlacedRefusal save={saving} at={`season ${se.label} community`} />
+            <PlacedRefusal save={saving} at={`season ${se.label} here`} />
+            <SaveWord save={saving} at={`season ${se.label}`} />
+            <PlacedRefusal save={saving} at={`season ${se.label}`} />
             {hasPenalty(t.kind, se.label) && <PenaltyBox slug={t.slug} season={se.label} initial={se.timeout_penalty} />}
             <OrganiserBox slug={t.slug} season={se.label} initial={se.organiser} cge={se.cge_organiser} />
             <NoteBox slug={t.slug} season={se.label} stage="" initial={se.note} />
