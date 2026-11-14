@@ -2,8 +2,8 @@
 import { Fragment, useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
-import { refusalOf, refused, shownAt, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import { PlacedRefusal, SaveWord } from './SaveBar';
+import { useSave } from './useSave';
 import {
   divisionList,
   divisionsChanged,
@@ -20,8 +20,7 @@ import {
 
 /** SettingsCard switches a tournament's settings, saving each at once; a refusal shows under the setting refused. */
 export default function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
-  const notice = (at: string) => <Notice outcome={shownAt(refusal, at)} onClose={() => setRefusal(null)} />;
+  const saving = useSave();
   const [name, setName] = useState(t.name);
   const [divisions, setDivisions] = useState(divisionText(t.top_divisions));
   const [points, setPoints] = useState({ 2: pointsText(t.points_2p), 3: pointsText(t.points_3p), 4: pointsText(t.points_4p) });
@@ -30,15 +29,13 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
   const levelChange = levelNamesPatch(levels, t);
   // Shows the change at once, and puts the tournament back if the API refuses it.
   const patch = async (change: Partial<AdminTournament>, at: string) => {
-    setRefusal(null);
     onChange({ ...t, ...change });
-    const r = await req.send(req.setTournament(t.slug, change));
-    setRefusal(refusalOf(r, at));
-    if (!r.ok) onChange(t);
+    const r = await saving.run(() => req.send(req.setTournament(t.slug, change)), { done: 'Saved', at });
+    if (!r?.ok) onChange(t);
   };
   const setCount = (n: number, on: boolean) => {
     const next = toggledCounts(t.rated_player_counts, n, on);
-    if (next === null) setRefusal(refused('At least one player count stays rated; to rate none, untick Rated above.', 'rated counts'));
+    if (next === null) saving.refuse('At least one player count stays rated; to rate none, untick Rated above.', 'rated counts');
     else void patch({ rated_player_counts: next }, 'rated counts');
   };
   return (
@@ -68,8 +65,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
                     {box.note !== '' && ` ${box.note}`}
                   </span>
                 </label>
+                <SaveWord save={saving} at={s.key} />
               </div>
-              {notice(s.key)}
+              <PlacedRefusal save={saving} at={s.key} />
             </Fragment>
           );
         })}
@@ -89,8 +87,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
               {n}-player
             </label>
           ))}
+          <SaveWord save={saving} at={'rated counts'} />
         </fieldset>
-        {notice('rated counts')}
+        <PlacedRefusal save={saving} at={'rated counts'} />
         <div className="setting">
           <label htmlFor="setting-name">
             <strong>Name</strong>
@@ -105,8 +104,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
           >
             Save
           </button>
+          <SaveWord save={saving} at={'name'} />
         </div>
-        {notice('name')}
+        <PlacedRefusal save={saving} at={'name'} />
         <div className="setting">
           <label htmlFor="setting-kind">
             <strong>Kind</strong>
@@ -117,8 +117,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             <option value="cup">Cup</option>
             <option value="ladder">Ladder</option>
           </select>
+          <SaveWord save={saving} at={'kind'} />
         </div>
-        {notice('kind')}
+        <PlacedRefusal save={saving} at={'kind'} />
         <div className="setting">
           <label htmlFor="setting-podium-source">
             <strong>Podium source</strong>
@@ -136,8 +137,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             <option value="recorded">Organisers' recorded placements</option>
             <option value="none">None</option>
           </select>
+          <SaveWord save={saving} at={'podium source'} />
         </div>
-        {notice('podium source')}
+        <PlacedRefusal save={saving} at={'podium source'} />
         {(t.podium_source === 'top_divisions' || (t.podium_source == null && t.kind === 'league')) && (
           <div className="setting">
             <label htmlFor="setting-top">
@@ -155,7 +157,8 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             </button>
           </div>
         )}
-        {notice('top divisions')}
+        <SaveWord save={saving} at={'top divisions'} />
+        <PlacedRefusal save={saving} at={'top divisions'} />
         <fieldset className="setting-counts">
           <legend>
             <strong>Points per place</strong>
@@ -186,8 +189,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
             Save
           </button>
           {scoring === null && <span className="muted"> One number per place, never higher for a worse place</span>}
+          <SaveWord save={saving} at={'points'} />
         </fieldset>
-        {notice('points')}
+        <PlacedRefusal save={saving} at={'points'} />
         <fieldset className="setting-counts">
           <legend>
             <strong>Words on its pages</strong>
@@ -223,8 +227,9 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
           >
             Save
           </button>
+          <SaveWord save={saving} at={'levels'} />
         </fieldset>
-        {notice('levels')}
+        <PlacedRefusal save={saving} at={'levels'} />
       </div>
     </section>
   );

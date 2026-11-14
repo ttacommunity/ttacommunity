@@ -3,23 +3,20 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import { recordGames, tiersChanged, tiersList, tiersText } from '../lib/league-rules';
-import { refusalOf, shownAt, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import { PlacedRefusal, SaveWord } from './SaveBar';
+import { useSave } from './useSave';
 
 /** LeagueRulesCard edits a league's rules, saving each at once; a refusal shows under the rule refused. */
 export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
-  const notice = (at: string) => <Notice outcome={shownAt(refusal, at)} onClose={() => setRefusal(null)} />;
+  const saving = useSave();
   const [tiers, setTiers] = useState(tiersText(t.divisions));
   const [games, setGames] = useState(String(t.record_min_games));
   const gamesValue = recordGames(games);
   // Shows the change at once, and puts the tournament back if the API refuses it.
   const patch = async (change: Partial<AdminTournament>, at: string) => {
-    setRefusal(null);
     onChange({ ...t, ...change });
-    const r = await req.send(req.setTournament(t.slug, change));
-    setRefusal(refusalOf(r, at));
-    if (!r.ok) onChange(t);
+    const r = await saving.run(() => req.send(req.setTournament(t.slug, change)), { done: 'Saved', at });
+    if (!r?.ok) onChange(t);
   };
   return (
     <section className="rating-card admin-card" aria-labelledby="league-rules-heading">
@@ -46,16 +43,18 @@ export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; o
             Save
           </button>
           {tiersList(tiers) === null && <span className="muted"> A name and a tier from 1 to 7 for each division, each named once</span>}
+          <SaveWord save={saving} at={'tiers'} />
         </div>
-        {notice('tiers')}
+        <PlacedRefusal save={saving} at={'tiers'} />
         <div className="setting">
           <input id="league-super-gm" type="checkbox" checked={t.super_gm} onChange={(e) => void patch({ super_gm: e.target.checked }, 'super gm')} />
           <label htmlFor="league-super-gm">
             <strong>Super GM</strong>
             <span className="muted"> · A win in its top divisions makes a Super GM</span>
           </label>
+          <SaveWord save={saving} at={'super gm'} />
         </div>
-        {notice('super gm')}
+        <PlacedRefusal save={saving} at={'super gm'} />
         <div className="setting">
           <label htmlFor="league-record-games">
             <strong>Games for a season record</strong>
@@ -72,8 +71,9 @@ export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; o
           >
             Save
           </button>
+          <SaveWord save={saving} at={'record games'} />
         </div>
-        {notice('record games')}
+        <PlacedRefusal save={saving} at={'record games'} />
       </div>
     </section>
   );

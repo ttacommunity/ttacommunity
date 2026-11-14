@@ -6,16 +6,16 @@ const OK: AdminResult<{ moved: number }> = { ok: true, data: { moved: 3 } };
 const NO: AdminResult<{ moved: number }> = { ok: false, status: 409, message: 'Refused: that name is taken.' };
 
 /** states runs a save and returns every state it set, and its result. */
-async function states(send: (() => Promise<AdminResult<{ moved: number }>>) | null, done: string | ((d: { moved: number }) => string), working?: string) {
+async function states(send: (() => Promise<AdminResult<{ moved: number }>>) | null, done: string | ((d: { moved: number }) => string), working?: string, at?: string) {
   const seen: SaveState[] = [];
-  const r = await runSave(send, { done, working }, (s) => seen.push(s));
+  const r = await runSave(send, { done, working, at }, (s) => seen.push(s));
   return { seen, r };
 }
 
 describe('runSave', () => {
   it.each([
-    ['done: its word', OK, 'Saved', [{ status: 'Saving…', refusal: null }, { status: 'Saved', refusal: null }]],
-    ['refused: no word, and why', NO, 'Saved', [{ status: 'Saving…', refusal: null }, { status: '', refusal: { kind: 'refused', text: 'Refused: that name is taken.', at: '' } }]],
+    ['done: its word', OK, 'Saved', [{ status: 'Saving…', refusal: null, at: '' }, { status: 'Saved', refusal: null, at: '' }]],
+    ['refused: no word, and why', NO, 'Saved', [{ status: 'Saving…', refusal: null, at: '' }, { status: '', refusal: { kind: 'refused', text: 'Refused: that name is taken.', at: '' }, at: '' }]],
   ])('ends %s', async (_, result, done, want) => {
     const { seen } = await states(() => Promise.resolve(result), done);
     expect(seen).toEqual(want);
@@ -35,6 +35,15 @@ describe('runSave', () => {
   it('words what was done from the answer', async () => {
     const { seen } = await states(() => Promise.resolve(OK), (d) => `Moved ${d.moved} entries.`);
     expect(seen.at(-1)?.status).toBe('Moved 3 entries.');
+  });
+
+  it.each([
+    ['done', OK],
+    ['refused', NO],
+  ])('keeps where it was asked for when %s, its refusal shown there', async (_, result) => {
+    const { seen } = await states(() => Promise.resolve(result), 'Saved', undefined, 'super gm');
+    expect(seen.map((s) => s.at)).toEqual(['super gm', 'super gm']);
+    expect(seen.at(-1)?.refusal?.at ?? 'super gm').toBe('super gm');
   });
 
   it('returns the result, so the caller can act on it', async () => {
