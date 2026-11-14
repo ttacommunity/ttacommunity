@@ -218,9 +218,9 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           aria-expanded={optionsOpen}
           onClick={() => setOptionsOpen(!optionsOpen)}
         >
-          <span>?? Options</span>
+          <span>⚙️ Options</span>
           {activeOptions && <span className="options-active-badge">Active</span>}
-          <span className="btn-options-toggle-arrow">{optionsOpen ? '?' : '?'}</span>
+          <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
         </button>
       </div>
 

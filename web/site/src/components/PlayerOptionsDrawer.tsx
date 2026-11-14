@@ -127,34 +127,40 @@ export default function PlayerOptionsDrawer({
 
         <div className="chart-options-body">
           <div className="options-section">
-            <div className="options-group-title">Track</div>
-            <div className="options-section-desc">Choose which tournament rating pipeline to display across the profile.</div>
+            <div className="options-group-title" title="Choose which tournament rating pipeline to display across the profile">
+              Track
+            </div>
             <Segmented label="Track" look="raised" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Reset Mode</div>
-            <div className="options-section-desc">Continuous career ratings or gentle annual season resets.</div>
+            <div className="options-group-title" title="Continuous career ratings or gentle annual season resets">
+              Reset Mode
+            </div>
             <Segmented label="Reset mode" look="raised" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Rating Engine</div>
-            <div className="options-section-desc">Model used for career summary, format cards, and game deltas.</div>
+            <div className="options-group-title" title="Model used for career summary, format cards, and game deltas">
+              Rating Engine
+            </div>
             <Segmented label="Engine" look="raised" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
           </div>
 
           <div className="options-section-divider">Trajectory Chart</div>
 
           <div className="options-section">
-            <div className="options-group-title">Chart Models</div>
-            <div className="options-section-desc">
-              Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default.
+            <div
+              className="options-group-title"
+              title="Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default."
+            >
+              Chart Models
             </div>
             <div className="options-engine-toggles">
               <button
                 type="button"
                 className={['opt-engine-btn', chart.engines.has('glicko2_daneo') && 'active'].filter(Boolean).join(' ')}
+                title="DANeo's multiplayer-weighted Glicko-2 baseline"
                 onClick={() => toggleEngine('glicko2_daneo')}
               >
                 👑 GlickoD {chart.engines.has('glicko2_daneo') ? '✓' : ''}
@@ -162,6 +168,7 @@ export default function PlayerOptionsDrawer({
               <button
                 type="button"
                 className={['opt-engine-btn', chart.engines.has('glicko2_std') && 'active'].filter(Boolean).join(' ')}
+                title="Standard Glicko-2 model (unselected by default)"
                 onClick={() => toggleEngine('glicko2_std')}
               >
                 Glicko-2 Standard {chart.engines.has('glicko2_std') ? '✓' : ''}
@@ -170,33 +177,41 @@ export default function PlayerOptionsDrawer({
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Time Scale</div>
-            <div className="options-section-desc">
-              Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing.
+            <div
+              className="options-group-title"
+              title="Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing."
+            >
+              Time Scale
             </div>
             <Segmented label="Scale" look="raised" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Competitive Rating Tiers</div>
-            <div className="options-section-desc">
-              Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster).
+            <div
+              className="options-group-title"
+              title="Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster)."
+            >
+              Competitive Rating Tiers
             </div>
             <Segmented label="Tiers" look="raised" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Chart Reset Mode</div>
-            <div className="options-section-desc">
-              Continuous career trajectory across all seasons, annual season reset rating recalculation, or all modes.
+            <div
+              className="options-group-title"
+              title="Continuous career trajectory across all seasons, annual season reset rating recalculation, or all modes."
+            >
+              Chart Reset Mode
             </div>
             <Segmented label="Mode" look="raised" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Rating Estimate Curves</div>
-            <div className="options-section-desc">
-              Expected rating mean (E = R), conservative 99.7% lower bound (C = μ − 3σ), or all curves.
+            <div
+              className="options-group-title"
+              title="Expected rating mean (E = R), conservative 99.7% lower bound (C = μ − 3σ), or all curves."
+            >
+              Rating Estimate Curves
             </div>
             <Segmented label="Curve" look="raised" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
           </div>
