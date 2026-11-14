@@ -16,6 +16,7 @@ import {
   scoringPatch,
   seasonBox,
   settingBox,
+  settingPatch,
   opensSettings,
   settingsHref,
   slugParam,
@@ -165,6 +166,18 @@ describe('settingBox', () => {
   it('never locks another setting', () => {
     const t = { visible: false, rated: false, superblitz_rated: false, community: true, blitz: false, bracket: false };
     expect(settingBox('community', t)).toMatchObject({ checked: true, locked: false });
+  });
+});
+
+describe('settingPatch', () => {
+  it.each([
+    ['turning on Standard clears SuperBlitz', 'rated', true, { rated: true, superblitz_rated: false }],
+    ['turning off Standard only clears Standard', 'rated', false, { rated: false }],
+    ['turning on SuperBlitz clears Standard', 'superblitz_rated', true, { superblitz_rated: true, rated: false }],
+    ['turning off SuperBlitz only clears SuperBlitz', 'superblitz_rated', false, { superblitz_rated: false }],
+    ['other settings pass through', 'visible', true, { visible: true }],
+  ])('%s', (_name, key, checked, want) => {
+    expect(settingPatch(key as 'rated' | 'superblitz_rated' | 'visible', checked)).toEqual(want);
   });
 });
 

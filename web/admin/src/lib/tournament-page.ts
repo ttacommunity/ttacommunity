@@ -51,6 +51,13 @@ export function settingBox(key: Setting, t: Record<Setting, boolean>): { checked
   return { ...box, note: box.locked ? "(the tournament isn't shown or rated: tick Shown or Rated first)" : '' };
 }
 
+/** settingPatch builds the settings update for a checkbox, keeping Standard and SuperBlitz mutually exclusive. */
+export function settingPatch(key: Setting, checked: boolean): Partial<Record<Setting, boolean>> {
+  if (key === 'rated' && checked) return { rated: true, superblitz_rated: false };
+  if (key === 'superblitz_rated' && checked) return { superblitz_rated: true, rated: false };
+  return { [key]: checked };
+}
+
 /** divisionList reads a league's top divisions from a comma-separated box, dropping blanks. */
 export function divisionList(text: string): string[] {
   return text

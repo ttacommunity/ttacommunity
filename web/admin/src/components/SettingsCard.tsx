@@ -14,6 +14,7 @@ import {
   scoringPatch,
   SETTINGS,
   settingBox,
+  settingPatch,
   toggledCounts,
 } from '../lib/tournament-page';
 
@@ -57,7 +58,7 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
                   type="checkbox"
                   checked={box.checked}
                   disabled={box.locked}
-                  onChange={(e) => void patch({ [s.key]: e.target.checked }, s.key)}
+                  onChange={(e) => void patch(settingPatch(s.key, e.target.checked), s.key)}
                 />
                 <label htmlFor={`setting-${s.key}`}>
                   <strong>{s.label}</strong>
