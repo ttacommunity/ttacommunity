@@ -18,14 +18,15 @@ var ErrNoTournament = errors.New("no such tournament or season")
 // AdminTournament is one tournament as admin edits it: Regulations is admin's format and regulations text,
 // shown instead of CGERegulations, the latest edition's CGE description; either is empty for none.
 type AdminTournament struct {
-	Slug, Name     string
-	Visible        bool
-	Rated          bool
-	Community      bool
-	Blitz          bool
-	Bracket        bool
-	Regulations    string
-	CGERegulations string
+	Slug, Name      string
+	Visible         bool
+	Rated           bool
+	SuperBlitzRated bool
+	Community       bool
+	Blitz           bool
+	Bracket         bool
+	Regulations     string
+	CGERegulations  string
 	// FormatSummary is its format in brief, which its group's page lists; "" for none.
 	FormatSummary     string
 	Card              Card
@@ -140,6 +141,8 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 		SELECT t.slug, t.name, t.visible, t.in_community_leaderboard, t.blitz, t.bracket,
 		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
 		               WHERE r.slug = 'community' AND rt.series_id = t.series_id),
+		       EXISTS (SELECT 1 FROM ranking_series rt JOIN rankings r USING (ranking_id)
+		               WHERE r.slug = 'superblitz' AND rt.series_id = t.series_id),
 		       coalesce((SELECT text FROM tournament_regulations g WHERE g.tournament = t.slug), ''),
 		       coalesce(k.icon, ''), coalesce(k.tagline, ''), coalesce(k.summary, ''), coalesce(k.subtitle, ''), coalesce(k.cadence, ''),
 		       coalesce((SELECT c.description FROM cge_tournaments c WHERE c.series_id = t.series_id AND c.description <> ''
@@ -169,7 +172,7 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	}
 	var out []AdminTournament
 	var rowSlug, name string
-	var visible, community, blitz, bracket, rated bool
+	var visible, community, blitz, bracket, rated, superBlitzRated bool
 	var regulations, cgeRegulations string
 	var card Card
 	var season, stage, seasonNote, stageNote *string
@@ -187,12 +190,12 @@ func (a *AdminStore) tournament(ctx context.Context, slug string) ([]AdminTourna
 	var divisionNames []string
 	var divisionTiers []int16
 	var recordMinGames int16
-	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &bracket, &rated, &regulations,
+	_, err = pgx.ForEachRow(rows, []any{&rowSlug, &name, &visible, &community, &blitz, &bracket, &rated, &superBlitzRated, &regulations,
 		&card.Icon, &card.Tagline, &card.Summary, &card.Subtitle, &card.Cadence, &cgeRegulations, &season, &stage, &seasonOriginal, &stageOriginal, &seasonNote, &stageNote, &hasGames,
 		&seasonRated, &inChampions, &inCommunity, &runHere, &organiser, &cgeOrganiserName, &counts, &kind, &podiumSource, &top, &original, &p2, &p3, &p4, &seasonName, &stageName, &penalty, &parent, &description, &isGroup,
 		&formatSummary, &divisionNames, &divisionTiers, &superGM, &recordMinGames}, func() error {
 		if len(out) == 0 || out[len(out)-1].Slug != rowSlug {
-			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, Community: community, Blitz: blitz, Bracket: bracket,
+			out = append(out, AdminTournament{Slug: rowSlug, Name: name, Visible: visible, Rated: rated, SuperBlitzRated: superBlitzRated, Community: community, Blitz: blitz, Bracket: bracket,
 				Regulations: regulations, CGERegulations: cgeRegulations, FormatSummary: formatSummary, Card: card, RatedPlayerCounts: counts,
 				Kind: kind, PodiumSource: podiumSource, TopDivisions: top, Points: map[int][]float64{2: p2, 3: p3, 4: p4},
 				SeasonName: seasonName, StageName: stageName, OriginalName: original, Parent: parent, Description: description,

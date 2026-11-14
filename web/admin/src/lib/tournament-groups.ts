@@ -99,13 +99,13 @@ export function groupTotals<T extends Played>(
 }
 
 /** isRated says whether slug counts as rated: a tournament by its own setting, a group when anything in it is. */
-export function isRated<T extends { slug: string; parent: string; is_group: boolean; rated: boolean }>(
+export function isRated<T extends { slug: string; parent: string; is_group: boolean; rated: boolean; superblitz_rated?: boolean }>(
   list: readonly T[],
   slug: string,
 ): boolean {
   const t = list.find((x) => x.slug === slug);
   if (t === undefined) return false;
-  if (!t.is_group) return t.rated;
+  if (!t.is_group) return t.rated || Boolean(t.superblitz_rated);
   return list.some((m) => m.parent === slug && isRated(list, m.slug));
 }
 
@@ -122,7 +122,7 @@ export function rowTotals<T extends Played>(list: readonly T[], t: T): { games: 
 }
 
 /** listed returns the top level that is rated, or that is not. */
-export function listed<T extends { slug: string; parent: string; is_group: boolean; rated: boolean }>(list: readonly T[], rated: boolean): T[] {
+export function listed<T extends { slug: string; parent: string; is_group: boolean; rated: boolean; superblitz_rated?: boolean }>(list: readonly T[], rated: boolean): T[] {
   return list.filter((t) => t.parent === '' && isRated(list, t.slug) === rated);
 }
 

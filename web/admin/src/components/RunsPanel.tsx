@@ -144,10 +144,11 @@ export default function RunsPanel() {
   };
   const publish = async (run: AdminRun, opener: HTMLElement) => {
     const verb = publishVerb(runs ?? [], run);
-    if (!(await dialog.confirm({ heading: `${verb} run ${run.id}?`, text: 'The site shows it at once.', action: `${verb} run ${run.id}` }, opener))) return;
+    const trackName = trackLabel(run.ranking);
+    if (!(await dialog.confirm({ heading: `${verb} ${trackName} run ${run.id}?`, text: `The site shows it at once for ${trackName}. Other tracks keep their own published runs.`, action: `${verb} run ${run.id}` }, opener))) return;
     setOutcome(null);
     const r = await req.send(req.publishRun(run.id));
-    setOutcome(outcomeOf(r, `Run ${run.id} is now the one the site shows.`, `run ${run.id}`));
+    setOutcome(outcomeOf(r, `Run ${run.id} is now live for ${trackName}.`, `run ${run.id}`));
     await load();
   };
 
