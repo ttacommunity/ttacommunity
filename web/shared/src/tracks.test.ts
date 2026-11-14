@@ -6,7 +6,7 @@ describe('trackName', () => {
     ['community', 'Standard'],
     ['superblitz', 'SuperBlitz'],
     ['community_superblitz', 'Standard + SuperBlitz'],
-    ['pulse', 'TTA Pulse'],
+    ['pulse', 'Pulse'],
     ['other', 'other'],
   ])('names %s', (slug, want) => {
     expect(trackName(slug)).toBe(want);
