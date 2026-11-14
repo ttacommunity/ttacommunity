@@ -15,6 +15,7 @@ import StagesTable from './StagesTable';
 import { counted } from '@ttac/shared/numbers';
 import { PlacedRefusal, SaveWord } from './SaveBar';
 import { useSave } from './useSave';
+import { trackName } from '@ttac/shared/tracks';
 
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
@@ -103,7 +104,7 @@ export default function SeasonsCard({
               Counts towards ratings{' '}
               <span className="muted">
                 {rated.locked
-                  ? "(the tournament isn't rated: tick Rated (Standard) or Rated (SuperBlitz) in its settings first)"
+                  ? `(the tournament isn't rated: tick Rated (${trackName('community')}) or Rated (${trackName('superblitz')}) in its settings first)`
                   : '(from the next engine run; its games still show, marked not rated)'}
               </span>
               <SaveWord save={saving} at={`season ${se.label} rated`} />
