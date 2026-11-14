@@ -17,6 +17,19 @@ type FeedState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; data: MoviesFeed };
 
+function MoviesHero() {
+  return (
+    <header className="analysis-hero-card">
+      <div>
+        <h1 className="analysis-hero-title">Movies</h1>
+        <p className="analysis-hero-desc">
+          Recent Through the Ages videos from community creators, newest first.
+        </p>
+      </div>
+    </header>
+  );
+}
+
 export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
   const [state, setState] = useState<FeedState>({ kind: 'loading' });
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -67,10 +80,20 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
   };
 
   if (state.kind === 'loading') {
-    return <p className="movies-status">Loading videos…</p>;
+    return (
+      <div className="movies-page">
+        <MoviesHero />
+        <p className="movies-status rating-card">Loading videos…</p>
+      </div>
+    );
   }
   if (state.kind === 'error') {
-    return <p className="movies-status movies-error">{state.message}</p>;
+    return (
+      <div className="movies-page">
+        <MoviesHero />
+        <p className="movies-status movies-error rating-card">{state.message}</p>
+      </div>
+    );
   }
 
   const { creators, videos } = state.data;
@@ -79,15 +102,10 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className="movies-page">
-      <header className="movies-hero">
-        <h1>Movies</h1>
-        <p className="movies-subtitle">
-          Recent Through the Ages videos from community creators, newest first.
-        </p>
-      </header>
+      <MoviesHero />
 
       {creators.length > 0 && (
-        <div className="movies-filters" role="group" aria-label="Filter by creator">
+        <div className="movies-filters rating-card" role="group" aria-label="Filter by creator">
           <button
             type="button"
             className={`movies-filter-btn${selected.size === 0 ? ' active' : ''}`}
@@ -115,11 +133,11 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       {visible.length === 0 ? (
-        <p className="movies-status">No videos match the selected creators yet.</p>
+        <p className="movies-status rating-card">No videos match the selected creators yet.</p>
       ) : (
         <div className="movies-grid">
           {visible.map((v) => (
-            <article key={v.video_id} className="movie-card">
+            <article key={v.video_id} className="movie-card rating-card">
               <button
                 type="button"
                 className="movie-thumb-btn"
@@ -162,9 +180,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
         </div>
       )}
 
-
       <dialog ref={dialogRef} className="movie-modal" onClose={() => setActive(null)}>
-
         {active && (
           <div className="movie-modal-inner">
             <div className="movie-modal-header">
