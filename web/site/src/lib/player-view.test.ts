@@ -10,6 +10,7 @@ import {
   RATING_TIERS,
   formatCards,
   hasPlayerPage,
+  hasProfileOptions,
   isProvisional,
   matrixHref,
   matrixParams,
@@ -588,6 +589,21 @@ describe('seat helpers', () => {
     expect(seatDeltaClass(3.5)).toBe('delta-pos');
     expect(seatDeltaClass(-2.1)).toBe('delta-neg');
     expect(seatDeltaClass(0)).toBe('delta-zero');
+  });
+});
+
+describe('hasProfileOptions', () => {
+  const baseView = { name: 'Ann', engine: 'glicko2_daneo' as const, reset: 'continuous' as const, format: 0 as const, matchPage: 1 };
+  const baseChart = { scale: 'perspective' as const, tiers: 'on' as const, mode: 'continuous' as const, curve: 'expected' as const, engines: new Set(['glicko2_daneo']) };
+  it.each([
+    ['defaults', baseView, baseChart, false],
+    ['non-default track', { ...baseView, ranking: 'superblitz' as const }, baseChart, true],
+    ['season reset', { ...baseView, reset: 'softer' as const }, baseChart, true],
+    ['standard engine', { ...baseView, engine: 'glicko2_std' as const }, baseChart, true],
+    ['linear chart scale', baseView, { ...baseChart, scale: 'linear' as const }, true],
+    ['extra chart engine', baseView, { ...baseChart, engines: new Set(['glicko2_daneo', 'glicko2_std']) }, true],
+  ])('reports active options for %s', (_name, view, chart, want) => {
+    expect(hasProfileOptions(view, chart)).toBe(want);
   });
 });
 

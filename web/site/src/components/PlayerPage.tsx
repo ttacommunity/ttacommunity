@@ -24,11 +24,13 @@ import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import { formatTournamentDisplay } from '../lib/achievements';
-import ViewSelectors from './ViewSelectors';
+import Segmented from '@ttac/shared/Segmented';
+import PlayerOptionsDrawer from './PlayerOptionsDrawer';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import {
   firstSort,
+  hasProfileOptions,
   isProvisional,
   matrixHref,
   pageModel,
@@ -41,6 +43,10 @@ import {
   seatDeltaClass,
   visibleRivals,
   RIVALS_SHOWN,
+  type ChartCurve,
+  type ChartMode,
+  type ChartScale,
+  type ChartTiers,
   type PlayerView,
   type RivalKey,
   type RivalsView,
@@ -71,6 +77,24 @@ function readView(): PlayerView {
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<PlayerView>(readView);
   const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [scale, setScale] = useState<ChartScale>('perspective');
+  const [tiers, setTiers] = useState<ChartTiers>('on');
+  const [mode, setMode] = useState<ChartMode>('continuous');
+  const [curve, setCurve] = useState<ChartCurve>('expected');
+  const [engines, setEngines] = useState<Set<string>>(() => new Set(['glicko2_daneo']));
+
+  const toggleEngine = (eng: string) => {
+    setEngines((prev) => {
+      const next = new Set(prev);
+      if (next.has(eng)) {
+        if (next.size > 1) next.delete(eng);
+      } else {
+        next.add(eng);
+      }
+      return next;
+    });
+  };
 
   const go = useCallback((next: PlayerView) => {
     window.history.pushState(null, '', `?${playerParams(next)}`);
@@ -158,19 +182,47 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const p = profile.data;
   const provisional = isProvisional(p, view.format);
   const gamesInFormat = p.games.find((g) => g.format === view.format)?.games ?? 0;
+  const chartOptions = { scale, tiers, mode, curve, engines };
+  const activeOptions = hasProfileOptions(view, chartOptions);
+  const resetOptions = () => {
+    setScale('perspective');
+    setTiers('on');
+    setMode('continuous');
+    setCurve('expected');
+    setEngines(new Set(['glicko2_daneo']));
+    go({ ...view, ranking: 'community', reset: 'continuous', engine: 'glicko2_daneo', matchPage: 1 });
+  };
 
   return (
-    <>
+    <div className={optionsOpen ? 'player-layout options-open' : 'player-layout'}>
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
-      <ViewSelectors
-        reset={view.reset}
-        format={view.format}
-        ranking={view.ranking}
-        linkReset={(reset) => linkTo({ ...view, reset, matchPage: 1 })}
-        linkFormat={(format) => linkTo({ ...view, format, matchPage: 1 })}
-        linkRanking={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })}
-      />
+      <div className="view-bar view-bar-row player-top-bar">
+        <Segmented
+          label="Format"
+          look="raised"
+          groupClass="view-group view-group-format"
+          prefix={<span className="view-bar-label">Format:</span>}
+          options={([0, 2, 3, 4] as Format[]).map((f) => ({
+            value: f,
+            label: show.formatName(f),
+            tooltip: `View rating and history for ${show.formatName(f)}`,
+          }))}
+          value={view.format}
+          link={(format) => linkTo({ ...view, format, matchPage: 1 })}
+        />
+        <button
+          type="button"
+          className={['btn-options-toggle', activeOptions && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
+          title="Profile options, track, reset mode, and chart controls"
+          aria-expanded={optionsOpen}
+          onClick={() => setOptionsOpen(!optionsOpen)}
+        >
+          <span>?? Options</span>
+          {activeOptions && <span className="options-active-badge">Active</span>}
+          <span className="btn-options-toggle-arrow">{optionsOpen ? '?' : '?'}</span>
+        </button>
+      </div>
 
       <CareerBox
         player={p}
@@ -181,7 +233,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
 
       <FormatCards player={p} view={view} linkTo={linkTo} />
 
-      <RatingChart history={history.kind === 'ready' ? history.data : null} />
+      <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
 
       <div className="tables-grid">
         <Games
@@ -206,7 +258,22 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         includeUnrated={includeUnrated}
         onToggleUnrated={setIncludeUnrated}
       />
-    </>
+
+      {optionsOpen && (
+        <PlayerOptionsDrawer
+          view={view}
+          linkTo={linkTo}
+          chart={chartOptions}
+          setScale={setScale}
+          setTiers={setTiers}
+          setMode={setMode}
+          setCurve={setCurve}
+          toggleEngine={toggleEngine}
+          onReset={resetOptions}
+          onClose={() => setOptionsOpen(false)}
+        />
+      )}
+    </div>
   );
 }
 

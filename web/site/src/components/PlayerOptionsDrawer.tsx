@@ -1,24 +1,41 @@
-/** Upstream's rating trajectory chart options drawer: scale, rating tiers, reset modes, curves, and engines. */
+/** Top-level player profile options drawer: track, reset mode, engine, and trajectory chart controls. */
 import { useEffect, useRef } from 'react';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
-import type { ChartCurve, ChartMode, ChartScale, ChartTiers } from '../lib/player-view';
+import type { Engine, ResetMode, Track } from '../lib/leaderboard-view';
+import type { Link } from '../lib/navigate';
+import type { ChartCurve, ChartMode, ChartOptionsState, ChartScale, ChartTiers, PlayerView } from '../lib/player-view';
 
 const narrow = () => window.innerWidth <= 768;
 
-export interface ChartOptionsDrawerProps {
-  scale: ChartScale;
+export interface PlayerOptionsDrawerProps {
+  view: PlayerView;
+  linkTo: (next: PlayerView) => Link;
+  chart: ChartOptionsState;
   setScale: (s: ChartScale) => void;
-  tiers: ChartTiers;
   setTiers: (t: ChartTiers) => void;
-  mode: ChartMode;
   setMode: (m: ChartMode) => void;
-  curve: ChartCurve;
   setCurve: (c: ChartCurve) => void;
-  engines: ReadonlySet<string>;
   toggleEngine: (engine: string) => void;
   onReset: () => void;
   onClose: () => void;
 }
+
+const TRACK_OPTIONS: Option<Track>[] = [
+  { value: 'community', label: 'Standard', tooltip: 'Classical asynchronous community tournaments' },
+  { value: 'superblitz', label: 'SuperBlitz', tooltip: 'Exclusive SuperBlitz tournament ratings' },
+  { value: 'community_superblitz', label: 'Standard + SB', tooltip: 'Standard tournaments with SuperBlitz included' },
+  { value: 'pulse', label: 'Pulse', tooltip: 'TTA Pulse real-time blitz queue ratings' },
+];
+
+const RESET_OPTIONS: Option<ResetMode>[] = [
+  { value: 'continuous', label: 'Continuous (Career)', tooltip: 'Uninterrupted career rating trajectory across all tournament history' },
+  { value: 'softer', label: 'Season Reset', tooltip: 'Gentle annual reset balancing career achievement with current season form' },
+];
+
+const ENGINE_OPTIONS: Option<Engine>[] = [
+  { value: 'glicko2_daneo', label: 'GlickoD', tooltip: "DANeo's multiplayer-weighted Glicko-2 model" },
+  { value: 'glicko2_std', label: 'Glicko-2 Standard', tooltip: 'Standard Glicko-2 model' },
+];
 
 const SCALE_OPTIONS: Option<ChartScale>[] = [
   {
@@ -50,20 +67,19 @@ const CURVE_OPTIONS: Option<ChartCurve>[] = [
   { value: 'all', label: 'All Curves', tooltip: 'Show both expected mean and conservative curves together' },
 ];
 
-export default function ChartOptionsDrawer({
-  scale,
+/** Renders the scrolling profile options sidebar (bottom sheet on mobile). */
+export default function PlayerOptionsDrawer({
+  view,
+  linkTo,
+  chart,
   setScale,
-  tiers,
   setTiers,
-  mode,
   setMode,
-  curve,
   setCurve,
-  engines,
   toggleEngine,
   onReset,
   onClose,
-}: ChartOptionsDrawerProps) {
+}: PlayerOptionsDrawerProps) {
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -81,7 +97,7 @@ export default function ChartOptionsDrawer({
       const own = side.offsetWidth || 360;
       const ideal = card.right + (width - card.right) / 2 - own / 2;
       const left = Math.max(16, Math.min(ideal, width - own - 16));
-      side.style.left = `${left - card.left}px`;
+      side.style.left = `${left}px`;
       side.style.right = 'auto';
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -96,12 +112,14 @@ export default function ChartOptionsDrawer({
     };
   }, [onClose]);
 
+  const track = view.ranking ?? 'community';
+
   return (
-    <aside ref={ref} className="leaderboard-sidebar chart-sidebar">
+    <aside ref={ref} className="leaderboard-sidebar player-sidebar">
       <button type="button" className="sidebar-backdrop" aria-label="Close options" tabIndex={-1} onClick={onClose} />
-      <div className="leaderboard-options-panel chart-options-panel" role="dialog" aria-label="Trajectory chart options">
+      <div className="leaderboard-options-panel chart-options-panel" role="dialog" aria-label="Profile options and filters">
         <div className="options-header">
-          <span className="options-header-title">⚙️ Chart Options &amp; Filters</span>
+          <span className="options-header-title">⚙️ Options &amp; Filters</span>
           <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
             ✕ Close
           </button>
@@ -109,24 +127,44 @@ export default function ChartOptionsDrawer({
 
         <div className="chart-options-body">
           <div className="options-section">
-            <div className="options-group-title">Rating Models &amp; Engines</div>
+            <div className="options-group-title">Track</div>
+            <div className="options-section-desc">Choose which tournament rating pipeline to display across the profile.</div>
+            <Segmented label="Track" look="raised" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
+          </div>
+
+          <div className="options-section">
+            <div className="options-group-title">Reset Mode</div>
+            <div className="options-section-desc">Continuous career ratings or gentle annual season resets.</div>
+            <Segmented label="Reset mode" look="raised" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
+          </div>
+
+          <div className="options-section">
+            <div className="options-group-title">Rating Engine</div>
+            <div className="options-section-desc">Model used for career summary, format cards, and game deltas.</div>
+            <Segmented label="Engine" look="raised" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
+          </div>
+
+          <div className="options-section-divider">Trajectory Chart</div>
+
+          <div className="options-section">
+            <div className="options-group-title">Chart Models</div>
             <div className="options-section-desc">
               Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default.
             </div>
             <div className="options-engine-toggles">
               <button
                 type="button"
-                className={['opt-engine-btn', engines.has('glicko2_daneo') && 'active'].filter(Boolean).join(' ')}
+                className={['opt-engine-btn', chart.engines.has('glicko2_daneo') && 'active'].filter(Boolean).join(' ')}
                 onClick={() => toggleEngine('glicko2_daneo')}
               >
-                👑 GlickoD {engines.has('glicko2_daneo') ? '✓' : ''}
+                👑 GlickoD {chart.engines.has('glicko2_daneo') ? '✓' : ''}
               </button>
               <button
                 type="button"
-                className={['opt-engine-btn', engines.has('glicko2_std') && 'active'].filter(Boolean).join(' ')}
+                className={['opt-engine-btn', chart.engines.has('glicko2_std') && 'active'].filter(Boolean).join(' ')}
                 onClick={() => toggleEngine('glicko2_std')}
               >
-                Glicko-2 Standard {engines.has('glicko2_std') ? '✓' : ''}
+                Glicko-2 Standard {chart.engines.has('glicko2_std') ? '✓' : ''}
               </button>
             </div>
           </div>
@@ -136,7 +174,7 @@ export default function ChartOptionsDrawer({
             <div className="options-section-desc">
               Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing.
             </div>
-            <Segmented label="Scale" look="raised" options={SCALE_OPTIONS} value={scale} onChange={setScale} />
+            <Segmented label="Scale" look="raised" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
           </div>
 
           <div className="options-section">
@@ -144,15 +182,15 @@ export default function ChartOptionsDrawer({
             <div className="options-section-desc">
               Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster).
             </div>
-            <Segmented label="Tiers" look="raised" options={TIERS_OPTIONS} value={tiers} onChange={setTiers} />
+            <Segmented label="Tiers" look="raised" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
           </div>
 
           <div className="options-section">
-            <div className="options-group-title">Season Reset Mode</div>
+            <div className="options-group-title">Chart Reset Mode</div>
             <div className="options-section-desc">
               Continuous career trajectory across all seasons, annual season reset rating recalculation, or all modes.
             </div>
-            <Segmented label="Mode" look="raised" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+            <Segmented label="Mode" look="raised" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
           </div>
 
           <div className="options-section">
@@ -160,7 +198,7 @@ export default function ChartOptionsDrawer({
             <div className="options-section-desc">
               Expected rating mean (E = R), conservative 99.7% lower bound (C = μ − 3σ), or all curves.
             </div>
-            <Segmented label="Curve" look="raised" options={CURVE_OPTIONS} value={curve} onChange={setCurve} />
+            <Segmented label="Curve" look="raised" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
           </div>
         </div>
 
