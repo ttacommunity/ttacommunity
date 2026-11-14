@@ -846,6 +846,6 @@ tr:hover .btn-exclude-row,
 }
 
 .archive-pills .year-pill-current {
-  background: #2e7d32;
+  background: var(--win-edge);
   color: var(--text-bright);
 }

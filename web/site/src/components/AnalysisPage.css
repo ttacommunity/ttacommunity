@@ -94,9 +94,9 @@
 }
 
 .format-badge {
-  background: rgba(129, 199, 132, 0.12);
-  border: 1px solid #81c784;
-  color: #81c784;
+  background: color-mix(in srgb, var(--win) 12%, transparent);
+  border: 1px solid var(--win);
+  color: var(--win);
 }
 
 .hero-chart-container {

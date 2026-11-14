@@ -194,7 +194,7 @@
 }
 
 .faq-container .faq-section .faq-card-green {
-  border-left: 4px solid #22c55e;
+  border-left: 4px solid var(--win-edge);
 }
 
 .faq-container .faq-section .faq-box {
@@ -301,19 +301,19 @@
 }
 
 .faq-container .faq-section .row-green {
-  background: rgba(74, 222, 128, 0.08);
+  background: color-mix(in srgb, var(--win-edge) 12%, transparent);
 }
 
 .faq-container .faq-section .row-green-faint {
-  background: rgba(74, 222, 128, 0.04);
+  background: color-mix(in srgb, var(--win-edge) 6%, transparent);
 }
 
 .faq-container .faq-section .row-green-strong {
-  background: rgba(34, 197, 94, 0.15);
+  background: color-mix(in srgb, var(--win-edge) 25%, transparent);
 }
 
 .faq-container .faq-section .row-green-soft {
-  background: rgba(34, 197, 94, 0.06);
+  background: color-mix(in srgb, var(--win-edge) 10%, transparent);
 }
 
 .faq-container .faq-section .row-gold-bright {
@@ -349,15 +349,15 @@
 
 .faq-container .faq-section .faq-aside-green {
   background: rgba(14, 9, 6, 0.85);
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  border-left: 3px solid #22c55e;
+  border: 1px solid color-mix(in srgb, var(--win-edge) 60%, transparent);
+  border-left: 3px solid var(--win-edge);
   padding: 0.75rem 1rem;
   border-radius: 4px;
   margin-bottom: 1.25rem;
 }
 
 .faq-container .faq-section .faq-aside-green-title {
-  color: #86efac;
+  color: var(--win-light);
   font-family: var(--font-subheading);
   font-size: 0.95rem;
   display: block;
@@ -570,11 +570,11 @@
 }
 
 .faq-container .faq-section .c-red-light {
-  color: #f87171;
+  color: var(--loss-light);
 }
 
 .faq-container .faq-section .c-pink {
-  color: #fca5a5;
+  color: var(--loss-light);
 }
 
 .faq-container .faq-section .c-rose {
@@ -582,15 +582,15 @@
 }
 
 .faq-container .faq-section .c-green {
-  color: #4ade80;
+  color: var(--win);
 }
 
 .faq-container .faq-section .c-mint {
-  color: #86efac;
+  color: var(--win-light);
 }
 
 .faq-container .faq-section .c-green-deep {
-  color: #22c55e;
+  color: var(--win);
 }
 
 .faq-container .faq-section .c-leaf {
@@ -598,7 +598,7 @@
 }
 
 .faq-container .faq-section .c-sage {
-  color: #81c784;
+  color: var(--win-light);
 }
 
 .faq-container .faq-section .c-amber {
@@ -671,8 +671,8 @@
 
 /* Variants that override a named box above. */
 .faq-container .faq-section .faq-chip-green {
-  border: 1px solid #22c55e;
-  color: #86efac;
+  border: 1px solid var(--win-edge);
+  color: var(--win-light);
   font-weight: 700;
 }
 

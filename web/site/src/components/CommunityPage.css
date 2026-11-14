@@ -13,7 +13,7 @@
 .comm-title {
   font-family: var(--font-heading);
   font-size: var(--size-page-title);
-  color: #df7a6c;
+  color: var(--loss);
   margin-bottom: 0.5rem;
   -webkit-text-stroke: 1px #180407;
   paint-order: stroke fill;
