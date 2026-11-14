@@ -1290,6 +1290,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/movies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent TTA community YouTube videos and their creators */
+        get: operations["getMovies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/movies/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark community videos as seen for the signed-in player
+         * @description Records the current time as the signed-in player's last visit to Movies. The Origin must be the site.
+         */
+        post: operations["postMyMoviesSeen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -1962,6 +1999,91 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/movies/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** YouTube creator channels and recent fetched videos (admins only) */
+        get: operations["getAdminMovieChannels"];
+        put?: never;
+        /**
+         * Add a YouTube creator channel to the Movies feed (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminMovieChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/movies/channels/{channelId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a YouTube creator channel and its videos (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminMovieChannel"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a YouTube creator channel (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        patch: operations["patchAdminMovieChannel"];
+        trace?: never;
+    };
+    "/v1/admin/movies/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fetch all YouTube creator feeds now (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminMoviesSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/movies/videos/{videoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Hide or show a video in the Movies feed (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        patch: operations["patchAdminMovieVideo"];
         trace?: never;
     };
     "/v1/admin/badges": {
@@ -5847,6 +5969,8 @@ export interface components {
             username: string;
             /** @description Empty when they have none */
             display_name: string;
+            /** @description Number of visible Movies uploaded since the player last visited Movies */
+            unseen_movies?: number;
             member: components["schemas"]["MyMember"] | null;
             request: components["schemas"]["MyLinkRequest"] | null;
             admin_role: components["schemas"]["Role"] | null;
@@ -6110,6 +6234,69 @@ export interface components {
         LinkRefusal: {
             /** @description Shown to the player; may be empty */
             reason: string;
+        };
+        MovieCreator: {
+            channel_id: string;
+            name: string;
+            player?: string | null;
+        };
+        MovieVideo: {
+            video_id: string;
+            channel_id: string;
+            creator_name: string;
+            creator_player?: string | null;
+            title: string;
+            /** Format: date-time */
+            published_at: string;
+            thumbnail_url: string;
+        };
+        MoviesFeed: {
+            creators: components["schemas"]["MovieCreator"][];
+            videos: components["schemas"]["MovieVideo"][];
+        };
+        AdminVideoChannel: {
+            channel_id: string;
+            name: string;
+            player?: string | null;
+            include_all: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_checked_at?: string | null;
+            video_count: number;
+        };
+        AdminVideo: {
+            video_id: string;
+            channel_id: string;
+            creator_name: string;
+            title: string;
+            /** Format: date-time */
+            published_at: string;
+            thumbnail_url: string;
+            hidden: boolean;
+        };
+        AdminMoviesState: {
+            channels: components["schemas"]["AdminVideoChannel"][];
+            videos: components["schemas"]["AdminVideo"][];
+        };
+        NewVideoChannel: {
+            /** @description YouTube channel URL, @handle URL, or UC... channel id */
+            channel: string;
+            name: string;
+            player?: string | null;
+            include_all: boolean;
+        };
+        VideoChannelPatch: {
+            name?: string;
+            player?: string | null;
+            include_all?: boolean;
+        };
+        VideoPatch: {
+            hidden: boolean;
+        };
+        MoviesSyncResult: {
+            checked: number;
+            added: number;
         };
     };
     responses: {
@@ -7839,6 +8026,47 @@ export interface operations {
             };
         };
     };
+    getMovies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chronological feed of community videos (newest first) and active creators */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviesFeed"];
+                };
+            };
+        };
+    };
+    postMyMoviesSeen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked seen */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getMe: {
         parameters: {
             query?: never;
@@ -8775,6 +9003,158 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getAdminMovieChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channels and recent videos */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMoviesState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminMovieChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewVideoChannel"];
+            };
+        };
+        responses: {
+            /** @description Channel added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVideoChannel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminMovieChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    patchAdminMovieChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channelId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VideoChannelPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminMoviesSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sync summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoviesSyncResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    patchAdminMovieVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                videoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VideoPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAdminBadges: {

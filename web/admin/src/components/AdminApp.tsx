@@ -24,6 +24,7 @@ import BlitzPanel from './BlitzPanel';
 import ChallengesPanel from './ChallengesPanel';
 import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
+import MoviesPanel from './MoviesPanel';
 import './AdminApp.css';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
@@ -112,6 +113,10 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <NotificationsPanel />;
     case 'audit':
       return <AuditPanel />;
+
+    case 'movies':
+      return <MoviesPanel />;
+
   }
 }
 

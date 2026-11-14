@@ -17,7 +17,7 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 		return nil, err
 	}
 	me := Me{Provider: LoginProvider(l.Provider), Username: l.Username, DisplayName: l.DisplayName, Country: nullableText(l.Country), Zone: l.Zone,
-		Logins: make([]MyLogin, len(l.Logins))}
+		UnseenMovies: &l.UnseenMovies, Logins: make([]MyLogin, len(l.Logins))}
 	for i, w := range l.Logins {
 		me.Logins[i] = MyLogin{Provider: LoginProvider(w.Provider), Username: w.Username, DisplayName: w.DisplayName, Email: w.Email}
 	}

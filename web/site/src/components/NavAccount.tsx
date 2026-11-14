@@ -14,14 +14,29 @@ export default function NavAccount({ apiUrl, adminUrl, current }: { apiUrl: stri
     // A first sign-in's mark is the account page's to read and clear.
     if (signin === 'ok') window.history.replaceState(null, '', withoutSignInParam(window.location.pathname, window.location.search));
     setHref(accountHref(window.location.pathname, window.location.search));
-    if (!seemsSignedIn(store)) return;
+    const updateMoviesBadge = (count: number) => {
+      for (const el of document.querySelectorAll<HTMLElement>('[data-movies-badge]')) {
+        if (count > 0) {
+          el.textContent = count > 99 ? '99+' : String(count);
+          el.hidden = false;
+        } else {
+          el.textContent = '';
+          el.hidden = true;
+        }
+      }
+    };
+    const onMoviesSeen = () => updateMoviesBadge(0);
+    window.addEventListener('ttac:movies-seen', onMoviesSeen);
+    if (!seemsSignedIn(store)) return () => window.removeEventListener('ttac:movies-seen', onMoviesSeen);
     sharedMe(apiUrl)
       .then((me) => {
         if (me === null) rememberSignedIn(store, false);
         setLabel(navLabel(me));
         setAdmin(showsAdminLink(me));
+        updateMoviesBadge(me?.unseen_movies ?? 0);
       })
       .catch(() => undefined);
+    return () => window.removeEventListener('ttac:movies-seen', onMoviesSeen);
   }, [apiUrl]);
   return (
     <>

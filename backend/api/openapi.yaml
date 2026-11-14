@@ -1768,6 +1768,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /v1/movies:
+    get:
+      operationId: getMovies
+      tags: [community]
+      summary: Recent TTA community YouTube videos and their creators
+      responses:
+        "200":
+          description: Chronological feed of community videos (newest first) and active creators
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoviesFeed"
+  /v1/me/movies/seen:
+    post:
+      operationId: postMyMoviesSeen
+      tags: [players]
+      summary: Mark community videos as seen for the signed-in player
+      description: Records the current time as the signed-in player's last visit to Movies. The Origin must be the site.
+      responses:
+        "204":
+          description: Marked seen
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/me:
     get:
       operationId: getMe
@@ -2744,6 +2772,146 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/movies/channels:
+    get:
+      operationId: getAdminMovieChannels
+      tags: [admin]
+      summary: YouTube creator channels and recent fetched videos (admins only)
+      responses:
+        "200":
+          description: Channels and recent videos
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMoviesState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminMovieChannel
+      tags: [admin]
+      summary: Add a YouTube creator channel to the Movies feed (admins only)
+      description: Audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewVideoChannel"
+      responses:
+        "201":
+          description: Channel added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVideoChannel"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/movies/channels/{channelId}:
+    patch:
+      operationId: patchAdminMovieChannel
+      tags: [admin]
+      summary: Update a YouTube creator channel (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VideoChannelPatch"
+      responses:
+        "204":
+          description: Updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminMovieChannel
+      tags: [admin]
+      summary: Remove a YouTube creator channel and its videos (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/movies/sync:
+    post:
+      operationId: postAdminMoviesSync
+      tags: [admin]
+      summary: Fetch all YouTube creator feeds now (admins only)
+      description: Audited. The Origin must be the admin site.
+      responses:
+        "200":
+          description: Sync summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoviesSyncResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/movies/videos/{videoId}:
+    patch:
+      operationId: patchAdminMovieVideo
+      tags: [admin]
+      summary: Hide or show a video in the Movies feed (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - name: videoId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VideoPatch"
+      responses:
+        "204":
+          description: Updated
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/badges:
     get:
       operationId: getAdminBadges
@@ -9609,6 +9777,9 @@ components:
         display_name:
           description: Empty when they have none
           type: string
+        unseen_movies:
+          description: Number of visible Movies uploaded since the player last visited Movies
+          type: integer
         member:
           allOf:
             - $ref: "#/components/schemas/MyMember"
@@ -10055,3 +10226,149 @@ components:
           description: Shown to the player; may be empty
           type: string
           maxLength: 500
+
+    MovieCreator:
+      type: object
+      required: [channel_id, name]
+      properties:
+        channel_id:
+          type: string
+        name:
+          type: string
+        player:
+          type: string
+          nullable: true
+    MovieVideo:
+      type: object
+      required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url]
+      properties:
+        video_id:
+          type: string
+        channel_id:
+          type: string
+        creator_name:
+          type: string
+        creator_player:
+          type: string
+          nullable: true
+        title:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        thumbnail_url:
+          type: string
+    MoviesFeed:
+      type: object
+      required: [creators, videos]
+      properties:
+        creators:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovieCreator"
+        videos:
+          type: array
+          items:
+            $ref: "#/components/schemas/MovieVideo"
+    AdminVideoChannel:
+      type: object
+      required: [channel_id, name, include_all, created_at, video_count]
+      properties:
+        channel_id:
+          type: string
+        name:
+          type: string
+        player:
+          type: string
+          nullable: true
+        include_all:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        video_count:
+          type: integer
+    AdminVideo:
+      type: object
+      required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url, hidden]
+      properties:
+        video_id:
+          type: string
+        channel_id:
+          type: string
+        creator_name:
+          type: string
+        title:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+        thumbnail_url:
+          type: string
+        hidden:
+          type: boolean
+    AdminMoviesState:
+      type: object
+      required: [channels, videos]
+      properties:
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminVideoChannel"
+        videos:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminVideo"
+    NewVideoChannel:
+      type: object
+      additionalProperties: false
+      required: [channel, name, include_all]
+      properties:
+        channel:
+          description: YouTube channel URL, @handle URL, or UC... channel id
+          type: string
+          minLength: 1
+          maxLength: 300
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        player:
+          type: string
+          nullable: true
+          maxLength: 100
+        include_all:
+          type: boolean
+    VideoChannelPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        player:
+          type: string
+          nullable: true
+          maxLength: 100
+        include_all:
+          type: boolean
+    VideoPatch:
+      type: object
+      additionalProperties: false
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
+    MoviesSyncResult:
+      type: object
+      required: [checked, added]
+      properties:
+        checked:
+          type: integer
+        added:
+          type: integer

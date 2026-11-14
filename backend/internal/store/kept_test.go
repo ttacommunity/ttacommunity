@@ -28,6 +28,7 @@ var keptColumns = map[string]string{
 	"accounts.country_code":      "shown: the country given before a link",
 	"accounts.zone":              "shown: the time zone given before a link",
 	"accounts.created_at":        "shown: when the account was made",
+	"accounts.movies_seen_at":    "omitted: when the player last checked the Movies page",
 	"logins.login_id":            "omitted: our own number for the way in",
 	"logins.account_id":          "omitted: the account it belongs to, theirs",
 	"logins.provider":            "shown: each way in",

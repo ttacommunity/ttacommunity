@@ -20,6 +20,12 @@ type Ratings interface {
 	CatalogueReads
 	BlitzReads
 	ChallengeReads
+	MovieReads
+}
+
+// MovieReads are movies.go's reads: active YouTube creators and non-hidden videos.
+type MovieReads interface {
+	Movies(ctx context.Context) (store.MoviesFeed, error)
 }
 
 // ChallengeReads are challenges.go's reads: the challenges, every entry not hidden, and the weekly challenge.

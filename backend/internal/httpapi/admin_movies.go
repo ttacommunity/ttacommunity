@@ -1,0 +1,192 @@
+// Admin management of YouTube creator channels, video visibility, and manual feed sync.
+package httpapi
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"ttacommunity/backend/internal/store"
+)
+
+const onlyAdminsMovies = "only admins manage movie channels"
+
+func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChannelsRequestObject) (GetAdminMovieChannelsResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil {
+		return nil, err
+	} else if !ok {
+		return GetAdminMovieChannels403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	state, err := s.admins.AdminMovies(ctx)
+	if err != nil {
+		return nil, err
+	}
+	channels := make([]AdminVideoChannel, len(state.Channels))
+	for i, c := range state.Channels {
+		channels[i] = AdminVideoChannel{
+			ChannelId:     c.ChannelID,
+			Name:          c.Name,
+			Player:        c.Player,
+			IncludeAll:    c.IncludeAll,
+			CreatedAt:     c.CreatedAt.UTC(),
+			LastCheckedAt: inUTC(c.LastCheckedAt),
+			VideoCount:    c.VideoCount,
+		}
+	}
+	videos := make([]AdminVideo, len(state.Videos))
+	for i, v := range state.Videos {
+		videos[i] = AdminVideo{
+			VideoId:      v.VideoID,
+			ChannelId:    v.ChannelID,
+			CreatorName:  v.CreatorName,
+			Title:        v.Title,
+			PublishedAt:  v.PublishedAt.UTC(),
+			ThumbnailUrl: v.ThumbnailURL,
+			Hidden:       v.Hidden,
+		}
+	}
+	return GetAdminMovieChannels200JSONResponse{
+		Body:    AdminMoviesState{Channels: channels, Videos: videos},
+		Headers: GetAdminMovieChannels200ResponseHeaders{CacheControl: cacheNone},
+	}, nil
+}
+
+func (s *server) PostAdminMovieChannel(ctx context.Context, req PostAdminMovieChannelRequestObject) (PostAdminMovieChannelResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminMovieChannel403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	if req.Body == nil || strings.TrimSpace(req.Body.Channel) == "" || strings.TrimSpace(req.Body.Name) == "" {
+		return PostAdminMovieChannel400JSONResponse{badRequest400("channel and creator name are required")}, nil
+	}
+	channelID, err := s.admins.ResolveMovieChannel(ctx, req.Body.Channel)
+	if err != nil {
+		return PostAdminMovieChannel400JSONResponse{badRequest400(err.Error())}, nil
+	}
+	now := s.now().UTC().Truncate(time.Second)
+	var ch store.AdminVideoChannel
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		ch, err = tx.AddMovieChannel(ctx, channelID, req.Body.Name, req.Body.Player, req.Body.IncludeAll, now)
+		if err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "movie.channel.add", channelID, map[string]any{"name": ch.Name})
+	})
+	switch {
+	case errors.Is(err, store.ErrChannelExists):
+		return PostAdminMovieChannel409JSONResponse{conflict409("that YouTube channel is already added")}, nil
+	case errors.Is(err, store.ErrNoPlayerName):
+		return PostAdminMovieChannel400JSONResponse{badRequest400("no player with that name")}, nil
+	case err != nil:
+		return nil, err
+	}
+	return PostAdminMovieChannel201JSONResponse{
+		ChannelId:     ch.ChannelID,
+		Name:          ch.Name,
+		Player:        ch.Player,
+		IncludeAll:    ch.IncludeAll,
+		CreatedAt:     ch.CreatedAt.UTC(),
+		LastCheckedAt: inUTC(ch.LastCheckedAt),
+		VideoCount:    ch.VideoCount,
+	}, nil
+}
+
+func (s *server) PatchAdminMovieChannel(ctx context.Context, req PatchAdminMovieChannelRequestObject) (PatchAdminMovieChannelResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PatchAdminMovieChannel403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	if req.Body == nil {
+		return PatchAdminMovieChannel400JSONResponse{badRequest400("request body is required")}, nil
+	}
+	clearPlayer := req.Body.Player != nil && strings.TrimSpace(*req.Body.Player) == ""
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.UpdateMovieChannel(ctx, req.ChannelId, req.Body.Name, req.Body.Player, clearPlayer, req.Body.IncludeAll); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "movie.channel.update", req.ChannelId, nil)
+	})
+	switch {
+	case errors.Is(err, store.ErrNoChannel):
+		return PatchAdminMovieChannel404JSONResponse{notFound404("no such YouTube channel")}, nil
+	case errors.Is(err, store.ErrNoPlayerName):
+		return PatchAdminMovieChannel400JSONResponse{badRequest400("no player with that name")}, nil
+	case err != nil:
+		return nil, err
+	}
+	return PatchAdminMovieChannel204Response{}, nil
+}
+
+func (s *server) DeleteAdminMovieChannel(ctx context.Context, req DeleteAdminMovieChannelRequestObject) (DeleteAdminMovieChannelResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return DeleteAdminMovieChannel403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.DeleteMovieChannel(ctx, req.ChannelId); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "movie.channel.delete", req.ChannelId, nil)
+	})
+	if errors.Is(err, store.ErrNoChannel) {
+		return DeleteAdminMovieChannel404JSONResponse{notFound404("no such YouTube channel")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return DeleteAdminMovieChannel204Response{}, nil
+}
+
+func (s *server) PostAdminMoviesSync(ctx context.Context, _ PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error) {
+	if _, ok, err := adminOnly(ctx); err != nil {
+		return nil, err
+	} else if !ok {
+		return PostAdminMoviesSync403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	res, err := s.admins.SyncMoviesNow(ctx, s.now().UTC().Truncate(time.Second))
+	if err != nil {
+		return nil, err
+	}
+	return PostAdminMoviesSync200JSONResponse{Checked: res.Checked, Added: res.Added}, nil
+}
+
+func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PatchAdminMovieVideo403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	if req.Body == nil {
+		return PatchAdminMovieVideo400JSONResponse{badRequest400("request body is required")}, nil
+	}
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.SetMovieVideoHidden(ctx, req.VideoId, req.Body.Hidden); err != nil {
+			return err
+		}
+		action := "movie.video.show"
+		if req.Body.Hidden {
+			action = "movie.video.hide"
+		}
+		return tx.Audit(ctx, me.DiscordID, action, req.VideoId, nil)
+	})
+	if errors.Is(err, store.ErrNoVideo) {
+		return PatchAdminMovieVideo404JSONResponse{notFound404("no such video")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return PatchAdminMovieVideo204Response{}, nil
+}
