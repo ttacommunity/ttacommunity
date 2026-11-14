@@ -35,6 +35,7 @@ type SignIns interface {
 	DeleteAccount(ctx context.Context, tokenHash []byte, now time.Time) error
 	RequestLink(ctx context.Context, login int64, name string, now time.Time) error
 	SetOwnDetails(ctx context.Context, login int64, country, zone *string) error
+	MarkMoviesSeen(ctx context.Context, account int64, now time.Time) error
 	// ReportBlitzGame, ConfirmBlitzResult and FlagBlitzResult are a player's report of their own blitz match, and the
 	// opponent's answer to it, as the session hashing to tokenHash.
 	ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, g store.BlitzGame, now time.Time) error

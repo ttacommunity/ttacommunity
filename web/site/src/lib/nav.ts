@@ -46,6 +46,7 @@ export const sections: readonly NavSection[] = [
       { label: 'Submit domination', href: '/challenges/submit/', description: 'Enter your results, with a Discord proof' },
     ],
   },
+  { label: 'Movies', href: '/movies/', pages: [] },
 ];
 
 /** Place is where a path sits: its section, and the menu page it is or is below (none for Home). */
@@ -71,6 +72,7 @@ export function placeOf(path: string): Place | undefined {
   if (p === '/') return { section: sections[0] };
   let best: Place | undefined;
   for (const section of sections) {
+    if (section.href !== undefined && section.href !== '/' && p.startsWith(section.href)) return { section };
     for (const page of section.pages) {
       if (p.startsWith(page.href) && (best?.page === undefined || page.href.length > best.page.href.length)) best = { section, page };
     }

@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,18 +36,19 @@ type Identity struct {
 type Account struct {
 	ID int64
 	// LoginID is the login this session signed in by; Logins are every way into the account, by provider.
-	LoginID     int64
-	Logins      []LoginName
-	Provider    string
-	Username    string
-	DisplayName string
-	Member      *LinkedMember
-	Request     *LinkRequest
-	AdminRole   string
-	Country     string
-	Zone        string
-	Banned      bool
-	BanReason   string
+	LoginID      int64
+	Logins       []LoginName
+	Provider     string
+	Username     string
+	DisplayName  string
+	Member       *LinkedMember
+	Request      *LinkRequest
+	AdminRole    string
+	Country      string
+	Zone         string
+	Banned       bool
+	BanReason    string
+	UnseenMovies int
 }
 
 // LoginName is a way into an account: its provider, the names there, and the address we may write to through it, if
@@ -419,7 +421,38 @@ func (s *PlayerStore) Session(ctx context.Context, tokenHash []byte, now time.Ti
 		request.RequestedAt = *requested
 		l.Request = &request
 	}
+	unseen, err := countUnseenMovies(ctx, s.pool, l.ID)
+	if err != nil {
+		return Account{}, err
+	}
+	l.UnseenMovies = unseen
 	return l, nil
+}
+
+func countUnseenMovies(ctx context.Context, pool *pgxpool.Pool, account int64) (int, error) {
+	var n int
+	err := pool.QueryRow(ctx, `
+		SELECT count(*)::int
+		FROM videos v
+		JOIN accounts ac ON ac.account_id = $1
+		WHERE NOT v.hidden AND v.published_at > coalesce(ac.movies_seen_at, ac.created_at)`, account).Scan(&n)
+	if err != nil {
+		var pg *pgconn.PgError
+		if errors.As(err, &pg) && pg.Code == "42P01" {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("counting unseen movies: %w", err)
+	}
+	return n, nil
+}
+
+// MarkMoviesSeen records now as the last time account visited the Movies feed.
+func (s *PlayerStore) MarkMoviesSeen(ctx context.Context, account int64, now time.Time) error {
+	_, err := s.pool.Exec(ctx, "UPDATE accounts SET movies_seen_at = $2 WHERE account_id = $1", account, now)
+	if err != nil {
+		return fmt.Errorf("marking movies seen: %w", err)
+	}
+	return nil
 }
 
 // SignOut ends the session that hashes to tokenHash. One already ended is no error.

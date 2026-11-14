@@ -1,0 +1,12 @@
+---
+/** Community Movies feed: chronological Through the Ages YouTube videos from registered creators. */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import MoviesPage from '../../components/MoviesPage';
+---
+<SiteLayout
+  title="Movies | Through the Ages"
+  description="Recent Through the Ages videos from community YouTube creators, newest first."
+>
+  <MoviesPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>
