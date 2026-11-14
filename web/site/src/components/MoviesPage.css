@@ -1,16 +1,8 @@
+/* Movies feed page: uses the shared dark card/hero theme so text and thumbnails stay readable over the parchment background. */
 .movies-page {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
-}
-
-.movies-hero h1 {
-  margin: 0 0 0.35rem;
-}
-
-.movies-subtitle {
-  margin: 0 0 1.25rem;
-  color: var(--ink-muted);
+  padding: 0 0 3rem;
 }
 
 .movies-filters {
@@ -18,28 +10,31 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
 }
 
 .movies-filter-btn {
   padding: 0.4rem 0.85rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--ink);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-well);
+  color: var(--text-soft);
   cursor: pointer;
-  font: inherit;
+  font-family: var(--font-body);
   font-size: 0.9rem;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .movies-filter-btn:hover {
-  border-color: var(--gold);
+  border-color: var(--accent-gold);
+  color: var(--text-main);
 }
 
 .movies-filter-btn.active {
-  background: var(--gold);
-  color: var(--bg-ink);
-  border-color: var(--gold);
-  font-weight: 600;
+  background: var(--accent-gold);
+  color: var(--bg-dark);
+  border-color: var(--accent-gold);
+  font-weight: 700;
 }
 
 .movies-grid {
@@ -49,9 +44,6 @@
 }
 
 .movie-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -64,7 +56,7 @@
   aspect-ratio: 16 / 9;
   padding: 0;
   border: 0;
-  background: #000;
+  background: #0d0907;
   cursor: pointer;
   overflow: hidden;
 }
@@ -82,12 +74,12 @@
   width: 2.3rem;
   height: 2.3rem;
   border-radius: 999px;
-  background: rgba(15, 13, 10, 0.82);
-  color: var(--gold);
+  background: rgba(15, 13, 10, 0.86);
+  color: var(--accent-gold);
   display: grid;
   place-items: center;
   font-size: 0.95rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--border-subtle);
 }
 
 .movie-card-body {
@@ -100,6 +92,7 @@
 
 .movie-title {
   margin: 0;
+  font-family: var(--font-body);
   font-size: 1rem;
   line-height: 1.35;
 }
@@ -108,7 +101,7 @@
   background: none;
   border: 0;
   padding: 0;
-  color: var(--ink);
+  color: var(--text-main);
   font: inherit;
   font-weight: 600;
   text-align: left;
@@ -116,7 +109,7 @@
 }
 
 .movie-title-btn:hover {
-  color: var(--gold);
+  color: var(--accent-gold-light);
 }
 
 .movie-meta {
@@ -125,11 +118,11 @@
   justify-content: space-between;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }
 
 .movie-creator a {
-  color: var(--gold);
+  color: var(--accent-gold);
   text-decoration: none;
 }
 
@@ -138,22 +131,23 @@
 }
 
 .movies-status {
-  padding: 2rem 1rem;
+  padding: 1.5rem 1.25rem;
   text-align: center;
-  color: var(--ink-muted);
+  color: var(--text-soft);
 }
 
 .movies-error {
-  color: var(--danger, #e06c75);
+  color: var(--loss);
 }
 
 .movie-modal {
   width: min(920px, calc(100vw - 2rem));
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
-  background: var(--surface);
-  color: var(--ink);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  color: var(--text-main);
+  box-shadow: 0 8px 32px var(--shadow-deep);
 }
 
 .movie-modal::backdrop {
@@ -174,24 +168,30 @@
 
 .movie-modal-title {
   margin: 0 0 0.2rem;
+  font-family: var(--font-heading);
   font-size: 1.1rem;
+  color: var(--accent-gold-light);
 }
 
 .movie-modal-meta {
   margin: 0;
   font-size: 0.88rem;
-  color: var(--ink-muted);
+  color: var(--text-muted);
 }
 
 .movie-modal-close {
-  background: none;
-  border: 1px solid var(--border);
+  background: var(--surface-well);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  color: var(--ink);
+  color: var(--text-main);
   width: 2rem;
   height: 2rem;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.movie-modal-close:hover {
+  border-color: var(--accent-gold);
 }
 
 .movie-modal-frame-wrap {
@@ -214,6 +214,6 @@
 }
 
 .movie-yt-link {
-  color: var(--gold);
+  color: var(--accent-gold);
   font-size: 0.9rem;
 }
