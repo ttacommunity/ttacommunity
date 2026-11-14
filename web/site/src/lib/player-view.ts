@@ -654,3 +654,24 @@ export function seatDeltaClass(delta: number): 'delta-pos' | 'delta-neg' | 'delt
   return 'delta-zero';
 }
 
+export interface ChartOptionsState {
+  scale: ChartScale;
+  tiers: ChartTiers;
+  mode: ChartMode;
+  curve: ChartCurve;
+  engines: ReadonlySet<string>;
+}
+
+/** hasProfileOptions reports whether any profile-wide or chart option differs from its default. */
+export function hasProfileOptions(view: PlayerView, chart: ChartOptionsState): boolean {
+  const pageActive = (view.ranking !== undefined && view.ranking !== 'community') || view.reset !== 'continuous' || view.engine !== 'glicko2_daneo';
+  const chartActive =
+    chart.scale !== 'perspective' ||
+    chart.tiers !== 'on' ||
+    chart.mode !== 'continuous' ||
+    chart.curve !== 'expected' ||
+    chart.engines.size !== 1 ||
+    !chart.engines.has('glicko2_daneo');
+  return pageActive || chartActive;
+}
+

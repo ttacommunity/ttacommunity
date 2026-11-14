@@ -1396,17 +1396,28 @@
   font-weight: 800;
 }
 
+.player-layout {
+  position: relative;
+  width: 100%;
+}
+
+.player-top-bar {
+  margin-bottom: 1.5rem;
+}
+
 .chart-container {
   position: relative;
 }
 
-.chart-sidebar {
+.player-sidebar {
   display: block;
-  position: absolute;
-  top: 0;
+  position: fixed;
+  top: 5.5rem;
   z-index: 100;
   width: 360px;
-  max-width: calc(100% - 1rem);
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 6.5rem);
+  overflow-y: auto;
   animation: fade-in-options 0.2s ease-out;
 }
 
@@ -1457,6 +1468,18 @@
   background: rgba(239, 83, 80, 0.2);
   border-color: var(--loss);
   color: #ff8a80;
+}
+
+.options-section-divider {
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--gold-wash);
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .chart-options-body {
@@ -1534,7 +1557,7 @@
   color: var(--loss);
 }
 
-.chart-sidebar .sidebar-backdrop {
+.player-sidebar .sidebar-backdrop {
   display: none;
 }
 
@@ -1550,7 +1573,7 @@
 }
 
 @media (max-width: 768px) {
-  .chart-sidebar {
+  .player-sidebar {
     position: fixed;
     inset: 0;
     z-index: 10001;
@@ -1565,7 +1588,7 @@
     animation: fade-in-modal 0.2s ease-out;
   }
 
-  .chart-sidebar .sidebar-backdrop {
+  .player-sidebar .sidebar-backdrop {
     display: block;
     position: absolute;
     inset: 0;
