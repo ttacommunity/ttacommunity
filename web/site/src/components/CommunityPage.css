@@ -10,20 +10,6 @@
   backdrop-filter: blur(8px);
   text-align: center;
 }
-.comm-title {
-  font-family: var(--font-heading);
-  font-size: var(--size-page-title);
-  color: var(--loss);
-  margin-bottom: 0.5rem;
-  -webkit-text-stroke: 1px #180407;
-  paint-order: stroke fill;
-  text-shadow: -1.5px -1.5px 0 #180407, 1.5px 1.5px 0 #180407, -1.5px 1.5px 0 #180407, 1.5px 1.5px 0 #180407, 0 3px 8px var(--shadow-deep);
-}
-.comm-subtitle {
-  color: var(--text-soft);
-  font-size: 1.05rem;
-  margin-bottom: 1.5rem;
-}
 
 /* Stat Summary Tiles */
 .comm-stats-grid {
@@ -491,13 +477,6 @@
   .comm-hero {
     padding: 1.25rem 1rem;
     margin-bottom: 1.25rem;
-  }
-  .comm-title {
-    font-size: 1.5rem;
-  }
-  .comm-subtitle {
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
   }
   /* Columns may shrink below a long name, which then wraps inside its tile. */
   .comm-stats-grid {

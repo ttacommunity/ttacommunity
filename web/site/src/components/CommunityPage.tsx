@@ -30,6 +30,7 @@ import Waiting from './Waiting';
 import Pager from './Pager';
 import { count } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
 
 
 /** href is the page's address for a view, carrying edition, view, search and page. */
@@ -69,63 +70,64 @@ function Hero({
   const info = data.info;
 
   return (
-    <div className="comm-hero">
-      <h1 className="comm-title">Community Standard Leaderboard</h1>
-      <div className="comm-subtitle">{info.title || info.name}</div>
-      <div className="maintainer-card">
-        <div className="maintainer-badge">{info.badge || '🛡️ Circuit Maintainer'}</div>
-        <div className="maintainer-desc">
-          This official leaderboard is curated and maintained by{' '}
-          <strong>
-            <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
-          </strong>{' '}
-          • {info.maintainer_note}
-        </div>
-      </div>
-      <div className="edition-selector-bar">
-        <span className="edition-label">📅 Leaderboard Edition:</span>
-        <div className="edition-pills">
-          {editions.map((e) => (
-            <a
-              key={e.slug}
-              href={href(view, { edition: e.slug })}
-              className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
-              title={e.title}
-            >
-              {editionLabel(e)}
-            </a>
-          ))}
-        </div>
-      </div>
-      <div className="comm-stats-grid">
-        <div className="stat-tile">
-          <div className="stat-tile-num">{count(data.rows.length)}</div>
-          <div className="stat-tile-label">Ranked Competitors</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-num">{events}</div>
-          <div className="stat-tile-label">Tracked Events ({data.categories.length} Tiers)</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-num">
-            <PlayerLink name={top?.name ?? '—'} className="comm-top-link" />
+    <>
+      <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
+      <div className="comm-hero">
+        <div className="maintainer-card">
+          <div className="maintainer-badge">{info.badge || '🛡️ Circuit Maintainer'}</div>
+          <div className="maintainer-desc">
+            This official leaderboard is curated and maintained by{' '}
+            <strong>
+              <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
+            </strong>{' '}
+            • {info.maintainer_note}
           </div>
-          <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 0)} pts)</div>
         </div>
-        <div className="stat-tile">
-          <div className="stat-tile-num">
-            {info.wc ? (
-              <PlayerLink name={info.wc} className="comm-wc-link">
-                <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
-              </PlayerLink>
-            ) : (
-              <span className="comm-muted">—</span>
-            )}
+        <div className="edition-selector-bar">
+          <span className="edition-label">📅 Leaderboard Edition:</span>
+          <div className="edition-pills">
+            {editions.map((e) => (
+              <a
+                key={e.slug}
+                href={href(view, { edition: e.slug })}
+                className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
+                title={e.title}
+              >
+                {editionLabel(e)}
+              </a>
+            ))}
           </div>
-          <div className="stat-tile-label">{info.wc_desc || 'Reigning World Champion'}</div>
+        </div>
+        <div className="comm-stats-grid">
+          <div className="stat-tile">
+            <div className="stat-tile-num">{count(data.rows.length)}</div>
+            <div className="stat-tile-label">Ranked Competitors</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-num">{events}</div>
+            <div className="stat-tile-label">Tracked Events ({data.categories.length} Tiers)</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-num">
+              <PlayerLink name={top?.name ?? '—'} className="comm-top-link" />
+            </div>
+            <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 0)} pts)</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-num">
+              {info.wc ? (
+                <PlayerLink name={info.wc} className="comm-wc-link">
+                  <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
+                </PlayerLink>
+              ) : (
+                <span className="comm-muted">—</span>
+              )}
+            </div>
+            <div className="stat-tile-label">{info.wc_desc || 'Reigning World Champion'}</div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
