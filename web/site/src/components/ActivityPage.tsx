@@ -1,7 +1,8 @@
 /** Upstream's activity and demographics page: players, games per format, titles and the leading countries. */
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { activity, currentRun } from '@ttac/shared/ratings';
-import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
+import { formatCards, COUNTRY_COLUMNS, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
 import { Flag, TitleBadge } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
@@ -25,11 +26,8 @@ const avg = (x: number | null) => (x === null ? '-' : x.toFixed(1));
 /** ActivityPage loads the current run's activity and shows it as upstream's page does. */
 export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const load = useLoad('activity', () => currentRun(apiUrl).then((r) => activity(apiUrl, r.run_id).then((a) => ({ activity: a, years: runYears(r.first_game, r.last_game) }))));
-  const [sort, setSort] = useState<{ col: CountryColumn; asc: boolean } | null>(null);
-  const [directions, setDirections] = useState<Partial<Record<CountryColumn, boolean>>>({});
-
   const ranked = useMemo(() => (load.kind === 'ready' ? load.data.activity.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
-  const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
+  const [countries, sort, sortBy] = useSort(ranked, COUNTRY_COLUMNS);
 
   if (load.kind !== 'ready') return <Waiting load={load} what="the activity figures" />;
 
@@ -38,12 +36,6 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const total = a.active + a.inactive;
   const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
   const formats = formatCards(a.formats);
-  // Each header flips its own direction, starting ascending, as upstream's script does.
-  const sortBy = (col: CountryColumn) => {
-    const asc = !directions[col];
-    setDirections({ ...directions, [col]: asc });
-    setSort({ col, asc });
-  };
 
   return (
     <>
@@ -115,16 +107,9 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
             <thead>
               <tr>
                 {COLUMNS.map((c) => (
-                  <th
-                    key={c.col}
-                    scope="col"
-                    className={c.col === 'country' ? 'col-country' : undefined}
-                    aria-sort={sort?.col === c.col ? (sort.asc ? 'ascending' : 'descending') : undefined}
-                  >
-                    <button type="button" className="sort-header" data-tooltip={c.tip} onClick={() => sortBy(c.col)}>
-                      {c.label} ⇅
-                    </button>
-                  </th>
+                  <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} className={c.col === 'country' ? 'col-country' : undefined}>
+                    <span data-tooltip={c.tip}>{c.label}</span>
+                  </SortHeader>
                 ))}
               </tr>
             </thead>

@@ -11,7 +11,7 @@ import {
   announceFormat,
   onFormat,
   parseAnalysisParams,
-  sortCountries,
+  COUNTRY_COLUMNS,
   titleLabel,
   type CountryRatings,
   rankModels,
@@ -21,6 +21,7 @@ import {
   seatSpread,
   SEAT_TIERS,
 } from './analysis';
+import { sortRows } from '@ttac/shared/sort';
 
 const row = (model: CalibrationRow['model'], brier: number, ece: number, extra: Partial<CalibrationRow> = {}): CalibrationRow => ({
   mode: 'standard',
@@ -112,22 +113,26 @@ describe('titleLabel', () => {
   });
 });
 
-describe('sortCountries', () => {
+describe('COUNTRY_COLUMNS', () => {
   const c = (country: string, players: number, gm: number | null): CountryRatings => ({ country, players, gm, m_plus: null, p_plus: null, all: 1500 });
   const rows = [c('US', 131, 1885.6), c('CZ', 33, null), c('FR', 27, 1953.6)].map((r, i) => ({ ...r, rank: i + 1 }));
 
   it.each([
-    ['a number, descending', 'gm', true, ['CZ', 'US', 'FR']],
-    ['a number, ascending', 'gm', false, ['FR', 'US', 'CZ']],
-    ['codes, as text', 'country', true, ['CZ', 'FR', 'US']],
-  ] as const)('sorts by %s, a missing average as 0', (_name, column, descending, want) => {
-    expect(sortCountries(rows, column, descending).map((r) => r.country)).toEqual(want);
+    ['a number, ascending first', 'gm', false, ['US', 'FR', 'CZ']],
+    ['a number, descending', 'gm', true, ['FR', 'US', 'CZ']],
+    ['codes, as text', 'country', false, ['CZ', 'FR', 'US']],
+  ] as const)('sorts by %s, a missing average last', (_name, col, desc, want) => {
+    expect(sortRows(rows, COUNTRY_COLUMNS, { col, desc }).map((r) => r.country)).toEqual(want);
+  });
+
+  it('sorts every column ascending first, as upstream does', () => {
+    expect(Object.values(COUNTRY_COLUMNS).every((col) => col.first === 'asc')).toBe(true);
   });
 
   it('sorts the rank column as numbers, not as text (1, 2, 3, not 1, 10, 11)', () => {
     const many = Array.from({ length: 11 }, (_, i) => ({ ...c(`C${i}`, 1, null), rank: i + 1 }));
-    expect(sortCountries(many, 'rank', true).map((r) => r.rank).slice(0, 4)).toEqual([1, 2, 3, 4]);
-    expect(sortCountries(many, 'rank', false).map((r) => r.rank).slice(0, 3)).toEqual([11, 10, 9]);
+    expect(sortRows(many, COUNTRY_COLUMNS, { col: 'rank', desc: false }).map((r) => r.rank).slice(0, 4)).toEqual([1, 2, 3, 4]);
+    expect(sortRows(many, COUNTRY_COLUMNS, { col: 'rank', desc: true }).map((r) => r.rank).slice(0, 3)).toEqual([11, 10, 9]);
   });
 });
 
