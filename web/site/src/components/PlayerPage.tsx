@@ -371,7 +371,7 @@ function Games({
         <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
       </div>
       <ScrollTable hint="full match details">
-        <table className="data-table">
+        <table className="leaderboard-table data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
           </caption>
@@ -516,7 +516,7 @@ function Rivals({
         </div>
       </div>
       <ScrollTable hint="full opponent stats">
-        <table className="data-table">
+        <table className="leaderboard-table data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
             <tr>
@@ -664,7 +664,7 @@ function PositionSeatStats({
       )}
 
       <ScrollTable hint="seat statistics">
-        <table className="data-table position-seat-table">
+        <table className="leaderboard-table data-table position-seat-table">
           <caption className="visually-hidden">
             Position and turn order win rates and placement breakdown for {data?.name ?? 'player'}
           </caption>

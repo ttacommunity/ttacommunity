@@ -74,7 +74,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
   const [rows, sort, sortBy] = useSort(editions, EDITION_COLUMNS);
   return (
     <div className="blitz-table-wrap">
-      <table className="blitz-table">
+      <table className="leaderboard-table blitz-table">
         <caption>Every blitz tournament, newest edition first</caption>
         <thead>
           <tr>
@@ -271,7 +271,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
         </span>
       </div>
       <div className="blitz-table-wrap">
-        <table className="blitz-table blitz-standings">
+        <table className="leaderboard-table blitz-table blitz-standings">
           <caption>The standings after the results recorded so far</caption>
           <BlitzStandingsTable
             standings={standings}
@@ -305,7 +305,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
       <p className="blitz-intro">{entrants.length} in. Ratings are the 2-player community rating of the current run; a dash means not rated yet.</p>
       {entrants.length > 0 && (
         <div className="blitz-table-wrap">
-          <table className="blitz-table">
+          <table className="leaderboard-table blitz-table">
             <caption>The players still in, in sign-up order</caption>
             <thead>
               <tr>

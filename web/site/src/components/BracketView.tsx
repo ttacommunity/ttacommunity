@@ -83,7 +83,7 @@ export default function BracketView({
   const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
   const phone = rounds[view.last];
   return (
-    <div className="panel-card bracket-panel">
+    <div className="rating-card panel-card bracket-panel">
       <PanelHeader title="Bracket">
         <SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />
       </PanelHeader>

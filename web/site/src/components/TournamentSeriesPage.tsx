@@ -57,7 +57,7 @@ export default function TournamentSeriesPage({ apiUrl, slug }: { apiUrl: string;
       />
 
       {data !== null && data.members.length > 0 && (
-        <div className="panel-card series-members">
+        <div className="rating-card panel-card series-members">
           <PanelHeader icon={card.icon} title={`Tournaments in the ${name}`} />
           <div className="series-members-list">
             {data.members.map((m) => (
@@ -110,7 +110,7 @@ export function SeriesSections({
       <StoriesPanel stories={stories} />
 
       {(data === null || data.season_records.length > 0) && (
-        <div className="panel-card panel-records">
+        <div className="rating-card panel-card panel-records">
           <PanelHeader icon="🏆" title={`Premier Division All-Time Seasonal Records (${content.name})`}>
             <span className="panel-tag panel-tag-wide">Highest Seasonal League Points</span>
           </PanelHeader>
@@ -120,7 +120,7 @@ export function SeriesSections({
             tracking, so to find the coressponding season there you need to subtract 9.
           </p>
           <div className="trophy-table-container records-table">
-            <table className="trophy-table">
+            <table className="leaderboard-table trophy-table">
               <caption className="visually-hidden">The ten highest-scoring top-division seasons</caption>
               <thead>
                 <tr>

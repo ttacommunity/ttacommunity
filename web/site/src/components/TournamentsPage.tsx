@@ -77,7 +77,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
 function CgeList({ data }: { data: Catalogue }) {
   const withGames = new Set(data.tournaments.map((t) => t.slug));
   return (
-    <div className="panel-card">
+    <div className="rating-card panel-card">
       <PanelHeader title="Tournaments on CGE">
         <span className="panel-tag">{count(data.cge_tournaments.length)} tournaments</span>
       </PanelHeader>
@@ -86,7 +86,7 @@ function CgeList({ data }: { data: Catalogue }) {
         count.
       </p>
       <div className="trophy-table-container">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="records-intro">Tournaments on CGE, newest first</caption>
           <thead>
             <tr>
@@ -217,14 +217,14 @@ function Champions({
     ));
   };
   return (
-    <div className="panel-card champions-panel">
+    <div className="rating-card panel-card champions-panel">
       <PanelHeader title={`Champions & ${plural(word)}`}>
         <span className="panel-tag">
           {count(seasons.length)} {plural(lower)}
         </span>
       </PanelHeader>
       <div className="trophy-table-container champions-table">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="records-intro">
             {podium ? `Each ${lower}'s top three, newest first; choose a ${lower} to see its games` : `Newest first; choose a ${lower} to see its games`}
           </caption>
@@ -293,7 +293,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
   const s = seasons.find((x) => x.label === label) ?? seasons[seasons.length - 1];
   if (s === undefined) return null;
   return (
-    <div className="panel-card stages-panel">
+    <div className="rating-card panel-card stages-panel">
       <PanelHeader title={plural(stageWord)}>
         <SeasonPick id="stages-season" seasons={seasons} value={s.label} word={seasonWord} onChange={setLabel} />
       </PanelHeader>

@@ -22,13 +22,13 @@ export default function GameRecordsPanel({
 }) {
   if (records !== null && records.length === 0) return null;
   return (
-    <div className="panel-card panel-records">
+    <div className="rating-card panel-card panel-records">
       <PanelHeader icon="📈" title={title}>
         <span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>
       </PanelHeader>
       <p className="records-intro">{intro}</p>
       <div className="trophy-table-container records-table">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">The ten highest winning scores</caption>
           <thead>
             <tr>

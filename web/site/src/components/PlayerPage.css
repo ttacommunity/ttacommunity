@@ -369,29 +369,6 @@
   cursor: help;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-}
-
-.data-table th {
-  padding: 0.65rem 0.85rem;
-  background: var(--surface-card);
-  border-bottom: 2px solid var(--border-subtle);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
-  color: var(--accent-gold);
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.data-table td {
-  padding: 0.6rem 0.85rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.4);
-}
-
 .data-table .cell-date {
   white-space: nowrap;
   color: var(--text-muted);

@@ -107,17 +107,6 @@
   .stories-grid {
     grid-template-columns: 1fr;
   }
-  .panel-card {
-    padding: 1rem;
-  }
-}
-
-.panel-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 6px 20px var(--shadow);
 }
 
 /* Rules list */
@@ -151,9 +140,6 @@
   overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 6px;
-  border: 1px solid var(--gold-wash);
-  background: rgba(0, 0, 0, 0.25);
   scrollbar-width: thin;
   scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
@@ -161,42 +147,7 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(30, 20, 14, 0.98);
   box-shadow: 0 1px 0 var(--gold-wash);
-}
-.trophy-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.92rem;
-  font-family: var(--font-stats);
-}
-.trophy-table th {
-  color: var(--accent-gold);
-  font-weight: 700;
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border-bottom: 2px solid var(--border-subtle);
-  font-size: var(--size-table-header);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: var(--font-heading);
-}
-.trophy-table tbody tr {
-  transition: background-color 0.15s ease;
-}
-.trophy-table tbody tr:nth-child(odd) {
-  background: rgba(16, 10, 6, 0.65);
-}
-.trophy-table tbody tr:nth-child(even) {
-  background: rgba(28, 18, 12, 0.40);
-}
-.trophy-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-faint);
-  color: var(--text-main);
-}
-.trophy-table tbody tr:hover td {
-  background: var(--gold-wash-faint) !important;
 }
 .medal-count {
   font-weight: 700;

@@ -7,6 +7,17 @@
   box-shadow: 0 4px 20px var(--shadow);
 }
 
+/* A rating card holding one panel of a page (PanelHeader and its content). */
+.panel-card {
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .panel-card {
+    padding: 1rem;
+  }
+}
+
 .rating-card-heading {
   font-family: var(--font-heading);
   font-size: var(--size-card-title);

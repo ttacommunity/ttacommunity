@@ -81,7 +81,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
             <p className="muted">{past ? 'No game yet.' : 'No game is running.'}</p>
           ) : (
             <div className="blitz-table-wrap">
-              <table className="blitz-table">
+              <table className="leaderboard-table blitz-table">
                 <caption className="visually-hidden">Nostradamus games, newest first</caption>
                 <thead>
                   <tr>

@@ -24,12 +24,6 @@
 .blitz-table-wrap {
   overflow-x: auto;
 }
-.blitz-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.95rem;
-}
 .blitz-table caption {
   caption-side: top;
   padding-bottom: 0.5rem;
@@ -39,18 +33,10 @@
 }
 .blitz-table th,
 .blitz-table td {
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border-subtle);
-  text-align: left;
   vertical-align: top;
 }
 .blitz-table thead th {
-  color: var(--accent-gold);
-  font-weight: 600;
   white-space: nowrap;
-}
-.blitz-table tbody th {
-  font-weight: 600;
 }
 .blitz-table .num {
   text-align: right;

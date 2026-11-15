@@ -243,7 +243,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
         selectedTournament === null ? (
           <div>
             <ScrollTable hint="click any row or button to view seasons">
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {TOURNAMENT_HEADS.map((head, col) => (
@@ -380,7 +380,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
             </div>
 
             <ScrollTable hint="full season details">
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {DRILLDOWN_HEADS.map((head, col) => (
@@ -437,7 +437,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
 
           <ScrollTable hint="full highlight details">
             {highlightMode === 'hof' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {CAREER_HEADS.map((head, col) => (
@@ -471,7 +471,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : highlightMode === 'promotions' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     <th>Date of Finish</th>
@@ -511,7 +511,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : highlightMode === 'best' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {BEST_HEADS.map((head) => (
@@ -547,7 +547,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {SEASON_HEADS.map((head) => (

@@ -31,6 +31,7 @@ import Pager from './Pager';
 import { count } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
+import { isTopThree, rank } from '../lib/leaderboard-display';
 
 
 /** href is the page's address for a view, carrying edition, view, search and page. */
@@ -40,11 +41,6 @@ function href(view: CommunityView, change: Partial<CommunityView>): string {
   if (v.search) q.set('q', v.search);
   if (change.page !== undefined) q.set('page', String(v.page));
   return `/ratings/community/?${q}`;
-}
-
-function Rank({ rank }: { rank: number }) {
-  if (rank <= 3) return <span className={`rank-pill rank-${rank}`}>{rank}</span>;
-  return <span className="rank-default">{rank}</span>;
 }
 
 function Score({ value, counting, tip }: { value: number | undefined | null; counting: boolean; tip: string }) {
@@ -214,105 +210,109 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
   const standard = view.view === 'standard';
   const count = data.counting_events ?? 8;
   const wcName = data.info.wc;
+  const [scrolled, setScrolled] = useState(false);
 
   return (
-    <div className={`table-wrapper${standard ? '' : ' expanded-view'}`}>
-      <table className="comm-table">
-        <thead>
-          <tr className="super-header">
-            <th colSpan={5} className="comm-super-left">
-              Leaderboard Standings
-            </th>
-            {standard ? (
-              <th colSpan={data.summary.length}>Tournament Categories (Sum of Events)</th>
-            ) : (
-              data.categories.map((c) => (
-                <th key={c.category} colSpan={c.columns.length}>
-                  {c.category}
-                </th>
-              ))
-            )}
-          </tr>
-          <tr className="col-header">
-            <th className="sticky-col-rank">#</th>
-            <th className="sticky-col-player text-left">Competitor</th>
-            <th>Title</th>
-            <th>Total Pts</th>
-            <th>Tourneys</th>
-            {standard
-              ? data.summary.map((t) => (
-                  <th key={t.id} title={`${t.name} (${t.desc})`}>
-                    {t.short}
+    <div className={`rating-card table-wrapper${standard ? '' : ' expanded-view'}`}>
+      <div
+        className={scrolled ? 'table-responsive scrolled-x' : 'table-responsive'}
+        onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
+      >
+        <table className="leaderboard-table comm-table">
+          <thead>
+            <tr className="super-header">
+              <th colSpan={5} className="comm-super-left">
+                Leaderboard Standings
+              </th>
+              {standard ? (
+                <th colSpan={data.summary.length}>Tournament Categories (Sum of Events)</th>
+              ) : (
+                data.categories.map((c) => (
+                  <th key={c.category} colSpan={c.columns.length}>
+                    {c.category}
                   </th>
                 ))
-              : columns.map((c) => (
-                  <th key={c.id} title={columnTitle(c)}>
-                    {c.short}
-                  </th>
-                ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={25} className="comm-empty">
-                No competitors found matching &quot;<strong>{view.search}</strong>&quot;.
-              </td>
+              )}
             </tr>
-          ) : (
-            rows.map((r) => {
-              const counting = countingColumns(r.scores, sheetOrder, count);
-              const sums = tournamentSums(r.scores, data.summary, counting);
-              const mark = titleMark(r, wcName);
-              return (
-                <tr key={r.name}>
-                  <td className="sticky-col-rank">
-                    <Rank rank={r.rank} />
-                  </td>
-                  <td className="sticky-col-player text-left">
-                    <Flag country={r.country} />{' '}
-                    <PlayerLink name={r.name} className="player-link comm-player" />
-                  </td>
-                  <td>
-                    {mark === null ? <span className="comm-dash">-</span> : <TitleBadge title={{ code: mark }} />}
-                  </td>
-                  <td>
-                    <span className="points-total">{whole(r.points)}</span>
-                  </td>
-                  <td className="comm-muted">{r.events}</td>
-                  {standard
-                    ? data.summary.map((t) => {
-                        const s = sums[t.id];
-                        const tip = s
-                          ? `${t.name} Sum: ${whole(s.sum)} pts (${s.counting ? `contributes to Top-${count} total` : `dropped beyond Top-${count}`})`
-                          : '';
-                        return (
-                          <td key={t.id}>
-                            <Score value={s?.sum} counting={s?.counting ?? false} tip={tip} />
-                          </td>
-                        );
-                      })
-                    : columns.map((c) => {
-                        const v = r.scores[c.id];
-                        const on = counting.includes(c.id);
-                        const tip =
-                          v === undefined
-                            ? ''
-                            : on
-                              ? `Counts toward Top-${count} total: ${whole(v)} pts in ${c.name}`
-                              : `Dropped (beyond Top-${count}): ${whole(v)} pts in ${c.name}`;
-                        return (
-                          <td key={c.id}>
-                            <Score value={v} counting={on} tip={tip} />
-                          </td>
-                        );
-                      })}
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+            <tr className="col-header">
+              <th className="col-pinned comm-pinned-rank">#</th>
+              <th className="col-pinned comm-pinned-name text-left">Competitor</th>
+              <th>Title</th>
+              <th>Total Pts</th>
+              <th>Tourneys</th>
+              {standard
+                ? data.summary.map((t) => (
+                    <th key={t.id} title={`${t.name} (${t.desc})`}>
+                      {t.short}
+                    </th>
+                  ))
+                : columns.map((c) => (
+                    <th key={c.id} title={columnTitle(c)}>
+                      {c.short}
+                    </th>
+                  ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={25} className="comm-empty">
+                  No competitors found matching &quot;<strong>{view.search}</strong>&quot;.
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => {
+                const counting = countingColumns(r.scores, sheetOrder, count);
+                const sums = tournamentSums(r.scores, data.summary, counting);
+                const mark = titleMark(r, wcName);
+                return (
+                  <tr key={r.name}>
+                    <td className={isTopThree(r.rank) ? 'col-pinned comm-pinned-rank rank-col top-3-rank' : 'col-pinned comm-pinned-rank rank-col'}>{rank(r.rank)}</td>
+                    <td className="col-pinned comm-pinned-name text-left">
+                      <Flag country={r.country} />{' '}
+                      <PlayerLink name={r.name} className="player-link comm-player" />
+                    </td>
+                    <td>
+                      {mark === null ? <span className="comm-dash">-</span> : <TitleBadge title={{ code: mark }} />}
+                    </td>
+                    <td>
+                      <span className="points-total">{whole(r.points)}</span>
+                    </td>
+                    <td className="comm-muted">{r.events}</td>
+                    {standard
+                      ? data.summary.map((t) => {
+                          const s = sums[t.id];
+                          const tip = s
+                            ? `${t.name} Sum: ${whole(s.sum)} pts (${s.counting ? `contributes to Top-${count} total` : `dropped beyond Top-${count}`})`
+                            : '';
+                          return (
+                            <td key={t.id}>
+                              <Score value={s?.sum} counting={s?.counting ?? false} tip={tip} />
+                            </td>
+                          );
+                        })
+                      : columns.map((c) => {
+                          const v = r.scores[c.id];
+                          const on = counting.includes(c.id);
+                          const tip =
+                            v === undefined
+                              ? ''
+                              : on
+                                ? `Counts toward Top-${count} total: ${whole(v)} pts in ${c.name}`
+                                : `Dropped (beyond Top-${count}): ${whole(v)} pts in ${c.name}`;
+                          return (
+                            <td key={c.id}>
+                              <Score value={v} counting={on} tip={tip} />
+                            </td>
+                          );
+                        })}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

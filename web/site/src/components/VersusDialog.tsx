@@ -95,7 +95,7 @@ export default function VersusDialog({
           <div className="h2h-message">{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see shared matches.' : 'No direct encounters found for this player format and filter.'}</div>
         )}
         {tally !== null && tally.games > 0 && (
-          <table className="data-table">
+          <table className="leaderboard-table data-table">
             <caption className="visually-hidden">
               Games {a} and {b} played together
             </caption>

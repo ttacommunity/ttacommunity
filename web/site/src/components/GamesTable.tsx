@@ -37,7 +37,7 @@ export default function GamesTable({
     );
   return (
     <div className="trophy-table-container games-table">
-      <table className="trophy-table">
+      <table className="leaderboard-table trophy-table">
         <caption className="records-intro">{caption}</caption>
         <thead>
           <tr>

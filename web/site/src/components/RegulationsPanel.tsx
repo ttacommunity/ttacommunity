@@ -5,7 +5,7 @@ import PanelHeader from './PanelHeader';
 /** RegulationsPanel shows the bullets, where they come from when that is CGE, and the rating note for a rated tournament. */
 export default function RegulationsPanel({ box, rated }: { box: RegulationsBox; rated: boolean }) {
   return (
-    <div className="panel-card">
+    <div className="rating-card panel-card">
       <PanelHeader icon="📜" title="Format & Regulations" />
       <ul className="rules-list">
         {box.lines.map((line, i) => (

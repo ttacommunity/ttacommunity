@@ -102,7 +102,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
           Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort.
         </p>
         <ScrollTable hint="country demographics">
-          <table className="activity-table">
+          <table className="leaderboard-table activity-table">
             <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
             <thead>
               <tr>

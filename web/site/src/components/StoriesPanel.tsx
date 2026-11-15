@@ -9,7 +9,7 @@ export type StoryView = { player: string; badge: string; title: string; text: st
 export default function StoriesPanel({ stories }: { stories: readonly StoryView[] }) {
   if (stories.length === 0) return null;
   return (
-    <div className="panel-card panel-stories">
+    <div className="rating-card panel-card panel-stories">
       <PanelHeader icon="⚡" title="Master+ Dynastic Milestones & Champion Chronicles" />
       <div className="stories-grid">
         {stories.map((s, i) => (

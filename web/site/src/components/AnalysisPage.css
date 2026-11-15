@@ -25,49 +25,13 @@
 .graph-main-card {
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
 }
 
-.eval-table-card {
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
-}
 
-.card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
 
-.card-head h3 {
-  margin: 0;
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-}
 
-.graph-main-card .card-head h3 {
-  font-size: var(--size-subheading);
-}
 
-.card-sub {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
 
-.graph-main-card .card-sub {
-  font-size: 0.82rem;
-}
 
 .card-badges {
   display: flex;
@@ -214,22 +178,11 @@
 
 /* The four-metric ranked table. */
 .ranked-table {
-  width: 100%;
   margin-top: 0.5rem;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.88rem;
 }
 
 .ranked-table th {
-  padding: 0.65rem 0.6rem;
-  background: var(--surface-card);
-  border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
   text-align: right;
-  text-transform: uppercase;
 }
 
 .ranked-table th:first-child,
@@ -243,11 +196,7 @@
 }
 
 .ranked-table td {
-  padding: 0.65rem 0.6rem;
-  border-bottom: 1px solid var(--border-faint);
   text-align: right;
-  transition: background 0.2s ease;
-  font-size: var(--size-table-cell);
 }
 
 .ranked-table td:first-child,
@@ -265,10 +214,6 @@
 .ranked-eval-row.active-highlight {
   background: var(--gold-wash-faint) !important;
   border-left: 3px solid var(--accent-gold);
-}
-
-.ranked-eval-row:hover {
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .rank-cell {
@@ -367,13 +312,8 @@
 .commentary-body li { margin-bottom: 0.35rem; }
 
 /* Distribution and agreement cards. */
-.panel-card {
+.engine-spread {
   margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
 }
 
 .density-means {
@@ -617,28 +557,8 @@
   color: var(--accent-gold);
 }
 
-.activity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  text-align: left;
-}
-
-.activity-table th {
-  padding: 0.75rem 1rem;
-  background: var(--surface-card);
-  border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
-  text-align: center;
-  text-transform: uppercase;
-}
-
+.activity-table th,
 .activity-table td {
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.4);
-  font-size: var(--size-table-cell);
   text-align: center;
 }
 
