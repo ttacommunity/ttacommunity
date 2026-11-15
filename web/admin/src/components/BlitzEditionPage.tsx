@@ -6,13 +6,13 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pointsNote, resultsLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pointsNote, resultsLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
-import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
+import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '../lib/countries';
@@ -31,6 +31,7 @@ import './AdminApp.css';
 import { plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import GameSeatFields from '@ttac/shared/GameSeatFields';
 import AdminTable from './AdminTable';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
@@ -1311,12 +1312,6 @@ function formFromGame(m: AdminBlitzMatch, zone: string, regions: readonly Region
   };
 }
 
-const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
-  { value: 'finished', label: 'finished' },
-  { value: 'resigned', label: 'resigned' },
-  { value: 'timed_out', label: 'timed out' },
-];
-
 type ResultFormProps = {
   at: Edition;
   round: AdminBlitzRound;
@@ -1364,48 +1359,9 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
     if (res.ok) await onDone(`${a} v ${b} ruled.`);
     else setRefusal(refused(res.message, ''));
   };
-  // side is one player's row: how their game ended, their culture (0 for one who resigned or timed out), then their turn.
   const side = (who: 'a' | 'b', name: string) => (
     <div className="result-row">
-      <label>
-        {name}
-        <select className="input-antique" value={game[`${who}_outcome`]} onChange={(e) => setGame({ ...game, [`${who}_outcome`]: e.target.value as GameForm['a_outcome'] })}>
-          {OUTCOMES.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {name}&apos;s culture
-        <input
-          className="input-antique"
-          type="number"
-          min={0}
-          step="any"
-          value={game[`${who}_culture`]}
-          placeholder={game[`${who}_outcome`] === 'finished' ? undefined : '0'}
-          disabled={game[`${who}_outcome`] !== 'finished'}
-          onChange={(e) => setGame({ ...game, [`${who}_culture`]: e.target.value })}
-        />
-      </label>
-      <label>
-        {name}&apos;s turn
-        <select className="input-antique" value={game[`${who}_turn`] ?? ''} onChange={(e) => setGame(chooseTurn(game, who, Number(e.target.value)))}>
-          {game[`${who}_turn`] === null && (
-            <option value="" disabled>
-              –
-            </option>
-          )}
-          {TURNS.map((t) => (
-            <option key={t} value={t}>
-              {turnMark(t)}
-              {t === 1 ? ' (went first)' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+      <GameSeatFields form={game} who={who} name={name} onChange={setGame} />
     </div>
   );
   return (

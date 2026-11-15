@@ -1,6 +1,7 @@
 ---
 /** Every token and component of the design system on sample data, to check the look by eye. */
 import SiteLayout from '../layouts/SiteLayout.astro';
+import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
 import DialogSamples from '../components/DialogSamples';
 import Note from '@ttac/shared/Note';
@@ -14,6 +15,8 @@ import SubpageNav from '../components/SubpageNav.astro';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
 import NewerOlder from '@ttac/shared/NewerOlder';
+import GameSeatFields from '@ttac/shared/GameSeatFields';
+import { emptyGameForm } from '@ttac/shared/game-form';
 
 const colours = [
   'bg-dark',
@@ -115,6 +118,11 @@ const rows = [
       <button type="button" class="btn-antique">An action</button>
       <button type="button" class="btn-antique btn-danger">One that cannot be undone</button>
     </p>
+
+    <h2>A player's game result</h2>
+    <div class="report-row">
+      <GameSeatFields form={{ ...emptyGameForm('2026-09-01', 'Unknown'), b_outcome: 'resigned' }} who="b" name="Sample Player Two" onChange={() => {}} />
+    </div>
 
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />

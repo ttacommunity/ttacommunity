@@ -33,7 +33,8 @@
     "./SortHeader": "./src/SortHeader.tsx",
     "./Note": "./src/Note.tsx",
     "./PageHeader": "./src/PageHeader.tsx",
-    "./NewerOlder": "./src/NewerOlder.tsx"
+    "./NewerOlder": "./src/NewerOlder.tsx",
+    "./GameSeatFields": "./src/GameSeatFields.tsx"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
