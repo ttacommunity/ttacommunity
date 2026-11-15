@@ -338,6 +338,21 @@ agent runs them itself.
   app's `components/` for one that already does it, and use it; when you
   find a page's own copy of one, move it over. Used by one app: its
   `components/`. By both: `shared`
+- **Use the shared pieces as they look; never restyle one in a page.**
+  The site has one of each: page header (`PageHeader`), panel and its
+  header (`.rating-card` `.panel-card`, `PanelHeader`), table
+  (`.leaderboard-table`, straight on a card), button row (`Segmented`:
+  a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
+  drawer (`SideDrawer`), and admin's `AdminPage`, `AdminCard` and
+  `AdminTable`. `/design` shows them all. A page's CSS sets only its own
+  layout (widths, alignment, spacing): it never redefines a shared class
+  or puts a shared piece in a box of its own colour. A look a piece
+  lacks is a change to that piece, on `/design`, agreed with the
+  maintainers, never a page's copy
+- **Colours come from the tokens** (`shared/styles/tokens.css`): new CSS
+  writes no hex or `rgba()` of its own, and a colour the tokens lack is a
+  new token. The raw colours older page CSS still has move to tokens
+  when that CSS is next changed
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC
