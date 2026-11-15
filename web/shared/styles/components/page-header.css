@@ -1,0 +1,65 @@
+/* A page's title card (PageHeader): warm gradient, gold edge, the temple faint at the right. */
+.page-header {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), var(--surface-well));
+  border: 1.5px solid var(--gold-wash);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px var(--shadow);
+}
+.page-header::after {
+  content: '🏛️';
+  position: absolute;
+  right: 1.5rem;
+  bottom: -1rem;
+  font-size: 8rem;
+  opacity: 0.08;
+  pointer-events: none;
+}
+.page-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.5rem;
+  color: var(--accent-gold);
+  font-size: var(--size-page-title);
+  font-weight: 800;
+}
+.page-header-subtitle {
+  max-width: 800px;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+.page-header-subtitle a {
+  color: var(--accent-gold);
+}
+.page-header-media {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+.page-header-text {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    margin-bottom: 1.25rem;
+    padding: 1.25rem 1rem;
+  }
+  .page-header-title {
+    font-size: 1.45rem;
+  }
+  .page-header-subtitle {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .page-header-media {
+    flex-direction: column;
+  }
+}

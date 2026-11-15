@@ -23,6 +23,7 @@ import ScrollTable from './ScrollTable';
 import { waitingText } from '../lib/waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
@@ -40,15 +41,11 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">
-          <span>🏛️</span> Official Through the Ages Hall of Fame
-        </h1>
-        <div className="tournaments-subtitle">
-          The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards,
-          matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+
-          competitors.
-        </div>
+      <PageHeader
+        icon="🏛️"
+        title="Official Through the Ages Hall of Fame"
+        subtitle="The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards, matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+ competitors."
+      >
         <div className="tournaments-stats-bar">
           <div className="stat-pill">
             Series Active: <strong>6 Major Circuits</strong>
@@ -63,7 +60,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             World Champions: <strong>{new Set(champions.map((c) => c.name)).size} Crowned Titleholders</strong>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="podium-preview-card">
         <h2 className="podium-preview-title">

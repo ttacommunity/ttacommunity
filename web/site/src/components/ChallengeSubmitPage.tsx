@@ -14,6 +14,7 @@ import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -280,18 +281,19 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
 function Examples({ me }: { me: Me | null | undefined }) {
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <div>
-          <h1 className="analysis-hero-title">Submit domination</h1>
-          <p className="analysis-hero-desc">
+      <PageHeader
+        title="Submit domination"
+        subtitle={
+          <>
             Enter your <strong>domination</strong> for any challenges you like: your final score minus the score of the second-place player. Fill in only the
             ones you want to add or improve. <strong>To get an entry verified</strong>, post the screenshots below in the TtA Discord&apos;s challenge channel,
             then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
             the official highscores.
-          </p>
-          <FirstStep me={me} />
-        </div>
-      </div>
+          </>
+        }
+      >
+        <FirstStep me={me} />
+      </PageHeader>
       <section className="rating-card challenges-card" aria-labelledby="examples">
         <h2 id="examples" className="rating-card-heading">
           What to post in Discord

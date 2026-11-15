@@ -67,11 +67,6 @@
     padding-inline: 0.4rem;
   }
 }
-.tournament-title {
-  margin: 0 0 1rem;
-  color: var(--accent-gold-bright);
-  font-family: var(--font-heading);
-}
 .settings-list {
   display: grid;
   gap: 0.6rem;

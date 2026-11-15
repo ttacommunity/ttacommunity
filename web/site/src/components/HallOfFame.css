@@ -1,39 +1,5 @@
 /* Upstream's Hall of Fame overview (tournaments/hub.html): its <style> block as it is, then its inline styles as classes. */
 
-.tournaments-header {
-  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 6px 24px var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-.tournaments-header::after {
-  content: '🏛️';
-  position: absolute;
-  right: 1.5rem;
-  bottom: -1rem;
-  font-size: 8rem;
-  opacity: 0.08;
-  pointer-events: none;
-}
-.tournaments-title {
-  font-size: var(--size-page-title);
-  font-weight: 800;
-  color: var(--accent-gold);
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.tournaments-subtitle {
-  font-size: 1.05rem;
-  color: var(--text-muted);
-  max-width: 800px;
-  line-height: 1.6;
-}
 .tournaments-stats-bar {
   display: flex;
   gap: 1.5rem;
@@ -260,16 +226,6 @@
   .wcs-grid-two { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
-  .tournaments-header {
-    padding: 1.25rem 1rem;
-    margin-bottom: 1.25rem;
-  }
-  .tournaments-title {
-    font-size: 1.45rem;
-  }
-  .tournaments-subtitle {
-    font-size: 0.9rem;
-  }
   .tournaments-stats-bar {
     gap: 0.6rem;
     margin-top: 1rem;
@@ -327,10 +283,6 @@
 }
 
 /* Upstream's inline styles, as classes. */
-h1.tournaments-title {
-  margin-top: 0;
-}
-
 .podium-intro {
   margin-bottom: 1rem;
   color: var(--text-muted);

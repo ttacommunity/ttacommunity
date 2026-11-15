@@ -9,6 +9,7 @@ import Message from '../components/Message';
 import { Flag, TitleBadge } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const colours = [
   'bg-dark',
@@ -114,6 +115,9 @@ const rows = [
 
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />
+
+    <h2>Page header</h2>
+    <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
 
     <h2>Notes</h2>
     <Note>A note in front of the reader, such as what to do before taking part.</Note>

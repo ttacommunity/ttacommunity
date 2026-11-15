@@ -11,6 +11,7 @@ import Waiting from './Waiting';
 import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -48,18 +49,13 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
   if (load.kind !== 'ready') return <Waiting load={load} what="this player" />;
   if (load.data === null) {
     return (
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">{name}</h1>
-        <p className="analysis-hero-desc">No entries for this player.</p>
-      </div>
+      <PageHeader title={name} subtitle="No entries for this player." />
     );
   }
   const p = load.data;
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">{p.player}</h1>
-      </div>
+      <PageHeader title={p.player} />
       <div className="challenges-bar">
         <div className="challenges-bar-group">
           <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />

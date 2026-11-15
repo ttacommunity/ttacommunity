@@ -9,6 +9,7 @@ import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from '.
 import { useKeptLoad } from './useLoad';
 import FilterInput from './FilterInput';
 import Waiting from './Waiting';
+import PageHeader from '@ttac/shared/PageHeader';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
 
@@ -38,15 +39,15 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <div>
-          <h1 className="analysis-hero-title">Players</h1>
-          <p className="analysis-hero-desc">
+      <PageHeader
+        title="Players"
+        subtitle={
+          <>
             Switch between <strong>Rating</strong>: each best domination as a percentage of the record (holding the record = 100%), averaged over every
             challenge, so unplayed ones count as 0%; and <strong>Total</strong>: the plain sum of each player&apos;s best dominations. Click a column to sort.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="challenges-bar">
         <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="🔍 Filter players by name..." />
         <div className="challenges-bar-group">

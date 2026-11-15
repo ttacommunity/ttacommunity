@@ -20,6 +20,7 @@ import { waitingText } from '../lib/waiting';
 import { count } from '@ttac/shared/numbers';
 import Message from './Message';
 import { useFound, useLoad } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -40,15 +41,11 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
   const load = useFound('catalogue', () => currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)));
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">
-          <span>📜</span> Every Tournament
-        </h1>
-        <div className="tournaments-subtitle">
-          Every tournament in the record, with its seasons, games and players. The Hall of Fame's series pages hold the
-          trophyboards; here is each tournament's history, season by season.
-        </div>
-      </div>
+      <PageHeader
+        icon="📜"
+        title="Every Tournament"
+        subtitle="Every tournament in the record, with its seasons, games and players. The Hall of Fame's series pages hold the trophyboards; here is each tournament's history, season by season."
+      />
       {load.kind !== 'ready' ? (
         load.kind === 'missing' ? <Missing /> : <Waiting load={load} what="the tournaments" />
       ) : (

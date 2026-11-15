@@ -5,18 +5,16 @@ import AnalysisNav from '../../../components/AnalysisNav.astro';
 import CalibrationPanel from '../../../components/CalibrationPanel';
 import EngineSpread from '../../../components/EngineSpread';
 import '../../../components/AnalysisPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
 ---
 <SiteLayout title="Model Analysis & Diagnostics | Through the Ages" description="How well each Through the Ages rating model predicts games: calibration, rankings and rating distribution.">
   <AnalysisNav page="overview" />
 
-  <div class="analysis-hero-card hero-snug hero-overview">
-    <div>
-      <h1 class="analysis-hero-title">Model Calibration &amp; Predictive Diagnostics</h1>
-      <p class="analysis-hero-desc">
-        Empirical statistical validation of <strong>Glicko-D</strong> against the <strong>Glicko-2 Standard</strong> benchmark, comparing in-sample match calibration against leak-free out-of-sample forward predictability.
-      </p>
-    </div>
-  </div>
+  <PageHeader title="Model Calibration & Predictive Diagnostics">
+    <Fragment slot="subtitle">
+      Empirical statistical validation of <strong>Glicko-D</strong> against the <strong>Glicko-2 Standard</strong> benchmark, comparing in-sample match calibration against leak-free out-of-sample forward predictability.
+    </Fragment>
+  </PageHeader>
 
   <CalibrationPanel client:only="react" apiUrl={PUBLIC_API_URL} />
 

@@ -17,6 +17,7 @@ import FormatSummaryCard from './FormatSummaryCard';
 import StoriesSettings from './StoriesSettings';
 import SeasonsCard from './SeasonsCard';
 import './AdminApp.css';
+import PageHeader from '@ttac/shared/PageHeader';
 
 /** TournamentSettings loads who is signed in and the tournament the address names, then its cards. */
 export default function TournamentSettings() {
@@ -57,15 +58,12 @@ export default function TournamentSettings() {
       {t.kind === 'loading' && <p className="muted">Loading…</p>}
       {t.kind === 'ready' && (
         <>
-          <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-            <RelatedCard t={t.data} all={all} onReload={load} />
-            <h2 id="page-title" className="tournament-title">
-              {t.data.name}
-            </h2>
-            {renamedFrom(t.data.name, t.data.original_name) !== null && (
-              <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
-            )}
-          </section>
+          <PageHeader
+            id="page-title"
+            above={<RelatedCard t={t.data} all={all} onReload={load} />}
+            title={t.data.name}
+            subtitle={renamedFrom(t.data.name, t.data.original_name) === null ? undefined : `Imported as ${renamedFrom(t.data.name, t.data.original_name)}`}
+          />
           {t.data.is_group ? (
             <>
               <GroupPage g={t.data} all={all} onReload={load} />

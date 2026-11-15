@@ -9,6 +9,7 @@ import TournamentCard from './TournamentCard';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useFound } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
 
 /** BracketsPage shows the bracket the address names, or the list of every tournament shown as one. */
 export default function BracketsPage({ apiUrl }: { apiUrl: string }) {
@@ -33,13 +34,10 @@ function BracketList({ apiUrl }: { apiUrl: string }) {
   const editions = load.kind === 'ready' ? load.data.editions : [];
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">Brackets</h1>
-        <div className="tournaments-subtitle">
-          Tournaments played as a knockout, in groups or head-to-head matches, the best of each going through round by
-          round to the final. Choose one to follow its bracket, and any player through it.
-        </div>
-      </div>
+      <PageHeader
+        title="Brackets"
+        subtitle="Tournaments played as a knockout, in groups or head-to-head matches, the best of each going through round by round to the final. Choose one to follow its bracket, and any player through it."
+      />
       {load.kind !== 'ready' && <Waiting load={load} what="the brackets" />}
       {load.kind === 'ready' && brackets.length === 0 && <Message>No tournament is shown as a bracket yet.</Message>}
       {brackets.length > 0 && (
@@ -70,14 +68,14 @@ function TournamentBracket({ apiUrl, slug, asked }: { apiUrl: string; slug: stri
   };
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">
-          {t.name} {seasonName(season, t.season_name)}
-        </h1>
-        <div className="tournaments-subtitle">
-          <a href={catalogueHref(slug)}>The tournament: champions, rules and games</a> · <a href={bracketHref()}>Every bracket</a>
-        </div>
-      </div>
+      <PageHeader
+        title={`${t.name} ${seasonName(season, t.season_name)}`}
+        subtitle={
+          <>
+            <a href={catalogueHref(slug)}>The tournament: champions, rules and games</a> · <a href={bracketHref()}>Every bracket</a>
+          </>
+        }
+      />
       <BracketView apiUrl={apiUrl} run={run} slug={slug} seasons={t.seasons} seasonWord={t.season_name} season={season} onSeason={pick} />
     </>
   );

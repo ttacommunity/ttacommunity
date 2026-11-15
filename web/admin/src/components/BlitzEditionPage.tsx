@@ -1,7 +1,6 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
@@ -33,6 +32,7 @@ import ZonePick from './ZonePick';
 import './AdminApp.css';
 import { plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -83,23 +83,22 @@ export default function BlitzEditionPage() {
         {ed.kind === 'loading' && <p className="muted">Loading…</p>}
         {ed.kind === 'ready' && at !== null && (
           <>
-            <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-              <div className="header-back">
-                <BackLink href="/#blitz">Blitz tournaments</BackLink>
-              </div>
-              <h2 id="page-title" className="tournament-title">
-                {ed.data.name} {ed.data.edition}
-              </h2>
-              <p className="muted">
-                {formatLabel(ed.data.format)}. {count('active')} in, {count('dropped')} dropped.
-                {ed.data.champion !== null && (
-                  <>
-                    {' '}
-                    Champion: <strong>{ed.data.champion}</strong>.
-                  </>
-                )}
-              </p>
-            </section>
+            <PageHeader
+              id="page-title"
+              back={{ href: '/#blitz', label: 'Blitz tournaments' }}
+              title={`${ed.data.name} ${ed.data.edition}`}
+              subtitle={
+                <>
+                  {formatLabel(ed.data.format)}. {count('active')} in, {count('dropped')} dropped.
+                  {ed.data.champion !== null && (
+                    <>
+                      {' '}
+                      Champion: <strong>{ed.data.champion}</strong>.
+                    </>
+                  )}
+                </>
+              }
+            />
             <Notice outcome={shownAt(outcome, 'page')} />
             <FlaggedResults at={at} ed={ed.data} regions={regions} onReload={load} outcome={outcome} say={setOutcome} />
             <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />

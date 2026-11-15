@@ -1,10 +1,5 @@
 /* Upstream's model analysis page (analysis.html), with its inline styles as classes. */
 
-/* Upstream's overview and comparison pages set 1.5rem under the hero. */
-.analysis-hero-card.hero-snug {
-  margin-bottom: 1.5rem;
-}
-
 /* Graph and ranked table on the left, the sticky selector on the right. */
 .analysis-layout-grid {
   display: grid;
@@ -479,14 +474,6 @@
 @media (max-width: 768px) {
   .graph-main-card,
   .eval-table-card,
-  .analysis-hero-card.hero-overview {
-    padding: 1.1rem 0.85rem;
-  }
-
-  .hero-overview .analysis-hero-title {
-    font-size: 1.45rem;
-  }
-
   .hero-chart-container {
     height: 280px;
   }

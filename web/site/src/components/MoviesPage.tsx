@@ -12,6 +12,7 @@ import {
   type MovieVideo,
 } from '../lib/movies';
 import './MoviesPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
 
 type FeedState =
   | { kind: 'loading' }
@@ -20,14 +21,7 @@ type FeedState =
 
 function MoviesHero() {
   return (
-    <header className="analysis-hero-card">
-      <div>
-        <h1 className="analysis-hero-title">Movies</h1>
-        <p className="analysis-hero-desc">
-          Recent Through the Ages videos from community creators, newest first.
-        </p>
-      </div>
-    </header>
+    <PageHeader title="Movies" subtitle="Recent Through the Ages videos from community creators, newest first." />
   );
 }
 

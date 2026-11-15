@@ -726,8 +726,3 @@
     font-size: 0.9rem;
   }
 }
-
-/* Upstream sets 1.75rem under the FAQ's hero. */
-.analysis-hero-card.faq-hero {
-  margin-bottom: 1.75rem;
-}

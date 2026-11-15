@@ -10,6 +10,7 @@ import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 import Message from './Message';
 import { signed } from '@ttac/shared/numbers';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -49,8 +50,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
 
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">Compare players</h1>
+      <PageHeader title="Compare players">
         <div className="challenges-pickers">
           <div>
             <label htmlFor="cmp-a">Player A</label>
@@ -62,7 +62,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
             <SearchBox id="cmp-b" players={names} value={b} placeholder="Name…" onChange={(v) => choose('b', v)} />
           </div>
         </div>
-      </div>
+      </PageHeader>
       <div className="challenges-bar">
         <div className="challenges-bar-group">
           {pa && pb && <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />}

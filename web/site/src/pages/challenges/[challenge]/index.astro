@@ -7,6 +7,7 @@ import ChallengeBoardPanel from '../../../components/ChallengeBoardPanel';
 import { CHALLENGE_LIST, opponentLabel, previewText, type ChallengeInfo } from '../../../lib/challenge-list';
 import { challengePicture, groupLabel, setLabel } from '../../../lib/challenges';
 import '../../../components/Challenges.css';
+import PageHeader from '@ttac/shared/PageHeader';
 
 export function getStaticPaths() {
   return CHALLENGE_LIST.map((c) => ({ params: { challenge: c.id }, props: { c } }));
@@ -18,11 +19,9 @@ const preview = previewText(c);
 ---
 <SiteLayout title={title} description={preview}>
   <ChallengesNav />
-  <div class="analysis-hero-card challenges-head challenges-group" data-group={c.group}>
-    <img class="challenges-head-img" src={challengePicture(c.id)} alt="" width="340" height="284" />
-    <div>
-      <p class="challenges-crumbs"><a href="/challenges/">Highscores</a> / {setLabel(c.set)} / {groupLabel(c.group)}</p>
-      <h1 class="analysis-hero-title">{c.name}</h1>
+  <PageHeader title={c.name}>
+    <img slot="media" class="challenges-head-img" src={challengePicture(c.id)} alt="" width="340" height="284" />
+    <p slot="above" class="challenges-crumbs"><a href="/challenges/">Highscores</a> / {setLabel(c.set)} / {groupLabel(c.group)}</p>
       <p class="challenges-tile-meta">
         {setLabel(c.set)} · {c.players} players
         <span class="challenge-difficulty" role="img" aria-label={`Difficulty ${c.difficulty} of 6`} title={`Difficulty ${c.difficulty} of 6`}>
@@ -37,7 +36,6 @@ const preview = previewText(c);
         Opponents:
         {c.opponents.map((o) => <span class:list={['challenges-chip', o.level]}>{opponentLabel(o)}</span>)}
       </p>
-    </div>
-  </div>
+  </PageHeader>
   <ChallengeBoardPanel client:only="react" apiUrl={PUBLIC_API_URL} id={c.id} />
 </SiteLayout>

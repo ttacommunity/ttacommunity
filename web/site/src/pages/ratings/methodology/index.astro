@@ -2,6 +2,7 @@
 import { getEntry, render } from 'astro:content';
 import SiteLayout from '../../../layouts/SiteLayout.astro';
 import '../../../components/MethodologyPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const page = await getEntry('pages', 'methodology');
 if (page === undefined) throw new Error('src/content/methodology.mdx is missing');
@@ -9,14 +10,10 @@ const { Content } = await render(page);
 ---
 <SiteLayout title="Methodology | Through the Ages" description="The mathematics behind the Through the Ages rating engines: Glicko-2, multiplayer weighting, season resets and GlickoD.">
   <div class="methodology">
-    <div class="analysis-hero-card">
-      <div>
-        <h1 class="analysis-hero-title">{page.data.title}</h1>
-        <p class="analysis-hero-desc">
-          The formal derivations behind the rating engines, written by DANeo for the original ratings site. Last edited: {page.data.updated}.
-        </p>
-      </div>
-    </div>
+    <PageHeader
+      title={page.data.title}
+      subtitle={`The formal derivations behind the rating engines, written by DANeo for the original ratings site. Last edited: ${page.data.updated}.`}
+    />
 
     <article class="methodology-body">
       <Content />

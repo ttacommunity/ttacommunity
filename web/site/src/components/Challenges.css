@@ -1,10 +1,4 @@
 /* The challenge pages: the highscores' tiles and group backgrounds, the compact grid, the boards' tables and marks, in the site's tokens. */
-.challenges-hero {
-  margin-bottom: 1.25rem;
-}
-.challenges-hero a {
-  color: var(--accent-gold);
-}
 /* The one action in the tab row, the site's button rather than a tab. */
 .challenges-submit {
   margin-left: auto;
@@ -304,12 +298,6 @@
 .challenges-crumbs a {
   color: var(--accent-gold);
 }
-.challenges-head {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
 .challenges-head-img {
   flex: none;
   width: 12rem;
@@ -412,9 +400,6 @@
 }
 
 @media (max-width: 600px) {
-  .challenges-head {
-    flex-direction: column;
-  }
   .challenges-head-img {
     width: 100%;
     max-width: 20rem;

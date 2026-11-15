@@ -6,21 +6,22 @@ import { challengeHref, challengePicture, champions, placingSeparators } from '.
 import { ChallengePlayerLink } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
+import PageHeader from '@ttac/shared/PageHeader';
 
 /** ChallengeWeeklyPage loads the weeks and lists them. */
 export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; list: ChallengeTile[] }) {
   const load = useLoad('weeks', () => challengeWeeks(apiUrl));
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <div>
-          <h1 className="analysis-hero-title">Weekly Challenge winners</h1>
-          <p className="analysis-hero-desc">
+      <PageHeader
+        title="Weekly Challenge winners"
+        subtitle={
+          <>
             From September 2024 to July 2025, a Random Mix challenge was featured every week, and the best verified domination by Sunday 15:00 (European time)
             won. The event has ended; here are its champions, for old times&apos; sake.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="the weekly winners" />
       ) : (

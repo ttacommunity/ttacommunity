@@ -17,6 +17,7 @@ import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Account.css';
 import Note from '@ttac/shared/Note';
+import PageHeader from '@ttac/shared/PageHeader';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
@@ -65,10 +66,7 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
 
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">Your account</h1>
-        <div className="tournaments-subtitle">Sign in to take part in what the community runs, as the player you are on CGE.</div>
-      </div>
+      <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
       {notice !== null && (
         <div className="rating-card account-card">
           <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />

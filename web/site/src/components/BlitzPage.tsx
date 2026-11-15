@@ -6,7 +6,6 @@ import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, pointsNote, resultsLabel, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
-import BackLink from '@ttac/shared/BackLink';
 import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
@@ -26,6 +25,7 @@ import Waiting from './Waiting';
 import './Blitz.css';
 import Message from './Message';
 import { useFound, useKeptFound } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -38,15 +38,11 @@ export default function BlitzPage({ apiUrl }: { apiUrl: string }) {
 
 function Header() {
   return (
-    <div className="tournaments-header">
-      <h1 className="tournaments-title">
-        <span>⚡</span> Blitz
-      </h1>
-      <div className="tournaments-subtitle">
-        Blitz tournaments run by the community&apos;s organisers: Super Blitz games on CGE, a round a week. Who is in,
-        who plays whom, the results and the standings, as the organisers record them.
-      </div>
-    </div>
+    <PageHeader
+      icon="⚡"
+      title="Blitz"
+      subtitle="Blitz tournaments run by the community's organisers: Super Blitz games on CGE, a round a week. Who is in, who plays whom, the results and the standings, as the organisers record them."
+    />
   );
 }
 
@@ -153,16 +149,12 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   };
   return (
     <>
-      <div className="tournaments-header">
-        <div className="header-back">
-          <BackLink href="/blitz/">Every blitz tournament</BackLink>
-        </div>
-        <h1 className="tournaments-title">
-          <span>⚡</span> {ed.name} {ed.edition}
-        </h1>
-        <div className="tournaments-subtitle">
-          {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
-        </div>
+      <PageHeader
+        back={{ href: '/blitz/', label: 'Every blitz tournament' }}
+        icon="⚡"
+        title={`${ed.name} ${ed.edition}`}
+        subtitle={`${formatLabel(ed.format)}. ${reachedLabel(latest, ed.format, ed.champion)}. ${resultsUpdated(ed.results_updated_at, viewerZone())}`}
+      >
         <ul className="blitz-pairing-lines">
           <li>Round 1: {roundLine(ed.pairing.first, ed.pairing.first_order)}</li>
           {ed.format.swiss_rounds > 1 && <li>Later rounds: {roundLine(ed.pairing.later, ed.pairing.later_order)}</li>}
@@ -170,7 +162,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired({ opener: e.currentTarget, at: 'top' })}>
           How pairings and ties are calculated
         </button>
-      </div>
+      </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
       {ed.rounds.length === 0 && (
