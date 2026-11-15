@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	pushChannel   = "UC0l8n6q2SsB-Dg3BEvrX_Xg"
-	pushUnlinked  = "UC1111111111111111111111"
+	pushChannel   = "UC0000000000000000000001"
+	pushUnlinked  = "UC0000000000000000000002"
 	pushVideo     = "vid00000001"
 	pushThumbnail = "https://i.ytimg.com/vi/vid00000001/hqdefault.jpg"
 )

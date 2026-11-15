@@ -32,7 +32,7 @@ func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {
 	now := time.Date(2026, 11, 14, 15, 0, 0, 0, time.UTC)
 
 	player := "Alice"
-	ch, err := a.AddMovieChannel(ctx, "UC0l8n6q2SsB-Dg3BEvrX_Xg", "Alice Casts", &player, false, now)
+	ch, err := a.AddMovieChannel(ctx, "UC0000000000000000000001", "Alice Casts", &player, false, now)
 	if err != nil {
 		t.Fatalf("AddMovieChannel: %v", err)
 	}

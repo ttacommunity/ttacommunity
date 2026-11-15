@@ -16,9 +16,9 @@ func TestParseChannelID(t *testing.T) {
 		want string
 		ok   bool
 	}{
-		{name: "bare id", raw: "UC0l8n6q2SsB-Dg3BEvrX_Xg", want: "UC0l8n6q2SsB-Dg3BEvrX_Xg", ok: true},
-		{name: "channel url", raw: "https://www.youtube.com/channel/UC0l8n6q2SsB-Dg3BEvrX_Xg?sub_confirmation=1", want: "UC0l8n6q2SsB-Dg3BEvrX_Xg", ok: true},
-		{name: "handle url", raw: "https://www.youtube.com/@DANeoTTA", want: "", ok: false},
+		{name: "bare id", raw: "UC0000000000000000000001", want: "UC0000000000000000000001", ok: true},
+		{name: "channel url", raw: "https://www.youtube.com/channel/UC0000000000000000000001?sub_confirmation=1", want: "UC0000000000000000000001", ok: true},
+		{name: "handle url", raw: "https://www.youtube.com/@InventedCaster", want: "", ok: false},
 		{name: "invalid", raw: "not-a-channel", want: "", ok: false},
 	}
 	for _, tc := range cases {
@@ -97,27 +97,27 @@ func TestResolveChannelHandle(t *testing.T) {
 	}{
 		{
 			name: "channelId in json",
-			raw:  "https://www.youtube.com/@DANeoTTA",
-			body: `<html>{"channelId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
-			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+			raw:  "https://www.youtube.com/@InventedCaster",
+			body: `<html>{"channelId":"UC0000000000000000000001"}</html>`,
+			want: "UC0000000000000000000001",
 		},
 		{
 			name: "bare @handle with externalId",
 			raw:  "@daneo1952",
-			body: `<html>{"externalId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
-			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+			body: `<html>{"externalId":"UC0000000000000000000001"}</html>`,
+			want: "UC0000000000000000000001",
 		},
 		{
 			name: "browseId in json",
 			raw:  "https://www.youtube.com/@daneo1952",
-			body: `<html>{"browseId":"UC0l8n6q2SsB-Dg3BEvrX_Xg"}</html>`,
-			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+			body: `<html>{"browseId":"UC0000000000000000000001"}</html>`,
+			want: "UC0000000000000000000001",
 		},
 		{
 			name: "canonical channel url in html",
 			raw:  "https://www.youtube.com/@daneo1952",
-			body: `<html><link rel="canonical" href="https://www.youtube.com/channel/UC0l8n6q2SsB-Dg3BEvrX_Xg"></html>`,
-			want: "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+			body: `<html><link rel="canonical" href="https://www.youtube.com/channel/UC0000000000000000000001"></html>`,
+			want: "UC0000000000000000000001",
 		},
 	}
 	for _, tc := range cases {

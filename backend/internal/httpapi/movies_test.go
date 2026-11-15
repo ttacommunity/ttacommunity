@@ -15,12 +15,12 @@ func (f *fakeRatings) Movies(_ context.Context) (store.MoviesFeed, error) {
 	p := "Alice"
 	return store.MoviesFeed{
 		Creators: []store.MovieCreator{
-			{ChannelID: "UC0l8n6q2SsB-Dg3BEvrX_Xg", Name: "Alice Casts", Player: &p},
+			{ChannelID: "UC0000000000000000000001", Name: "Alice Casts", Player: &p},
 		},
 		Videos: []store.MovieVideo{
 			{
 				VideoID:       "9vhRomv0yBc",
-				ChannelID:     "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+				ChannelID:     "UC0000000000000000000001",
 				CreatorName:   "Alice Casts",
 				CreatorPlayer: &p,
 				Title:         "Royal League vs Arne",
@@ -44,7 +44,7 @@ func (f *fakeAdmins) AdminMovies(_ context.Context) (store.AdminMoviesState, err
 	return store.AdminMoviesState{
 		Channels: []store.AdminVideoChannel{
 			{
-				ChannelID:  "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+				ChannelID:  "UC0000000000000000000001",
 				Name:       "Alice Casts",
 				CreatedAt:  time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC),
 				VideoCount: 1,
@@ -53,7 +53,7 @@ func (f *fakeAdmins) AdminMovies(_ context.Context) (store.AdminMoviesState, err
 		Videos: []store.AdminVideo{
 			{
 				VideoID:      "9vhRomv0yBc",
-				ChannelID:    "UC0l8n6q2SsB-Dg3BEvrX_Xg",
+				ChannelID:    "UC0000000000000000000001",
 				CreatorName:  "Alice Casts",
 				Title:        "Royal League vs Arne",
 				PublishedAt:  time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC),
@@ -67,7 +67,7 @@ func (f *fakeAdmins) ResolveMovieChannel(_ context.Context, raw string) (string,
 	if strings.Contains(raw, "bad") {
 		return "", store.ErrNoChannel
 	}
-	return "UC0l8n6q2SsB-Dg3BEvrX_Xg", nil
+	return "UC0000000000000000000001", nil
 }
 
 func (f *fakeAdmins) AddMovieChannel(_ context.Context, channelID, name string, player *string, includeAll bool, now time.Time) (store.AdminVideoChannel, error) {
@@ -120,7 +120,7 @@ func TestMoviesFeedAndMarkSeen(t *testing.T) {
 		t.Fatalf("GET /v1/movies = %d %s", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"video_id": "9vhRomv0yBc", "creator_name": "Alice Casts"}`)
-	wantJSON(t, rec.Body.Bytes(), "creators.0", `{"channel_id": "UC0l8n6q2SsB-Dg3BEvrX_Xg", "player": "Alice"}`)
+	wantJSON(t, rec.Body.Bytes(), "creators.0", `{"channel_id": "UC0000000000000000000001", "player": "Alice"}`)
 
 	signIns := newFakeSignIns()
 	cookie := sessionFor(signIns, "session-token", store.Account{ID: 7})
