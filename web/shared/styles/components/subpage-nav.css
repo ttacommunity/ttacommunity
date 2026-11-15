@@ -37,14 +37,10 @@
 
 @media (max-width: 768px) {
   .subpage-nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
     padding: 0.5rem;
-    scrollbar-width: none;
   }
 
   .subpage-btn {
-    flex-shrink: 0;
     padding: 0.5rem 0.85rem;
     font-size: 0.82rem;
   }
