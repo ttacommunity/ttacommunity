@@ -1,40 +1,5 @@
 /* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
 
-.series-nav-bar {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-  background: var(--surface-inset);
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-}
-.series-nav-btn {
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  font-family: var(--font-stats);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s;
-  border: 1px solid transparent;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.series-nav-btn:hover {
-  color: var(--text-main);
-  background: var(--gold-wash-faint);
-}
-.series-nav-btn.active {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-  font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
-}
-
 .detail-hero {
   background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
   border: 1px solid var(--border-subtle);
@@ -353,10 +318,6 @@
 }
 
 /* Upstream's inline styles, as classes. */
-.series-nav-btn.unbuilt {
-  cursor: default;
-}
-
 .detail-hero-title {
   margin: 0 0 0.3rem;
 }
