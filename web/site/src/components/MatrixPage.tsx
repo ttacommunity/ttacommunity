@@ -1,5 +1,5 @@
 /** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -12,7 +12,7 @@ import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears } from '../lib/career';
 import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
-import { recall, remember } from '../lib/remembered';
+import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import './PlayerPage.css';
 import './MatrixPage.css';
@@ -20,32 +20,22 @@ import ScrollTable from './ScrollTable';
 import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
-import { viewLinks } from '../lib/navigate';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
 import { TitleBadge } from './PlayerMarks';
+import { useAddressView, type Address } from './useAddressView';
 
-function readView(): MatrixView {
-  return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
+const ADDRESS: Address<MatrixView> = {
+  parse: parseMatrixView,
+  params: matrixParams,
+  remembers: (v) => ({ ...DEFAULT_VIEW, ...recall(browserStorage()), reset: v.reset, format: v.format }),
+};
 
 /** Shows the player's career years and peak season evaluation. */
 export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<MatrixView>(readView);
+  const { view, linkTo } = useAddressView(ADDRESS);
   const run = useLoad('run', () => currentRun(apiUrl).then((r) => r.run_id));
 
-  const go = useCallback((next: MatrixView) => {
-    window.history.pushState(null, '', `?${matrixParams(next)}`);
-    remember(browserStorage(), { ...DEFAULT_VIEW, ...recall(browserStorage()), reset: next.reset, format: next.format });
-    setView(next);
-  }, []);
-  const linkTo = viewLinks(matrixParams, go);
-
-  useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const { name, format } = view;

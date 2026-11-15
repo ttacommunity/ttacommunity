@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -50,8 +50,6 @@ import {
   type RivalsView,
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
-import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '@ttac/shared/storage';
 import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
@@ -63,21 +61,24 @@ import type { GameRatingFilter } from '../lib/career';
 import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
-import { viewLinks, type Link } from '../lib/navigate';
+import { type Link } from '../lib/navigate';
 import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
 import { SortButton } from '@ttac/shared/SortHeader';
 import { nextSort } from '@ttac/shared/sort';
+import { useAddressView, type Address } from './useAddressView';
 
-function readView(): PlayerView {
-  return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
+const ADDRESS: Address<PlayerView> = {
+  parse: parsePlayerView,
+  params: playerParams,
+  remembers: (v) => ({ ...DEFAULT_VIEW, engine: v.engine, reset: v.reset, format: v.format }),
+};
 
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<PlayerView>(readView);
+  const { view, go, replace, linkTo } = useAddressView(ADDRESS);
   const run = useLoad(String(view.ranking), () => currentRun(apiUrl, view.ranking).then((r) => r.run_id));
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [scale, setScale] = useState<ChartScale>('perspective');
@@ -98,18 +99,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     });
   };
 
-  const go = useCallback((next: PlayerView) => {
-    window.history.pushState(null, '', `?${playerParams(next)}`);
-    remember(browserStorage(), { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
-    setView(next);
-  }, []);
-  const linkTo = viewLinks(playerParams, go);
-
-  useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const model = pageModel(view.engine, view.reset);
@@ -162,9 +151,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     if (profile.kind !== 'ready') return;
     const renamed = renamedView(view, profile.data.name);
     if (renamed === null) return;
-    window.history.replaceState(null, '', `?${playerParams(renamed)}`);
-    setView(renamed);
-  }, [profile, view]);
+    replace(renamed);
+  }, [profile, view, replace]);
 
   if (view.name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
   if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;

@@ -13,7 +13,6 @@ import {
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import { count } from '@ttac/shared/numbers';
-import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import YearBanner from './YearBanner';
@@ -51,7 +50,7 @@ import {
   type Track,
   type View,
 } from '../lib/leaderboard-view';
-import { recall, remember } from '../lib/remembered';
+import { remember } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
@@ -59,6 +58,7 @@ import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
 import { useLoad } from './useLoad';
+import { readAddress, useAddressView, type Address } from './useAddressView';
 
 type Shown = { board: Board; year: YearLeaderboard | null; lastGame: string | null };
 
@@ -66,29 +66,17 @@ const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatNam
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
 const narrow = () => window.innerWidth <= 768;
 
-function readView(): View {
-  return parseView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
+const ADDRESS: Address<View> = { parse: parseView, params: (v) => viewParams(v, true), remembers: (v) => v };
 
 /** Shows the chosen leaderboard. Every choice is part of the address, so a view can be shared. */
 export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<View>(readView);
+  const { view, go, linkTo } = useAddressView(ADDRESS);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const model = modelOf(view);
 
-  const go = useCallback((next: View) => {
-    window.history.pushState(null, '', `?${viewParams(next, true)}`);
-    remember(browserStorage(), next);
-    setView(next);
-  }, []);
-  const linkTo: LinkTo = viewLinks((v) => viewParams(v, true), go);
-
   useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    remember(browserStorage(), readView());
+    remember(browserStorage(), readAddress(ADDRESS));
     if (!narrow()) setOptionsOpen(browserStorage()?.getItem(OPTIONS_OPEN) === 'true');
-    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   const loaded = useLoad(JSON.stringify([view.ranking, model, view.format, view.year]), async (): Promise<Shown> => {
