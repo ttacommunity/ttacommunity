@@ -24,6 +24,7 @@ import Message from './Message';
 import PlayerHeader from './PlayerHeader';
 import { TitleBadge } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
+import PanelHeader from './PanelHeader';
 
 const ADDRESS: Address<MatrixView> = {
   parse: parseMatrixView,
@@ -103,19 +104,13 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       <div className="rating-card matrix-card">
-        <div className="matrix-card-head">
-          <div>
-            <h3>📅 Year-by-Year Career Breakdown</h3>
-            <span className="matrix-card-sub">
-              {years.length} Seasons Recorded • Format: {formatName}
-            </span>
-          </div>
+        <PanelHeader icon="📅" title="Year-by-Year Career Breakdown" subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}>
           <span className="matrix-card-note">
             Hover on <strong>ℹ️ Score Index</strong> for composite formula details
           </span>
-        </div>
+        </PanelHeader>
         <ScrollTable hint="full career history">
-          <table className="career-history-table">
+          <table className="leaderboard-table career-history-table">
             <caption className="visually-hidden">Career by year, {formatName}</caption>
             <thead>
               <tr>

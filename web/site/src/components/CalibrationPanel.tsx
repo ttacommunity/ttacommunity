@@ -25,6 +25,7 @@ import { toggledSet } from '@ttac/shared/toggle';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
@@ -175,17 +176,13 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="analysis-layout-grid">
       <div className="analysis-main-column">
-        <div className="graph-main-card">
-          <div className="card-head">
-            <div>
-              <h3>Reliability Calibration Diagram</h3>
-              <span className="card-sub">Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins</span>
-            </div>
+        <div className="rating-card panel-card graph-main-card">
+          <PanelHeader title="Reliability Calibration Diagram" subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins">
             <div className="card-badges">
               <span className="mode-badge">{MODE_NAMES[mode]}</span>
               <span className="format-badge">{formatName(format)}</span>
             </div>
-          </div>
+          </PanelHeader>
           <div className="hero-chart-container">
             {load.kind === 'error' ? (
               <Waiting load={load} what="the calibration" form="inline" />
@@ -195,17 +192,17 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           </div>
         </div>
 
-        <div className="eval-table-card">
-          <div className="card-head">
-            <div>
-              <h3>Overall Predictive Model Rankings (4-Metric Evaluation)</h3>
-              <div className="card-sub">
+        <div className="rating-card panel-card eval-table-card">
+          <PanelHeader
+            title="Overall Predictive Model Rankings (4-Metric Evaluation)"
+            subtitle={
+              <>
                 Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
           <ScrollTable hint="all 4 metrics">
-            <table className="ranked-table">
+            <table className="leaderboard-table ranked-table">
               <thead>
                 <tr>
                   <th scope="col">Rank</th>

@@ -7,6 +7,7 @@ import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
 import { useKeptLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 const FORMAT_OPTIONS: Option<Format>[] = [
   { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
@@ -73,11 +74,11 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <div className="card-head seat-filter-head">
-        <h3>Filter by Player Strength &amp; Match Format</h3>
+      <div className="seat-filter-head">
+        <PanelHeader title="Filter by Player Strength & Match Format" />
       </div>
 
-      <div className="eval-table-card seat-filter-card">
+      <div className="rating-card panel-card eval-table-card seat-filter-card">
         <div className="seat-filter-stack">
           <div>
             <div className="seat-filter-label">Skill Tier (Glicko-D Table Average):</div>
@@ -105,17 +106,12 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);
           return (
-            <div key={pc} className="eval-table-card">
-              <div className="card-head">
-                <h3>
-                  {pc}-Player Matches &bull; {count(group.total_games)} games
-                </h3>
-                <span className="seat-parity-note">
-                  Expected Parity: {parity}% per seat
-                </span>
-              </div>
+            <div key={pc} className="rating-card panel-card eval-table-card">
+              <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
+                <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
+              </PanelHeader>
               <ScrollTable hint="Scroll horizontally for all placement columns">
-                <table className="site-table">
+                <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution
                   </caption>

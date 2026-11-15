@@ -19,6 +19,15 @@
   margin: 0;
   font-size: inherit;
 }
+/* What the panel shows, under its title. */
+.panel-header-sub {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  font-weight: normal;
+  line-height: 1.5;
+}
 /* A count or a word about the panel, on the right of its title. */
 .panel-tag {
   padding: 0.15rem 0.5rem;

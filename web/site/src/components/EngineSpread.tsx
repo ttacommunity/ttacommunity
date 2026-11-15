@@ -8,6 +8,7 @@ import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
 import { useKeptLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -115,14 +116,15 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const bars = distData === null ? [] : means(distData);
 
   return (
-    <div className="panel-card">
-      <div className="card-head">
-        <div>
-          <h3>Rating Distribution Density Curves</h3>
-          <div className="card-sub">
+    <div className="rating-card panel-card engine-spread">
+      <PanelHeader
+        title="Rating Distribution Density Curves"
+        subtitle={
+          <>
             Player rating distribution across 100-point skill bins for active format (<strong>{formatName(format)}</strong>)
-          </div>
-        </div>
+          </>
+        }
+      >
         <div className="density-means">
           {bars.map((b) => (
             <span key={b.model} className={`density-mean ${b.className}`} title={`${b.badge.replace('👑 ', '')} (All Players: ${b.mean} | Active Players >10 games: ${b.active})`}>
@@ -130,7 +132,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
             </span>
           ))}
         </div>
-      </div>
+      </PanelHeader>
       <div className="density-chart-container">
         {distData === null && load.kind !== 'ready' ? (
           <Waiting load={load} what="the distribution" form="inline" />

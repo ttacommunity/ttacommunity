@@ -70,35 +70,11 @@
   padding: 1.5rem;
 }
 
-.matrix-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
 
-.matrix-card-head h2,
-.matrix-card-head h3 {
-  margin: 0 0 0.25rem;
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-}
 
-.matrix-card-head h3 {
-  font-size: var(--size-subheading);
-}
 
-.matrix-card-head p strong,
 .matrix-card-note strong {
   color: var(--accent-gold);
-}
-
-.matrix-card-sub {
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-muted);
 }
 
 .matrix-card-note {
