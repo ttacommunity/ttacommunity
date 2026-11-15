@@ -92,6 +92,11 @@ const rows = [
       </label>
     </div>
 
+    <h2>Button rows</h2>
+    <p>A choice sets what a page shows (above); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>
+    <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
+    <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
+
     <h2>Badges</h2>
     <p class="design-row">
       <span class="badge badge-format">All Formats</span>

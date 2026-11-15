@@ -6,55 +6,7 @@
 }
 
 .faq-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
   margin-bottom: 2rem;
-  padding: 0.55rem 0.65rem;
-  background: rgba(16, 10, 6, 0.95);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 15px var(--shadow);
-}
-
-.faq-tab-btn {
-  padding: 0.45rem 0.85rem;
-  background: var(--surface-panel);
-  border: 1px solid rgba(74, 53, 37, 0.85);
-  border-radius: 6px;
-  color: var(--text-soft);
-  font-family: var(--font-subheading);
-  font-size: var(--size-button);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.faq-tab-btn.tab-gold {
-  background: var(--gold-wash-faint);
-  border: 1px solid #c59b27;
-  color: var(--accent-gold);
-}
-
-.faq-tab-btn.tab-bronze {
-  background: var(--gold-wash-faint);
-  border: 1px solid #b8860b;
-  color: var(--accent-gold-light);
-}
-
-.faq-tab-btn:hover {
-  background: var(--gold-wash);
-  border-color: var(--accent-gold);
-  color: var(--text-bright);
-}
-
-.faq-tab-btn.active {
-  background: var(--gradient-gold);
-  border-color: var(--accent-gold);
-  color: var(--text-on-gold);
-  font-weight: 700;
-  box-shadow: 0 2px 8px var(--gold-wash-strong);
 }
 
 .faq-section {
@@ -694,22 +646,7 @@
 
 @media (max-width: 768px) {
   .faq-nav {
-    flex-wrap: nowrap;
-    gap: 0.35rem;
     margin-bottom: 1.25rem;
-    padding: 0.5rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .faq-nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .faq-tab-btn {
-    flex-shrink: 0;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.82rem;
   }
 
   .faq-card {

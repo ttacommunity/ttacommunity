@@ -85,18 +85,12 @@ function Hero({
         </div>
         <div className="edition-selector-bar">
           <span className="edition-label">📅 Leaderboard Edition:</span>
-          <div className="edition-pills">
-            {editions.map((e) => (
-              <a
-                key={e.slug}
-                href={href(view, { edition: e.slug })}
-                className={`edition-pill${view.edition === e.slug ? ' active' : ''}`}
-                title={e.title}
-              >
-                {editionLabel(e)}
-              </a>
-            ))}
-          </div>
+          <Segmented
+            label="Leaderboard edition"
+            options={editions.map((e) => ({ value: e.slug, label: editionLabel(e), title: e.title }))}
+            value={view.edition}
+            link={(edition) => ({ href: href(view, { edition }) })}
+          />
         </div>
         <div className="comm-stats-grid">
           <div className="stat-tile">
@@ -203,7 +197,6 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
       </div>
       <Segmented
         label="View"
-        look="view"
         options={[
           { value: 'standard', label: '📊 Standard View (Tournament Summary)', title: 'Standard View: Shows the sum of each tournament for optimal visibility' },
           { value: 'expanded', label: '📑 Expanded View (All Periods)', title: `Expanded View: Expands to the sides showing all ${slots} individual periods` },

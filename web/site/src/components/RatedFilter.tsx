@@ -21,10 +21,10 @@ export default function RatedFilter({
 
   return (
     <>
-      <div className={`rated-filter-group ${className}`} role="group" aria-label="Game rating filter">
+      <div className={`format-bar-group ${className}`} role="group" aria-label="Game rating filter">
         <button
           type="button"
-          className={`btn-antique unrated-toggle-btn rated-filter-btn ${value.rated ? 'active' : ''}`}
+          className={`format-btn rated-filter-btn ${value.rated ? 'active' : ''}`}
           aria-pressed={value.rated}
           onClick={() => toggle('rated')}
           title={value.rated ? 'Rated tournament games shown (click to hide)' : 'Rated tournament games hidden (click to show)'}
@@ -33,7 +33,7 @@ export default function RatedFilter({
         </button>
         <button
           type="button"
-          className={`btn-antique unrated-toggle-btn rated-filter-btn ${value.unrated ? 'active' : ''}`}
+          className={`format-btn rated-filter-btn ${value.unrated ? 'active' : ''}`}
           aria-pressed={value.unrated}
           onClick={() => toggle('unrated')}
           title={value.unrated ? 'Unrated games shown (click to hide)' : 'Unrated games hidden (click to show)'}

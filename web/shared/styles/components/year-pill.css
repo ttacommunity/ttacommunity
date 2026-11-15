@@ -1,4 +1,10 @@
-/* Upstream's year pills (its leaderboard's .year-pill), and the small WC and current-season marks on them. */
+/* Upstream's year pills (its leaderboard's .year-pill), the filter buttons used for every choice of one among many, and the small WC and current-season marks on them. */
+.year-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .year-pill {
   display: inline-flex;
   align-items: center;

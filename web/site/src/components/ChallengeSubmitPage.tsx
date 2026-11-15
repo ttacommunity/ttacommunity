@@ -105,7 +105,6 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           <div className="challenges-bar">
             <Segmented
               label="Set"
-              look="raised"
               value={set}
               onChange={setSet}
               options={SETS.map((s) => ({ value: s, label: filledIn(s) > 0 ? `${setLabel(s)} (${filledIn(s)})` : setLabel(s) }))}

@@ -50,7 +50,7 @@ export default function ChallengesPanel() {
       {entries.kind === 'ready' && (
         <Segmented
           label="Which entries"
-          look="records"
+          look="tabs"
           value={view}
           onChange={setView}
           options={entries.data.counts.map((c) => ({ value: c.view, label: viewLabel(c.view, c.entries) }))}

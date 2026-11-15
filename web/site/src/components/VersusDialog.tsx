@@ -61,8 +61,8 @@ export default function VersusDialog({
     <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} className="h2h-modal">
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
-        <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
-        <Segmented label="Rating track" look="raised" groupClass="format-bar h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
+        <Segmented label="Match format" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
+        <Segmented label="Rating track" groupClass="format-bar h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
         <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
       </div>
       <div className="h2h-stats">

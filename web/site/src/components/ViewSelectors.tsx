@@ -33,7 +33,6 @@ export default function ViewSelectors({
       <div className="view-bar view-bar-row">
         <Segmented
           label="Format"
-          look="raised"
           groupClass="view-group view-group-format"
           prefix={<span className="view-bar-label">Format:</span>}
           options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
@@ -42,7 +41,6 @@ export default function ViewSelectors({
         />
         <Segmented
           label="Reset mode"
-          look="raised"
           groupClass="view-group view-group-reset"
           prefix={<span className="view-bar-label">Reset Mode:</span>}
           options={show.RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
@@ -54,7 +52,6 @@ export default function ViewSelectors({
         <div className="view-bar view-bar-row">
           <Segmented
             label="Rating track"
-            look="raised"
             groupClass="view-group"
             prefix={<span className="view-bar-label">Track:</span>}
             options={TRACKS.map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }))}

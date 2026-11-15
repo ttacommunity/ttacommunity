@@ -95,21 +95,21 @@ export default function PlayerOptionsDrawer({
             <div className="options-group-title" title="Choose which tournament rating pipeline to display across the profile">
               Track
             </div>
-            <Segmented label="Track" look="raised" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
+            <Segmented label="Track" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
             <div className="options-group-title" title="Continuous career ratings or gentle annual season resets">
               Reset Mode
             </div>
-            <Segmented label="Reset mode" look="raised" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
+            <Segmented label="Reset mode" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
             <div className="options-group-title" title="Model used for career summary, format cards, and game deltas">
               Rating Engine
             </div>
-            <Segmented label="Engine" look="raised" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
+            <Segmented label="Engine" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
           </div>
 
           <div className="options-section-divider">Trajectory Chart</div>
@@ -148,7 +148,7 @@ export default function PlayerOptionsDrawer({
             >
               Time Scale
             </div>
-            <Segmented label="Scale" look="raised" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
+            <Segmented label="Scale" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
           </div>
 
           <div className="options-section">
@@ -158,7 +158,7 @@ export default function PlayerOptionsDrawer({
             >
               Competitive Rating Tiers
             </div>
-            <Segmented label="Tiers" look="raised" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
+            <Segmented label="Tiers" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
           </div>
 
           <div className="options-section">
@@ -168,7 +168,7 @@ export default function PlayerOptionsDrawer({
             >
               Chart Reset Mode
             </div>
-            <Segmented label="Mode" look="raised" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
+            <Segmented label="Mode" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
           </div>
 
           <div className="options-section">
@@ -178,7 +178,7 @@ export default function PlayerOptionsDrawer({
             >
               Rating Estimate Curves
             </div>
-            <Segmented label="Curve" look="raised" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
+            <Segmented label="Curve" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
           </div>
         </div>
 

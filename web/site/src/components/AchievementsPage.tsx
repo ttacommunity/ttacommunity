@@ -212,7 +212,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
           <h2 className="ach-records-title">Historical Tournament Records</h2>
           <Segmented
             label="Records"
-            look="records"
+            look="tabs"
             options={[
               { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
               { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
@@ -230,18 +230,14 @@ function Records({ records }: { records: TournamentRecord[] }) {
         />
       </div>
 
-      <div className="ach-category-filters" role="group" aria-label="Tournament Category Filters">
-        {CATEGORY_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`ach-category-btn${category === opt.id ? ' active' : ''}`}
-            onClick={() => handleCategoryChange(opt.id)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Tournament category"
+        look="filter"
+        groupClass="year-pills ach-category-filters"
+        options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+        value={category}
+        onChange={handleCategoryChange}
+      />
 
       {tab === 'seasons' ? (
         selectedTournament === null ? (
@@ -425,44 +421,19 @@ function Records({ records }: { records: TournamentRecord[] }) {
         )
       ) : (
         <div>
-          <div className="ach-sub-tabs" role="tablist" aria-label="Career Highlights View Mode">
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'medals' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('medals')}
-              role="tab"
-              aria-selected={highlightMode === 'medals'}
-            >
-              🥇 Major Medals ({activeMedals.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'promotions' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('promotions')}
-              role="tab"
-              aria-selected={highlightMode === 'promotions'}
-            >
-              🚀 Promotions &amp; Group Wins ({activePromotions.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'best' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('best')}
-              role="tab"
-              aria-selected={highlightMode === 'best'}
-            >
-              ⭐ Best per Tournament ({activeBest.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'hof' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('hof')}
-              role="tab"
-              aria-selected={highlightMode === 'hof'}
-            >
-              📜 All-Time Career Totals ({activeHof.length})
-            </button>
-          </div>
+          <Segmented
+            label="Career highlights view"
+            look="tabs"
+            groupClass="ach-tabs ach-sub-tabs"
+            options={[
+              { value: 'medals', label: `🥇 Major Medals (${activeMedals.length})` },
+              { value: 'promotions', label: `🚀 Promotions & Group Wins (${activePromotions.length})` },
+              { value: 'best', label: `⭐ Best per Tournament (${activeBest.length})` },
+              { value: 'hof', label: `📜 All-Time Career Totals (${activeHof.length})` },
+            ]}
+            value={highlightMode}
+            onChange={setHighlightMode}
+          />
 
           <ScrollTable hint="full highlight details">
             {highlightMode === 'hof' ? (

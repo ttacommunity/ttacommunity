@@ -180,7 +180,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <div className="view-bar view-bar-row player-top-bar">
         <Segmented
           label="Format"
-          look="raised"
           groupClass="view-group view-group-format"
           prefix={<span className="view-bar-label">Format:</span>}
           options={([0, 2, 3, 4] as Format[]).map((f) => ({

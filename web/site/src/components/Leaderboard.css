@@ -242,69 +242,19 @@
   display: none;
 }
 
-/* Upstream's segmented buttons: compact in the year banner, full width in the options drawer. */
-.reset-btn-group {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--surface-field);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-
-.leaderboard-options-panel .reset-btn-group {
-  display: flex;
-  width: 100%;
-}
-
-.reset-btn-group.stacked {
-  flex-direction: column;
-  gap: 3px;
-}
-
-.reset-btn {
-  padding: 0.35rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 3px;
-  color: var(--text-soft);
-  font-family: var(--font-heading);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.leaderboard-options-panel .reset-btn {
+/* The options drawer's choices: full width, and the track and engine one to a line. */
+.leaderboard-options-panel .format-bar-group .format-btn {
   flex: 1;
-  padding: 0.4rem 0.5rem;
+  justify-content: center;
 }
 
-.stacked .reset-btn {
-  display: flex;
-  align-items: center;
+.format-bar-group.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.leaderboard-options-panel .stacked .format-btn {
   justify-content: space-between;
-  padding: 0.4rem 0.65rem;
-  text-align: left;
-}
-
-.prior .reset-btn {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.75rem;
-}
-
-.reset-btn:hover {
-  background: var(--gold-wash-faint);
-  color: var(--text-bright);
-}
-
-.reset-btn.active {
-  background: var(--gradient-gold);
-  box-shadow: 0 1px 4px var(--shadow);
-  color: var(--text-on-gold);
-  font-weight: 700;
 }
 
 .default-tag {
@@ -314,6 +264,10 @@
   color: var(--accent-gold);
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.active .default-tag {
+  background: var(--bg-dark);
 }
 
 /* Buttons: upstream's page Apply button, where base.html's text colour wins. */

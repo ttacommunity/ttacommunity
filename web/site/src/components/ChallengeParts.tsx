@@ -22,7 +22,6 @@ export function VerifiedSwitch({ value, onChange }: { value: ChoiceValue<'verifi
   return (
     <Segmented
       label="Which entries count"
-      look="raised"
       value={value}
       onChange={onChange}
       options={[
@@ -38,7 +37,6 @@ export function MeasureSwitch({ value, onChange }: { value: Measure; onChange: (
   return (
     <Segmented
       label="Compare players by"
-      look="raised"
       value={value}
       onChange={onChange}
       options={[

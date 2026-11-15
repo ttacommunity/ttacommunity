@@ -35,6 +35,9 @@ import SeasonPick from './SeasonPick';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
 
+/** pill is a round button's classes, chosen or not. */
+const pill = (chosen: boolean) => (chosen ? 'year-pill bracket-round active' : 'year-pill bracket-round');
+
 /** BracketView shows one season of a bracket tournament, with a picker for its other seasons with games. */
 export default function BracketView({
   apiUrl,
@@ -97,26 +100,26 @@ export default function BracketView({
             Gold: through to the next round. <span className="bracket-to">→ SF 1</span> is where they play next. Choose a name to follow that player.
           </p>
           <div className="bracket-controls">
-            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-wide">
+            <nav aria-label="Rounds" className="year-pills bracket-rounds bracket-rounds-wide">
               {rounds.map((x, i) => (
                 <Fragment key={x.name}>
                   {i === reach && i > 0 && <span className="bracket-rounds-split" title="The bracket can be drawn from here" aria-hidden="true" />}
-                  <button type="button" className="bracket-round" aria-pressed={i >= view.first && i <= view.last} onClick={() => setChosen(tapRound(view, i))}>
+                  <button type="button" className={pill(i >= view.first && i <= view.last)} aria-pressed={i >= view.first && i <= view.last} onClick={() => setChosen(tapRound(view, i))}>
                     <span>{x.name}</span>
                     <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
                   </button>
                 </Fragment>
               ))}
               {rounds.length > 1 && (
-                <button type="button" className="bracket-round" aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
+                <button type="button" className={pill(view.first === all.first && view.last === all.last)} aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
                   <span>All rounds</span>
                   <span className="bracket-round-state">{rounds.length} rounds</span>
                 </button>
               )}
             </nav>
-            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-narrow">
+            <nav aria-label="Rounds" className="year-pills bracket-rounds bracket-rounds-narrow">
               {rounds.map((x, i) => (
-                <button key={x.name} type="button" className="bracket-round" aria-pressed={i === view.last} onClick={() => setChosen({ first: i, last: i, anchor: i })}>
+                <button key={x.name} type="button" className={pill(i === view.last)} aria-pressed={i === view.last} onClick={() => setChosen({ first: i, last: i, anchor: i })}>
                   <span>{x.name}</span>
                   <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
                 </button>

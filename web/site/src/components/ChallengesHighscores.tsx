@@ -38,10 +38,9 @@ export default function ChallengesHighscores({ apiUrl }: { apiUrl: string }) {
 
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />
+          <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           <Segmented
             label="View"
-            look="raised"
             value={view}
             onChange={setView}
             options={[

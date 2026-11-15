@@ -85,7 +85,6 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               label="Skill Tier"
               options={TIER_OPTIONS}
               value={tier}
-              look="raised"
               onChange={(t) => setTier(t)}
             />
           </div>
@@ -95,7 +94,6 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               label="Player Count"
               options={FORMAT_OPTIONS}
               value={format}
-              look="bar"
               onChange={(f) => setFormat(f)}
             />
           </div>

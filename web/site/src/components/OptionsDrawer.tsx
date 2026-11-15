@@ -91,8 +91,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
         </div>
         <Segmented
           label="Rating track"
-          look="banner"
-          groupClass="reset-btn-group stacked"
+          groupClass="format-bar-group stacked"
           options={TRACKS.map((t) => ({
             value: t.value,
             label: (
@@ -114,8 +113,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
         </div>
         <Segmented
           label="Rating engine"
-          look="banner"
-          groupClass="reset-btn-group stacked"
+          groupClass="format-bar-group stacked"
           options={ENGINES.map((e) => ({
             value: e,
             label: (
@@ -138,7 +136,6 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           </div>
           <Segmented
             label="Season reset mode"
-            look="banner"
             options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
             value={view.reset}
             link={(reset) => linkTo(at({ reset }))}

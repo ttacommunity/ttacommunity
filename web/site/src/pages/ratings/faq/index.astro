@@ -9,7 +9,6 @@ const tabs = (await getCollection('faq')).sort((a, b) => a.data.order - b.data.o
 if (tabs.length === 0) throw new Error('src/content/faq/ has no tabs');
 const sections = await Promise.all(tabs.map(async (t) => ({ ...t.data, Content: (await render(t)).Content })));
 // Upstream picks out its two GlickoD tabs in gold.
-const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalibration-15': 'tab-bronze' };
 ---
 <SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, conservative ratings, formats, titles and season resets.">
   <div class="faq-container" data-api-url={PUBLIC_API_URL}>
@@ -18,13 +17,13 @@ const tabClass: Record<string, string> = { 'gold-standard': 'tab-gold', 'recalib
       subtitle="Complete mathematical documentation of the Rating Models, multiplayer adjustments, and leaderboard mechanics."
     />
 
-    <div class="faq-nav" role="tablist" aria-label="FAQ topics">
+    <div class="ach-tabs faq-nav" role="tablist" aria-label="FAQ topics">
       {sections.map((s, i) => (
         <button
           type="button"
           role="tab"
           id={`faq-tab-${s.tab}`}
-          class:list={['faq-tab-btn', tabClass[s.tab], { active: i === 0 }]}
+          class:list={['records-tab-btn', 'faq-tab-btn', { active: i === 0 }]}
           data-tab={s.tab}
           aria-controls={`faq-${s.tab}`}
           aria-selected={i === 0 ? 'true' : 'false'}

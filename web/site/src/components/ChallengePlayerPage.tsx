@@ -58,7 +58,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
       <PageHeader title={p.player} />
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />
+          <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           {p.summary && (
             <span className="muted">
               {measure === 'rating' ? 'Rating' : 'Total'} <strong>{formatMeasure(measureOf(p.summary, measure, set), measure)}</strong> ·{' '}
@@ -70,7 +70,6 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
           <MeasureSwitch value={measure} onChange={setMeasure} />
           <Segmented
             label="Which entries count"
-            look="raised"
             value={counting}
             onChange={choose}
             options={[

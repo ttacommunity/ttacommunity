@@ -1,4 +1,4 @@
-/** A row of buttons choosing one value, in one of upstream's looks: its format bar, raised buttons, the year banner, the view toggle or the records tabs. */
+/** A row of buttons choosing one value, in one of the site's three looks: a choice, tabs or a filter. */
 import type { ReactNode } from 'react';
 
 export interface Option<T> {
@@ -9,11 +9,11 @@ export interface Option<T> {
   title?: string;
 }
 
-/** The look of each upstream page: bar (leaderboard), raised (player pages), banner (year banner), view (community), records (achievements' tabs). */
-export type Look = 'bar' | 'raised' | 'banner' | 'view' | 'records';
+/** choice: a setting of what is shown (the format bar); tabs: which part of a page (the records tabs); filter: which of many, such as a year (the year pills). */
+export type Look = 'choice' | 'tabs' | 'filter';
 
-const GROUP: Record<Look, string> = { bar: 'format-bar-group', raised: 'format-bar-group', banner: 'reset-btn-group', view: 'view-toggle-bar', records: 'ach-tabs' };
-const BUTTON: Record<Look, string> = { bar: 'format-btn', raised: 'format-btn raised', banner: 'reset-btn', view: 'view-btn', records: 'records-tab-btn' };
+const GROUP: Record<Look, string> = { choice: 'format-bar-group', tabs: 'ach-tabs', filter: 'year-pills' };
+const BUTTON: Record<Look, string> = { choice: 'format-btn', tabs: 'records-tab-btn', filter: 'year-pill' };
 
 interface Props<T> {
   label: string;
@@ -30,7 +30,7 @@ interface Props<T> {
 }
 
 /** Segmented shows each option as a button or link, with the chosen one pressed. */
-export default function Segmented<T extends string | number>({ label, options, value, look = 'bar', groupClass, prefix, link, onChange }: Props<T>) {
+export default function Segmented<T extends string | number>({ label, options, value, look = 'choice', groupClass, prefix, link, onChange }: Props<T>) {
   return (
     <div role="group" aria-label={label} className={groupClass ?? GROUP[look]}>
       {prefix}

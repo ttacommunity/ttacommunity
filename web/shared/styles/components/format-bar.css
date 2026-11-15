@@ -1,4 +1,4 @@
-/* The dark bar of pill buttons above a table, upstream's .format-bar and .format-btn. */
+/* The dark bar of pill buttons above a table (upstream's .format-bar), and the choice buttons used for every setting of what a page shows. */
 .format-bar {
   display: flex;
   align-items: center;
@@ -35,30 +35,6 @@
   transition: all 0.2s;
 }
 
-/* Upstream's other pages (player, matrix, chart) draw the buttons raised, with a gradient when chosen. */
-.format-btn.raised {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid rgba(74, 53, 37, 0.8);
-  background: var(--surface-panel);
-  color: var(--text-soft);
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.format-btn.raised:hover {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash);
-  color: var(--text-bright);
-}
-
-.format-btn.raised.active {
-  border-color: var(--accent-gold);
-  background: var(--gradient-gold);
-  box-shadow: 0 2px 8px var(--gold-wash-strong);
-  color: var(--text-on-gold);
-  font-weight: 700;
-}
-
 .format-btn:hover {
   border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
@@ -90,19 +66,7 @@
     padding: 0.65rem;
   }
 
-  .format-bar-group {
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .format-bar-group::-webkit-scrollbar {
-    display: none;
-  }
-
   .format-btn {
-    flex-shrink: 0;
     padding: 0.45rem 0.85rem;
     font-size: 0.82rem;
   }

@@ -195,37 +195,6 @@
   box-shadow: 0 2px 8px var(--shadow-light);
 }
 
-/* View Mode Switcher */
-.view-toggle-bar {
-  display: inline-flex;
-  background: var(--surface-field);
-  padding: 0.25rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  gap: 0.35rem;
-}
-.view-btn {
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-soft);
-  text-decoration: none;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-.view-btn:hover {
-  color: var(--text-bright);
-  background: var(--gold-wash-faint);
-}
-.view-btn.active {
-  background: var(--gradient-gold);
-  color: var(--text-on-gold);
-  font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
-}
-
 /* Results Counter Card */
 .results-counter-card {
   max-width: 1400px;
@@ -438,41 +407,6 @@
   letter-spacing: 0.5px;
   font-weight: 700;
 }
-.edition-pills {
-  display: inline-flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  background: rgba(14, 9, 6, 0.85);
-  padding: 0.35rem 0.45rem;
-  border-radius: 25px;
-  border: 1px solid var(--border-subtle);
-}
-.edition-pill {
-  padding: 0.45rem 1.1rem;
-  border-radius: 20px;
-  font-family: var(--font-heading);
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  border: 1px solid transparent;
-  color: var(--text-soft);
-  background: transparent;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-.edition-pill:hover {
-  border-color: var(--gold-wash-strong);
-  color: var(--text-bright);
-  background: rgba(229, 169, 60, 0.1);
-}
-.edition-pill.active {
-  background: var(--gradient-gold);
-  color: var(--text-on-gold);
-  font-weight: 700;
-  border-color: var(--accent-gold);
-  box-shadow: 0 2px 8px var(--gold-wash-strong);
-}
-
 @media (max-width: 768px) {
   .comm-hero {
     padding: 1.25rem 1rem;
@@ -503,16 +437,6 @@
   }
   .comm-search-input {
     min-height: 40px;
-  }
-  .view-toggle-bar {
-    width: 100%;
-    justify-content: center;
-  }
-  .view-btn {
-    flex: 1;
-    text-align: center;
-    padding: 0.5rem 0.5rem;
-    white-space: normal; /* upstream's label runs past a phone's screen */
   }
   .table-wrapper {
     margin-bottom: 1.5rem;

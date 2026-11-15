@@ -65,7 +65,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
       </PageHeader>
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          {pa && pb && <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />}
+          {pa && pb && <Segmented label="Set" value={set} onChange={setSet} options={SETS} />}
           {pa && pb && (
             <span className="muted">
               <span className="challenges-side-a">■</span> {pa.player} ahead · <span className="challenges-side-b">■</span> {pb.player} ahead
