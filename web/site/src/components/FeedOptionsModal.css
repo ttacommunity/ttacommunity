@@ -1,66 +1,15 @@
 /* FeedOptionsModal styling: dialog, tournament/division rows, player chips, action buttons */
 
 .feed-options-modal {
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 10px;
-  background: radial-gradient(circle at 50% 10%, rgba(212, 175, 55, 0.05), transparent 75%),
-              linear-gradient(180deg, var(--surface-card) 0%, var(--surface-panel) 100%);
+  max-width: 680px;
   color: var(--text-soft);
-  padding: 0;
-  width: min(92vw, 680px);
-  max-height: 85vh;
-  box-shadow: 0 20px 60px var(--shadow-deep);
-  outline: none;
-}
-
-.feed-options-modal::backdrop {
-  background: rgba(10, 7, 5, 0.78);
-  backdrop-filter: blur(3px);
-}
-
-.feed-modal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.1rem 1.4rem;
-  border-bottom: 1px solid var(--border-faint);
-  background: rgba(18, 12, 8, 0.4);
-}
-
-.feed-modal-title {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 1.2rem;
-  color: var(--accent-gold);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.feed-modal-close {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.feed-modal-close:hover {
-  color: var(--accent-gold);
-  background: var(--gold-wash-faint);
 }
 
 .feed-modal-body {
-  padding: 1.25rem 1.4rem;
-  overflow-y: auto;
-  max-height: calc(85vh - 140px);
   display: flex;
   flex-direction: column;
   gap: 1.4rem;
+  line-height: normal;
 }
 
 .feed-modal-intro {

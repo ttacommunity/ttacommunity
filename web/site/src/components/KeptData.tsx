@@ -1,8 +1,8 @@
 /** "Data we keep" on the account page: a button that opens a dialog listing everything kept about the signed-in player, fetched when it opens. */
 import { useRef, useState } from 'react';
-import { useModal } from '@ttac/shared/modal';
 import { viewerZone } from '@ttac/shared/time';
 import { fetchMyData, keptGroups, shownZone, type KeptGroup } from '../lib/kept-data';
+import Sheet from './Sheet';
 import Waiting from './Waiting';
 import './KeptData.css';
 import { useLoad } from './useLoad';
@@ -23,8 +23,6 @@ export default function KeptData({ apiUrl, savedZone }: { apiUrl: string; savedZ
 function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; savedZone: string; opener: HTMLElement; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const zone = shownZone(savedZone, viewerZone());
-  // A click on the backdrop closes it; Esc and Close are the keyboard's ways.
-  const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   const load = useLoad('kept', () =>
     fetchMyData(apiUrl).then((data) => {
@@ -36,14 +34,8 @@ function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; sa
   const names = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
   const groups = load.kind === 'ready' ? keptGroups(load.data, zone, (code) => names?.of(code) ?? code) : [];
   return (
-    <dialog ref={dialog} className="kept-modal" aria-labelledby="kept-title" onClose={closed}>
-      <div className="kept-head">
-        <h2 id="kept-title">Data we keep</h2>
-        <button type="button" className="kept-close" aria-label="Close" onClick={() => dialog.current?.close()}>
-          ×
-        </button>
-      </div>
-      <div className="kept-body">
+    <Sheet dialog={dialog} id="kept" title="Data we keep" opener={opener} onClose={onClose}>
+      <div className="sheet-body">
         <p className="kept-intro">
           Everything we keep about you, and when each is removed. Times are in {zone}. To have something corrected or removed sooner, write to
           privacy@ttacommunity.org.
@@ -53,7 +45,7 @@ function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; sa
           <Group key={g.id} group={g} />
         ))}
       </div>
-    </dialog>
+    </Sheet>
   );
 }
 

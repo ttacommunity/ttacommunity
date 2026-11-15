@@ -833,50 +833,7 @@
 }
 
 .h2h-modal {
-  width: calc(100% - 3rem);
   max-width: 900px;
-  max-height: 85vh;
-  margin: auto;
-  padding: 0;
-  background: rgba(28, 19, 13, 0.98);
-  border: 2px solid var(--accent-gold);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px var(--shadow-deep);
-  color: var(--text-main);
-}
-
-.h2h-modal[open] {
-  display: flex;
-  flex-direction: column;
-}
-
-.h2h-modal::backdrop {
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(6px);
-}
-
-.h2h-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.h2h-head h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 1.3rem;
-  color: var(--accent-gold);
-}
-
-.h2h-close {
-  background: transparent;
-  border: none;
-  font-size: 1.8rem;
-  line-height: 1;
-  color: var(--accent-gold);
-  cursor: pointer;
 }
 
 .h2h-toolbar {
@@ -927,12 +884,6 @@
 
 .h2h-draw {
   color: var(--draw);
-}
-
-.h2h-body {
-  flex: 1;
-  padding: 1rem 1.5rem;
-  overflow-y: auto;
 }
 
 .h2h-message,

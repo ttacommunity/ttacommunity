@@ -1,53 +1,4 @@
 /* "Data we keep": the account page's dialog of everything kept about the player. */
-.kept-modal {
-  width: calc(100% - 2rem);
-  max-width: 44rem;
-  max-height: 88vh;
-  margin: auto;
-  padding: 0;
-  background: var(--bg-dark);
-  border: 2px solid var(--accent-gold);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px var(--shadow-deep);
-  color: var(--text-main);
-}
-.kept-modal[open] {
-  display: flex;
-  flex-direction: column;
-}
-.kept-modal::backdrop {
-  background: rgba(0, 0, 0, 0.85);
-}
-.kept-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.kept-head h2 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--size-card-title);
-  color: var(--accent-gold);
-}
-.kept-close {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  background: transparent;
-  border: none;
-  font-size: 1.8rem;
-  line-height: 1;
-  color: var(--accent-gold);
-  cursor: pointer;
-}
-.kept-body {
-  flex: 1;
-  padding: 1rem 1.25rem 1.5rem;
-  overflow-y: auto;
-  line-height: 1.5;
-}
 .kept-intro,
 .kept-rule {
   margin: 0 0 0.75rem;
@@ -104,11 +55,6 @@
   font-size: var(--size-label);
 }
 @media (max-width: 600px) {
-  .kept-modal {
-    width: 100%;
-    max-height: 100%;
-    border-radius: 0;
-  }
   .kept-fact {
     grid-template-columns: 1fr;
   }

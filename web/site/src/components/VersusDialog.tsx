@@ -1,12 +1,12 @@
 /** Upstream's head-to-head popup: two players' latest shared games, filtered by format. */
 import { useRef, useState } from 'react';
-import { useModal } from '@ttac/shared/modal';
 import { currentRun, playerVersus, type Format } from '@ttac/shared/ratings';
 import type { Track } from '../lib/leaderboard-view';
 import { versusTally, type GameRatingFilter } from '../lib/career';
 import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
+import Sheet from './Sheet';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from './CopyCode';
@@ -46,8 +46,6 @@ export default function VersusDialog({
   const [format, setFormat] = useState<Format>(initial);
   const [track, setTrack] = useState<Track>(initialTrack);
   const [ratingFilter, setRatingFilter] = useState<GameRatingFilter>(initialFilter);
-  // A click on the backdrop closes it, as upstream's; Esc and × are the keyboard's ways.
-  const closed = useModal(dialog, opener, onClose, { backdropCloses: true });
 
   const state = useLoad(JSON.stringify([runId, initialTrack, track, name, other, ratingFilter]), async () => {
     if (!ratingFilter.rated && !ratingFilter.unrated) return { run_id: runId, name, other, matches: [] };
@@ -60,20 +58,7 @@ export default function VersusDialog({
   const b = state.kind === 'ready' ? state.data.other : other;
 
   return (
-    <dialog
-      ref={dialog}
-      className="h2h-modal"
-      aria-labelledby="h2h-title"
-      onClose={closed}
-    >
-      <div className="h2h-head">
-        <h3 id="h2h-title">
-          {a} vs {b} - Exclusive History
-        </h3>
-        <button type="button" className="h2h-close" aria-label="Close" onClick={() => dialog.current?.close()}>
-          ×
-        </button>
-      </div>
+    <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} className="h2h-modal">
       <div className="h2h-toolbar">
         <span className="h2h-toolbar-label">Match Format:</span>
         <Segmented label="Match format" look="raised" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
@@ -104,7 +89,7 @@ export default function VersusDialog({
           </>
         )}
       </div>
-      <div className="h2h-body">
+      <div className="sheet-body">
         <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (
           <div className="h2h-message">{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see shared matches.' : 'No direct encounters found for this player format and filter.'}</div>
@@ -160,6 +145,6 @@ export default function VersusDialog({
           </table>
         )}
       </div>
-    </dialog>
+    </Sheet>
   );
 }
