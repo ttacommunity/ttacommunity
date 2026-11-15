@@ -59,8 +59,9 @@ func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {
 		t.Fatalf("got feed videos %+v, want vid00000001", feed.Videos)
 	}
 
-	if err := a.SetMovieVideoHidden(ctx, "vid00000001", true); err != nil {
-		t.Fatalf("SetMovieVideoHidden: %v", err)
+	off := false
+	if err := a.SetMovieVideoOverride(ctx, "vid00000001", &off); err != nil {
+		t.Fatalf("SetMovieVideoOverride: %v", err)
 	}
 	feed, err = pub.Movies(ctx)
 	if err != nil {

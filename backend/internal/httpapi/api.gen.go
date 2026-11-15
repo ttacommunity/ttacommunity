@@ -2032,13 +2032,24 @@ type AdminTournamentRow struct {
 
 // AdminVideo defines model for AdminVideo.
 type AdminVideo struct {
-	ChannelId    string    `json:"channel_id"`
-	CreatorName  string    `json:"creator_name"`
-	Hidden       bool      `json:"hidden"`
-	PublishedAt  time.Time `json:"published_at"`
-	ThumbnailUrl string    `json:"thumbnail_url"`
-	Title        string    `json:"title"`
-	VideoId      string    `json:"video_id"`
+	ChannelId   string `json:"channel_id"`
+	CreatorName string `json:"creator_name"`
+
+	// IsTta Whether the video's title, description or tags say it is about TTA
+	IsTta       bool      `json:"is_tta"`
+	PublishedAt time.Time `json:"published_at"`
+
+	// Shown Whether the Movies page shows the video, the override if any, else the verdict
+	Shown        bool   `json:"shown"`
+	ThumbnailUrl string `json:"thumbnail_url"`
+	Title        string `json:"title"`
+
+	// TtaOverride An admin's say, shown (true) or not (false) whatever the verdict; null leaves it to the verdict
+	TtaOverride *bool `json:"tta_override"`
+
+	// TtaReason Why, as in "mentions Through the Ages" or "no mention of TTA"
+	TtaReason string `json:"tta_reason"`
+	VideoId   string `json:"video_id"`
 }
 
 // AdminVideoChannel defines model for AdminVideoChannel.
@@ -5237,7 +5248,8 @@ type VideoChannelPatch struct {
 
 // VideoPatch defines model for VideoPatch.
 type VideoPatch struct {
-	Hidden bool `json:"hidden"`
+	// Override Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null)
+	Override *bool `json:"override"`
 }
 
 // YearEntry defines model for YearEntry.
@@ -6082,7 +6094,7 @@ type ServerInterface interface {
 	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
 	// (POST /v1/admin/movies/sync)
 	PostAdminMoviesSync(w http.ResponseWriter, r *http.Request)
-	// PatchAdminMovieVideo Hide or show a video in the Movies feed (admins only)
+	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(w http.ResponseWriter, r *http.Request, videoId string)
 	// GetAdminNostradamusEditions Every Nostradamus game (admins and organisers)
@@ -25761,7 +25773,7 @@ type StrictServerInterface interface {
 	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
 	// (POST /v1/admin/movies/sync)
 	PostAdminMoviesSync(ctx context.Context, request PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error)
-	// PatchAdminMovieVideo Hide or show a video in the Movies feed (admins only)
+	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(ctx context.Context, request PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error)
 	// GetAdminNostradamusEditions Every Nostradamus game (admins and organisers)

@@ -45,7 +45,7 @@ type MovieAdmin interface {
 	AddMovieChannel(ctx context.Context, channelID, name string, player *string, includeAll bool, now time.Time) (store.AdminVideoChannel, error)
 	UpdateMovieChannel(ctx context.Context, channelID string, name *string, player *string, clearPlayer bool, includeAll *bool) error
 	DeleteMovieChannel(ctx context.Context, channelID string) error
-	SetMovieVideoHidden(ctx context.Context, videoID string, hidden bool) error
+	SetMovieVideoOverride(ctx context.Context, videoID string, override *bool) error
 	ResolveMovieChannel(ctx context.Context, raw string) (string, error)
 	SyncMoviesNow(ctx context.Context, now time.Time) (store.MoviesSyncResult, error)
 }

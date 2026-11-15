@@ -29,7 +29,8 @@ type AdminVideoChannel struct {
 	VideoCount   int
 }
 
-// AdminVideo is one fetched video in admin (including hidden videos).
+// AdminVideo is one stored video in admin, with its verdict, any admin override, and whether the Movies page
+// shows it.
 type AdminVideo struct {
 	VideoID      string
 	ChannelID    string
@@ -37,7 +38,10 @@ type AdminVideo struct {
 	Title        string
 	PublishedAt  time.Time
 	ThumbnailURL string
-	Hidden       bool
+	IsTTA        bool
+	TTAReason    string
+	TTAOverride  *bool
+	Shown        bool
 }
 
 // AdminMoviesState is the admin Movies tab payload.
@@ -87,7 +91,8 @@ func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) 
 	}
 
 	vRows, err := a.pool.Query(ctx, `
-		SELECT v.video_id, v.channel_id, vc.name, v.title, v.published_at, v.thumbnail_url, NOT coalesce(v.tta_override, v.is_tta)
+		SELECT v.video_id, v.channel_id, vc.name, v.title, v.published_at, v.thumbnail_url, v.is_tta, v.tta_reason,
+		       v.tta_override, coalesce(v.tta_override, v.is_tta)
 		FROM videos v
 		JOIN video_channels vc USING (channel_id)
 		ORDER BY v.published_at DESC, v.video_id
@@ -187,9 +192,10 @@ func (a *AdminStore) DeleteMovieChannel(ctx context.Context, channelID string) e
 	return nil
 }
 
-// SetMovieVideoHidden hides or unhides a video in the public Movies feed.
-func (a *AdminStore) SetMovieVideoHidden(ctx context.Context, videoID string, hidden bool) error {
-	tag, err := a.pool.Exec(ctx, "UPDATE videos SET tta_override = NOT $2 WHERE video_id = $1", videoID, hidden)
+// SetMovieVideoOverride shows a video on the Movies page (true) or keeps it off (false) whatever its verdict,
+// or with nil leaves it to the verdict. ErrNoVideo when no video has that id.
+func (a *AdminStore) SetMovieVideoOverride(ctx context.Context, videoID string, override *bool) error {
+	tag, err := a.pool.Exec(ctx, "UPDATE videos SET tta_override = $2 WHERE video_id = $1", videoID, override)
 	if err != nil {
 		return fmt.Errorf("updating video: %w", err)
 	}

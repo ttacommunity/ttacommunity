@@ -138,8 +138,9 @@ func TestStorePushedVideoKeepsAnAdminsOverride(t *testing.T) {
 	if err := p.StorePushedVideo(ctx, pushed("Through the Ages final", true), now); err != nil {
 		t.Fatalf("StorePushedVideo: %v", err)
 	}
-	if err := a.SetMovieVideoHidden(ctx, pushVideo, true); err != nil {
-		t.Fatalf("SetMovieVideoHidden: %v", err)
+	off := false
+	if err := a.SetMovieVideoOverride(ctx, pushVideo, &off); err != nil {
+		t.Fatalf("SetMovieVideoOverride: %v", err)
 	}
 	if err := p.StorePushedVideo(ctx, pushed("Through the Ages final, recut", true), now.Add(time.Hour)); err != nil {
 		t.Fatalf("StorePushedVideo again: %v", err)
@@ -282,4 +283,60 @@ func TestMovieClassifyingReadsTheChannelAndTournaments(t *testing.T) {
 	if _, _, err := r.MovieClassifying(ctx, pushUnlinked); !errors.Is(err, ErrNoChannel) {
 		t.Errorf("MovieClassifying(unlinked) = %v, want ErrNoChannel", err)
 	}
+}
+
+func TestAnAdminOverridesAVideosVerdict(t *testing.T) {
+	yes, no := true, false
+	tests := []struct {
+		name      string
+		tta       bool
+		override  *bool
+		wantShown bool
+	}{
+		{"a TTA video left to its verdict", true, nil, true},
+		{"a TTA video kept off", true, &no, false},
+		{"a rejected video left to its verdict", false, nil, false},
+		{"a rejected video shown", false, &yes, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, a, r, now := pushSetup(t)
+			ctx := context.Background()
+			if err := p.StorePushedVideo(ctx, pushed("Game 5", tt.tta), now); err != nil {
+				t.Fatalf("StorePushedVideo: %v", err)
+			}
+			if err := a.SetMovieVideoOverride(ctx, pushVideo, &yes); err != nil {
+				t.Fatalf("SetMovieVideoOverride(true): %v", err)
+			}
+			if err := a.SetMovieVideoOverride(ctx, pushVideo, tt.override); err != nil {
+				t.Fatalf("SetMovieVideoOverride: %v", err)
+			}
+			if got := len(shownTitles(t, r)) == 1; got != tt.wantShown {
+				t.Errorf("the Movies page shows it: %v, want %v", got, tt.wantShown)
+			}
+			state, err := a.AdminMovies(ctx)
+			if err != nil || len(state.Videos) != 1 {
+				t.Fatalf("AdminMovies = %+v, %v; want the one video", state.Videos, err)
+			}
+			v := state.Videos[0]
+			if v.IsTTA != tt.tta || v.TTAReason != "test" || v.Shown != tt.wantShown || !slices.Equal(boolList(v.TTAOverride), boolList(tt.override)) {
+				t.Errorf("admin sees verdict %v %q, override %v, shown %v; want %v, %v, %v",
+					v.IsTTA, v.TTAReason, boolList(v.TTAOverride), v.Shown, tt.tta, boolList(tt.override), tt.wantShown)
+			}
+		})
+	}
+}
+
+func TestOverridingAVideoNobodyHasIsRefused(t *testing.T) {
+	_, a, _, _ := pushSetup(t)
+	if err := a.SetMovieVideoOverride(context.Background(), "vid00000009", nil); !errors.Is(err, ErrNoVideo) {
+		t.Errorf("err = %v, want %v", err, ErrNoVideo)
+	}
+}
+
+func boolList(b *bool) []bool {
+	if b == nil {
+		return nil
+	}
+	return []bool{*b}
 }

@@ -1,9 +1,22 @@
-/** Admin Movies panel: manage YouTube creator channels, trigger manual RSS syncs, and hide/show individual videos. */
+/** Admin Movies panel: manage YouTube creator channels and see their subscriptions, trigger manual RSS syncs,
+ * and override a video's verdict. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import type { Load } from '@ttac/shared/load';
+import { formatDate, formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest } from '../lib/admin-api';
-import { buildNewChannelBody, type AdminMoviesState, type AdminVideo, type AdminVideoChannel, type MoviesSyncResult } from '../lib/admin-movies';
+import {
+  buildNewChannelBody,
+  channelStatus,
+  overrideChoice,
+  overrideOf,
+  videoStatus,
+  type AdminMoviesState,
+  type AdminVideo,
+  type AdminVideoChannel,
+  type MoviesSyncResult,
+  type OverrideChoice,
+} from '../lib/admin-movies';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice } from './Notice';
 import AdminCard from './AdminCard';
@@ -104,19 +117,23 @@ export default function MoviesPanel() {
     await reload();
   };
 
-  const toggleVideoHidden = async (v: AdminVideo) => {
+  const overrideVideo = async (v: AdminVideo, choice: OverrideChoice) => {
     setOutcome(null);
     const r = await adminRequest<unknown>(`/api/movies/videos/${encodeURIComponent(v.video_id)}`, {
       method: 'PATCH',
-      json: { hidden: !v.hidden },
+      json: { override: overrideOf(choice) },
     });
     if (!r.ok) {
       setOutcome(outcomeOf(r, '', `video-${v.video_id}`));
       return;
     }
-    setOutcome(succeeded(`${!v.hidden ? 'Hid' : 'Shown'} “${v.title}”.`, `video-${v.video_id}`));
+    const done = { verdict: 'left to its verdict', show: 'shown whatever its verdict', hide: 'kept off whatever its verdict' }[choice];
+    setOutcome(succeeded(`“${v.title}” is ${done}.`, `video-${v.video_id}`));
     await reload();
   };
+
+  const zone = viewerZone();
+  const at = (iso: string) => formatInstant(iso, zone);
 
   return (
     <AdminCard
@@ -129,7 +146,10 @@ export default function MoviesPanel() {
       }
     >
       {dialog.element}
-      <p className="muted">YouTube creators whose Through the Ages videos appear on the Movies page. Checked automatically every 30 minutes.</p>
+      <p className="muted">
+        YouTube creators whose Through the Ages videos appear on the Movies page. YouTube sends each new video as it is
+        published, and the feeds are also checked every 30 minutes.
+      </p>
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
 
@@ -182,7 +202,7 @@ export default function MoviesPanel() {
             {state.data.channels.length === 0 ? (
               <p className="muted">No creators added yet. Add a YouTube channel above to start indexing videos.</p>
             ) : (
-              <AdminTable caption="The YouTube creators indexed, each with its linked player and filter" className="movies-table">
+              <AdminTable caption="The YouTube creators indexed, each with its linked player, filter and subscription" className="movies-table">
                 <thead>
                   <tr>
                     <th>Creator</th>
@@ -190,11 +210,14 @@ export default function MoviesPanel() {
                     <th>Linked player</th>
                     <th>Filter</th>
                     <th>Videos</th>
+                    <th>Subscription</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {state.data.channels.map((c) => (
+                  {state.data.channels.map((c) => {
+                    const status = channelStatus(c, new Date(), at);
+                    return (
                     <tr key={c.channel_id}>
                       <td className="movies-creator-name">{c.name}</td>
                       <td>
@@ -220,6 +243,11 @@ export default function MoviesPanel() {
                       </td>
                       <td>{c.video_count}</td>
                       <td>
+                        <span className={`movies-status movies-status-${{ ok: 'visible', waiting: 'hidden', failing: 'failing' }[status.kind]}`}>
+                          {status.text}
+                        </span>
+                      </td>
+                      <td>
                         <button
                           type="button"
                           className="btn-settings"
@@ -229,7 +257,8 @@ export default function MoviesPanel() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </AdminTable>
             )}
@@ -240,18 +269,20 @@ export default function MoviesPanel() {
             {state.data.videos.length === 0 ? (
               <p className="muted">No videos fetched yet. Click “Check for new videos” after adding a creator.</p>
             ) : (
-              <AdminTable caption="The videos found, with each one's creator, date and whether the Movies page shows it" className="movies-table">
+              <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why" className="movies-table">
                 <thead>
                   <tr>
                     <th>Video</th>
                     <th>Creator</th>
                     <th>Published</th>
                     <th>Status</th>
-                    <th>Action</th>
+                    <th>Shown by</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {state.data.videos.map((v) => (
+                  {state.data.videos.map((v) => {
+                    const status = videoStatus(v);
+                    return (
                     <tr key={v.video_id}>
                       <td>
                         <div className="movies-video-cell">
@@ -273,19 +304,28 @@ export default function MoviesPanel() {
                         </div>
                       </td>
                       <td>{v.creator_name}</td>
-                      <td className="movies-date">{new Date(v.published_at).toLocaleDateString()}</td>
+                      <td className="movies-date">{formatDate(v.published_at, zone)}</td>
                       <td>
-                        <span className={v.hidden ? 'movies-status movies-status-hidden' : 'movies-status movies-status-visible'}>
-                          {v.hidden ? 'Hidden' : 'Visible'}
+                        <span className={status.shown ? 'movies-status movies-status-visible' : 'movies-status movies-status-hidden'}>
+                          {status.shown ? 'Shown' : 'Not shown'}
                         </span>
+                        <span className="muted movies-why">{status.why}</span>
                       </td>
                       <td>
-                        <button type="button" className="btn-settings" onClick={() => void toggleVideoHidden(v)}>
-                          {v.hidden ? 'Show' : 'Hide'}
-                        </button>
+                        <select
+                          className="input-antique"
+                          aria-label={`Who decides whether “${v.title}” is shown`}
+                          value={overrideChoice(v)}
+                          onChange={(e) => void overrideVideo(v, e.target.value as OverrideChoice)}
+                        >
+                          <option value="verdict">Its verdict</option>
+                          <option value="show">Always show</option>
+                          <option value="hide">Never show</option>
+                        </select>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </AdminTable>
             )}

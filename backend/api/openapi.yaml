@@ -3646,7 +3646,7 @@ paths:
     patch:
       operationId: patchAdminMovieVideo
       tags: [admin]
-      summary: Hide or show a video in the Movies feed (admins only)
+      summary: Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
       description: Audited. The Origin must be the admin site.
       parameters:
         - name: videoId
@@ -11103,7 +11103,7 @@ components:
           type: integer
     AdminVideo:
       type: object
-      required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url, hidden]
+      required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url, is_tta, tta_reason, tta_override, shown]
       properties:
         video_id:
           type: string
@@ -11118,8 +11118,19 @@ components:
           format: date-time
         thumbnail_url:
           type: string
-        hidden:
+        is_tta:
           type: boolean
+          description: Whether the video's title, description or tags say it is about TTA
+        tta_reason:
+          type: string
+          description: Why, as in "mentions Through the Ages" or "no mention of TTA"
+        tta_override:
+          type: boolean
+          nullable: true
+          description: An admin's say, shown (true) or not (false) whatever the verdict; null leaves it to the verdict
+        shown:
+          type: boolean
+          description: Whether the Movies page shows the video, the override if any, else the verdict
     AdminMoviesState:
       type: object
       required: [channels, videos]
@@ -11169,10 +11180,12 @@ components:
     VideoPatch:
       type: object
       additionalProperties: false
-      required: [hidden]
+      required: [override]
       properties:
-        hidden:
+        override:
           type: boolean
+          nullable: true
+          description: Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null)
     MoviesSyncResult:
       type: object
       required: [checked, added]

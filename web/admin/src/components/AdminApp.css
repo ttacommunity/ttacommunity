@@ -882,6 +882,15 @@
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
 }
+.movies-status-failing {
+  color: var(--loss);
+  border: 1px solid var(--loss);
+}
+.movies-why {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+}
 
 details.admin-subsection > summary {
   cursor: pointer;

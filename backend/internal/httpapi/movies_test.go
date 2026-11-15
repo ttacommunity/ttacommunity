@@ -23,13 +23,13 @@ func (f *fakeRatings) Movies(_ context.Context) (store.MoviesFeed, error) {
 		},
 		Videos: []store.MovieVideo{
 			{
-				VideoID:       "9vhRomv0yBc",
+				VideoID:       "vid00000001",
 				ChannelID:     "UC0000000000000000000001",
 				CreatorName:   "Alice Casts",
 				CreatorPlayer: &p,
-				Title:         "Royal League vs Arne",
+				Title:         "Royal League vs Invented Rival",
 				PublishedAt:   time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC),
-				ThumbnailURL:  "https://i.ytimg.com/vi/9vhRomv0yBc/hqdefault.jpg",
+				ThumbnailURL:  "https://i.ytimg.com/vi/vid00000001/hqdefault.jpg",
 			},
 		},
 	}, nil
@@ -56,16 +56,21 @@ func (f *fakeAdmins) AdminMovies(_ context.Context) (store.AdminMoviesState, err
 		},
 		Videos: []store.AdminVideo{
 			{
-				VideoID:      "9vhRomv0yBc",
+				VideoID:      "vid00000001",
 				ChannelID:    "UC0000000000000000000001",
 				CreatorName:  "Alice Casts",
-				Title:        "Royal League vs Arne",
+				Title:        "Royal League vs Invented Rival",
 				PublishedAt:  time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC),
-				ThumbnailURL: "https://i.ytimg.com/vi/9vhRomv0yBc/hqdefault.jpg",
+				ThumbnailURL: "https://i.ytimg.com/vi/vid00000001/hqdefault.jpg",
+				TTAReason:    "no mention of TTA",
+				TTAOverride:  &shownByAdmin,
+				Shown:        true,
 			},
 		},
 	}, nil
 }
+
+var shownByAdmin = true
 
 func (f *fakeAdmins) ResolveMovieChannel(_ context.Context, raw string) (string, error) {
 	switch raw {
@@ -142,16 +147,61 @@ func (f *fakeAdmins) DeleteMovieChannel(_ context.Context, channelID string) err
 	return nil
 }
 
-func (f *fakeAdmins) SetMovieVideoHidden(_ context.Context, videoID string, hidden bool) error {
+func (f *fakeAdmins) SetMovieVideoOverride(_ context.Context, videoID string, override *bool) error {
 	if videoID == "missing" {
 		return store.ErrNoVideo
 	}
-	if hidden {
-		f.notes = append(f.notes, "hide video "+videoID)
-	} else {
-		f.notes = append(f.notes, "show video "+videoID)
+	switch {
+	case override == nil:
+		f.notes = append(f.notes, "video "+videoID+" left to its verdict")
+	case *override:
+		f.notes = append(f.notes, "video "+videoID+" shown")
+	default:
+		f.notes = append(f.notes, "video "+videoID+" kept off")
 	}
 	return nil
+}
+
+func TestAnAdminOverridesAVideosVerdictOrLeavesItBe(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	tests := []struct {
+		name, video, body string
+		wantCode          int
+		wantNote          string
+		wantDetail        string
+	}{
+		{"shown", "vid00000001", `{"override": true}`, http.StatusNoContent, "video vid00000001 shown", `{"override":true}`},
+		{"kept off", "vid00000001", `{"override": false}`, http.StatusNoContent, "video vid00000001 kept off", `{"override":false}`},
+		{"left to its verdict", "vid00000001", `{"override": null}`, http.StatusNoContent, "video vid00000001 left to its verdict", `{"override":null}`},
+		{"no such video", "missing", `{"override": true}`, http.StatusNotFound, "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/movies/videos/"+tt.video, site, tt.body)
+			if rec.Code != tt.wantCode {
+				t.Fatalf("status = %d %s, want %d", rec.Code, rec.Body, tt.wantCode)
+			}
+			if tt.wantNote != "" && !slices.Contains(f.notes, tt.wantNote) {
+				t.Errorf("notes = %q, want %q", f.notes, tt.wantNote)
+			}
+			wantAudits, wantDetails := []string(nil), []string(nil)
+			if tt.wantDetail != "" {
+				wantAudits, wantDetails = []string{owner + " movie.video.override " + tt.video}, []string{tt.wantDetail}
+			}
+			if !slices.Equal(f.audits, wantAudits) || !slices.Equal(f.details, wantDetails) {
+				t.Errorf("audits = %q %q, want %q %q", f.audits, f.details, wantAudits, wantDetails)
+			}
+		})
+	}
+}
+
+func TestAdminSeesEachVideosVerdictAndOverride(t *testing.T) {
+	rec := adminDoAs(t, &fakeAdmins{}, "111111111111111111", http.MethodGet, "/v1/admin/movies/channels", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d %s, want 200", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"is_tta": false, "tta_reason": "no mention of TTA", "tta_override": true, "shown": true}`)
 }
 
 func (f *fakeAdmins) SyncMoviesNow(_ context.Context, _ time.Time) (store.MoviesSyncResult, error) {
@@ -164,7 +214,7 @@ func TestMoviesFeedAndMarkSeen(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /v1/movies = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"video_id": "9vhRomv0yBc", "creator_name": "Alice Casts"}`)
+	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"video_id": "vid00000001", "creator_name": "Alice Casts"}`)
 	wantJSON(t, rec.Body.Bytes(), "creators.0", `{"channel_id": "UC0000000000000000000001", "player": "Alice"}`)
 
 	signIns := newFakeSignIns()
@@ -204,7 +254,7 @@ func TestAdminMoviesEndpoints(t *testing.T) {
 	}
 	wantJSON(t, rec.Body.Bytes(), "", `{"checked": 1, "added": 2}`)
 
-	rec = adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/movies/videos/9vhRomv0yBc", site, `{"hidden": true}`)
+	rec = adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/movies/videos/vid00000001", site, `{"override": false}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PATCH video = %d %s, want 204", rec.Code, rec.Body)
 	}

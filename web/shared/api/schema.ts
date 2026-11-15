@@ -2623,7 +2623,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Hide or show a video in the Movies feed (admins only)
+         * Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
          * @description Audited. The Origin must be the admin site.
          */
         patch: operations["patchAdminMovieVideo"];
@@ -6833,7 +6833,14 @@ export interface components {
             /** Format: date-time */
             published_at: string;
             thumbnail_url: string;
-            hidden: boolean;
+            /** @description Whether the video's title, description or tags say it is about TTA */
+            is_tta: boolean;
+            /** @description Why, as in "mentions Through the Ages" or "no mention of TTA" */
+            tta_reason: string;
+            /** @description An admin's say, shown (true) or not (false) whatever the verdict; null leaves it to the verdict */
+            tta_override: boolean | null;
+            /** @description Whether the Movies page shows the video, the override if any, else the verdict */
+            shown: boolean;
         };
         AdminMoviesState: {
             channels: components["schemas"]["AdminVideoChannel"][];
@@ -6852,7 +6859,8 @@ export interface components {
             include_all?: boolean;
         };
         VideoPatch: {
-            hidden: boolean;
+            /** @description Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null) */
+            override: boolean | null;
         };
         MoviesSyncResult: {
             checked: number;

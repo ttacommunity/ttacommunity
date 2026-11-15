@@ -1,4 +1,4 @@
-// Admin management of YouTube creator channels, video visibility, and manual feed sync.
+// Admin management of YouTube creator channels, overrides of videos' verdicts, and manual feed sync.
 package httpapi
 
 import (
@@ -48,7 +48,10 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 			Title:        v.Title,
 			PublishedAt:  v.PublishedAt.UTC(),
 			ThumbnailUrl: v.ThumbnailURL,
-			Hidden:       v.Hidden,
+			IsTta:        v.IsTTA,
+			TtaReason:    v.TTAReason,
+			TtaOverride:  v.TTAOverride,
+			Shown:        v.Shown,
 		}
 	}
 	return GetAdminMovieChannels200JSONResponse{
@@ -182,14 +185,10 @@ func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVi
 		return PatchAdminMovieVideo400JSONResponse{badRequest400("request body is required")}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
-		if err := tx.SetMovieVideoHidden(ctx, req.VideoId, req.Body.Hidden); err != nil {
+		if err := tx.SetMovieVideoOverride(ctx, req.VideoId, req.Body.Override); err != nil {
 			return err
 		}
-		action := "movie.video.show"
-		if req.Body.Hidden {
-			action = "movie.video.hide"
-		}
-		return tx.Audit(ctx, me.DiscordID, action, req.VideoId, nil)
+		return tx.Audit(ctx, me.DiscordID, "movie.video.override", req.VideoId, map[string]any{"override": req.Body.Override})
 	})
 	if errors.Is(err, store.ErrNoVideo) {
 		return PatchAdminMovieVideo404JSONResponse{notFound404("no such video")}, nil
