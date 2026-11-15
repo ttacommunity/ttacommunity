@@ -63,29 +63,26 @@ function Changes({ run }: { run: number }) {
           ` Moved more than ${summary.thresholds.map((t) => `${t.points} point${t.points === 1 ? '' : 's'}: ${t.count}`).join('; ')}.`}
       </p>
       {c.biggest.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption>Biggest moves, overall conservative rating</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Before</th>
-                <th scope="col">After</th>
-                <th scope="col">Change</th>
+        <AdminTable caption="Biggest moves, overall conservative rating" captionShown>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Before</th>
+              <th scope="col">After</th>
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {c.biggest.map((m) => (
+              <tr key={m.name}>
+                <th scope="row">{m.name}</th>
+                <td>{m.before.toFixed(0)}</td>
+                <td>{m.after.toFixed(0)}</td>
+                <td>{signed(m.change, 0)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {c.biggest.map((m) => (
-                <tr key={m.name}>
-                  <th scope="row">{m.name}</th>
-                  <td>{m.before.toFixed(0)}</td>
-                  <td>{m.after.toFixed(0)}</td>
-                  <td>{signed(m.change, 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );
