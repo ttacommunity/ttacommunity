@@ -71,18 +71,10 @@
   font-size: 1.05rem;
   color: var(--accent-gold);
 }
-.blitz-dropped {
-  color: var(--text-muted);
-}
 .blitz-flag {
   display: inline-block;
   margin-right: 0.4rem;
   vertical-align: middle;
-}
-.blitz-note {
-  display: block;
-  color: var(--text-muted);
-  font-size: 0.85rem;
 }
 .blitz-champion {
   margin: 0 0 1rem;
@@ -122,17 +114,6 @@
   gap: 0.25rem;
   color: var(--text-soft);
   font-size: var(--size-body-short);
-}
-
-/* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */
-.blitz-draw-slot {
-  display: inline-block;
-  width: 0.9em;
-  text-align: left;
-}
-.blitz-draw {
-  color: var(--accent-gold);
-  font-weight: 700;
 }
 
 /* The row above the standings: the scoring at a glance on the left, the table's controls on the right; they wrap on a phone. */

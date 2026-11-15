@@ -1,0 +1,23 @@
+/* A blitz edition's standings (BlitzStandingsTable), on the site and in admin: numbers right-aligned, dropped players muted. */
+.blitz-standings .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.blitz-dropped {
+  color: var(--text-muted);
+}
+.blitz-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+/* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */
+.blitz-draw-slot {
+  display: inline-block;
+  width: 0.9em;
+  text-align: left;
+}
+.blitz-draw {
+  color: var(--accent-gold);
+  font-weight: 700;
+}

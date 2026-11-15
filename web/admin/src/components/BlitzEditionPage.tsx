@@ -6,7 +6,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pointsNote, resultsLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, TIE_BREAKS, UNPLAYED_NOTE, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
@@ -32,6 +32,7 @@ import { plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
+import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import AdminTable from './AdminTable';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
@@ -1528,9 +1529,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
 
 /** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the lot or the seed ordered it; fixedBy is what fixed the starting ranks, null before round 1), the starting rank once fixed, points, games played, byes and, on request, the tie-breaks; dropped players last. */
 function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null }) {
-  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
-  const start = startLabel(fixedBy);
   return (
     <>
       <div className="blitz-table-bar muted">
@@ -1541,87 +1540,8 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
       </div>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
-        <AdminTable caption="The standings">
-          <thead>
-            <tr>
-              <SortHeader col="rank" sort={sort} onSort={sortBy}>
-                Rank
-              </SortHeader>
-              <SortHeader col="player" sort={sort} onSort={sortBy}>
-                Player
-              </SortHeader>
-              <SortHeader col="points" sort={sort} onSort={sortBy}>
-                Points
-              </SortHeader>
-              <SortHeader col="results" sort={sort} onSort={sortBy}>
-                <abbr title="Win–Loss–Tie">Results</abbr>
-              </SortHeader>
-              <SortHeader col="byes" sort={sort} onSort={sortBy}>
-                Byes
-              </SortHeader>
-              {tieBreaks && (
-                <>
-                  <SortHeader col="cut1" sort={sort} onSort={sortBy}>
-                    <abbr title="Buchholz Cut 1">BH-C1</abbr>
-                  </SortHeader>
-                  <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
-                    <abbr title="Buchholz">BH</abbr>
-                  </SortHeader>
-                  <SortHeader col="sb" sort={sort} onSort={sortBy}>
-                    <abbr title="Sonneborn-Berger">SB</abbr>
-                  </SortHeader>
-                </>
-              )}
-              {start !== null && (
-                <SortHeader col="start" sort={sort} onSort={sortBy}>
-                  {start}
-                </SortHeader>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s) => {
-              const note = pointsNote(s);
-              return (
-              <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
-                <td>
-                  <span className="blitz-draw-slot">
-                    {drawLabel(s, fixedBy) !== null && (
-                      <span className="blitz-draw" title={drawLabel(s, fixedBy) ?? ''}>
-                        *<span className="visually-hidden">{drawLabel(s, fixedBy)}</span>
-                      </span>
-                    )}
-                  </span>
-                  {s.rank}
-                </td>
-                <th scope="row">
-                  {s.name}
-                  {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
-                </th>
-                <td>
-                  {note !== null ? (
-                    <span title={note}>
-                      {s.points}
-                      <span className="blitz-draw">*</span>
-                    </span>
-                  ) : (
-                    s.points
-                  )}
-                </td>
-                <td>{resultsLabel(s)}</td>
-                <td>{s.byes}</td>
-                {tieBreaks && (
-                  <>
-                    <td>{s.buchholz_cut1}</td>
-                    <td>{s.buchholz}</td>
-                    <td>{s.sonneborn_berger}</td>
-                  </>
-                )}
-                {start !== null && <td>{s.starting_rank ?? '–'}</td>}
-              </tr>
-              );
-            })}
-          </tbody>
+        <AdminTable caption="The standings" className="blitz-standings">
+          <BlitzStandingsTable standings={standings} fixedBy={fixedBy} tieBreaks={tieBreaks} />
         </AdminTable>
       )}
       {standings.length > 0 && (

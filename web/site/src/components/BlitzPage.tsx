@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, pointsNote, resultsLabel, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
 import InfoDialog from '@ttac/shared/InfoDialog';
@@ -18,6 +18,7 @@ import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable from './GamesTable';
 import NewerOlder from '@ttac/shared/NewerOlder';
+import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import PlayerPicker from './PlayerPicker';
 import { catalogueHref } from '../lib/catalogue-view';
 import { bracketHref } from '../lib/bracket';
@@ -252,9 +253,7 @@ function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener
 
 /** StandingsPanel shows the standings by rank, with how the edition scores, a marker before the ranks the lot or the seed ordered (fixedBy: what fixed the starting ranks, null before round 1), the starting ranks once fixed, the tie-breaks on request, and a button to how ties are broken (onHow). */
 function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null; onHow: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
-  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
-  const start = startLabel(fixedBy);
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
@@ -272,85 +271,18 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
         </span>
       </div>
       <div className="blitz-table-wrap">
-        <table className="blitz-table">
+        <table className="blitz-table blitz-standings">
           <caption>The standings after the results recorded so far</caption>
-          <thead>
-            <tr>
-              <SortHeader col="rank" sort={sort} onSort={sortBy} className="num">
-                Rank
-              </SortHeader>
-              <SortHeader col="player" sort={sort} onSort={sortBy}>
-                Player
-              </SortHeader>
-              <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
-                Points
-              </SortHeader>
-              <SortHeader col="results" sort={sort} onSort={sortBy} className="num">
-                <span data-tooltip="Win–Loss–Tie">Results</span>
-              </SortHeader>
-              <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
-                Byes
-              </SortHeader>
-              {tieBreaks && (
-                <>
-                  <SortHeader col="cut1" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Buchholz Cut 1">BH-C1</abbr>
-                  </SortHeader>
-                  <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Buchholz">BH</abbr>
-                  </SortHeader>
-                  <SortHeader col="sb" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Sonneborn-Berger">SB</abbr>
-                  </SortHeader>
-                </>
-              )}
-              {start !== null && (
-                <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
-                  {start}
-                </SortHeader>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s) => {
-              const note = pointsNote(s);
-              return (
-              <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
-                <td className="num">
-                  <DrawMark s={s} fixedBy={fixedBy} />
-                  {s.rank}
-                </td>
-                <th scope="row">
-                  <span className="blitz-flag">
-                    <Flag country={s.country} />
-                  </span>
-                  {s.name}
-                  {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
-                </th>
-                <td className="num">
-                  {note !== null ? (
-                    <span className="blitz-points-note" data-tooltip={note}>
-                      {s.points}
-                      <span className="blitz-draw">*</span>
-                    </span>
-                  ) : (
-                    s.points
-                  )}
-                </td>
-                <td className="num">{resultsLabel(s)}</td>
-                <td className="num">{s.byes}</td>
-                {tieBreaks && (
-                  <>
-                    <td className="num">{s.buchholz_cut1}</td>
-                    <td className="num">{s.buchholz}</td>
-                    <td className="num">{s.sonneborn_berger}</td>
-                  </>
-                )}
-                {start !== null && <td className="num">{s.starting_rank ?? '–'}</td>}
-              </tr>
-              );
-            })}
-          </tbody>
+          <BlitzStandingsTable
+            standings={standings}
+            fixedBy={fixedBy}
+            tieBreaks={tieBreaks}
+            marks={(s) => (
+              <span className="blitz-flag">
+                <Flag country={s.country} />
+              </span>
+            )}
+          />
         </table>
       </div>
       {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
@@ -359,20 +291,6 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
         </p>
       )}
     </section>
-  );
-}
-
-/** DrawMark marks a rank the lot or the seed ordered, before the number in a slot of its own so the numbers line up, with the ranks it was ordered among as its text; the slot stays empty for a rank held alone or before round 1. */
-function DrawMark({ s, fixedBy }: { s: BlitzStanding; fixedBy: 'rating' | 'lot' | null }) {
-  const label = drawLabel(s, fixedBy);
-  return (
-    <span className="blitz-draw-slot">
-      {label !== null && (
-        <span className="blitz-draw" title={label}>
-          *<span className="visually-hidden">{label}</span>
-        </span>
-      )}
-    </span>
   );
 }
 
