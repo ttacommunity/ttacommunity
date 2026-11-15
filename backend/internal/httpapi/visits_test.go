@@ -20,7 +20,7 @@ func (v fakeVisits) Latest() (webanalytics.Count, bool) { return v.count, v.ok }
 
 func serveVisits(visits Visits) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	mux := NewMux(&fakeRatings{}, nil, nil, nil, visits, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond))
+	mux := NewMux(&fakeRatings{}, nil, nil, nil, nil, visits, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond))
 	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/site/visits", nil))
 	return rec
 }

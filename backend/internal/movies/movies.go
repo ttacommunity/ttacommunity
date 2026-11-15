@@ -43,25 +43,50 @@ func ParseChannelID(raw string) (string, bool) {
 	return "", false
 }
 
-// IsTTAVideo reports whether a video's title, description, or tags indicate Through the Ages content.
-func IsTTAVideo(title, description, keywords string, tournaments []string) bool {
-	haystack := strings.ToLower(title + "\n" + description + "\n" + keywords)
+// VideoText is what a video says about itself: its title, description and tags.
+type VideoText struct {
+	Title       string
+	Description string
+	Tags        []string
+}
+
+// Verdict is whether a video is about TTA, and why.
+type Verdict struct {
+	TTA    bool
+	Reason string
+}
+
+// Classify decides whether a video is about TTA: every video of an includeAll channel is, and any other when
+// its text mentions the game or names one of tournaments (a name of 4 letters or more).
+func Classify(v VideoText, includeAll bool, tournaments []string) Verdict {
+	if includeAll {
+		return Verdict{true, "the channel's every video counts"}
+	}
+	haystack := strings.ToLower(v.Title + "\n" + v.Description + "\n" + strings.Join(v.Tags, "\n"))
 	for _, needle := range []string{"#ttahub", "#throughtheages", "through the ages"} {
 		if strings.Contains(haystack, needle) {
-			return true
+			return Verdict{true, "mentions Through the Ages"}
 		}
 	}
 	if ttaWord.MatchString(haystack) {
-		return true
+		return Verdict{true, "mentions TTA"}
 	}
 	for _, name := range tournaments {
 		n := strings.TrimSpace(strings.ToLower(name))
 		if len(n) >= 4 && strings.Contains(haystack, n) {
-			return true
+			return Verdict{true, "names the tournament " + strings.TrimSpace(name)}
 		}
 	}
-	return false
+	return Verdict{false, "no mention of TTA"}
 }
+
+// IsTTAVideo reports whether a video's title, description, or tags indicate Through the Ages content.
+func IsTTAVideo(title, description, keywords string, tournaments []string) bool {
+	return Classify(VideoText{Title: title, Description: description, Tags: []string{keywords}}, false, tournaments).TTA
+}
+
+// Thumbnail is the address of videoID's thumbnail on YouTube's image host.
+func Thumbnail(videoID string) string { return "https://i.ytimg.com/vi/" + videoID + "/hqdefault.jpg" }
 
 // ParseFeed parses a YouTube channel's Atom XML feed into video entries.
 func ParseFeed(data []byte) ([]Entry, error) {
@@ -92,7 +117,7 @@ func ParseFeed(data []byte) ([]Entry, error) {
 		}
 		thumb := e.Group.Thumbnail.URL
 		if thumb == "" {
-			thumb = fmt.Sprintf("https://i.ytimg.com/vi/%s/hqdefault.jpg", e.VideoID)
+			thumb = Thumbnail(e.VideoID)
 		}
 		out = append(out, Entry{
 			VideoID:      e.VideoID,

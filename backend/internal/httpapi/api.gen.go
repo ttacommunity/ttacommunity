@@ -5528,6 +5528,14 @@ type GetChallengeBoardParams struct {
 	Verified *ChallengeVerified `form:"verified,omitempty" json:"verified,omitempty"`
 }
 
+// ConfirmMovieHubParams defines parameters for ConfirmMovieHub.
+type ConfirmMovieHubParams struct {
+	HubMode         string `form:"hub.mode" json:"hub.mode"`
+	HubTopic        string `form:"hub.topic" json:"hub.topic"`
+	HubChallenge    string `form:"hub.challenge" json:"hub.challenge"`
+	HubLeaseSeconds *int   `form:"hub.lease_seconds,omitempty" json:"hub.lease_seconds,omitempty"`
+}
+
 // GetCurrentRunParams defines parameters for GetCurrentRun.
 type GetCurrentRunParams struct {
 	// Ranking The ranking track to read (community, superblitz, pulse, community_superblitz). Defaults to community.
@@ -6326,6 +6334,12 @@ type ServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(w http.ResponseWriter, r *http.Request)
+	// ConfirmMovieHub YouTube's hub checks a subscription request we made
+	// (GET /v1/movies/hub)
+	ConfirmMovieHub(w http.ResponseWriter, r *http.Request, params ConfirmMovieHubParams)
+	// ReceiveMoviePush YouTube's hub pushes a linked channel's new, changed or deleted videos
+	// (POST /v1/movies/hub)
+	ReceiveMoviePush(w http.ResponseWriter, r *http.Request)
 	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(w http.ResponseWriter, r *http.Request)
@@ -10775,6 +10789,92 @@ func (siw *ServerInterfaceWrapper) GetMovies(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ConfirmMovieHub operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmMovieHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmMovieHubParams
+
+	// ------------- Required query parameter "hub.mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.mode", r.URL.Query(), &params.HubMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "hub.topic" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.topic", r.URL.Query(), &params.HubTopic, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.topic"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.topic", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "hub.challenge" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.challenge", r.URL.Query(), &params.HubChallenge, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.challenge"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.challenge", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.lease_seconds" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.lease_seconds", r.URL.Query(), &params.HubLeaseSeconds, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.lease_seconds"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.lease_seconds", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmMovieHub(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReceiveMoviePush operation middleware
+func (siw *ServerInterfaceWrapper) ReceiveMoviePush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReceiveMoviePush(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetNostradamusEditions operation middleware
 func (siw *ServerInterfaceWrapper) GetNostradamusEditions(w http.ResponseWriter, r *http.Request) {
 
@@ -12573,6 +12673,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/discord/interactions", wrapper.AnswerDiscordInteraction)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/movies", wrapper.GetMovies)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/movies/hub", wrapper.ConfirmMovieHub)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/movies/hub", wrapper.ReceiveMoviePush)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/movies/seen", wrapper.PostMyMoviesSeen)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
@@ -23427,6 +23529,124 @@ func (response GetMovies200JSONResponse) VisitGetMoviesResponse(w http.ResponseW
 	return err
 }
 
+type ConfirmMovieHubRequestObject struct {
+	Params ConfirmMovieHubParams
+}
+
+type ConfirmMovieHubResponseObject interface {
+	VisitConfirmMovieHubResponse(w http.ResponseWriter) error
+}
+
+type ConfirmMovieHub200ResponseHeaders struct {
+	CacheControl string
+}
+
+type ConfirmMovieHub200TextResponse struct {
+	Body    string
+	Headers ConfirmMovieHub200ResponseHeaders
+}
+
+func (response ConfirmMovieHub200TextResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response.Body)))
+	return err
+}
+
+type ConfirmMovieHub400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConfirmMovieHub400JSONResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmMovieHub404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConfirmMovieHub404JSONResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePushRequestObject struct {
+	Body io.Reader
+}
+
+type ReceiveMoviePushResponseObject interface {
+	VisitReceiveMoviePushResponse(w http.ResponseWriter) error
+}
+
+type ReceiveMoviePush204Response struct {
+}
+
+func (response ReceiveMoviePush204Response) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ReceiveMoviePush400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ReceiveMoviePush400JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePush401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ReceiveMoviePush401JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePush404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReceiveMoviePush404JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetNostradamusEditionsRequestObject struct {
 }
 
@@ -25793,6 +26013,12 @@ type StrictServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(ctx context.Context, request GetMoviesRequestObject) (GetMoviesResponseObject, error)
+	// ConfirmMovieHub YouTube's hub checks a subscription request we made
+	// (GET /v1/movies/hub)
+	ConfirmMovieHub(ctx context.Context, request ConfirmMovieHubRequestObject) (ConfirmMovieHubResponseObject, error)
+	// ReceiveMoviePush YouTube's hub pushes a linked channel's new, changed or deleted videos
+	// (POST /v1/movies/hub)
+	ReceiveMoviePush(ctx context.Context, request ReceiveMoviePushRequestObject) (ReceiveMoviePushResponseObject, error)
 	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(ctx context.Context, request GetNostradamusEditionsRequestObject) (GetNostradamusEditionsResponseObject, error)
@@ -30246,6 +30472,58 @@ func (sh *strictHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMoviesResponseObject); ok {
 		if err := validResponse.VisitGetMoviesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmMovieHub operation middleware
+func (sh *strictHandler) ConfirmMovieHub(w http.ResponseWriter, r *http.Request, params ConfirmMovieHubParams) {
+	var request ConfirmMovieHubRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmMovieHub(ctx, request.(ConfirmMovieHubRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmMovieHub")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmMovieHubResponseObject); ok {
+		if err := validResponse.VisitConfirmMovieHubResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReceiveMoviePush operation middleware
+func (sh *strictHandler) ReceiveMoviePush(w http.ResponseWriter, r *http.Request) {
+	var request ReceiveMoviePushRequestObject
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReceiveMoviePush(ctx, request.(ReceiveMoviePushRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReceiveMoviePush")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReceiveMoviePushResponseObject); ok {
+		if err := validResponse.VisitReceiveMoviePushResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

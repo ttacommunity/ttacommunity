@@ -124,6 +124,14 @@ func main() {
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
 	}
+	hub, err := openMovieHub(os.Getenv, signIns.PlayerStore, ratings)
+	if err != nil {
+		log.Error("refusing to start: the Movies hub callback is not set up", "err", err)
+		os.Exit(1)
+	}
+	if hub == nil {
+		log.Info("the Movies hub callback is off: MOVIES_HUB_SECRET is not set")
+	}
 	visits, err := openVisits(ctx, os.Getenv, signIns.SiteOrigin(), log)
 	if err != nil {
 		log.Error("refusing to start: counting visits is not set up", "err", err)
@@ -138,7 +146,7 @@ func main() {
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
 	startMovieSync(ctx, admins, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, visits, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, visits, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}

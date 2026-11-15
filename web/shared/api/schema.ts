@@ -1355,6 +1355,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/movies/hub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * YouTube's hub checks a subscription request we made
+         * @description WebSub's verification of intent. Echoes `hub.challenge` for a
+         *     subscribe to a linked channel's feed, or an unsubscribe from one no
+         *     longer linked, and records a subscribe's lease; anything else is a
+         *     404. Without `MOVIES_HUB_SECRET` set here, every request is a 404.
+         *     Never cached.
+         */
+        get: operations["confirmMovieHub"];
+        put?: never;
+        /**
+         * YouTube's hub pushes a linked channel's new, changed or deleted videos
+         * @description Every request must carry `X-Hub-Signature`, the body's HMAC by
+         *     `MOVIES_HUB_SECRET`; any other is refused with 401 and stores
+         *     nothing. Videos of channels not linked are ignored. Without the
+         *     secret set here, it is a 404.
+         */
+        post: operations["receiveMoviePush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/movies/seen": {
         parameters: {
             query?: never;
@@ -8866,6 +8897,59 @@ export interface operations {
                     "application/json": components["schemas"]["MoviesFeed"];
                 };
             };
+        };
+    };
+    confirmMovieHub: {
+        parameters: {
+            query: {
+                "hub.mode": string;
+                "hub.topic": string;
+                "hub.challenge": string;
+                "hub.lease_seconds"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, echoed */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    receiveMoviePush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/atom+xml": string;
+            };
+        };
+        responses: {
+            /** @description Taken */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     postMyMoviesSeen: {

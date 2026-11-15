@@ -149,3 +149,30 @@ func TestResolveChannelHandle(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestClassify(t *testing.T) {
+	tournaments := []string{"Royal League", "Cup"}
+	tests := []struct {
+		name       string
+		text       VideoText
+		includeAll bool
+		want       Verdict
+	}{
+		{"a channel whose every video counts", VideoText{Title: "Chess stream"}, true, Verdict{true, "the channel's every video counts"}},
+		{"the game's name", VideoText{Title: "Through the Ages: strategy guide"}, false, Verdict{true, "mentions Through the Ages"}},
+		{"a hashtag in the description", VideoText{Title: "Highlights", Description: "Tonight #TTAHub"}, false, Verdict{true, "mentions Through the Ages"}},
+		{"the word TTA", VideoText{Title: "TTA 4p ranked game"}, false, Verdict{true, "mentions TTA"}},
+		{"a tag", VideoText{Title: "Game 5", Tags: []string{"boardgame", "Through The Ages"}}, false, Verdict{true, "mentions Through the Ages"}},
+		{"a tournament's name", VideoText{Title: "Royal League round 3"}, false, Verdict{true, "names the tournament Royal League"}},
+		{"a tournament name too short to trust", VideoText{Title: "World Cup final"}, false, Verdict{false, "no mention of TTA"}},
+		{"tta inside another word", VideoText{Title: "Attack on Titan review"}, false, Verdict{false, "no mention of TTA"}},
+		{"another game", VideoText{Title: "Terraforming Mars solo"}, false, Verdict{false, "no mention of TTA"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Classify(tt.text, tt.includeAll, tournaments); got != tt.want {
+				t.Errorf("Classify(%+v) = %+v, want %+v", tt.text, got, tt.want)
+			}
+		})
+	}
+}

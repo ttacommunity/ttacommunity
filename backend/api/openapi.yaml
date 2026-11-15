@@ -1827,6 +1827,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MoviesFeed"
+  /v1/movies/hub:
+    get:
+      operationId: confirmMovieHub
+      tags: [community]
+      summary: YouTube's hub checks a subscription request we made
+      description: |
+        WebSub's verification of intent. Echoes `hub.challenge` for a
+        subscribe to a linked channel's feed, or an unsubscribe from one no
+        longer linked, and records a subscribe's lease; anything else is a
+        404. Without `MOVIES_HUB_SECRET` set here, every request is a 404.
+        Never cached.
+      parameters:
+        - name: hub.mode
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.topic
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.lease_seconds
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The challenge, echoed
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            text/plain:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: receiveMoviePush
+      tags: [community]
+      summary: YouTube's hub pushes a linked channel's new, changed or deleted videos
+      description: |
+        Every request must carry `X-Hub-Signature`, the body's HMAC by
+        `MOVIES_HUB_SECRET`; any other is refused with 401 and stores
+        nothing. Videos of channels not linked are ignored. Without the
+        secret set here, it is a 404.
+      requestBody:
+        required: true
+        content:
+          application/atom+xml:
+            schema:
+              type: string
+      responses:
+        "204":
+          description: Taken
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/me/movies/seen:
     post:
       operationId: postMyMoviesSeen

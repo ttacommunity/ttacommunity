@@ -256,3 +256,30 @@ func TestMigration85KeepsHiddenVideosHiddenBothWays(t *testing.T) {
 		t.Errorf("after the Down, created_at's constraint = %q, want 84's [videos_created_at_not_null]", got)
 	}
 }
+
+func TestMovieClassifyingReadsTheChannelAndTournaments(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	a := NewAdminStore(asAdminLogin(t, pool))
+	now := time.Date(2026, 11, 15, 9, 0, 0, 0, time.UTC)
+	if _, err := a.AddMovieChannel(ctx, pushChannel, "Alice Casts", nil, true, now); err != nil {
+		t.Fatalf("AddMovieChannel: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO series (slug, name) VALUES ('royal_league', 'Royal League'), ('blank', ' ')`); err != nil {
+		t.Fatalf("adding series: %v", err)
+	}
+	r := NewRatingsReader(asReader(t, pool))
+	includeAll, tournaments, err := r.MovieClassifying(ctx, pushChannel)
+	if err != nil {
+		t.Fatalf("MovieClassifying: %v", err)
+	}
+	if !includeAll {
+		t.Error("includeAll = false, want the channel's true")
+	}
+	if !slices.Equal(tournaments, []string{"Royal League"}) {
+		t.Errorf("tournaments = %q, want [Royal League]", tournaments)
+	}
+	if _, _, err := r.MovieClassifying(ctx, pushUnlinked); !errors.Is(err, ErrNoChannel) {
+		t.Errorf("MovieClassifying(unlinked) = %v, want ErrNoChannel", err)
+	}
+}

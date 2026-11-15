@@ -3,6 +3,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -64,4 +65,26 @@ func (s *RatingsReader) Movies(ctx context.Context) (MoviesFeed, error) {
 		return MoviesFeed{}, fmt.Errorf("reading movie videos: %w", err)
 	}
 	return MoviesFeed{Creators: creators, Videos: videos}, nil
+}
+
+// MovieClassifying returns what a verdict on channelID's video needs: whether its every video counts, and every
+// tournament's name. It returns ErrNoChannel when the channel is not linked.
+func (s *RatingsReader) MovieClassifying(ctx context.Context, channelID string) (bool, []string, error) {
+	var includeAll bool
+	err := s.pool.QueryRow(ctx, "SELECT include_all FROM video_channels WHERE channel_id = $1", channelID).Scan(&includeAll)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil, ErrNoChannel
+	}
+	if err != nil {
+		return false, nil, fmt.Errorf("reading a video channel: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, "SELECT name FROM series WHERE btrim(name) <> '' ORDER BY name")
+	if err != nil {
+		return false, nil, fmt.Errorf("reading tournament names: %w", err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return false, nil, fmt.Errorf("reading tournament names: %w", err)
+	}
+	return includeAll, names, nil
 }
