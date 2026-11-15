@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import SortHeader from '@ttac/shared/SortHeader';
 import { currentRun, player as fetchPlayer, playerAchievements, type Player, type TournamentRecord } from '@ttac/shared/ratings';
 import {
   bestResultsPerTournament,
@@ -39,31 +40,10 @@ import PlayerHeader from './PlayerHeader';
 
 type Sort = { col: number; dir: Direction } | null;
 
-const SEASON_HEADS = [
-  ['Date of Finish', 'Click to sort by Date of Finish'],
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Season', 'Click to sort by Season'],
-  ['Division / Tier', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
-const TOURNAMENT_HEADS = [
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Seasons Played', 'Click to sort by Seasons Played'],
-  ['Highest Division Result', 'Click to sort by Peak Result'],
-  ['Career Record (W - L - D)', 'Click to sort by Record'],
-];
-const DRILLDOWN_HEADS = [
-  ['Date of Finish', 'Click to sort by Date of Finish'],
-  ['Season', 'Click to sort by Season'],
-  ['Division / Tier', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
-const CAREER_HEADS = [
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Career Scope', 'Click to sort by Career Scope'],
-  ['Division', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
+const SEASON_HEADS = ['Date of Finish', 'Tournament', 'Season', 'Division / Tier', 'Result'];
+const TOURNAMENT_HEADS = ['Tournament', 'Seasons Played', 'Highest Division Result', 'Career Record (W - L - D)'];
+const DRILLDOWN_HEADS = ['Date of Finish', 'Season', 'Division / Tier', 'Result'];
+const CAREER_HEADS = ['Tournament', 'Career Scope', 'Division', 'Result'];
 const BEST_HEADS = ['Tournament', 'Best Season', 'Division / Tier', 'Best Result', 'Career Details'];
 
 const CATEGORY_OPTIONS: { id: TournamentCategoryFilter; label: string }[] = [
@@ -73,6 +53,11 @@ const CATEGORY_OPTIONS: { id: TournamentCategoryFilter; label: string }[] = [
   { id: 'ladder', label: 'Ladders & Leagues' },
   { id: 'community', label: 'Community Events' },
 ];
+
+/** shownSort is a table's sort as its headers show it: the one chosen, else the order the table starts in (fallback). */
+function shownSort(sort: Sort, fallback: { col: string; desc: boolean } | null): { col: string; desc: boolean } | null {
+  return sort === null ? fallback : { col: String(sort.col), desc: sort.dir === 'desc' };
+}
 
 function next(dirs: Record<number, Direction>, col: number): Direction {
   return (dirs[col] ?? 'asc') === 'asc' ? 'desc' : 'asc';
@@ -179,12 +164,6 @@ function Records({ records }: { records: TournamentRecord[] }) {
     setShownHof(sortCareer(shownHof, col, dir));
   };
 
-  const tournamentArrow = (col: number) =>
-    tournamentSort ? (tournamentSort.col === col ? (tournamentSort.dir === 'asc' ? '▲' : '▼') : '') : '';
-  const drilldownArrow = (col: number) =>
-    drilldownSort ? (drilldownSort.col === col ? (drilldownSort.dir === 'asc' ? '▲' : '▼') : '') : col === 0 ? '▼' : '';
-  const careerArrow = (col: number) =>
-    careerSort ? (careerSort.col === col ? (careerSort.dir === 'asc' ? '▲' : '▼') : '') : col === 0 ? '▲' : '';
 
   // Filter records by category
   const activeTournaments =
@@ -280,10 +259,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
               <table className="records-table">
                 <thead>
                   <tr>
-                    {TOURNAMENT_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortTournamentsBy(col)}>
-                        {head} <span>{tournamentArrow(col)}</span>
-                      </th>
+                    {TOURNAMENT_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(tournamentSort, null)} onSort={(c) => sortTournamentsBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th className="ach-action-head">Action</th>
                   </tr>
@@ -417,10 +396,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
               <table className="records-table">
                 <thead>
                   <tr>
-                    {DRILLDOWN_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortDrilldownBy(col)}>
-                        {head} <span>{drilldownArrow(col)}</span>
-                      </th>
+                    {DRILLDOWN_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(drilldownSort, { col: '0', desc: true })} onSort={(c) => sortDrilldownBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th>Details</th>
                   </tr>
@@ -499,10 +478,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
               <table className="records-table">
                 <thead>
                   <tr>
-                    {CAREER_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortCareerBy(col)}>
-                        {head} <span>{careerArrow(col)}</span>
-                      </th>
+                    {CAREER_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(careerSort, { col: '0', desc: false })} onSort={(c) => sortCareerBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th>Career Details</th>
                   </tr>
@@ -609,8 +588,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
               <table className="records-table">
                 <thead>
                   <tr>
-                    {SEASON_HEADS.map(([head]) => (
-                      <th key={head}>{head}</th>
+                    {SEASON_HEADS.map((head) => (
+                      <th key={head} scope="col">
+                        {head}
+                      </th>
                     ))}
                     <th>Details</th>
                   </tr>

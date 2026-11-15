@@ -238,9 +238,6 @@
   text-align: left;
   letter-spacing: 0.5px;
 }
-.records-table th.ach-sortable {
-  cursor: pointer;
-}
 .records-table tbody tr {
   transition: background-color 0.15s ease;
 }
