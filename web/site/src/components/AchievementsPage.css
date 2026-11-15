@@ -37,7 +37,7 @@
   letter-spacing: 0.5px;
   margin-top: 0.2rem;
 }
-.gold-accent { color: var(--accent-gold-bright); }
+.gold-accent { color: var(--accent-gold); }
 .silver-accent { color: #cfd8dc; }
 .bronze-accent { color: #cd7f32; }
 .trophy-accent { color: #f0ba54; }
@@ -107,7 +107,7 @@
 }
 .ach-category-btn.active {
   background: var(--surface-card);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   border-color: var(--accent-gold);
   box-shadow: 0 0 8px var(--gold-wash);
   font-weight: 700;
@@ -135,7 +135,7 @@
 }
 .ach-sub-btn:hover {
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 .ach-sub-btn.active {
   background: var(--surface-card);
@@ -188,7 +188,7 @@
   font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 .best-result-sub {
   font-family: var(--font-stats);
@@ -308,10 +308,10 @@
 
 /* Upstream's medal styles by tournament category. World Championship: cosmic crown gold. */
 .medal-wcs-gold {
-  background: linear-gradient(135deg, rgba(142, 45, 226, 0.45) 0%, rgba(255, 215, 0, 0.35) 100%);
-  border: 1px solid var(--accent-gold-bright);
+  background: linear-gradient(135deg, rgba(142, 45, 226, 0.45) 0%, rgba(229, 169, 60, 0.35) 100%);
+  border: 1px solid var(--accent-gold);
   color: #fff275;
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
+  box-shadow: 0 0 10px rgba(229, 169, 60, 0.55);
 }
 .medal-wcs-silver {
   background: linear-gradient(135deg, rgba(142, 45, 226, 0.35) 0%, rgba(220, 220, 220, 0.3) 100%);
@@ -327,8 +327,8 @@
 /* Major leagues: International, Intermezzo, Royal League. */
 .medal-major-gold {
   background: linear-gradient(135deg, rgba(218, 165, 32, 0.3) 0%, rgba(184, 134, 11, 0.4) 100%);
-  border: 1px solid rgba(255, 215, 0, 0.7);
-  color: #ffe066;
+  border: 1px solid rgba(229, 169, 60, 0.7);
+  color: var(--accent-gold);
   box-shadow: 0 0 8px var(--gold-wash-strong);
 }
 .medal-major-silver {
@@ -439,7 +439,7 @@
   color: #fff3db;
 }
 .ach-row-clickable:hover .ach-tournament-title {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 .seasons-count-badge {
   display: inline-flex;
@@ -508,7 +508,7 @@
 .ach-view-btn:hover {
   background: var(--surface-card);
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   box-shadow: 0 0 6px var(--gold-wash);
 }
 .ach-drilldown-header {
@@ -537,7 +537,7 @@
 }
 .ach-back-btn:hover {
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 .ach-drilldown-info {
   display: flex;
@@ -552,7 +552,7 @@
 }
 .ach-drilldown-name {
   font-family: var(--font-heading);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-size: 1.2rem;
   margin: 0;
 }

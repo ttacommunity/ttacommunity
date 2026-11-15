@@ -31,7 +31,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1.2rem;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -50,7 +50,7 @@
 }
 
 .feed-modal-close:hover {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   background: var(--gold-wash-faint);
 }
 
@@ -129,7 +129,7 @@
 .feed-tourney-name {
   font-family: var(--font-subheading);
   font-weight: 700;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
@@ -176,7 +176,7 @@
 .feed-btn-add-division:hover {
   border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .feed-row-remove {
@@ -252,7 +252,7 @@
 
 .feed-btn-reset:hover {
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .feed-btn-cancel {

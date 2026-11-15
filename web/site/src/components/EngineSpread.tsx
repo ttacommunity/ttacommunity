@@ -40,6 +40,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null) return;
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
     const grid = { color: 'rgba(74, 53, 37, 0.3)' };
     const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
 
@@ -52,14 +53,14 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         animation: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: '#ffd700', font: { family: heading } }, grid, ticks },
-          y: { title: { display: true, text: 'Number of Players', color: '#ffd700', font: { family: heading } }, grid, ticks },
+          x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: gold, font: { family: heading } }, grid, ticks },
+          y: { title: { display: true, text: 'Number of Players', color: gold, font: { family: heading } }, grid, ticks },
         },
         plugins: {
           legend: { position: 'top', labels: { color: '#f5eedb', font: { family: 'Share Tech Mono', size: 12 }, padding: 12 } },
           tooltip: {
             backgroundColor: 'rgba(18, 12, 8, 0.95)',
-            titleColor: '#ffd700',
+            titleColor: gold,
             titleFont: { family: heading, size: 13, weight: 'bold' },
             bodyFont: { family: 'Share Tech Mono', size: 11 },
             borderColor: 'rgba(229, 169, 60, 0.4)',

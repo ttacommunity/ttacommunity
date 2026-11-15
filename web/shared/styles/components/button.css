@@ -21,11 +21,11 @@
 
 .btn-antique:hover {
   background: linear-gradient(180deg, #422919 0%, #26150d 100%);
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   box-shadow:
     0 4px 14px var(--gold-wash-strong),
-    inset 0 1px 0 rgba(255, 215, 0, 0.5);
-  color: var(--accent-gold-bright);
+    inset 0 1px 0 rgba(229, 169, 60, 0.5);
+  color: var(--accent-gold);
   transform: translateY(-1px);
 }
 

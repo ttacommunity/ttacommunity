@@ -85,7 +85,7 @@
 .mode-badge {
   background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .format-badge {
@@ -180,12 +180,12 @@
 .opt-toggle-btn:hover {
   background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .opt-toggle-btn.active {
   background: var(--accent-gold);
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   color: var(--bg-dark);
   font-weight: 700;
   box-shadow: 0 2px 8px var(--gold-wash);
@@ -272,7 +272,7 @@
 }
 
 .rank-cell {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -299,7 +299,7 @@
 .ece-good { color: var(--win); }
 .ece-fair { color: var(--accent-gold-soft); }
 .ece-poor { color: var(--loss); }
-.brier-cell { color: var(--accent-gold-bright); }
+.brier-cell { color: var(--accent-gold); }
 .logloss-cell { color: #81d4fa; }
 .ist-cell { color: #ce93d8; }
 

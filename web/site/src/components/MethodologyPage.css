@@ -19,7 +19,7 @@
 
 .methodology-body h2 {
   margin: 2rem 0 0.85rem;
-  color: #f7d377;
+  color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: 1.35rem;
   text-shadow: 0 2px 4px var(--shadow-deep);

@@ -216,7 +216,7 @@
 }
 .run-shown {
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 .run-running {
   border-color: var(--draw);

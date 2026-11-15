@@ -88,7 +88,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     if (canvas.current === null || !ready) return;
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const axisTitle = { color: '#ffd700', font: { family: heading, weight: 600 } };
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
+    const axisTitle = { color: gold, font: { family: heading, weight: 600 } };
     const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
     const grid = { color: 'rgba(74, 53, 37, 0.3)' };
     chart.current = new Chart(canvas.current, {

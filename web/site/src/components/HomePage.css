@@ -64,7 +64,7 @@
 
 .home-hero-title {
   margin: 0 0 0.75rem;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: clamp(1.8rem, 3.2vw, 2.6rem);
   letter-spacing: 1px;
@@ -379,9 +379,9 @@
 }
 
 .feed-options-btn:hover {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .feed-filter-inline-btn {
@@ -436,7 +436,7 @@
   background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
   border-radius: 12px;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-stats);
   font-size: 0.76rem;
   font-weight: 600;
@@ -489,7 +489,7 @@
 }
 
 .spoiler-toggle-btn:hover {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
 }
 
@@ -539,7 +539,7 @@
 
 .match-tournament {
   font-weight: 700;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-subheading);
 }
 
@@ -610,9 +610,9 @@
 /* Color grading when match is revealed: Gold, Silver, Bronze, Gray */
 .match-player-link.rank-gold,
 .match-player-link.rank-1 {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+  text-shadow: 0 0 10px rgba(229, 169, 60, 0.4);
 }
 
 .match-player-link.rank-gold:hover,
@@ -668,8 +668,8 @@
 /* Matching score badge color tones when revealed */
 .match-seat.rank-gold .match-score-badge.revealed,
 .match-seat.rank-1 .match-score-badge.revealed {
-  color: var(--accent-gold-bright);
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+  color: var(--accent-gold);
+  text-shadow: 0 0 8px rgba(229, 169, 60, 0.3);
 }
 
 .match-seat.rank-silver .match-score-badge.revealed,
@@ -734,7 +734,7 @@
 }
 
 .tourney-link {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 700;
@@ -836,7 +836,7 @@
 }
 
 .champion-row .podium-player {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -862,7 +862,7 @@
 }
 
 .feed-footer-link:hover {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   text-decoration: underline;
 }
 

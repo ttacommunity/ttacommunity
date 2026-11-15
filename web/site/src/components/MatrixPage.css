@@ -167,8 +167,8 @@
 
 .badge.badge-peak-year {
   background: var(--gold-wash);
-  border: 1px solid var(--accent-gold-bright);
-  color: var(--accent-gold-bright);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
   font-size: 0.75rem;
 }
 

@@ -689,7 +689,7 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
-.career-medal-gold { color: var(--accent-gold-bright); }
+.career-medal-gold { color: var(--accent-gold); }
 .career-medal-silver { color: #cfd8dc; }
 .career-medal-bronze { color: #cd7f32; }
 
@@ -778,7 +778,7 @@
 }
 
 .career-season-peak {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .career-peaks {
@@ -1159,7 +1159,7 @@
 
 .place-pill-1 {
   border-color: rgba(250, 204, 21, 0.5);
-  color: #facc15;
+  color: var(--accent-gold);
 }
 
 .place-pill-2 {

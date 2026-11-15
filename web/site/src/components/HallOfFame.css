@@ -361,7 +361,7 @@
 }
 
 .wcs-table .cell-rank {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -395,7 +395,7 @@
 }
 
 .wcs-table .cell-world {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
   text-align: center;
 }

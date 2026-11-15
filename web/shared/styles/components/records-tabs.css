@@ -34,7 +34,7 @@
   background: var(--gradient-gold);
   color: var(--text-on-gold);
   font-weight: 700;
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   box-shadow: 0 3px 12px var(--gold-wash-strong);
 }
 

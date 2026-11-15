@@ -52,7 +52,7 @@
 }
 
 .format-btn.raised.active {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--gradient-gold);
   box-shadow: 0 2px 8px var(--gold-wash-strong);
   color: var(--text-on-gold);
@@ -66,7 +66,7 @@
 }
 
 .format-btn.active {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--accent-gold);
   color: var(--text-on-gold);
   font-weight: 700;
