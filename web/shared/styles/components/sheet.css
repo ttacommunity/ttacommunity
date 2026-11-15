@@ -5,7 +5,7 @@
   max-height: 88vh;
   margin: auto;
   padding: 0;
-  background: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
+  background: var(--surface-sheet);
   border: 2px solid var(--accent-gold);
   border-radius: 8px;
   box-shadow: 0 8px 32px var(--shadow-deep);

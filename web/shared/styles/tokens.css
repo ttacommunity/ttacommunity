@@ -5,6 +5,8 @@
   --surface-inset: rgba(18, 12, 8, 0.85);
   --surface-header: rgba(28, 19, 13, 0.94);
   --surface-footer: rgba(20, 13, 8, 0.95);
+  /* A dialog or sheet: the cards' colour, made solid so the page does not show through. */
+  --surface-sheet: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
   --accent-gold: #e5a93c;
   --accent-gold-light: #ffde8a;
   --accent-gold-soft: #ffd54f;
