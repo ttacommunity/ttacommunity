@@ -8,7 +8,6 @@ import type { Load } from '@ttac/shared/load';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { tabsFor } from '../lib/admin-tabs';
 import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
 import { useDialog } from '@ttac/shared/Dialog';
@@ -16,9 +15,8 @@ import { countryNames, type Country } from '../lib/countries';
 import { entrantToAdd } from '../lib/person-form';
 import type { Region } from '../lib/zones';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
-import AdminHeader from './AdminHeader';
+import AdminPage from './AdminPage';
 import Notice from './Notice';
-import PageError from './PageError';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
@@ -63,10 +61,7 @@ export default function NostradamusGamePage() {
   const [hash, setHash] = useHash();
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="nostradamus" />
-      <main className="admin-main">
-        {error !== null && <PageError message={error} />}
+    <AdminPage me={me} current="nostradamus" error={error}>
         {game.kind === 'loading' && <p className="muted">Loading…</p>}
         {game.kind === 'ready' && (
           <>
@@ -93,8 +88,7 @@ export default function NostradamusGamePage() {
             </section>
           </>
         )}
-      </main>
-    </>
+    </AdminPage>
   );
 }
 

@@ -3,12 +3,11 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, loadOf } from '../lib/admin-api';
-import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
+import { panelsFor, tabCounts, tabFrom, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
-import AdminHeader from './AdminHeader';
-import PageError from './PageError';
+import AdminPage from './AdminPage';
 import { LoadNotice } from './Notice';
 import NewGroupForm from './NewGroupForm';
 import TournamentTable from './TournamentTable';
@@ -146,22 +145,10 @@ export default function AdminApp() {
   }, []);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} />
-      <main className="admin-main">
-        {me.kind === 'loading' && <p className="muted">Loading…</p>}
-        {me.kind === 'error' && <PageError message={me.message} />}
-        {me.kind === 'ready' && (
-          <>
-            <p className="signed-in">
-              Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-            </p>
-            {panelsFor(tab, me.data.role).map((p) => (
-              <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>
-            ))}
-          </>
-        )}
-      </main>
-    </>
+    <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} error={me.kind === 'error' ? me.message : null}>
+      {me.kind === 'loading' && <p className="muted">Loading…</p>}
+      {me.kind === 'ready' &&
+        panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>)}
+    </AdminPage>
   );
 }

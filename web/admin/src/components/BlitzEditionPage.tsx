@@ -11,7 +11,6 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
@@ -20,11 +19,10 @@ import { countryNames, type Country } from '../lib/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
-import AdminHeader from './AdminHeader';
+import AdminPage from './AdminPage';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
 import Notice, { NoticeRow } from './Notice';
-import PageError from './PageError';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
@@ -72,15 +70,7 @@ export default function BlitzEditionPage() {
   const count = (status: AdminBlitzEntrant['status']) => (ed.kind === 'ready' ? ed.data.entrants.filter((e) => e.status === status).length : 0);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="blitz" />
-      <main className="admin-main">
-        {error !== null && <PageError message={error} />}
-        {me.kind === 'ready' && (
-          <p className="signed-in">
-            Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-          </p>
-        )}
+    <AdminPage me={me} current="blitz" error={error}>
         {ed.kind === 'loading' && <p className="muted">Loading…</p>}
         {ed.kind === 'ready' && at !== null && (
           <>
@@ -105,8 +95,7 @@ export default function BlitzEditionPage() {
             <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />
           </>
         )}
-      </main>
-    </>
+    </AdminPage>
   );
 }
 

@@ -4,9 +4,7 @@ import { isCircuit } from '@ttac/shared/circuits';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, loadOf } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
-import { tabsFor } from '../lib/admin-tabs';
-import AdminHeader from './AdminHeader';
-import PageError from './PageError';
+import AdminPage from './AdminPage';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
 import SettingsCard from './SettingsCard';
@@ -46,15 +44,7 @@ export default function TournamentSettings() {
   const error = firstError(me, t);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="tournaments" />
-      <main className="admin-main">
-      {error !== null && <PageError message={error} />}
-      {me.kind === 'ready' && (
-        <p className="signed-in">
-          Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-        </p>
-      )}
+    <AdminPage me={me} current="tournaments" error={error}>
       {t.kind === 'loading' && <p className="muted">Loading…</p>}
       {t.kind === 'ready' && (
         <>
@@ -97,7 +87,6 @@ export default function TournamentSettings() {
           )}
         </>
       )}
-      </main>
-    </>
+    </AdminPage>
   );
 }
