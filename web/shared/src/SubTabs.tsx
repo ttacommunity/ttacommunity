@@ -42,7 +42,7 @@ export default function SubTabs<T extends string>({ label, tabs, chosen, onChoos
   return (
     <>
       <div className="sub-tabs">
-        <Segmented label={label} look="records" options={tabs.map(({ value, label: text }) => ({ value, label: text }))} value={shown} onChange={onChoose} />
+        <Segmented label={label} look="tabs" options={tabs.map(({ value, label: text }) => ({ value, label: text }))} value={shown} onChange={onChoose} />
       </div>
       {tabs.map((t) => (
         <div key={t.value} hidden={t.value !== shown}>

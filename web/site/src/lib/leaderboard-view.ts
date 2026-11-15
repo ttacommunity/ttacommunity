@@ -1,5 +1,7 @@
 /** Upstream's leaderboard view: its options and filters, ranking, search, sort and paging, all in the browser. */
+import type { Load } from '@ttac/shared/load';
 import type { DeltaWindow as PastWindow, Format, History, LeaderboardRow, Model, TitleCode, YearLeaderboard } from '@ttac/shared/ratings';
+import { TRACKS, type Track } from '@ttac/shared/tracks';
 
 /** Upstream's fixed cutoff, kept for a run that recorded no last game. */
 const UPSTREAM_CUTOFF = '2025-05-31';
@@ -21,8 +23,8 @@ const PROVISIONAL_BELOW = 15;
 
 export const ENGINES = ['glicko2_daneo', 'glicko2_std'] as const;
 export type Engine = (typeof ENGINES)[number];
-export const TRACKS = ['community', 'superblitz', 'community_superblitz', 'pulse'] as const;
-export type Track = (typeof TRACKS)[number];
+export type { Track };
+const TRACK_SLUGS: readonly Track[] = TRACKS.map((t) => t.value);
 export type ResetMode = 'continuous' | 'softer';
 export type Status = 'active' | 'all' | 'inactive';
 export type SortKey = 'rank' | 'name' | 'c_rating' | 'rating' | 'opps' | 'win_rate' | 'last_played';
@@ -31,7 +33,8 @@ export type DeltaWindow = 'none' | PastWindow;
 export type StatsView = 'season' | 'career';
 const DELTAS: readonly DeltaWindow[] = ['none', 'last_update', 'month', 'quarter', 'year'];
 
-const FORMATS: readonly Format[] = [0, 2, 3, 4];
+/** FORMATS are the formats a view can show, all first. */
+export const FORMATS: readonly Format[] = [0, 2, 3, 4];
 const STATUSES: readonly Status[] = ['active', 'all', 'inactive'];
 const SORTS: readonly SortKey[] = ['rank', 'name', 'c_rating', 'rating', 'opps', 'win_rate', 'last_played'];
 // Upstream orders GM, M, P and G; the rest come in its database's order, which both its sites show as this.
@@ -109,7 +112,7 @@ export function parseView(params: URLSearchParams, remembered: Remembered): View
   const order = oneOf<Order>(['asc', 'desc'], get('order'));
   const y = get('year') ?? '';
   const year = /^\d{4}$/.test(y) && Number(y) >= 2000 && Number(y) <= 2100 ? Number(y) : null;
-  const ranking = oneOf(TRACKS, get('ranking')) ?? DEFAULT_VIEW.ranking;
+  const ranking = oneOf(TRACK_SLUGS, get('ranking')) ?? DEFAULT_VIEW.ranking;
   return {
     ranking,
     engine: oneOf(ENGINES, get('model')) ?? remembered.engine ?? DEFAULT_VIEW.engine,
@@ -510,4 +513,17 @@ export function yearDeltas(board: YearLeaderboard): Map<string, Delta> {
         : { c_rating: 0, rating: 0, pastRank: null },
     ]),
   );
+}
+
+/** shownChanges is the delta column: nothing while it is off or its board loads, a year's own changes, else against the past board (none when that could not load). */
+export function shownChanges(
+  shown: { board: { players: readonly LeaderboardRow[] }; year: YearLeaderboard | null } | null,
+  delta: DeltaWindow,
+  past: Load<{ players: History['players'] }>,
+): Map<string, Delta> | null {
+  if (shown === null || delta === 'none') return null;
+  if (shown.year !== null) return yearDeltas(shown.year);
+  if (past.kind === 'loading') return null;
+  if (past.kind === 'error') return new Map();
+  return deltas(shown.board.players, past.data.players);
 }

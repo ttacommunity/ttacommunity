@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import type { AdminTournamentRow } from '../lib/admin-api';
 import { dateSpan, detail, membersOf, ratedLabel, rowTotals, typeLabel } from '../lib/tournament-groups';
 import { SETTINGS, settingsHref } from '../lib/tournament-page';
+import { trackName, trackShort } from '@ttac/shared/tracks';
+import AdminTable from './AdminTable';
 
 /** YesNo marks a setting on or off in the read-only list. */
 function YesNo({ on, label, name }: { on: boolean; label: string; name: string }) {
@@ -33,71 +35,70 @@ export default function TournamentTable({
   details?: boolean;
 }) {
   return (
-    <div className="table-responsive">
-      <table className="leaderboard-table admin-table tournaments-table">
-        <caption className="visually-hidden">{caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Tournament</th>
-            <th scope="col">Type</th>
-            <th scope="col">Games</th>
-            <th scope="col">Dates</th>
-            <th scope="col" title={`${SHOWN_SETTING.label}: ${SHOWN_SETTING.hint}`} className="col-setting">
-              {SHOWN_SETTING.short}
+    <AdminTable caption={caption} className="tournaments-table">
+      <thead>
+        <tr>
+          <th scope="col">Tournament</th>
+          <th scope="col">Type</th>
+          <th scope="col">Games</th>
+          <th scope="col">Dates</th>
+          <th scope="col" title={`${SHOWN_SETTING.label}: ${SHOWN_SETTING.hint}`} className="col-setting">
+            {SHOWN_SETTING.short}
+          </th>
+          <th scope="col" title={`Rated track: ${trackShort('community')} (${trackName('community')}), ${trackShort('superblitz')} (${trackName('superblitz')}), or ? (unrated)`} className="col-setting">
+            Rated
+          </th>
+          {TAIL_SETTINGS.map((s) => (
+            <th scope="col" key={s.key} title={`${s.label}: ${s.hint}`} className="col-setting">
+              {s.short}
             </th>
-            <th scope="col" title="Rated track: Std (Standard), SB (SuperBlitz), or ? (unrated)" className="col-setting">
-              Rated
-            </th>
-            {TAIL_SETTINGS.map((s) => (
-              <th scope="col" key={s.key} title={`${s.label}: ${s.hint}`} className="col-setting">
-                {s.short}
+          ))}
+          <th scope="col" className="col-seasons">
+            In it
+          </th>
+          <th scope="col">
+            <span className="visually-hidden">Action</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t) => {
+          const total = rowTotals(all, t);
+          return (
+            <tr key={t.slug}>
+              <th scope="row">
+                <a href={settingsHref(t.slug)}>{t.name}</a>
+                {details && detail(t) !== '' && <span className="row-detail muted">{detail(t)}</span>}
               </th>
-            ))}
-            <th scope="col" className="col-seasons">
-              In it
-            </th>
-            <th scope="col">
-              <span className="visually-hidden">Action</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => {
-            const total = rowTotals(all, t);
-            return (
-              <tr key={t.slug}>
-                <th scope="row">
-                  <a href={settingsHref(t.slug)}>{t.name}</a>
-                  {details && detail(t) !== '' && <span className="row-detail muted">{detail(t)}</span>}
-                </th>
-                <td>{typeLabel(t)}</td>
-                <td>{total.games}</td>
-                <td className="row-dates">{dateSpan(total.first, total.last)}</td>
-                <td className="col-setting">
-                  {!t.is_group && <YesNo on={t[SHOWN_SETTING.key]} label={SHOWN_SETTING.label} name={t.name} />}
+              <td>{typeLabel(t)}</td>
+              <td>{total.games}</td>
+              <td className="row-dates">{dateSpan(total.first, total.last)}</td>
+              <td className="col-setting">
+                {!t.is_group && <YesNo on={t[SHOWN_SETTING.key]} label={SHOWN_SETTING.label} name={t.name} />}
+              </td>
+              <td className="col-setting">
+                <RatedCell track={ratedLabel(all, t.slug)} name={t.name} />
+              </td>
+              {TAIL_SETTINGS.map((s) => (
+                <td key={s.key} className="col-setting">
+                  {!t.is_group && <YesNo on={t[s.key]} label={s.label} name={t.name} />}
                 </td>
-                <td className="col-setting">
-                  {(() => {
-                    const track = ratedLabel(all, t.slug);
-                    return (
-                      <span className={track === '?' ? 'no' : 'yes'} title={`Rated for ${t.name}: ${track}`} aria-label={`Rated for ${t.name}: ${track}`}>
-                        {track}
-                      </span>
-                    );
-                  })()}
-                </td>
-                {TAIL_SETTINGS.map((s) => (
-                  <td key={s.key} className="col-setting">
-                    {!t.is_group && <YesNo on={t[s.key]} label={s.label} name={t.name} />}
-                  </td>
-                ))}
-                <td className="col-seasons">{membersOf(all, t.slug).length || ''}</td>
-                <td>{action(t)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+              ))}
+              <td className="col-seasons">{membersOf(all, t.slug).length || ''}</td>
+              <td>{action(t)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </AdminTable>
+  );
+}
+
+/** RatedCell shows the tracks a tournament is rated in (track, as ratedLabel writes them), named for a screen reader. */
+function RatedCell({ track, name }: { track: string; name: string }) {
+  return (
+    <span className={track === '?' ? 'no' : 'yes'} title={`Rated for ${name}: ${track}`} aria-label={`Rated for ${name}: ${track}`}>
+      {track}
+    </span>
   );
 }

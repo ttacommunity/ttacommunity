@@ -4,8 +4,10 @@ import Segmented from '@ttac/shared/Segmented';
 import { challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
 import { downloadUrls } from '../lib/challenge-download';
 import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
-import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -23,23 +25,22 @@ export default function ChallengesHighscores({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <div>
-          <h1 className="analysis-hero-title">Domination Highscores</h1>
-          <p className="analysis-hero-desc">
+      <PageHeader
+        title="Domination Highscores"
+        subtitle={
+          <>
             Domination is your final score minus the score of the second-place player.{' '}
             {verified === 'verified' ? 'Official records: only entries with a linked Discord proof count.' : 'All entries, including ones without proof.'}{' '}
             <a href="/challenges/submit/">Submit your domination →</a>
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />
+          <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           <Segmented
             label="View"
-            look="raised"
             value={view}
             onChange={setView}
             options={[

@@ -1,10 +1,10 @@
 /** Upstream's Hall of Fame overview: the World Champions, each series' card, and the all-time, cups and ladders tables. */
-import { useEffect, useState } from 'react';
-import { catalogue, catalogueTournament, currentRun, hallOfFame, type CatalogueEntry, type CatalogueSeason, type HallOfFame } from '@ttac/shared/ratings';
+import { catalogue, catalogueTournament, currentRun, hallOfFame } from '@ttac/shared/ratings';
 import TournamentCard from './TournamentCard';
 import { cardView } from '../lib/tournament-card';
 import { catalogueHref, entryRows } from '../lib/catalogue-view';
 import PlayerLink from './PlayerLink';
+import { TitleBadge } from './PlayerMarks';
 import {
   derivedMatches,
   legendMark,
@@ -21,29 +21,19 @@ import {
 } from '../lib/tournament-series';
 import ScrollTable from './ScrollTable';
 import { waitingText } from '../lib/waiting';
-import { errorText, type Load } from '@ttac/shared/load';
+import Message from './Message';
+import { useLoad } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
+import PanelHeader from './PanelHeader';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<HallOfFame>>({ kind: 'loading' });
-
-  const [tournaments, setTournaments] = useState<CatalogueEntry[]>([]);
-  const [finals, setFinals] = useState<CatalogueSeason[]>([]);
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => {
-        catalogue(apiUrl, r.run_id)
-          .then((c) => setTournaments(c.tournaments))
-          .catch(() => setTournaments([]));
-        catalogueTournament(apiUrl, r.run_id, 'worlds')
-          .then((t) => setFinals(t.seasons))
-          .catch(() => setFinals([]));
-        return hallOfFame(apiUrl, r.run_id);
-      })
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
+  const load = useLoad('hall', () => currentRun(apiUrl).then((r) => hallOfFame(apiUrl, r.run_id)));
+  // Without these the page still shows, its links and finals left out.
+  const catalogueLoad = useLoad('catalogue', () => currentRun(apiUrl).then((r) => catalogue(apiUrl, r.run_id)));
+  const worldsLoad = useLoad('worlds', () => currentRun(apiUrl).then((r) => catalogueTournament(apiUrl, r.run_id, 'worlds')));
+  const tournaments = catalogueLoad.kind === 'ready' ? catalogueLoad.data.tournaments : [];
+  const finals = worldsLoad.kind === 'ready' ? worldsLoad.data.seasons : [];
 
   const data = load.kind === 'ready' ? load.data : null;
   const waiting = waitingText(load, 'the Hall of Fame') ?? '';
@@ -52,15 +42,11 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">
-          <span>🏛️</span> Official Through the Ages Hall of Fame
-        </h1>
-        <div className="tournaments-subtitle">
-          The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards,
-          matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+
-          competitors.
-        </div>
+      <PageHeader
+        icon="🏛️"
+        title="Official Through the Ages Hall of Fame"
+        subtitle="The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards, matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+ competitors."
+      >
         <div className="tournaments-stats-bar">
           <div className="stat-pill">
             Series Active: <strong>6 Major Circuits</strong>
@@ -75,7 +61,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             World Champions: <strong>{new Set(champions.map((c) => c.name)).size} Crowned Titleholders</strong>
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="podium-preview-card">
         <h2 className="podium-preview-title">
@@ -102,19 +88,19 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                   <div className="wcs-podium-places">
                     {gold && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wc">WC</span>
+                        <TitleBadge title={{ code: 'WC' }} />
                         <PlayerLink name={gold.name} className="champ-highlight-name" />
                       </div>
                     )}
                     {silver && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wcs">WCS</span>
+                        <TitleBadge title={{ code: 'WCS' }} />
                         <PlayerLink name={silver.name} className="podium-runner-up" />
                       </div>
                     )}
                     {bronze && (
                       <div className="wcs-place-row">
-                        <span className="badge badge-wcb">WCB</span>
+                        <TitleBadge title={{ code: 'WCB' }} />
                         <PlayerLink name={bronze.name} className="podium-third" />
                       </div>
                     )}
@@ -167,19 +153,16 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         />
       </div>
 
-      <div className="wcs-analytics-card">
-        <div className="hof-card-head">
-          <div>
-            <h2 className="hof-card-title hof-card-title-large">👑 All-Time Major Circuits Hall of Fame</h2>
-            <div className="hof-card-sub hof-card-sub-large">
-              Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World
-              Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P).
-            </div>
-          </div>
-          <span className="hof-tag">Major League Titles Only</span>
-        </div>
+      <div className="rating-card panel-card wcs-analytics-card">
+        <PanelHeader
+          icon="👑"
+          title="All-Time Major Circuits Hall of Fame"
+          subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
+        >
+          <span className="panel-tag">Major League Titles Only</span>
+        </PanelHeader>
         <ScrollTable hint="full records">
-          <table className="wcs-table">
+          <table className="leaderboard-table wcs-table">
             <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
             <thead>
               <tr>
@@ -209,11 +192,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             </thead>
             <tbody>
               {data === null ? (
-                <tr>
-                  <td colSpan={8} className="waiting-row">
-                    {waiting}
-                  </td>
-                </tr>
+                <Message form="row" colSpan={8}>
+                  {waiting}
+                </Message>
               ) : (
                 data.legends.map((l, i) => {
                   const mark = legendMark(l);
@@ -222,8 +203,8 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
                         <PlayerLink name={l.name} className="legend-player" />{' '}
-                        {mark === 'WC' && <span className="badge-wc legend-mark">👑 WC</span>}
-                        {mark === 'GM' && <span className="legend-mark">GM</span>}
+                        {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
+                        {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
                       </td>
                       <td className="cell-titles">{majorTitles(l)}</td>
                       <td className="cell-world">{titleCell(l.world_titles, true)}</td>
@@ -241,17 +222,10 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
       </div>
 
       <div className="hof-two-col">
-        <div className="wcs-analytics-card">
-          <div className="hof-card-head">
-            <div>
-              <h2 className="hof-card-title">
-                <span>🎾</span> All-Time Grand Slams &amp; Cups Hall of Fame
-              </h2>
-              <div className="hof-card-sub">Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn &amp; Major Opens</div>
-            </div>
-          </div>
+        <div className="rating-card panel-card wcs-analytics-card">
+          <PanelHeader icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens" />
           <ScrollTable hint="full records">
-            <table className="wcs-table">
+            <table className="leaderboard-table wcs-table">
               <caption className="visually-hidden">The cups&apos; leading medallists</caption>
               <thead>
                 <tr>
@@ -270,11 +244,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.grand_slams.map((g, i) => (
                     <tr key={g.name}>
@@ -293,19 +265,10 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           </ScrollTable>
         </div>
 
-        <div className="wcs-analytics-card">
-          <div className="hof-card-head">
-            <div>
-              <h2 className="hof-card-title">
-                <span>🪜</span> All-Time Competitive Ladders Hall of Fame
-              </h2>
-              <div className="hof-card-sub">
-                Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders
-              </div>
-            </div>
-          </div>
+        <div className="rating-card panel-card wcs-analytics-card">
+          <PanelHeader icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders" />
           <ScrollTable hint="full records">
-            <table className="wcs-table">
+            <table className="leaderboard-table wcs-table">
               <caption className="visually-hidden">The ladders&apos; most winning players</caption>
               <thead>
                 <tr>
@@ -326,11 +289,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </thead>
               <tbody>
                 {data === null ? (
-                  <tr>
-                    <td colSpan={5} className="waiting-row">
-                      {waiting}
-                    </td>
-                  </tr>
+                  <Message form="row" colSpan={5}>
+                    {waiting}
+                  </Message>
                 ) : (
                   data.ladders.map((l, i) => (
                     <tr key={l.name}>

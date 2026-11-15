@@ -1,10 +1,5 @@
 /* Upstream's model analysis page (analysis.html), with its inline styles as classes. */
 
-/* Upstream's overview and comparison pages set 1.5rem under the hero. */
-.analysis-hero-card.hero-snug {
-  margin-bottom: 1.5rem;
-}
-
 /* Graph and ranked table on the left, the sticky selector on the right. */
 .analysis-layout-grid {
   display: grid;
@@ -30,49 +25,13 @@
 .graph-main-card {
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
 }
 
-.eval-table-card {
-  padding: 1.25rem 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
-}
 
-.card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
 
-.card-head h3 {
-  margin: 0;
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-}
 
-.graph-main-card .card-head h3 {
-  font-size: var(--size-subheading);
-}
 
-.card-sub {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
 
-.graph-main-card .card-sub {
-  font-size: 0.82rem;
-}
 
 .card-badges {
   display: flex;
@@ -90,13 +49,13 @@
 .mode-badge {
   background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .format-badge {
-  background: rgba(129, 199, 132, 0.12);
-  border: 1px solid #81c784;
-  color: #81c784;
+  background: color-mix(in srgb, var(--win) 12%, transparent);
+  border: 1px solid var(--win);
+  color: var(--win);
 }
 
 .hero-chart-container {
@@ -185,12 +144,12 @@
 .opt-toggle-btn:hover {
   background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .opt-toggle-btn.active {
   background: var(--accent-gold);
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   color: var(--bg-dark);
   font-weight: 700;
   box-shadow: 0 2px 8px var(--gold-wash);
@@ -214,27 +173,16 @@
 }
 
 .options-live {
-  color: #81c784;
+  color: var(--win);
 }
 
 /* The four-metric ranked table. */
 .ranked-table {
-  width: 100%;
   margin-top: 0.5rem;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.88rem;
 }
 
 .ranked-table th {
-  padding: 0.65rem 0.6rem;
-  background: var(--surface-card);
-  border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
   text-align: right;
-  text-transform: uppercase;
 }
 
 .ranked-table th:first-child,
@@ -248,11 +196,7 @@
 }
 
 .ranked-table td {
-  padding: 0.65rem 0.6rem;
-  border-bottom: 1px solid var(--border-faint);
   text-align: right;
-  transition: background 0.2s ease;
-  font-size: var(--size-table-cell);
 }
 
 .ranked-table td:first-child,
@@ -272,12 +216,8 @@
   border-left: 3px solid var(--accent-gold);
 }
 
-.ranked-eval-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
 .rank-cell {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -301,10 +241,10 @@
   font-weight: 600;
 }
 
-.ece-good { color: #81c784; }
-.ece-fair { color: var(--accent-gold-soft); }
+.ece-good { color: var(--win); }
+.ece-fair { color: var(--accent-gold); }
 .ece-poor { color: var(--loss); }
-.brier-cell { color: var(--accent-gold-bright); }
+.brier-cell { color: var(--accent-gold); }
 .logloss-cell { color: #81d4fa; }
 .ist-cell { color: #ce93d8; }
 
@@ -317,7 +257,7 @@
   font-size: 0.75rem;
 }
 
-.soll-up { color: #81c784; }
+.soll-up { color: var(--win); }
 .soll-down { color: #ffb74d; }
 
 .score-badge {
@@ -372,13 +312,8 @@
 .commentary-body li { margin-bottom: 0.35rem; }
 
 /* Distribution and agreement cards. */
-.panel-card {
+.engine-spread {
   margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow-light);
 }
 
 .density-means {
@@ -424,8 +359,8 @@
   text-transform: uppercase;
 }
 
-.corr-strong { color: #81c784; }
-.corr-weak { color: var(--accent-gold-soft); }
+.corr-strong { color: var(--win); }
+.corr-weak { color: var(--accent-gold); }
 
 .corr-pair-row {
   display: flex;
@@ -479,14 +414,6 @@
 @media (max-width: 768px) {
   .graph-main-card,
   .eval-table-card,
-  .analysis-hero-card.hero-overview {
-    padding: 1.1rem 0.85rem;
-  }
-
-  .hero-overview .analysis-hero-title {
-    font-size: 1.45rem;
-  }
-
   .hero-chart-container {
     height: 280px;
   }
@@ -630,28 +557,8 @@
   color: var(--accent-gold);
 }
 
-.activity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  text-align: left;
-}
-
-.activity-table th {
-  padding: 0.75rem 1rem;
-  background: var(--surface-card);
-  border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
-  text-align: center;
-  text-transform: uppercase;
-}
-
+.activity-table th,
 .activity-table td {
-  padding: 0.65rem 1rem;
-  border-bottom: 1px solid rgba(74, 53, 37, 0.4);
-  font-size: var(--size-table-cell);
   text-align: center;
 }
 
@@ -679,7 +586,7 @@
   font-weight: 700;
 }
 
-.activity-table .avg-gm { color: var(--accent-gold-soft); font-weight: 700; }
+.activity-table .avg-gm { color: var(--accent-gold); font-weight: 700; }
 .activity-table .avg-m { color: var(--accent-gold-light); font-weight: 600; }
 .activity-table .avg-p { color: var(--accent-gold); font-weight: 600; }
 .activity-table .avg-all { color: var(--text-main); }

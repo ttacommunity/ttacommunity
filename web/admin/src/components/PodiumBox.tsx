@@ -3,10 +3,11 @@ import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import { podiumNoteStart, podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
 import { fieldId } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import { ordinal } from '@ttac/shared/numbers';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
-const PLACES = ['1st', '2nd', '3rd'];
+const PLACES = [1, 2, 3].map(ordinal);
 
 // What the box's legend says of where its names came from.
 const ORIGIN = {
@@ -37,26 +38,17 @@ export default function PodiumBox({
   const start = podiumStart(saved, suggested, suggestedFrom);
   const [names, setNames] = useState(start.names);
   const [note, setNote] = useState(podiumNoteStart(savedNote, start.origin));
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const id = fieldId('podium', slug, season);
   const save = async () => {
     const body = podiumRequest(names, note);
     if (body === null) return;
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setPodium(slug, season, body));
-    setStatus(r.ok ? 'Saved. Titles follow at the next run.' : '');
-    setRefusal(refusalOf(r));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.setPodium(slug, season, body)), { done: 'Saved. Titles follow at the next run.' });
+    if (r?.ok) await onReload();
   };
   const clear = async () => {
-    setStatus('Removing…');
-    setRefusal(null);
-    const r = await req.send(req.clearPodium(slug, season));
-    setStatus(r.ok ? 'Removed. The recorded or derived podium shows again.' : '');
-    setRefusal(refusalOf(r));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.clearPodium(slug, season)), { done: 'Removed. The recorded or derived podium shows again.', working: 'Removing…' });
+    if (r?.ok) await onReload();
   };
   return (
     <fieldset className="podium-box">
@@ -80,7 +72,7 @@ export default function PodiumBox({
           <input className="input-antique" id={`${id}-note`} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={() => void save()} disabled={podiumRequest(names, note) === null}>
           Set podium
         </button>
@@ -89,11 +81,7 @@ export default function PodiumBox({
             Use the results again
           </button>
         )}
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+      </SaveBar>
     </fieldset>
   );
 }

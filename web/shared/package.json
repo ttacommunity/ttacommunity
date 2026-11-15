@@ -7,6 +7,7 @@
   },
   "exports": {
     "./time": "./src/time.ts",
+    "./countries": "./src/countries.ts",
     "./numbers": "./src/numbers.ts",
     "./load": "./src/load.ts",
     "./copy": "./src/copy.ts",
@@ -25,7 +26,17 @@
     "./modal": "./src/modal.ts",
     "./tabs": "./src/tabs.ts",
     "./sort": "./src/sort.ts",
-    "./SortHeader": "./src/SortHeader.tsx"
+    "./toggle": "./src/toggle.ts",
+    "./storage": "./src/storage.ts",
+    "./outcome": "./src/outcome.ts",
+    "./tracks": "./src/tracks.ts",
+    "./OutcomeNotice": "./src/OutcomeNotice.tsx",
+    "./SortHeader": "./src/SortHeader.tsx",
+    "./Note": "./src/Note.tsx",
+    "./PageHeader": "./src/PageHeader.tsx",
+    "./NewerOlder": "./src/NewerOlder.tsx",
+    "./GameSeatFields": "./src/GameSeatFields.tsx",
+    "./BlitzStandingsTable": "./src/BlitzStandingsTable.tsx"
   },
   "devDependencies": {
     "openapi-typescript": "7.13.0",

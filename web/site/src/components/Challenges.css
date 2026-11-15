@@ -1,10 +1,4 @@
 /* The challenge pages: the highscores' tiles and group backgrounds, the compact grid, the boards' tables and marks, in the site's tokens. */
-.challenges-hero {
-  margin-bottom: 1.25rem;
-}
-.challenges-hero a {
-  color: var(--accent-gold);
-}
 /* The one action in the tab row, the site's button rather than a tab. */
 .challenges-submit {
   margin-left: auto;
@@ -14,11 +8,6 @@
 .challenges-group {
   margin-bottom: 1.25rem;
   padding: 1.25rem 1.5rem;
-}
-.challenges-card .muted,
-.challenges-group .muted,
-.challenges-bar .muted {
-  color: var(--text-muted);
 }
 .challenges-lead {
   color: var(--text-soft);
@@ -50,21 +39,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 1.5rem;
-}
-/* Each switch is one control: its buttons share a dark track, and only the chosen one stands out. */
-.challenges-bar [role='group'] {
-  gap: 2px;
-  padding: 3px;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-.challenges-bar [role='group'] .format-btn.raised:not(.active) {
-  border-color: transparent;
-  background: transparent;
-}
-.challenges-bar [role='group'] .format-btn.raised:not(.active):hover {
-  background: var(--gold-wash-faint);
 }
 .challenges-set-totals {
   margin: 0 0 1rem;
@@ -266,7 +240,6 @@
   font-variant-numeric: tabular-nums;
 }
 .challenge-grid-value .muted {
-  color: var(--text-muted);
   font-size: var(--size-label);
 }
 
@@ -303,12 +276,6 @@
 }
 .challenges-crumbs a {
   color: var(--accent-gold);
-}
-.challenges-head {
-  display: flex;
-  gap: 1.25rem;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
 }
 .challenges-head-img {
   flex: none;
@@ -412,9 +379,6 @@
 }
 
 @media (max-width: 600px) {
-  .challenges-head {
-    flex-direction: column;
-  }
   .challenges-head-img {
     width: 100%;
     max-width: 20rem;
@@ -445,12 +409,6 @@
   font-family: var(--font-stats);
   font-size: var(--size-label);
   text-transform: uppercase;
-}
-.challenges-what-if {
-  margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
-  border-color: var(--draw);
-  color: var(--text-soft);
 }
 .challenges-record strong {
   color: var(--accent-gold-light);

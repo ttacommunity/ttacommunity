@@ -20,7 +20,7 @@ export default function UnratedToggle({
     <>
       <button
         type="button"
-        className={`btn-antique unrated-toggle-btn ${on ? 'active' : ''} ${className}`}
+        className={`format-btn ${on ? 'active' : ''} ${className}`}
         onClick={flip}
         title={on ? 'Showing all finished games, rated or not' : 'Showing rated games only'}
       >

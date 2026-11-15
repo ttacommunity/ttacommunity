@@ -39,11 +39,13 @@
 }
 
 .leaderboard-table tbody tr:nth-child(odd) {
-  background: rgba(16, 10, 6, 0.65);
+  --row: rgba(16, 10, 6, 0.65);
+  background: var(--row);
 }
 
 .leaderboard-table tbody tr:nth-child(even) {
-  background: rgba(28, 18, 12, 0.4);
+  --row: rgba(28, 18, 12, 0.4);
+  background: var(--row);
 }
 
 .leaderboard-table td,
@@ -58,6 +60,24 @@
 .leaderboard-table tbody tr:hover td,
 .leaderboard-table tbody tr:hover th {
   background: var(--gold-wash-faint);
+}
+
+/* A column that stays in view while the table scrolls sideways. Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through. */
+.leaderboard-table .col-pinned {
+  position: sticky;
+  z-index: 4;
+}
+
+.scrolled-x .leaderboard-table .col-pinned {
+  background: linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
+}
+
+.scrolled-x .leaderboard-table thead .col-pinned {
+  background: linear-gradient(var(--surface-card), var(--surface-card)), var(--bg-dark);
+}
+
+.scrolled-x .leaderboard-table tbody tr:hover .col-pinned {
+  background: linear-gradient(var(--gold-wash-faint), var(--gold-wash-faint)), linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
 }
 
 .leaderboard-table .rank-col {

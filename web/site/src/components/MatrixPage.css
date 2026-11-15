@@ -1,56 +1,4 @@
 /* Upstream's comparison matrix page: player_matrix.html's styles, the leaderboard's year pills, and its inline styles as classes. */
-.matrix-header-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-  padding: 1.75rem 2rem;
-  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px var(--shadow-light);
-}
-
-.matrix-header-card .header-back {
-  margin-bottom: 0;
-}
-
-.matrix-identity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.4rem;
-}
-
-.matrix-identity h1 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--size-page-title);
-  color: var(--text-bright);
-}
-
-.matrix-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.matrix-subtitle strong {
-  color: var(--accent-gold);
-}
-
-.matrix-header-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.matrix-header-links .btn-antique {
-  font-size: var(--size-button);
-}
-
 .peak-year-card {
   display: flex;
   flex-wrap: wrap;
@@ -114,7 +62,7 @@
 }
 
 .peak-year-rating {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .rating-card.matrix-card {
@@ -122,35 +70,11 @@
   padding: 1.5rem;
 }
 
-.matrix-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
 
-.matrix-card-head h2,
-.matrix-card-head h3 {
-  margin: 0 0 0.25rem;
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-}
 
-.matrix-card-head h3 {
-  font-size: var(--size-subheading);
-}
 
-.matrix-card-head p strong,
 .matrix-card-note strong {
   color: var(--accent-gold);
-}
-
-.matrix-card-sub {
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-muted);
 }
 
 .matrix-card-note {
@@ -160,32 +84,6 @@
 
 .career-none {
   color: #665544;
-}
-
-
-.career-history-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.92rem;
-}
-
-.career-history-table th {
-  padding: 0.75rem 0.85rem;
-  background: rgba(24, 16, 10, 0.95);
-  border-bottom: 1px solid var(--gold-wash);
-  font-family: var(--font-heading);
-  font-size: var(--size-table-header);
-  color: var(--accent-gold);
-  letter-spacing: 0.5px;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.career-history-table td {
-  padding: 0.7rem 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  color: var(--text-main);
 }
 
 .career-history-table tr.peak-row td {
@@ -210,7 +108,7 @@
 }
 
 .career-peak {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .career-score {
@@ -220,8 +118,8 @@
 
 .badge.badge-peak-year {
   background: var(--gold-wash);
-  border: 1px solid var(--accent-gold-bright);
-  color: var(--accent-gold-bright);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
   font-size: 0.75rem;
 }
 
@@ -237,9 +135,6 @@
 }
 
 @media (max-width: 768px) {
-  .matrix-header-card {
-    padding: 1.25rem 1rem;
-  }
 
   .peak-year-card {
     gap: 0.75rem;

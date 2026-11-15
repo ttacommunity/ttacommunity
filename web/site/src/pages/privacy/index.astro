@@ -2,18 +2,15 @@
 /** The privacy page: what the site keeps about visitors, players who sign in and members, and how to have it removed. */
 import { getEntry, render } from 'astro:content';
 import SiteLayout from '../../layouts/SiteLayout.astro';
-import '../../components/HallOfFame.css';
 import '../../components/TextPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const page = await getEntry('pages', 'privacy');
 if (page === undefined) throw new Error('src/content/privacy.mdx is missing');
 const { Content } = await render(page);
 ---
 <SiteLayout title="Privacy | Through the Ages community" description="What the Through the Ages community site keeps about you, who sees it, and how to have it removed.">
-  <div class="tournaments-header">
-    <h1 class="tournaments-title">{page.data.title}</h1>
-    <div class="tournaments-subtitle">Last changed {page.data.updated}.</div>
-  </div>
+  <PageHeader title={page.data.title} subtitle={`Last changed ${page.data.updated}.`} />
   <article class="rating-card text-page-body">
     <Content />
   </article>

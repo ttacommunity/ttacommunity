@@ -1,4 +1,4 @@
-/* The dark bar of pill buttons above a table, upstream's .format-bar and .format-btn. */
+/* The dark bar of pill buttons above a table (upstream's .format-bar), and the choice buttons used for every setting of what a page shows. */
 .format-bar {
   display: flex;
   align-items: center;
@@ -23,10 +23,10 @@
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 1rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  background: var(--surface-panel);
-  color: var(--text-soft);
+  background: var(--surface-well);
+  color: var(--text-muted);
   font-family: var(--font-stats);
   font-size: 0.88rem;
   font-weight: 600;
@@ -35,42 +35,27 @@
   transition: all 0.2s;
 }
 
-/* Upstream's other pages (player, matrix, chart) draw the buttons raised, with a gradient when chosen. */
-.format-btn.raised {
-  padding: 0.4rem 0.9rem;
-  border: 1px solid rgba(74, 53, 37, 0.8);
-  background: var(--surface-panel);
-  color: var(--text-soft);
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.format-btn.raised:hover {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash);
-  color: var(--text-bright);
-}
-
-.format-btn.raised.active {
-  border-color: var(--accent-gold-bright);
-  background: var(--gradient-gold);
-  box-shadow: 0 2px 8px var(--gold-wash-strong);
-  color: var(--text-on-gold);
-  font-weight: 700;
-}
-
 .format-btn:hover {
   border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
-  color: var(--text-bright);
+  color: var(--text-main);
 }
 
+/* The chosen button: outlined in gold, so an icon or tag on it still reads. */
 .format-btn.active {
-  border-color: var(--accent-gold-bright);
-  background: var(--accent-gold);
-  color: var(--text-on-gold);
+  border-color: var(--accent-gold);
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold);
   font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
+}
+
+/* Marks the option a page starts with, such as "DEFAULT" beside a rating engine. */
+.default-tag {
+  padding: 1px 4px;
+  background: var(--gold-wash-faint);
+  border-radius: 3px;
+  color: var(--accent-gold);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .format-bar-actions {
@@ -90,19 +75,7 @@
     padding: 0.65rem;
   }
 
-  .format-bar-group {
-    flex-wrap: nowrap;
-    padding-bottom: 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .format-bar-group::-webkit-scrollbar {
-    display: none;
-  }
-
   .format-btn {
-    flex-shrink: 0;
     padding: 0.45rem 0.85rem;
     font-size: 0.82rem;
   }

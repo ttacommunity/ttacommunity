@@ -1,7 +1,6 @@
 /** A season shown as a bracket: rounds to pick, the late rounds as a tree, a round's groups as a list, and a player's road. */
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { seasonBracket, type CatalogueSeason, type BracketGroup, type SeasonBracket } from '@ttac/shared/ratings';
-import type { Load } from '@ttac/shared/load';
+import { seasonBracket, type CatalogueSeason, type BracketGroup } from '@ttac/shared/ratings';
 import {
   allView,
   bracketGrid,
@@ -27,11 +26,17 @@ import {
   type ViewRound,
 } from '../lib/bracket';
 import { editionHref } from '@ttac/shared/blitz';
-import { seasonName } from '../lib/catalogue-view';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
+import Message from './Message';
+import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
+import SeasonPick from './SeasonPick';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
+
+/** pill is a round button's classes, chosen or not. */
+const pill = (chosen: boolean) => (chosen ? 'year-pill bracket-round active' : 'year-pill bracket-round');
 
 /** BracketView shows one season of a bracket tournament, with a picker for its other seasons with games. */
 export default function BracketView({
@@ -52,23 +57,15 @@ export default function BracketView({
   onSeason: (season: string) => void;
 }) {
   const played = seasons.filter((s) => s.games > 0);
-  const [load, setLoad] = useState<Load<SeasonBracket>>({ kind: 'loading' });
+  const load = useLoad(JSON.stringify([run, slug, season]), () => seasonBracket(apiUrl, run, slug, season));
   const [chosen, setChosen] = useState<View | null>(null);
   const [entrant, setEntrant] = useState<number | null>(null);
   const [q, setQ] = useState('');
   const [single, setSingle] = useState<'tree' | 'grid'>('grid');
   useEffect(() => {
-    let live = true;
-    setLoad({ kind: 'loading' });
     setChosen(null);
     setEntrant(null);
-    seasonBracket(apiUrl, run, slug, season)
-      .then((data) => live && setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => live && setLoad({ kind: 'error', message: e instanceof Error ? e.message : 'The bracket could not be loaded.' }));
-    return () => {
-      live = false;
-    };
-  }, [apiUrl, run, slug, season]);
+  }, [run, slug, season]);
   if (season === '') return null;
 
   const rounds = load.kind === 'ready' ? bracketRounds(load.data) : [];
@@ -86,29 +83,15 @@ export default function BracketView({
   const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
   const phone = rounds[view.last];
   return (
-    <div className="panel-card bracket-panel">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Bracket</h2>
-        {played.length > 1 ? (
-          <label className="bracket-season">
-            <span className="visually-hidden">{seasonWord}</span>
-            <select id="bracket-season" className="input-antique" value={season} onChange={(e) => onSeason(e.target.value)}>
-              {[...played].reverse().map((x) => (
-                <option key={x.label} value={x.label}>
-                  {seasonName(x.label, seasonWord)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <span className="panel-tag">{seasonName(season, seasonWord)}</span>
-        )}
-      </div>
+    <div className="rating-card panel-card bracket-panel">
+      <PanelHeader title="Bracket">
+        <SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />
+      </PanelHeader>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (
-        <p className="waiting-message">
+        <Message form="inline">
           The knockout is not drawn yet. <a href={editionHref(slug, season)}>Swiss rounds: see the standings</a>.
-        </p>
+        </Message>
       )}
       {phone !== undefined && (
         <>
@@ -117,26 +100,26 @@ export default function BracketView({
             Gold: through to the next round. <span className="bracket-to">→ SF 1</span> is where they play next. Choose a name to follow that player.
           </p>
           <div className="bracket-controls">
-            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-wide">
+            <nav aria-label="Rounds" className="year-pills bracket-rounds bracket-rounds-wide">
               {rounds.map((x, i) => (
                 <Fragment key={x.name}>
                   {i === reach && i > 0 && <span className="bracket-rounds-split" title="The bracket can be drawn from here" aria-hidden="true" />}
-                  <button type="button" className="bracket-round" aria-pressed={i >= view.first && i <= view.last} onClick={() => setChosen(tapRound(view, i))}>
+                  <button type="button" className={pill(i >= view.first && i <= view.last)} aria-pressed={i >= view.first && i <= view.last} onClick={() => setChosen(tapRound(view, i))}>
                     <span>{x.name}</span>
                     <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
                   </button>
                 </Fragment>
               ))}
               {rounds.length > 1 && (
-                <button type="button" className="bracket-round" aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
+                <button type="button" className={pill(view.first === all.first && view.last === all.last)} aria-pressed={view.first === all.first && view.last === all.last} onClick={() => setChosen(all)}>
                   <span>All rounds</span>
                   <span className="bracket-round-state">{rounds.length} rounds</span>
                 </button>
               )}
             </nav>
-            <nav aria-label="Rounds" className="bracket-rounds bracket-rounds-narrow">
+            <nav aria-label="Rounds" className="year-pills bracket-rounds bracket-rounds-narrow">
               {rounds.map((x, i) => (
-                <button key={x.name} type="button" className="bracket-round" aria-pressed={i === view.last} onClick={() => setChosen({ first: i, last: i, anchor: i })}>
+                <button key={x.name} type="button" className={pill(i === view.last)} aria-pressed={i === view.last} onClick={() => setChosen({ first: i, last: i, anchor: i })}>
                   <span>{x.name}</span>
                   <span className="bracket-round-state">{ROUND_STATE[x.state]}</span>
                 </button>

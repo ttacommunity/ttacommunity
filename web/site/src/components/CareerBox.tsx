@@ -1,14 +1,10 @@
 /** Upstream's career box: medal counts, the honour roll or a summary sentence, accolades and the peak career season. */
-import type { AchievementSummary, Player, PlayerCareer, TitleCode } from '@ttac/shared/ratings';
+import type { AchievementSummary, Player, PlayerCareer } from '@ttac/shared/ratings';
 import { honorRoll, totalTitles } from '../lib/achievements';
 import * as show from '../lib/leaderboard-display';
 import { careerPeakYear, isPeakHigher } from '../lib/career';
 import { matrixHref, type PlayerView } from '../lib/player-view';
-
-function SeasonBadge({ code }: { code: TitleCode }) {
-  if (code === 'SGM') return <span className="badge badge-inline badge-season badge-sgm">👑 GM</span>;
-  return <span className={`badge badge-inline badge-season badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
-}
+import { TitleBadge } from './PlayerMarks';
 
 /** CareerBox shows upstream's career box: medal counts, the honour roll (or a summary sentence) and accolades first. */
 export default function CareerBox({
@@ -107,7 +103,7 @@ export default function CareerBox({
               <div>
                 <div className="career-season-title">
                   Peak Career Season: {season.year}
-                  {season.title !== null && <SeasonBadge code={season.title} />}
+                  {season.title !== null && <TitleBadge title={{ code: season.title }} long className="badge-inline badge-season" />}
                 </div>
                 <div className="career-season-stats">
                   {season.wins} Wins / {season.opponents} Opponents (<strong>{season.win_rate.toFixed(1)}%</strong> Win Rate)

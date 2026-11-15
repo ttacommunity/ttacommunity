@@ -1,5 +1,6 @@
 /** How the leaderboard shows models, formats and numbers, in upstream's wording and precision. */
 import { titleName, type Format, type Model, type TitleCode } from '@ttac/shared/ratings';
+import type { ResetMode } from './leaderboard-view';
 
 const formatNames: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 
@@ -23,9 +24,20 @@ export function engineNote(model: Model): string {
   return engineNotes[model.replace(/_softer$/, '')] ?? '';
 }
 
+/** RESET_MODES are the season reset modes in upstream's order, with its names and descriptions. */
+export const RESET_MODES: readonly { value: ResetMode; name: string; desc: string }[] = [
+  { value: 'continuous', name: 'Continuous (Career)', desc: 'Standard uninterrupted career rating trajectory across all tournament history' },
+  { value: 'softer', name: 'Season Reset', desc: 'Gentle annual reset balancing career achievement with current season form' },
+];
+
+/** resetName returns upstream's name for a reset mode. */
+export function resetName(mode: ResetMode): string {
+  return RESET_MODES.find((m) => m.value === mode)?.name ?? '';
+}
+
 /** resetModeName returns upstream's name for a model's season reset mode. */
 export function resetModeName(model: Model): string {
-  return model.includes('_softer') ? 'Season Reset' : 'Continuous (Career)';
+  return resetName(model.includes('_softer') ? 'softer' : 'continuous');
 }
 
 /** modelLabel names a model by its engine, then its reset mode when it is not the default. */
@@ -71,9 +83,15 @@ export { titleName };
 export type TitleBadgeView = { code: TitleCode; text: string; hover: string };
 
 /** titleBadge shows a run's title: a Super GM as GM in its own colour (as upstream), the reason or else the title's name on hover; null for none. */
-export function titleBadge(title: { code: TitleCode; reason: string } | null): TitleBadgeView | null {
+export function titleBadge(title: { code: TitleCode; reason?: string } | null, long = false): TitleBadgeView | null {
   if (title === null) return null;
-  return { code: title.code, text: title.code === 'SGM' ? 'GM' : title.code, hover: title.reason || titleName(title.code) };
+  return { code: title.code, text: titleText(title.code, long), hover: title.reason || titleName(title.code) };
+}
+
+/** titleText is a title badge's words: its code where room is short (a Super GM as GM, its crown from CSS), else its name, World Champion with 💎. */
+export function titleText(code: TitleCode, long: boolean): string {
+  if (!long) return code === 'SGM' ? 'GM' : code;
+  return code === 'WC' ? `💎 ${titleName(code)}` : titleName(code);
 }
 
 /** badgeHover is an admin badge's hover text: its description, or its label when it has none. */

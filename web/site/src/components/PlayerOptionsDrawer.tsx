@@ -1,11 +1,9 @@
 /** Top-level player profile options drawer: track, reset mode, engine, and trajectory chart controls. */
-import { useEffect, useRef } from 'react';
+import SideDrawer from './SideDrawer';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
 import type { Engine, ResetMode, Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
 import type { ChartCurve, ChartMode, ChartOptionsState, ChartScale, ChartTiers, PlayerView } from '../lib/player-view';
-
-const narrow = () => window.innerWidth <= 768;
 
 export interface PlayerOptionsDrawerProps {
   view: PlayerView;
@@ -80,43 +78,10 @@ export default function PlayerOptionsDrawer({
   onReset,
   onClose,
 }: PlayerOptionsDrawerProps) {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const place = () => {
-      const side = ref.current;
-      const layout = side?.parentElement;
-      if (!side || !layout) return;
-      if (narrow()) {
-        side.style.left = '';
-        side.style.right = '';
-        return;
-      }
-      const card = layout.getBoundingClientRect();
-      const width = document.documentElement.clientWidth;
-      const own = side.offsetWidth || 360;
-      const ideal = card.right + (width - card.right) / 2 - own / 2;
-      const left = Math.max(16, Math.min(ideal, width - own - 16));
-      side.style.left = `${left}px`;
-      side.style.right = 'auto';
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    place();
-    document.body.style.overflow = narrow() ? 'hidden' : '';
-    window.addEventListener('resize', place);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('resize', place);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
   const track = view.ranking ?? 'community';
 
   return (
-    <aside ref={ref} className="leaderboard-sidebar player-sidebar">
-      <button type="button" className="sidebar-backdrop" aria-label="Close options" tabIndex={-1} onClick={onClose} />
+    <SideDrawer className="player-sidebar" onClose={onClose}>
       <div className="leaderboard-options-panel chart-options-panel" role="dialog" aria-label="Profile options and filters">
         <div className="options-header">
           <span className="options-header-title">⚙️ Options &amp; Filters</span>
@@ -130,21 +95,21 @@ export default function PlayerOptionsDrawer({
             <div className="options-group-title" title="Choose which tournament rating pipeline to display across the profile">
               Track
             </div>
-            <Segmented label="Track" look="raised" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
+            <Segmented label="Track" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
             <div className="options-group-title" title="Continuous career ratings or gentle annual season resets">
               Reset Mode
             </div>
-            <Segmented label="Reset mode" look="raised" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
+            <Segmented label="Reset mode" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
           </div>
 
           <div className="options-section">
             <div className="options-group-title" title="Model used for career summary, format cards, and game deltas">
               Rating Engine
             </div>
-            <Segmented label="Engine" look="raised" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
+            <Segmented label="Engine" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
           </div>
 
           <div className="options-section-divider">Trajectory Chart</div>
@@ -156,22 +121,24 @@ export default function PlayerOptionsDrawer({
             >
               Chart Models
             </div>
-            <div className="options-engine-toggles">
+            <div className="format-bar-group" role="group" aria-label="Chart models">
               <button
                 type="button"
-                className={['opt-engine-btn', chart.engines.has('glicko2_daneo') && 'active'].filter(Boolean).join(' ')}
+                className={chart.engines.has('glicko2_daneo') ? 'format-btn active' : 'format-btn'}
+                aria-pressed={chart.engines.has('glicko2_daneo')}
                 title="DANeo's multiplayer-weighted Glicko-2 baseline"
                 onClick={() => toggleEngine('glicko2_daneo')}
               >
-                👑 GlickoD {chart.engines.has('glicko2_daneo') ? '✓' : ''}
+                👑 GlickoD
               </button>
               <button
                 type="button"
-                className={['opt-engine-btn', chart.engines.has('glicko2_std') && 'active'].filter(Boolean).join(' ')}
+                className={chart.engines.has('glicko2_std') ? 'format-btn active' : 'format-btn'}
+                aria-pressed={chart.engines.has('glicko2_std')}
                 title="Standard Glicko-2 model (unselected by default)"
                 onClick={() => toggleEngine('glicko2_std')}
               >
-                Glicko-2 Standard {chart.engines.has('glicko2_std') ? '✓' : ''}
+                Glicko-2 Standard
               </button>
             </div>
           </div>
@@ -183,7 +150,7 @@ export default function PlayerOptionsDrawer({
             >
               Time Scale
             </div>
-            <Segmented label="Scale" look="raised" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
+            <Segmented label="Scale" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
           </div>
 
           <div className="options-section">
@@ -193,7 +160,7 @@ export default function PlayerOptionsDrawer({
             >
               Competitive Rating Tiers
             </div>
-            <Segmented label="Tiers" look="raised" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
+            <Segmented label="Tiers" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
           </div>
 
           <div className="options-section">
@@ -203,7 +170,7 @@ export default function PlayerOptionsDrawer({
             >
               Chart Reset Mode
             </div>
-            <Segmented label="Mode" look="raised" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
+            <Segmented label="Mode" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
           </div>
 
           <div className="options-section">
@@ -213,7 +180,7 @@ export default function PlayerOptionsDrawer({
             >
               Rating Estimate Curves
             </div>
-            <Segmented label="Curve" look="raised" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
+            <Segmented label="Curve" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
           </div>
         </div>
 
@@ -226,6 +193,6 @@ export default function PlayerOptionsDrawer({
           </button>
         </div>
       </div>
-    </aside>
+    </SideDrawer>
   );
 }

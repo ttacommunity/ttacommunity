@@ -2,11 +2,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js';
 import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
-import { FORMAT_NAMES, onFormat, parseAnalysisParams } from '../lib/analysis';
+import { onFormat, parseAnalysisParams } from '../lib/analysis';
+import { formatName } from '../lib/leaderboard-display';
 import { recall } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
+import { useKeptLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -28,38 +30,18 @@ function means(d: Distribution) {
 /** EngineSpread loads the current run's distribution for the format in the address, or the remembered one. */
 export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState(() => parseAnalysisParams(new URLSearchParams(window.location.search), recall(browserStorage())).format);
-  const [load, setLoad] = useState<Load<Distribution>>({ kind: 'loading' });
-  const [distData, setDistData] = useState<Distribution | null>(null);
+  const load = useKeptLoad(String(format), () => currentRun(apiUrl).then((r) => distribution(apiUrl, r.run_id, format)));
+  const distData = load.kind === 'ready' ? load.data : null;
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'bar'> | null>(null);
 
   useEffect(() => onFormat(window, setFormat), []);
 
-  useEffect(() => {
-    let current = true;
-    if (distData === null) {
-      setLoad({ kind: 'loading' });
-    }
-    currentRun(apiUrl)
-      .then((r) => distribution(apiUrl, r.run_id, format))
-      .then((data) => {
-        if (!current) return;
-        setDistData(data);
-        setLoad({ kind: 'ready', data });
-      })
-      .catch((e: unknown) => {
-        if (!current) return;
-        setLoad({ kind: 'error', message: errorText(e) });
-      });
-    return () => {
-      current = false;
-    };
-  }, [apiUrl, format]);
-
   // Create chart instance once when canvas is mounted
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null) return;
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
+    const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
     const grid = { color: 'rgba(74, 53, 37, 0.3)' };
     const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
 
@@ -72,14 +54,14 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         animation: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: '#ffd700', font: { family: heading } }, grid, ticks },
-          y: { title: { display: true, text: 'Number of Players', color: '#ffd700', font: { family: heading } }, grid, ticks },
+          x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: gold, font: { family: heading } }, grid, ticks },
+          y: { title: { display: true, text: 'Number of Players', color: gold, font: { family: heading } }, grid, ticks },
         },
         plugins: {
           legend: { position: 'top', labels: { color: '#f5eedb', font: { family: 'Share Tech Mono', size: 12 }, padding: 12 } },
           tooltip: {
             backgroundColor: 'rgba(18, 12, 8, 0.95)',
-            titleColor: '#ffd700',
+            titleColor: gold,
             titleFont: { family: heading, size: 13, weight: 'bold' },
             bodyFont: { family: 'Share Tech Mono', size: 11 },
             borderColor: 'rgba(229, 169, 60, 0.4)',
@@ -134,14 +116,15 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const bars = distData === null ? [] : means(distData);
 
   return (
-    <div className="panel-card">
-      <div className="card-head">
-        <div>
-          <h3>Rating Distribution Density Curves</h3>
-          <div className="card-sub">
-            Player rating distribution across 100-point skill bins for active format (<strong>{FORMAT_NAMES[format]}</strong>)
-          </div>
-        </div>
+    <div className="rating-card panel-card engine-spread">
+      <PanelHeader
+        title="Rating Distribution Density Curves"
+        subtitle={
+          <>
+            Player rating distribution across 100-point skill bins for active format (<strong>{formatName(format)}</strong>)
+          </>
+        }
+      >
         <div className="density-means">
           {bars.map((b) => (
             <span key={b.model} className={`density-mean ${b.className}`} title={`${b.badge.replace('👑 ', '')} (All Players: ${b.mean} | Active Players >10 games: ${b.active})`}>
@@ -149,7 +132,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
             </span>
           ))}
         </div>
-      </div>
+      </PanelHeader>
       <div className="density-chart-container">
         {distData === null && load.kind !== 'ready' ? (
           <Waiting load={load} what="the distribution" form="inline" />

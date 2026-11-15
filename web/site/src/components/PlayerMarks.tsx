@@ -1,13 +1,13 @@
-/** A player's title badge and country flag, as upstream draws them in its tables. */
-import type { LeaderboardRow } from '@ttac/shared/ratings';
+/** A player's title badge, admin's badges and country flag, as every page draws them. */
+import type { LeaderboardRow, TitleCode } from '@ttac/shared/ratings';
 import { badgeHover, flagSrc, titleBadge } from '../lib/leaderboard-display';
 
-/** TitleBadge shows the run's title in its colour (a Super GM as GM, as upstream's table), or a dash for none. */
-export function TitleBadge({ title }: { title: LeaderboardRow['title'] }) {
-  const badge = titleBadge(title);
+/** TitleBadge shows a title in its colour: its code where room is short, its name when long, or a dash for none; the reason, else the name, on hover. */
+export function TitleBadge({ title, long = false, className }: { title: { code: TitleCode; reason?: string } | null; long?: boolean; className?: string }) {
+  const badge = titleBadge(title, long);
   if (badge === null) return <span className="badge-none">-</span>;
   return (
-    <span className={`badge badge-${badge.code.toLowerCase()}`} title={badge.hover}>
+    <span className={`badge badge-${badge.code.toLowerCase()}${className === undefined ? '' : ` ${className}`}`} title={badge.hover}>
       {badge.text}
     </span>
   );

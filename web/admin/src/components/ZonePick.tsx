@@ -1,6 +1,7 @@
 /** A member's time zone picked as you type: Unknown, a region, or any IANA zone. */
 import { useState } from 'react';
-import { knownZones, zoneChoices, zoneFromText, type Region } from '../lib/zones';
+import { knownZones } from '@ttac/shared/time';
+import { zoneChoices, zoneFromText, type Region } from '../lib/zones';
 import PickBox from './PickBox';
 
 /** ZONE_CHOICES is how many matches the picker shows once something is typed. */

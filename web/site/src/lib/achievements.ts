@@ -1,6 +1,5 @@
 /** The achievements page's logic, as upstream's template and script: the honour roll, title badge, cells, filter and sorting. */
-import type { AchievementSummary, Player, TournamentRecord } from '@ttac/shared/ratings';
-import { titleName } from './leaderboard-display';
+import type { AchievementSummary, TournamentRecord } from '@ttac/shared/ratings';
 
 export type Direction = 'asc' | 'desc';
 
@@ -28,26 +27,6 @@ export function honorRoll(name: string, s: AchievementSummary): string {
   return parts.length
     ? `${name} is a decorated competitor with ${parts.join(', ')} (Total Career Medals: ${medals}).`
     : `${name} has achieved ${medals} podium medals.`;
-}
-
-/** titleBadge returns the badge above the name: World Champion for a current or past world title, else the current title. */
-export function titleBadge(
-  title: Player['title'],
-  peak: Player['peak'],
-): { code: string; text: string; tooltip: string; reigning: boolean } | null {
-  if (title?.code === 'WC' || peak?.code === 'WC') {
-    const reigning = title?.code === 'WC';
-    const year = peak?.code === 'WC' && peak.year !== null ? ` (${peak.year})` : '';
-    return {
-      code: 'wc',
-      text: 'World Champion',
-      tooltip: `Official Competitive Title: ${reigning ? 'Reigning ' : ''}World Champion${year}`,
-      reigning,
-    };
-  }
-  if (title === null) return null;
-  const name = titleName(title.code);
-  return { code: title.code.toLowerCase(), text: name, tooltip: `Official Competitive Title: ${name}`, reigning: false };
 }
 
 /** RecordCategory is upstream's medal style for a tournament: World Championship, major league, ladder, slam or other. */

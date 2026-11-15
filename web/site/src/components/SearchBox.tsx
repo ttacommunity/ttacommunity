@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { LeaderboardRow } from '@ttac/shared/ratings';
 import { suggest } from '../lib/leaderboard-view';
+import { TitleBadge } from './PlayerMarks';
 import './SearchBox.css';
 
 /** A player the box can suggest: their name, and the flag and title shown beside it where known. */
@@ -174,7 +175,7 @@ export default function SearchBox({
                   <Highlighted name={p.name} query={highlightQuery} />
                 </span>
               </span>
-              {p.title && <span className={`badge badge-${p.title.code.toLowerCase()}`}>{p.title.code}</span>}
+              {p.title && <TitleBadge title={p.title} />}
             </div>
           ))}
           </div>

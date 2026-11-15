@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  currentRun,
-  player as fetchPlayer,
-  playerAchievements,
-  type Player,
-  type PlayerAchievements,
-  type TournamentRecord,
-} from '@ttac/shared/ratings';
-import { errorText, type Load } from '@ttac/shared/load';
-import { Flag } from './PlayerMarks';
-import * as show from '../lib/leaderboard-display';
+import SortHeader from '@ttac/shared/SortHeader';
+import Segmented from '@ttac/shared/Segmented';
+import { currentRun, player as fetchPlayer, playerAchievements, type Player, type TournamentRecord } from '@ttac/shared/ratings';
 import {
   bestResultsPerTournament,
   canonicalTournamentName,
@@ -31,7 +23,6 @@ import {
   sortCareer,
   sortSeasons,
   sortTournaments,
-  titleBadge,
   tournamentCategory,
   tournamentOverviews,
   CATEGORY_ICON,
@@ -40,39 +31,20 @@ import {
 } from '../lib/achievements';
 import './PlayerPage.css';
 import './AchievementsPage.css';
-import BackLink from '@ttac/shared/BackLink';
 import { playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { counted } from '@ttac/shared/numbers';
+import { useLoad } from './useLoad';
+import PlayerHeader from './PlayerHeader';
 
 type Sort = { col: number; dir: Direction } | null;
 
-const SEASON_HEADS = [
-  ['Date of Finish', 'Click to sort by Date of Finish'],
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Season', 'Click to sort by Season'],
-  ['Division / Tier', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
-const TOURNAMENT_HEADS = [
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Seasons Played', 'Click to sort by Seasons Played'],
-  ['Highest Division Result', 'Click to sort by Peak Result'],
-  ['Career Record (W - L - D)', 'Click to sort by Record'],
-];
-const DRILLDOWN_HEADS = [
-  ['Date of Finish', 'Click to sort by Date of Finish'],
-  ['Season', 'Click to sort by Season'],
-  ['Division / Tier', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
-const CAREER_HEADS = [
-  ['Tournament', 'Click to sort by Tournament'],
-  ['Career Scope', 'Click to sort by Career Scope'],
-  ['Division', 'Click to sort by Division'],
-  ['Result', 'Click to sort by Result'],
-];
+const SEASON_HEADS = ['Date of Finish', 'Tournament', 'Season', 'Division / Tier', 'Result'];
+const TOURNAMENT_HEADS = ['Tournament', 'Seasons Played', 'Highest Division Result', 'Career Record (W - L - D)'];
+const DRILLDOWN_HEADS = ['Date of Finish', 'Season', 'Division / Tier', 'Result'];
+const CAREER_HEADS = ['Tournament', 'Career Scope', 'Division', 'Result'];
 const BEST_HEADS = ['Tournament', 'Best Season', 'Division / Tier', 'Best Result', 'Career Details'];
 
 const CATEGORY_OPTIONS: { id: TournamentCategoryFilter; label: string }[] = [
@@ -82,6 +54,11 @@ const CATEGORY_OPTIONS: { id: TournamentCategoryFilter; label: string }[] = [
   { id: 'ladder', label: 'Ladders & Leagues' },
   { id: 'community', label: 'Community Events' },
 ];
+
+/** shownSort is a table's sort as its headers show it: the one chosen, else the order the table starts in (fallback). */
+function shownSort(sort: Sort, fallback: { col: string; desc: boolean } | null): { col: string; desc: boolean } | null {
+  return sort === null ? fallback : { col: String(sort.col), desc: sort.dir === 'desc' };
+}
 
 function next(dirs: Record<number, Direction>, col: number): Direction {
   return (dirs[col] ?? 'asc') === 'asc' ? 'desc' : 'asc';
@@ -112,43 +89,7 @@ function TournamentName({ r }: { r: TournamentRecord }) {
 }
 
 function Header({ player }: { player: Player }) {
-  const badge = titleBadge(player.title, player.peak);
-  return (
-    <div className="achievements-header">
-      <div className="header-back">
-        <BackLink href={playerHref(player.name)}>Player Profile</BackLink>
-      </div>
-      <div className="player-identity">
-        <div className="ach-identity-name">
-          {badge && (
-            <span
-              className={`badge badge-${badge.code}${badge.code === 'wc' ? ' ach-wc' : ''}${badge.reigning ? ' ach-wc-reigning' : ''}`}
-              title={badge.tooltip}
-            >
-              {badge.text}
-            </span>
-          )}
-          <h1 className="player-profile-name ach-name">{player.name}</h1>
-        </div>
-        <div className="player-meta-pill">
-          <span title="Nationality / Flag">
-            <Flag country={player.country} />
-          </span>
-          {player.peak !== null && (
-            <>
-              <span className="meta-separator">•</span>
-              <span className="peak-meta-wrap">
-                Peak Rank:{' '}
-                <span className={`badge badge-${player.peak.code.toLowerCase()} ach-peak-badge`}>
-                  {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-                </span>
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <PlayerHeader player={player} back={{ href: playerHref(player.name), label: 'Player Profile' }} />;
 }
 
 type HighlightMode = 'medals' | 'promotions' | 'best' | 'hof';
@@ -224,12 +165,6 @@ function Records({ records }: { records: TournamentRecord[] }) {
     setShownHof(sortCareer(shownHof, col, dir));
   };
 
-  const tournamentArrow = (col: number) =>
-    tournamentSort ? (tournamentSort.col === col ? (tournamentSort.dir === 'asc' ? '▲' : '▼') : '') : '';
-  const drilldownArrow = (col: number) =>
-    drilldownSort ? (drilldownSort.col === col ? (drilldownSort.dir === 'asc' ? '▲' : '▼') : '') : col === 0 ? '▼' : '';
-  const careerArrow = (col: number) =>
-    careerSort ? (careerSort.col === col ? (careerSort.dir === 'asc' ? '▲' : '▼') : '') : col === 0 ? '▲' : '';
 
   // Filter records by category
   const activeTournaments =
@@ -275,26 +210,16 @@ function Records({ records }: { records: TournamentRecord[] }) {
       <div className="ach-records-top">
         <div>
           <h2 className="ach-records-title">Historical Tournament Records</h2>
-          <div className="ach-tabs" role="tablist">
-            <button
-              type="button"
-              className={`records-tab-btn${tab === 'seasons' ? ' active' : ''}`}
-              onClick={() => handleTabChange('seasons')}
-              role="tab"
-              aria-selected={tab === 'seasons'}
-            >
-              🏆 Tournaments ({activeTournaments.length})
-            </button>
-            <button
-              type="button"
-              className={`records-tab-btn${tab === 'highlights' ? ' active' : ''}`}
-              onClick={() => handleTabChange('highlights')}
-              role="tab"
-              aria-selected={tab === 'highlights'}
-            >
-              🎖️ Career Highlights ({activeHighlights.length})
-            </button>
-          </div>
+          <Segmented
+            label="Records"
+            look="tabs"
+            options={[
+              { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
+              { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
+            ]}
+            value={tab}
+            onChange={handleTabChange}
+          />
         </div>
         <FilterInput
           label="Filter tournaments, seasons"
@@ -305,30 +230,26 @@ function Records({ records }: { records: TournamentRecord[] }) {
         />
       </div>
 
-      <div className="ach-category-filters" role="group" aria-label="Tournament Category Filters">
-        {CATEGORY_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`ach-category-btn${category === opt.id ? ' active' : ''}`}
-            onClick={() => handleCategoryChange(opt.id)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="Tournament category"
+        look="filter"
+        groupClass="year-pills ach-category-filters"
+        options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+        value={category}
+        onChange={handleCategoryChange}
+      />
 
       {tab === 'seasons' ? (
         selectedTournament === null ? (
           <div>
             <ScrollTable hint="click any row or button to view seasons">
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
-                    {TOURNAMENT_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortTournamentsBy(col)}>
-                        {head} <span>{tournamentArrow(col)}</span>
-                      </th>
+                    {TOURNAMENT_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(tournamentSort, null)} onSort={(c) => sortTournamentsBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th className="ach-action-head">Action</th>
                   </tr>
@@ -374,7 +295,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           </td>
                           <td className="ach-seasons-cell">
                             <span className="seasons-count-badge">
-                              {t.seasonsCount} {t.seasonsCount === 1 ? 'season' : 'seasons'}
+                              {counted(t.seasonsCount, 'season')}
                             </span>
                           </td>
                           <td>
@@ -447,7 +368,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                   </div>
                   <div className="ach-drilldown-summary">
                     <span className="seasons-count-badge">
-                      {selectedOverview.seasonsCount} {selectedOverview.seasonsCount === 1 ? 'edition' : 'editions'}
+                      {counted(selectedOverview.seasonsCount, 'edition')}
                     </span>
                     <span className="record-stat">
                       {selectedOverview.totalMatches} matches: {selectedOverview.wins}W - {selectedOverview.losses}L
@@ -459,13 +380,13 @@ function Records({ records }: { records: TournamentRecord[] }) {
             </div>
 
             <ScrollTable hint="full season details">
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
-                    {DRILLDOWN_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortDrilldownBy(col)}>
-                        {head} <span>{drilldownArrow(col)}</span>
-                      </th>
+                    {DRILLDOWN_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(drilldownSort, { col: '0', desc: true })} onSort={(c) => sortDrilldownBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th>Details</th>
                   </tr>
@@ -500,54 +421,29 @@ function Records({ records }: { records: TournamentRecord[] }) {
         )
       ) : (
         <div>
-          <div className="ach-sub-tabs" role="tablist" aria-label="Career Highlights View Mode">
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'medals' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('medals')}
-              role="tab"
-              aria-selected={highlightMode === 'medals'}
-            >
-              🥇 Major Medals ({activeMedals.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'promotions' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('promotions')}
-              role="tab"
-              aria-selected={highlightMode === 'promotions'}
-            >
-              🚀 Promotions &amp; Group Wins ({activePromotions.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'best' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('best')}
-              role="tab"
-              aria-selected={highlightMode === 'best'}
-            >
-              ⭐ Best per Tournament ({activeBest.length})
-            </button>
-            <button
-              type="button"
-              className={`ach-sub-btn${highlightMode === 'hof' ? ' active' : ''}`}
-              onClick={() => setHighlightMode('hof')}
-              role="tab"
-              aria-selected={highlightMode === 'hof'}
-            >
-              📜 All-Time Career Totals ({activeHof.length})
-            </button>
-          </div>
+          <Segmented
+            label="Career highlights view"
+            look="tabs"
+            groupClass="ach-tabs ach-sub-tabs"
+            options={[
+              { value: 'medals', label: `🥇 Major Medals (${activeMedals.length})` },
+              { value: 'promotions', label: `🚀 Promotions & Group Wins (${activePromotions.length})` },
+              { value: 'best', label: `⭐ Best per Tournament (${activeBest.length})` },
+              { value: 'hof', label: `📜 All-Time Career Totals (${activeHof.length})` },
+            ]}
+            value={highlightMode}
+            onChange={setHighlightMode}
+          />
 
           <ScrollTable hint="full highlight details">
             {highlightMode === 'hof' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
-                    {CAREER_HEADS.map(([head, hint], col) => (
-                      <th key={head} className="ach-sortable" title={hint} onClick={() => sortCareerBy(col)}>
-                        {head} <span>{careerArrow(col)}</span>
-                      </th>
+                    {CAREER_HEADS.map((head, col) => (
+                      <SortHeader key={head} col={String(col)} sort={shownSort(careerSort, { col: '0', desc: false })} onSort={(c) => sortCareerBy(Number(c))}>
+                        {head}
+                      </SortHeader>
                     ))}
                     <th>Career Details</th>
                   </tr>
@@ -575,7 +471,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : highlightMode === 'promotions' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     <th>Date of Finish</th>
@@ -615,7 +511,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : highlightMode === 'best' ? (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
                     {BEST_HEADS.map((head) => (
@@ -651,11 +547,13 @@ function Records({ records }: { records: TournamentRecord[] }) {
                 </tbody>
               </table>
             ) : (
-              <table className="records-table">
+              <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
-                    {SEASON_HEADS.map(([head]) => (
-                      <th key={head}>{head}</th>
+                    {SEASON_HEADS.map((head) => (
+                      <th key={head} scope="col">
+                        {head}
+                      </th>
                     ))}
                     <th>Details</th>
                   </tr>
@@ -698,27 +596,14 @@ function Records({ records }: { records: TournamentRecord[] }) {
 
 /** AchievementsPage renders the achievements of the player named in the address, from the current run. */
 export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
-  const [state, setState] = useState<Load<{ player: Player; ach: PlayerAchievements }>>({ kind: 'loading' });
-
-  useEffect(() => {
+  const state = useLoad('achievements', async () => {
     const name = new URLSearchParams(window.location.search).get('name') ?? '';
-    if (name === '') {
-      setState({ kind: 'error', message: 'No player named in the address.' });
-      return;
-    }
-    let stale = false;
-    currentRun(apiUrl)
-      .then((run) => Promise.all([fetchPlayer(apiUrl, run.run_id, name), playerAchievements(apiUrl, run.run_id, name)]))
-      .then(([player, ach]) => {
-        if (stale) return;
-        document.title = `${player.name} - Tournament Achievements & Records | Through the Ages`;
-        setState({ kind: 'ready', data: { player, ach } });
-      })
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl]);
+    if (name === '') throw new Error('No player named in the address.');
+    const run = await currentRun(apiUrl);
+    const [player, ach] = await Promise.all([fetchPlayer(apiUrl, run.run_id, name), playerAchievements(apiUrl, run.run_id, name)]);
+    document.title = `${player.name} - Tournament Achievements & Records | Through the Ages`;
+    return { player, ach };
+  });
 
   if (state.kind !== 'ready') return <Waiting load={state} what="this player" />;
   const { player, ach } = state.data;

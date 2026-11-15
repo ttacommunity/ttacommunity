@@ -1,39 +1,5 @@
 /* Upstream's Hall of Fame overview (tournaments/hub.html): its <style> block as it is, then its inline styles as classes. */
 
-.tournaments-header {
-  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 6px 24px var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-.tournaments-header::after {
-  content: '🏛️';
-  position: absolute;
-  right: 1.5rem;
-  bottom: -1rem;
-  font-size: 8rem;
-  opacity: 0.08;
-  pointer-events: none;
-}
-.tournaments-title {
-  font-size: var(--size-page-title);
-  font-weight: 800;
-  color: var(--accent-gold);
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.tournaments-subtitle {
-  font-size: 1.05rem;
-  color: var(--text-muted);
-  max-width: 800px;
-  line-height: 1.6;
-}
 .tournaments-stats-bar {
   display: flex;
   gap: 1.5rem;
@@ -243,12 +209,7 @@
 
 /* WCS & Circuit Analytics Section */
 .wcs-analytics-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 1.5rem;
   margin-bottom: 2.5rem;
-  box-shadow: 0 6px 20px var(--shadow);
 }
 .wcs-grid-two {
   display: grid;
@@ -260,16 +221,6 @@
   .wcs-grid-two { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
-  .tournaments-header {
-    padding: 1.25rem 1rem;
-    margin-bottom: 1.25rem;
-  }
-  .tournaments-title {
-    font-size: 1.45rem;
-  }
-  .tournaments-subtitle {
-    font-size: 0.9rem;
-  }
   .tournaments-stats-bar {
     gap: 0.6rem;
     margin-top: 1rem;
@@ -290,47 +241,8 @@
     padding: 1rem;
   }
 }
-.wcs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-}
-.wcs-table th {
-  background: var(--surface-card);
-  color: var(--accent-gold);
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 2px solid var(--border-subtle);
-  font-size: var(--size-table-header);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: var(--font-heading);
-}
-.wcs-table tbody tr {
-  transition: background-color 0.15s ease;
-}
-.wcs-table tbody tr:nth-child(odd) {
-  background: rgba(16, 10, 6, 0.65);
-}
-.wcs-table tbody tr:nth-child(even) {
-  background: rgba(28, 18, 12, 0.40);
-}
-.wcs-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-faint);
-  color: var(--text-main);
-  font-size: var(--size-table-cell);
-}
-.wcs-table tbody tr:hover td {
-  background: var(--gold-wash-faint) !important;
-}
 
 /* Upstream's inline styles, as classes. */
-h1.tournaments-title {
-  margin-top: 0;
-}
-
 .podium-intro {
   margin-bottom: 1rem;
   color: var(--text-muted);
@@ -338,47 +250,11 @@ h1.tournaments-title {
   line-height: 1.5;
 }
 
-.hof-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
 
-.hof-card-title {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-card-title);
-}
 
-.hof-card-title-large {
-  font-size: var(--size-card-title);
-}
 
-.hof-card-sub {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
 
-.hof-card-sub-large {
-  font-size: 0.82rem;
-}
 
-.hof-tag {
-  padding: 0.2rem 0.6rem;
-  border: 1px solid var(--gold-wash);
-  border-radius: 4px;
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
-  font-size: 0.8rem;
-  font-weight: 600;
-}
 
 .hof-two-col {
   display: grid;
@@ -409,7 +285,7 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-rank {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -431,19 +307,19 @@ h1.tournaments-title {
   font-size: 0.65rem;
 }
 
-.badge-wc.legend-mark {
+.badge.legend-mark {
   border-radius: 4px;
 }
 
 .wcs-table .cell-titles {
-  color: #4ade80;
+  color: var(--win);
   font-size: 1.05rem;
   font-weight: 800;
   text-align: center;
 }
 
 .wcs-table .cell-world {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
   text-align: center;
 }
@@ -473,13 +349,13 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-gold {
-  color: #f59e0b;
+  color: var(--accent-gold);
   font-weight: 800;
   text-align: center;
 }
 
 .wcs-table .cell-silver {
-  color: #cbd5e1;
+  color: var(--medal-silver);
   font-weight: 700;
   text-align: center;
 }
@@ -490,7 +366,7 @@ h1.tournaments-title {
 }
 
 .wcs-table .cell-wins {
-  color: #4ade80;
+  color: var(--win);
   font-weight: 800;
   text-align: right;
 }

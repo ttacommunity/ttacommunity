@@ -7,7 +7,10 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, TRACKS, trackLabel } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { TRACKS, trackName } from '@ttac/shared/tracks';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 const POLL_MS = 5000;
 const ZONE = viewerZone();
@@ -60,29 +63,26 @@ function Changes({ run }: { run: number }) {
           ` Moved more than ${summary.thresholds.map((t) => `${t.points} point${t.points === 1 ? '' : 's'}: ${t.count}`).join('; ')}.`}
       </p>
       {c.biggest.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption>Biggest moves, overall conservative rating</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Before</th>
-                <th scope="col">After</th>
-                <th scope="col">Change</th>
+        <AdminTable caption="Biggest moves, overall conservative rating" captionShown>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Before</th>
+              <th scope="col">After</th>
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {c.biggest.map((m) => (
+              <tr key={m.name}>
+                <th scope="row">{m.name}</th>
+                <td>{m.before.toFixed(0)}</td>
+                <td>{m.after.toFixed(0)}</td>
+                <td>{signed(m.change, 0)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {c.biggest.map((m) => (
-                <tr key={m.name}>
-                  <th scope="row">{m.name}</th>
-                  <td>{m.before.toFixed(0)}</td>
-                  <td>{m.after.toFixed(0)}</td>
-                  <td>{signed(m.change, 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );
@@ -118,7 +118,7 @@ export default function RunsPanel() {
   const start = async (opener: HTMLElement) => {
     const sure = await dialog.confirm(
       {
-        heading: `Start a ${trackLabel(track)} rating run now?`,
+        heading: `Start a ${trackName(track)} rating run now?`,
         text: 'It is not shown on the site until you publish it.',
         action: 'Start run',
       },
@@ -144,11 +144,11 @@ export default function RunsPanel() {
   };
   const publish = async (run: AdminRun, opener: HTMLElement) => {
     const verb = publishVerb(runs ?? [], run);
-    const trackName = trackLabel(run.ranking);
-    if (!(await dialog.confirm({ heading: `${verb} ${trackName} run ${run.id}?`, text: `The site shows it at once for ${trackName}. Other tracks keep their own published runs.`, action: `${verb} run ${run.id}` }, opener))) return;
+    const runTrack = trackName(run.ranking);
+    if (!(await dialog.confirm({ heading: `${verb} ${runTrack} run ${run.id}?`, text: `The site shows it at once for ${runTrack}. Other tracks keep their own published runs.`, action: `${verb} run ${run.id}` }, opener))) return;
     setOutcome(null);
     const r = await req.send(req.publishRun(run.id));
-    setOutcome(outcomeOf(r, `Run ${run.id} is now live for ${trackName}.`, `run ${run.id}`));
+    setOutcome(outcomeOf(r, `Run ${run.id} is now live for ${runTrack}.`, `run ${run.id}`));
     await load();
   };
 
@@ -178,26 +178,21 @@ export default function RunsPanel() {
 
   const shown = runs === null ? [] : shownRuns(runs, all, SHOWN);
   return (
-    <section className="rating-card admin-card" aria-labelledby="runs-heading">
+    <AdminCard id="runs-heading" title="Rating runs">
       {dialog.element}
-      <h2 id="runs-heading" className="rating-card-heading">
-        Rating runs
-      </h2>
       <p className="muted">
         A run recomputes every rating from the games. It is not shown on the site until it is published, and an older run
         can be published again to roll back.
       </p>
-      <div className="runs-actions">
-        <label>
-          <span className="visually-hidden">Rating track</span>
-          <select value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
-            {TRACKS.map((t) => (
-              <option key={t.slug} value={t.slug}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="note-actions runs-actions">
+        <label htmlFor="run-track">Rating track</label>
+        <select className="input-antique" id="run-track" value={track} onChange={(e) => setTrack(e.target.value as RankingTrack)} disabled={going}>
+          {TRACKS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.name}
+            </option>
+          ))}
+        </select>
         <button type="button" className="btn-antique" onClick={(e) => void start(e.currentTarget)} disabled={going}>
           {going ? 'A run is going' : 'Start a run now'}
         </button>
@@ -215,41 +210,38 @@ export default function RunsPanel() {
           </div>
         ))}
       {runs !== null && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table runs-table">
-            <caption className="visually-hidden">Rating runs, newest first</caption>
-            <thead>
-              <tr>
-                <th scope="col">Run</th>
-                <th scope="col">Track</th>
-                <th scope="col">State</th>
-                <th scope="col">Started ({ZONE})</th>
-                <th scope="col" className="run-wide">Games</th>
-                <th scope="col" className="run-wide">Players</th>
-                <th scope="col">Size</th>
-                <th scope="col">On disk</th>
-                <th scope="col" className="run-wide">Engine</th>
-                <th scope="col">Protect</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((r) => (
-                <Fragment key={r.id}>
-                  <RunRow
-                    run={r}
-                    comparing={comparing === r.id}
-                    onCompare={() => setComparing(comparing === r.id ? null : r.id)}
-                    onPublish={(opener) => void publish(r, opener)}
-                    onProtect={(on) => void protect(r, on)}
-                    onDelete={(opener) => void remove(r, opener)}
-                  />
-                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={11} onClose={close} />
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Rating runs, newest first" className="runs-table">
+          <thead>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col">Track</th>
+              <th scope="col">State</th>
+              <th scope="col">Started ({ZONE})</th>
+              <th scope="col" className="run-wide">Games</th>
+              <th scope="col" className="run-wide">Players</th>
+              <th scope="col">Size</th>
+              <th scope="col">On disk</th>
+              <th scope="col" className="run-wide">Engine</th>
+              <th scope="col">Protect</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r) => (
+              <Fragment key={r.id}>
+                <RunRow
+                  run={r}
+                  comparing={comparing === r.id}
+                  onCompare={() => setComparing(comparing === r.id ? null : r.id)}
+                  onPublish={(opener) => void publish(r, opener)}
+                  onProtect={(on) => void protect(r, on)}
+                  onDelete={(opener) => void remove(r, opener)}
+                />
+                <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={11} onClose={close} />
+              </Fragment>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
       {comparing !== null && (
         <div className="run-block">
@@ -261,7 +253,7 @@ export default function RunsPanel() {
           {all ? `Show the latest ${SHOWN}` : `Show all ${runs.length}`}
         </button>
       )}
-    </section>
+    </AdminCard>
   );
 }
 
@@ -284,7 +276,7 @@ function RunRow({
   return (
     <tr>
       <th scope="row">{run.id}</th>
-      <td>{trackLabel(run.ranking)}</td>
+      <td>{trackName(run.ranking)}</td>
       <td>
         <span className={`run-state run-${state}`}>{runLabel(run)}</span>
       </td>

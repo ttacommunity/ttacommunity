@@ -1,5 +1,6 @@
 /** DANeo's Dynastic Milestones & Champion Chronicles panel, for any tournament: its stories, as admin writes them. */
 import PlayerLink from './PlayerLink';
+import PanelHeader from './PanelHeader';
 
 /** A story: a player, the badge beside them (may be empty), a title and the story. */
 export type StoryView = { player: string; badge: string; title: string; text: string };
@@ -8,10 +9,8 @@ export type StoryView = { player: string; badge: string; title: string; text: st
 export default function StoriesPanel({ stories }: { stories: readonly StoryView[] }) {
   if (stories.length === 0) return null;
   return (
-    <div className="panel-card panel-stories">
-      <h2 className="panel-header">
-        <span>⚡</span> Master+ Dynastic Milestones &amp; Champion Chronicles
-      </h2>
+    <div className="rating-card panel-card panel-stories">
+      <PanelHeader icon="⚡" title="Master+ Dynastic Milestones & Champion Chronicles" />
       <div className="stories-grid">
         {stories.map((s, i) => (
           <div key={`${i} ${s.player}`} className="story-card">

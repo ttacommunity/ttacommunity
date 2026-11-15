@@ -2,6 +2,9 @@
 import type { GameRecord } from '@ttac/shared/ratings';
 import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tournament-series';
 import PlayerLink from './PlayerLink';
+import { TitleBadge } from './PlayerMarks';
+import Message from './Message';
+import PanelHeader from './PanelHeader';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -19,16 +22,13 @@ export default function GameRecordsPanel({
 }) {
   if (records !== null && records.length === 0) return null;
   return (
-    <div className="panel-card panel-records">
-      <h2 className="panel-header panel-header-split">
-        <span className="panel-header-title">
-          <span>📈</span> {title}
-        </span>
+    <div className="rating-card panel-card panel-records">
+      <PanelHeader icon="📈" title={title}>
         <span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>
-      </h2>
+      </PanelHeader>
       <p className="records-intro">{intro}</p>
       <div className="trophy-table-container records-table">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">The ten highest winning scores</caption>
           <thead>
             <tr>
@@ -48,18 +48,16 @@ export default function GameRecordsPanel({
           </thead>
           <tbody>
             {records === null ? (
-              <tr>
-                <td colSpan={6} className="waiting-row">
-                  {waiting}
-                </td>
-              </tr>
+              <Message form="row" colSpan={6}>
+                {waiting}
+              </Message>
             ) : (
               records.map((g, i) => (
                 <tr key={`${g.tournament} ${g.date} ${g.name}`}>
                   <td className="cell-rank">#{i + 1}</td>
                   <td>
                     <PlayerLink name={g.name} className="trophy-player" />{' '}
-                    {showsWorldChampion(slug, g.world_champion) && <span className="badge badge-wc trophy-mark">WC</span>}
+                    {showsWorldChampion(slug, g.world_champion) && <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />}
                   </td>
                   <td className="cell-points">{cultureScore(g.score)}</td>
                   <td className="cell-opponents">

@@ -4,16 +4,15 @@ import SiteLayout from '../../../../layouts/SiteLayout.astro';
 import AnalysisNav from '../../../../components/AnalysisNav.astro';
 import ActivityPage from '../../../../components/ActivityPage';
 import '../../../../components/AnalysisPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
 ---
 <SiteLayout title="Activity & Demographics | Through the Ages" description="Active and retired Through the Ages players, games per format, titles and countries.">
   <AnalysisNav page="activity" />
 
-  <div class="analysis-hero-card">
-    <div>
-      <h1 class="analysis-hero-title">Player Activity &amp; Community Demographics</h1>
-      <p class="analysis-hero-desc">Insights into active vs retired competitors, global distribution, match formats, and master title holders.</p>
-    </div>
-  </div>
+  <PageHeader
+    title="Player Activity & Community Demographics"
+    subtitle="Insights into active vs retired competitors, global distribution, match formats, and master title holders."
+  />
 
   <ActivityPage client:only="react" apiUrl={PUBLIC_API_URL} />
 </SiteLayout>

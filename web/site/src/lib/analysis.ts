@@ -1,6 +1,7 @@
 /** Upstream's model analysis in the browser: its model list, composite score, ranking and curve filters. */
 import { count, signed } from '@ttac/shared/numbers';
 import { titleName } from './leaderboard-display';
+import type { SortColumns } from '@ttac/shared/sort';
 import type { Activity, CalibrationRow, CountryRatings, Format, SeatStatsGroup, TitleCode } from '@ttac/shared/ratings';
 
 export type { CountryRatings };
@@ -116,7 +117,6 @@ export function eceClass(pct: number): 'good' | 'fair' | 'poor' {
   return pct < 1.5 ? 'good' : pct < 2.5 ? 'fair' : 'poor';
 }
 
-export const FORMAT_NAMES: Record<Format, string> = { 0: 'All Formats', 2: '2-Player (Duel)', 3: '3-Player', 4: '4-Player' };
 export const MODE_NAMES: Record<EvalMode, string> = { standard: 'Standard (Match-Time)', walk_forward: 'Walk-Forward (Out-of-Sample)' };
 
 /** parseAnalysisParams reads the address's eval_mode and format, falling back to the remembered format, as upstream's session. */
@@ -179,15 +179,16 @@ export function titleLabel(code: TitleCode): string {
 
 export type CountryColumn = 'rank' | 'country' | 'players' | 'gm' | 'm_plus' | 'p_plus' | 'all';
 
-/** sortCountries sorts the countries table: numbers with none as 0, and the country code as text. */
-export function sortCountries<T extends CountryRatings & { rank: number }>(rows: readonly T[], col: CountryColumn, asc: boolean): T[] {
-  const dir = asc ? 1 : -1;
-  if (col === 'rank') return [...rows].sort((a, b) => dir * (a.rank - b.rank));
-  if (col === 'country') {
-    return [...rows].sort((a, b) => dir * String(a[col]).localeCompare(String(b[col])));
-  }
-  return [...rows].sort((a, b) => dir * ((a[col] ?? 0) - (b[col] ?? 0)));
-}
+/** COUNTRY_COLUMNS are the countries table's sortable columns, each ascending first as upstream's table sorts; a missing average sorts last. */
+export const COUNTRY_COLUMNS: SortColumns<CountryRatings & { rank: number }, CountryColumn> = {
+  rank: { value: (r) => r.rank, first: 'asc' },
+  country: { value: (r) => r.country, first: 'asc' },
+  players: { value: (r) => r.players, first: 'asc' },
+  gm: { value: (r) => r.gm, first: 'asc' },
+  m_plus: { value: (r) => r.m_plus, first: 'asc' },
+  p_plus: { value: (r) => r.p_plus, first: 'asc' },
+  all: { value: (r) => r.all, first: 'asc' },
+};
 
 export type SeatTier = 'all' | 'grandmaster' | 'master' | 'advanced' | 'intermediate' | 'beginner';
 

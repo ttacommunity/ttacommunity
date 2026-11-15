@@ -7,7 +7,6 @@ import {
   challengeSets,
   compareBests,
   compareHref,
-  entryDay,
   byMeasure,
   matchingPlayers,
   nameParam,
@@ -21,7 +20,6 @@ import {
   playNext,
   scopeLeaders,
   setLabel,
-  signed,
 } from './challenges';
 
 const challenge = (id: string, set: 'original' | 'expansion' | 'mix', group: string) => ({ id, set, group });
@@ -139,16 +137,6 @@ describe('compareBests', () => {
   });
 });
 
-describe('signed', () => {
-  it.each([
-    [5, '+5'],
-    [-3, '-3'],
-    [0, '±0'],
-  ])('writes %d as %s', (value, want) => {
-    expect(signed(value)).toBe(want);
-  });
-});
-
 describe('niceTicks', () => {
   it.each([
     ['from 0 to past the top', 0, 230, [0, 100, 200, 300]],
@@ -156,15 +144,6 @@ describe('niceTicks', () => {
     ['a flat line', 0, 0, [0]],
   ])('runs %s', (_name, min, max, want) => {
     expect(niceTicks(min, max)).toEqual(want);
-  });
-});
-
-describe('entryDay', () => {
-  it.each([
-    ['in the zone given', '2025-02-24T23:30:00Z', 'UTC', '24 Feb 2025'],
-    ['the next day where it already is', '2025-02-24T23:30:00Z', 'Europe/Berlin', '25 Feb 2025'],
-  ])('writes the day %s', (_name, instant, zone, want) => {
-    expect(entryDay(instant, zone)).toBe(want);
   });
 });
 

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { boardCells } from '../lib/tournament-series';
 import type { BoardEntry } from '../lib/trophyboard';
 import PlayerLink from './PlayerLink';
+import Message from './Message';
+import PanelHeader from './PanelHeader';
 
 /** TrophyboardPanel shows the board, or waiting while rows is null; mark adds a player's title, honours their titles column. */
 export default function TrophyboardPanel<R extends BoardEntry & { details?: string | null }>({
@@ -19,19 +21,16 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
   const board = boardCells(rows ?? []);
   const span = 2 + board.headings.length + (honours ? 1 : 0);
   return (
-    <div className="panel-card">
-      <h2 className="panel-header panel-header-split">
-        <span className="panel-header-title">
-          <span>🏅</span> Official Trophyboard &amp; Hall of Fame
-        </span>
+    <div className="rating-card panel-card">
+      <PanelHeader icon="🏅" title="Official Trophyboard & Hall of Fame">
         <span className="panel-tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>
-      </h2>
+      </PanelHeader>
       <div className="trophy-sub">
         <span>Verified podium &amp; title records</span>
         <span className="trophy-sub-hint">Scroll table ↕</span>
       </div>
       <div className="trophy-table-container">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">Each medallist's podiums</caption>
           <thead>
             <tr>
@@ -49,11 +48,9 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
           </thead>
           <tbody>
             {rows === null || rows.length === 0 ? (
-              <tr>
-                <td colSpan={span} className="waiting-row">
-                  {rows === null ? waiting : 'No podiums recorded yet.'}
-                </td>
-              </tr>
+              <Message form="row" colSpan={span}>
+                {rows === null ? waiting : 'No podiums recorded yet.'}
+              </Message>
             ) : (
               rows.map((b, i) => (
                 <tr key={b.name}>

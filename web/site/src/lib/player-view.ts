@@ -2,6 +2,7 @@
 import { signed } from '@ttac/shared/numbers';
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
 import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode, type Track } from './leaderboard-view';
+import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
 
 /** Below this many games in a format an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
@@ -567,7 +568,7 @@ export interface RivalsView {
   filter: string;
   minGames: number;
   expanded: boolean;
-  sort: { key: RivalKey; asc: boolean } | null;
+  sort: Sort<RivalKey>;
 }
 
 /**
@@ -575,21 +576,21 @@ export interface RivalsView {
  * filter or a minimum shows every match.
  */
 export function visibleRivals(rivals: readonly Rival[], view: RivalsView): Rival[] {
-  const sorted = [...rivals];
-  if (view.sort !== null) {
-    const { key, asc } = view.sort;
-    const dir = asc ? 1 : -1;
-    sorted.sort((a, b) => dir * (key === 'name' ? a.name.toLowerCase().localeCompare(b.name.toLowerCase()) : a[key] - b[key]));
-  }
+  const sorted = sortRows(rivals, RIVAL_COLUMNS, view.sort);
   const filter = view.filter.trim().toLowerCase();
   if (filter === '' && view.minGames <= 1) return view.expanded ? sorted : sorted.slice(0, RIVALS_SHOWN);
   return sorted.filter((r) => r.games >= view.minGames && r.name.toLowerCase().includes(filter));
 }
 
-/** firstSort is the direction a column starts in: names ascending, numbers descending. */
-export function firstSort(key: RivalKey): boolean {
-  return key === 'name';
-}
+/** RIVAL_COLUMNS are the rivals table's sortable columns: names ascending first, numbers descending. */
+export const RIVAL_COLUMNS: SortColumns<Rival, RivalKey> = {
+  name: { value: (r) => r.name, first: 'asc' },
+  games: { value: (r) => r.games, first: 'desc' },
+  wins: { value: (r) => r.wins, first: 'desc' },
+  losses: { value: (r) => r.losses, first: 'desc' },
+  draws: { value: (r) => r.draws, first: 'desc' },
+  win_rate: { value: (r) => r.win_rate, first: 'desc' },
+};
 
 /** What the reader has chosen on a player's matrix page; the engine comes from the player page. */
 export interface MatrixView {

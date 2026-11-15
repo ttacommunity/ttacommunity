@@ -4,8 +4,8 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournamentRow } from '../lib/admin-api';
 import { newGroupBody } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
 
 type Kind = AdminTournamentRow['kind'];
 
@@ -22,21 +22,13 @@ export const GROUP_KINDS: { kind: Kind; label: string }[] = [
 export default function NewGroupForm() {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<Kind>('series');
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const make = async (e: FormEvent) => {
     e.preventDefault();
     const body = newGroupBody(name, kind);
     if (body === null) return;
-    setStatus('Making…');
-    setRefusal(null);
-    const r = await req.send<{ slug: string }>(req.newGroup(body));
-    setRefusal(refusalOf(r));
-    if (r.ok) {
-      window.location.href = settingsHref(r.data.slug);
-    } else {
-      setStatus('');
-    }
+    const r = await saving.run(() => req.send<{ slug: string }>(req.newGroup(body)), { done: 'Made', working: 'Making…' });
+    if (r?.ok) window.location.href = settingsHref(r.data.slug);
   };
   return (
     <form className="new-group" onSubmit={make} aria-labelledby="new-group-heading">
@@ -55,15 +47,11 @@ export default function NewGroupForm() {
           ))}
         </select>
       </div>
-      <p>
+      <SaveBar save={saving}>
         <button type="submit" className="btn-antique" disabled={newGroupBody(name, kind) === null}>
           Make the group
-        </button>{' '}
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </p>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
+        </button>
+      </SaveBar>
     </form>
   );
 }

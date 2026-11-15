@@ -7,6 +7,8 @@ import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
 import { ADMIN_TITLES, titleLabel, type AdminTitle } from '../lib/titles';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 type TitleOverride = components['schemas']['TitleOverride'];
 /** TitlesPanel lists the titles set in admin, and sets or removes one. */
@@ -42,49 +44,43 @@ export default function TitlesPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="titles-heading">
+    <AdminCard id="titles-heading" title="Player titles">
       {dialog.element}
-      <h2 id="titles-heading" className="rating-card-heading">
-        Player titles
-      </h2>
       <p className="muted">
         A title set here replaces the one the engine derives, from the next rating run. A player still needs a tournament
         game in the last 12 months to show a badge. World Champion comes from the World Championship's podium.
       </p>
       <Notice outcome={shownAt(outcome, 'titles')} onClose={close} />
       {list !== null && list.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Titles set in admin</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Title</th>
-                <th scope="col">Reason</th>
-                <th scope="col">
-                  <span className="visually-hidden">Remove</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((o) => (
-                <Fragment key={o.name}>
-                  <tr>
-                    <th scope="row">{o.name}</th>
-                    <td>{titleLabel(o.title)}</td>
-                    <td>{o.reason}</td>
-                    <td>
-                      <button type="button" className="btn-antique" onClick={(e) => void remove(o, e.currentTarget)}>
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                  <NoticeRow outcome={shownAt(outcome, `title ${o.name}`)} columns={4} onClose={close} />
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Titles set in admin">
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Title</th>
+              <th scope="col">Reason</th>
+              <th scope="col">
+                <span className="visually-hidden">Remove</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((o) => (
+              <Fragment key={o.name}>
+                <tr>
+                  <th scope="row">{o.name}</th>
+                  <td>{titleLabel(o.title)}</td>
+                  <td>{o.reason}</td>
+                  <td>
+                    <button type="button" className="btn-antique" onClick={(e) => void remove(o, e.currentTarget)}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+                <NoticeRow outcome={shownAt(outcome, `title ${o.name}`)} columns={4} onClose={close} />
+              </Fragment>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
       {list !== null && list.length === 0 && <p className="muted">No titles are set by hand.</p>}
       <form className="admin-add" onSubmit={(e) => void save(e)}>
@@ -112,6 +108,6 @@ export default function TitlesPanel() {
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'set title')} onClose={close} />
-    </section>
+    </AdminCard>
   );
 }

@@ -20,7 +20,6 @@ import {
   sortCareer,
   sortSeasons,
   sortTournaments,
-  titleBadge,
   totalTitles,
   tournamentCategory,
   tournamentOverviews,
@@ -72,36 +71,6 @@ describe('totalTitles', () => {
   it('adds the four circuits', () => {
     expect(totalTitles(summary({ world_titles: 1, international_titles: 6, intermezzo_titles: 8, royal_league_titles: 2 }))).toBe(17);
     expect(totalTitles(null)).toBe(0);
-  });
-});
-
-describe('titleBadge', () => {
-  it.each([
-    [
-      'the reigning World Champion',
-      'WC',
-      { code: 'WC', year: 2025 },
-      { code: 'wc', text: 'World Champion', tooltip: 'Official Competitive Title: Reigning World Champion (2025)', reigning: true },
-    ],
-    [
-      'a past World Champion over the current title',
-      'GM',
-      { code: 'WC', year: 2023 },
-      { code: 'wc', text: 'World Champion', tooltip: 'Official Competitive Title: World Champion (2023)', reigning: false },
-    ],
-    [
-      'the current title when the peak is no higher',
-      'GM',
-      { code: 'GM', year: 2024 },
-      { code: 'gm', text: 'Grandmaster', tooltip: 'Official Competitive Title: Grandmaster', reigning: false },
-    ],
-  ] as const)('shows %s', (_name, current, peak, want) => {
-    expect(titleBadge({ code: current, count: 1, reason: '' }, peak)).toEqual(want);
-  });
-
-  it('shows the current title with no peak, and nothing with neither', () => {
-    expect(titleBadge({ code: 'M', count: 1, reason: '' }, null)?.text).toBe('Master');
-    expect(titleBadge(null, null)).toBeNull();
   });
 });
 

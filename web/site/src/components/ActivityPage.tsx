@@ -1,13 +1,14 @@
 /** Upstream's activity and demographics page: players, games per format, titles and the leading countries. */
-import { useEffect, useMemo, useState } from 'react';
-import { activity, currentRun, type Activity } from '@ttac/shared/ratings';
-import { formatCards, sortCountries, titleLabel, type CountryColumn } from '../lib/analysis';
+import { useMemo } from 'react';
+import { activity, currentRun } from '@ttac/shared/ratings';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
+import { formatCards, COUNTRY_COLUMNS, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
-import { Flag } from './PlayerMarks';
+import { Flag, TitleBadge } from './PlayerMarks';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import { useLoad } from './useLoad';
 
 
 const COLUMNS: { col: CountryColumn; label: string; tip?: string }[] = [
@@ -24,18 +25,9 @@ const avg = (x: number | null) => (x === null ? '-' : x.toFixed(1));
 
 /** ActivityPage loads the current run's activity and shows it as upstream's page does. */
 export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<{ activity: Activity; years: [number, number] | null }>>({ kind: 'loading' });
-  const [sort, setSort] = useState<{ col: CountryColumn; asc: boolean } | null>(null);
-  const [directions, setDirections] = useState<Partial<Record<CountryColumn, boolean>>>({});
-
-  useEffect(() => {
-    currentRun(apiUrl)
-      .then((r) => activity(apiUrl, r.run_id).then((a) => setLoad({ kind: 'ready', data: { activity: a, years: runYears(r.first_game, r.last_game) } })))
-      .catch((e: unknown) => setLoad({ kind: 'error', message: errorText(e) }));
-  }, [apiUrl]);
-
+  const load = useLoad('activity', () => currentRun(apiUrl).then((r) => activity(apiUrl, r.run_id).then((a) => ({ activity: a, years: runYears(r.first_game, r.last_game) }))));
   const ranked = useMemo(() => (load.kind === 'ready' ? load.data.activity.countries.map((c, i) => ({ ...c, rank: i + 1 })) : []), [load]);
-  const countries = sort === null ? ranked : sortCountries(ranked, sort.col, sort.asc);
+  const [countries, sort, sortBy] = useSort(ranked, COUNTRY_COLUMNS);
 
   if (load.kind !== 'ready') return <Waiting load={load} what="the activity figures" />;
 
@@ -44,12 +36,6 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const total = a.active + a.inactive;
   const pct = (n: number) => (total > 0 ? ((n / total) * 100).toFixed(1) : '0.0');
   const formats = formatCards(a.formats);
-  // Each header flips its own direction, starting ascending, as upstream's script does.
-  const sortBy = (col: CountryColumn) => {
-    const asc = !directions[col];
-    setDirections({ ...directions, [col]: asc });
-    setSort({ col, asc });
-  };
 
   return (
     <>
@@ -100,7 +86,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
             {a.titles.map((t) => (
               <div key={t.code} className="activity-item">
                 <div className="activity-title">
-                  <span className={`badge badge-${t.code.toLowerCase()} activity-badge`}>{t.code}</span>
+                  <TitleBadge title={{ code: t.code }} className="activity-badge" />
                   <strong>{titleLabel(t.code)}</strong>
                 </div>
                 <div className="activity-item-value activity-title-count">{t.players} players</div>
@@ -116,21 +102,14 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
           Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort.
         </p>
         <ScrollTable hint="country demographics">
-          <table className="activity-table">
+          <table className="leaderboard-table activity-table">
             <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
             <thead>
               <tr>
                 {COLUMNS.map((c) => (
-                  <th
-                    key={c.col}
-                    scope="col"
-                    className={c.col === 'country' ? 'col-country' : undefined}
-                    aria-sort={sort?.col === c.col ? (sort.asc ? 'ascending' : 'descending') : undefined}
-                  >
-                    <button type="button" className="sort-header" data-tooltip={c.tip} onClick={() => sortBy(c.col)}>
-                      {c.label} ⇅
-                    </button>
-                  </th>
+                  <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} className={c.col === 'country' ? 'col-country' : undefined}>
+                    <span data-tooltip={c.tip}>{c.label}</span>
+                  </SortHeader>
                 ))}
               </tr>
             </thead>

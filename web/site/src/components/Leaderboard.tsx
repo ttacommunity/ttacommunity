@@ -12,11 +12,10 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
-import { errorText } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
-import { viewLinks } from '../lib/navigate';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
+import SideDrawer, { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
 import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
@@ -25,7 +24,6 @@ import {
   inactiveCutoff,
   csvUrl,
   defaultMinOpps,
-  deltas,
   rankChange,
   rankNow,
   hasFilters,
@@ -45,7 +43,7 @@ import {
   titleOptions,
   viewParams,
   withRanking,
-  yearDeltas,
+  shownChanges,
   yearRows,
   type Delta,
   type RankedRow,
@@ -53,113 +51,65 @@ import {
   type Track,
   type View,
 } from '../lib/leaderboard-view';
-import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { remember } from '../lib/remembered';
+import { browserStorage } from '@ttac/shared/storage';
 import './Leaderboard.css';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import { useLoad } from './useLoad';
+import { readAddress, useAddressView, type Address } from './useAddressView';
 
-type State =
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; board: Board; year: YearLeaderboard | null; lastGame: string | null };
+type Shown = { board: Board; year: YearLeaderboard | null; lastGame: string | null };
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
-const narrow = () => window.innerWidth <= 768;
 
-function readView(): View {
-  return parseView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
+const ADDRESS: Address<View> = { parse: parseView, params: (v) => viewParams(v, true), remembers: (v) => v };
 
 /** Shows the chosen leaderboard. Every choice is part of the address, so a view can be shared. */
 export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<View>(readView);
-  const [state, setState] = useState<State>({ kind: 'loading' });
+  const { view, go, linkTo } = useAddressView(ADDRESS);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const model = modelOf(view);
 
-  const go = useCallback((next: View) => {
-    window.history.pushState(null, '', `?${viewParams(next, true)}`);
-    remember(browserStorage(), next);
-    setView(next);
-  }, []);
-  const linkTo: LinkTo = viewLinks((v) => viewParams(v, true), go);
-
   useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    remember(browserStorage(), readView());
-    try {
-      if (!narrow()) setOptionsOpen(window.localStorage.getItem(OPTIONS_OPEN) === 'true');
-    } catch {
-      // Without storage the drawer starts closed.
-    }
-    return () => window.removeEventListener('popstate', onPop);
+    remember(browserStorage(), readAddress(ADDRESS));
+    if (!narrow()) setOptionsOpen(browserStorage()?.getItem(OPTIONS_OPEN) === 'true');
   }, []);
 
-  useEffect(() => {
-    let stale = false;
-    setState({ kind: 'loading' });
-    currentRun(apiUrl, view.ranking)
-      .then(async (run): Promise<State> => {
-        if (view.year === null)
-          return { kind: 'ready', board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
-        const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
-        return { kind: 'ready', board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
-      })
-      .then((next) => !stale && setState(next))
-      .catch((e: unknown) => !stale && setState({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking, model, view.format, view.year]);
+  const loaded = useLoad(JSON.stringify([view.ranking, model, view.format, view.year]), async (): Promise<Shown> => {
+    const run = await currentRun(apiUrl, view.ranking);
+    if (view.year === null) return { board: await leaderboard(apiUrl, run.run_id, model, view.format), year: null, lastGame: run.last_game };
+    const year = await yearLeaderboard(apiUrl, run.run_id, view.year, model, view.format);
+    return { board: { run_id: year.run_id, model, format: view.format, players: [] }, year, lastGame: run.last_game };
+  });
+  const state = loaded.kind === 'ready' ? { kind: 'ready' as const, ...loaded.data } : loaded;
 
-  const [archive, setArchive] = useState<YearEntry[] | null>(null);
-  useEffect(() => {
-    let stale = false;
-    currentRun(apiUrl, view.ranking)
-      .then((run) => fetchYears(apiUrl, run.run_id))
-      .then((y) => !stale && setArchive(y.years))
-      .catch(() => !stale && setArchive([]));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking]);
+  // Without the archive the years menu is empty rather than broken.
+  const years = useLoad(view.ranking, () => currentRun(apiUrl, view.ranking).then((run) => fetchYears(apiUrl, run.run_id)));
+  const archive: YearEntry[] | null = years.kind === 'ready' ? years.data.years : years.kind === 'error' ? [] : null;
 
   const toggleOptions = (open: boolean) => {
     setOptionsOpen(open);
     try {
-      window.localStorage.setItem(OPTIONS_OPEN, String(open));
+      browserStorage()?.setItem(OPTIONS_OPEN, String(open));
     } catch {
       // The drawer simply starts closed next time.
     }
-    document.body.style.overflow = open && narrow() ? 'hidden' : '';
   };
 
   const yearBoard = state.kind === 'ready' ? state.year : null;
   const fromYear = useMemo(() => (yearBoard === null ? null : yearRows(yearBoard, view.stats)), [yearBoard, view.stats]);
   const players = useMemo(() => fromYear?.rows ?? (state.kind === 'ready' ? state.board.players : []), [fromYear, state]);
-  const [changes, setChanges] = useState<Map<string, Delta> | null>(null);
-
-  useEffect(() => {
-    setChanges(null);
-    if (state.kind !== 'ready' || view.delta === 'none') return;
-    if (state.year !== null) {
-      setChanges(yearDeltas(state.year));
-      return;
-    }
-    let stale = false;
-    const { board } = state;
-    history(apiUrl, board.run_id, board.model, board.format, view.delta)
-      .then((past) => !stale && setChanges(deltas(board.players, past.players)))
-      .catch(() => !stale && setChanges(new Map()));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, state, view.delta]);
+  const pastWindow = view.delta === 'none' ? null : view.delta;
+  const pastBoard = state.kind === 'ready' && state.year === null ? state.board : null;
+  const past = useLoad(
+    JSON.stringify([pastBoard?.run_id, pastBoard?.model, pastBoard?.format, pastWindow]),
+    pastBoard === null || pastWindow === null ? null : () => history(apiUrl, pastBoard.run_id, pastBoard.model, pastBoard.format, pastWindow),
+  );
+  const changes = useMemo(() => shownChanges(state.kind === 'ready' ? state : null, view.delta, past), [state, view.delta, past]);
   const cutoff = inactiveCutoff(state.kind === 'ready' ? state.lastGame : null);
   const pool = useMemo(() => rankPool(players, view, fromYear?.played, cutoff), [players, view, fromYear, cutoff]);
   const found = useMemo(() => search(pool, view.search), [pool, view.search]);
@@ -189,17 +139,12 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
           <div className="format-bar-actions">
             <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
-            <button
-              type="button"
-              className={['btn-options-toggle', hasOptions(view) && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
+            <OptionsToggle
               title="Toggle advanced rating options, season archive, and filters"
-              aria-expanded={optionsOpen}
+              active={hasOptions(view)}
+              open={optionsOpen}
               onClick={() => toggleOptions(!optionsOpen)}
-            >
-              <span>⚙️ Options</span>
-              {hasOptions(view) && <span className="options-active-badge">Active</span>}
-              <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
-            </button>
+            />
           </div>
         </div>
 
@@ -397,7 +342,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       </div>
 
       {optionsOpen && (
-        <Sidebar onClose={() => toggleOptions(false)}>
+        <SideDrawer onClose={() => toggleOptions(false)}>
           <OptionsDrawer
             view={view}
             titles={titleOptions(players)}
@@ -415,7 +360,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             go={go}
             onClose={() => toggleOptions(false)}
           />
-        </Sidebar>
+        </SideDrawer>
       )}
     </div>
   );
@@ -444,47 +389,6 @@ const sortNames: Record<SortKey, string> = {
   win_rate: 'Win Rate',
   last_played: 'Last Played',
 };
-
-/** Sidebar places the drawer in the free space right of the card, as upstream does, or as a sheet on phones. */
-function Sidebar({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const place = () => {
-      const side = ref.current;
-      const layout = side?.parentElement;
-      if (!side || !layout) return;
-      if (narrow()) {
-        side.style.left = '';
-        side.style.right = '';
-        return;
-      }
-      const card = layout.getBoundingClientRect();
-      const width = document.documentElement.clientWidth;
-      const own = side.offsetWidth || 350;
-      const ideal = card.right + (width - card.right) / 2 - own / 2;
-      const left = Math.max(16, Math.min(ideal, width - own - 16));
-      side.style.left = `${left - card.left}px`;
-      side.style.right = 'auto';
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    place();
-    window.addEventListener('resize', place);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('resize', place);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
-  return (
-    <aside ref={ref} className="leaderboard-sidebar">
-      {/* On phones a tap on the dimmed backdrop closes the sheet, as upstream's does. */}
-      <button type="button" className="sidebar-backdrop" aria-label="Close options" tabIndex={-1} onClick={onClose} />
-      {children}
-    </aside>
-  );
-}
 
 const headers: [SortKey | null, string, string][] = [
   ['rank', 'Rank', 'Current competitive ranking based on Conservative Rating (C = μ - 3σ).'],

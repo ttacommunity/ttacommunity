@@ -1,5 +1,5 @@
 /** A player's page for the current run, as upstream's: ratings by model, history chart, games and rivals. */
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
@@ -19,8 +19,6 @@ import {
   type PlayerSeatStats,
 } from '@ttac/shared/ratings';
 import CareerBox from './CareerBox';
-import BackLink from '@ttac/shared/BackLink';
-import { ExtraBadges, Flag } from './PlayerMarks';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import { formatTournamentDisplay } from '../lib/achievements';
@@ -29,7 +27,7 @@ import PlayerOptionsDrawer from './PlayerOptionsDrawer';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import {
-  firstSort,
+  RIVAL_COLUMNS,
   hasProfileOptions,
   isProvisional,
   matrixHref,
@@ -52,8 +50,6 @@ import {
   type RivalsView,
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
-import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
 import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
@@ -65,18 +61,26 @@ import type { GameRatingFilter } from '../lib/career';
 import Pager from './Pager';
 import CopyCode from './CopyCode';
 import { useLoad } from './useLoad';
-import { viewLinks, type Link } from '../lib/navigate';
-import { errorText, type Load } from '@ttac/shared/load';
-import { score } from '@ttac/shared/numbers';
+import { type Link } from '../lib/navigate';
+import { type Load } from '@ttac/shared/load';
+import { counted, ordinal, score } from '@ttac/shared/numbers';
+import Message from './Message';
+import PlayerHeader from './PlayerHeader';
+import { SortButton } from '@ttac/shared/SortHeader';
+import { nextSort } from '@ttac/shared/sort';
+import { useAddressView, type Address } from './useAddressView';
+import { OptionsToggle } from './SideDrawer';
 
-function readView(): PlayerView {
-  return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
+const ADDRESS: Address<PlayerView> = {
+  parse: parsePlayerView,
+  params: playerParams,
+  remembers: (v) => ({ ...DEFAULT_VIEW, engine: v.engine, reset: v.reset, format: v.format }),
+};
 
 /** Shows the player named in the address. Every choice is part of the address, so a view can be shared. */
 export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<PlayerView>(readView);
-  const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const { view, go, replace, linkTo } = useAddressView(ADDRESS);
+  const run = useLoad(String(view.ranking), () => currentRun(apiUrl, view.ranking).then((r) => r.run_id));
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [scale, setScale] = useState<ChartScale>('perspective');
   const [tiers, setTiers] = useState<ChartTiers>('on');
@@ -96,29 +100,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     });
   };
 
-  const go = useCallback((next: PlayerView) => {
-    window.history.pushState(null, '', `?${playerParams(next)}`);
-    remember(browserStorage(), { ...DEFAULT_VIEW, engine: next.engine, reset: next.reset, format: next.format });
-    setView(next);
-  }, []);
-  const linkTo = viewLinks(playerParams, go);
-
-  useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  useEffect(() => {
-    let stale = false;
-    setRun({ kind: 'loading' });
-    currentRun(apiUrl, view.ranking)
-      .then((r) => !stale && setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => !stale && setRun({ kind: 'error', message: errorText(e) }));
-    return () => {
-      stale = true;
-    };
-  }, [apiUrl, view.ranking]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const model = pageModel(view.engine, view.reset);
@@ -171,9 +152,8 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     if (profile.kind !== 'ready') return;
     const renamed = renamedView(view, profile.data.name);
     if (renamed === null) return;
-    window.history.replaceState(null, '', `?${playerParams(renamed)}`);
-    setView(renamed);
-  }, [profile, view]);
+    replace(renamed);
+  }, [profile, view, replace]);
 
   if (view.name === '') return <Message>No player was named. Choose one from the leaderboard.</Message>;
   if (run.kind === 'error') return <Waiting load={run} what="the ratings" />;
@@ -200,7 +180,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <div className="view-bar view-bar-row player-top-bar">
         <Segmented
           label="Format"
-          look="raised"
           groupClass="view-group view-group-format"
           prefix={<span className="view-bar-label">Format:</span>}
           options={([0, 2, 3, 4] as Format[]).map((f) => ({
@@ -211,17 +190,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           value={view.format}
           link={(format) => linkTo({ ...view, format, matchPage: 1 })}
         />
-        <button
-          type="button"
-          className={['btn-options-toggle', activeOptions && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
-          title="Profile options, track, reset mode, and chart controls"
-          aria-expanded={optionsOpen}
-          onClick={() => setOptionsOpen(!optionsOpen)}
-        >
-          <span>⚙️ Options</span>
-          {activeOptions && <span className="options-active-badge">Active</span>}
-          <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
-        </button>
+        <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
       </div>
 
       <CareerBox
@@ -277,9 +246,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card waiting-message">{children}</div>;
-}
 
 function Header({
   player,
@@ -292,63 +258,32 @@ function Header({
   provisional: boolean;
   gamesInFormat: number;
 }) {
-  const t = player.title;
   const board = new URLSearchParams({ model: view.engine, format: String(view.format) });
   return (
-    <div className="profile-header">
-      <div className="header-back">
-        <BackLink href={`/ratings/?${board}`}>Competitive Leaderboard</BackLink>
-      </div>
-      <div className="player-identity">
-        <div className="player-identity-name">
-          {t !== null && (
-            <span
-              className={`badge badge-${t.code.toLowerCase()}${t.code === 'WC' || t.code === 'SGM' ? ' badge-profile-lg' : ''}`}
-              data-tooltip={t.reason || show.titleName(t.code)}
-            >
-              {show.titleName(t.code)}
+    <PlayerHeader
+      player={player}
+      back={{ href: `/ratings/?${board}`, label: 'Competitive Leaderboard' }}
+      nameExtra={
+        provisional && (
+          <>
+            {' '}
+            <span className="profile-calibrating" data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 opponents faced`}>
+              ⏳
             </span>
-          )}
-          <ExtraBadges badges={player.badges} tooltip />
-          <h1 className="player-profile-name">
-            {player.name}
-            {provisional && (
-              <>
-                {' '}
-                <span
-                  className="profile-calibrating"
-                  data-tooltip={`Provisional / Calibrating Prior: ${gamesInFormat}/15 opponents faced`}
-                >
-                  ⏳
-                </span>
-              </>
-            )}
-          </h1>
-        </div>
-        <div className="player-meta-pill">
-          <Flag country={player.country} />
-          {player.peak !== null && (
-            <>
-              <span className="meta-separator">•</span>
-              <span>
-                Peak Rank:{' '}
-                <span className={`badge badge-inline badge-${player.peak.code.toLowerCase()}`}>
-                  {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-                </span>
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-      <div className="profile-links">
-        <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
-          <span aria-hidden="true">🏆</span> Tournament Achievements »
-        </a>
-        <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
-          <span aria-hidden="true">📊</span> Career Years »
-        </a>
-      </div>
-    </div>
+          </>
+        )
+      }
+      links={
+        <>
+          <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
+            <span aria-hidden="true">🏆</span> Tournament Achievements »
+          </a>
+          <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
+            <span aria-hidden="true">📊</span> Career Years »
+          </a>
+        </>
+      }
+    />
   );
 }
 
@@ -436,7 +371,7 @@ function Games({
         <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
       </div>
       <ScrollTable hint="full match details">
-        <table className="data-table">
+        <table className="leaderboard-table data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
           </caption>
@@ -546,18 +481,13 @@ function Rivals({
   const all = state.kind === 'ready' ? state.data.rivals : [];
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
-  const sortBy = (key: RivalKey) =>
-    setRv({ ...rv, sort: { key, asc: rv.sort?.key === key ? !rv.sort.asc : firstSort(key) } });
-  const ind = (key: RivalKey) => (
-    <span className={rv.sort?.key === key ? 'sort-ind active' : 'sort-ind'}>
-      {rv.sort?.key === key ? (rv.sort.asc ? '▲' : '▼') : '↕'}
-    </span>
+  const sortBy = (col: RivalKey) => setRv({ ...rv, sort: nextSort(rv.sort, col, RIVAL_COLUMNS) });
+  const head = (col: RivalKey, label: string, className?: string) => (
+    <SortButton col={col} sort={rv.sort} onSort={sortBy} className={className}>
+      {label}
+    </SortButton>
   );
-  const head = (key: RivalKey, label: string, tip: string, extra = '') => (
-    <button type="button" className={`sort-head${extra}`} title={tip} onClick={() => sortBy(key)}>
-      {label} {ind(key)}
-    </button>
-  );
+  const way = (col: RivalKey) => (rv.sort?.col === col ? (rv.sort.desc ? 'descending' : 'ascending') : undefined);
 
   return (
     <div className="rating-card">
@@ -586,18 +516,23 @@ function Rivals({
         </div>
       </div>
       <ScrollTable hint="full opponent stats">
-        <table className="data-table">
+        <table className="leaderboard-table data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
             <tr>
-              <th>{head('name', 'Opponent', 'Sort by Opponent Name')}</th>
-              <th>{head('games', 'Games', 'Sort by Total Games')}</th>
-              <th>
-                {head('wins', 'W', 'Click to sort by Wins', ' win')} - {head('losses', 'L', 'Click to sort by Losses', ' loss')} -{' '}
-                {head('draws', 'D', 'Click to sort by Draws', ' draw')}
+              <th scope="col" aria-sort={way('name')}>
+                {head('name', 'Opponent')}
               </th>
-              <th>{head('win_rate', 'Win %', 'Sort by Win %')}</th>
-              <th>Head-to-Head</th>
+              <th scope="col" aria-sort={way('games')}>
+                {head('games', 'Games')}
+              </th>
+              <th scope="col">
+                {head('wins', 'W', 'win')} - {head('losses', 'L', 'loss')} - {head('draws', 'D', 'draw')}
+              </th>
+              <th scope="col" aria-sort={way('win_rate')}>
+                {head('win_rate', 'Win %')}
+              </th>
+              <th scope="col">Head-to-Head</th>
             </tr>
           </thead>
           <tbody>
@@ -694,8 +629,8 @@ function PositionSeatStats({
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
             <span className="banner-metric-sub">
-              ({overall.total_wins} {overall.total_wins === 1 ? 'win' : 'wins'}
-              {overall.total_draws > 0 ? ` · ${overall.total_draws} ${overall.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+              ({counted(overall.total_wins, 'win')}
+              {overall.total_draws > 0 ? ` · ${counted(overall.total_draws, 'draw')}` : ''}
               {' '}· {overall.win_rate.toFixed(1)}%)
             </span>
           </div>
@@ -729,7 +664,7 @@ function PositionSeatStats({
       )}
 
       <ScrollTable hint="seat statistics">
-        <table className="data-table position-seat-table">
+        <table className="leaderboard-table data-table position-seat-table">
           <caption className="visually-hidden">
             Position and turn order win rates and placement breakdown for {data?.name ?? 'player'}
           </caption>
@@ -761,7 +696,7 @@ function PositionSeatStats({
                     <strong>{group.player_count}-Player Tables</strong>
                     <span className="group-meta">
                       {' '}— {group.total_games} games · {group.total_wins} wins
-                      {group.total_draws > 0 ? ` · ${group.total_draws} ${group.total_draws === 1 ? 'draw' : 'draws'}` : ''}
+                      {group.total_draws > 0 ? ` · ${counted(group.total_draws, 'draw')}` : ''}
                       {' '}({group.win_rate.toFixed(1)}% win rate) · Avg Culture: {group.avg_culture.toFixed(1)}
                     </span>
                   </td>
@@ -797,7 +732,7 @@ function PositionSeatStats({
                             <span
                               key={p.place}
                               className={`place-rate-pill place-pill-${p.place}`}
-                              title={`${p.place}${p.place === 1 ? 'st' : p.place === 2 ? 'nd' : p.place === 3 ? 'rd' : 'th'} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
+                              title={`${ordinal(p.place)} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
                             >
                               <span className="pill-place">{p.place}:</span> {p.count}{' '}
                               <span className="pill-pct">({p.rate.toFixed(0)}%)</span>

@@ -1,13 +1,12 @@
 /** A tournament's Format & Regulations, as DANeo's series pages show it: bullets, and how its games are rated. */
 import type { RegulationsBox } from '../lib/catalogue-view';
+import PanelHeader from './PanelHeader';
 
 /** RegulationsPanel shows the bullets, where they come from when that is CGE, and the rating note for a rated tournament. */
 export default function RegulationsPanel({ box, rated }: { box: RegulationsBox; rated: boolean }) {
   return (
-    <div className="panel-card">
-      <h2 className="panel-header">
-        <span>📜</span> Format &amp; Regulations
-      </h2>
+    <div className="rating-card panel-card">
+      <PanelHeader icon="📜" title="Format & Regulations" />
       <ul className="rules-list">
         {box.lines.map((line, i) => (
           <li key={`${i} ${line}`}>{line}</li>

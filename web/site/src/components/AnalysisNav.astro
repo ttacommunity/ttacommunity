@@ -1,21 +1,17 @@
 ---
 /** The analysis pages' subpage nav, with each page's own labels as upstream has them. */
+import SubpageNav from './SubpageNav.astro';
+
 interface Props {
   page: 'overview' | 'activity' | 'seats';
 }
 
 const { page } = Astro.props;
 const plain = page === 'activity';
-const links = [
+const tabs = [
   { id: 'overview', href: '/ratings/analysis/', label: plain ? 'Overview & Calibration' : '📈 Overview & Calibration' },
   { id: 'seats', href: '/ratings/analysis/seats/', label: plain ? 'Turn Order & Seats' : '🎲 Turn Order & Seats' },
   { id: 'activity', href: '/ratings/analysis/activity/', label: plain ? 'Activity & Demographics' : '🌎 Activity & Demographics' },
-];
+].map((t) => ({ ...t, current: t.id === page }));
 ---
-<nav class="subpage-nav" aria-label="Model analysis pages" data-page={page}>
-  {links.map((l) => (
-    <a href={l.href} class:list={['subpage-btn', { active: l.id === page }]} aria-current={l.id === page ? 'page' : undefined} data-link={l.id}>
-      {l.label}
-    </a>
-  ))}
-</nav>
+<SubpageNav label="Model analysis pages" tabs={tabs} />

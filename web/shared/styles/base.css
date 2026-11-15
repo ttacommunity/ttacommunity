@@ -34,6 +34,11 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* Secondary text: a hint, a note under a control, an empty list. */
+.muted {
+  color: var(--text-muted);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

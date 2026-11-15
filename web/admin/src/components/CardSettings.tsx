@@ -3,28 +3,21 @@ import { cardChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
-import { refusalOf, type Outcome } from '../lib/outcome';
-import Notice from './Notice';
+import SaveBar from './SaveBar';
+import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 /** CardSettings edits how the tournament presents itself on its card and its page's header. */
 export default function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
   const [card, setCard] = useState(t.card);
-  const [status, setStatus] = useState('');
-  const [refusal, setRefusal] = useState<Outcome | null>(null);
+  const saving = useSave();
   const changed = cardChanged(t.card, card);
   const save = async () => {
-    setStatus('Saving…');
-    setRefusal(null);
-    const r = await req.send(req.setCard(t.slug, card));
-    setStatus(r.ok ? 'Saved. The cards and the tournament page show it at once.' : '');
-    setRefusal(refusalOf(r));
-    if (r.ok) await onReload();
+    const r = await saving.run(() => req.send(req.setCard(t.slug, card)), { done: 'Saved. The cards and the tournament page show it at once.' });
+    if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="card-heading">
-      <h2 id="card-heading" className="rating-card-heading">
-        Card
-      </h2>
+    <AdminCard id="card-heading" title="Card">
       <p className="muted">
         How the tournament shows on the Hall of Fame and Every Tournament, and at the top of its own page. Leave a box empty
         to leave it out; with no icon it shows 📜.
@@ -75,15 +68,11 @@ export default function CardSettings({ t, onReload }: { t: AdminTournament; onRe
           />
         </label>
       </div>
-      <div className="note-actions">
+      <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={() => void save()} disabled={!changed}>
           Save card
         </button>
-        <span className="note-status" role="status">
-          {status}
-        </span>
-      </div>
-      <Notice outcome={refusal} onClose={() => setRefusal(null)} />
-    </section>
+      </SaveBar>
+    </AdminCard>
   );
 }

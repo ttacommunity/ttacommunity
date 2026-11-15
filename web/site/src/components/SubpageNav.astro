@@ -1,0 +1,26 @@
+---
+/** A section's row of sub-page tabs: each a link, the current page's marked, or plain text for a page not built yet; an action can follow in the slot. */
+interface Tab {
+  label: string;
+  href?: string;
+  current?: boolean;
+}
+interface Props {
+  label: string;
+  tabs: Tab[];
+}
+
+const { label, tabs } = Astro.props;
+---
+<nav class="subpage-nav" aria-label={label}>
+  {tabs.map((t) =>
+    t.href === undefined ? (
+      <span class="subpage-btn">{t.label}</span>
+    ) : (
+      <a href={t.href} class:list={['subpage-btn', { active: t.current }]} aria-current={t.current ? 'page' : undefined}>
+        {t.label}
+      </a>
+    ),
+  )}
+  <slot />
+</nav>

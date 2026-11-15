@@ -1,12 +1,17 @@
 /** A player's challenge page: their figures, their best on each challenge, what to play next, and their latest entries. */
 import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { viewerZone } from '@ttac/shared/time';
+import { formatDate, viewerZone } from '@ttac/shared/time';
 import { challengePlayer, RatingsApiError, type ChallengePlayer, type ChallengePlayerBest, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
-import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice, useKeptLoad } from './ChallengeParts';
+import { challengeHref, challengeSets, compareHref, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
+import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import Message from './Message';
+import { counted, plural } from '@ttac/shared/numbers';
+import Note from '@ttac/shared/Note';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -40,25 +45,20 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
     setAsIf(c === 'as-if');
   };
 
-  if (name === '') return <div className="rating-card waiting-message">Choose a player from the players list.</div>;
+  if (name === '') return <Message>Choose a player from the players list.</Message>;
   if (load.kind !== 'ready') return <Waiting load={load} what="this player" />;
   if (load.data === null) {
     return (
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">{name}</h1>
-        <p className="analysis-hero-desc">No entries for this player.</p>
-      </div>
+      <PageHeader title={name} subtitle="No entries for this player." />
     );
   }
   const p = load.data;
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">{p.player}</h1>
-      </div>
+      <PageHeader title={p.player} />
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />
+          <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           {p.summary && (
             <span className="muted">
               {measure === 'rating' ? 'Rating' : 'Total'} <strong>{formatMeasure(measureOf(p.summary, measure, set), measure)}</strong> ·{' '}
@@ -70,7 +70,6 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
           <MeasureSwitch value={measure} onChange={setMeasure} />
           <Segmented
             label="Which entries count"
-            look="raised"
             value={counting}
             onChange={choose}
             options={[
@@ -82,19 +81,19 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
         </div>
       </div>
       {counting === 'as-if' && (
-        <p className="rating-card challenges-what-if">
-          <strong>What if:</strong> all {p.unproven} unproven {p.unproven === 1 ? 'entry' : 'entries'} of {p.player} count as verified, measured against the
+        <Note>
+          <strong>What if:</strong> all {p.unproven} unproven {plural(p.unproven, 'entry', 'entries')} of {p.player} count as verified, measured against the
           official records (which stay as they are), so a best above the record rates over 100%. Post the screenshots in Discord and add the links to make it
           official.
-        </p>
+        </Note>
       )}
       {p.summary === null ? (
-        <div className="rating-card waiting-message">
+        <Message>
           {p.player} has no verified entries yet.{' '}
           <button type="button" className="btn-antique" onClick={() => choose('all')}>
             Show all entries
           </button>
-        </div>
+        </Message>
       ) : (
         <Results player={p} summary={p.summary} list={list} set={set} measure={measure} />
       )}
@@ -155,7 +154,7 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
             const c = list.find((x) => x.id === e.challenge);
             return (
               <li key={i}>
-                <span className="muted">{entryDay(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
+                <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
                 {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
                 {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
               </li>
@@ -255,7 +254,7 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
             )}
             {unplayed > 0 && (
               <p className="muted">
-                Plus {unplayed} {unplayed === 1 ? 'challenge' : 'challenges'} not played yet, each counting as 0%.
+                Plus {counted(unplayed, 'challenge')} not played yet, each counting as 0%.
               </p>
             )}
           </div>

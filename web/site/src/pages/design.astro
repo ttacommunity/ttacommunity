@@ -1,11 +1,22 @@
 ---
 /** Every token and component of the design system on sample data, to check the look by eye. */
 import SiteLayout from '../layouts/SiteLayout.astro';
+import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
 import DialogSamples from '../components/DialogSamples';
+import Note from '@ttac/shared/Note';
+import SignInNote from '../components/SignInNote';
+import Message from '../components/Message';
 import { Flag, TitleBadge } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
+import PageHeader from '@ttac/shared/PageHeader';
+import SubpageNav from '../components/SubpageNav.astro';
+import PanelHeader from '../components/PanelHeader';
+import SeasonPick from '../components/SeasonPick';
+import NewerOlder from '@ttac/shared/NewerOlder';
+import GameSeatFields from '@ttac/shared/GameSeatFields';
+import { emptyGameForm } from '@ttac/shared/game-form';
 
 const colours = [
   'bg-dark',
@@ -13,7 +24,6 @@ const colours = [
   'surface-inset',
   'accent-gold',
   'accent-gold-light',
-  'accent-gold-bright',
   'accent-crimson',
   'text-main',
   'text-soft',
@@ -21,6 +31,9 @@ const colours = [
   'border-subtle',
   'win',
   'loss',
+  'win-light',
+  'win-edge',
+  'loss-edge',
   'draw',
 ];
 const fonts = [
@@ -79,14 +92,22 @@ const rows = [
       </label>
     </div>
 
+    <h2>Button rows</h2>
+    <p>A choice sets what a page shows (above); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>
+    <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
+    <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
+
     <h2>Badges</h2>
     <p class="design-row">
       <span class="badge badge-format">All Formats</span>
       <span class="badge badge-mode">Continuous (Career)</span>
     </p>
     <p class="design-row">
-      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, count: 1, reason: `Sample ${code} reason` }} />)}
+      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, reason: `Sample ${code} reason` }} />)}
       <TitleBadge title={null} />
+    </p>
+    <p class="design-row">
+      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code }} long />)}
     </p>
 
     <h2>Flags</h2>
@@ -103,8 +124,38 @@ const rows = [
       <button type="button" class="btn-antique btn-danger">One that cannot be undone</button>
     </p>
 
+    <h2>A player's game result</h2>
+    <div class="report-row">
+      <GameSeatFields form={{ ...emptyGameForm('2026-09-01', 'Unknown'), b_outcome: 'resigned' }} who="b" name="Sample Player Two" onChange={() => {}} />
+    </div>
+
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />
+
+    <h2>Page header</h2>
+    <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
+
+    <h2>Panel header</h2>
+    <PanelHeader icon="🏅" title="Sample panel">
+      <span class="panel-tag">12 rows</span>
+    </PanelHeader>
+    <PanelHeader title="Sample panel with seasons">
+      <SeasonPick id="design-season" seasons={[{ label: '2025' }, { label: '2026' }]} value="2026" word="Season" onChange={() => {}} />
+    </PanelHeader>
+    <PanelHeader title="Sample panel with a line under it" subtitle="What the panel shows, in a sentence." />
+
+    <h2>Sub-page tabs</h2>
+    <SubpageNav label="Sample pages" tabs={[{ label: 'This page', href: '/design/', current: true }, { label: 'Another page', href: '/design/' }, { label: 'Not built yet' }]}>
+      <a href="/design/" class="btn-antique">An action</a>
+    </SubpageNav>
+
+    <h2>Notes</h2>
+    <Note>A note in front of the reader, such as what to do before taking part.</Note>
+    <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
+
+    <h2>Messages</h2>
+    <Message>A message where a page's content would be, such as nothing found.</Message>
+    <Message form="inline">The same, as a line in a panel.</Message>
 
     <h2>Tooltip</h2>
     <p class="design-row">
@@ -135,7 +186,7 @@ const rows = [
               <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
               <td><Flag country={p.country} /></td>
               <th scope="row"><span class="player-name">{p.name}</span></th>
-              <td><TitleBadge title={p.title === null ? null : { code: p.title, count: 1, reason: 'Sample reason' }} /></td>
+              <td><TitleBadge title={p.title === null ? null : { code: p.title, reason: 'Sample reason' }} /></td>
               <td><span class="c-rating-val">{p.c}</span></td>
               <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
               <td>{p.opps}</td>
@@ -149,6 +200,8 @@ const rows = [
         </tbody>
       </table>
     </div>
+
+    <NewerOlder page={2} pages={5} onPage={() => {}} />
 
     <section class="rating-card rating-card-note" aria-labelledby="note-heading">
       <h2 id="note-heading">Note card</h2>
@@ -218,7 +271,6 @@ const rows = [
   .swatch-surface-inset { background: var(--surface-inset); }
   .swatch-accent-gold { background: var(--accent-gold); }
   .swatch-accent-gold-light { background: var(--accent-gold-light); }
-  .swatch-accent-gold-bright { background: var(--accent-gold-bright); }
   .swatch-accent-crimson { background: var(--accent-crimson); }
   .swatch-text-main { background: var(--text-main); }
   .swatch-text-soft { background: var(--text-soft); }
@@ -226,6 +278,9 @@ const rows = [
   .swatch-border-subtle { background: var(--border-subtle); }
   .swatch-win { background: var(--win); }
   .swatch-loss { background: var(--loss); }
+  .swatch-win-light { background: var(--win-light); }
+  .swatch-win-edge { background: var(--win-edge); }
+  .swatch-loss-edge { background: var(--loss-edge); }
   .swatch-draw { background: var(--draw); }
 
   .fonts {

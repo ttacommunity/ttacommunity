@@ -4,7 +4,7 @@
   max-height: calc(100% - 2rem);
   margin: auto;
   padding: 1.25rem 1.5rem;
-  background: var(--surface-card);
+  background: var(--surface-sheet);
   border: 2px solid var(--accent-gold);
   border-radius: 8px;
   box-shadow: 0 8px 32px var(--shadow-deep);

@@ -2,11 +2,9 @@
 import { useEffect, useState } from 'react';
 import { isCircuit } from '@ttac/shared/circuits';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
+import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, loadOf } from '../lib/admin-api';
 import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
-import { tabsFor } from '../lib/admin-tabs';
-import AdminHeader from './AdminHeader';
-import PageError from './PageError';
+import AdminPage from './AdminPage';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
 import SettingsCard from './SettingsCard';
@@ -17,6 +15,8 @@ import FormatSummaryCard from './FormatSummaryCard';
 import StoriesSettings from './StoriesSettings';
 import SeasonsCard from './SeasonsCard';
 import './AdminApp.css';
+import PageHeader from '@ttac/shared/PageHeader';
+import AdminCard from './AdminCard';
 
 /** TournamentSettings loads who is signed in and the tournament the address names, then its cards. */
 export default function TournamentSettings() {
@@ -38,45 +38,33 @@ export default function TournamentSettings() {
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setMe(loadOf(r)),
     );
     void load();
   }, []);
   const error = firstError(me, t);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="tournaments" />
-      <main className="admin-main">
-      {error !== null && <PageError message={error} />}
-      {me.kind === 'ready' && (
-        <p className="signed-in">
-          Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-        </p>
-      )}
-      {t.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="tournaments" loading={t.kind === 'loading'} error={error}>
       {t.kind === 'ready' && (
         <>
-          <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-            <RelatedCard t={t.data} all={all} onReload={load} />
-            <h2 id="page-title" className="tournament-title">
-              {t.data.name}
-            </h2>
-            {renamedFrom(t.data.name, t.data.original_name) !== null && (
-              <p className="muted">Imported as {renamedFrom(t.data.name, t.data.original_name)}</p>
-            )}
-          </section>
+          <PageHeader
+            id="page-title"
+            above={<RelatedCard t={t.data} all={all} onReload={load} />}
+            title={t.data.name}
+            subtitle={renamedFrom(t.data.name, t.data.original_name) === null ? undefined : `Imported as ${renamedFrom(t.data.name, t.data.original_name)}`}
+          />
           {t.data.is_group ? (
             <>
               <GroupPage g={t.data} all={all} onReload={load} />
               {isCircuit(t.data.slug) && (
                 <>
-                  <section className="rating-card admin-card" aria-label="This group's Hall of Fame page">
+                  <AdminCard label="This group's Hall of Fame page">
                     <p className="muted">
                       This group has a Hall of Fame page: its card and stories are set here. Its Format &amp; Regulations
                       box lists each tournament&apos;s format in brief, set on the tournament&apos;s own page.
                     </p>
-                  </section>
+                  </AdminCard>
                   <CardSettings t={t.data} onReload={load} />
                   <StoriesSettings t={t.data} onReload={load} />
                 </>
@@ -99,7 +87,6 @@ export default function TournamentSettings() {
           )}
         </>
       )}
-      </main>
-    </>
+    </AdminPage>
   );
 }

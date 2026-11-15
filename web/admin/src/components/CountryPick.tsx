@@ -1,6 +1,7 @@
 /** A member's country picked as you type its name or code. */
 import { useState } from 'react';
-import { countryChoices, countryFromText, type Country } from '../lib/countries';
+import type { Country } from '@ttac/shared/countries';
+import { countryChoices, countryFromText } from '../lib/countries';
 import PickBox from './PickBox';
 
 /** COUNTRY_CHOICES is how many matches the picker shows. */

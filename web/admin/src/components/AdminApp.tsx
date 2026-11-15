@@ -2,13 +2,12 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow } from '../lib/admin-api';
-import { panelsFor, tabCounts, tabFrom, tabsFor, type Panel, type TabKey } from '../lib/admin-tabs';
+import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, loadOf } from '../lib/admin-api';
+import { panelsFor, tabCounts, tabFrom, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
-import AdminHeader from './AdminHeader';
-import PageError from './PageError';
+import AdminPage from './AdminPage';
 import { LoadNotice } from './Notice';
 import NewGroupForm from './NewGroupForm';
 import TournamentTable from './TournamentTable';
@@ -27,6 +26,7 @@ import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
 import MoviesPanel from './MoviesPanel';
 import './AdminApp.css';
+import AdminCard from './AdminCard';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
 function Tournaments() {
@@ -35,14 +35,11 @@ function Tournaments() {
   const [rated, setRated] = useState(true);
   useEffect(() => {
     void adminRequest<AdminTournamentRow[]>('/api/tournaments', {}).then((r) =>
-      setTournaments(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setTournaments(loadOf(r)),
     );
   }, []);
   return (
-    <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
-      <h2 id="tournaments-heading" className="rating-card-heading">
-        Tournaments
-      </h2>
+    <AdminCard id="tournaments-heading" title="Tournaments">
       <p className="muted">
         Each group of related tournaments once, and each tournament related to nothing. A name opens what is in it;
         Settings opens its settings.
@@ -78,7 +75,7 @@ function Tournaments() {
           )}
         />
       )}
-    </section>
+    </AdminCard>
   );
 }
 
@@ -130,14 +127,14 @@ export default function AdminApp() {
   const [accounts, setAccounts] = useState<Load<AdminAccount[]>>({ kind: 'loading' });
   const reloadAccounts = async () => {
     const r = await adminRequest<AdminAccount[]>('/api/accounts', {});
-    setAccounts(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setAccounts(loadOf(r));
   };
   const waiting = accounts.kind === 'ready' ? signInGroups(accounts.data).waiting.length : 0;
   // flagged counts the players' reports waiting for an organiser, across every blitz edition, for the Blitz tab.
   const [flagged, setFlagged] = useState(0);
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) => {
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+      setMe(loadOf(r));
       if (!r.ok) return;
       void reloadAccounts();
       void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((b) => b.ok && setFlagged(b.data.reduce((n, e) => n + e.flagged, 0)));
@@ -148,22 +145,9 @@ export default function AdminApp() {
   }, []);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} />
-      <main className="admin-main">
-        {me.kind === 'loading' && <p className="muted">Loading…</p>}
-        {me.kind === 'error' && <PageError message={me.message} />}
-        {me.kind === 'ready' && (
-          <>
-            <p className="signed-in">
-              Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-            </p>
-            {panelsFor(tab, me.data.role).map((p) => (
-              <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>
-            ))}
-          </>
-        )}
-      </main>
-    </>
+    <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} loading={me.kind === 'loading'} error={me.kind === 'error' ? me.message : null}>
+      {me.kind === 'ready' &&
+        panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>)}
+    </AdminPage>
   );
 }

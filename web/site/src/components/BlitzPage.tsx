@@ -1,29 +1,34 @@
 /** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
-import { failed, type Found } from '@ttac/shared/load';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionHref, editionParams, formatLabel, lastTieBreak, pointsNote, resultsLabel, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
-import BackLink from '@ttac/shared/BackLink';
 import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitz } from '../lib/blitz-report';
-import { accountHref } from '../lib/account';
+import { TTA_DISCORD } from '../lib/links';
+import SignInNote from './SignInNote';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
-import GamesTable, { GamesPages } from './GamesTable';
+import GamesTable from './GamesTable';
+import NewerOlder from '@ttac/shared/NewerOlder';
+import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import PlayerPicker from './PlayerPicker';
 import { catalogueHref } from '../lib/catalogue-view';
 import { bracketHref } from '../lib/bracket';
 import { Flag } from './PlayerMarks';
 import Waiting from './Waiting';
 import './Blitz.css';
+import Message from './Message';
+import { useFound, useKeptFound } from './useLoad';
+import PageHeader from '@ttac/shared/PageHeader';
+import PanelHeader from './PanelHeader';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -36,25 +41,16 @@ export default function BlitzPage({ apiUrl }: { apiUrl: string }) {
 
 function Header() {
   return (
-    <div className="tournaments-header">
-      <h1 className="tournaments-title">
-        <span>⚡</span> Blitz
-      </h1>
-      <div className="tournaments-subtitle">
-        Blitz tournaments run by the community&apos;s organisers: Super Blitz games on CGE, a round a week. Who is in,
-        who plays whom, the results and the standings, as the organisers record them.
-      </div>
-    </div>
+    <PageHeader
+      icon="⚡"
+      title="Blitz"
+      subtitle="Blitz tournaments run by the community's organisers: Super Blitz games on CGE, a round a week. Who is in, who plays whom, the results and the standings, as the organisers record them."
+    />
   );
 }
 
 function BlitzList({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Found<BlitzEditions>>({ kind: 'loading' });
-  useEffect(() => {
-    blitzEditions(apiUrl)
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl]);
+  const load = useFound('blitz', () => blitzEditions(apiUrl));
   return (
     <>
       <Header />
@@ -78,7 +74,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
   const [rows, sort, sortBy] = useSort(editions, EDITION_COLUMNS);
   return (
     <div className="blitz-table-wrap">
-      <table className="blitz-table">
+      <table className="leaderboard-table blitz-table">
         <caption>Every blitz tournament, newest edition first</caption>
         <thead>
           <tr>
@@ -118,7 +114,6 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
 }
 
 function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; edition: string }) {
-  const [load, setLoad] = useState<Found<BlitzEdition>>({ kind: 'loading' });
   const [hash, setHash] = useHash();
   // Asked again after the player reports, so their result shows at once.
   const [asked, setAsked] = useState(0);
@@ -126,18 +121,14 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const [mine, setMine] = useState<MyBlitz | null | undefined>(undefined);
   // The dialog opens at its top from the header, or at "How ties are broken" from the standings.
   const [howPaired, setHowPaired] = useState<{ opener: HTMLElement; at: 'top' | 'ties' } | null>(null);
-  useEffect(() => {
-    blitzEdition(apiUrl, slug, edition)
-      .then((data) => setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => setLoad(failed(e)));
-  }, [apiUrl, slug, edition, asked]);
+  const load = useKeptFound(JSON.stringify([slug, edition, asked]), () => blitzEdition(apiUrl, slug, edition));
   if (load.kind === 'missing') {
     return (
       <>
         <Header />
-        <div className="rating-card waiting-message">
+        <Message>
           No blitz tournament has that edition. <a href="/blitz/">See every blitz tournament</a>.
-        </div>
+        </Message>
       </>
     );
   }
@@ -161,16 +152,12 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   };
   return (
     <>
-      <div className="tournaments-header">
-        <div className="header-back">
-          <BackLink href="/blitz/">Every blitz tournament</BackLink>
-        </div>
-        <h1 className="tournaments-title">
-          <span>⚡</span> {ed.name} {ed.edition}
-        </h1>
-        <div className="tournaments-subtitle">
-          {formatLabel(ed.format)}. {reachedLabel(latest, ed.format, ed.champion)}. {resultsUpdated(ed.results_updated_at, viewerZone())}
-        </div>
+      <PageHeader
+        back={{ href: '/blitz/', label: 'Every blitz tournament' }}
+        icon="⚡"
+        title={`${ed.name} ${ed.edition}`}
+        subtitle={`${formatLabel(ed.format)}. ${reachedLabel(latest, ed.format, ed.champion)}. ${resultsUpdated(ed.results_updated_at, viewerZone())}`}
+      >
         <ul className="blitz-pairing-lines">
           <li>Round 1: {roundLine(ed.pairing.first, ed.pairing.first_order)}</li>
           {ed.format.swiss_rounds > 1 && <li>Later rounds: {roundLine(ed.pairing.later, ed.pairing.later_order)}</li>}
@@ -178,7 +165,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <button type="button" className="btn-antique blitz-how-paired" onClick={(e) => setHowPaired({ opener: e.currentTarget, at: 'top' })}>
           How pairings and ties are calculated
         </button>
-      </div>
+      </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
       {ed.rounds.length === 0 && (
@@ -266,9 +253,7 @@ function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener
 
 /** StandingsPanel shows the standings by rank, with how the edition scores, a marker before the ranks the lot or the seed ordered (fixedBy: what fixed the starting ranks, null before round 1), the starting ranks once fixed, the tie-breaks on request, and a button to how ties are broken (onHow). */
 function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null; onHow: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
-  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
-  const start = startLabel(fixedBy);
   return (
     <section aria-labelledby="blitz-standings">
       <h2 id="blitz-standings" className="rating-card-heading">
@@ -286,85 +271,18 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
         </span>
       </div>
       <div className="blitz-table-wrap">
-        <table className="blitz-table">
+        <table className="leaderboard-table blitz-table blitz-standings">
           <caption>The standings after the results recorded so far</caption>
-          <thead>
-            <tr>
-              <SortHeader col="rank" sort={sort} onSort={sortBy} className="num">
-                Rank
-              </SortHeader>
-              <SortHeader col="player" sort={sort} onSort={sortBy}>
-                Player
-              </SortHeader>
-              <SortHeader col="points" sort={sort} onSort={sortBy} className="num">
-                Points
-              </SortHeader>
-              <SortHeader col="results" sort={sort} onSort={sortBy} className="num">
-                <span data-tooltip="Win–Loss–Tie">Results</span>
-              </SortHeader>
-              <SortHeader col="byes" sort={sort} onSort={sortBy} className="num">
-                Byes
-              </SortHeader>
-              {tieBreaks && (
-                <>
-                  <SortHeader col="cut1" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Buchholz Cut 1">BH-C1</abbr>
-                  </SortHeader>
-                  <SortHeader col="buchholz" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Buchholz">BH</abbr>
-                  </SortHeader>
-                  <SortHeader col="sb" sort={sort} onSort={sortBy} className="num">
-                    <abbr title="Sonneborn-Berger">SB</abbr>
-                  </SortHeader>
-                </>
-              )}
-              {start !== null && (
-                <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
-                  {start}
-                </SortHeader>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((s) => {
-              const note = pointsNote(s);
-              return (
-              <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : ''}>
-                <td className="num">
-                  <DrawMark s={s} fixedBy={fixedBy} />
-                  {s.rank}
-                </td>
-                <th scope="row">
-                  <span className="blitz-flag">
-                    <Flag country={s.country} />
-                  </span>
-                  {s.name}
-                  {s.status === 'dropped' && <span className="blitz-note">dropped</span>}
-                </th>
-                <td className="num">
-                  {note !== null ? (
-                    <span className="blitz-points-note" data-tooltip={note}>
-                      {s.points}
-                      <span className="blitz-draw">*</span>
-                    </span>
-                  ) : (
-                    s.points
-                  )}
-                </td>
-                <td className="num">{resultsLabel(s)}</td>
-                <td className="num">{s.byes}</td>
-                {tieBreaks && (
-                  <>
-                    <td className="num">{s.buchholz_cut1}</td>
-                    <td className="num">{s.buchholz}</td>
-                    <td className="num">{s.sonneborn_berger}</td>
-                  </>
-                )}
-                {start !== null && <td className="num">{s.starting_rank ?? '–'}</td>}
-              </tr>
-              );
-            })}
-          </tbody>
+          <BlitzStandingsTable
+            standings={standings}
+            fixedBy={fixedBy}
+            tieBreaks={tieBreaks}
+            marks={(s) => (
+              <span className="blitz-flag">
+                <Flag country={s.country} />
+              </span>
+            )}
+          />
         </table>
       </div>
       {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
@@ -373,20 +291,6 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
         </p>
       )}
     </section>
-  );
-}
-
-/** DrawMark marks a rank the lot or the seed ordered, before the number in a slot of its own so the numbers line up, with the ranks it was ordered among as its text; the slot stays empty for a rank held alone or before round 1. */
-function DrawMark({ s, fixedBy }: { s: BlitzStanding; fixedBy: 'rating' | 'lot' | null }) {
-  const label = drawLabel(s, fixedBy);
-  return (
-    <span className="blitz-draw-slot">
-      {label !== null && (
-        <span className="blitz-draw" title={label}>
-          *<span className="visually-hidden">{label}</span>
-        </span>
-      )}
-    </span>
   );
 }
 
@@ -401,7 +305,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
       <p className="blitz-intro">{entrants.length} in. Ratings are the 2-player community rating of the current run; a dash means not rated yet.</p>
       {entrants.length > 0 && (
         <div className="blitz-table-wrap">
-          <table className="blitz-table">
+          <table className="leaderboard-table blitz-table">
             <caption>The players still in, in sign-up order</caption>
             <thead>
               <tr>
@@ -473,17 +377,10 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
   const games = blitzGames(swiss, ed.format, filter, zone, you, sort, reports);
   return (
     <section aria-labelledby="blitz-rounds">
-      <div className="panel-header panel-header-split">
-        <h2 id="blitz-rounds" className="panel-header-title">
-          Pairings and results
-        </h2>
+      <PanelHeader id="blitz-rounds" title="Pairings and results">
         <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
-      </div>
-      {signIn && (
-        <p className="blitz-sign-in" role="note">
-          Playing in this tournament? <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to report your game&apos;s result.
-        </p>
-      )}
+      </PanelHeader>
+      {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">
         <label>
           <span>Round</span>
@@ -503,11 +400,12 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         </label>
       </div>
       <p className="records-intro">
-        Who plays whom and how each game went, ratings beside the names. Arrange your game with your opponent on Discord. Dates are on your clocks ({zone}). Click a
+        Who plays whom and how each game went, ratings beside the names. Opponents arrange their games through the official{' '}
+        <a href={TTA_DISCORD}>TTA Discord</a>. Dates are on your clocks ({zone}). Click a
         code to copy it. A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." sort={sort} onSort={sortBy} />
-      <GamesPages page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
+      <NewerOlder page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
       {notPlaying(swiss, filter.round, ed.format).map((r) => (
         <p key={r.round} className="blitz-intro">
           Not playing in {r.round}: {r.names.join(', ')}.

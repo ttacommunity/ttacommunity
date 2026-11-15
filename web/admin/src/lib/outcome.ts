@@ -1,8 +1,9 @@
 /** What became of an action in admin, where on the page it shows, and what a screen reader is told of it: the decisions behind Notice. */
 import type { AdminResult } from './admin-api';
+import { noticeHeading, type OutcomeKind } from '@ttac/shared/outcome';
 
 /** Outcome is an action done or refused, or a load that failed, with what to say; at names the place on the page it shows. */
-export type Outcome = { kind: 'done' | 'refused' | 'failed'; text: string; at: string };
+export type Outcome = { kind: OutcomeKind; text: string; at: string };
 
 /** outcomeOf is what became of a request: done, saying done, or refused with the API's reason; shown at at, or a success at doneAt when it removed what at is. */
 export function outcomeOf(r: AdminResult<unknown>, done: string, at: string, doneAt = at): Outcome {
@@ -34,12 +35,6 @@ export function shownAt(o: Outcome | null, at: string): Outcome | null {
   return o !== null && o.at === at ? o : null;
 }
 
-const HEADINGS: Record<Outcome['kind'], string> = { done: 'Done', refused: 'Not done', failed: 'Could not load' };
-
-/** noticeHeading is the word a notice starts with, so its kind never rests on colour alone. */
-export function noticeHeading(kind: Outcome['kind']): string {
-  return HEADINGS[kind];
-}
 
 /** revealed is whether a notice scrolls itself into view: an action's outcome does, beside the action; a load failure, which no one acted for, does not. */
 export function revealed(o: Outcome): boolean {

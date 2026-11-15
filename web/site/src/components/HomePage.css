@@ -64,7 +64,7 @@
 
 .home-hero-title {
   margin: 0 0 0.75rem;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: clamp(1.8rem, 3.2vw, 2.6rem);
   letter-spacing: 1px;
@@ -278,13 +278,6 @@
   letter-spacing: 0.5px;
 }
 
-.home-waiting-message {
-  padding: 2.5rem 1rem;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-}
-
 .home-feed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -386,9 +379,9 @@
 }
 
 .feed-options-btn:hover {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
 }
 
 .feed-filter-inline-btn {
@@ -443,7 +436,7 @@
   background: var(--gold-wash-faint);
   border: 1px solid var(--accent-gold);
   border-radius: 12px;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-stats);
   font-size: 0.76rem;
   font-weight: 600;
@@ -496,7 +489,7 @@
 }
 
 .spoiler-toggle-btn:hover {
-  border-color: var(--accent-gold-bright);
+  border-color: var(--accent-gold);
   background: var(--gold-wash-faint);
 }
 
@@ -546,38 +539,12 @@
 
 .match-tournament {
   font-weight: 700;
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-subheading);
 }
 
 .match-date {
   font-family: var(--font-stats);
-}
-
-.home-replay-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
-  padding: 0.15rem 0.45rem;
-  background: rgba(18, 12, 8, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-soft);
-  font-family: monospace;
-  font-size: 0.75rem;
-  transition: all 0.15s ease;
-}
-
-.home-replay-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold-bright);
-}
-
-.home-replay-hint {
-  font-size: 0.68rem;
-  color: var(--accent-gold);
 }
 
 .match-seats-row {
@@ -643,9 +610,9 @@
 /* Color grading when match is revealed: Gold, Silver, Bronze, Gray */
 .match-player-link.rank-gold,
 .match-player-link.rank-1 {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+  text-shadow: 0 0 10px rgba(229, 169, 60, 0.4);
 }
 
 .match-player-link.rank-gold:hover,
@@ -657,28 +624,28 @@
 /* 2nd place: Luminous cool metallic platinum/silver with subtle shine */
 .match-player-link.rank-silver,
 .match-player-link.rank-2 {
-  color: #e2ebf8;
+  color: var(--medal-silver);
   font-weight: 600;
-  text-shadow: 0 0 8px rgba(215, 230, 255, 0.35);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-silver) 35%, transparent);
 }
 
 .match-player-link.rank-silver:hover,
 .match-player-link.rank-2:hover {
-  color: #fff;
+  color: var(--text-bright);
   text-decoration: underline;
 }
 
 /* 3rd place: Warm metallic copper-bronze */
 .match-player-link.rank-bronze,
 .match-player-link.rank-3 {
-  color: #d88f48;
+  color: var(--medal-bronze);
   font-weight: 600;
-  text-shadow: 0 0 8px rgba(216, 143, 72, 0.25);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-bronze) 25%, transparent);
 }
 
 .match-player-link.rank-bronze:hover,
 .match-player-link.rank-3:hover {
-  color: #f6b578;
+  color: color-mix(in srgb, var(--medal-bronze) 70%, white);
   text-decoration: underline;
 }
 
@@ -701,19 +668,19 @@
 /* Matching score badge color tones when revealed */
 .match-seat.rank-gold .match-score-badge.revealed,
 .match-seat.rank-1 .match-score-badge.revealed {
-  color: var(--accent-gold-bright);
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+  color: var(--accent-gold);
+  text-shadow: 0 0 8px rgba(229, 169, 60, 0.3);
 }
 
 .match-seat.rank-silver .match-score-badge.revealed,
 .match-seat.rank-2 .match-score-badge.revealed {
-  color: #e2ebf8;
-  text-shadow: 0 0 6px rgba(215, 230, 255, 0.25);
+  color: var(--medal-silver);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--medal-silver) 25%, transparent);
 }
 
 .match-seat.rank-bronze .match-score-badge.revealed,
 .match-seat.rank-3 .match-score-badge.revealed {
-  color: #d88f48;
+  color: var(--medal-bronze);
 }
 
 .match-seat.rank-gray .match-score-badge.revealed,
@@ -767,7 +734,7 @@
 }
 
 .tourney-link {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 700;
@@ -869,7 +836,7 @@
 }
 
 .champion-row .podium-player {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
@@ -895,7 +862,7 @@
 }
 
 .feed-footer-link:hover {
-  color: var(--accent-gold-bright);
+  color: var(--accent-gold);
   text-decoration: underline;
 }
 
@@ -1072,3 +1039,6 @@
   }
 }
 
+.home-replay {
+  margin-left: auto;
+}

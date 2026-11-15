@@ -7,6 +7,7 @@ import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import AdminCard from './AdminCard';
 
 type AdminBadge = components['schemas']['AdminBadge'];
 
@@ -127,10 +128,7 @@ export default function BadgesPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="badges-heading">
-      <h2 id="badges-heading" className="rating-card-heading">
-        Badges
-      </h2>
+    <AdminCard id="badges-heading" title="Badges">
       <p className="muted">
         Badges the engine cannot know, such as Organiser. A badge shows beside the player's title on the leaderboard and their
         page within five minutes, with no rating run.
@@ -153,6 +151,6 @@ export default function BadgesPanel() {
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'make badge')} onClose={() => setOutcome(null)} />
-    </section>
+    </AdminCard>
   );
 }

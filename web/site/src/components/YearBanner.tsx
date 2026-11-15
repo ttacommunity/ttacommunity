@@ -41,7 +41,6 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
           <span className="archive-stats-label">📊 Match Stats Mode:</span>
           <Segmented
             label="Match stats mode"
-            look="banner"
             options={[
               {
                 value: 'season',

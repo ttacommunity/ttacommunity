@@ -1,21 +1,13 @@
 /** Turn order and starting seat advantage page: win rates and placement rates by player count and skill tier. */
-import { useEffect, useState } from 'react';
-import {
-  currentRun,
-  seatAnalysis,
-  type Format,
-  type SeatAnalysis,
-  type SeatAnalysisTier,
-  type SeatStatsGroup,
-  type SeatWinrateRow,
-  type SeatPlaceRate,
-} from '@ttac/shared/ratings';
+import { useState } from 'react';
+import { currentRun, seatAnalysis, type Format, type SeatAnalysisTier, type SeatStatsGroup, type SeatWinrateRow, type SeatPlaceRate } from '@ttac/shared/ratings';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
 import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysis';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-import { errorText, type Load } from '@ttac/shared/load';
 import { count } from '@ttac/shared/numbers';
+import { useKeptLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 const FORMAT_OPTIONS: Option<Format>[] = [
   { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
@@ -39,24 +31,10 @@ const SEAT_NAMES: Record<number, string> = {
 
 /** SeatAnalysisPage displays empirical win rates and finishing placements by turn order. */
 export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
-  const [load, setLoad] = useState<Load<SeatAnalysis>>({ kind: 'loading' });
   const [tier, setTier] = useState<SeatAnalysisTier>('all');
   const [format, setFormat] = useState<Format>(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    currentRun(apiUrl)
-      .then((r) => seatAnalysis(apiUrl, r.run_id, tier, format))
-      .then((data) => {
-        if (!cancelled) setLoad({ kind: 'ready', data });
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setLoad({ kind: 'error', message: errorText(e) });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiUrl, tier, format]);
+  const load = useKeptLoad(`${tier}/${format}`, () => currentRun(apiUrl).then((r) => seatAnalysis(apiUrl, r.run_id, tier, format)));
 
   if (load.kind !== 'ready') return <Waiting load={load} what="seat win rates" />;
 
@@ -96,11 +74,11 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <div className="card-head seat-filter-head">
-        <h3>Filter by Player Strength &amp; Match Format</h3>
+      <div className="seat-filter-head">
+        <PanelHeader title="Filter by Player Strength & Match Format" />
       </div>
 
-      <div className="eval-table-card seat-filter-card">
+      <div className="rating-card panel-card eval-table-card seat-filter-card">
         <div className="seat-filter-stack">
           <div>
             <div className="seat-filter-label">Skill Tier (Glicko-D Table Average):</div>
@@ -108,7 +86,6 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               label="Skill Tier"
               options={TIER_OPTIONS}
               value={tier}
-              look="raised"
               onChange={(t) => setTier(t)}
             />
           </div>
@@ -118,7 +95,6 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               label="Player Count"
               options={FORMAT_OPTIONS}
               value={format}
-              look="bar"
               onChange={(f) => setFormat(f)}
             />
           </div>
@@ -130,17 +106,12 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);
           return (
-            <div key={pc} className="eval-table-card">
-              <div className="card-head">
-                <h3>
-                  {pc}-Player Matches &bull; {count(group.total_games)} games
-                </h3>
-                <span className="seat-parity-note">
-                  Expected Parity: {parity}% per seat
-                </span>
-              </div>
+            <div key={pc} className="rating-card panel-card eval-table-card">
+              <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
+                <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
+              </PanelHeader>
               <ScrollTable hint="Scroll horizontally for all placement columns">
-                <table className="site-table">
+                <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution
                   </caption>

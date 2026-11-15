@@ -3,10 +3,14 @@ import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengePlayer, challengePlayers, RatingsApiError, type ChallengePlayer, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, signed, type Measure, type SetId } from '../lib/challenges';
-import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, type Measure, type SetId } from '../lib/challenges';
+import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
+import Message from './Message';
+import { signed } from '@ttac/shared/numbers';
+import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -46,8 +50,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
 
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <h1 className="analysis-hero-title">Compare players</h1>
+      <PageHeader title="Compare players">
         <div className="challenges-pickers">
           <div>
             <label htmlFor="cmp-a">Player A</label>
@@ -59,10 +62,10 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
             <SearchBox id="cmp-b" players={names} value={b} placeholder="Name…" onChange={(v) => choose('b', v)} />
           </div>
         </div>
-      </div>
+      </PageHeader>
       <div className="challenges-bar">
         <div className="challenges-bar-group">
-          {pa && pb && <Segmented label="Set" look="raised" value={set} onChange={setSet} options={SETS} />}
+          {pa && pb && <Segmented label="Set" value={set} onChange={setSet} options={SETS} />}
           {pa && pb && (
             <span className="muted">
               <span className="challenges-side-a">■</span> {pa.player} ahead · <span className="challenges-side-b">■</span> {pb.player} ahead
@@ -80,9 +83,9 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
           (name, i) =>
             name.trim() !== '' &&
             !find(name) && (
-              <p key={i} className="rating-card waiting-message">
+              <Message key={i}>
                 No {v ? 'verified ' : ''}entries for “{name}”.
-              </p>
+              </Message>
             ),
         )}
       {pa && pb && sideA.kind === 'ready' && sideB.kind === 'ready' && sideA.data && sideB.data && (
@@ -162,11 +165,11 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
                 <th scope="row">Difference</th>
                 {SETS.map((s) => (
                   <td key={s.value} className="num">
-                    <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} suffix={measure === 'rating' ? '%' : ''} />
+                    <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                   </td>
                 ))}
                 <td className="num">
-                  <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} suffix={measure === 'rating' ? '%' : ''} />
+                  <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                 </td>
                 <td className="num">
                   <Diff value={a.records - b.records} />
@@ -216,12 +219,12 @@ function Stat({ label, value, side }: { label: string; value: number; side?: 'a'
   );
 }
 
-/** Diff is a difference, in A's colour when A leads and B's when B does. */
-function Diff({ value, suffix = '' }: { value: number; suffix?: string }) {
+/** Diff is a difference to decimals places, in A's colour when A leads and B's when B does, ±0 for none. */
+function Diff({ value, decimals = 0, suffix = '' }: { value: number; decimals?: number; suffix?: string }) {
   const side = value > 0 ? 'challenges-side-a' : value < 0 ? 'challenges-side-b' : 'muted';
   return (
     <span className={side}>
-      {signed(value)}
+      {signed(value, decimals, '±0')}
       {suffix}
     </span>
   );

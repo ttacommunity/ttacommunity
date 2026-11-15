@@ -2,12 +2,14 @@
 import { useState } from 'react';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import type { SortColumns } from '@ttac/shared/sort';
-import { viewerZone } from '@ttac/shared/time';
+import { formatDate, viewerZone } from '@ttac/shared/time';
 import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/ratings';
-import { byMeasure, entryDay, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
-import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch, useKeptLoad } from './ChallengeParts';
+import { byMeasure, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
+import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
+import { useKeptLoad } from './useLoad';
 import FilterInput from './FilterInput';
 import Waiting from './Waiting';
+import PageHeader from '@ttac/shared/PageHeader';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
 
@@ -37,15 +39,15 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="analysis-hero-card challenges-hero">
-        <div>
-          <h1 className="analysis-hero-title">Players</h1>
-          <p className="analysis-hero-desc">
+      <PageHeader
+        title="Players"
+        subtitle={
+          <>
             Switch between <strong>Rating</strong>: each best domination as a percentage of the record (holding the record = 100%), averaged over every
             challenge, so unplayed ones count as 0%; and <strong>Total</strong>: the plain sum of each player&apos;s best dominations. Click a column to sort.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
       <div className="challenges-bar">
         <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="🔍 Filter players by name..." />
         <div className="challenges-bar-group">
@@ -104,7 +106,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                     <td className="num">{formatMeasure(measureOf(p, measure, 'original'), measure)}</td>
                     <td className="num">{formatMeasure(measureOf(p, measure, 'expansion'), measure)}</td>
                     <td className="num">{formatMeasure(measureOf(p, measure, 'mix'), measure)}</td>
-                    <td className="muted">{entryDay(p.last_entry, zone)}</td>
+                    <td className="muted">{formatDate(p.last_entry, zone)}</td>
                   </tr>
                 ))}
               </tbody>

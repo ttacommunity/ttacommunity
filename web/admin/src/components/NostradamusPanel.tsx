@@ -8,6 +8,8 @@ import { gameHref, gameSlug, seriesChoices } from '../lib/nostradamus-admin';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice } from './Notice';
 import PickBox from './PickBox';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 type Editions = components['schemas']['NostradamusEditions'];
 type NewGame = components['schemas']['AdminNostradamusEditionNew'];
@@ -50,39 +52,33 @@ export default function NostradamusPanel() {
     }
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="nostradamus-heading">
-      <h2 id="nostradamus-heading" className="rating-card-heading">
-        Nostradamus
-      </h2>
+    <AdminCard id="nostradamus-heading" title="Nostradamus">
       {games.kind === 'error' && <LoadNotice message={games.message} />}
       {games.kind === 'loading' && <p className="muted">Loading the games…</p>}
       {games.kind === 'ready' &&
         (games.data.editions.length === 0 ? (
           <p className="muted">No game yet.</p>
         ) : (
-          <div className="table-responsive">
-            <table className="leaderboard-table admin-table">
-              <caption className="visually-hidden">Each Nostradamus game and its tournament</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Game</th>
-                  <th scope="col">Tournament</th>
+          <AdminTable caption="Each Nostradamus game and its tournament">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Tournament</th>
+              </tr>
+            </thead>
+            <tbody>
+              {games.data.editions.map((g) => (
+                <tr key={g.slug}>
+                  <td>
+                    <a href={gameHref(g.slug)}>{g.name}</a>
+                  </td>
+                  <td className="muted">
+                    {g.series} {g.tournament}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {games.data.editions.map((g) => (
-                  <tr key={g.slug}>
-                    <td>
-                      <a href={gameHref(g.slug)}>{g.name}</a>
-                    </td>
-                    <td className="muted">
-                      {g.series} {g.tournament}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </AdminTable>
         ))}
       <form className="admin-subsection" onSubmit={(e) => void add(e)}>
         <h3>New game</h3>
@@ -116,6 +112,6 @@ export default function NostradamusPanel() {
         </div>
         <Notice outcome={shownAt(outcome, 'new game')} onClose={() => setOutcome(null)} />
       </form>
-    </section>
+    </AdminCard>
   );
 }

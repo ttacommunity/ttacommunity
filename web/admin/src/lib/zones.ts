@@ -1,20 +1,12 @@
 /** What a zone picker offers a member: Unknown and the regions the API names, then every IANA zone the browser knows. */
 import type { components } from '@ttac/shared/api';
 import { offsetLabel } from '@ttac/shared/blitz';
+import { clockOrUtc } from '@ttac/shared/time';
 import { matchRank, norm } from './match';
 
 export type Region = components['schemas']['Region'];
 /** ZoneChoice is a zone a picker offers, with a line saying what it is ('' for an IANA zone). */
 export type ZoneChoice = { value: string; detail: string };
-
-/** knownZones is every IANA zone the browser knows, or none in one that cannot say. */
-export function knownZones(): string[] {
-  try {
-    return Intl.supportedValuesOf('timeZone');
-  } catch {
-    return [];
-  }
-}
 
 /** regionDetail says whose time a region keeps, "New York time, UTC-4", or that Unknown pairs as UTC. */
 function regionDetail(r: Region): string {
@@ -51,14 +43,5 @@ export function zoneFromText(regions: readonly Region[], known: readonly string[
 export function clockIn(regions: readonly Region[], zone: string, instant: string): { day: string; clock: string } {
   const region = regions.find((r) => r.name === zone);
   const iana = region === undefined ? zone : region.zone === '' ? 'UTC' : region.zone;
-  const read = (timeZone: string) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(instant));
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = read(iana);
-  } catch {
-    parts = read('UTC');
-  }
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
-  return { day: `${part('year')}-${part('month')}-${part('day')}`, clock: `${part('hour')}:${part('minute')}` };
+  return clockOrUtc(iana, instant);
 }

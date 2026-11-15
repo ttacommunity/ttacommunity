@@ -1,9 +1,15 @@
-/* Upstream's year pills (its leaderboard's .year-pill), and the small WC and current-season marks on them. */
+/* Upstream's year pills (its leaderboard's .year-pill), the filter buttons used for every choice of one among many, and the small WC and current-season marks on them. */
+.year-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .year-pill {
   display: inline-flex;
   align-items: center;
   padding: 0.35rem 0.75rem;
-  background: rgba(28, 19, 13, 0.7);
+  background: var(--surface-well);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   font-family: var(--font-stats);
@@ -15,23 +21,22 @@
 }
 
 .year-pill:hover {
-  background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
   color: var(--text-main);
 }
 
+/* The chosen pill: outlined in gold, as a chosen button is. */
 .year-pill.active {
-  background: var(--accent-gold);
+  background: var(--gold-wash-faint);
   border-color: var(--accent-gold);
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
-  color: var(--bg-dark);
+  color: var(--accent-gold);
   font-weight: 700;
 }
 
 .year-pill-wc {
   margin-left: 0.25rem;
   padding: 0.1rem 0.3rem;
-  background: var(--accent-gold-bright);
+  background: var(--accent-gold);
   border-radius: 3px;
   color: var(--bg-dark);
   font-size: 0.68rem;
@@ -39,7 +44,3 @@
   line-height: 1;
 }
 
-.year-pill.active .year-pill-wc {
-  background: var(--bg-dark);
-  color: var(--accent-gold-bright);
-}

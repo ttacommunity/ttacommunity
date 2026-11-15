@@ -142,16 +142,6 @@ function requestFacts(r: MyData['requests'][number], when: (instant: string) => 
   return facts;
 }
 
-/** shownZone is the zone the dialog's times are in: the player's saved zone when it is an IANA name, else the browser's. */
-export function shownZone(saved: string, browser: string): string {
-  try {
-    new Intl.DateTimeFormat('en-GB', { timeZone: saved });
-    return saved;
-  } catch {
-    return browser;
-  }
-}
-
 /** fetchMyData returns everything kept about the signed-in player, or null when nobody is signed in. */
 export async function fetchMyData(base: string, fetchFn: typeof fetch = fetch): Promise<MyData | null> {
   const res = await fetchFn(`${base.replace(/\/+$/, '')}/v1/me/data`, { credentials: 'include' });

@@ -1,6 +1,7 @@
 /** A Nostradamus game's page, in three tabs: its rounds (drafted with their questions, published until a deadline, outcomes set, bots answered for, closed), its members (requests answered, people and bots added, linked to TTA usernames), and the standings. */
 import { useEffect, useState, type FormEvent } from 'react';
-import BackLink from '@ttac/shared/BackLink';
+import PageHeader from '@ttac/shared/PageHeader';
+import { counted } from '@ttac/shared/numbers';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import type { components } from '@ttac/shared/api';
@@ -8,22 +9,22 @@ import type { Load } from '@ttac/shared/load';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { tabsFor } from '../lib/admin-tabs';
 import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
 import { useDialog } from '@ttac/shared/Dialog';
-import { countryNames, type Country } from '../lib/countries';
+import { countryNames, type Country } from '@ttac/shared/countries';
 import { entrantToAdd } from '../lib/person-form';
 import type { Region } from '../lib/zones';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
-import AdminHeader from './AdminHeader';
+import AdminPage from './AdminPage';
 import Notice from './Notice';
-import PageError from './PageError';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
+import AdminTable from './AdminTable';
+import AdminCard from './AdminCard';
 
 type Game = components['schemas']['AdminNostradamusGame'];
 type Round = components['schemas']['NostradamusRound'];
@@ -62,29 +63,19 @@ export default function NostradamusGamePage() {
   const [hash, setHash] = useHash();
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="nostradamus" />
-      <main className="admin-main">
-        {error !== null && <PageError message={error} />}
-        {game.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="nostradamus" loading={game.kind === 'loading'} error={error}>
         {game.kind === 'ready' && (
           <>
-            <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-              <div className="header-back">
-                <BackLink href="/#nostradamus">Nostradamus games</BackLink>
-              </div>
-              <h2 id="page-title" className="tournament-title">
-                {game.data.name}
-              </h2>
-              <p className="muted">
-                Over {game.data.series} {game.data.tournament}. {game.data.rounds.length} rounds,{' '}
-                {game.data.participants.filter((p) => p.status === 'accepted').length} playing, {game.data.participants.filter((p) => p.status === 'requested').length}{' '}
-                asking to.
-              </p>
+            <PageHeader
+              id="page-title"
+              back={{ href: '/#nostradamus', label: 'Nostradamus games' }}
+              title={game.data.name}
+              subtitle={`Over ${game.data.series} ${game.data.tournament}. ${counted(game.data.rounds.length, 'round')}, ${game.data.participants.filter((p) => p.status === 'accepted').length} playing, ${game.data.participants.filter((p) => p.status === 'requested').length} asking to.`}
+            >
               <FinishedSwitch game={game.data} onReload={load} say={setOutcome} />
-            </section>
+            </PageHeader>
             <Notice outcome={shownAt(outcome, 'page')} />
-            <section className="rating-card admin-card" aria-label="Rounds, members and standings">
+            <AdminCard label="Rounds, members and standings">
               <SubTabs<View>
                 label="Show"
                 tabs={[
@@ -95,11 +86,10 @@ export default function NostradamusGamePage() {
                 chosen={hashTab<View>(['rounds', 'members', 'standings'], hash)}
                 onChoose={setHash}
               />
-            </section>
+            </AdminCard>
           </>
         )}
-      </main>
-    </>
+    </AdminPage>
   );
 }
 
@@ -277,7 +267,7 @@ function QuestionRow({ game, round, question: q, status, run }: { game: Game; ro
       )}
       {editing && <QuestionEditor title={`Edit ${q.label}`} start={questionFormFrom(q)} onSave={(f) => run(req.setNostradamusQuestion(game.slug, q.id, questionBody(f)), `Saved ${f.label.trim()}.`)} />}
       {(status === 'open' || status === 'awaiting') && fromChoices && (
-        <fieldset className="admin-add">
+        <fieldset className="check-kinds">
           <legend>Outcome {q.kind === 'set' ? `(the ${q.picks} that happened)` : '(tick more than one for a tie)'}</legend>
           {q.choices.map((c) => (
             <label key={c.label}>
@@ -431,35 +421,32 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
       </p>
       {answers?.kind === 'error' && <p role="alert">{answers.message}</p>}
       {answers?.kind === 'ready' && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Every answer in {round.name}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Question</th>
-                <th scope="col">Answer</th>
-                <th scope="col" className="num">
-                  Tokens
-                </th>
-                <th scope="col" className="num">
-                  Points
-                </th>
+        <AdminTable caption={`Every answer in ${round.name}`}>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Question</th>
+              <th scope="col">Answer</th>
+              <th scope="col" className="num">
+                Tokens
+              </th>
+              <th scope="col" className="num">
+                Points
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {answers.data.answers.map((a) => (
+              <tr key={`${a.participant}-${a.question}`}>
+                <td>{a.participant}</td>
+                <td>{labelOf(a.question)}</td>
+                <td>{a.answer.join(', ')}</td>
+                <td className="num">{a.tokens > 0 ? a.tokens : ''}</td>
+                <td className="num">{a.points ?? '–'}</td>
               </tr>
-            </thead>
-            <tbody>
-              {answers.data.answers.map((a) => (
-                <tr key={`${a.participant}-${a.question}`}>
-                  <td>{a.participant}</td>
-                  <td>{labelOf(a.question)}</td>
-                  <td>{a.answer.join(', ')}</td>
-                  <td className="num">{a.tokens > 0 ? a.tokens : ''}</td>
-                  <td className="num">{a.points ?? '–'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
       {roundStatus(round, new Date()) === 'open' &&
         answers?.kind === 'ready' &&
@@ -594,23 +581,20 @@ function MembersTab({ game, regions, countries, onReload, outcome, say }: Props 
       <div className="admin-subsection">
         <h3>Everyone</h3>
         <Notice outcome={shownAt(outcome, 'everyone')} onClose={() => say(null)} />
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Each participant, their status, and the member they are linked to</caption>
-            <thead>
-              <tr>
-                <th scope="col">Plays as</th>
-                <th scope="col">Status</th>
-                <th scope="col">Member (TTA username)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {game.participants.map((p) => (
-                <ParticipantRow key={p.id} game={game} participant={p} run={run} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Each participant, their status, and the member they are linked to">
+          <thead>
+            <tr>
+              <th scope="col">Plays as</th>
+              <th scope="col">Status</th>
+              <th scope="col">Member (TTA username)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.participants.map((p) => (
+              <ParticipantRow key={p.id} game={game} participant={p} run={run} />
+            ))}
+          </tbody>
+        </AdminTable>
       </div>
     </>
   );
@@ -659,42 +643,39 @@ function StandingsTab({ game }: { game: Game }) {
       {game.standings.length === 0 ? (
         <p className="muted">No round has an outcome yet.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Each participant's points by round, and their total</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                {game.scored.map((r) => (
-                  <th key={r} scope="col" className="num">
-                    {r}
-                  </th>
-                ))}
-                <th scope="col" className="num">
-                  Total
+        <AdminTable caption="Each participant's points by round, and their total">
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              {game.scored.map((r) => (
+                <th key={r} scope="col" className="num">
+                  {r}
                 </th>
-              </tr>
-            </thead>
-            <tbody>
-              {game.standings.map((s) => (
-                <tr key={s.name}>
-                  <td>
-                    {s.member ?? s.name}
-                    {s.bot && <span className="muted"> (bot)</span>}
-                  </td>
-                  {s.rounds.map((r) => (
-                    <td key={r.round} className={r.missed ? 'num muted' : 'num'}>
-                      {r.points}
-                    </td>
-                  ))}
-                  <td className="num">
-                    <strong>{s.total}</strong>
-                  </td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+              <th scope="col" className="num">
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.standings.map((s) => (
+              <tr key={s.name}>
+                <td>
+                  {s.member ?? s.name}
+                  {s.bot && <span className="muted"> (bot)</span>}
+                </td>
+                {s.rounds.map((r) => (
+                  <td key={r.round} className={r.missed ? 'num muted' : 'num'}>
+                    {r.points}
+                  </td>
+                ))}
+                <td className="num">
+                  <strong>{s.total}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );

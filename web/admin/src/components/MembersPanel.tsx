@@ -4,19 +4,21 @@ import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange } from '../lib/admin-api';
+import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { countryNames, type Country } from '../lib/countries';
+import { countryNames, type Country } from '@ttac/shared/countries';
 import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { memberToAdd, type PersonDetails } from '../lib/person-form';
 import { howLinked, signInGroups, who } from '../lib/sign-ins';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';
-import Notice, { LoadNotice, NoticeRow } from './Notice';
+import Notice, { Loading, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
 import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
 
@@ -62,7 +64,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     });
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
-    setMembers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setMembers(loadOf(r));
   };
   useEffect(() => {
     void load();
@@ -134,11 +136,8 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     if (sure) await run(req.removeMember(m.id), `Removed ${m.name}.`, `member ${m.id}`, 'members');
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="members-heading">
+    <AdminCard id="members-heading" title="Members">
       {dialog.element}
-      <h2 id="members-heading" className="rating-card-heading">
-        Members
-      </h2>
       <p className="muted">
         Everyone who takes part in anything we run, by their TTA username as in the app. A name the ratings or a CGE
         account know is linked to them, and the link fills itself in as games are loaded. A banned member cannot be
@@ -155,8 +154,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
       <div className="admin-subsection">
         <h3>Every member</h3>
         <Notice outcome={shownAt(outcome, 'members')} onClose={close} />
-        {members.kind === 'loading' && <p className="muted">Loading…</p>}
-        {members.kind === 'error' && <LoadNotice message={members.message} />}
+        <Loading load={members} />
         {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
         {members.kind === 'ready' && members.data.length > 0 && (
           <fieldset className="check-kinds">
@@ -191,117 +189,114 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
         )}
         {members.kind === 'ready' && members.data.length > 0 && shown.length === 0 && <p className="muted">Nobody matches.</p>}
         {members.kind === 'ready' && shown.length > 0 && (
-          <div className="table-responsive">
-            <table className="leaderboard-table admin-table">
-              <caption className="visually-hidden">{shown.length < members.data.length ? 'The members matching the search' : 'Every member'}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Username</th>
-                  <th scope="col">CGE id</th>
-                  <th scope="col">Discord</th>
-                  <th scope="col">Signed in as</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Country</th>
-                  <th scope="col">Time zone</th>
-                  <th scope="col">In</th>
-                  <th scope="col">
-                    <span className="visually-hidden">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((m) => (
-                  <Fragment key={m.id}>
-                    {editing?.id === m.id ? (
-                      <tr>
-                        <th scope="row">
-                          <input className="input-antique" aria-label={`Username of ${m.name}`} value={editing.name} maxLength={100} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
-                        </th>
-                        <td>
-                          <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />
-                        </td>
-                        <td>
-                          <input className="input-antique" aria-label={`Discord username of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
-                        </td>
-                        <td>
-                          <SignedInAs login={signIns.byMember.get(m.id)} />
-                        </td>
-                        <td>
-                          <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
-                        </td>
-                        <td>
-                          <CountryPick label={`Country of ${m.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
-                        </td>
-                        <td>
-                          <ZonePick label={`Time zone of ${m.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
-                        </td>
-                        <td>{m.entries}</td>
-                        <td className="run-buttons">
-                          <button type="button" className="btn-antique" onClick={(e) => void save(e)}>
-                            Save
+          <AdminTable caption={shown.length < members.data.length ? 'The members matching the search' : 'Every member'}>
+            <thead>
+              <tr>
+                <th scope="col">Username</th>
+                <th scope="col">CGE id</th>
+                <th scope="col">Discord</th>
+                <th scope="col">Signed in as</th>
+                <th scope="col">Email</th>
+                <th scope="col">Country</th>
+                <th scope="col">Time zone</th>
+                <th scope="col">In</th>
+                <th scope="col">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((m) => (
+                <Fragment key={m.id}>
+                  {editing?.id === m.id ? (
+                    <tr>
+                      <th scope="row">
+                        <input className="input-antique" aria-label={`Username of ${m.name}`} value={editing.name} maxLength={100} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                      </th>
+                      <td>
+                        <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />
+                      </td>
+                      <td>
+                        <input className="input-antique" aria-label={`Discord username of ${m.name}`} value={editing.discord_name} maxLength={100} onChange={(e) => setEditing({ ...editing, discord_name: e.target.value })} />
+                      </td>
+                      <td>
+                        <SignedInAs login={signIns.byMember.get(m.id)} />
+                      </td>
+                      <td>
+                        <input className="input-antique" aria-label={`Email of ${m.name}`} type="email" value={editing.email} maxLength={254} onChange={(e) => setEditing({ ...editing, email: e.target.value })} />
+                      </td>
+                      <td>
+                        <CountryPick label={`Country of ${m.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
+                      </td>
+                      <td>
+                        <ZonePick label={`Time zone of ${m.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
+                      </td>
+                      <td>{m.entries}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={(e) => void save(e)}>
+                          Save
+                        </button>
+                        <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
+                          Cancel
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr className={m.banned ? 'row-error' : ''}>
+                      <th scope="row">
+                        {m.name}
+                        {m.player !== '' && m.player !== m.name && <span className="row-detail muted">{m.player} in the ratings</span>}
+                        {m.player === '' && <span className="row-detail muted">not in the ratings</span>}
+                        {m.banned && <span className="row-detail">banned: {m.ban_reason}</span>}
+                      </th>
+                      <td>{m.cge_user ?? ''}</td>
+                      <td>{m.discord_name}</td>
+                      <td>
+                        <SignedInAs login={signIns.byMember.get(m.id)} />
+                      </td>
+                      <td>{m.email}</td>
+                      <td>{m.country ?? ''}</td>
+                      <td>
+                        {m.zone} <span className="muted">{offsetLabel(m.utc_offset)}</span>
+                      </td>
+                      <td>{m.entries}</td>
+                      <td className="run-buttons">
+                        <button type="button" className="btn-antique" onClick={() => setEditing({ id: m.id, ...draftOf(m) })}>
+                          Edit
+                        </button>
+                        {signIns.byMember.has(m.id) && (
+                          <button type="button" className="btn-antique" onClick={(e) => void unlink(m, e.currentTarget)}>
+                            Unlink
                           </button>
-                          <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
-                            Cancel
+                        )}
+                        {role === 'admin' && !m.banned && (
+                          <button type="button" className="btn-antique" onClick={(e) => void ban(m, e.currentTarget)}>
+                            Ban
                           </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr className={m.banned ? 'row-error' : ''}>
-                        <th scope="row">
-                          {m.name}
-                          {m.player !== '' && m.player !== m.name && <span className="row-detail muted">{m.player} in the ratings</span>}
-                          {m.player === '' && <span className="row-detail muted">not in the ratings</span>}
-                          {m.banned && <span className="row-detail">banned: {m.ban_reason}</span>}
-                        </th>
-                        <td>{m.cge_user ?? ''}</td>
-                        <td>{m.discord_name}</td>
-                        <td>
-                          <SignedInAs login={signIns.byMember.get(m.id)} />
-                        </td>
-                        <td>{m.email}</td>
-                        <td>{m.country ?? ''}</td>
-                        <td>
-                          {m.zone} <span className="muted">{offsetLabel(m.utc_offset)}</span>
-                        </td>
-                        <td>{m.entries}</td>
-                        <td className="run-buttons">
-                          <button type="button" className="btn-antique" onClick={() => setEditing({ id: m.id, ...draftOf(m) })}>
-                            Edit
+                        )}
+                        {role === 'admin' && m.banned && (
+                          <button type="button" className="btn-antique" onClick={() => void run(req.unbanMember(m.id), `${m.name} is no longer banned.`, `member ${m.id}`)}>
+                            Unban
                           </button>
-                          {signIns.byMember.has(m.id) && (
-                            <button type="button" className="btn-antique" onClick={(e) => void unlink(m, e.currentTarget)}>
-                              Unlink
-                            </button>
-                          )}
-                          {role === 'admin' && !m.banned && (
-                            <button type="button" className="btn-antique" onClick={(e) => void ban(m, e.currentTarget)}>
-                              Ban
-                            </button>
-                          )}
-                          {role === 'admin' && m.banned && (
-                            <button type="button" className="btn-antique" onClick={() => void run(req.unbanMember(m.id), `${m.name} is no longer banned.`, `member ${m.id}`)}>
-                              Unban
-                            </button>
-                          )}
-                          {role === 'admin' && (
-                            <button type="button" className="btn-antique" onClick={(e) => void remove(m, e.currentTarget)}>
-                              Remove
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                    <NoticeRow outcome={shownAt(outcome, `member ${m.id}`)} columns={9} onClose={close} />
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        )}
+                        {role === 'admin' && (
+                          <button type="button" className="btn-antique" onClick={(e) => void remove(m, e.currentTarget)}>
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  <NoticeRow outcome={shownAt(outcome, `member ${m.id}`)} columns={9} onClose={close} />
+                </Fragment>
+              ))}
+            </tbody>
+          </AdminTable>
         )}
       </div>
       {(signIns.unlinked.length > 0 || shownAt(outcome, 'unlinked') !== null) && (
         <UnlinkedSignIns unlinked={signIns.unlinked} role={role} outcome={outcome} say={setOutcome} after={after} />
       )}
-    </section>
+    </AdminCard>
   );
 }

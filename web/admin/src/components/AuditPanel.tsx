@@ -2,8 +2,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAuditPage } from '../lib/admin-api';
+import NewerOlder from '@ttac/shared/NewerOlder';
+import { adminRequest, type AdminAuditPage, loadOf } from '../lib/admin-api';
 import { auditBy, auditPath, auditSummary, defaultView, detailText, type AuditView } from '../lib/audit-log';
+import { Loading } from './Notice';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 /** AuditPanel opens on the last seven days in the viewer's zone; a new filter goes back to page 1. */
 export default function AuditPanel() {
@@ -18,7 +22,7 @@ export default function AuditPanel() {
     let live = true;
     setLog({ kind: 'loading' });
     void adminRequest<AdminAuditPage>(path, {}).then((r) => {
-      if (live) setLog(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+      if (live) setLog(loadOf(r));
     });
     return () => {
       live = false;
@@ -33,10 +37,7 @@ export default function AuditPanel() {
   const page = log.kind === 'ready' ? log.data : null;
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="audit-heading">
-      <h2 id="audit-heading" className="rating-card-heading">
-        Audit log
-      </h2>
+    <AdminCard id="audit-heading" title="Audit log">
       <p className="muted">
         Every change made in admin, and the changes players make to their own account and blitz games, newest first. Names,
         emails and Discord names are not kept here: an entry names what it changed by id.
@@ -70,57 +71,39 @@ export default function AuditPanel() {
         </button>
       </form>
       {path === null && <p role="alert">The From day is after the To day.</p>}
-      {path !== null && log.kind === 'loading' && <p className="muted">Loading the audit log…</p>}
-      {path !== null && log.kind === 'error' && <p role="alert">{log.message}</p>}
+      {path !== null && <Loading load={log} what="the audit log" />}
       {path !== null && page !== null && (
         <>
           <p className="muted" role="status">
             {auditSummary(page)}
           </p>
           {page.entries.length > 0 && (
-            <div className="table-responsive">
-              <table className="leaderboard-table admin-table">
-                <caption className="visually-hidden">Audit log entries, newest first</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">When ({zone})</th>
-                    <th scope="col">Who</th>
-                    <th scope="col">Action</th>
-                    <th scope="col">Target</th>
-                    <th scope="col">Detail</th>
+            <AdminTable caption="Audit log entries, newest first">
+              <thead>
+                <tr>
+                  <th scope="col">When ({zone})</th>
+                  <th scope="col">Who</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {page.entries.map((e) => (
+                  <tr key={e.id}>
+                    <td>{formatTime(e.at, zone)}</td>
+                    <td>{auditBy(e)}</td>
+                    <td>{e.action}</td>
+                    <td className="admin-id">{e.target}</td>
+                    <td>{detailText(e.detail)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {page.entries.map((e) => (
-                    <tr key={e.id}>
-                      <td>{formatTime(e.at, zone)}</td>
-                      <td>{auditBy(e)}</td>
-                      <td>{e.action}</td>
-                      <td className="admin-id">{e.target}</td>
-                      <td>{detailText(e.detail)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </AdminTable>
           )}
-          {page.pages > 1 && (
-            <div className="note-actions">
-              <button type="button" className="btn-antique" disabled={page.page <= 1} onClick={() => setView({ ...view, page: page.page - 1 })}>
-                Newer
-              </button>
-              <button
-                type="button"
-                className="btn-antique"
-                disabled={page.page >= page.pages}
-                onClick={() => setView({ ...view, page: page.page + 1 })}
-              >
-                Older
-              </button>
-            </div>
-          )}
+          <NewerOlder page={page.page} pages={page.pages} onPage={(p) => setView({ ...view, page: p })} />
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }

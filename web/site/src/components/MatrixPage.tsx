@@ -1,62 +1,42 @@
 /** A player's career years and historical performance page: every reset mode, and the year-by-year career. */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import {
   currentRun,
   player as fetchPlayer,
   playerCareer,
   type Player,
   type PlayerCareer,
-  type TitleCode,
 } from '@ttac/shared/ratings';
-import BackLink from '@ttac/shared/BackLink';
-import { Flag } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
-import { careerPeakYear, scoreYears, wcLabel } from '../lib/career';
+import { careerPeakYear, scoreYears } from '../lib/career';
 import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
-import { recall, remember } from '../lib/remembered';
-import { browserStorage } from '../lib/account';
+import { recall } from '../lib/remembered';
+import { browserStorage } from '@ttac/shared/storage';
 import './PlayerPage.css';
 import './MatrixPage.css';
 import ScrollTable from './ScrollTable';
 import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
-import { viewLinks } from '../lib/navigate';
-import { errorText, type Load } from '@ttac/shared/load';
+import Message from './Message';
+import PlayerHeader from './PlayerHeader';
+import { TitleBadge } from './PlayerMarks';
+import { useAddressView, type Address } from './useAddressView';
+import PanelHeader from './PanelHeader';
 
-function readView(): MatrixView {
-  return parseMatrixView(new URLSearchParams(window.location.search), recall(browserStorage()));
-}
-
-/** TitleBadge is a year's title as upstream shows it: in the peak card World Champion gets the 💎 badge. */
-function TitleBadge({ code, card }: { code: TitleCode; card?: boolean }) {
-  if (code === 'WC' && card) return <span className="badge-wc badge-small">💎 World Champion</span>;
-  if (code === 'SGM') return <span className="badge badge-small badge-sgm">👑 GM</span>;
-  return <span className={`badge badge-small badge-${code.toLowerCase()}`}>{show.titleName(code)}</span>;
-}
+const ADDRESS: Address<MatrixView> = {
+  parse: parseMatrixView,
+  params: matrixParams,
+  remembers: (v) => ({ ...DEFAULT_VIEW, ...recall(browserStorage()), reset: v.reset, format: v.format }),
+};
 
 /** Shows the player's career years and peak season evaluation. */
 export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
-  const [view, setView] = useState<MatrixView>(readView);
-  const [run, setRun] = useState<Load<number>>({ kind: 'loading' });
+  const { view, linkTo } = useAddressView(ADDRESS);
+  const run = useLoad('run', () => currentRun(apiUrl).then((r) => r.run_id));
 
-  const go = useCallback((next: MatrixView) => {
-    window.history.pushState(null, '', `?${matrixParams(next)}`);
-    remember(browserStorage(), { ...DEFAULT_VIEW, ...recall(browserStorage()), reset: next.reset, format: next.format });
-    setView(next);
-  }, []);
-  const linkTo = viewLinks(matrixParams, go);
-
-  useEffect(() => {
-    const onPop = () => setView(readView());
-    window.addEventListener('popstate', onPop);
-    currentRun(apiUrl)
-      .then((r) => setRun({ kind: 'ready', data: r.run_id }))
-      .catch((e: unknown) => setRun({ kind: 'error', message: errorText(e) }));
-    return () => window.removeEventListener('popstate', onPop);
-  }, [apiUrl]);
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
   const { name, format } = view;
@@ -100,7 +80,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             <div className="peak-year-kicker">Career Benchmark Evaluation</div>
             <div className="peak-year-title">
               Peak Career Season: <span className="peak-year-year">{best.year}</span>
-              {best.title !== null && <TitleBadge code={best.title} card />}
+              {best.title !== null && <TitleBadge title={{ code: best.title }} long className="badge-small" />}
             </div>
             <div className="peak-year-text">
               In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
@@ -124,19 +104,13 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       <div className="rating-card matrix-card">
-        <div className="matrix-card-head">
-          <div>
-            <h3>📅 Year-by-Year Career Breakdown</h3>
-            <span className="matrix-card-sub">
-              {years.length} Seasons Recorded • Format: {formatName}
-            </span>
-          </div>
+        <PanelHeader icon="📅" title="Year-by-Year Career Breakdown" subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}>
           <span className="matrix-card-note">
             Hover on <strong>ℹ️ Score Index</strong> for composite formula details
           </span>
-        </div>
+        </PanelHeader>
         <ScrollTable hint="full career history">
-          <table className="career-history-table">
+          <table className="leaderboard-table career-history-table">
             <caption className="visually-hidden">Career by year, {formatName}</caption>
             <thead>
               <tr>
@@ -171,7 +145,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
                       <strong className="career-year">{y.year}</strong>
                       {shown === 'WC' && <span className="badge-wc badge-tiny">WC</span>}
                     </td>
-                    <td>{shown !== null ? <TitleBadge code={shown} /> : <span className="career-none">-</span>}</td>
+                    <td>{shown !== null ? <TitleBadge title={{ code: shown }} long className="badge-small" /> : <span className="career-none">-</span>}</td>
                     <td>{y.opponents}</td>
                     <td>
                       <span className="wld-num win">{y.wins}</span> - <span className="wld-num loss">{y.losses}</span> -{' '}
@@ -207,44 +181,23 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
   );
 }
 
-function Message({ children }: { children: ReactNode }) {
-  return <div className="rating-card waiting-message">{children}</div>;
-}
 
 function Header({ player, view }: { player: Player; view: MatrixView }) {
-  const wc = wcLabel(player.title, player.peak);
-  const { format } = view;
   return (
-    <div className="matrix-header-card">
-      <div className="header-back">
-        <BackLink href={profileHref(player.name, view)}>Return to Profile</BackLink>
-      </div>
-      <div>
-        <div className="matrix-identity">
-          <Flag country={player.country} />
-          <h1>{player.name}</h1>
-          {wc !== null ? (
-            <span className="badge-wc">💎 {wc}</span>
-          ) : (
-            player.title !== null && (
-              <span className={`badge badge-${player.title.code.toLowerCase()}`}>{show.titleName(player.title.code)}</span>
-            )
-          )}
-          {player.peak !== null && (
-            <span className={`badge badge-inline badge-${player.peak.code.toLowerCase()}`}>
-              Peak: {show.titleName(player.peak.code)} ({player.peak.year ?? 'Career'})
-            </span>
-          )}
-        </div>
-        <div className="matrix-subtitle">
-          Career Peak Year Evaluation • Format: <strong>{show.formatName(format)}</strong>
-        </div>
-      </div>
-      <div className="matrix-header-links">
+    <PlayerHeader
+      player={player}
+      back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
+      compact
+      subtitle={
+        <>
+          Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>
+        </>
+      }
+      links={
         <a href={achievementsHref(player.name)} className="btn-antique">
           🏆 Achievements »
         </a>
-      </div>
-    </div>
+      }
+    />
   );
 }

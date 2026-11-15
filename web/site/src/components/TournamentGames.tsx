@@ -1,12 +1,14 @@
 /** A tournament's games, newest first, narrowed by season, stage and group, with one-click replay codes. */
 import { useEffect, useRef, useState } from 'react';
-import { catalogueGames, type CatalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
+import { catalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
 import { catalogueGameRow, plural, seasonName, stageName } from '../lib/catalogue-view';
 import { gamesTag } from '../lib/games-table';
-import GamesTable, { GamesPages } from './GamesTable';
+import GamesTable from './GamesTable';
+import NewerOlder from '@ttac/shared/NewerOlder';
 import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
-import type { Load } from '@ttac/shared/load';
+import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 /** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
 export default function TournamentGames({
@@ -36,17 +38,7 @@ export default function TournamentGames({
     setFilter({ season: pick.season, page: 1 });
     panel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [pick]);
-  const [load, setLoad] = useState<Load<CatalogueGames>>({ kind: 'loading' });
-  useEffect(() => {
-    let live = true;
-    setLoad({ kind: 'loading' });
-    catalogueGames(apiUrl, run, slug, filter)
-      .then((data) => live && setLoad({ kind: 'ready', data }))
-      .catch((e: unknown) => live && setLoad({ kind: 'error', message: e instanceof Error ? e.message : 'The games could not be loaded.' }));
-    return () => {
-      live = false;
-    };
-  }, [apiUrl, run, slug, filter]);
+  const load = useLoad(JSON.stringify([run, slug, filter]), () => catalogueGames(apiUrl, run, slug, filter));
 
   const season = seasons.find((s) => s.label === filter.season);
   const stages = season !== undefined && (season.stages.length > 1 || season.stages[0]?.label !== '') ? season.stages : [];
@@ -54,11 +46,8 @@ export default function TournamentGames({
   const narrow = (next: Partial<GamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
 
   return (
-    <div className="panel-card games-panel" ref={panel}>
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Games</h2>
-        {data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}
-      </div>
+    <div className="rating-card panel-card games-panel" ref={panel}>
+      <PanelHeader title="Games">{data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}</PanelHeader>
       <div className="games-filters">
         <label>
           <span>{seasonWord}</span>
@@ -114,7 +103,7 @@ export default function TournamentGames({
         waiting={data === null ? <Waiting load={load} what="the games" form="row" colSpan={5} /> : undefined}
         empty="No games match these filters."
       />
-      {data !== null && <GamesPages page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
+      {data !== null && <NewerOlder page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
     </div>
   );
 }

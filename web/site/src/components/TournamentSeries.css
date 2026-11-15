@@ -1,40 +1,5 @@
 /* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
 
-.series-nav-bar {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-  background: var(--surface-inset);
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-}
-.series-nav-btn {
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  font-family: var(--font-stats);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: all 0.2s;
-  border: 1px solid transparent;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.series-nav-btn:hover {
-  color: var(--text-main);
-  background: var(--gold-wash-faint);
-}
-.series-nav-btn.active {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-  font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
-}
-
 .detail-hero {
   background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
   border: 1px solid var(--border-subtle);
@@ -142,28 +107,6 @@
   .stories-grid {
     grid-template-columns: 1fr;
   }
-  .panel-card {
-    padding: 1rem;
-  }
-}
-
-.panel-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 6px 20px var(--shadow);
-}
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: var(--size-card-title);
-  font-weight: 700;
-  color: var(--accent-gold);
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--gold-wash-faint);
 }
 
 /* Rules list */
@@ -197,9 +140,6 @@
   overflow-y: auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 6px;
-  border: 1px solid var(--gold-wash);
-  background: rgba(0, 0, 0, 0.25);
   scrollbar-width: thin;
   scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
@@ -207,50 +147,15 @@
   position: sticky;
   top: 0;
   z-index: 5;
-  background: rgba(30, 20, 14, 0.98);
   box-shadow: 0 1px 0 var(--gold-wash);
-}
-.trophy-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.92rem;
-  font-family: var(--font-stats);
-}
-.trophy-table th {
-  color: var(--accent-gold);
-  font-weight: 700;
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border-bottom: 2px solid var(--border-subtle);
-  font-size: var(--size-table-header);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-family: var(--font-heading);
-}
-.trophy-table tbody tr {
-  transition: background-color 0.15s ease;
-}
-.trophy-table tbody tr:nth-child(odd) {
-  background: rgba(16, 10, 6, 0.65);
-}
-.trophy-table tbody tr:nth-child(even) {
-  background: rgba(28, 18, 12, 0.40);
-}
-.trophy-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-faint);
-  color: var(--text-main);
-}
-.trophy-table tbody tr:hover td {
-  background: var(--gold-wash-faint) !important;
 }
 .medal-count {
   font-weight: 700;
   font-family: var(--font-stats);
 }
-.medal-gold { color: #f59e0b; }
-.medal-silver { color: #cbd5e1; }
-.medal-bronze { color: #d97706; }
+.medal-gold { color: var(--accent-gold); }
+.medal-silver { color: var(--medal-silver); }
+.medal-bronze { color: var(--medal-bronze); }
 .medal-total { color: var(--text-bright); }
 
 /* Success stories */
@@ -353,10 +258,6 @@
 }
 
 /* Upstream's inline styles, as classes. */
-.series-nav-btn.unbuilt {
-  cursor: default;
-}
-
 .detail-hero-title {
   margin: 0 0 0.3rem;
 }
@@ -369,38 +270,6 @@
 
 .meta-box-val.meta-box-text {
   font-size: 0.95rem;
-}
-
-h2.panel-header {
-  margin-top: 0;
-}
-
-.panel-header-split {
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.panel-header-title {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: inherit;
-}
-
-.panel-tag {
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--gold-wash);
-  border-radius: 4px;
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.panel-tag-wide {
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
 }
 
 .rules-note {
@@ -484,7 +353,7 @@ h2.panel-header {
 
 .records-intro {
   margin-bottom: 1.25rem;
-  color: var(--text-muted);
+  color: var(--text-main);
   font-size: var(--size-body-short);
   line-height: 1.5;
 }

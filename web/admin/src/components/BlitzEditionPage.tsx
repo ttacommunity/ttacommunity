@@ -1,36 +1,41 @@
 /** A blitz edition's page, in three tabs: its format and rounds (paired, changed by hand, published, their results recorded), its entrants (searched for and added, edited, dropped, removed), and the standings. */
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import BackLink from '@ttac/shared/BackLink';
 import { useDialog } from '@ttac/shared/Dialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, STANDING_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, drawLabel, editionParams, fixedByLabel, formatLabel, lastTieBreak, pointsNote, resultsLabel, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnMark, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, TIE_BREAKS, UNPLAYED_NOTE, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds } from '../lib/admin-api';
+import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { tabsFor } from '../lib/admin-tabs';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
-import { chooseTurn, emptyGameForm, gameRecordFrom, TURNS, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
+import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
-import { countryNames, type Country } from '../lib/countries';
+import { countryNames, type Country } from '@ttac/shared/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
-import AdminHeader from './AdminHeader';
+import AdminPage from './AdminPage';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
 import Notice, { NoticeRow } from './Notice';
-import PageError from './PageError';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
+import { plural } from '@ttac/shared/numbers';
+import Note from '@ttac/shared/Note';
+import PageHeader from '@ttac/shared/PageHeader';
+import GameSeatFields from '@ttac/shared/GameSeatFields';
+import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
+import AdminTable from './AdminTable';
+import AdminCard from './AdminCard';
+import Count from './Count';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -55,11 +60,11 @@ export default function BlitzEditionPage() {
       return;
     }
     const r = await adminRequest<AdminBlitzEdition>(`/api/blitz/${named.slug}/${encodeURIComponent(named.edition)}`, {});
-    setEd(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
+    setEd(loadOf(r));
   };
   useEffect(() => {
     void adminRequest<AdminMe>('/api/me', {}).then((r) =>
-      setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }),
+      setMe(loadOf(r)),
     );
     void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
     void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
@@ -69,42 +74,31 @@ export default function BlitzEditionPage() {
   const count = (status: AdminBlitzEntrant['status']) => (ed.kind === 'ready' ? ed.data.entrants.filter((e) => e.status === status).length : 0);
 
   return (
-    <>
-      <AdminHeader tabs={me.kind === 'ready' ? tabsFor(me.data.role) : []} current="blitz" />
-      <main className="admin-main">
-        {error !== null && <PageError message={error} />}
-        {me.kind === 'ready' && (
-          <p className="signed-in">
-            Signed in as <strong>{me.data.name}</strong> ({me.data.role})
-          </p>
-        )}
-        {ed.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="blitz" loading={ed.kind === 'loading'} error={error}>
         {ed.kind === 'ready' && at !== null && (
           <>
-            <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-              <div className="header-back">
-                <BackLink href="/#blitz">Blitz tournaments</BackLink>
-              </div>
-              <h2 id="page-title" className="tournament-title">
-                {ed.data.name} {ed.data.edition}
-              </h2>
-              <p className="muted">
-                {formatLabel(ed.data.format)}. {count('active')} in, {count('dropped')} dropped.
-                {ed.data.champion !== null && (
-                  <>
-                    {' '}
-                    Champion: <strong>{ed.data.champion}</strong>.
-                  </>
-                )}
-              </p>
-            </section>
+            <PageHeader
+              id="page-title"
+              back={{ href: '/#blitz', label: 'Blitz tournaments' }}
+              title={`${ed.data.name} ${ed.data.edition}`}
+              subtitle={
+                <>
+                  {formatLabel(ed.data.format)}. {count('active')} in, {count('dropped')} dropped.
+                  {ed.data.champion !== null && (
+                    <>
+                      {' '}
+                      Champion: <strong>{ed.data.champion}</strong>.
+                    </>
+                  )}
+                </>
+              }
+            />
             <Notice outcome={shownAt(outcome, 'page')} />
             <FlaggedResults at={at} ed={ed.data} regions={regions} onReload={load} outcome={outcome} say={setOutcome} />
             <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />
           </>
         )}
-      </main>
-    </>
+    </AdminPage>
   );
 }
 
@@ -136,88 +130,89 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
     if (sure) await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pairOf(m)} reset: the players can report it again.`);
   };
   return (
-    <section className="rating-card admin-card flagged-results" aria-labelledby="flagged-title">
+    <AdminCard
+      id="flagged-title"
+      title={
+        <>
+          Flagged results <Count n={flagged.length} what="flagged" />
+        </>
+      }
+      className="flagged-results"
+    >
       {dialog.element}
-      <h3 id="flagged-title">
-        Flagged results
-        {flagged.length > 0 && <span className="count-badge">{flagged.length}</span>}
-      </h3>
       <p className="muted">A player says their opponent&apos;s report is wrong. Ask both on Discord, then keep it, correct it or reset it.</p>
       <Notice outcome={shownAt(outcome, 'flagged')} onClose={() => say(null)} />
       {flagged.length === 0 && <p className="muted">No reports flagged.</p>}
       {flagged.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Reports flagged by a player, oldest round first</caption>
-            <thead>
-              <tr>
-                <SortHeader col="round" sort={flaggedSort} onSort={sortFlagged}>
-                  Round
-                </SortHeader>
-                <SortHeader col="game" sort={flaggedSort} onSort={sortFlagged}>
-                  Game
-                </SortHeader>
-                <SortHeader col="result" sort={flaggedSort} onSort={sortFlagged}>
-                  Reported result
-                </SortHeader>
-                <th scope="col">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {flaggedRows.map(({ round: r, match: m }) => (
-                <Fragment key={m.id}>
-                  <tr>
-                    <td>{roundTitle(r.number, ed.format)}</td>
-                    <th scope="row">{pairOf(m)}</th>
-                    <td>
-                      {resultSummary(view(m))}
-                      {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
-                      <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
-                    </td>
-                    <td className="run-buttons">
-                      <button type="button" className="btn-antique" onClick={(e) => void keep(r, m, e.currentTarget)}>
-                        Keep
+        <AdminTable caption="Reports flagged by a player, oldest round first">
+          <thead>
+            <tr>
+              <SortHeader col="round" sort={flaggedSort} onSort={sortFlagged}>
+                Round
+              </SortHeader>
+              <SortHeader col="game" sort={flaggedSort} onSort={sortFlagged}>
+                Game
+              </SortHeader>
+              <SortHeader col="result" sort={flaggedSort} onSort={sortFlagged}>
+                Reported result
+              </SortHeader>
+              <th scope="col">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {flaggedRows.map(({ round: r, match: m }) => (
+              <Fragment key={m.id}>
+                <tr>
+                  <td>{roundTitle(r.number, ed.format)}</td>
+                  <th scope="row">{pairOf(m)}</th>
+                  <td>
+                    {resultSummary(view(m))}
+                    {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
+                    <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
+                  </td>
+                  <td className="run-buttons">
+                    <button type="button" className="btn-antique" onClick={(e) => void keep(r, m, e.currentTarget)}>
+                      Keep
+                    </button>
+                    <button type="button" className="btn-antique" aria-expanded={correcting === m.id} onClick={() => setCorrecting(correcting === m.id ? null : m.id)}>
+                      Correct
+                    </button>
+                    {resets.matches.includes(m.id) && (
+                      <button type="button" className="btn-antique" onClick={(e) => void reset(r, m, e.currentTarget)}>
+                        Reset
                       </button>
-                      <button type="button" className="btn-antique" aria-expanded={correcting === m.id} onClick={() => setCorrecting(correcting === m.id ? null : m.id)}>
-                        Correct
-                      </button>
-                      {resets.matches.includes(m.id) && (
-                        <button type="button" className="btn-antique" onClick={(e) => void reset(r, m, e.currentTarget)}>
-                          Reset
-                        </button>
-                      )}
+                    )}
+                  </td>
+                </tr>
+                {correcting === m.id && (
+                  <tr className="form-row">
+                    <td colSpan={4}>
+                      <ResultForm
+                        at={at}
+                        round={r}
+                        match={m}
+                        nameOf={nameOf}
+                        regions={regions}
+                        zone={resultZone}
+                        onZone={setResultZone}
+                        onDone={async (message) => {
+                          setCorrecting(null);
+                          say(succeeded(message, 'flagged'));
+                          await onReload();
+                        }}
+                        onCancel={() => setCorrecting(null)}
+                      />
                     </td>
                   </tr>
-                  {correcting === m.id && (
-                    <tr className="form-row">
-                      <td colSpan={4}>
-                        <ResultForm
-                          at={at}
-                          round={r}
-                          match={m}
-                          nameOf={nameOf}
-                          regions={regions}
-                          zone={resultZone}
-                          onZone={setResultZone}
-                          onDone={async (message) => {
-                            setCorrecting(null);
-                            say(succeeded(message, 'flagged'));
-                            await onReload();
-                          }}
-                          onCancel={() => setCorrecting(null)}
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
-    </section>
+    </AdminCard>
   );
 }
 
@@ -228,35 +223,32 @@ function UnpairedList({ round, players }: { round: number; players: readonly Adm
   const [rows, sort, sortBy] = useSort(players, ENTRANT_COLUMNS);
   if (players.length === 0) return <p className="muted">Everyone is paired.</p>;
   return (
-    <div className="table-responsive">
-      <table className="leaderboard-table admin-table">
-        <caption className="visually-hidden">Round {round}&apos;s unpaired players</caption>
-        <thead>
-          <tr>
-            <SortHeader col="player" sort={sort} onSort={sortBy}>
-              Player
-            </SortHeader>
-            <SortHeader col="rating" sort={sort} onSort={sortBy}>
-              Rating
-            </SortHeader>
-            <SortHeader col="zone" sort={sort} onSort={sortBy}>
-              Time zone
-            </SortHeader>
+    <AdminTable caption={`Round ${round}'s unpaired players`}>
+      <thead>
+        <tr>
+          <SortHeader col="player" sort={sort} onSort={sortBy}>
+            Player
+          </SortHeader>
+          <SortHeader col="rating" sort={sort} onSort={sortBy}>
+            Rating
+          </SortHeader>
+          <SortHeader col="zone" sort={sort} onSort={sortBy}>
+            Time zone
+          </SortHeader>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((e) => (
+          <tr key={e.id}>
+            <th scope="row">{e.name}</th>
+            <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+            <td>
+              {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((e) => (
-            <tr key={e.id}>
-              <th scope="row">{e.name}</th>
-              <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-              <td>
-                {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </AdminTable>
   );
 }
 
@@ -523,147 +515,144 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
               {listingUnpaired(r) && <UnpairedList round={r.number} players={free} />}
               {!listingUnpaired(r) && shownOf(r).length === 0 && <p className="muted">No matches.</p>}
               {!listingUnpaired(r) && shownOf(r).length > 0 && (
-                <div className="table-responsive">
-                  <table className="leaderboard-table admin-table">
-                    <caption className="visually-hidden">Round {r.number}&apos;s matches</caption>
-                    <thead>
-                      <tr>
-                        <SortHeader col="player" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Player
-                        </SortHeader>
-                        <SortHeader col="rating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Rating
-                        </SortHeader>
-                        <SortHeader col="opponent" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Opponent
-                        </SortHeader>
-                        <SortHeader col="opponentRating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Rating
-                        </SortHeader>
-                        <SortHeader col="clocks" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Clocks
-                        </SortHeader>
-                        <SortHeader col="gap" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Rating gap
-                        </SortHeader>
-                        <SortHeader col="result" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
-                          Result
-                        </SortHeader>
-                        <th scope="col">
-                          <span className="visually-hidden">Actions</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedOf(r).map(({ m, i }) => (
-                        <Fragment key={m.id === 0 ? `new-${i}` : m.id}>
-                          <tr className={m.repeat ? 'row-error' : ''}>
-                            <th scope="row">{seededName(nameOf(m.a), m.a_seed)}</th>
-                            <td>{ratingOf(m.a)}</td>
-                            <td>{m.b === null ? <em>bye</em> : seededName(nameOf(m.b), m.b_seed)}</td>
-                            <td>{m.b === null ? '' : ratingOf(m.b)}</td>
-                            <td>{m.b === null ? '' : zoneGapLabel(m.zone_gap_minutes)}</td>
-                            <td>
-                              {m.rating_gap === null ? '' : Math.round(m.rating_gap)}
-                              {m.repeat && <span className="row-detail">met before</span>}
-                            </td>
-                            <td>
-                              {m.b !== null && m.result === null ? <span className="muted">not yet</span> : resultSummary(view(m))}
-                              {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
-                              {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
-                              {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
-                            </td>
-                            <td className="run-buttons">
-                              {m.b !== null && m.id !== 0 && !changed(r) && (
-                                <button
-                                  type="button"
-                                  className="btn-antique"
-                                  aria-expanded={recording === m.id}
-                                  onClick={() => {
-                                    setReplacing(null);
-                                    setRecording(recording === m.id ? null : m.id);
-                                  }}
-                                >
-                                  {m.result === null ? 'Record' : 'Correct'}
-                                </button>
-                              )}
-                              {m.report === 'flagged' && !changed(r) && (
-                                <button type="button" className="btn-antique" onClick={(e) => void keepReport(r, m, e.currentTarget)}>
-                                  Keep
-                                </button>
-                              )}
-                              {resets.matches.includes(m.id) && !changed(r) && (
-                                <button type="button" className="btn-antique" onClick={(e) => void resetResult(r, m, e.currentTarget)}>
-                                  Reset
-                                </button>
-                              )}
-                              {r.id === open?.id && r.kind === 'swiss' && m.result === null && (
-                                <button type="button" className="btn-antique" onClick={() => unpair(r, i)}>
-                                  Unpair
-                                </button>
-                              )}
-                              {r.id === open?.id && replaceableSide(m, r, ed.entrants) !== null && (
-                                <button
-                                  type="button"
-                                  className="btn-antique"
-                                  aria-expanded={replacing === m.id}
-                                  onClick={() => {
-                                    setRecording(null);
-                                    setReplacing(replacing === m.id ? null : m.id);
-                                  }}
-                                >
-                                  Replace
-                                </button>
-                              )}
+                <AdminTable caption={`Round ${r.number}'s matches`}>
+                  <thead>
+                    <tr>
+                      <SortHeader col="player" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Player
+                      </SortHeader>
+                      <SortHeader col="rating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Rating
+                      </SortHeader>
+                      <SortHeader col="opponent" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Opponent
+                      </SortHeader>
+                      <SortHeader col="opponentRating" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Rating
+                      </SortHeader>
+                      <SortHeader col="clocks" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Clocks
+                      </SortHeader>
+                      <SortHeader col="gap" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Rating gap
+                      </SortHeader>
+                      <SortHeader col="result" sort={matchSorts[r.id] ?? null} onSort={sortRound(r)}>
+                        Result
+                      </SortHeader>
+                      <th scope="col">
+                        <span className="visually-hidden">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedOf(r).map(({ m, i }) => (
+                      <Fragment key={m.id === 0 ? `new-${i}` : m.id}>
+                        <tr className={m.repeat ? 'row-error' : ''}>
+                          <th scope="row">{seededName(nameOf(m.a), m.a_seed)}</th>
+                          <td>{ratingOf(m.a)}</td>
+                          <td>{m.b === null ? <em>bye</em> : seededName(nameOf(m.b), m.b_seed)}</td>
+                          <td>{m.b === null ? '' : ratingOf(m.b)}</td>
+                          <td>{m.b === null ? '' : zoneGapLabel(m.zone_gap_minutes)}</td>
+                          <td>
+                            {m.rating_gap === null ? '' : Math.round(m.rating_gap)}
+                            {m.repeat && <span className="row-detail">met before</span>}
+                          </td>
+                          <td>
+                            {m.b !== null && m.result === null ? <span className="muted">not yet</span> : resultSummary(view(m))}
+                            {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
+                            {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
+                            {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
+                          </td>
+                          <td className="run-buttons">
+                            {m.b !== null && m.id !== 0 && !changed(r) && (
+                              <button
+                                type="button"
+                                className="btn-antique"
+                                aria-expanded={recording === m.id}
+                                onClick={() => {
+                                  setReplacing(null);
+                                  setRecording(recording === m.id ? null : m.id);
+                                }}
+                              >
+                                {m.result === null ? 'Record' : 'Correct'}
+                              </button>
+                            )}
+                            {m.report === 'flagged' && !changed(r) && (
+                              <button type="button" className="btn-antique" onClick={(e) => void keepReport(r, m, e.currentTarget)}>
+                                Keep
+                              </button>
+                            )}
+                            {resets.matches.includes(m.id) && !changed(r) && (
+                              <button type="button" className="btn-antique" onClick={(e) => void resetResult(r, m, e.currentTarget)}>
+                                Reset
+                              </button>
+                            )}
+                            {r.id === open?.id && r.kind === 'swiss' && m.result === null && (
+                              <button type="button" className="btn-antique" onClick={() => unpair(r, i)}>
+                                Unpair
+                              </button>
+                            )}
+                            {r.id === open?.id && replaceableSide(m, r, ed.entrants) !== null && (
+                              <button
+                                type="button"
+                                className="btn-antique"
+                                aria-expanded={replacing === m.id}
+                                onClick={() => {
+                                  setRecording(null);
+                                  setReplacing(replacing === m.id ? null : m.id);
+                                }}
+                              >
+                                Replace
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                        {recording === m.id && m.b !== null && !changed(r) && (
+                          <tr className="form-row">
+                            <td colSpan={8}>
+                              <ResultForm
+                                at={at}
+                                round={r}
+                                match={m}
+                                nameOf={nameOf}
+                                regions={regions}
+                                zone={resultZone}
+                                onZone={setResultZone}
+                                onDone={async (message) => {
+                                  setRecording(null);
+                                  say(succeeded(message, `match ${m.id}`));
+                                  await onReload();
+                                }}
+                                onCancel={() => setRecording(null)}
+                              />
                             </td>
                           </tr>
-                          {recording === m.id && m.b !== null && !changed(r) && (
-                            <tr className="form-row">
-                              <td colSpan={8}>
-                                <ResultForm
-                                  at={at}
-                                  round={r}
-                                  match={m}
-                                  nameOf={nameOf}
-                                  regions={regions}
-                                  zone={resultZone}
-                                  onZone={setResultZone}
-                                  onDone={async (message) => {
-                                    setRecording(null);
-                                    say(succeeded(message, `match ${m.id}`));
-                                    await onReload();
-                                  }}
-                                  onCancel={() => setRecording(null)}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                          {replacing === m.id && replaceableSide(m, r, ed.entrants) !== null && (
-                            <tr className="form-row">
-                              <td colSpan={8}>
-                                <ReplaceForm
-                                  at={at}
-                                  round={r}
-                                  match={m}
-                                  out={replaceableSide(m, r, ed.entrants) as number}
-                                  ed={ed}
-                                  nameOf={nameOf}
-                                  onDone={async (message) => {
-                                    setReplacing(null);
-                                    say(succeeded(message, `match ${m.id}`));
-                                    await onReload();
-                                  }}
-                                  onCancel={() => setReplacing(null)}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                          <NoticeRow outcome={shownAt(outcome, `match ${m.id}`)} columns={8} onClose={close} />
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        )}
+                        {replacing === m.id && replaceableSide(m, r, ed.entrants) !== null && (
+                          <tr className="form-row">
+                            <td colSpan={8}>
+                              <ReplaceForm
+                                at={at}
+                                round={r}
+                                match={m}
+                                out={replaceableSide(m, r, ed.entrants) as number}
+                                ed={ed}
+                                nameOf={nameOf}
+                                onDone={async (message) => {
+                                  setReplacing(null);
+                                  say(succeeded(message, `match ${m.id}`));
+                                  await onReload();
+                                }}
+                                onCancel={() => setReplacing(null)}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                        <NoticeRow outcome={shownAt(outcome, `match ${m.id}`)} columns={8} onClose={close} />
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </AdminTable>
               )}
             </>
           )}
@@ -713,7 +702,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const unpaired = left.length === 0 ? '' : ` ${left.join(' and ')} will be unpaired.`;
     if (!(await dialog.confirm({ heading: `${e.name} skips round ${round}?`, text: `They score the edition's skip points for it.${unpaired}`, action: 'Skip' }, opener))) return;
     const r = await req.send(req.skipBlitzRound(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
+    say(outcomeOf(r, `${e.name} skips round ${round}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`));
     await onReload();
   };
   const save = async (e: FormEvent) => {
@@ -732,7 +721,7 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
     const sure = await dialog.confirm({ heading: `Remove ${e.name} from the edition?`, text: unpaired === '' ? undefined : unpaired.trim(), action: 'Remove', final: true }, opener);
     if (!sure) return;
     const r = await req.send(req.removeBlitzEntrant(at.slug, at.edition, e.id));
-    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${left.length === 1 ? 'is' : 'are'} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
+    say(outcomeOf(r, `Removed ${e.name}.${left.length === 0 ? '' : ` ${left.join(' and ')} ${plural(left.length, 'is', 'are')} unpaired now: Pair fills them in.`}`, `entrant ${e.id}`, 'entrants'));
     await onReload();
   };
   return (
@@ -750,129 +739,126 @@ function EntrantsPanel({ at, ed, regions, countries, onReload, outcome, say }: P
       <Notice outcome={shownAt(outcome, 'entrants')} onClose={() => say(null)} />
       {ed.entrants.length === 0 && <p className="muted">No entrants yet.</p>}
       {ed.entrants.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Every entrant, in sign-up order</caption>
-            <thead>
-              <tr>
-                <SortHeader col="player" sort={sort} onSort={sortBy}>
-                  Username
-                </SortHeader>
-                <SortHeader col="discord" sort={sort} onSort={sortBy}>
-                  Discord
-                </SortHeader>
-                <SortHeader col="email" sort={sort} onSort={sortBy}>
-                  Email
-                </SortHeader>
-                <SortHeader col="country" sort={sort} onSort={sortBy}>
-                  Country
-                </SortHeader>
-                <SortHeader col="zone" sort={sort} onSort={sortBy}>
-                  Time zone
-                </SortHeader>
-                <SortHeader col="rating" sort={sort} onSort={sortBy}>
-                  Rating
-                </SortHeader>
-                <SortHeader col="rank" sort={sort} onSort={sortBy}>
-                  <abbr title="Starting rank">{startLabel(ed.ranks_fixed_by) ?? 'Rank'}</abbr>
-                </SortHeader>
-                <SortHeader col="status" sort={sort} onSort={sortBy}>
-                  Status
-                </SortHeader>
-                <SortHeader col="skips" sort={sort} onSort={sortBy}>
-                  Skips
-                </SortHeader>
-                <th scope="col">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {entrants.map((e) => (
-                <Fragment key={e.id}>
-                  {editing?.id === e.id ? (
-                    <tr>
-                      <th scope="row">{e.name}</th>
-                      <td>
-                        <input
-                          className="input-antique"
-                          aria-label={`Discord username of ${e.name}`}
-                          value={editing.discord_name}
-                          maxLength={100}
-                          onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input className="input-antique" aria-label={`Email of ${e.name}`} type="email" value={editing.email} maxLength={254} onChange={(ev) => setEditing({ ...editing, email: ev.target.value })} />
-                      </td>
-                      <td>
-                        <CountryPick label={`Country of ${e.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
-                      </td>
-                      <td>
-                        <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
-                      </td>
-                      <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                      <td>{e.starting_rank ?? '–'}</td>
-                      <td>{entrantState(e, ed.rounds, nameOf)}</td>
-                      <td>{e.skips.length}</td>
-                      <td className="run-buttons">
-                        <button type="button" className="btn-antique" onClick={(ev) => void save(ev)}>
-                          Save
+        <AdminTable caption="Every entrant, in sign-up order">
+          <thead>
+            <tr>
+              <SortHeader col="player" sort={sort} onSort={sortBy}>
+                Username
+              </SortHeader>
+              <SortHeader col="discord" sort={sort} onSort={sortBy}>
+                Discord
+              </SortHeader>
+              <SortHeader col="email" sort={sort} onSort={sortBy}>
+                Email
+              </SortHeader>
+              <SortHeader col="country" sort={sort} onSort={sortBy}>
+                Country
+              </SortHeader>
+              <SortHeader col="zone" sort={sort} onSort={sortBy}>
+                Time zone
+              </SortHeader>
+              <SortHeader col="rating" sort={sort} onSort={sortBy}>
+                Rating
+              </SortHeader>
+              <SortHeader col="rank" sort={sort} onSort={sortBy}>
+                <abbr title="Starting rank">{startLabel(ed.ranks_fixed_by) ?? 'Rank'}</abbr>
+              </SortHeader>
+              <SortHeader col="status" sort={sort} onSort={sortBy}>
+                Status
+              </SortHeader>
+              <SortHeader col="skips" sort={sort} onSort={sortBy}>
+                Skips
+              </SortHeader>
+              <th scope="col">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {entrants.map((e) => (
+              <Fragment key={e.id}>
+                {editing?.id === e.id ? (
+                  <tr>
+                    <th scope="row">{e.name}</th>
+                    <td>
+                      <input
+                        className="input-antique"
+                        aria-label={`Discord username of ${e.name}`}
+                        value={editing.discord_name}
+                        maxLength={100}
+                        onChange={(ev) => setEditing({ ...editing, discord_name: ev.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input className="input-antique" aria-label={`Email of ${e.name}`} type="email" value={editing.email} maxLength={254} onChange={(ev) => setEditing({ ...editing, email: ev.target.value })} />
+                    </td>
+                    <td>
+                      <CountryPick label={`Country of ${e.name}`} hideLabel countries={countries} value={editing.country} onChange={(country) => setEditing({ ...editing, country })} />
+                    </td>
+                    <td>
+                      <ZonePick label={`Time zone of ${e.name}`} hideLabel regions={regions} value={editing.zone} onChange={(zone) => setEditing({ ...editing, zone })} />
+                    </td>
+                    <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                    <td>{e.starting_rank ?? '–'}</td>
+                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                    <td>{e.skips.length}</td>
+                    <td className="run-buttons">
+                      <button type="button" className="btn-antique" onClick={(ev) => void save(ev)}>
+                        Save
+                      </button>
+                      <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th scope="row">
+                      {e.name}
+                      {e.player === '' && <span className="row-detail muted">not in the ratings</span>}
+                    </th>
+                    <td>{e.discord_name}</td>
+                    <td>{e.email}</td>
+                    <td>{e.country ?? ''}</td>
+                    <td>
+                      {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
+                    </td>
+                    <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
+                    <td>{e.starting_rank ?? '–'}</td>
+                    <td>{entrantState(e, ed.rounds, nameOf)}</td>
+                    <td>{e.skips.length}</td>
+                    <td className="run-buttons">
+                      <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
+                        Edit
+                      </button>
+                      {actions(e).action === 'reinstate' && (
+                        <button type="button" className="btn-antique" onClick={() => void reinstate(e)}>
+                          Reinstate
                         </button>
-                        <button type="button" className="btn-antique" onClick={() => setEditing(null)}>
-                          Cancel
+                      )}
+                      {actions(e).action === 'drop' && (
+                        <button type="button" className="btn-antique" onClick={() => void change(e, 'dropped')}>
+                          Drop
                         </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr>
-                      <th scope="row">
-                        {e.name}
-                        {e.player === '' && <span className="row-detail muted">not in the ratings</span>}
-                      </th>
-                      <td>{e.discord_name}</td>
-                      <td>{e.email}</td>
-                      <td>{e.country ?? ''}</td>
-                      <td>
-                        {e.zone} <span className="muted">{offsetLabel(e.utc_offset)}</span>
-                      </td>
-                      <td>{e.rating === null ? '–' : Math.round(e.rating)}</td>
-                      <td>{e.starting_rank ?? '–'}</td>
-                      <td>{entrantState(e, ed.rounds, nameOf)}</td>
-                      <td>{e.skips.length}</td>
-                      <td className="run-buttons">
-                        <button type="button" className="btn-antique" onClick={() => setEditing({ id: e.id, discord_name: e.discord_name, email: e.email, country: e.country ?? '', zone: e.zone })}>
-                          Edit
+                      )}
+                      {actions(e).action === 'remove' && (
+                        <button type="button" className="btn-antique" onClick={(ev) => void remove(e, ev.currentTarget)}>
+                          Remove
                         </button>
-                        {actions(e).action === 'reinstate' && (
-                          <button type="button" className="btn-antique" onClick={() => void reinstate(e)}>
-                            Reinstate
-                          </button>
-                        )}
-                        {actions(e).action === 'drop' && (
-                          <button type="button" className="btn-antique" onClick={() => void change(e, 'dropped')}>
-                            Drop
-                          </button>
-                        )}
-                        {actions(e).action === 'remove' && (
-                          <button type="button" className="btn-antique" onClick={(ev) => void remove(e, ev.currentTarget)}>
-                            Remove
-                          </button>
-                        )}
-                        {actions(e).skip !== null && (
-                          <button type="button" className="btn-antique" onClick={(ev) => void skip(e, actions(e).skip as number, ev.currentTarget)}>
-                            Skip R{actions(e).skip}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                  <NoticeRow outcome={shownAt(outcome, `entrant ${e.id}`)} columns={9} onClose={() => say(null)} />
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      )}
+                      {actions(e).skip !== null && (
+                        <button type="button" className="btn-antique" onClick={(ev) => void skip(e, actions(e).skip as number, ev.currentTarget)}>
+                          Skip R{actions(e).skip}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                <NoticeRow outcome={shownAt(outcome, `entrant ${e.id}`)} columns={9} onClose={() => say(null)} />
+              </Fragment>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );
@@ -913,7 +899,7 @@ type View = 'rounds' | 'entrants' | 'standings';
 function EditionTabs(props: Props) {
   const [hash, setHash] = useHash();
   return (
-    <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
+    <AdminCard label="Rounds, entrants and standings">
       <SubTabs<View>
         label="Show"
         tabs={[
@@ -942,7 +928,7 @@ function EditionTabs(props: Props) {
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
       />
-    </section>
+    </AdminCard>
   );
 }
 
@@ -989,9 +975,7 @@ function EditionSettings(props: Props) {
 /** FormatWarnings shows warnings about a format, one note each. */
 function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
   return warnings.map((w) => (
-    <p key={w} className="format-warning" role="note">
-      {w}
-    </p>
+    <Note key={w}>{w}</Note>
   ));
 }
 
@@ -1309,7 +1293,7 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
       <Notice outcome={shownAt(outcome, 'format')} onClose={() => say(null)} />
       {!locked && (
         <p className="muted round-hint">
-          Up to {advice.limit} Swiss {advice.limit === 1 ? 'round' : 'rounds'} can always be paired without anyone meeting twice.
+          Up to {advice.limit} Swiss {plural(advice.limit, 'round')} can always be paired without anyone meeting twice.
         </p>
       )}
       {!locked && <FormatWarnings warnings={advice.warnings} />}
@@ -1334,12 +1318,6 @@ function formFromGame(m: AdminBlitzMatch, zone: string, regions: readonly Region
     zone,
   };
 }
-
-const OUTCOMES: { value: GameForm['a_outcome']; label: string }[] = [
-  { value: 'finished', label: 'finished' },
-  { value: 'resigned', label: 'resigned' },
-  { value: 'timed_out', label: 'timed out' },
-];
 
 type ResultFormProps = {
   at: Edition;
@@ -1388,48 +1366,9 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
     if (res.ok) await onDone(`${a} v ${b} ruled.`);
     else setRefusal(refused(res.message, ''));
   };
-  // side is one player's row: how their game ended, their culture (0 for one who resigned or timed out), then their turn.
   const side = (who: 'a' | 'b', name: string) => (
     <div className="result-row">
-      <label>
-        {name}
-        <select className="input-antique" value={game[`${who}_outcome`]} onChange={(e) => setGame({ ...game, [`${who}_outcome`]: e.target.value as GameForm['a_outcome'] })}>
-          {OUTCOMES.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {name}&apos;s culture
-        <input
-          className="input-antique"
-          type="number"
-          min={0}
-          step="any"
-          value={game[`${who}_culture`]}
-          placeholder={game[`${who}_outcome`] === 'finished' ? undefined : '0'}
-          disabled={game[`${who}_outcome`] !== 'finished'}
-          onChange={(e) => setGame({ ...game, [`${who}_culture`]: e.target.value })}
-        />
-      </label>
-      <label>
-        {name}&apos;s turn
-        <select className="input-antique" value={game[`${who}_turn`] ?? ''} onChange={(e) => setGame(chooseTurn(game, who, Number(e.target.value)))}>
-          {game[`${who}_turn`] === null && (
-            <option value="" disabled>
-              –
-            </option>
-          )}
-          {TURNS.map((t) => (
-            <option key={t} value={t}>
-              {turnMark(t)}
-              {t === 1 ? ' (went first)' : ''}
-            </option>
-          ))}
-        </select>
-      </label>
+      <GameSeatFields form={game} who={who} name={name} onChange={setGame} />
     </div>
   );
   return (
@@ -1596,9 +1535,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
 
 /** StandingsPanel shows the standings as the site does, by rank: how the edition scores and breaks ties, then rank (marked before the number where the lot or the seed ordered it; fixedBy is what fixed the starting ranks, null before round 1), the starting rank once fixed, points, games played, byes and, on request, the tie-breaks; dropped players last. */
 function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStanding[]; scoring: string; fixedBy: 'rating' | 'lot' | null }) {
-  const [rows, sort, sortBy] = useSort(standings, STANDING_COLUMNS);
   const [tieBreaks, setTieBreaks] = useState(false);
-  const start = startLabel(fixedBy);
   return (
     <>
       <div className="blitz-table-bar muted">
@@ -1609,91 +1546,9 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
       </div>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">The standings</caption>
-            <thead>
-              <tr>
-                <SortHeader col="rank" sort={sort} onSort={sortBy}>
-                  Rank
-                </SortHeader>
-                <SortHeader col="player" sort={sort} onSort={sortBy}>
-                  Player
-                </SortHeader>
-                <SortHeader col="points" sort={sort} onSort={sortBy}>
-                  Points
-                </SortHeader>
-                <SortHeader col="results" sort={sort} onSort={sortBy}>
-                  <abbr title="Win–Loss–Tie">Results</abbr>
-                </SortHeader>
-                <SortHeader col="byes" sort={sort} onSort={sortBy}>
-                  Byes
-                </SortHeader>
-                {tieBreaks && (
-                  <>
-                    <SortHeader col="cut1" sort={sort} onSort={sortBy}>
-                      <abbr title="Buchholz Cut 1">BH-C1</abbr>
-                    </SortHeader>
-                    <SortHeader col="buchholz" sort={sort} onSort={sortBy}>
-                      <abbr title="Buchholz">BH</abbr>
-                    </SortHeader>
-                    <SortHeader col="sb" sort={sort} onSort={sortBy}>
-                      <abbr title="Sonneborn-Berger">SB</abbr>
-                    </SortHeader>
-                  </>
-                )}
-                {start !== null && (
-                  <SortHeader col="start" sort={sort} onSort={sortBy}>
-                    {start}
-                  </SortHeader>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => {
-                const note = pointsNote(s);
-                return (
-                <tr key={s.name} className={s.status === 'dropped' ? 'muted' : ''}>
-                  <td>
-                    <span className="blitz-draw-slot">
-                      {drawLabel(s, fixedBy) !== null && (
-                        <span className="blitz-draw" title={drawLabel(s, fixedBy) ?? ''}>
-                          *<span className="visually-hidden">{drawLabel(s, fixedBy)}</span>
-                        </span>
-                      )}
-                    </span>
-                    {s.rank}
-                  </td>
-                  <th scope="row">
-                    {s.name}
-                    {s.status === 'dropped' && <span className="row-detail muted">dropped</span>}
-                  </th>
-                  <td>
-                    {note !== null ? (
-                      <span title={note}>
-                        {s.points}
-                        <span className="blitz-draw">*</span>
-                      </span>
-                    ) : (
-                      s.points
-                    )}
-                  </td>
-                  <td>{resultsLabel(s)}</td>
-                  <td>{s.byes}</td>
-                  {tieBreaks && (
-                    <>
-                      <td>{s.buchholz_cut1}</td>
-                      <td>{s.buchholz}</td>
-                      <td>{s.sonneborn_berger}</td>
-                    </>
-                  )}
-                  {start !== null && <td>{s.starting_rank ?? '–'}</td>}
-                </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="The standings" className="blitz-standings">
+          <BlitzStandingsTable standings={standings} fixedBy={fixedBy} tieBreaks={tieBreaks} />
+        </AdminTable>
       )}
       {standings.length > 0 && (
         <p className="muted blitz-footnote">

@@ -16,9 +16,6 @@
   margin: 0 auto 1.5rem;
   padding: 1.5rem 1.75rem;
 }
-.blitz-card .muted {
-  color: var(--text-muted);
-}
 .blitz-intro {
   margin: 0 0 1rem;
   color: var(--text-soft);
@@ -26,12 +23,6 @@
 }
 .blitz-table-wrap {
   overflow-x: auto;
-}
-.blitz-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.95rem;
 }
 .blitz-table caption {
   caption-side: top;
@@ -42,18 +33,10 @@
 }
 .blitz-table th,
 .blitz-table td {
-  padding: 0.45rem 0.6rem;
-  border-bottom: 1px solid var(--border-subtle);
-  text-align: left;
   vertical-align: top;
 }
 .blitz-table thead th {
-  color: var(--accent-gold);
-  font-weight: 600;
   white-space: nowrap;
-}
-.blitz-table tbody th {
-  font-weight: 600;
 }
 .blitz-table .num {
   text-align: right;
@@ -71,18 +54,10 @@
   font-size: 1.05rem;
   color: var(--accent-gold);
 }
-.blitz-dropped {
-  color: var(--text-muted);
-}
 .blitz-flag {
   display: inline-block;
   margin-right: 0.4rem;
   vertical-align: middle;
-}
-.blitz-note {
-  display: block;
-  color: var(--text-muted);
-  font-size: 0.85rem;
 }
 .blitz-champion {
   margin: 0 0 1rem;
@@ -104,15 +79,6 @@
 }
 /* The player's own game: its card lands below the sticky header when the pairings link to it, its buttons, and the
    report form a row at a time, wrapping on a phone. */
-/* The pairings' note asking a visitor to sign in to report. */
-.blitz-sign-in {
-  margin: 0 0 1rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--accent-gold);
-  border-left-width: 4px;
-  border-radius: 4px;
-  line-height: 1.5;
-}
 .your-game {
   scroll-margin-top: 5.5rem;
 }
@@ -131,24 +97,6 @@
   gap: 0.25rem;
   color: var(--text-soft);
   font-size: var(--size-body-short);
-}
-.report-said {
-  margin: 0.75rem 0 0;
-  color: var(--text-soft);
-}
-.report-said.report-refused {
-  color: var(--loss);
-}
-
-/* The marker on a rank the draw ordered, in a slot of its own before the number so the numbers line up. */
-.blitz-draw-slot {
-  display: inline-block;
-  width: 0.9em;
-  text-align: left;
-}
-.blitz-draw {
-  color: var(--accent-gold);
-  font-weight: 700;
 }
 
 /* The row above the standings: the scoring at a glance on the left, the table's controls on the right; they wrap on a phone. */

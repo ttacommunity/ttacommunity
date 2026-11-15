@@ -1,6 +1,8 @@
-/** An action's outcome beside the action: its word and text on a panel bordered green or red, scrolled into view and read out by the page's live regions. */
-import { useEffect, useMemo, useRef } from 'react';
-import { announcement, loadFailure, noticeHeading, revealed, type Outcome } from '../lib/outcome';
+/** An action's outcome beside the action, as OutcomeNotice shows it, read out by the page's live regions. */
+import { useEffect, useMemo } from 'react';
+import OutcomeNotice from '@ttac/shared/OutcomeNotice';
+import type { Load } from '@ttac/shared/load';
+import { announcement, loadFailure, revealed, type Outcome } from '../lib/outcome';
 
 // The live regions AdminLayout puts on every page, empty until an outcome is announced.
 const REGIONS = { alert: 'notice-alert', status: 'notice-status' } as const;
@@ -15,29 +17,15 @@ function announce(o: Outcome | null) {
   }
 }
 
-/** Notice shows an outcome, or nothing for null, with a close button when onClose is given. Spans throughout, so it fits inside a paragraph too. */
+/** Notice shows an outcome, or nothing for null, with a close button when onClose is given, and has a screen reader read it. */
 export default function Notice({ outcome, onClose }: { outcome: Outcome | null; onClose?: () => void }) {
-  const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (outcome === null) return;
     announce(outcome);
-    if (revealed(outcome)) box.current?.scrollIntoView({ block: 'nearest' });
     return () => announce(null);
   }, [outcome]);
   if (outcome === null) return null;
-  return (
-    <span ref={box} className={`notice notice-${outcome.kind}`}>
-      <span className="notice-body">
-        <strong className="notice-heading">{noticeHeading(outcome.kind)}</strong>
-        <span className="notice-text">{outcome.text}</span>
-      </span>
-      {onClose !== undefined && (
-        <button type="button" className="notice-close" aria-label="Close" onClick={onClose}>
-          ×
-        </button>
-      )}
-    </span>
-  );
+  return <OutcomeNotice kind={outcome.kind} text={outcome.text} onClose={onClose} scroll={revealed(outcome)} />;
 }
 
 /** NoticeRow shows an outcome in a table row of its own, spanning the table's columns, under the row it is about. */
@@ -56,4 +44,11 @@ export function NoticeRow({ outcome, columns, onClose }: { outcome: Outcome | nu
 export function LoadNotice({ message }: { message: string }) {
   const outcome = useMemo(() => loadFailure(message, ''), [message]);
   return <Notice outcome={outcome} />;
+}
+
+/** Loading shows "Loading…" (or "Loading what…") while load loads, why it failed when it did, and nothing once it is ready. */
+export function Loading({ load, what }: { load: Load<unknown>; what?: string }) {
+  if (load.kind === 'loading') return <p className="muted">{what === undefined ? 'Loading…' : `Loading ${what}…`}</p>;
+  if (load.kind === 'error') return <LoadNotice message={load.message} />;
+  return null;
 }

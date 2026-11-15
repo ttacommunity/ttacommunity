@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { count, score, signed } from './numbers';
+import { count, score, signed, counted, ordinal, plural } from './numbers';
 
 describe('count', () => {
   it.each([
@@ -39,5 +39,55 @@ describe('signed', () => {
     ['a small move in whole points', 0.4, 0, '0'],
   ])('writes %s', (_name, value, decimals, want) => {
     expect(signed(value, decimals)).toBe(want);
+  });
+
+  it.each([
+    ['zero', 0, '±0'],
+    ['a small move that rounds to zero', 0.4, '±0'],
+    ['a rise', 5, '+5'],
+  ])('writes %s with a zero of its own', (_name, value, want) => {
+    expect(signed(value, 0, '±0')).toBe(want);
+  });
+});
+
+describe('plural', () => {
+  it.each([
+    [0, 'entries'],
+    [1, 'entry'],
+    [2, 'entries'],
+  ])('picks the word for %i', (n, want) => {
+    expect(plural(n, 'entry', 'entries')).toBe(want);
+  });
+
+  it('adds an s when no plural is given', () => {
+    expect(plural(2, 'game')).toBe('games');
+  });
+});
+
+describe('counted', () => {
+  it.each([
+    [1, 'en', '1 entry'],
+    [3, 'en', '3 entries'],
+    [1234, 'en', '1,234 entries'],
+  ])('writes %i in %s', (n, locale, want) => {
+    expect(counted(n, 'entry', 'entries', locale)).toBe(want);
+  });
+});
+
+describe('ordinal', () => {
+  it.each([
+    [1, '1st'],
+    [2, '2nd'],
+    [3, '3rd'],
+    [4, '4th'],
+    [11, '11th'],
+    [12, '12th'],
+    [13, '13th'],
+    [21, '21st'],
+    [22, '22nd'],
+    [103, '103rd'],
+    [111, '111th'],
+  ])('writes %i as %s', (n, want) => {
+    expect(ordinal(n)).toBe(want);
   });
 });

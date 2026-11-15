@@ -7,30 +7,12 @@
   justify-content: space-between;
   padding: 0 20px;
 }
-.bracket-rounds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 .bracket-round {
-  display: inline-flex;
   flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
   min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-panel);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: var(--size-body-short);
   text-align: left;
-  cursor: pointer;
-}
-.bracket-round[aria-pressed='true'] {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash);
-  color: var(--accent-gold-light);
 }
 .bracket-rounds-narrow {
   display: none;
@@ -44,7 +26,7 @@
 }
 .bracket-round-state {
   font-size: var(--size-label);
-  color: var(--text-muted);
+  font-weight: normal;
 }
 .bracket-find {
   display: flex;
@@ -147,7 +129,7 @@
   color: var(--text-muted);
 }
 .bracket-seat-hit {
-  outline: 2px solid var(--accent-gold-soft);
+  outline: 2px solid var(--accent-gold);
   outline-offset: -2px;
 }
 .bracket-seat-me {
@@ -430,6 +412,6 @@ button.bracket-name:focus-visible {
   background: var(--border-subtle);
 }
 .bracket-map-cell-on {
-  background: var(--accent-gold-soft);
+  background: var(--accent-gold);
   box-shadow: 0 0 0 2px var(--gold-wash-strong);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CareerYear, VersusMatch } from '@ttac/shared/ratings';
-import { careerPeakYear, isPeakHigher, ratedFilterStatus, scoreYears, versusTally, wcLabel } from './career';
+import { careerPeakYear, isPeakHigher, ratedFilterStatus, scoreYears, versusTally } from './career';
 
 const year = (y: number, wins: number, winRate: number, peak: number | null, title: CareerYear['title'] = null): CareerYear => ({
   year: y,
@@ -90,18 +90,6 @@ describe('scoreYears', () => {
 
   it('gives a Super GM year its bonus of 100', () => {
     expect(scoreYears([year(2023, 10, 50, 1600, 'SGM')], null).map((y) => y.score)).toEqual([255]);
-  });
-});
-
-describe('wcLabel', () => {
-  it.each([
-    ['the reigning champion', { code: 'WC', count: 1, reason: '' }, { code: 'WC', year: 2025 }, 'Reigning WC'],
-    ['a past champion with another title', { code: 'GM', count: 1, reason: '' }, { code: 'WC', year: 2024 }, '2024 WC'],
-    ['a past champion with no title', null, { code: 'WC', year: 2023 }, '2023 WC'],
-    ['nobody who was champion', { code: 'GM', count: 1, reason: '' }, { code: 'GM', year: 2022 }, null],
-    ['nobody with no title or peak', null, null, null],
-  ] as const)("names %s as upstream's header does", (_name, title, peak, want) => {
-    expect(wcLabel(title, peak)).toBe(want);
   });
 });
 

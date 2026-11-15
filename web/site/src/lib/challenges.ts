@@ -132,12 +132,6 @@ export function compareBests(
   return got;
 }
 
-/** signed writes a difference with its sign, ±0 for none. */
-export function signed(value: number): string {
-  if (value === 0) return '±0';
-  return value > 0 ? `+${value}` : String(value);
-}
-
 /** niceTicks are round values from at most min (and 0) to at least max, about count steps apart. */
 export function niceTicks(min: number, max: number, count = 4): number[] {
   const lo = Math.min(0, min);
@@ -148,11 +142,6 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
   const ticks = [Math.floor(lo / step) * step];
   while (ticks[ticks.length - 1] < hi) ticks.push(ticks[ticks.length - 1] + step);
   return ticks;
-}
-
-/** entryDay writes the day an entry was made in a time zone, such as "24 Feb 2025". */
-export function entryDay(instant: string, timeZone: string): string {
-  return new Date(instant).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
 }
 
 /** setLabel is the game's name for a set. */
