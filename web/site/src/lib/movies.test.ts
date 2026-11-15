@@ -7,7 +7,7 @@ const sample: MovieVideo[] = [
     channel_id: 'UC1',
     creator_name: 'Alice Casts',
     creator_player: 'Alice',
-    title: 'Royal League vs Arne',
+    title: 'Royal League vs Invented Rival',
     published_at: '2026-11-14T12:00:00Z',
     thumbnail_url: 'https://i.ytimg.com/vi/v1/hqdefault.jpg',
   },
@@ -43,8 +43,8 @@ describe('creatorVideoCounts', () => {
 
 describe('youtube URLs', () => {
   it('builds watch and nocookie embed URLs', () => {
-    expect(youtubeWatchUrl('9vhRomv0yBc')).toBe('https://www.youtube.com/watch?v=9vhRomv0yBc');
-    expect(youtubeEmbedUrl('9vhRomv0yBc')).toBe('https://www.youtube-nocookie.com/embed/9vhRomv0yBc?autoplay=1&rel=0');
+    expect(youtubeWatchUrl('vid00000001')).toBe('https://www.youtube.com/watch?v=vid00000001');
+    expect(youtubeEmbedUrl('vid00000001')).toBe('https://www.youtube-nocookie.com/embed/vid00000001?autoplay=1&rel=0');
   });
 });
 

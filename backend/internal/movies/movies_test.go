@@ -31,11 +31,11 @@ func TestParseFeed(t *testing.T) {
 	xmlFeed := `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
  <entry>
-  <yt:videoId>9vhRomv0yBc</yt:videoId>
-  <title>Royal League vs Arne</title>
+  <yt:videoId>vid00000001</yt:videoId>
+  <title>Royal League vs Invented Rival</title>
   <published>2026-11-14T14:17:33+00:00</published>
   <media:group>
-   <media:thumbnail url="https://i2.ytimg.com/vi/9vhRomv0yBc/hqdefault.jpg"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/vid00000001/hqdefault.jpg"/>
    <media:description>Match commentary #TTAHub</media:description>
   </media:group>
  </entry>
@@ -48,7 +48,7 @@ func TestParseFeed(t *testing.T) {
 		t.Fatalf("got %d entries, want 1", len(entries))
 	}
 	e := entries[0]
-	if e.VideoID != "9vhRomv0yBc" || e.Title != "Royal League vs Arne" || e.Description != "Match commentary #TTAHub" {
+	if e.VideoID != "vid00000001" || e.Title != "Royal League vs Invented Rival" || e.Description != "Match commentary #TTAHub" {
 		t.Fatalf("unexpected entry: %+v", e)
 	}
 	wantTime := time.Date(2026, 11, 14, 14, 17, 33, 0, time.UTC)
