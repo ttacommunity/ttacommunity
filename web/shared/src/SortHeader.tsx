@@ -21,12 +21,22 @@ export default function SortHeader<C extends string>({ col, sort, onSort, classN
   const way = sort?.col === col ? (sort.desc ? 'descending' : 'ascending') : undefined;
   return (
     <th scope="col" className={className} aria-sort={way}>
-      <button type="button" className="sort-header" onClick={() => onSort(col)}>
+      <SortButton col={col} sort={sort} onSort={onSort}>
         {children}
-        <span className="sort-arrow" aria-hidden="true">
-          {way === undefined ? '⇅' : way === 'ascending' ? '▲' : '▼'}
-        </span>
-      </button>
+      </SortButton>
     </th>
+  );
+}
+
+/** SortButton sorts by its column, its arrow saying which way: a header's button, or one of several sharing a header (W - L - D). */
+export function SortButton<C extends string>({ col, sort, onSort, className, children }: Props<C>) {
+  const on = sort?.col === col;
+  return (
+    <button type="button" className={`sort-header${on ? ' sort-on' : ''}${className === undefined ? '' : ` ${className}`}`} onClick={() => onSort(col)}>
+      {children}
+      <span className="sort-arrow" aria-hidden="true">
+        {!on ? '⇅' : sort.desc ? '▼' : '▲'}
+      </span>
+    </button>
   );
 }

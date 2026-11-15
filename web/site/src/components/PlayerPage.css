@@ -544,48 +544,31 @@
   box-sizing: border-box;
 }
 
-.sort-head {
-  padding: 0;
-  background: none;
-  border: none;
-  font: inherit;
-  color: inherit;
-  text-transform: inherit;
-  cursor: pointer;
-}
 
-.sort-head.win,
-.sort-head.loss,
-.sort-head.draw {
+.sort-header.win,
+.sort-header.loss,
+.sort-header.draw {
   padding: 2px 4px;
   border-radius: 3px;
 }
 
-.sort-head.win,
+.sort-header.win,
 .wld-num.win {
   color: var(--win);
 }
 
-.sort-head.loss,
+.sort-header.loss,
 .wld-num.loss {
   color: var(--loss);
 }
 
-.sort-head.draw,
+.sort-header.draw,
 .wld-num.draw {
   color: var(--draw);
 }
 
 .wld-num {
   font-weight: 600;
-}
-
-.sort-ind {
-  color: var(--text-muted);
-}
-
-.sort-ind.active {
-  color: var(--accent-gold);
 }
 
 .rival-name.player-link {

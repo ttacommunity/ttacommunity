@@ -27,7 +27,7 @@ import PlayerOptionsDrawer from './PlayerOptionsDrawer';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import {
-  firstSort,
+  RIVAL_COLUMNS,
   hasProfileOptions,
   isProvisional,
   matrixHref,
@@ -68,6 +68,8 @@ import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
+import { SortButton } from '@ttac/shared/SortHeader';
+import { nextSort } from '@ttac/shared/sort';
 
 function readView(): PlayerView {
   return parsePlayerView(new URLSearchParams(window.location.search), recall(browserStorage()));
@@ -501,18 +503,13 @@ function Rivals({
   const all = state.kind === 'ready' ? state.data.rivals : [];
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
-  const sortBy = (key: RivalKey) =>
-    setRv({ ...rv, sort: { key, asc: rv.sort?.key === key ? !rv.sort.asc : firstSort(key) } });
-  const ind = (key: RivalKey) => (
-    <span className={rv.sort?.key === key ? 'sort-ind active' : 'sort-ind'}>
-      {rv.sort?.key === key ? (rv.sort.asc ? '▲' : '▼') : '↕'}
-    </span>
+  const sortBy = (col: RivalKey) => setRv({ ...rv, sort: nextSort(rv.sort, col, RIVAL_COLUMNS) });
+  const head = (col: RivalKey, label: string, className?: string) => (
+    <SortButton col={col} sort={rv.sort} onSort={sortBy} className={className}>
+      {label}
+    </SortButton>
   );
-  const head = (key: RivalKey, label: string, tip: string, extra = '') => (
-    <button type="button" className={`sort-head${extra}`} title={tip} onClick={() => sortBy(key)}>
-      {label} {ind(key)}
-    </button>
-  );
+  const way = (col: RivalKey) => (rv.sort?.col === col ? (rv.sort.desc ? 'descending' : 'ascending') : undefined);
 
   return (
     <div className="rating-card">
@@ -545,14 +542,19 @@ function Rivals({
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
             <tr>
-              <th>{head('name', 'Opponent', 'Sort by Opponent Name')}</th>
-              <th>{head('games', 'Games', 'Sort by Total Games')}</th>
-              <th>
-                {head('wins', 'W', 'Click to sort by Wins', ' win')} - {head('losses', 'L', 'Click to sort by Losses', ' loss')} -{' '}
-                {head('draws', 'D', 'Click to sort by Draws', ' draw')}
+              <th scope="col" aria-sort={way('name')}>
+                {head('name', 'Opponent')}
               </th>
-              <th>{head('win_rate', 'Win %', 'Sort by Win %')}</th>
-              <th>Head-to-Head</th>
+              <th scope="col" aria-sort={way('games')}>
+                {head('games', 'Games')}
+              </th>
+              <th scope="col">
+                {head('wins', 'W', 'win')} - {head('losses', 'L', 'loss')} - {head('draws', 'D', 'draw')}
+              </th>
+              <th scope="col" aria-sort={way('win_rate')}>
+                {head('win_rate', 'Win %')}
+              </th>
+              <th scope="col">Head-to-Head</th>
             </tr>
           </thead>
           <tbody>

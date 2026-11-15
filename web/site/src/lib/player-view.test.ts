@@ -28,6 +28,7 @@ import {
   seatName,
   seatDeltaClass,
   visibleRivals,
+  RIVAL_COLUMNS,
 } from './player-view';
 
 describe('playerHref', () => {
@@ -507,16 +508,24 @@ describe('visibleRivals', () => {
   });
 
   it('sorts by a column, the first 30 of the new order shown', () => {
-    const got = visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: { key: 'games', asc: true } });
+    const got = visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: { col: 'games', desc: false } });
     expect(got).toHaveLength(30);
     expect(got[0].name).toBe('p34');
     const byName = visibleRivals([rival('b', 1), rival('a', 1)], {
       filter: '',
       minGames: 1,
       expanded: false,
-      sort: { key: 'name', asc: true },
+      sort: { col: 'name', desc: false },
     });
     expect(byName.map((r) => r.name)).toEqual(['a', 'b']);
+  });
+
+  it.each([
+    ['names ascending', 'name', 'asc'],
+    ['games descending', 'games', 'desc'],
+    ['win rates descending', 'win_rate', 'desc'],
+  ] as const)('sorts %s first', (_name, col, first) => {
+    expect(RIVAL_COLUMNS[col].first).toBe(first);
   });
 });
 

@@ -16,6 +16,7 @@
   opacity: 0.6;
 }
 
-[aria-sort] .sort-arrow {
+[aria-sort] .sort-arrow,
+.sort-on .sort-arrow {
   opacity: 1;
 }
