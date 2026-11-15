@@ -12,7 +12,7 @@
   border-radius: 3px;
   font-family: monospace;
   font-size: 0.82rem;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   letter-spacing: 0.5px;
   user-select: all;
 }

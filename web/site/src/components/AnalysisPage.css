@@ -297,7 +297,7 @@
 }
 
 .ece-good { color: var(--win); }
-.ece-fair { color: var(--accent-gold-soft); }
+.ece-fair { color: var(--accent-gold); }
 .ece-poor { color: var(--loss); }
 .brier-cell { color: var(--accent-gold); }
 .logloss-cell { color: #81d4fa; }
@@ -420,7 +420,7 @@
 }
 
 .corr-strong { color: var(--win); }
-.corr-weak { color: var(--accent-gold-soft); }
+.corr-weak { color: var(--accent-gold); }
 
 .corr-pair-row {
   display: flex;
@@ -666,7 +666,7 @@
   font-weight: 700;
 }
 
-.activity-table .avg-gm { color: var(--accent-gold-soft); font-weight: 700; }
+.activity-table .avg-gm { color: var(--accent-gold); font-weight: 700; }
 .activity-table .avg-m { color: var(--accent-gold-light); font-weight: 600; }
 .activity-table .avg-p { color: var(--accent-gold); font-weight: 600; }
 .activity-table .avg-all { color: var(--text-main); }

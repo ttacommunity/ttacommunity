@@ -161,12 +161,12 @@
 }
 
 .card-daneo h3 {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .card-daneo .badge-rank {
   background: #332211;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   border: 1.5px solid #b8860b;
   font-weight: 700;
 }
@@ -189,7 +189,7 @@
 }
 
 .card-daneo .c-rating-box strong {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .card-daneo .model-card-caption {
@@ -328,7 +328,7 @@
 
 .chart-empty-title {
   font-size: 1rem;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .chart-empty-text {
@@ -507,7 +507,7 @@
 
 .seat .player-link,
 .h2h-scores .player-link {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   text-decoration: none;
 }
 
@@ -693,7 +693,7 @@
 .career-honor-badge {
   background: rgba(18, 12, 8, 0.92);
   border: 1px solid #c59b27;
-  border-left: 3px solid var(--accent-gold-soft);
+  border-left: 3px solid var(--accent-gold);
   padding: 0.45rem 0.85rem;
   border-radius: 4px;
   display: flex;
@@ -702,7 +702,7 @@
   box-shadow: 0 2px 6px var(--shadow);
 }
 .honor-star {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   font-size: 1rem;
   line-height: 1;
   flex-shrink: 0;
@@ -787,7 +787,7 @@
 }
 
 .career-peak-rating {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .career-peak-rank {
@@ -871,7 +871,7 @@
 }
 
 .h2h-total {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .h2h-win {
@@ -907,7 +907,7 @@
 
 .h2h-target {
   font-weight: 700;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .h2h-other {
@@ -945,7 +945,7 @@
   margin: 0 0 0.25rem;
   font-family: var(--font-heading);
   font-size: 1.2rem;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .position-head-subtitle {
@@ -1059,7 +1059,7 @@
 
 .format-group-cell strong {
   font-family: var(--font-heading);
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   font-size: 0.95rem;
 }
 

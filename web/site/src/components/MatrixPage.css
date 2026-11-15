@@ -62,7 +62,7 @@
 }
 
 .peak-year-rating {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .rating-card.matrix-card {
@@ -157,7 +157,7 @@
 }
 
 .career-peak {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .career-score {

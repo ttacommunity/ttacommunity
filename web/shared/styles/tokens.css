@@ -9,7 +9,6 @@
   --surface-sheet: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
   --accent-gold: #e5a93c;
   --accent-gold-light: #ffde8a;
-  --accent-gold-soft: #ffd54f;
   --accent-gold-deep: #b87c1c;
   --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;

@@ -147,7 +147,7 @@
   color: var(--text-muted);
 }
 .bracket-seat-hit {
-  outline: 2px solid var(--accent-gold-soft);
+  outline: 2px solid var(--accent-gold);
   outline-offset: -2px;
 }
 .bracket-seat-me {
@@ -430,6 +430,6 @@ button.bracket-name:focus-visible {
   background: var(--border-subtle);
 }
 .bracket-map-cell-on {
-  background: var(--accent-gold-soft);
+  background: var(--accent-gold);
   box-shadow: 0 0 0 2px var(--gold-wash-strong);
 }

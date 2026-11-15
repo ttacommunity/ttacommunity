@@ -34,7 +34,7 @@
 .faq-tab-btn.tab-gold {
   background: var(--gold-wash-faint);
   border: 1px solid #c59b27;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .faq-tab-btn.tab-bronze {
@@ -164,7 +164,7 @@
 }
 
 .faq-container .faq-section .faq-subhead-amber {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   font-family: var(--font-subheading);
   font-size: 1.1rem;
   margin: 1.25rem 0 0.5rem 0;
@@ -443,7 +443,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
   margin-bottom: 0.5rem;
   font-weight: 700;
 }
@@ -602,7 +602,7 @@
 }
 
 .faq-container .faq-section .c-amber {
-  color: var(--accent-gold-soft);
+  color: var(--accent-gold);
 }
 
 .faq-container .faq-section .c-cream {
