@@ -7,6 +7,7 @@ import { toggledSet } from '@ttac/shared/toggle';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {
@@ -49,31 +50,28 @@ export default function StandingsCheckPanel() {
           {rows.length === 0 ? (
             <p className="muted">No differences of the kinds shown.</p>
           ) : (
-            <div className="table-responsive">
-              <table className="leaderboard-table admin-table">
-                <caption className="visually-hidden">Players whose games or places differ from CGE's table</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Stage</th>
-                    <th scope="col">Player</th>
-                    <th scope="col">Difference</th>
-                    <th scope="col">CGE</th>
-                    <th scope="col">Here</th>
+            <AdminTable caption="Players whose games or places differ from CGE's table">
+              <thead>
+                <tr>
+                  <th scope="col">Stage</th>
+                  <th scope="col">Player</th>
+                  <th scope="col">Difference</th>
+                  <th scope="col">CGE</th>
+                  <th scope="col">Here</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.key}>
+                    <td>{r.stage}</td>
+                    <td>{r.player}</td>
+                    <td>{r.kind}</td>
+                    <td>{r.cge}</td>
+                    <td>{r.held}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.key}>
-                      <td>{r.stage}</td>
-                      <td>{r.player}</td>
-                      <td>{r.kind}</td>
-                      <td>{r.cge}</td>
-                      <td>{r.held}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </AdminTable>
           )}
         </>
       )}

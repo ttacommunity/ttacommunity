@@ -9,6 +9,7 @@ import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { Loading } from './Notice';
 import Count from './Count';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
@@ -34,49 +35,46 @@ export default function BlitzPanel() {
 function EditionsTable({ editions }: { editions: AdminBlitzEditionRow[] }) {
   const [rows, sort, sortBy] = useSort(editions, ADMIN_EDITION_COLUMNS);
   return (
-    <div className="table-responsive">
-      <table className="leaderboard-table admin-table">
-        <caption className="visually-hidden">Blitz editions, their format, how far each has got and its entrants</caption>
-        <thead>
-          <tr>
-            <SortHeader col="tournament" sort={sort} onSort={sortBy}>
-              Tournament
-            </SortHeader>
-            <SortHeader col="edition" sort={sort} onSort={sortBy}>
-              Edition
-            </SortHeader>
-            <SortHeader col="format" sort={sort} onSort={sortBy}>
-              Format
-            </SortHeader>
-            <SortHeader col="reached" sort={sort} onSort={sortBy}>
-              Reached
-            </SortHeader>
-            <SortHeader col="players" sort={sort} onSort={sortBy}>
-              In
-            </SortHeader>
-            <SortHeader col="dropped" sort={sort} onSort={sortBy}>
-              Dropped
-            </SortHeader>
+    <AdminTable caption="Blitz editions, their format, how far each has got and its entrants">
+      <thead>
+        <tr>
+          <SortHeader col="tournament" sort={sort} onSort={sortBy}>
+            Tournament
+          </SortHeader>
+          <SortHeader col="edition" sort={sort} onSort={sortBy}>
+            Edition
+          </SortHeader>
+          <SortHeader col="format" sort={sort} onSort={sortBy}>
+            Format
+          </SortHeader>
+          <SortHeader col="reached" sort={sort} onSort={sortBy}>
+            Reached
+          </SortHeader>
+          <SortHeader col="players" sort={sort} onSort={sortBy}>
+            In
+          </SortHeader>
+          <SortHeader col="dropped" sort={sort} onSort={sortBy}>
+            Dropped
+          </SortHeader>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={`${r.tournament}/${r.edition}`}>
+            <th scope="row">
+              <a href={editionHref(r.tournament, r.edition)}>
+                {r.name} {r.edition}
+              </a>
+              <Count n={r.flagged} what="flagged" />
+            </th>
+            <td>{r.edition}</td>
+            <td>{formatLabel(r.format)}</td>
+            <td>{reachedLabel(r.round, r.format, r.champion)}</td>
+            <td>{r.entrants}</td>
+            <td>{r.dropped}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={`${r.tournament}/${r.edition}`}>
-              <th scope="row">
-                <a href={editionHref(r.tournament, r.edition)}>
-                  {r.name} {r.edition}
-                </a>
-                <Count n={r.flagged} what="flagged" />
-              </th>
-              <td>{r.edition}</td>
-              <td>{formatLabel(r.format)}</td>
-              <td>{reachedLabel(r.round, r.format, r.champion)}</td>
-              <td>{r.entrants}</td>
-              <td>{r.dropped}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </AdminTable>
   );
 }

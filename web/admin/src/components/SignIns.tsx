@@ -9,6 +9,7 @@ import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { detailsHint, requestHint, standing, who } from '../lib/sign-ins';
 import Notice, { Loading, NoticeRow } from './Notice';
 import Count from './Count';
+import AdminTable from './AdminTable';
 
 const ZONE = viewerZone();
 
@@ -53,49 +54,46 @@ export function WaitingRequests({ accounts, waiting, outcome, say, after }: { ac
       <Loading load={accounts} />
       {accounts.kind === 'ready' && waiting.length === 0 && <p className="muted">No requests waiting.</p>}
       {waiting.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Requests to be linked, oldest first</caption>
-            <thead>
-              <tr>
-                <th scope="col">Signs in with</th>
-                <th scope="col">Asks to be</th>
-                <th scope="col">Asked ({ZONE})</th>
-                <th scope="col">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {waiting.map((l) => {
-                const r = l.request;
-                if (r === null) return null;
-                return (
-                  <Fragment key={l.id}>
-                    <tr>
-                      <th scope="row">{who(l)}</th>
-                      <td>
-                        {r.name}
-                        <span className="row-detail muted">{requestHint(r, l).text}</span>
-                        <span className="row-detail muted">{detailsHint(r).text}</span>
-                      </td>
-                      <td>{formatTime(r.requested_at, ZONE)}</td>
-                      <td className="run-buttons">
-                        <button type="button" className="btn-antique" onClick={() => void approve(l, r.id)}>
-                          Approve
-                        </button>
-                        <button type="button" className="btn-antique" onClick={(e) => void refuse(l, r.id, e.currentTarget)}>
-                          Refuse
-                        </button>
-                      </td>
-                    </tr>
-                    <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Requests to be linked, oldest first">
+          <thead>
+            <tr>
+              <th scope="col">Signs in with</th>
+              <th scope="col">Asks to be</th>
+              <th scope="col">Asked ({ZONE})</th>
+              <th scope="col">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {waiting.map((l) => {
+              const r = l.request;
+              if (r === null) return null;
+              return (
+                <Fragment key={l.id}>
+                  <tr>
+                    <th scope="row">{who(l)}</th>
+                    <td>
+                      {r.name}
+                      <span className="row-detail muted">{requestHint(r, l).text}</span>
+                      <span className="row-detail muted">{detailsHint(r).text}</span>
+                    </td>
+                    <td>{formatTime(r.requested_at, ZONE)}</td>
+                    <td className="run-buttons">
+                      <button type="button" className="btn-antique" onClick={() => void approve(l, r.id)}>
+                        Approve
+                      </button>
+                      <button type="button" className="btn-antique" onClick={(e) => void refuse(l, r.id, e.currentTarget)}>
+                        Refuse
+                      </button>
+                    </td>
+                  </tr>
+                  <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );
@@ -126,46 +124,43 @@ export function UnlinkedSignIns({ unlinked, role, outcome, say, after }: { unlin
       <p className="muted">Signed in, but not linked to a member and not waiting for an answer.</p>
       <Notice outcome={shownAt(outcome, 'unlinked')} onClose={close} />
       {unlinked.length > 0 && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Accounts not linked to a member</caption>
-            <thead>
-              <tr>
-                <th scope="col">Signs in with</th>
-                <th scope="col">Where it stands</th>
-                <th scope="col">Last signed in ({ZONE})</th>
-                <th scope="col">
-                  <span className="visually-hidden">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {unlinked.map((l) => {
-                const s = standing(l);
-                return (
-                  <Fragment key={l.id}>
-                    <tr>
-                      <th scope="row">{who(l)}</th>
-                      <td>
-                        {l.refused === null ? <span className="muted">{s.text}</span> : s.text}
-                        {s.detail !== '' && <span className="row-detail muted">{s.detail}</span>}
-                      </td>
-                      <td>{formatTime(l.signed_in_at, ZONE)}</td>
-                      <td className="run-buttons">
-                        {role === 'admin' && (
-                          <button type="button" className="btn-antique" onClick={(e) => void remove(l, e.currentTarget)}>
-                            Remove
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                    <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Accounts not linked to a member">
+          <thead>
+            <tr>
+              <th scope="col">Signs in with</th>
+              <th scope="col">Where it stands</th>
+              <th scope="col">Last signed in ({ZONE})</th>
+              <th scope="col">
+                <span className="visually-hidden">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {unlinked.map((l) => {
+              const s = standing(l);
+              return (
+                <Fragment key={l.id}>
+                  <tr>
+                    <th scope="row">{who(l)}</th>
+                    <td>
+                      {l.refused === null ? <span className="muted">{s.text}</span> : s.text}
+                      {s.detail !== '' && <span className="row-detail muted">{s.detail}</span>}
+                    </td>
+                    <td>{formatTime(l.signed_in_at, ZONE)}</td>
+                    <td className="run-buttons">
+                      {role === 'admin' && (
+                        <button type="button" className="btn-antique" onClick={(e) => void remove(l, e.currentTarget)}>
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  <NoticeRow outcome={shownAt(outcome, `account ${l.id}`)} columns={4} onClose={close} />
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );

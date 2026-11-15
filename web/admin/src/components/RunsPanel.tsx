@@ -10,6 +10,7 @@ import Notice, { LoadNotice, NoticeRow } from './Notice';
 import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 import { TRACKS, trackName } from '@ttac/shared/tracks';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 const POLL_MS = 5000;
 const ZONE = viewerZone();
@@ -212,41 +213,38 @@ export default function RunsPanel() {
           </div>
         ))}
       {runs !== null && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table runs-table">
-            <caption className="visually-hidden">Rating runs, newest first</caption>
-            <thead>
-              <tr>
-                <th scope="col">Run</th>
-                <th scope="col">Track</th>
-                <th scope="col">State</th>
-                <th scope="col">Started ({ZONE})</th>
-                <th scope="col" className="run-wide">Games</th>
-                <th scope="col" className="run-wide">Players</th>
-                <th scope="col">Size</th>
-                <th scope="col">On disk</th>
-                <th scope="col" className="run-wide">Engine</th>
-                <th scope="col">Protect</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((r) => (
-                <Fragment key={r.id}>
-                  <RunRow
-                    run={r}
-                    comparing={comparing === r.id}
-                    onCompare={() => setComparing(comparing === r.id ? null : r.id)}
-                    onPublish={(opener) => void publish(r, opener)}
-                    onProtect={(on) => void protect(r, on)}
-                    onDelete={(opener) => void remove(r, opener)}
-                  />
-                  <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={11} onClose={close} />
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Rating runs, newest first" className="runs-table">
+          <thead>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col">Track</th>
+              <th scope="col">State</th>
+              <th scope="col">Started ({ZONE})</th>
+              <th scope="col" className="run-wide">Games</th>
+              <th scope="col" className="run-wide">Players</th>
+              <th scope="col">Size</th>
+              <th scope="col">On disk</th>
+              <th scope="col" className="run-wide">Engine</th>
+              <th scope="col">Protect</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r) => (
+              <Fragment key={r.id}>
+                <RunRow
+                  run={r}
+                  comparing={comparing === r.id}
+                  onCompare={() => setComparing(comparing === r.id ? null : r.id)}
+                  onPublish={(opener) => void publish(r, opener)}
+                  onProtect={(on) => void protect(r, on)}
+                  onDelete={(opener) => void remove(r, opener)}
+                />
+                <NoticeRow outcome={shownAt(outcome, `run ${r.id}`)} columns={11} onClose={close} />
+              </Fragment>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
       {comparing !== null && (
         <div className="run-block">

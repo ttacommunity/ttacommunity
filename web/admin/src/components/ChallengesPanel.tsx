@@ -12,6 +12,7 @@ import { counted } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -81,27 +82,24 @@ export default function ChallengesPanel() {
       {entries.kind === 'ready' && entries.data.entries.length > 0 && shown.length === 0 && <p className="muted">No entry matches.</p>}
       {entries.kind === 'ready' && shown.length > 0 && (
         <>
-          <div className="table-responsive">
-            <table className="leaderboard-table admin-table">
-              <caption className="visually-hidden">{shown.length < entries.data.entries.length ? 'The entries matching the search, newest first' : 'Every entry in the view, newest first'}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Entered</th>
-                  <th scope="col">Challenge</th>
-                  <th scope="col">Player</th>
-                  <th scope="col">Domination</th>
-                  <th scope="col">Proof</th>
-                  <th scope="col">Marks</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((e) => (
-                  <EntryRow key={e.id} entry={e} zone={zone} onChange={(c) => void change(e.id, c)} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AdminTable caption={shown.length < entries.data.entries.length ? 'The entries matching the search, newest first' : 'Every entry in the view, newest first'}>
+            <thead>
+              <tr>
+                <th scope="col">Entered</th>
+                <th scope="col">Challenge</th>
+                <th scope="col">Player</th>
+                <th scope="col">Domination</th>
+                <th scope="col">Proof</th>
+                <th scope="col">Marks</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((e) => (
+                <EntryRow key={e.id} entry={e} zone={zone} onChange={(c) => void change(e.id, c)} />
+              ))}
+            </tbody>
+          </AdminTable>
         </>
       )}
     </AdminCard>

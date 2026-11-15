@@ -24,6 +24,7 @@ import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
+import AdminTable from './AdminTable';
 
 type Game = components['schemas']['AdminNostradamusGame'];
 type Round = components['schemas']['NostradamusRound'];
@@ -425,35 +426,32 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
       </p>
       {answers?.kind === 'error' && <p role="alert">{answers.message}</p>}
       {answers?.kind === 'ready' && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Every answer in {round.name}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                <th scope="col">Question</th>
-                <th scope="col">Answer</th>
-                <th scope="col" className="num">
-                  Tokens
-                </th>
-                <th scope="col" className="num">
-                  Points
-                </th>
+        <AdminTable caption={`Every answer in ${round.name}`}>
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              <th scope="col">Question</th>
+              <th scope="col">Answer</th>
+              <th scope="col" className="num">
+                Tokens
+              </th>
+              <th scope="col" className="num">
+                Points
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {answers.data.answers.map((a) => (
+              <tr key={`${a.participant}-${a.question}`}>
+                <td>{a.participant}</td>
+                <td>{labelOf(a.question)}</td>
+                <td>{a.answer.join(', ')}</td>
+                <td className="num">{a.tokens > 0 ? a.tokens : ''}</td>
+                <td className="num">{a.points ?? '–'}</td>
               </tr>
-            </thead>
-            <tbody>
-              {answers.data.answers.map((a) => (
-                <tr key={`${a.participant}-${a.question}`}>
-                  <td>{a.participant}</td>
-                  <td>{labelOf(a.question)}</td>
-                  <td>{a.answer.join(', ')}</td>
-                  <td className="num">{a.tokens > 0 ? a.tokens : ''}</td>
-                  <td className="num">{a.points ?? '–'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
       {roundStatus(round, new Date()) === 'open' &&
         answers?.kind === 'ready' &&
@@ -588,23 +586,20 @@ function MembersTab({ game, regions, countries, onReload, outcome, say }: Props 
       <div className="admin-subsection">
         <h3>Everyone</h3>
         <Notice outcome={shownAt(outcome, 'everyone')} onClose={() => say(null)} />
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Each participant, their status, and the member they are linked to</caption>
-            <thead>
-              <tr>
-                <th scope="col">Plays as</th>
-                <th scope="col">Status</th>
-                <th scope="col">Member (TTA username)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {game.participants.map((p) => (
-                <ParticipantRow key={p.id} game={game} participant={p} run={run} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Each participant, their status, and the member they are linked to">
+          <thead>
+            <tr>
+              <th scope="col">Plays as</th>
+              <th scope="col">Status</th>
+              <th scope="col">Member (TTA username)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.participants.map((p) => (
+              <ParticipantRow key={p.id} game={game} participant={p} run={run} />
+            ))}
+          </tbody>
+        </AdminTable>
       </div>
     </>
   );
@@ -653,42 +648,39 @@ function StandingsTab({ game }: { game: Game }) {
       {game.standings.length === 0 ? (
         <p className="muted">No round has an outcome yet.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Each participant's points by round, and their total</caption>
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                {game.scored.map((r) => (
-                  <th key={r} scope="col" className="num">
-                    {r}
-                  </th>
-                ))}
-                <th scope="col" className="num">
-                  Total
+        <AdminTable caption="Each participant's points by round, and their total">
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              {game.scored.map((r) => (
+                <th key={r} scope="col" className="num">
+                  {r}
                 </th>
-              </tr>
-            </thead>
-            <tbody>
-              {game.standings.map((s) => (
-                <tr key={s.name}>
-                  <td>
-                    {s.member ?? s.name}
-                    {s.bot && <span className="muted"> (bot)</span>}
-                  </td>
-                  {s.rounds.map((r) => (
-                    <td key={r.round} className={r.missed ? 'num muted' : 'num'}>
-                      {r.points}
-                    </td>
-                  ))}
-                  <td className="num">
-                    <strong>{s.total}</strong>
-                  </td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+              <th scope="col" className="num">
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.standings.map((s) => (
+              <tr key={s.name}>
+                <td>
+                  {s.member ?? s.name}
+                  {s.bot && <span className="muted"> (bot)</span>}
+                </td>
+                {s.rounds.map((r) => (
+                  <td key={r.round} className={r.missed ? 'num muted' : 'num'}>
+                    {r.points}
+                  </td>
+                ))}
+                <td className="num">
+                  <strong>{s.total}</strong>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </AdminTable>
       )}
     </div>
   );

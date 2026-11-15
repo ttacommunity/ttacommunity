@@ -7,6 +7,7 @@ import { adminRequest, type AdminPerson } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 type Role = AdminPerson['role'];
 const ROLES: { value: Role; label: string }[] = [
@@ -62,54 +63,51 @@ export default function AdminList({ myName }: { myName: string }) {
       </p>
       <Notice outcome={shownAt(outcome, 'admins')} onClose={close} />
       {people !== null && (
-        <div className="table-responsive">
-          <table className="leaderboard-table admin-table">
-            <caption className="visually-hidden">Everyone in admin</caption>
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Discord id</th>
-                <th scope="col">Role</th>
-                <th scope="col">Remove</th>
-              </tr>
-            </thead>
-            <tbody>
-              {people.map((p) => {
-                const me = p.name === myName;
-                return (
-                  <Fragment key={p.discord_id}>
-                    <tr>
-                      <th scope="row">
-                        {p.name}
-                        {me && <span className="muted"> (you)</span>}
-                      </th>
-                      <td className="admin-id">{p.discord_id}</td>
-                      <td>
-                        <select className="input-antique"
-                          aria-label={`Role: ${p.name}`}
-                          value={p.role}
-                          onChange={(e) => void save(p.discord_id, p.name, e.target.value as Role, `admin ${p.discord_id}`)}
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r.value} value={r.value}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <button type="button" className="btn-antique" onClick={(e) => void remove(p, e.currentTarget)}>
-                          {me ? 'Remove me' : 'Remove'}
-                        </button>
-                      </td>
-                    </tr>
-                    <NoticeRow outcome={shownAt(outcome, `admin ${p.discord_id}`)} columns={4} onClose={close} />
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable caption="Everyone in admin">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Discord id</th>
+              <th scope="col">Role</th>
+              <th scope="col">Remove</th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((p) => {
+              const me = p.name === myName;
+              return (
+                <Fragment key={p.discord_id}>
+                  <tr>
+                    <th scope="row">
+                      {p.name}
+                      {me && <span className="muted"> (you)</span>}
+                    </th>
+                    <td className="admin-id">{p.discord_id}</td>
+                    <td>
+                      <select className="input-antique"
+                        aria-label={`Role: ${p.name}`}
+                        value={p.role}
+                        onChange={(e) => void save(p.discord_id, p.name, e.target.value as Role, `admin ${p.discord_id}`)}
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button type="button" className="btn-antique" onClick={(e) => void remove(p, e.currentTarget)}>
+                        {me ? 'Remove me' : 'Remove'}
+                      </button>
+                    </td>
+                  </tr>
+                  <NoticeRow outcome={shownAt(outcome, `admin ${p.discord_id}`)} columns={4} onClose={close} />
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </AdminTable>
       )}
       <form className="admin-add" onSubmit={(e) => void add(e)}>
         <h3>Add someone</h3>
