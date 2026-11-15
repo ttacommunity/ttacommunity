@@ -145,8 +145,7 @@ export default function AdminApp() {
   }, []);
 
   return (
-    <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} error={me.kind === 'error' ? me.message : null}>
-      {me.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} loading={me.kind === 'loading'} error={me.kind === 'error' ? me.message : null}>
       {me.kind === 'ready' &&
         panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>)}
     </AdminPage>

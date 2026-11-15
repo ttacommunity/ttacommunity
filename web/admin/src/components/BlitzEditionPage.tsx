@@ -70,8 +70,7 @@ export default function BlitzEditionPage() {
   const count = (status: AdminBlitzEntrant['status']) => (ed.kind === 'ready' ? ed.data.entrants.filter((e) => e.status === status).length : 0);
 
   return (
-    <AdminPage me={me} current="blitz" error={error}>
-        {ed.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="blitz" loading={ed.kind === 'loading'} error={error}>
         {ed.kind === 'ready' && at !== null && (
           <>
             <PageHeader

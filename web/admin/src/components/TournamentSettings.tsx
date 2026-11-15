@@ -44,8 +44,7 @@ export default function TournamentSettings() {
   const error = firstError(me, t);
 
   return (
-    <AdminPage me={me} current="tournaments" error={error}>
-      {t.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="tournaments" loading={t.kind === 'loading'} error={error}>
       {t.kind === 'ready' && (
         <>
           <PageHeader

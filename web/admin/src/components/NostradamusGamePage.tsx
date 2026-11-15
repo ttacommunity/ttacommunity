@@ -61,8 +61,7 @@ export default function NostradamusGamePage() {
   const [hash, setHash] = useHash();
 
   return (
-    <AdminPage me={me} current="nostradamus" error={error}>
-        {game.kind === 'loading' && <p className="muted">Loading…</p>}
+    <AdminPage me={me} current="nostradamus" loading={game.kind === 'loading'} error={error}>
         {game.kind === 'ready' && (
           <>
             <PageHeader
