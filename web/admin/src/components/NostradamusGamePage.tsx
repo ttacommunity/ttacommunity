@@ -1,6 +1,6 @@
 /** A Nostradamus game's page, in three tabs: its rounds (drafted with their questions, published until a deadline, outcomes set, bots answered for, closed), its members (requests answered, people and bots added, linked to TTA usernames), and the standings. */
 import { useEffect, useState, type FormEvent } from 'react';
-import BackLink from '@ttac/shared/BackLink';
+import PageHeader from '@ttac/shared/PageHeader';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import type { components } from '@ttac/shared/api';
@@ -69,20 +69,14 @@ export default function NostradamusGamePage() {
         {game.kind === 'loading' && <p className="muted">Loading…</p>}
         {game.kind === 'ready' && (
           <>
-            <section className="rating-card admin-card page-header" aria-labelledby="page-title">
-              <div className="header-back">
-                <BackLink href="/#nostradamus">Nostradamus games</BackLink>
-              </div>
-              <h2 id="page-title" className="tournament-title">
-                {game.data.name}
-              </h2>
-              <p className="muted">
-                Over {game.data.series} {game.data.tournament}. {game.data.rounds.length} rounds,{' '}
-                {game.data.participants.filter((p) => p.status === 'accepted').length} playing, {game.data.participants.filter((p) => p.status === 'requested').length}{' '}
-                asking to.
-              </p>
+            <PageHeader
+              id="page-title"
+              back={{ href: '/#nostradamus', label: 'Nostradamus games' }}
+              title={game.data.name}
+              subtitle={`Over ${game.data.series} ${game.data.tournament}. ${game.data.rounds.length} rounds, ${game.data.participants.filter((p) => p.status === 'accepted').length} playing, ${game.data.participants.filter((p) => p.status === 'requested').length} asking to.`}
+            >
               <FinishedSwitch game={game.data} onReload={load} say={setOutcome} />
-            </section>
+            </PageHeader>
             <Notice outcome={shownAt(outcome, 'page')} />
             <section className="rating-card admin-card" aria-label="Rounds, members and standings">
               <SubTabs<View>

@@ -1,11 +1,12 @@
 /** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings and its rounds one at a time. */
 import { useState } from 'react';
-import BackLink from '@ttac/shared/BackLink';
+import PageHeader from '@ttac/shared/PageHeader';
+import { browserStorage } from '@ttac/shared/storage';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { nostradamusEditions, nostradamusGame, type NostradamusGame, type NostradamusQuestion, type NostradamusRound } from '@ttac/shared/ratings';
-import { accountHref, browserStorage, seemsSignedIn } from '../lib/account';
+import { accountHref, seemsSignedIn } from '../lib/account';
 import { askToPlay, fetchMyNostradamus, sendAnswers, type MyPlace } from '../lib/nostradamus-me';
 import {
   answeredOf,
@@ -32,8 +33,7 @@ import {
   valuesText,
   type Draft,
 } from '../lib/nostradamus';
-import { useKeptLoad } from './ChallengeParts';
-import { useLoad } from './useLoad';
+import { useKeptLoad, useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Blitz.css';
 
@@ -54,12 +54,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
   const now = new Date();
   return (
     <>
-      <div className="tournaments-header">
-        <h1 className="tournaments-title">
-          <span>🔮</span> Nostradamus
-        </h1>
-        <div className="tournaments-subtitle">{RULES}</div>
-      </div>
+      <PageHeader icon="🔮" title="Nostradamus" subtitle={RULES} />
       {editions.kind !== 'ready' ? (
         <Waiting load={editions} what="the games" />
       ) : editions.data.editions.length === 0 ? (
@@ -121,20 +116,11 @@ function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
   const game = useKeptLoad(`game-${asked}`, () => nostradamusGame(apiUrl, edition));
   const place = useKeptLoad(`mine-${asked}`, () => myPlace(apiUrl, edition));
   const reload = () => setAsked((n) => n + 1);
-  const back = (
-    <div className="header-back">
-      <BackLink href="/nostradamus/">Every Nostradamus game</BackLink>
-    </div>
-  );
+  const back = { href: '/nostradamus/', label: 'Every Nostradamus game' };
   if (game.kind !== 'ready') {
     return (
       <>
-        <div className="tournaments-header">
-          {back}
-          <h1 className="tournaments-title">
-            <span>🔮</span> Nostradamus
-          </h1>
-        </div>
+        <PageHeader icon="🔮" title="Nostradamus" back={back} />
         <Waiting load={game} what="the game" />
       </>
     );
@@ -152,16 +138,14 @@ function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
   };
   return (
     <>
-      <div className="tournaments-header">
-        {back}
-        <h1 className="tournaments-title">
-          <span>🔮</span> {g.name}
-        </h1>
-        <div className="tournaments-subtitle">
-          {g.tournament}. {gameStatus({ finished: g.finished, open_until: openUntil(g.rounds, new Date()) }, new Date())}.
-        </div>
-        <div className="tournaments-subtitle">{RULES}</div>
-      </div>
+      <PageHeader
+        icon="🔮"
+        title={g.name}
+        back={back}
+        subtitle={`${g.tournament}. ${gameStatus({ finished: g.finished, open_until: openUntil(g.rounds, new Date()) }, new Date())}.`}
+      >
+        <div className="page-header-subtitle">{RULES}</div>
+      </PageHeader>
       <JoinBox apiUrl={apiUrl} game={g} place={mine} onChange={reload} onOpen={openRound} />
       <section className="rating-card blitz-card" aria-label="Standings and rounds">
         <SubTabs label="Show" tabs={VIEWS.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(VIEWS, hash)} onChoose={setHash} />
