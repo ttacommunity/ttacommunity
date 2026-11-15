@@ -26,12 +26,12 @@ import {
   type ViewRound,
 } from '../lib/bracket';
 import { editionHref } from '@ttac/shared/blitz';
-import { seasonName } from '../lib/catalogue-view';
 import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
 import PanelHeader from './PanelHeader';
+import SeasonPick from './SeasonPick';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
 
@@ -82,20 +82,7 @@ export default function BracketView({
   return (
     <div className="panel-card bracket-panel">
       <PanelHeader title="Bracket">
-        {played.length > 1 ? (
-          <label className="bracket-season">
-            <span className="visually-hidden">{seasonWord}</span>
-            <select id="bracket-season" className="input-antique" value={season} onChange={(e) => onSeason(e.target.value)}>
-              {[...played].reverse().map((x) => (
-                <option key={x.label} value={x.label}>
-                  {seasonName(x.label, seasonWord)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <span className="panel-tag">{seasonName(season, seasonWord)}</span>
-        )}
+        <SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />
       </PanelHeader>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (

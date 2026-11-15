@@ -12,6 +12,7 @@ import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import PanelHeader from '../components/PanelHeader';
+import SeasonPick from '../components/SeasonPick';
 
 const colours = [
   'bg-dark',
@@ -123,6 +124,9 @@ const rows = [
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">
       <span class="panel-tag">12 rows</span>
+    </PanelHeader>
+    <PanelHeader title="Sample panel with seasons">
+      <SeasonPick id="design-season" seasons={[{ label: '2025' }, { label: '2026' }]} value="2026" word="Season" onChange={() => {}} />
     </PanelHeader>
 
     <h2>Sub-page tabs</h2>

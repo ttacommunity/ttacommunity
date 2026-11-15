@@ -22,6 +22,7 @@ import Message from './Message';
 import { useFound, useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
 import PanelHeader from './PanelHeader';
+import SeasonPick from './SeasonPick';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -293,20 +294,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
   return (
     <div className="panel-card stages-panel">
       <PanelHeader title={plural(stageWord)}>
-        {seasons.length > 1 ? (
-          <label className="stages-pick">
-            <span className="visually-hidden">{seasonWord}</span>
-            <select id="stages-season" className="input-antique" value={s.label} onChange={(e) => setLabel(e.target.value)}>
-              {[...seasons].reverse().map((x) => (
-                <option key={x.label} value={x.label}>
-                  {seasonName(x.label, seasonWord)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <span className="panel-tag">{seasonName(s.label, seasonWord)}</span>
-        )}
+        <SeasonPick id="stages-season" seasons={seasons} value={s.label} word={seasonWord} onChange={setLabel} />
       </PanelHeader>
       <p className="records-intro">
         {seasonName(s.label, seasonWord)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
