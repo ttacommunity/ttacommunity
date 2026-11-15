@@ -146,6 +146,7 @@ func TestPlayersNostradamusIsRefusedWithTheStatusItNeeds(t *testing.T) {
 		{"joining no game", http.MethodPost, "/v1/me/nostradamus/wc-2099/entry", siteOrigin, "", store.ErrNoNostradamus, http.StatusNotFound},
 		{"joining banned", http.MethodPost, "/v1/me/nostradamus/wc-2031/entry", siteOrigin, "", store.ErrMemberBanned, http.StatusForbidden},
 		{"reading signed out", http.MethodGet, "/v1/me/nostradamus/wc-2031", "", "", store.ErrNoSession, http.StatusUnauthorized},
+		{"reading no game", http.MethodGet, "/v1/me/nostradamus/wc-2099", "", "", store.ErrNoNostradamus, http.StatusNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

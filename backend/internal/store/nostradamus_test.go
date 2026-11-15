@@ -319,11 +319,11 @@ func TestNostradamusMigrationGoesDownAndUp(t *testing.T) {
 	if got := present(); !slices.Equal(got, want) {
 		t.Fatalf("migrated: %q, want %q", got, want)
 	}
-	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 78); return err }); err != nil {
-		t.Fatalf("migrating down to 78: %v", err)
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 81); return err }); err != nil {
+		t.Fatalf("migrating down to 81: %v", err)
 	}
 	if got := present(); len(got) != 0 {
-		t.Errorf("at 78, %q remain, want none", got)
+		t.Errorf("at 81, %q remain, want none", got)
 	}
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
 		t.Fatalf("migrating up again: %v", err)
@@ -540,6 +540,32 @@ func nostradamusPlayers(t *testing.T) (game, *PlayerStore) {
 	}
 	g.publish(t)
 	return g, p
+}
+
+func TestNostradamusAGameNotShownOnTheSiteIsNoneToAPlayer(t *testing.T) {
+	g, p := nostradamusPlayers(t)
+	ctx := context.Background()
+	l := signedIn(t, p, discordID("100000000000000001", "bea_d", "Bea"), "token-1")
+	approved(t, g.admin, p, l, "Bea")
+	hash := tokenHash("token-1")
+	if err := g.admin.UnpublishNostradamusRound(ctx, "wc-2031", g.round); err != nil {
+		t.Fatalf("UnpublishNostradamusRound: %v", err)
+	}
+	for _, slug := range []string{"wc-2031", "no-such-game"} {
+		if got, err := p.RequestNostradamusEntry(ctx, hash, slug, g.now); !errors.Is(err, ErrNoNostradamus) {
+			t.Errorf("RequestNostradamusEntry(%s) with no round published = %q, %v; want ErrNoNostradamus", slug, got, err)
+		}
+		if got, err := p.MyNostradamus(ctx, hash, slug, g.now); !errors.Is(err, ErrNoNostradamus) {
+			t.Errorf("MyNostradamus(%s) with no round published = %+v, %v; want ErrNoNostradamus", slug, got, err)
+		}
+	}
+	g.publish(t)
+	if got, err := p.MyNostradamus(ctx, hash, "wc-2031", g.now); err != nil || got.Status != "none" {
+		t.Errorf("MyNostradamus once a round is published = %+v, %v; want none", got, err)
+	}
+	if got, err := p.RequestNostradamusEntry(ctx, hash, "wc-2031", g.now); err != nil || got != "requested" {
+		t.Errorf("RequestNostradamusEntry once a round is published = %q, %v; want requested", got, err)
+	}
 }
 
 func TestNostradamusAPlayerAsksToJoinAndAnswersOnceAccepted(t *testing.T) {

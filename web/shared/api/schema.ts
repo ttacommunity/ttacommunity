@@ -1560,7 +1560,8 @@ export interface paths {
          * Your place in a Nostradamus game, and your answers
          * @description For a signed-in player linked to a member, and not banned: whether
          *     they have asked to play (none, requested, accepted or refused), and
-         *     their answers in the game, by question. Never cached.
+         *     their answers in the game, by question. An unknown game, or one with no round
+         *     published, is 404. Never cached.
          */
         get: operations["getMyNostradamus"];
         put?: never;
@@ -1585,7 +1586,8 @@ export interface paths {
          * @description The Origin must be the site. For a signed-in player linked to a
          *     member, and not banned: asks an organiser to accept them, or links
          *     them to the participant of their TTA username when an imported game
-         *     has one. Answers their status. An unknown game is 404.
+         *     has one. Answers their status. An unknown game, or one with no
+         *     round published, is 404.
          */
         post: operations["postMyNostradamusEntry"];
         delete?: never;
@@ -9086,6 +9088,7 @@ export interface operations {
             };
             401: components["responses"]["SignedOut"];
             403: components["responses"]["NotLinked"];
+            404: components["responses"]["NotFound"];
         };
     };
     postMyNostradamusEntry: {

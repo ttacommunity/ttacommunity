@@ -120,8 +120,11 @@ func (s *server) GetMyNostradamus(ctx context.Context, req GetMyNostradamusReque
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
 	mine, err := s.signIns.MyNostradamus(ctx, hash, req.Edition, s.now())
 	if status, msg, ok := nostradamusRefusal(err); ok {
-		if status == 401 {
+		switch status {
+		case 401:
 			return GetMyNostradamus401JSONResponse{signedOut401(msg)}, nil
+		case 404:
+			return GetMyNostradamus404JSONResponse{notFound404(msg)}, nil
 		}
 		return GetMyNostradamus403JSONResponse{NotLinkedJSONResponse{Error: msg}}, nil
 	}

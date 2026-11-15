@@ -23222,6 +23222,21 @@ func (response GetMyNostradamus403JSONResponse) VisitGetMyNostradamusResponse(w 
 	return err
 }
 
+type GetMyNostradamus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetMyNostradamus404JSONResponse) VisitGetMyNostradamusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostMyNostradamusEntryRequestObject struct {
 	Edition NostradamusEditionSlug `json:"edition"`
 }
