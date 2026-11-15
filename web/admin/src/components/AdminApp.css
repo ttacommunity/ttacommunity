@@ -23,9 +23,6 @@
     padding: 1rem 0.75rem;
   }
 }
-.muted {
-  color: var(--text-muted);
-}
 .row-error {
   color: var(--loss);
 }

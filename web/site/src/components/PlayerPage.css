@@ -254,10 +254,6 @@
   white-space: nowrap;
 }
 
-.chart-toggle .chart-toggle-label.muted {
-  color: var(--text-muted);
-}
-
 .chart-toggle-info {
   display: inline-flex;
   align-items: center;

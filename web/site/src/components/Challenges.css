@@ -9,11 +9,6 @@
   margin-bottom: 1.25rem;
   padding: 1.25rem 1.5rem;
 }
-.challenges-card .muted,
-.challenges-group .muted,
-.challenges-bar .muted {
-  color: var(--text-muted);
-}
 .challenges-lead {
   color: var(--text-soft);
   font-size: var(--size-body-short);
@@ -245,7 +240,6 @@
   font-variant-numeric: tabular-nums;
 }
 .challenge-grid-value .muted {
-  color: var(--text-muted);
   font-size: var(--size-label);
 }
 
