@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import SortHeader from '@ttac/shared/SortHeader';
+import Segmented from '@ttac/shared/Segmented';
 import { currentRun, player as fetchPlayer, playerAchievements, type Player, type TournamentRecord } from '@ttac/shared/ratings';
 import {
   bestResultsPerTournament,
@@ -209,26 +210,16 @@ function Records({ records }: { records: TournamentRecord[] }) {
       <div className="ach-records-top">
         <div>
           <h2 className="ach-records-title">Historical Tournament Records</h2>
-          <div className="ach-tabs" role="tablist">
-            <button
-              type="button"
-              className={`records-tab-btn${tab === 'seasons' ? ' active' : ''}`}
-              onClick={() => handleTabChange('seasons')}
-              role="tab"
-              aria-selected={tab === 'seasons'}
-            >
-              🏆 Tournaments ({activeTournaments.length})
-            </button>
-            <button
-              type="button"
-              className={`records-tab-btn${tab === 'highlights' ? ' active' : ''}`}
-              onClick={() => handleTabChange('highlights')}
-              role="tab"
-              aria-selected={tab === 'highlights'}
-            >
-              🎖️ Career Highlights ({activeHighlights.length})
-            </button>
-          </div>
+          <Segmented
+            label="Records"
+            look="records"
+            options={[
+              { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
+              { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
+            ]}
+            value={tab}
+            onChange={handleTabChange}
+          />
         </div>
         <FilterInput
           label="Filter tournaments, seasons"
