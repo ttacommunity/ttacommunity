@@ -271,7 +271,7 @@ function QuestionRow({ game, round, question: q, status, run }: { game: Game; ro
       )}
       {editing && <QuestionEditor title={`Edit ${q.label}`} start={questionFormFrom(q)} onSave={(f) => run(req.setNostradamusQuestion(game.slug, q.id, questionBody(f)), `Saved ${f.label.trim()}.`)} />}
       {(status === 'open' || status === 'awaiting') && fromChoices && (
-        <fieldset className="admin-add">
+        <fieldset className="check-kinds">
           <legend>Outcome {q.kind === 'set' ? `(the ${q.picks} that happened)` : '(tick more than one for a tie)'}</legend>
           {q.choices.map((c) => (
             <label key={c.label}>
