@@ -121,22 +121,24 @@ export default function PlayerOptionsDrawer({
             >
               Chart Models
             </div>
-            <div className="options-engine-toggles">
+            <div className="format-bar-group" role="group" aria-label="Chart models">
               <button
                 type="button"
-                className={['opt-engine-btn', chart.engines.has('glicko2_daneo') && 'active'].filter(Boolean).join(' ')}
+                className={chart.engines.has('glicko2_daneo') ? 'format-btn active' : 'format-btn'}
+                aria-pressed={chart.engines.has('glicko2_daneo')}
                 title="DANeo's multiplayer-weighted Glicko-2 baseline"
                 onClick={() => toggleEngine('glicko2_daneo')}
               >
-                👑 GlickoD {chart.engines.has('glicko2_daneo') ? '✓' : ''}
+                👑 GlickoD
               </button>
               <button
                 type="button"
-                className={['opt-engine-btn', chart.engines.has('glicko2_std') && 'active'].filter(Boolean).join(' ')}
+                className={chart.engines.has('glicko2_std') ? 'format-btn active' : 'format-btn'}
+                aria-pressed={chart.engines.has('glicko2_std')}
                 title="Standard Glicko-2 model (unselected by default)"
                 onClick={() => toggleEngine('glicko2_std')}
               >
-                Glicko-2 Standard {chart.engines.has('glicko2_std') ? '✓' : ''}
+                Glicko-2 Standard
               </button>
             </div>
           </div>

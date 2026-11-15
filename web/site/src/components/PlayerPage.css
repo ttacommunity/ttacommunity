@@ -1213,36 +1213,6 @@
   margin-bottom: 0.35rem;
 }
 
-.options-engine-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.opt-engine-btn {
-  padding: 0.4rem 0.85rem;
-  background: var(--surface-well);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.opt-engine-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--text-main);
-}
-
-.opt-engine-btn.active {
-  background: var(--gold-wash-faint);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  font-weight: 700;
-}
-
 .options-footer-actions {
   display: flex;
   align-items: center;

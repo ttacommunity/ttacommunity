@@ -23,10 +23,10 @@
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 1rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
-  background: var(--surface-panel);
-  color: var(--text-soft);
+  background: var(--surface-well);
+  color: var(--text-muted);
   font-family: var(--font-stats);
   font-size: 0.88rem;
   font-weight: 600;
@@ -37,16 +37,25 @@
 
 .format-btn:hover {
   border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
-  color: var(--text-bright);
+  color: var(--text-main);
 }
 
+/* The chosen button: outlined in gold, so an icon or tag on it still reads. */
 .format-btn.active {
   border-color: var(--accent-gold);
-  background: var(--accent-gold);
-  color: var(--text-on-gold);
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold);
   font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
+}
+
+/* Marks the option a page starts with, such as "DEFAULT" beside a rating engine. */
+.default-tag {
+  padding: 1px 4px;
+  background: var(--gold-wash-faint);
+  border-radius: 3px;
+  color: var(--accent-gold);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .format-bar-actions {

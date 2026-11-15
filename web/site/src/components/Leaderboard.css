@@ -257,18 +257,6 @@
   justify-content: space-between;
 }
 
-.default-tag {
-  padding: 1px 4px;
-  background: var(--gold-wash-faint);
-  border-radius: 3px;
-  color: var(--accent-gold);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.active .default-tag {
-  background: var(--bg-dark);
-}
 
 /* Buttons: upstream's page Apply button, where base.html's text colour wins. */
 .btn-antique {
