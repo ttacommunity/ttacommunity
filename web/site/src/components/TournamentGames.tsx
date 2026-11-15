@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { catalogueGames, type CatalogueSeason, type GamesFilter } from '@ttac/shared/ratings';
 import { catalogueGameRow, plural, seasonName, stageName } from '../lib/catalogue-view';
 import { gamesTag } from '../lib/games-table';
-import GamesTable, { GamesPages } from './GamesTable';
+import GamesTable from './GamesTable';
+import NewerOlder from '@ttac/shared/NewerOlder';
 import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
@@ -102,7 +103,7 @@ export default function TournamentGames({
         waiting={data === null ? <Waiting load={load} what="the games" form="row" colSpan={5} /> : undefined}
         empty="No games match these filters."
       />
-      {data !== null && <GamesPages page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
+      {data !== null && <NewerOlder page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
     </div>
   );
 }

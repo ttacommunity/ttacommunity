@@ -1,6 +1,6 @@
 /** A games table, the same wherever games are listed: date, what each game belongs to, where it was played, the players and scores, a replay code to copy, and pages; a blitz edition marks the signed-in player's game. */
 import type { ReactNode } from 'react';
-import { count, score } from '@ttac/shared/numbers';
+import { score } from '@ttac/shared/numbers';
 import SortHeader from '@ttac/shared/SortHeader';
 import type { Sort } from '@ttac/shared/sort';
 import type { GameRow, GamesColumn } from '../lib/games-table';
@@ -97,20 +97,3 @@ export default function GamesTable({
   );
 }
 
-/** GamesPages moves between a games table's pages, newer and older; nothing when there is only one. */
-export function GamesPages({ page, pages, onPage }: { page: number; pages: number; onPage: (page: number) => void }) {
-  if (pages <= 1) return null;
-  return (
-    <div className="games-pages">
-      <button type="button" className="btn-antique" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        ‹ Newer
-      </button>
-      <span>
-        Page {count(page)} of {count(pages)}
-      </span>
-      <button type="button" className="btn-antique" disabled={page >= pages} onClick={() => onPage(page + 1)}>
-        Older ›
-      </button>
-    </div>
-  );
-}

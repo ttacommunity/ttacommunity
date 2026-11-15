@@ -84,22 +84,6 @@
   margin-left: 0.5rem;
 }
 
-.games-pages {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  color: var(--text-muted);
-  font-family: var(--font-stats);
-}
-
-.games-pages .btn-antique:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .games-player .search-form {
   margin: 0;
   text-transform: none;

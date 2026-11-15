@@ -16,7 +16,8 @@ import { TTA_DISCORD } from '../lib/links';
 import SignInNote from './SignInNote';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
-import GamesTable, { GamesPages } from './GamesTable';
+import GamesTable from './GamesTable';
+import NewerOlder from '@ttac/shared/NewerOlder';
 import PlayerPicker from './PlayerPicker';
 import { catalogueHref } from '../lib/catalogue-view';
 import { bracketHref } from '../lib/bracket';
@@ -486,7 +487,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         code to copy it. A recorded game is on the <a href={catalogueHref(ed.tournament)}>tournament&apos;s page</a> too.
       </p>
       <GamesTable caption="The games these filters keep, latest round first" context="Round" rows={games.rows} empty="No games match these filters." sort={sort} onSort={sortBy} />
-      <GamesPages page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
+      <NewerOlder page={games.page} pages={games.pages} onPage={(page) => narrow({ page })} />
       {notPlaying(swiss, filter.round, ed.format).map((r) => (
         <p key={r.round} className="blitz-intro">
           Not playing in {r.round}: {r.names.join(', ')}.

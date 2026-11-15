@@ -1,0 +1,15 @@
+/* Paging a newest-first list (NewerOlder): the two buttons either side of where you are, centred under the list. */
+.newer-older {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+}
+.newer-older .btn-antique:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

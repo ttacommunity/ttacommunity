@@ -13,6 +13,7 @@ import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
+import NewerOlder from '@ttac/shared/NewerOlder';
 
 const colours = [
   'bg-dark',
@@ -185,6 +186,8 @@ const rows = [
         </tbody>
       </table>
     </div>
+
+    <NewerOlder page={2} pages={5} onPage={() => {}} />
 
     <section class="rating-card rating-card-note" aria-labelledby="note-heading">
       <h2 id="note-heading">Note card</h2>

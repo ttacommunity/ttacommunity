@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
+import NewerOlder from '@ttac/shared/NewerOlder';
 import { adminRequest, type AdminAuditPage, loadOf } from '../lib/admin-api';
 import { auditBy, auditPath, auditSummary, defaultView, detailText, type AuditView } from '../lib/audit-log';
 import { Loading } from './Notice';
@@ -104,21 +105,7 @@ export default function AuditPanel() {
               </table>
             </div>
           )}
-          {page.pages > 1 && (
-            <div className="note-actions">
-              <button type="button" className="btn-antique" disabled={page.page <= 1} onClick={() => setView({ ...view, page: page.page - 1 })}>
-                Newer
-              </button>
-              <button
-                type="button"
-                className="btn-antique"
-                disabled={page.page >= page.pages}
-                onClick={() => setView({ ...view, page: page.page + 1 })}
-              >
-                Older
-              </button>
-            </div>
-          )}
+          <NewerOlder page={page.page} pages={page.pages} onPage={(p) => setView({ ...view, page: p })} />
         </>
       )}
     </section>
