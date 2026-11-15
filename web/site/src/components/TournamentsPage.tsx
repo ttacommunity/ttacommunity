@@ -23,6 +23,7 @@ import { useFound, useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
 import PanelHeader from './PanelHeader';
 import SeasonPick from './SeasonPick';
+import Note from '@ttac/shared/Note';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -300,9 +301,9 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
         {seasonName(s.label, seasonWord)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
         {s.organiser !== null && ` · organised by ${s.organiser}`}
       </p>
-      {s.note !== null && <p className="records-intro">{s.note}</p>}
+      {s.note !== null && <Note>{s.note}</Note>}
       <div className="trophy-table-container">
-        <table className="trophy-table">
+        <table className="leaderboard-table trophy-table">
           <caption className="records-intro">
             {plural(stageWord)} of {seasonName(s.label, seasonWord)}
           </caption>

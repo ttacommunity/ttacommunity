@@ -402,7 +402,7 @@
 
 .records-intro {
   margin-bottom: 1.25rem;
-  color: var(--text-muted);
+  color: var(--text-main);
   font-size: var(--size-body-short);
   line-height: 1.5;
 }
