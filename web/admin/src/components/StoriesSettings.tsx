@@ -5,6 +5,7 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 type Story = AdminTournament['stories'][number];
 
@@ -20,10 +21,7 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
     if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="stories-heading">
-      <h2 id="stories-heading" className="rating-card-heading">
-        Stories
-      </h2>
+    <AdminCard id="stories-heading" title="Stories">
       <p className="muted">
         The story cards on the tournament page: a player, an optional badge beside them, a title and the story. Up to 12,
         shown in this order. With none, the page shows no stories section.
@@ -82,6 +80,6 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
           Save stories
         </button>
       </SaveBar>
-    </section>
+    </AdminCard>
   );
 }

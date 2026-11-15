@@ -4,6 +4,7 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 /** FormatSummaryCard edits the line the group's page shows after the tournament's name. */
 export default function FormatSummaryCard({ t, group, onReload }: { t: AdminTournament; group: string; onReload: () => Promise<void> }) {
@@ -14,10 +15,7 @@ export default function FormatSummaryCard({ t, group, onReload }: { t: AdminTour
     if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="format-summary-heading">
-      <h2 id="format-summary-heading" className="rating-card-heading">
-        Format in Brief
-      </h2>
+    <AdminCard id="format-summary-heading" title="Format in Brief">
       <p className="muted" id="format-summary-hint">
         One line on its format. The {group} page lists it in its Format &amp; Regulations box, after this tournament&apos;s name.
         Leave it empty to leave this tournament out of the box.
@@ -35,6 +33,6 @@ export default function FormatSummaryCard({ t, group, onReload }: { t: AdminTour
           Save
         </button>
       </SaveBar>
-    </section>
+    </AdminCard>
   );
 }

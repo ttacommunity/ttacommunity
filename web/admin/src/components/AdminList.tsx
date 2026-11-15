@@ -6,6 +6,7 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminPerson } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
+import AdminCard from './AdminCard';
 
 type Role = AdminPerson['role'];
 const ROLES: { value: Role; label: string }[] = [
@@ -53,11 +54,8 @@ export default function AdminList({ myName }: { myName: string }) {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="admins-heading">
+    <AdminCard id="admins-heading" title="Admins">
       {dialog.element}
-      <h2 id="admins-heading" className="rating-card-heading">
-        Admins
-      </h2>
       <p className="muted">
         Admins can do everything here; organisers can edit tournaments. Someone also needs to be allowed in the Cloudflare
         Access policy to sign in.
@@ -138,6 +136,6 @@ export default function AdminList({ myName }: { myName: string }) {
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'add admin')} onClose={close} />
-    </section>
+    </AdminCard>
   );
 }

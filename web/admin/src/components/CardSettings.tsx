@@ -5,6 +5,7 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 /** CardSettings edits how the tournament presents itself on its card and its page's header. */
 export default function CardSettings({ t, onReload }: { t: AdminTournament; onReload: () => Promise<void> }) {
@@ -16,10 +17,7 @@ export default function CardSettings({ t, onReload }: { t: AdminTournament; onRe
     if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="card-heading">
-      <h2 id="card-heading" className="rating-card-heading">
-        Card
-      </h2>
+    <AdminCard id="card-heading" title="Card">
       <p className="muted">
         How the tournament shows on the Hall of Fame and Every Tournament, and at the top of its own page. Leave a box empty
         to leave it out; with no icon it shows 📜.
@@ -75,6 +73,6 @@ export default function CardSettings({ t, onReload }: { t: AdminTournament; onRe
           Save card
         </button>
       </SaveBar>
-    </section>
+    </AdminCard>
   );
 }

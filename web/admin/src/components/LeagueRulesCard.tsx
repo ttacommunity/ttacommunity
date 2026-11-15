@@ -5,6 +5,7 @@ import type { AdminTournament } from '../lib/admin-api';
 import { recordGames, tiersChanged, tiersList, tiersText } from '../lib/league-rules';
 import { PlacedRefusal, SaveWord } from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 /** LeagueRulesCard edits a league's rules, saving each at once; a refusal shows under the rule refused. */
 export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
@@ -19,10 +20,7 @@ export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; o
     if (!r?.ok) onChange(t);
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="league-rules-heading">
-      <h2 id="league-rules-heading" className="rating-card-heading">
-        League rules
-      </h2>
+    <AdminCard id="league-rules-heading" title="League rules">
       <p className="muted">Titles and season records use them from the next engine run. Only admins change them.</p>
       <div className="settings-list">
         <div className="setting league-tiers-setting">
@@ -75,6 +73,6 @@ export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; o
         </div>
         <PlacedRefusal save={saving} at={'record games'} />
       </div>
-    </section>
+    </AdminCard>
   );
 }

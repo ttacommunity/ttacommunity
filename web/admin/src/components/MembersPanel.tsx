@@ -17,6 +17,7 @@ import Notice, { Loading, NoticeRow } from './Notice';
 import PersonForm from './PersonForm';
 import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
+import AdminCard from './AdminCard';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
 
@@ -134,11 +135,8 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
     if (sure) await run(req.removeMember(m.id), `Removed ${m.name}.`, `member ${m.id}`, 'members');
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="members-heading">
+    <AdminCard id="members-heading" title="Members">
       {dialog.element}
-      <h2 id="members-heading" className="rating-card-heading">
-        Members
-      </h2>
       <p className="muted">
         Everyone who takes part in anything we run, by their TTA username as in the app. A name the ratings or a CGE
         account know is linked to them, and the link fills itself in as games are loaded. A banned member cannot be
@@ -301,6 +299,6 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
       {(signIns.unlinked.length > 0 || shownAt(outcome, 'unlinked') !== null) && (
         <UnlinkedSignIns unlinked={signIns.unlinked} role={role} outcome={outcome} say={setOutcome} after={after} />
       )}
-    </section>
+    </AdminCard>
   );
 }

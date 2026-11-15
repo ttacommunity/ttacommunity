@@ -8,6 +8,7 @@ import { sizeText } from '../lib/runs-view';
 import { LoadNotice } from './Notice';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 type DataSummary = components['schemas']['DataSummary'];
 
@@ -33,10 +34,7 @@ export default function DataCard() {
   }, []);
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="data-heading">
-      <h2 id="data-heading" className="rating-card-heading">
-        Data
-      </h2>
+    <AdminCard id="data-heading" title="Data">
       {message !== '' && <LoadNotice message={message} />}
       {d === null && message === '' && <p className="muted">Loading…</p>}
       {d !== null && (
@@ -88,6 +86,6 @@ export default function DataCard() {
           )}
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }

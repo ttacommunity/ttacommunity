@@ -8,6 +8,7 @@ import { gameHref, gameSlug, seriesChoices } from '../lib/nostradamus-admin';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice } from './Notice';
 import PickBox from './PickBox';
+import AdminCard from './AdminCard';
 
 type Editions = components['schemas']['NostradamusEditions'];
 type NewGame = components['schemas']['AdminNostradamusEditionNew'];
@@ -50,10 +51,7 @@ export default function NostradamusPanel() {
     }
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="nostradamus-heading">
-      <h2 id="nostradamus-heading" className="rating-card-heading">
-        Nostradamus
-      </h2>
+    <AdminCard id="nostradamus-heading" title="Nostradamus">
       {games.kind === 'error' && <LoadNotice message={games.message} />}
       {games.kind === 'loading' && <p className="muted">Loading the games…</p>}
       {games.kind === 'ready' &&
@@ -116,6 +114,6 @@ export default function NostradamusPanel() {
         </div>
         <Notice outcome={shownAt(outcome, 'new game')} onClose={() => setOutcome(null)} />
       </form>
-    </section>
+    </AdminCard>
   );
 }

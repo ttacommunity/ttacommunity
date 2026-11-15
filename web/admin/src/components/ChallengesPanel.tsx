@@ -11,6 +11,7 @@ import './ChallengesPanel.css';
 import { counted } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 type AdminChallengeEntries = components['schemas']['AdminChallengeEntries'];
 type AdminChallengeEntry = components['schemas']['AdminChallengeEntry'];
@@ -40,10 +41,7 @@ export default function ChallengesPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="challenge-entries-heading">
-      <h2 id="challenge-entries-heading" className="rating-card-heading">
-        Challenge entries
-      </h2>
+    <AdminCard id="challenge-entries-heading" title="Challenge entries">
       <p className="muted">
         Every domination entered for a challenge, newest first. Times are in {zone}. Every change is in the audit log.
       </p>
@@ -106,7 +104,7 @@ export default function ChallengesPanel() {
           </div>
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }
 

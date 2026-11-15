@@ -6,6 +6,7 @@ import NewerOlder from '@ttac/shared/NewerOlder';
 import { adminRequest, type AdminAuditPage, loadOf } from '../lib/admin-api';
 import { auditBy, auditPath, auditSummary, defaultView, detailText, type AuditView } from '../lib/audit-log';
 import { Loading } from './Notice';
+import AdminCard from './AdminCard';
 
 /** AuditPanel opens on the last seven days in the viewer's zone; a new filter goes back to page 1. */
 export default function AuditPanel() {
@@ -35,10 +36,7 @@ export default function AuditPanel() {
   const page = log.kind === 'ready' ? log.data : null;
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="audit-heading">
-      <h2 id="audit-heading" className="rating-card-heading">
-        Audit log
-      </h2>
+    <AdminCard id="audit-heading" title="Audit log">
       <p className="muted">
         Every change made in admin, and the changes players make to their own account and blitz games, newest first. Names,
         emails and Discord names are not kept here: an entry names what it changed by id.
@@ -108,6 +106,6 @@ export default function AuditPanel() {
           <NewerOlder page={page.page} pages={page.pages} onPage={(p) => setView({ ...view, page: p })} />
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }

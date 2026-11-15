@@ -6,6 +6,7 @@ import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsC
 import { toggledSet } from '@ttac/shared/toggle';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {
@@ -21,10 +22,7 @@ export default function StandingsCheckPanel() {
   const rows = check === null ? [] : differenceRows(check, shown);
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="standings-check-heading">
-      <h2 id="standings-check-heading" className="rating-card-heading">
-        Standings check
-      </h2>
+    <AdminCard id="standings-check-heading" title="Standings check">
       <p className="muted">
         Each player's games and places in every CGE stage we hold, against CGE's own standings table for it. Loaded with the
         load job (<code>-facts cge_standings</code>).
@@ -79,6 +77,6 @@ export default function StandingsCheckPanel() {
           )}
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }

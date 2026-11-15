@@ -7,6 +7,7 @@ import { adminRequest } from '../lib/admin-api';
 import { EVENTS, endpointChanged, toggled } from '../lib/notification-endpoints';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import AdminCard from './AdminCard';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
 type NotificationTest = components['schemas']['NotificationTest'];
@@ -111,10 +112,7 @@ export default function NotificationsPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="notifications-heading">
-      <h2 id="notifications-heading" className="rating-card-heading">
-        Notifications
-      </h2>
+    <AdminCard id="notifications-heading" title="Notifications">
       <p className="muted">
         Discord channels the site posts to when a new player signs up, a player asks to be linked, or one reports, corrects or flags a blitz result.
         Make a webhook in the channel's settings (Integrations, Webhooks) and paste its URL here.
@@ -132,6 +130,6 @@ export default function NotificationsPanel() {
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'add endpoint')} onClose={() => setOutcome(null)} />
-    </section>
+    </AdminCard>
   );
 }

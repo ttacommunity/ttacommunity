@@ -9,6 +9,7 @@ import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Ou
 import Notice, { LoadNotice, NoticeRow } from './Notice';
 import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
 import { TRACKS, trackName } from '@ttac/shared/tracks';
+import AdminCard from './AdminCard';
 
 const POLL_MS = 5000;
 const ZONE = viewerZone();
@@ -179,11 +180,8 @@ export default function RunsPanel() {
 
   const shown = runs === null ? [] : shownRuns(runs, all, SHOWN);
   return (
-    <section className="rating-card admin-card" aria-labelledby="runs-heading">
+    <AdminCard id="runs-heading" title="Rating runs">
       {dialog.element}
-      <h2 id="runs-heading" className="rating-card-heading">
-        Rating runs
-      </h2>
       <p className="muted">
         A run recomputes every rating from the games. It is not shown on the site until it is published, and an older run
         can be published again to roll back.
@@ -260,7 +258,7 @@ export default function RunsPanel() {
           {all ? `Show the latest ${SHOWN}` : `Show all ${runs.length}`}
         </button>
       )}
-    </section>
+    </AdminCard>
   );
 }
 

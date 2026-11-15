@@ -8,6 +8,7 @@ import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { Loading } from './Notice';
 import Count from './Count';
+import AdminCard from './AdminCard';
 
 export default function BlitzPanel() {
   const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
@@ -17,10 +18,7 @@ export default function BlitzPanel() {
     );
   }, []);
   return (
-    <section className="rating-card admin-card" aria-labelledby="blitz-heading">
-      <h2 id="blitz-heading" className="rating-card-heading">
-        Blitz tournaments
-      </h2>
+    <AdminCard id="blitz-heading" title="Blitz tournaments">
       <p className="muted">
         Every edition of a tournament with the Blitz setting (Tournaments → Settings). A name opens the edition: its
         players, rounds and results.
@@ -28,7 +26,7 @@ export default function BlitzPanel() {
       <Loading load={rows} />
       {rows.kind === 'ready' && rows.data.length === 0 && <p className="muted">No tournament has the Blitz setting yet.</p>}
       {rows.kind === 'ready' && rows.data.length > 0 && <EditionsTable editions={rows.data} />}
-    </section>
+    </AdminCard>
   );
 }
 

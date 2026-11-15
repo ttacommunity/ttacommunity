@@ -17,6 +17,7 @@ import {
   settingPatch,
   toggledCounts,
 } from '../lib/tournament-page';
+import AdminCard from './AdminCard';
 
 /** SettingsCard switches a tournament's settings, saving each at once; a refusal shows under the setting refused. */
 export default function SettingsCard({ t, onChange }: { t: AdminTournament; onChange: (t: AdminTournament) => void }) {
@@ -39,10 +40,7 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
     else void patch({ rated_player_counts: next }, 'rated counts');
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="settings-heading">
-      <h2 id="settings-heading" className="rating-card-heading">
-        Settings
-      </h2>
+    <AdminCard id="settings-heading" title="Settings">
       <p className="muted">Changes save at once and are recorded with your name. Rating changes apply from the next engine run.</p>
       <div className="settings-list">
         {SETTINGS.map((s) => {
@@ -231,6 +229,6 @@ export default function SettingsCard({ t, onChange }: { t: AdminTournament; onCh
         </fieldset>
         <PlacedRefusal save={saving} at={'levels'} />
       </div>
-    </section>
+    </AdminCard>
   );
 }

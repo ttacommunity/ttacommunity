@@ -16,6 +16,7 @@ import { counted } from '@ttac/shared/numbers';
 import { PlacedRefusal, SaveWord } from './SaveBar';
 import { useSave } from './useSave';
 import { trackName } from '@ttac/shared/tracks';
+import AdminCard from './AdminCard';
 
 /** SeasonsCard lists a tournament's seasons with their counts, settings, notes and podiums, each season's stages on
  * demand, and adds or removes a season without games. */
@@ -52,11 +53,8 @@ export default function SeasonsCard({
     if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="seasons-heading">
+    <AdminCard id="seasons-heading" title="Seasons">
       {dialog.element}
-      <h2 id="seasons-heading" className="rating-card-heading">
-        Seasons
-      </h2>
       <form className="season-add" onSubmit={(e) => void addSeason(e)}>
         <label>
           Add a season with no games yet (its label as the site shows it, without "Season")
@@ -175,6 +173,6 @@ export default function SeasonsCard({
           </div>
         );
       })}
-    </section>
+    </AdminCard>
   );
 }

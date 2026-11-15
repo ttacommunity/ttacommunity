@@ -27,6 +27,7 @@ import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
 import MoviesPanel from './MoviesPanel';
 import './AdminApp.css';
+import AdminCard from './AdminCard';
 
 /** Tournaments lists the top-level tournaments and groups, rated or unrated, with New group. */
 function Tournaments() {
@@ -39,10 +40,7 @@ function Tournaments() {
     );
   }, []);
   return (
-    <section className="rating-card admin-card" aria-labelledby="tournaments-heading">
-      <h2 id="tournaments-heading" className="rating-card-heading">
-        Tournaments
-      </h2>
+    <AdminCard id="tournaments-heading" title="Tournaments">
       <p className="muted">
         Each group of related tournaments once, and each tournament related to nothing. A name opens what is in it;
         Settings opens its settings.
@@ -78,7 +76,7 @@ function Tournaments() {
           )}
         />
       )}
-    </section>
+    </AdminCard>
   );
 }
 

@@ -6,6 +6,7 @@ import { adminRequest } from '../lib/admin-api';
 import { newEdition } from '../lib/community-editions';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
+import AdminCard from './AdminCard';
 
 type CommunityEditionItem = components['schemas']['CommunityEditionItem'];
 
@@ -215,10 +216,7 @@ export default function CommunityPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="community-heading">
-      <h2 id="community-heading" className="rating-card-heading">
-        Community leaderboard editions
-      </h2>
+    <AdminCard id="community-heading" title="Community leaderboard editions">
       <p className="muted">
         Configure editions, change visibility on the public site, edit maintainer notes, or register new editions without changing code.
       </p>
@@ -342,6 +340,6 @@ export default function CommunityPanel() {
           <EditionRow key={e.slug} edition={e} onReload={load} outcome={outcome} say={setOutcome} />
         ))
       )}
-    </section>
+    </AdminCard>
   );
 }

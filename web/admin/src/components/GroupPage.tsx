@@ -11,6 +11,7 @@ import { GROUP_KINDS } from './NewGroupForm';
 import TournamentTable from './TournamentTable';
 import SaveBar, { SaveStatus } from './SaveBar';
 import { useSave, type Save } from './useSave';
+import AdminCard from './AdminCard';
 
 type Kind = AdminTournamentRow['kind'];
 
@@ -86,10 +87,7 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
   };
   const toggle = (slug: string) => setChosen((c) => toggled(c, slug));
   return (
-    <section className="rating-card admin-card" aria-labelledby="members-heading">
-      <h2 id="members-heading" className="rating-card-heading">
-        In this group
-      </h2>
+    <AdminCard id="members-heading" title="In this group">
       {!modifying && (
         <>
           <p>
@@ -147,7 +145,7 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
           />
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }
 

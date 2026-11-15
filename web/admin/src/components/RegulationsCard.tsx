@@ -5,6 +5,7 @@ import * as req from '../lib/admin-requests';
 import type { AdminTournament } from '../lib/admin-api';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import AdminCard from './AdminCard';
 
 // What the card says of the regulations the site shows now.
 const REGULATIONS_SHOWN = {
@@ -26,10 +27,7 @@ export default function RegulationsCard({ t, onReload }: { t: AdminTournament; o
     await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="regulations-heading">
-      <h2 id="regulations-heading" className="rating-card-heading">
-        Format &amp; Regulations
-      </h2>
+    <AdminCard id="regulations-heading" title="Format & Regulations">
       <p className="muted">
         {REGULATIONS_SHOWN[source]}
       </p>
@@ -57,6 +55,6 @@ export default function RegulationsCard({ t, onReload }: { t: AdminTournament; o
           </button>
         )}
       </SaveBar>
-    </section>
+    </AdminCard>
   );
 }

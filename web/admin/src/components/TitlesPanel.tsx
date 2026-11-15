@@ -7,6 +7,7 @@ import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
 import { ADMIN_TITLES, titleLabel, type AdminTitle } from '../lib/titles';
+import AdminCard from './AdminCard';
 
 type TitleOverride = components['schemas']['TitleOverride'];
 /** TitlesPanel lists the titles set in admin, and sets or removes one. */
@@ -42,11 +43,8 @@ export default function TitlesPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="titles-heading">
+    <AdminCard id="titles-heading" title="Player titles">
       {dialog.element}
-      <h2 id="titles-heading" className="rating-card-heading">
-        Player titles
-      </h2>
       <p className="muted">
         A title set here replaces the one the engine derives, from the next rating run. A player still needs a tournament
         game in the last 12 months to show a badge. World Champion comes from the World Championship's podium.
@@ -112,6 +110,6 @@ export default function TitlesPanel() {
         </button>
       </form>
       <Notice outcome={shownAt(outcome, 'set title')} onClose={close} />
-    </section>
+    </AdminCard>
   );
 }
