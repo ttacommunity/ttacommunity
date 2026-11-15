@@ -58,14 +58,17 @@
   width: 100%;
 }
 
+/* It stays in view as the page scrolls, scrolling itself when taller than the window. */
 .leaderboard-sidebar {
   display: none;
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: fixed;
+  top: 5.5rem;
+  right: 1rem;
   z-index: 100;
   width: 360px;
-  max-width: calc(100% - 1rem);
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 6.5rem);
+  overflow-y: auto;
 }
 
 .leaderboard-layout.options-open .leaderboard-sidebar {
@@ -612,6 +615,8 @@ tr:hover .btn-exclude-row,
     width: 100vw;
     max-width: 100%;
     height: 100dvh;
+    max-height: none;
+    overflow-y: visible;
     background: var(--shadow-deep);
     backdrop-filter: blur(5px);
     animation: fade-in-modal 0.2s ease-out;
