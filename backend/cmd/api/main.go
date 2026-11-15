@@ -124,7 +124,11 @@ func main() {
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
 	}
-	hub, err := openMovieHub(os.Getenv, signIns.PlayerStore, ratings)
+	admins.youtube = openYouTube(os.Getenv)
+	if admins.youtube == nil {
+		log.Info("admin takes YouTube channels only by id: YOUTUBE_API_KEY is not set")
+	}
+	hub, err := openMovieHub(os.Getenv, signIns.PlayerStore, ratings, admins.youtube, log)
 	if err != nil {
 		log.Error("refusing to start: the Movies hub callback is not set up", "err", err)
 		os.Exit(1)
@@ -184,14 +188,16 @@ type adminDeps struct {
 	starter      *enginejob.Starter
 	poster       *notify.Discord
 	movieFetcher *movies.Fetcher
+	youtube      *movies.YouTube
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
 func (d adminDeps) AllowedOrigin() string { return d.origin }
 
-// ResolveMovieChannel resolves a YouTube channel URL, handle, or ID into a canonical UC... channel ID.
+// ResolveMovieChannel returns the channel id a channel's id, address or @handle names; a handle needs the
+// Data API.
 func (d adminDeps) ResolveMovieChannel(ctx context.Context, raw string) (string, error) {
-	return d.movieFetcher.ResolveChannel(ctx, raw)
+	return d.youtube.ResolveChannel(ctx, raw)
 }
 
 // SyncMoviesNow fetches YouTube RSS feeds for all enabled channels and stores new TTA videos.
@@ -296,7 +302,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), movies.NewFetcher(nil)}, pool, nil
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), movies.NewFetcher(nil), nil}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

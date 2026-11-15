@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -68,8 +69,13 @@ func (s *server) PostAdminMovieChannel(ctx context.Context, req PostAdminMovieCh
 		return PostAdminMovieChannel400JSONResponse{badRequest400("channel and creator name are required")}, nil
 	}
 	channelID, err := s.admins.ResolveMovieChannel(ctx, req.Body.Channel)
+	for _, refused := range []error{movies.ErrNotAChannel, movies.ErrNoSuchChannel, movies.ErrNoYouTube} {
+		if errors.Is(err, refused) {
+			return PostAdminMovieChannel400JSONResponse{badRequest400(refused.Error())}, nil
+		}
+	}
 	if err != nil {
-		return PostAdminMovieChannel400JSONResponse{badRequest400(err.Error())}, nil
+		return nil, err
 	}
 	now := s.now().UTC().Truncate(time.Second)
 	var ch store.AdminVideoChannel

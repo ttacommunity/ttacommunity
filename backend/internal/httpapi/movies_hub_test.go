@@ -42,7 +42,7 @@ func (f *fakeHub) ConfirmMovieHub(_ context.Context, channelID, mode string, lea
 	return channelID == hubLinked && mode == "subscribe" || channelID != hubLinked && mode == "unsubscribe", nil
 }
 
-func (f *fakeHub) ClassifyPushed(_ context.Context, e movies.PushedEntry) (store.PushedVideo, error) {
+func (f *fakeHub) ClassifyPushed(_ context.Context, e movies.PushedEntry, _ time.Time) (store.PushedVideo, error) {
 	return store.PushedVideo{VideoID: e.VideoID, ChannelID: e.ChannelID, Title: e.Title, PublishedAt: e.PublishedAt, TTA: true}, nil
 }
 

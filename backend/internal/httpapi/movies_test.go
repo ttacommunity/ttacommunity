@@ -3,11 +3,15 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -64,10 +68,51 @@ func (f *fakeAdmins) AdminMovies(_ context.Context) (store.AdminMoviesState, err
 }
 
 func (f *fakeAdmins) ResolveMovieChannel(_ context.Context, raw string) (string, error) {
-	if strings.Contains(raw, "bad") {
-		return "", store.ErrNoChannel
+	switch raw {
+	case "not-a-channel":
+		return "", movies.ErrNotAChannel
+	case "@NobodyInvented":
+		return "", movies.ErrNoSuchChannel
+	case "@NoKeyInvented":
+		return "", movies.ErrNoYouTube
+	case "@FailingInvented":
+		return "", errors.New("looking up a handle: the Data API answered HTTP 503 (backendError)")
 	}
 	return "UC0000000000000000000001", nil
+}
+
+func TestAddingAMovieChannelSaysWhyAChannelIsRefused(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	tests := []struct {
+		name, channel string
+		wantCode      int
+		wantError     string
+	}{
+		{"a handle", "@InventedCaster", http.StatusCreated, ""},
+		{"not a channel", "not-a-channel", http.StatusBadRequest, movies.ErrNotAChannel.Error()},
+		{"no channel has the handle", "@NobodyInvented", http.StatusBadRequest, movies.ErrNoSuchChannel.Error()},
+		{"a handle with no key set up", "@NoKeyInvented", http.StatusBadRequest, movies.ErrNoYouTube.Error()},
+		{"the Data API failing", "@FailingInvented", http.StatusInternalServerError, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/movies/channels", site,
+				`{"channel": "`+tt.channel+`", "name": "Invented Caster", "include_all": false}`)
+			if rec.Code != tt.wantCode {
+				t.Fatalf("status = %d %s, want %d", rec.Code, rec.Body, tt.wantCode)
+			}
+			if tt.wantError != "" {
+				wantJSON(t, rec.Body.Bytes(), "", fmt.Sprintf(`{"error": %q}`, tt.wantError))
+			}
+			if strings.Contains(rec.Body.String(), "backendError") {
+				t.Errorf("body = %s, shows the Data API's own error", rec.Body)
+			}
+			if tt.wantCode != http.StatusCreated && slices.ContainsFunc(f.notes, func(n string) bool { return strings.HasPrefix(n, "add channel") }) {
+				t.Errorf("notes = %q, a refused channel was added", f.notes)
+			}
+		})
+	}
 }
 
 func (f *fakeAdmins) AddMovieChannel(_ context.Context, channelID, name string, player *string, includeAll bool, now time.Time) (store.AdminVideoChannel, error) {

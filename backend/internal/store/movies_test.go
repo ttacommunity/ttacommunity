@@ -11,16 +11,11 @@ import (
 )
 
 type stubMovieFetcher struct {
-	entries  map[string][]movies.Entry
-	keywords map[string]string
+	entries map[string][]movies.Entry
 }
 
 func (f stubMovieFetcher) FetchChannel(_ context.Context, channelID string) ([]movies.Entry, error) {
 	return f.entries[channelID], nil
-}
-
-func (f stubMovieFetcher) FetchKeywords(_ context.Context, videoID string) (string, error) {
-	return f.keywords[videoID], nil
 }
 
 func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {

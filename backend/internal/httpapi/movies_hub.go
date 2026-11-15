@@ -20,7 +20,7 @@ import (
 type MovieHub interface {
 	Secret() []byte
 	ConfirmMovieHub(ctx context.Context, channelID, mode string, leaseSeconds int, at time.Time) (bool, error)
-	ClassifyPushed(ctx context.Context, e movies.PushedEntry) (store.PushedVideo, error)
+	ClassifyPushed(ctx context.Context, e movies.PushedEntry, at time.Time) (store.PushedVideo, error)
 	StorePushedVideo(ctx context.Context, v store.PushedVideo, at time.Time) error
 	RemovePushedVideo(ctx context.Context, videoID, channelID string, at time.Time) error
 }
@@ -98,7 +98,7 @@ func (s *server) ReceiveMoviePush(ctx context.Context, req ReceiveMoviePushReque
 	}
 	now := s.now().UTC()
 	for _, e := range push.Entries {
-		v, err := s.movieHub.ClassifyPushed(ctx, e)
+		v, err := s.movieHub.ClassifyPushed(ctx, e, now)
 		if err != nil {
 			return nil, err
 		}

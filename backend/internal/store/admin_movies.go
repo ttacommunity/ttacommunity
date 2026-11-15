@@ -63,10 +63,9 @@ var (
 	ErrNoPlayerName = errors.New("no player with that name")
 )
 
-// MovieFeedFetcher fetches YouTube channel feeds and optional watch-page keywords.
+// MovieFeedFetcher fetches YouTube channel feeds.
 type MovieFeedFetcher interface {
 	FetchChannel(ctx context.Context, channelID string) ([]movies.Entry, error)
-	FetchKeywords(ctx context.Context, videoID string) (string, error)
 }
 
 // AdminMovies lists all configured YouTube channels and the latest 100 fetched videos.
@@ -248,11 +247,8 @@ func (a *AdminStore) SyncMovies(ctx context.Context, fetcher MovieFeedFetcher, n
 			if err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = $1)", e.VideoID).Scan(&exists); err != nil || exists {
 				continue
 			}
-			if !ch.includeAll && !movies.IsTTAVideo(e.Title, e.Description, "", tournaments) {
-				kw, _ := fetcher.FetchKeywords(ctx, e.VideoID)
-				if !movies.IsTTAVideo(e.Title, e.Description, kw, tournaments) {
-					continue
-				}
+			if !movies.Classify(movies.VideoText{Title: e.Title, Description: e.Description}, ch.includeAll, tournaments).TTA {
+				continue
 			}
 			tag, err := a.pool.Exec(ctx, `
 				INSERT INTO videos (video_id, channel_id, title, published_at, thumbnail_url, is_tta, tta_reason, created_at)
