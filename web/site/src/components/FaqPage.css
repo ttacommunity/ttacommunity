@@ -180,7 +180,7 @@
 }
 
 .faq-container .faq-section .faq-card-bronze {
-  border-left: 4px solid #b8860b;
+  border-left: 4px solid var(--medal-bronze);
   background: linear-gradient(135deg, rgba(46, 31, 20, 0.95), var(--surface-well));
 }
 
@@ -658,7 +658,7 @@
 }
 
 .faq-container .faq-section .c-bronze {
-  color: #b45309;
+  color: var(--medal-bronze);
 }
 
 .faq-container .faq-section .c-brown {

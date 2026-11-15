@@ -203,8 +203,8 @@
   font-family: var(--font-stats);
 }
 .medal-gold { color: #f59e0b; }
-.medal-silver { color: #cbd5e1; }
-.medal-bronze { color: #d97706; }
+.medal-silver { color: var(--medal-silver); }
+.medal-bronze { color: var(--medal-bronze); }
 .medal-total { color: var(--text-bright); }
 
 /* Success stories */

@@ -431,7 +431,7 @@
 }
 
 .wcs-table .cell-silver {
-  color: #cbd5e1;
+  color: var(--medal-silver);
   font-weight: 700;
   text-align: center;
 }

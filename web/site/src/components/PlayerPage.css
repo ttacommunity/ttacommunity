@@ -444,12 +444,12 @@
 }
 
 .place-2 {
-  background: #9e9e9e;
+  background: var(--medal-silver);
   color: #111;
 }
 
 .place-3 {
-  background: #b87333;
+  background: var(--medal-bronze);
   color: var(--text-bright);
 }
 
@@ -673,8 +673,8 @@
   color: var(--text-muted);
 }
 .career-medal-gold { color: var(--accent-gold); }
-.career-medal-silver { color: #cfd8dc; }
-.career-medal-bronze { color: #cd7f32; }
+.career-medal-silver { color: var(--medal-silver); }
+.career-medal-bronze { color: var(--medal-bronze); }
 
 .career-honor-roll {
   margin-bottom: 0.6rem;
@@ -1092,18 +1092,18 @@
 }
 
 .place-pill-1 {
-  border-color: rgba(250, 204, 21, 0.5);
+  border-color: color-mix(in srgb, var(--accent-gold) 50%, transparent);
   color: var(--accent-gold);
 }
 
 .place-pill-2 {
-  border-color: rgba(203, 213, 225, 0.5);
-  color: #cbd5e1;
+  border-color: color-mix(in srgb, var(--medal-silver) 50%, transparent);
+  color: var(--medal-silver);
 }
 
 .place-pill-3 {
-  border-color: rgba(217, 119, 6, 0.5);
-  color: #d97706;
+  border-color: color-mix(in srgb, var(--medal-bronze) 50%, transparent);
+  color: var(--medal-bronze);
 }
 
 .place-pill-4 {

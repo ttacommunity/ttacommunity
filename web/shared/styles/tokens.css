@@ -30,6 +30,8 @@
   --win-edge: #477d29;
   --loss-edge: #a93325;
   --draw: #ffa726;
+  --medal-silver: #cfd8dc;
+  --medal-bronze: #cd7f32;
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;

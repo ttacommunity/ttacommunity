@@ -341,8 +341,8 @@
   text-align: center;
 }
 .rank-1 { background: var(--accent-gold); color: #180407; box-shadow: 0 0 8px rgba(229, 169, 60, 0.6); }
-.rank-2 { background: #cfd8dc; color: #180407; }
-.rank-3 { background: #cd7f32; color: var(--text-bright); }
+.rank-2 { background: var(--medal-silver); color: #180407; }
+.rank-3 { background: var(--medal-bronze); color: var(--text-bright); }
 .rank-default { color: #a89988; }
 
 /* Scores: Active Counting vs Discarded */

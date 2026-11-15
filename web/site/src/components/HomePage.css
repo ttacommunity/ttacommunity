@@ -624,28 +624,28 @@
 /* 2nd place: Luminous cool metallic platinum/silver with subtle shine */
 .match-player-link.rank-silver,
 .match-player-link.rank-2 {
-  color: #e2ebf8;
+  color: var(--medal-silver);
   font-weight: 600;
-  text-shadow: 0 0 8px rgba(215, 230, 255, 0.35);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-silver) 35%, transparent);
 }
 
 .match-player-link.rank-silver:hover,
 .match-player-link.rank-2:hover {
-  color: #fff;
+  color: var(--text-bright);
   text-decoration: underline;
 }
 
 /* 3rd place: Warm metallic copper-bronze */
 .match-player-link.rank-bronze,
 .match-player-link.rank-3 {
-  color: #d88f48;
+  color: var(--medal-bronze);
   font-weight: 600;
-  text-shadow: 0 0 8px rgba(216, 143, 72, 0.25);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-bronze) 25%, transparent);
 }
 
 .match-player-link.rank-bronze:hover,
 .match-player-link.rank-3:hover {
-  color: #f6b578;
+  color: color-mix(in srgb, var(--medal-bronze) 70%, white);
   text-decoration: underline;
 }
 
@@ -674,13 +674,13 @@
 
 .match-seat.rank-silver .match-score-badge.revealed,
 .match-seat.rank-2 .match-score-badge.revealed {
-  color: #e2ebf8;
-  text-shadow: 0 0 6px rgba(215, 230, 255, 0.25);
+  color: var(--medal-silver);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--medal-silver) 25%, transparent);
 }
 
 .match-seat.rank-bronze .match-score-badge.revealed,
 .match-seat.rank-3 .match-score-badge.revealed {
-  color: #d88f48;
+  color: var(--medal-bronze);
 }
 
 .match-seat.rank-gray .match-score-badge.revealed,
