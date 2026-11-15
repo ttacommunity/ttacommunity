@@ -1,5 +1,6 @@
 /** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings and its rounds one at a time. */
 import { useState } from 'react';
+import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
 import { browserStorage } from '@ttac/shared/storage';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
@@ -34,6 +35,7 @@ import {
   type Draft,
 } from '../lib/nostradamus';
 import { useKeptLoad, useLoad } from './useLoad';
+import SignInNote from './SignInNote';
 import Waiting from './Waiting';
 import './Blitz.css';
 
@@ -177,14 +179,12 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
         Your play
       </h2>
       {state === 'sign-in' && (
-        <p className="blitz-sign-in" role="note">
-          <a href={accountHref(window.location.pathname, window.location.search)}>Sign in</a> to ask to play.
-        </p>
+        <SignInNote to="ask to play." />
       )}
       {state === 'link' && (
-        <p className="blitz-sign-in" role="note">
+        <Note>
           Link your account to your TTA username on <a href={accountHref(window.location.pathname, window.location.search)}>your account page</a>, then ask to play here.
-        </p>
+        </Note>
       )}
       {state === 'ask' && (
         <p>
