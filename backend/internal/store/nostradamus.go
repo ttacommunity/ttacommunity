@@ -118,20 +118,25 @@ type NostradamusGame struct {
 	Participants []NostradamusParticipant
 }
 
-// NostradamusEditions returns every game, the newest tournament's first, each with its round open at now.
+// NostradamusEditions returns the games the site shows, those with a round published, the newest tournament's
+// first, each with its round open at now.
 func (r *RatingsReader) NostradamusEditions(ctx context.Context, now time.Time) ([]NostradamusEdition, error) {
-	return nostradamusEditions(ctx, r.pool, now)
+	return nostradamusEditions(ctx, r.pool, true, now)
 }
 
 // NostradamusEditions returns every game for admin, the newest tournament's first, each with its round open at now.
 func (a *AdminStore) NostradamusEditions(ctx context.Context, now time.Time) ([]NostradamusEdition, error) {
-	return nostradamusEditions(ctx, a.pool, now)
+	return nostradamusEditions(ctx, a.pool, false, now)
 }
 
-func nostradamusEditions(ctx context.Context, db conn, now time.Time) ([]NostradamusEdition, error) {
+// shownOnSite holds for edition e when the site shows it, or always when $2 is false.
+const shownOnSite = `(NOT $2 OR EXISTS (SELECT FROM nostradamus_rounds r WHERE r.edition_id = e.edition_id AND r.published_at IS NOT NULL))`
+
+func nostradamusEditions(ctx context.Context, db conn, public bool, now time.Time) ([]NostradamusEdition, error) {
 	rows, err := db.Query(ctx, `SELECT `+nostradamusEditionColumns+`
 		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		ORDER BY t.tournament_id DESC, e.slug`, now)
+		WHERE `+shownOnSite+`
+		ORDER BY t.tournament_id DESC, e.slug`, now, public)
 	if err != nil {
 		return nil, fmt.Errorf("reading Nostradamus games: %w", err)
 	}
@@ -146,7 +151,8 @@ func nostradamusEditions(ctx context.Context, db conn, now time.Time) ([]Nostrad
 }
 
 // NostradamusGame returns the game as the site shows it at now: published rounds only, outcomes and polls once a
-// round is closed, the standings over closed rounds, and the accepted players. An unknown slug is ErrNoNostradamus.
+// round is closed, and the standings over closed rounds. An unknown slug, or a game with no round published, is
+// ErrNoNostradamus.
 func (r *RatingsReader) NostradamusGame(ctx context.Context, slug string, now time.Time) (NostradamusGame, error) {
 	return nostradamusGame(ctx, r.pool, slug, true, now)
 }
@@ -162,7 +168,7 @@ func nostradamusGame(ctx context.Context, db conn, slug string, public bool, now
 	var edition int64
 	err := scanEdition(db.QueryRow(ctx, `SELECT `+nostradamusEditionColumns+`, e.edition_id
 		FROM nostradamus_editions e JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
-		WHERE e.slug = $2`, now, slug), &g.NostradamusEdition, &edition)
+		WHERE `+shownOnSite+` AND e.slug = $3`, now, public, slug), &g.NostradamusEdition, &edition)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return NostradamusGame{}, ErrNoNostradamus
 	}

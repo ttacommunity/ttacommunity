@@ -342,14 +342,29 @@ func TestTheSiteLoginCannotReadAnAnswer(t *testing.T) {
 	}
 }
 
-func TestNostradamusEditionsListsEachGame(t *testing.T) {
-	pool := nostradamusFixture(t)
-	got, err := NewRatingsReader(asReader(t, pool)).NostradamusEditions(context.Background(), time.Now())
+func TestNostradamusTheSiteShowsAGameOnceARoundIsPublished(t *testing.T) {
+	g := newGame(t)
+	ctx := context.Background()
+	reader := NewRatingsReader(asReader(t, g.pool))
+	if got, err := reader.NostradamusEditions(ctx, g.now); err != nil || len(got) != 0 {
+		t.Errorf("the site's games before a round is published = %+v, %v; want none", got, err)
+	}
+	if _, err := reader.NostradamusGame(ctx, "wc-2031", g.now); !errors.Is(err, ErrNoNostradamus) {
+		t.Errorf("the site's game before a round is published = %v, want ErrNoNostradamus", err)
+	}
+	if got, err := g.admin.NostradamusEditions(ctx, g.now); err != nil || len(got) != 1 {
+		t.Errorf("admin's games before a round is published = %+v, %v; want wc-2031", got, err)
+	}
+	g.publish(t)
+	got, err := reader.NostradamusEditions(ctx, g.now)
 	if err != nil {
 		t.Fatalf("NostradamusEditions: %v", err)
 	}
-	if want := []NostradamusEdition{{Slug: "wc-2031", Name: "Nostradamus #9", Series: "worlds", Tournament: "2031"}}; !slices.Equal(got, want) {
-		t.Errorf("NostradamusEditions = %+v, want %+v", got, want)
+	if len(got) != 1 || got[0].Slug != "wc-2031" || got[0].Name != "Nostradamus #9" || got[0].Series != "worlds" || got[0].Tournament != "2031" {
+		t.Errorf("the site's games once a round is published = %+v, want wc-2031 over worlds 2031", got)
+	}
+	if _, err := reader.NostradamusGame(ctx, "wc-2031", g.now); err != nil {
+		t.Errorf("the site's game once a round is published = %v, want it", err)
 	}
 }
 
@@ -401,9 +416,6 @@ func (g game) siteGame(t *testing.T) NostradamusGame {
 
 func TestNostradamusADraftIsShownOnlyInAdminUntilPublished(t *testing.T) {
 	g := newGame(t)
-	if got := g.siteGame(t).Rounds; len(got) != 0 {
-		t.Errorf("the site's rounds before publishing = %+v, want none", got)
-	}
 	admin, err := g.admin.NostradamusGame(context.Background(), "wc-2031", time.Now())
 	if err != nil {
 		t.Fatalf("admin's NostradamusGame: %v", err)
@@ -770,8 +782,8 @@ func TestNostradamusUnpublishingKeepsTheAnswersThatStillFit(t *testing.T) {
 			if err := g.admin.UnpublishNostradamusRound(ctx, "wc-2031", g.round); err != nil {
 				t.Fatalf("UnpublishNostradamusRound: %v", err)
 			}
-			if got := g.siteGame(t).Rounds; len(got) != 0 {
-				t.Errorf("the site's rounds after unpublishing = %d, want none", len(got))
+			if _, err := NewRatingsReader(asReader(t, g.pool)).NostradamusGame(ctx, "wc-2031", g.now); !errors.Is(err, ErrNoNostradamus) {
+				t.Errorf("the site's game after unpublishing its only round = %v, want ErrNoNostradamus", err)
 			}
 			if err := g.admin.SetNostradamusQuestion(ctx, "wc-2031", g.q, tt.change); err != nil {
 				t.Fatalf("SetNostradamusQuestion: %v", err)
@@ -859,6 +871,7 @@ func TestNostradamusAPlayerStakesAtLeastTheRoundsLeast(t *testing.T) {
 
 func TestNostradamusGamesFinishByTheirMarkOrTheirTournament(t *testing.T) {
 	g := newGame(t)
+	g.publish(t)
 	ctx := context.Background()
 	reader := NewRatingsReader(asReader(t, g.pool))
 	state := func() (marked, tournament, finished bool) {

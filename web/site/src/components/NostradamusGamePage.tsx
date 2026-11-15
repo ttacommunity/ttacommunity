@@ -62,6 +62,13 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
       </div>
       {editions.kind !== 'ready' ? (
         <Waiting load={editions} what="the games" />
+      ) : editions.data.editions.length === 0 ? (
+        <section className="rating-card blitz-card" aria-labelledby="nostradamus-soon">
+          <h2 id="nostradamus-soon" className="rating-card-heading">
+            Coming soon
+          </h2>
+          <p className="muted">The first game opens here with its first round of predictions.</p>
+        </section>
       ) : (
         <section className="rating-card blitz-card" aria-labelledby="nostradamus-games">
           <h2 id="nostradamus-games" className="rating-card-heading">

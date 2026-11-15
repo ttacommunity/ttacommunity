@@ -6314,7 +6314,7 @@ type ServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(w http.ResponseWriter, r *http.Request)
-	// GetNostradamusEditions Every Nostradamus game, the prediction game
+	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(w http.ResponseWriter, r *http.Request)
 	// GetNostradamusGame A Nostradamus game's rounds and standings
@@ -25766,7 +25766,7 @@ type StrictServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(ctx context.Context, request GetMoviesRequestObject) (GetMoviesResponseObject, error)
-	// GetNostradamusEditions Every Nostradamus game, the prediction game
+	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(ctx context.Context, request GetNostradamusEditionsRequestObject) (GetNostradamusEditionsResponseObject, error)
 	// GetNostradamusGame A Nostradamus game's rounds and standings

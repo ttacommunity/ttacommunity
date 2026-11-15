@@ -950,9 +950,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Every Nostradamus game, the prediction game
+         * Every Nostradamus game with a round published
          * @description Each game and the tournament it is played over, the newest
-         *     tournament's first. Cached for a minute.
+         *     tournament's first. A game is listed once one of its rounds is
+         *     published; empty until then. Cached for a minute.
          */
         get: operations["getNostradamusEditions"];
         put?: never;
@@ -977,7 +978,8 @@ export interface paths {
          *     (no one's answers: a player sees only their own). The standings over
          *     the closed rounds, highest total first; a participant who gave no
          *     answers in a round scores the lowest of the bots that did. An
-         *     unknown game is 404. Cached for a minute.
+         *     unknown game, or one with no round published, is 404. Cached for a
+         *     minute.
          */
         get: operations["getNostradamusGame"];
         put?: never;
