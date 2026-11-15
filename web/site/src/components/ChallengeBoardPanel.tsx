@@ -1,8 +1,7 @@
 /** A challenge's board: its ranking, the history of its record with a chart, the entries that do not count, and every submission. */
 import { useState } from 'react';
-import { viewerZone } from '@ttac/shared/time';
+import { formatDate, viewerZone } from '@ttac/shared/time';
 import { challengeBoard, type ChallengeBoard, type ChallengeRecordStep } from '@ttac/shared/ratings';
-import { entryDay } from '../lib/challenges';
 import { CHART, notCounted, recordChart } from '../lib/record-chart';
 import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
@@ -13,7 +12,7 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
   const [verified, setVerified] = useChoice('verified');
   const load = useKeptLoad(`board-${id}-${verified}`, () => challengeBoard(apiUrl, id, verified === 'verified'));
   const zone = viewerZone();
-  const day = (instant: string) => entryDay(instant, zone);
+  const day = (instant: string) => formatDate(instant, zone);
 
   return (
     <>

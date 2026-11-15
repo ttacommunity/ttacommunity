@@ -1,6 +1,6 @@
 /** The person form, for adding a member or entering someone in an edition: a search of the members and the players the ratings know, picking one filling in their details, or someone new added by the name typed. */
 import { useState, type FormEvent } from 'react';
-import type { Country } from '../lib/countries';
+import type { Country } from '@ttac/shared/countries';
 import { emptyPerson, personChoices, type PersonChoice, type PersonDetails, type Taken } from '../lib/person-form';
 import type { Region } from '../lib/zones';
 import CountryPick from './CountryPick';

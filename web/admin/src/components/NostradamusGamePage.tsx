@@ -12,7 +12,7 @@ import * as req from '../lib/admin-requests';
 import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
 import { useDialog } from '@ttac/shared/Dialog';
-import { countryNames, type Country } from '../lib/countries';
+import { countryNames, type Country } from '@ttac/shared/countries';
 import { entrantToAdd } from '../lib/person-form';
 import type { Region } from '../lib/zones';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';

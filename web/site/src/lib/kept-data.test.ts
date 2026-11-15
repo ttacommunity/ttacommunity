@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatTime } from '@ttac/shared/time';
-import { fetchMyData, keptGroups, shownZone, type KeptGroup, type MyData } from './kept-data';
+import { fetchMyData, keptGroups, type KeptGroup, type MyData } from './kept-data';
 
 const ZONE = 'Australia/Sydney';
 const at = (instant: string) => formatTime(instant, ZONE);
@@ -188,16 +188,6 @@ describe('keptGroups', () => {
     const g = group(keptGroups({ ...data, ...change }, ZONE, country), id);
     expect(g.lists).toEqual([]);
     expect(g.empty).not.toBe('');
-  });
-});
-
-describe('shownZone', () => {
-  it.each([
-    ['a saved IANA zone', 'Pacific/Auckland', 'Pacific/Auckland'],
-    ['a region, which is not a zone', 'US East', 'Europe/Berlin'],
-    ['Unknown', 'Unknown', 'Europe/Berlin'],
-  ])('shows times in %s', (_name, saved, want) => {
-    expect(shownZone(saved, 'Europe/Berlin')).toBe(want);
   });
 });
 

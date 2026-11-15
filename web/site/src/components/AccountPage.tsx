@@ -5,8 +5,9 @@ import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
-import { viewerZone } from '@ttac/shared/time';
-import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPath, banNotice, changeMyDetails, countryOptions, deleteAccount, deleteQuestion, draftChanges, fetchCountries, fetchMe, isFirstSignIn, needsContact, rememberSignedIn, removeWayIn, saveOutcome, sharedMe, signedInAs, signInHref, signInNotice, SIGNERS, signOut, suggestedCountry, waysIn, withoutSignInParam, zoneOptions, type AccountState, type Country, type Done, type Draft, type Me, type SaveOutcome, type Signer } from '../lib/account';
+import { knownZones, viewerZone } from '@ttac/shared/time';
+import { countryNames, type Country } from '@ttac/shared/countries';
+import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPath, banNotice, changeMyDetails, deleteAccount, deleteQuestion, draftChanges, fetchCountries, fetchMe, isFirstSignIn, needsContact, rememberSignedIn, removeWayIn, saveOutcome, sharedMe, signedInAs, signInHref, signInNotice, SIGNERS, signOut, suggestedCountry, waysIn, withoutSignInParam, zoneOptions, type AccountState, type Done, type Draft, type Me, type SaveOutcome, type Signer } from '../lib/account';
 import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
@@ -262,20 +263,6 @@ function EmailForm({ address, setAddress, token, setToken, round, busy, problem,
   );
 }
 
-/** supportedZones are the zones this browser knows, none where it cannot list them. */
-function supportedZones(): string[] {
-  return typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
-}
-
-/** displayNames names countries in English, or null where the browser cannot. */
-function displayNames(): Intl.DisplayNames | null {
-  try {
-    return new Intl.DisplayNames(['en'], { type: 'region' });
-  } catch {
-    return null;
-  }
-}
-
 /** Linked says which member the player is linked to, with their player page. */
 function Linked({ state }: { state: Extract<AccountState, { kind: 'linked' }> }) {
   return (
@@ -343,7 +330,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
 
   useEffect(() => {
     fetchCountries(apiUrl)
-      .then((codes) => setCountries(countryOptions(codes, displayNames())))
+      .then((codes) => setCountries(countryNames(codes)))
       .catch(() => setCountries([]));
   }, [apiUrl]);
 
@@ -407,7 +394,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
       <label htmlFor="account-zone">Time zone, for pairing and the times shown to you</label>
       <div className="account-row">
         <select id="account-zone" className="input-antique" value={draft.zone} onChange={(e) => setDraft({ ...draft, zone: e.target.value })}>
-          {zoneOptions(supportedZones(), draft.zone).map((z) => (
+          {zoneOptions(knownZones(), draft.zone).map((z) => (
             <option key={z} value={z}>
               {z}
             </option>

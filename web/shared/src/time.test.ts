@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { formatDay, formatInstant, formatTime, todayIn } from './time';
+import { clockIn, clockOrUtc, formatDate, formatDay, formatInstant, formatTime, knownZones, shownZone, todayIn } from './time';
 
 describe('formatInstant', () => {
   it.each([
@@ -67,5 +67,50 @@ describe('todayIn', () => {
     ['Unknown, on the browser’s clocks', '2026-10-27T14:30:00Z', 'Unknown', '2026-10-27'],
   ])('gives the day in %s', (_name, now, zone, want) => {
     expect(todayIn(zone, new Date(now), 'Europe/Berlin')).toBe(want);
+  });
+});
+
+describe('formatDate', () => {
+  it.each([
+    ['in the zone given', '2025-02-24T23:30:00Z', 'UTC', '24 Feb 2025'],
+    ['the next day where it already is', '2025-02-24T23:30:00Z', 'Europe/Berlin', '25 Feb 2025'],
+  ])('writes the day %s', (_name, instant, zone, want) => {
+    expect(formatDate(instant, zone)).toBe(want);
+  });
+});
+
+describe('clockIn', () => {
+  it.each([
+    ['an IANA zone, onto the next day', 'Australia/Sydney', { day: '2026-10-15', clock: '06:30' }],
+    ['UTC', 'UTC', { day: '2026-10-14', clock: '19:30' }],
+    ['a region, which the browser cannot read', 'US East', null],
+    ['Unknown', 'Unknown', null],
+  ])('reads an instant on %s', (_name, zone, want) => {
+    expect(clockIn(zone, '2026-10-14T19:30:00Z')).toEqual(want);
+  });
+});
+
+describe('clockOrUtc', () => {
+  it.each([
+    ['an IANA zone, on its clocks', 'Australia/Sydney', { day: '2026-10-15', clock: '06:30' }],
+    ['a zone the browser cannot read, on UTC', 'Unknown', { day: '2026-10-14', clock: '19:30' }],
+  ])('reads an instant in %s', (_name, zone, want) => {
+    expect(clockOrUtc(zone, '2026-10-14T19:30:00Z')).toEqual(want);
+  });
+});
+
+describe('shownZone', () => {
+  it.each([
+    ['a saved IANA zone', 'Pacific/Auckland', 'Pacific/Auckland'],
+    ['a region, which is not a zone', 'US East', 'Europe/Berlin'],
+    ['Unknown', 'Unknown', 'Europe/Berlin'],
+  ])('shows times in %s', (_name, saved, want) => {
+    expect(shownZone(saved, 'Europe/Berlin')).toBe(want);
+  });
+});
+
+describe('knownZones', () => {
+  it('lists the zones the runtime knows', () => {
+    expect(knownZones()).toContain('Europe/Berlin');
   });
 });

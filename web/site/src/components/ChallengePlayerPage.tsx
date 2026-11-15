@@ -1,10 +1,10 @@
 /** A player's challenge page: their figures, their best on each challenge, what to play next, and their latest entries. */
 import { useEffect, useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
-import { viewerZone } from '@ttac/shared/time';
+import { formatDate, viewerZone } from '@ttac/shared/time';
 import { challengePlayer, RatingsApiError, type ChallengePlayer, type ChallengePlayerBest, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeHref, challengeSets, compareHref, entryDay, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
+import { challengeHref, challengeSets, compareHref, formatMeasure, measureOf, nameParam, playedInSet, playNext, setLabel, type Measure, type SetId } from '../lib/challenges';
 import { BugTag, MeasureSwitch, ProofLink, ProofMark, SetGrid, useChoice } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
@@ -154,7 +154,7 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
             const c = list.find((x) => x.id === e.challenge);
             return (
               <li key={i}>
-                <span className="muted">{entryDay(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
+                <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
                 {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
                 {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
               </li>

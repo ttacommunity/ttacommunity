@@ -3,6 +3,7 @@ import type { components } from '@ttac/shared/api';
 import { resultSummary } from '@ttac/shared/blitz';
 import { emptyGameForm, type BlitzGameRecord, type GameForm } from '@ttac/shared/game-form';
 import type { TextQuestion } from '@ttac/shared/Dialog';
+import { clockIn } from '@ttac/shared/time';
 import { AccountApiError, change, failureMessage, type Done } from './account';
 import type { YourRow } from './blitz';
 
@@ -85,18 +86,6 @@ export function flagQuestion(m: MyBlitzMatch): TextQuestion {
     required: true,
     maxLength: 500,
   };
-}
-
-/** clockIn reads an instant on an IANA zone's clocks as a day and a time, or null for a zone the browser cannot read (a region, Unknown). */
-function clockIn(zone: string, instant: string): { day: string; clock: string } | null {
-  let format: Intl.DateTimeFormat;
-  try {
-    format = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  } catch {
-    return null;
-  }
-  const parts = Object.fromEntries(format.formatToParts(new Date(instant)).map((p) => [p.type, p.value]));
-  return { day: `${parts.year}-${parts.month}-${parts.day}`, clock: `${parts.hour}:${parts.minute}` };
 }
 
 /** formFor starts the report form: empty, today, in the player's zone; or, for a correction, the game reported, its finish on the player's clocks when the browser can read their zone. */

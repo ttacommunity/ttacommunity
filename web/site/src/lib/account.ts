@@ -198,14 +198,6 @@ export function zoneOptions(supported: readonly string[], current: string): stri
   return ['Unknown', ...(current === 'Unknown' || known.includes(current) ? [] : [current]), ...known];
 }
 
-/** Country is a country a player may give: its code and its name in English. */
-export type Country = { code: string; name: string };
-
-/** countryOptions names each code in English (the code itself where there is no name), sorted by name. */
-export function countryOptions(codes: readonly string[], names: Intl.DisplayNames | null): Country[] {
-  return codes.map((code) => ({ code, name: names?.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
-}
-
 /** suggestedCountry is the country to offer: the ratings player's whose name was typed (any case), else the country of the zone chosen, else of the browser's zone; null when none is known. */
 export function suggestedCountry(players: readonly { name: string; country: string | null }[], typed: string, zone: string, browserZone: string): string | null {
   const name = typed.trim().toLowerCase();

@@ -1,7 +1,8 @@
 /** "Data we keep" on the account page: a button that opens a dialog listing everything kept about the signed-in player, fetched when it opens. */
 import { useRef, useState } from 'react';
-import { viewerZone } from '@ttac/shared/time';
-import { fetchMyData, keptGroups, shownZone, type KeptGroup } from '../lib/kept-data';
+import { shownZone, viewerZone } from '@ttac/shared/time';
+import { countryName } from '@ttac/shared/countries';
+import { fetchMyData, keptGroups, type KeptGroup } from '../lib/kept-data';
 import Sheet from './Sheet';
 import Waiting from './Waiting';
 import './KeptData.css';
@@ -31,8 +32,7 @@ function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; sa
     }),
   );
 
-  const names = typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
-  const groups = load.kind === 'ready' ? keptGroups(load.data, zone, (code) => names?.of(code) ?? code) : [];
+  const groups = load.kind === 'ready' ? keptGroups(load.data, zone, countryName) : [];
   return (
     <Sheet dialog={dialog} id="kept" title="Data we keep" opener={opener} onClose={onClose}>
       <div className="sheet-body">

@@ -6,7 +6,7 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { countryNames, type Country } from '../lib/countries';
+import { countryNames, type Country } from '@ttac/shared/countries';
 import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import { memberToAdd, type PersonDetails } from '../lib/person-form';

@@ -8,7 +8,6 @@ import {
   banNotice,
   askToBeLinked,
   changeMyDetails,
-  countryOptions,
   addWayInHref,
   addEmail,
   deleteAccount,
@@ -250,17 +249,6 @@ describe('zoneOptions', () => {
     ['a region an organiser set', 'US East', ['Unknown', 'US East', 'Europe/Berlin', 'Pacific/Auckland']],
   ])('offers Unknown, the zone held when the browser does not know it, then every zone it knows: %s', (_name, current, want) => {
     expect(zoneOptions(['Pacific/Auckland', 'Europe/Berlin'], current)).toEqual(want);
-  });
-});
-
-describe('countryOptions', () => {
-  const names = { of: (code: string) => ({ DE: 'Germany', NZ: 'New Zealand' })[code] } as Intl.DisplayNames;
-  it.each([
-    ['names, sorted by name', ['NZ', 'DE'], names, [{ code: 'DE', name: 'Germany' }, { code: 'NZ', name: 'New Zealand' }]],
-    ['the code where the browser has no name', ['XK'], names, [{ code: 'XK', name: 'XK' }]],
-    ['codes alone without names', ['NZ', 'DE'], null, [{ code: 'DE', name: 'DE' }, { code: 'NZ', name: 'NZ' }]],
-  ])('%s', (_name, codes, displayNames, want) => {
-    expect(countryOptions(codes, displayNames)).toEqual(want);
   });
 });
 

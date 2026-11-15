@@ -144,11 +144,6 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
   return ticks;
 }
 
-/** entryDay writes the day an entry was made in a time zone, such as "24 Feb 2025". */
-export function entryDay(instant: string, timeZone: string): string {
-  return new Date(instant).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
-}
-
 /** setLabel is the game's name for a set. */
 export function setLabel(set: SetId): string {
   return SETS.find((s) => s.id === set)?.label ?? set;

@@ -7,6 +7,7 @@
   },
   "exports": {
     "./time": "./src/time.ts",
+    "./countries": "./src/countries.ts",
     "./numbers": "./src/numbers.ts",
     "./load": "./src/load.ts",
     "./copy": "./src/copy.ts",

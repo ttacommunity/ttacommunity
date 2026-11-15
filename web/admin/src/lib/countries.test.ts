@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countryChoices, countryFromText, countryNames } from './countries';
+import { countryChoices, countryFromText } from './countries';
 
 const countries = [
   { code: 'DE', name: 'Germany' },
@@ -34,11 +34,3 @@ describe('countryFromText', () => {
   });
 });
 
-describe('countryNames', () => {
-  it('names each code in English, sorted by name', () => {
-    expect(countryNames(['NZ', 'DE'])).toEqual([
-      { code: 'DE', name: 'Germany' },
-      { code: 'NZ', name: 'New Zealand' },
-    ]);
-  });
-});

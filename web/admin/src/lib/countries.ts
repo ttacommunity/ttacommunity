@@ -1,19 +1,6 @@
 /** What a country picker offers: the countries a member may have, found by name or code. */
+import type { Country } from '@ttac/shared/countries';
 import { matchRank, norm } from './match';
-
-/** Country is a country a member may have: its two-letter code and its name in English. */
-export type Country = { code: string; name: string };
-
-/** countryNames names each code in English (the code itself where the browser cannot), sorted by name. */
-export function countryNames(codes: readonly string[]): Country[] {
-  let names: Intl.DisplayNames | null = null;
-  try {
-    names = new Intl.DisplayNames(['en'], { type: 'region' });
-  } catch {
-    names = null;
-  }
-  return codes.map((code) => ({ code, name: names?.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name));
-}
 
 /** rank is how well a country matches the text: a code typed in full as well as its name itself, else by its name. */
 function rank(c: Country, typed: string): number | null {

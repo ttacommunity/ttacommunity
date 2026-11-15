@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import type { SortColumns } from '@ttac/shared/sort';
-import { viewerZone } from '@ttac/shared/time';
+import { formatDate, viewerZone } from '@ttac/shared/time';
 import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/ratings';
-import { byMeasure, entryDay, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
+import { byMeasure, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import FilterInput from './FilterInput';
@@ -106,7 +106,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                     <td className="num">{formatMeasure(measureOf(p, measure, 'original'), measure)}</td>
                     <td className="num">{formatMeasure(measureOf(p, measure, 'expansion'), measure)}</td>
                     <td className="num">{formatMeasure(measureOf(p, measure, 'mix'), measure)}</td>
-                    <td className="muted">{entryDay(p.last_entry, zone)}</td>
+                    <td className="muted">{formatDate(p.last_entry, zone)}</td>
                   </tr>
                 ))}
               </tbody>
