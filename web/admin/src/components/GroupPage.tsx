@@ -27,12 +27,14 @@ function GroupSettings({ g, all, saving, onReload }: { g: TournamentBrief; all: 
     if (r?.ok) await onReload();
   };
   return (
-    <section className="rating-card admin-card" aria-labelledby="group-settings-heading">
-      <h2 id="group-settings-heading" className="rating-card-heading">
+    <AdminCard
+      id="group-settings-heading"
+      title={
         <button type="button" className="btn-antique" onClick={() => setShown(!shown)} aria-expanded={shown}>
           Settings
         </button>
-      </h2>
+      }
+    >
       {shown && (
         <>
           <div className="setting">
@@ -63,7 +65,7 @@ function GroupSettings({ g, all, saving, onReload }: { g: TournamentBrief; all: 
           </p>
         </>
       )}
-    </section>
+    </AdminCard>
   );
 }
 

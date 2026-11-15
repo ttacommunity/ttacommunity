@@ -16,6 +16,7 @@ import StoriesSettings from './StoriesSettings';
 import SeasonsCard from './SeasonsCard';
 import './AdminApp.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import AdminCard from './AdminCard';
 
 /** TournamentSettings loads who is signed in and the tournament the address names, then its cards. */
 export default function TournamentSettings() {
@@ -58,12 +59,12 @@ export default function TournamentSettings() {
               <GroupPage g={t.data} all={all} onReload={load} />
               {isCircuit(t.data.slug) && (
                 <>
-                  <section className="rating-card admin-card" aria-label="This group's Hall of Fame page">
+                  <AdminCard label="This group's Hall of Fame page">
                     <p className="muted">
                       This group has a Hall of Fame page: its card and stories are set here. Its Format &amp; Regulations
                       box lists each tournament&apos;s format in brief, set on the tournament&apos;s own page.
                     </p>
-                  </section>
+                  </AdminCard>
                   <CardSettings t={t.data} onReload={load} />
                   <StoriesSettings t={t.data} onReload={load} />
                 </>

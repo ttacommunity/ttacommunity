@@ -6,6 +6,8 @@ import { adminRequest } from '../lib/admin-api';
 import { buildNewChannelBody, type AdminMoviesState, type AdminVideo, type AdminVideoChannel, type MoviesSyncResult } from '../lib/admin-movies';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice } from './Notice';
+import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
 
 export default function MoviesPanel() {
   const [state, setState] = useState<Load<AdminMoviesState>>({ kind: 'loading' });
@@ -117,23 +119,17 @@ export default function MoviesPanel() {
   };
 
   return (
-    <section className="rating-card admin-card" aria-labelledby="movies-admin-heading">
+    <AdminCard
+      id="movies-admin-heading"
+      title="Movies"
+      actions={
+        <button type="button" className="btn-antique" disabled={busy} onClick={() => void syncNow()}>
+          {busy ? 'Checking…' : 'Check for new videos'}
+        </button>
+      }
+    >
       {dialog.element}
-      <div className="format-bar">
-        <div>
-          <h2 id="movies-admin-heading" className="rating-card-heading">
-            Movies
-          </h2>
-          <p className="muted">
-            YouTube creators whose Through the Ages videos appear on the Movies page. Checked automatically every 30 minutes.
-          </p>
-        </div>
-        <div className="format-bar-actions">
-          <button type="button" className="btn-antique" disabled={busy} onClick={() => void syncNow()}>
-            {busy ? 'Checking…' : 'Check for new videos'}
-          </button>
-        </div>
-      </div>
+      <p className="muted">YouTube creators whose Through the Ages videos appear on the Movies page. Checked automatically every 30 minutes.</p>
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
 
@@ -186,58 +182,56 @@ export default function MoviesPanel() {
             {state.data.channels.length === 0 ? (
               <p className="muted">No creators added yet. Add a YouTube channel above to start indexing videos.</p>
             ) : (
-              <div className="table-responsive">
-                <table className="leaderboard-table admin-table movies-table">
-                  <thead>
-                    <tr>
-                      <th>Creator</th>
-                      <th>Channel ID</th>
-                      <th>Linked player</th>
-                      <th>Filter</th>
-                      <th>Videos</th>
-                      <th>Actions</th>
+              <AdminTable caption="The YouTube creators indexed, each with its linked player and filter" className="movies-table">
+                <thead>
+                  <tr>
+                    <th>Creator</th>
+                    <th>Channel ID</th>
+                    <th>Linked player</th>
+                    <th>Filter</th>
+                    <th>Videos</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.data.channels.map((c) => (
+                    <tr key={c.channel_id}>
+                      <td className="movies-creator-name">{c.name}</td>
+                      <td>
+                        <a
+                          className="movies-channel-id"
+                          href={`https://www.youtube.com/channel/${encodeURIComponent(c.channel_id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <code>{c.channel_id}</code>
+                        </a>
+                      </td>
+                      <td>{c.player ?? <span className="muted">—</span>}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-settings"
+                          onClick={() => void toggleIncludeAll(c)}
+                          title="Toggle Through the Ages keyword filter"
+                        >
+                          {c.include_all ? 'All uploads' : 'TTA-filtered'}
+                        </button>
+                      </td>
+                      <td>{c.video_count}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-settings"
+                          onClick={(e) => void deleteChannel(c, e.currentTarget)}
+                        >
+                          Remove
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {state.data.channels.map((c) => (
-                      <tr key={c.channel_id}>
-                        <td className="movies-creator-name">{c.name}</td>
-                        <td>
-                          <a
-                            className="movies-channel-id"
-                            href={`https://www.youtube.com/channel/${encodeURIComponent(c.channel_id)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <code>{c.channel_id}</code>
-                          </a>
-                        </td>
-                        <td>{c.player ?? <span className="muted">—</span>}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-settings"
-                            onClick={() => void toggleIncludeAll(c)}
-                            title="Toggle Through the Ages keyword filter"
-                          >
-                            {c.include_all ? 'All uploads' : 'TTA-filtered'}
-                          </button>
-                        </td>
-                        <td>{c.video_count}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn-settings"
-                            onClick={(e) => void deleteChannel(c, e.currentTarget)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </AdminTable>
             )}
           </div>
 
@@ -246,60 +240,58 @@ export default function MoviesPanel() {
             {state.data.videos.length === 0 ? (
               <p className="muted">No videos fetched yet. Click “Check for new videos” after adding a creator.</p>
             ) : (
-              <div className="table-responsive">
-                <table className="leaderboard-table admin-table movies-table">
-                  <thead>
-                    <tr>
-                      <th>Video</th>
-                      <th>Creator</th>
-                      <th>Published</th>
-                      <th>Status</th>
-                      <th>Action</th>
+              <AdminTable caption="The videos found, with each one's creator, date and whether the Movies page shows it" className="movies-table">
+                <thead>
+                  <tr>
+                    <th>Video</th>
+                    <th>Creator</th>
+                    <th>Published</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.data.videos.map((v) => (
+                    <tr key={v.video_id}>
+                      <td>
+                        <div className="movies-video-cell">
+                          <img
+                            className="movies-thumb"
+                            src={`https://i.ytimg.com/vi/${encodeURIComponent(v.video_id)}/mqdefault.jpg`}
+                            alt=""
+                            width={72}
+                            height={40}
+                            loading="lazy"
+                          />
+                          <a
+                            href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.video_id)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {v.title}
+                          </a>
+                        </div>
+                      </td>
+                      <td>{v.creator_name}</td>
+                      <td className="movies-date">{new Date(v.published_at).toLocaleDateString()}</td>
+                      <td>
+                        <span className={v.hidden ? 'movies-status movies-status-hidden' : 'movies-status movies-status-visible'}>
+                          {v.hidden ? 'Hidden' : 'Visible'}
+                        </span>
+                      </td>
+                      <td>
+                        <button type="button" className="btn-settings" onClick={() => void toggleVideoHidden(v)}>
+                          {v.hidden ? 'Show' : 'Hide'}
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {state.data.videos.map((v) => (
-                      <tr key={v.video_id}>
-                        <td>
-                          <div className="movies-video-cell">
-                            <img
-                              className="movies-thumb"
-                              src={`https://i.ytimg.com/vi/${encodeURIComponent(v.video_id)}/mqdefault.jpg`}
-                              alt=""
-                              width={72}
-                              height={40}
-                              loading="lazy"
-                            />
-                            <a
-                              href={`https://www.youtube.com/watch?v=${encodeURIComponent(v.video_id)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {v.title}
-                            </a>
-                          </div>
-                        </td>
-                        <td>{v.creator_name}</td>
-                        <td className="movies-date">{new Date(v.published_at).toLocaleDateString()}</td>
-                        <td>
-                          <span className={v.hidden ? 'movies-status movies-status-hidden' : 'movies-status movies-status-visible'}>
-                            {v.hidden ? 'Hidden' : 'Visible'}
-                          </span>
-                        </td>
-                        <td>
-                          <button type="button" className="btn-settings" onClick={() => void toggleVideoHidden(v)}>
-                            {v.hidden ? 'Show' : 'Hide'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </AdminTable>
             )}
           </div>
         </div>
       )}
-    </section>
+    </AdminCard>
   );
 }

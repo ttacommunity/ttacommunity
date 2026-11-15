@@ -34,6 +34,8 @@ import PageHeader from '@ttac/shared/PageHeader';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import AdminTable from './AdminTable';
+import AdminCard from './AdminCard';
+import Count from './Count';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
 
@@ -128,12 +130,16 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
     if (sure) await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pairOf(m)} reset: the players can report it again.`);
   };
   return (
-    <section className="rating-card admin-card flagged-results" aria-labelledby="flagged-title">
+    <AdminCard
+      id="flagged-title"
+      title={
+        <>
+          Flagged results <Count n={flagged.length} what="flagged" />
+        </>
+      }
+      className="flagged-results"
+    >
       {dialog.element}
-      <h3 id="flagged-title">
-        Flagged results
-        {flagged.length > 0 && <span className="count-badge">{flagged.length}</span>}
-      </h3>
       <p className="muted">A player says their opponent&apos;s report is wrong. Ask both on Discord, then keep it, correct it or reset it.</p>
       <Notice outcome={shownAt(outcome, 'flagged')} onClose={() => say(null)} />
       {flagged.length === 0 && <p className="muted">No reports flagged.</p>}
@@ -206,7 +212,7 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
           </tbody>
         </AdminTable>
       )}
-    </section>
+    </AdminCard>
   );
 }
 
@@ -893,7 +899,7 @@ type View = 'rounds' | 'entrants' | 'standings';
 function EditionTabs(props: Props) {
   const [hash, setHash] = useHash();
   return (
-    <section className="rating-card admin-card" aria-label="Rounds, entrants and standings">
+    <AdminCard label="Rounds, entrants and standings">
       <SubTabs<View>
         label="Show"
         tabs={[
@@ -922,7 +928,7 @@ function EditionTabs(props: Props) {
         chosen={hashTab<View>(['rounds', 'entrants', 'standings'], hash)}
         onChoose={setHash}
       />
-    </section>
+    </AdminCard>
   );
 }
 

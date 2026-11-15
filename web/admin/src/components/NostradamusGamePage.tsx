@@ -24,6 +24,7 @@ import usePeopleSearch from './usePeopleSearch';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
 import AdminTable from './AdminTable';
+import AdminCard from './AdminCard';
 
 type Game = components['schemas']['AdminNostradamusGame'];
 type Round = components['schemas']['NostradamusRound'];
@@ -74,7 +75,7 @@ export default function NostradamusGamePage() {
               <FinishedSwitch game={game.data} onReload={load} say={setOutcome} />
             </PageHeader>
             <Notice outcome={shownAt(outcome, 'page')} />
-            <section className="rating-card admin-card" aria-label="Rounds, members and standings">
+            <AdminCard label="Rounds, members and standings">
               <SubTabs<View>
                 label="Show"
                 tabs={[
@@ -85,7 +86,7 @@ export default function NostradamusGamePage() {
                 chosen={hashTab<View>(['rounds', 'members', 'standings'], hash)}
                 onChoose={setHash}
               />
-            </section>
+            </AdminCard>
           </>
         )}
     </AdminPage>

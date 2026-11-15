@@ -15,6 +15,18 @@
 .admin-card .rating-card-heading {
   margin-bottom: 0.4rem;
 }
+/* A card's heading with what the card answers to on its right, such as a button. */
+.admin-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.4rem;
+}
+.admin-card-head .rating-card-heading {
+  margin-bottom: 0;
+}
 .admin-card > .muted {
   margin-bottom: 1rem;
 }
@@ -502,8 +514,7 @@
 }
 .round-block h3,
 .admin-subsection > h3,
-.settings-head h3,
-.flagged-results > h3 {
+.settings-head h3 {
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
