@@ -40,7 +40,7 @@
 .gold-accent { color: var(--accent-gold); }
 .silver-accent { color: var(--medal-silver); }
 .bronze-accent { color: var(--medal-bronze); }
-.trophy-accent { color: #f0ba54; }
+.trophy-accent { color: var(--accent-gold); }
 
 .rating-card.ach-card {
   padding: 1.25rem 1.5rem;

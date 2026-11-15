@@ -349,7 +349,7 @@
 }
 
 .wcs-table .cell-gold {
-  color: #f59e0b;
+  color: var(--accent-gold);
   font-weight: 800;
   text-align: center;
 }

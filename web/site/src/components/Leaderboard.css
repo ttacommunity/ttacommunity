@@ -291,7 +291,7 @@
 }
 
 .btn-antique:hover {
-  background: #f0ba54;
+  background: color-mix(in srgb, var(--accent-gold) 85%, white);
   box-shadow: 0 2px 10px var(--gold-wash-strong);
   color: var(--accent-gold);
   transform: translateY(-1px);

@@ -153,7 +153,7 @@
   font-weight: 700;
   font-family: var(--font-stats);
 }
-.medal-gold { color: #f59e0b; }
+.medal-gold { color: var(--accent-gold); }
 .medal-silver { color: var(--medal-silver); }
 .medal-bronze { color: var(--medal-bronze); }
 .medal-total { color: var(--text-bright); }
