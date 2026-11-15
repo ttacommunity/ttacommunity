@@ -4,6 +4,7 @@ import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tourname
 import PlayerLink from './PlayerLink';
 import { TitleBadge } from './PlayerMarks';
 import Message from './Message';
+import PanelHeader from './PanelHeader';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -22,12 +23,9 @@ export default function GameRecordsPanel({
   if (records !== null && records.length === 0) return null;
   return (
     <div className="panel-card panel-records">
-      <h2 className="panel-header panel-header-split">
-        <span className="panel-header-title">
-          <span>📈</span> {title}
-        </span>
+      <PanelHeader icon="📈" title={title}>
         <span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>
-      </h2>
+      </PanelHeader>
       <p className="records-intro">{intro}</p>
       <div className="trophy-table-container records-table">
         <table className="trophy-table">

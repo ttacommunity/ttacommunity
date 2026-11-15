@@ -26,6 +26,7 @@ import './Blitz.css';
 import Message from './Message';
 import { useFound, useKeptFound } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
+import PanelHeader from './PanelHeader';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -457,12 +458,9 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
   const games = blitzGames(swiss, ed.format, filter, zone, you, sort, reports);
   return (
     <section aria-labelledby="blitz-rounds">
-      <div className="panel-header panel-header-split">
-        <h2 id="blitz-rounds" className="panel-header-title">
-          Pairings and results
-        </h2>
+      <PanelHeader id="blitz-rounds" title="Pairings and results">
         <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
-      </div>
+      </PanelHeader>
       {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">
         <label>

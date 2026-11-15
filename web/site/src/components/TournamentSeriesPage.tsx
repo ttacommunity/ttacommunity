@@ -15,6 +15,7 @@ import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, shows
 import { count } from '@ttac/shared/numbers';
 import Message from './Message';
 import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 
 function WorldChampion() {
@@ -57,9 +58,7 @@ export default function TournamentSeriesPage({ apiUrl, slug }: { apiUrl: string;
 
       {data !== null && data.members.length > 0 && (
         <div className="panel-card series-members">
-          <h2 className="panel-header">
-            <span>{card.icon}</span> Tournaments in the {name}
-          </h2>
+          <PanelHeader icon={card.icon} title={`Tournaments in the ${name}`} />
           <div className="series-members-list">
             {data.members.map((m) => (
               <a key={m.slug} href={catalogueHref(m.slug)} className="btn-antique">
@@ -112,12 +111,9 @@ export function SeriesSections({
 
       {(data === null || data.season_records.length > 0) && (
         <div className="panel-card panel-records">
-          <h2 className="panel-header panel-header-split">
-            <span className="panel-header-title">
-              <span>🏆</span> Premier Division All-Time Seasonal Records ({content.name})
-            </span>
+          <PanelHeader icon="🏆" title={`Premier Division All-Time Seasonal Records (${content.name})`}>
             <span className="panel-tag panel-tag-wide">Highest Seasonal League Points</span>
-          </h2>
+          </PanelHeader>
           <p className="records-intro">
             All-time highest cumulative league points achieved in a single premier division season (4P: 6/3/1/0 pts; 3P: 5/2/0
             pts; 2P: 2/1/0 pts; ties split points equally). 9 Seasons have been played prior to the CGE official tournament page

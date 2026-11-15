@@ -1,0 +1,35 @@
+/* A panel's title row (PanelHeader): the gold title, what the panel says about itself on the right (a tag, a picker), a faint rule below. */
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gold-wash-faint);
+  color: var(--accent-gold);
+  font-size: var(--size-card-title);
+  font-weight: 700;
+}
+.panel-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  font-size: inherit;
+}
+/* A count or a word about the panel, on the right of its title. */
+.panel-tag {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--gold-wash);
+  border-radius: 4px;
+  background: var(--gold-wash-faint);
+  color: var(--accent-gold);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.panel-tag-wide {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}

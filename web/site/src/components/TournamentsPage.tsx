@@ -21,6 +21,7 @@ import { count } from '@ttac/shared/numbers';
 import Message from './Message';
 import { useFound, useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
+import PanelHeader from './PanelHeader';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -75,10 +76,9 @@ function CgeList({ data }: { data: Catalogue }) {
   const withGames = new Set(data.tournaments.map((t) => t.slug));
   return (
     <div className="panel-card">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Tournaments on CGE</h2>
+      <PanelHeader title="Tournaments on CGE">
         <span className="panel-tag">{count(data.cge_tournaments.length)} tournaments</span>
-      </div>
+      </PanelHeader>
       <p className="records-intro">
         The tournaments on CGE&apos;s site that count towards the ratings. One marked (Not Rated) is shown but does not
         count.
@@ -216,12 +216,11 @@ function Champions({
   };
   return (
     <div className="panel-card champions-panel">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Champions &amp; {plural(word)}</h2>
+      <PanelHeader title={`Champions & ${plural(word)}`}>
         <span className="panel-tag">
           {count(seasons.length)} {plural(lower)}
         </span>
-      </div>
+      </PanelHeader>
       <div className="trophy-table-container champions-table">
         <table className="trophy-table">
           <caption className="records-intro">
@@ -293,8 +292,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
   if (s === undefined) return null;
   return (
     <div className="panel-card stages-panel">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">{plural(stageWord)}</h2>
+      <PanelHeader title={plural(stageWord)}>
         {seasons.length > 1 ? (
           <label className="stages-pick">
             <span className="visually-hidden">{seasonWord}</span>
@@ -309,7 +307,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
         ) : (
           <span className="panel-tag">{seasonName(s.label, seasonWord)}</span>
         )}
-      </div>
+      </PanelHeader>
       <p className="records-intro">
         {seasonName(s.label, seasonWord)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
         {s.organiser !== null && ` · organised by ${s.organiser}`}

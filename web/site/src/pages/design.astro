@@ -11,6 +11,7 @@ import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
+import PanelHeader from '../components/PanelHeader';
 
 const colours = [
   'bg-dark',
@@ -118,6 +119,11 @@ const rows = [
 
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
+
+    <h2>Panel header</h2>
+    <PanelHeader icon="🏅" title="Sample panel">
+      <span class="panel-tag">12 rows</span>
+    </PanelHeader>
 
     <h2>Sub-page tabs</h2>
     <SubpageNav label="Sample pages" tabs={[{ label: 'This page', href: '/design/', current: true }, { label: 'Another page', href: '/design/' }, { label: 'Not built yet' }]}>

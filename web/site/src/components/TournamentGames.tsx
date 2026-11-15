@@ -7,6 +7,7 @@ import GamesTable, { GamesPages } from './GamesTable';
 import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 /** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
 export default function TournamentGames({
@@ -45,10 +46,7 @@ export default function TournamentGames({
 
   return (
     <div className="panel-card games-panel" ref={panel}>
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Games</h2>
-        {data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}
-      </div>
+      <PanelHeader title="Games">{data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}</PanelHeader>
       <div className="games-filters">
         <label>
           <span>{seasonWord}</span>

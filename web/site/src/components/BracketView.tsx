@@ -31,6 +31,7 @@ import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
+import PanelHeader from './PanelHeader';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
 
@@ -80,8 +81,7 @@ export default function BracketView({
   const phone = rounds[view.last];
   return (
     <div className="panel-card bracket-panel">
-      <div className="panel-header panel-header-split">
-        <h2 className="panel-header-title">Bracket</h2>
+      <PanelHeader title="Bracket">
         {played.length > 1 ? (
           <label className="bracket-season">
             <span className="visually-hidden">{seasonWord}</span>
@@ -96,7 +96,7 @@ export default function BracketView({
         ) : (
           <span className="panel-tag">{seasonName(season, seasonWord)}</span>
         )}
-      </div>
+      </PanelHeader>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (
         <Message form="inline">
