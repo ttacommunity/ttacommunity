@@ -21,6 +21,7 @@ type Ratings interface {
 	BlitzReads
 	ChallengeReads
 	MovieReads
+	NostradamusReads
 }
 
 // MovieReads are movies.go's reads: active YouTube creators and non-hidden videos.

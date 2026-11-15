@@ -1,0 +1,11 @@
+---
+/** The Nostradamus section: the games, or one game (?edition=). */
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import '../../components/HallOfFame.css';
+import '../../components/Nostradamus.css';
+import NostradamusGamePage from '../../components/NostradamusGamePage';
+---
+<SiteLayout title="Nostradamus | Through the Ages community" description="The community's prediction game for the World Championship: standings, round by round.">
+  <NostradamusGamePage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

@@ -956,3 +956,10 @@
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
 }
+
+details.admin-subsection > summary {
+  cursor: pointer;
+}
+details.admin-subsection > summary h3 {
+  display: inline;
+}

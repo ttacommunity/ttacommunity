@@ -22,6 +22,7 @@ import NotificationsPanel from './NotificationsPanel';
 import CommunityPanel from './CommunityPanel';
 import BlitzPanel from './BlitzPanel';
 import ChallengesPanel from './ChallengesPanel';
+import NostradamusPanel from './NostradamusPanel';
 import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
 import MoviesPanel from './MoviesPanel';
@@ -93,6 +94,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <CommunityPanel />;
     case 'blitz':
       return <BlitzPanel />;
+    case 'nostradamus':
+      return <NostradamusPanel />;
     case 'challenges':
       return <ChallengesPanel />;
     case 'members':
