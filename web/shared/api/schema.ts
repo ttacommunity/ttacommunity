@@ -6773,8 +6773,25 @@ export interface components {
             include_all: boolean;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When YouTube's hub last confirmed our subscription to the channel's uploads
+             */
+            subscribed_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When that subscription ends unless renewed
+             */
+            lease_ends_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the hub last pushed a video for the channel
+             */
+            last_push_at?: string | null;
+            /** @description The last thing that went wrong subscribing or fetching the channel's videos */
+            last_error?: string | null;
             /** Format: date-time */
-            last_checked_at?: string | null;
+            last_error_at?: string | null;
             video_count: number;
         };
         AdminVideo: {

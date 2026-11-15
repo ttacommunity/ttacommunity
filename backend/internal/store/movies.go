@@ -53,7 +53,7 @@ func (s *RatingsReader) Movies(ctx context.Context) (MoviesFeed, error) {
 		FROM videos v
 		JOIN video_channels vc USING (channel_id)
 		LEFT JOIN players p ON p.player_id = vc.player_id
-		WHERE NOT v.hidden
+		WHERE coalesce(v.tta_override, v.is_tta)
 		ORDER BY v.published_at DESC, v.video_id
 		LIMIT 200`)
 	if err != nil {

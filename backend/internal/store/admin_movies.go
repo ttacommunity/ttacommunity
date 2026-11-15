@@ -16,13 +16,17 @@ import (
 
 // AdminVideoChannel is one YouTube creator channel in admin.
 type AdminVideoChannel struct {
-	ChannelID     string
-	Name          string
-	Player        *string
-	IncludeAll    bool
-	CreatedAt     time.Time
-	LastCheckedAt *time.Time
-	VideoCount    int
+	ChannelID    string
+	Name         string
+	Player       *string
+	IncludeAll   bool
+	CreatedAt    time.Time
+	SubscribedAt *time.Time
+	LeaseEndsAt  *time.Time
+	LastPushAt   *time.Time
+	LastError    *string
+	LastErrorAt  *time.Time
+	VideoCount   int
 }
 
 // AdminVideo is one fetched video in admin (including hidden videos).
@@ -68,11 +72,11 @@ type MovieFeedFetcher interface {
 // AdminMovies lists all configured YouTube channels and the latest 100 fetched videos.
 func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) {
 	cRows, err := a.pool.Query(ctx, `
-		SELECT vc.channel_id, vc.name, p.name, vc.include_all, vc.created_at, vc.last_checked_at,
-		       count(v.video_id)::int
+		SELECT vc.channel_id, vc.name, p.name, vc.include_all, vc.created_at, vc.subscribed_at, vc.lease_ends_at,
+		       vc.last_push_at, vc.last_error, vc.last_error_at, count(v.video_id)::int
 		FROM video_channels vc
 		LEFT JOIN players p ON p.player_id = vc.player_id
-		LEFT JOIN videos v ON v.channel_id = vc.channel_id AND NOT v.hidden
+		LEFT JOIN videos v ON v.channel_id = vc.channel_id AND coalesce(v.tta_override, v.is_tta)
 		GROUP BY vc.channel_id, p.name
 		ORDER BY lower(vc.name), vc.channel_id`)
 	if err != nil {
@@ -84,7 +88,7 @@ func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) 
 	}
 
 	vRows, err := a.pool.Query(ctx, `
-		SELECT v.video_id, v.channel_id, vc.name, v.title, v.published_at, v.thumbnail_url, v.hidden
+		SELECT v.video_id, v.channel_id, vc.name, v.title, v.published_at, v.thumbnail_url, NOT coalesce(v.tta_override, v.is_tta)
 		FROM videos v
 		JOIN video_channels vc USING (channel_id)
 		ORDER BY v.published_at DESC, v.video_id
@@ -119,8 +123,8 @@ func (a *AdminStore) AddMovieChannel(ctx context.Context, channelID, name string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO video_channels (channel_id, name, player_id, include_all, created_at)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING channel_id, name, include_all, created_at, last_checked_at`,
-		channelID, name, playerID, includeAll, now).Scan(&ch.ChannelID, &ch.Name, &ch.IncludeAll, &ch.CreatedAt, &ch.LastCheckedAt)
+		RETURNING channel_id, name, include_all, created_at`,
+		channelID, name, playerID, includeAll, now).Scan(&ch.ChannelID, &ch.Name, &ch.IncludeAll, &ch.CreatedAt)
 	if err != nil {
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "23505" {
@@ -186,7 +190,7 @@ func (a *AdminStore) DeleteMovieChannel(ctx context.Context, channelID string) e
 
 // SetMovieVideoHidden hides or unhides a video in the public Movies feed.
 func (a *AdminStore) SetMovieVideoHidden(ctx context.Context, videoID string, hidden bool) error {
-	tag, err := a.pool.Exec(ctx, "UPDATE videos SET hidden = $2 WHERE video_id = $1", videoID, hidden)
+	tag, err := a.pool.Exec(ctx, "UPDATE videos SET tta_override = NOT $2 WHERE video_id = $1", videoID, hidden)
 	if err != nil {
 		return fmt.Errorf("updating video: %w", err)
 	}
@@ -251,15 +255,14 @@ func (a *AdminStore) SyncMovies(ctx context.Context, fetcher MovieFeedFetcher, n
 				}
 			}
 			tag, err := a.pool.Exec(ctx, `
-				INSERT INTO videos (video_id, channel_id, title, published_at, thumbnail_url, created_at)
-				VALUES ($1, $2, $3, $4, $5, $6)
+				INSERT INTO videos (video_id, channel_id, title, published_at, thumbnail_url, is_tta, tta_reason, created_at)
+				VALUES ($1, $2, $3, $4, $5, true, 'feed sync', $6)
 				ON CONFLICT (video_id) DO NOTHING`,
 				e.VideoID, ch.id, e.Title, e.PublishedAt, e.ThumbnailURL, now)
 			if err == nil && tag.RowsAffected() > 0 {
 				res.Added++
 			}
 		}
-		_, _ = a.pool.Exec(ctx, "UPDATE video_channels SET last_checked_at = $2 WHERE channel_id = $1", ch.id, now)
 	}
 	return res, nil
 }

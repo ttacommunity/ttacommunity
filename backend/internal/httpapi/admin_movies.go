@@ -25,13 +25,17 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 	channels := make([]AdminVideoChannel, len(state.Channels))
 	for i, c := range state.Channels {
 		channels[i] = AdminVideoChannel{
-			ChannelId:     c.ChannelID,
-			Name:          c.Name,
-			Player:        c.Player,
-			IncludeAll:    c.IncludeAll,
-			CreatedAt:     c.CreatedAt.UTC(),
-			LastCheckedAt: inUTC(c.LastCheckedAt),
-			VideoCount:    c.VideoCount,
+			ChannelId:    c.ChannelID,
+			Name:         c.Name,
+			Player:       c.Player,
+			IncludeAll:   c.IncludeAll,
+			CreatedAt:    c.CreatedAt.UTC(),
+			SubscribedAt: inUTC(c.SubscribedAt),
+			LeaseEndsAt:  inUTC(c.LeaseEndsAt),
+			LastPushAt:   inUTC(c.LastPushAt),
+			LastError:    c.LastError,
+			LastErrorAt:  inUTC(c.LastErrorAt),
+			VideoCount:   c.VideoCount,
 		}
 	}
 	videos := make([]AdminVideo, len(state.Videos))
@@ -86,13 +90,12 @@ func (s *server) PostAdminMovieChannel(ctx context.Context, req PostAdminMovieCh
 		return nil, err
 	}
 	return PostAdminMovieChannel201JSONResponse{
-		ChannelId:     ch.ChannelID,
-		Name:          ch.Name,
-		Player:        ch.Player,
-		IncludeAll:    ch.IncludeAll,
-		CreatedAt:     ch.CreatedAt.UTC(),
-		LastCheckedAt: inUTC(ch.LastCheckedAt),
-		VideoCount:    ch.VideoCount,
+		ChannelId:  ch.ChannelID,
+		Name:       ch.Name,
+		Player:     ch.Player,
+		IncludeAll: ch.IncludeAll,
+		CreatedAt:  ch.CreatedAt.UTC(),
+		VideoCount: ch.VideoCount,
 	}, nil
 }
 

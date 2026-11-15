@@ -2043,13 +2043,25 @@ type AdminVideo struct {
 
 // AdminVideoChannel defines model for AdminVideoChannel.
 type AdminVideoChannel struct {
-	ChannelId     string     `json:"channel_id"`
-	CreatedAt     time.Time  `json:"created_at"`
-	IncludeAll    bool       `json:"include_all"`
-	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
-	Name          string     `json:"name"`
-	Player        *string    `json:"player,omitempty"`
-	VideoCount    int        `json:"video_count"`
+	ChannelId  string    `json:"channel_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	IncludeAll bool      `json:"include_all"`
+
+	// LastError The last thing that went wrong subscribing or fetching the channel's videos
+	LastError   *string    `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+
+	// LastPushAt When the hub last pushed a video for the channel
+	LastPushAt *time.Time `json:"last_push_at,omitempty"`
+
+	// LeaseEndsAt When that subscription ends unless renewed
+	LeaseEndsAt *time.Time `json:"lease_ends_at,omitempty"`
+	Name        string     `json:"name"`
+	Player      *string    `json:"player,omitempty"`
+
+	// SubscribedAt When YouTube's hub last confirmed our subscription to the channel's uploads
+	SubscribedAt *time.Time `json:"subscribed_at,omitempty"`
+	VideoCount   int        `json:"video_count"`
 }
 
 // Agreement defines model for Agreement.

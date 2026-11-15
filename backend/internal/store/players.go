@@ -435,7 +435,7 @@ func countUnseenMovies(ctx context.Context, pool *pgxpool.Pool, account int64) (
 		SELECT count(*)::int
 		FROM videos v
 		JOIN accounts ac ON ac.account_id = $1
-		WHERE NOT v.hidden AND v.published_at > coalesce(ac.movies_seen_at, ac.created_at)`, account).Scan(&n)
+		WHERE coalesce(v.tta_override, v.is_tta) AND v.published_at > coalesce(ac.movies_seen_at, ac.created_at)`, account).Scan(&n)
 	if err != nil {
 		var pg *pgconn.PgError
 		if errors.As(err, &pg) && pg.Code == "42P01" {

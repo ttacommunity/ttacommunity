@@ -11007,7 +11007,26 @@ components:
         created_at:
           type: string
           format: date-time
-        last_checked_at:
+        subscribed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When YouTube's hub last confirmed our subscription to the channel's uploads
+        lease_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When that subscription ends unless renewed
+        last_push_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the hub last pushed a video for the channel
+        last_error:
+          type: string
+          nullable: true
+          description: The last thing that went wrong subscribing or fetching the channel's videos
+        last_error_at:
           type: string
           format: date-time
           nullable: true
