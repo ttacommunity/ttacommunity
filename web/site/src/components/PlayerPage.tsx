@@ -69,6 +69,7 @@ import PlayerHeader from './PlayerHeader';
 import { SortButton } from '@ttac/shared/SortHeader';
 import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
+import { OptionsToggle } from './SideDrawer';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -190,17 +191,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           value={view.format}
           link={(format) => linkTo({ ...view, format, matchPage: 1 })}
         />
-        <button
-          type="button"
-          className={['btn-options-toggle', activeOptions && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
-          title="Profile options, track, reset mode, and chart controls"
-          aria-expanded={optionsOpen}
-          onClick={() => setOptionsOpen(!optionsOpen)}
-        >
-          <span>⚙️ Options</span>
-          {activeOptions && <span className="options-active-badge">Active</span>}
-          <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
-        </button>
+        <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
       </div>
 
       <CareerBox

@@ -15,6 +15,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { count } from '@ttac/shared/numbers';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
+import SideDrawer, { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
 import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
@@ -64,7 +65,6 @@ type Shown = { board: Board; year: YearLeaderboard | null; lastGame: string | nu
 
 const formatOptions = formatValues.map((f) => ({ value: f, label: show.formatName(f) }));
 const OPTIONS_OPEN = 'ttac.leaderboard.options';
-const narrow = () => window.innerWidth <= 768;
 
 const ADDRESS: Address<View> = { parse: parseView, params: (v) => viewParams(v, true), remembers: (v) => v };
 
@@ -98,7 +98,6 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
     } catch {
       // The drawer simply starts closed next time.
     }
-    document.body.style.overflow = open && narrow() ? 'hidden' : '';
   };
 
   const yearBoard = state.kind === 'ready' ? state.year : null;
@@ -140,17 +139,12 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
           <div className="format-bar-actions">
             <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
-            <button
-              type="button"
-              className={['btn-options-toggle', hasOptions(view) && 'active', optionsOpen && 'open'].filter(Boolean).join(' ')}
+            <OptionsToggle
               title="Toggle advanced rating options, season archive, and filters"
-              aria-expanded={optionsOpen}
+              active={hasOptions(view)}
+              open={optionsOpen}
               onClick={() => toggleOptions(!optionsOpen)}
-            >
-              <span>⚙️ Options</span>
-              {hasOptions(view) && <span className="options-active-badge">Active</span>}
-              <span className="btn-options-toggle-arrow">{optionsOpen ? '✕' : '▶'}</span>
-            </button>
+            />
           </div>
         </div>
 
@@ -348,7 +342,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       </div>
 
       {optionsOpen && (
-        <Sidebar onClose={() => toggleOptions(false)}>
+        <SideDrawer onClose={() => toggleOptions(false)}>
           <OptionsDrawer
             view={view}
             titles={titleOptions(players)}
@@ -366,7 +360,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             go={go}
             onClose={() => toggleOptions(false)}
           />
-        </Sidebar>
+        </SideDrawer>
       )}
     </div>
   );
@@ -395,47 +389,6 @@ const sortNames: Record<SortKey, string> = {
   win_rate: 'Win Rate',
   last_played: 'Last Played',
 };
-
-/** Sidebar places the drawer in the free space right of the card, as upstream does, or as a sheet on phones. */
-function Sidebar({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  const ref = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const place = () => {
-      const side = ref.current;
-      const layout = side?.parentElement;
-      if (!side || !layout) return;
-      if (narrow()) {
-        side.style.left = '';
-        side.style.right = '';
-        return;
-      }
-      const card = layout.getBoundingClientRect();
-      const width = document.documentElement.clientWidth;
-      const own = side.offsetWidth || 350;
-      const ideal = card.right + (width - card.right) / 2 - own / 2;
-      const left = Math.max(16, Math.min(ideal, width - own - 16));
-      side.style.left = `${left - card.left}px`;
-      side.style.right = 'auto';
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    place();
-    window.addEventListener('resize', place);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('resize', place);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [onClose]);
-
-  return (
-    <aside ref={ref} className="leaderboard-sidebar">
-      {/* On phones a tap on the dimmed backdrop closes the sheet, as upstream's does. */}
-      <button type="button" className="sidebar-backdrop" aria-label="Close options" tabIndex={-1} onClick={onClose} />
-      {children}
-    </aside>
-  );
-}
 
 const headers: [SortKey | null, string, string][] = [
   ['rank', 'Rank', 'Current competitive ranking based on Conservative Rating (C = μ - 3σ).'],
