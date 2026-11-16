@@ -273,7 +273,7 @@ The api answers our Discord slash commands at
 set) and `/roll` (shown to the channel unless `private` is set). Discord sends each use of a command there,
 signed with the application's key, and the api checks the signature before
 anything else. The commands are defined in
-`backend/cmd/discord-commands/commands.json`. With no
+`backend/internal/discordcommands/commands.json`. With no
 `DISCORD_APP_PUBLIC_KEY` set, the endpoint is a 404.
 
 **In production** the app is "TTA Community Hub" (its bot "TTA Hub Bot"),
@@ -283,9 +283,10 @@ community server. Its public key is `DISCORD_APP_PUBLIC_KEY` in
 `deploy/api.yaml`, and its Interactions Endpoint URL is
 `https://api.ttacommunity.org/v1/discord/interactions`. To add it to a
 server, a team member opens the install link below (step 4) with its
-Application ID and picks the server, then registers the commands there
-(step 3 of "Try it", with that server's id). After a change to
-`commands.json`, register again in each server.
+Application ID and picks the server, once. The api registers the commands
+everywhere the app is installed each time it starts (`DISCORD_APP_ID` and
+the `discord-bot` Secret, `deploy/SECRETS.md`), so a deploy brings a new or
+changed command to every server with nothing to run.
 
 **A Discord application to try it with**, once. Make your own: an app has
 one endpoint, so pointing the production app at your machine would stop it
@@ -328,7 +329,11 @@ answering everyone else.
    $t = Read-Host -AsSecureString 'Discord bot token'; $env:DISCORD_BOT_TOKEN = [Net.NetworkCredential]::new('', $t).Password; go run ./cmd/discord-commands -app <application id> -server <server id>; Remove-Item Env:DISCORD_BOT_TOKEN
    ```
 
-   "Missing Access" (403) means the application is not in that server
+   "Missing Access" (403) means the application is not in that server.
+   With `-server` the commands are that server's own and show at once;
+   without it they are registered everywhere the app is installed, as the
+   api does. A server holding both shows each command twice: `-clear` with
+   `-server` removes the server's own
 4. Type `/rating` and a name in your server, or `/myrating`. Stop the
    tunnel when you are done; its URL changes each time, so step 2 is
    repeated each session
