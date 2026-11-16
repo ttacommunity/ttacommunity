@@ -55,6 +55,7 @@ type discordRatings struct {
 	searched    []string
 	versusAsked []string
 	rivalsAsked []string
+	seatsAsked  []string
 }
 
 func (r *discordRatings) Player(_ context.Context, _ int64, name string) (store.Player, error) {
@@ -103,6 +104,20 @@ func (r *discordRatings) PlayerRivals(_ context.Context, _ int64, name string, f
 		return "", nil, store.ErrPlayerNotFound
 	}
 	return name, []store.Rival{{Name: "Rook", Games: 3, Wins: 2, Draws: 1}, {Name: "Wren", Games: 2, Losses: 2}}, nil
+}
+
+// PlayerSeats answers Quill's 2-player seats, recording what was asked.
+func (r *discordRatings) PlayerSeats(_ context.Context, _ int64, name string, unrated bool) (store.PlayerSeatStats, error) {
+	r.calls++
+	r.seatsAsked = append(r.seatsAsked, fmt.Sprintf("%s unrated=%v", name, unrated))
+	if r.err != nil {
+		return store.PlayerSeatStats{}, r.err
+	}
+	if _, ok := r.players[name]; !ok {
+		return store.PlayerSeatStats{}, store.ErrPlayerNotFound
+	}
+	return store.PlayerSeatStats{Name: name, Groups: []store.PlayerSeatGroup{{PlayerCount: 2, TotalGames: 10, WinRate: 60,
+		Seats: []store.PlayerSeatRow{{Seat: 1, Games: 5, WinRate: 80, DeltaWinRate: 20}, {Seat: 2, Games: 5, WinRate: 40, DeltaWinRate: -20}}}}}, nil
 }
 
 func rank(n int) *int { return &n }
@@ -457,6 +472,37 @@ func TestCompare(t *testing.T) {
 			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("compare", tt.options), slog.New(slog.DiscardHandler)))
 			for _, want := range tt.wantText {
 				wantMessage(t, r, tt.wantPrivate, want)
+			}
+		})
+	}
+}
+
+func TestSeats(t *testing.T) {
+	quill := `{"name":"player","type":3,"value":"Quill"}`
+	tests := []struct {
+		name        string
+		options     string
+		readErr     error
+		wantPrivate bool
+		wantText    string
+		wantAsked   []string
+	}{
+		{"rated games, to the asker alone", quill, nil, true, "seat 1 80.0% (+20.0)", []string{"Quill unrated=false"}},
+		{"shared, in one format", quill + `,{"name":"format","type":4,"value":2},{"name":"share","type":5,"value":true}`, nil, false, "2-player",
+			[]string{"Quill unrated=false"}},
+		{"a name no player has, private though shared", `{"name":"player","type":3,"value":"Nobody"},{"name":"share","type":5,"value":true}`, nil, true, "Nobody",
+			[]string{"Nobody unrated=false"}},
+		{"the ratings not answering", quill, errors.New("database is down"), true, "try again", []string{"Quill unrated=false"}},
+		{"no name at all", ``, nil, true, "/seats", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			ratings.err = tt.readErr
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("seats", tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, tt.wantText)
+			if !slices.Equal(ratings.seatsAsked, tt.wantAsked) {
+				t.Errorf("asked PlayerSeats for %q, want %q", ratings.seatsAsked, tt.wantAsked)
 			}
 		})
 	}

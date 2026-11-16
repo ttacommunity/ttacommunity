@@ -100,6 +100,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.rivalsReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "compare":
 		reply = s.compareReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "seats":
+		reply = s.seatsReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -155,7 +157,7 @@ func (s *server) myRatingReply(ctx context.Context, i DiscordInteraction) Discor
 // showRating shows name's rating in format to the asker alone, or to everyone when shared, or says to the asker
 // alone why it cannot.
 func (s *server) showRating(ctx context.Context, name string, format int, shared bool) DiscordReply {
-	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
+	noPlayer := noPlayerReply(name)
 	if playerRefusal(1, name, N0) != "" {
 		return noPlayer
 	}
@@ -225,31 +227,20 @@ func (s *server) versusReply(ctx context.Context, i DiscordInteraction) DiscordR
 // rivalsReply shows the opponents a player met most in rated games, as the site's rivals panel does, or tells the
 // asker alone why it cannot.
 func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
-	name := strings.TrimSpace(stringOption(i, "player"))
-	if name == "" {
-		return discordText("Give a player's name: `/rivals <name>`", true)
+	name, run, refusal := s.askedPlayer(ctx, i, "rivals")
+	if refusal != nil {
+		return *refusal
 	}
-	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
 	format := formatOption(i)
-	if playerRefusal(1, name, N0) != "" {
-		return noPlayer
-	}
-	run, err := s.ratings.CurrentRun(ctx)
+	stored, got, err := s.ratings.PlayerRivals(ctx, run, name, format, true, false)
 	if err != nil {
-		return s.notAnswering(ctx, err)
-	}
-	name, got, err := s.ratings.PlayerRivals(ctx, run.ID, name, format, true, false)
-	if errors.Is(err, store.ErrPlayerNotFound) {
-		return noPlayer
-	}
-	if err != nil {
-		return s.notAnswering(ctx, err)
+		return s.readFailed(ctx, err, name)
 	}
 	rivals := make([]discordbot.Rival, 0, len(got))
 	for _, v := range got {
 		rivals = append(rivals, discordbot.Rival{Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v)})
 	}
-	return discordText(discordbot.RivalsText(name, format, rivals, s.discord.Site()), !shareOption(i))
+	return discordText(discordbot.RivalsText(stored, format, rivals, s.discord.Site()), !shareOption(i))
 }
 
 // compareReply shows two to four players' Glicko-D ratings in every format side by side, or tells the asker alone why
@@ -277,7 +268,7 @@ func (s *server) compareReply(ctx context.Context, i DiscordInteraction) Discord
 	}
 	compared := make([]discordbot.Compared, 0, len(names))
 	for _, name := range names {
-		noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
+		noPlayer := noPlayerReply(name)
 		if playerRefusal(1, name, N0) != "" {
 			return noPlayer
 		}
@@ -297,6 +288,61 @@ func (s *server) compareReply(ctx context.Context, i DiscordInteraction) Discord
 		compared = append(compared, c)
 	}
 	return discordText(discordbot.CompareText(compared), !shareOption(i))
+}
+
+// seatsReply shows a player's win rate from each seat in rated games, as the site's seat panel does, or tells the
+// asker alone why it cannot.
+func (s *server) seatsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name, run, refusal := s.askedPlayer(ctx, i, "seats")
+	if refusal != nil {
+		return *refusal
+	}
+	stats, err := s.ratings.PlayerSeats(ctx, run, name, false)
+	if err != nil {
+		return s.readFailed(ctx, err, name)
+	}
+	groups := make([]discordbot.SeatGroup, 0, len(stats.Groups))
+	for _, g := range stats.Groups {
+		group := discordbot.SeatGroup{PlayerCount: g.PlayerCount, Games: g.TotalGames, WinRate: g.WinRate}
+		for _, r := range g.Seats {
+			group.Seats = append(group.Seats, discordbot.SeatRow{Seat: r.Seat, Games: r.Games, WinRate: r.WinRate, Delta: r.DeltaWinRate})
+		}
+		groups = append(groups, group)
+	}
+	return discordText(discordbot.SeatsText(stats.Name, formatOption(i), groups, s.discord.Site()), !shareOption(i))
+}
+
+// askedPlayer is the player option and the current run's id for a command about one player, or the reply to give
+// the asker alone instead: for no name, a name no player could have, or no run to read.
+func (s *server) askedPlayer(ctx context.Context, i DiscordInteraction, command string) (string, int64, *DiscordReply) {
+	name := strings.TrimSpace(stringOption(i, "player"))
+	if name == "" {
+		r := discordText("Give a player's name: `/"+command+" <name>`", true)
+		return "", 0, &r
+	}
+	if playerRefusal(1, name, N0) != "" {
+		r := noPlayerReply(name)
+		return "", 0, &r
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		r := s.notAnswering(ctx, err)
+		return "", 0, &r
+	}
+	return name, run.ID, nil
+}
+
+// readFailed is the reply when reading name's data failed: no such player, or the ratings not answering.
+func (s *server) readFailed(ctx context.Context, err error, name string) DiscordReply {
+	if errors.Is(err, store.ErrPlayerNotFound) {
+		return noPlayerReply(name)
+	}
+	return s.notAnswering(ctx, err)
+}
+
+// noPlayerReply tells the asker alone that no rated player has name.
+func noPlayerReply(name string) DiscordReply {
+	return discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.
