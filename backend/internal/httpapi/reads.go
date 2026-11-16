@@ -22,6 +22,12 @@ type Ratings interface {
 	ChallengeReads
 	MovieReads
 	NostradamusReads
+	DiscordReads
+}
+
+// DiscordReads are the reads only the Discord bot makes (discord.go).
+type DiscordReads interface {
+	UpsetPairs(ctx context.Context, run int64, format int) (time.Time, time.Time, []store.UpsetPair, error)
 }
 
 // MovieReads are movies.go's reads: active YouTube creators and non-hidden videos.

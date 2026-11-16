@@ -138,3 +138,22 @@ func TestDeltaWeighsByTheMatchsPlayerCount(t *testing.T) {
 		t.Errorf("Delta(3 players, 2 seats) = %v, %v; want %v, true", got, ok, want)
 	}
 }
+
+func TestExpected(t *testing.T) {
+	tests := []struct {
+		name             string
+		player, opponent Rating
+		want             float64
+	}{
+		{"equal ratings", Rating{Rating: 1700, RD: 60}, Rating{Rating: 1700, RD: 60}, 0.5},
+		{"the stronger player", Rating{Rating: 1900, RD: 50}, Rating{Rating: 1500, RD: 80}, 0.903},
+		{"the weaker player", Rating{Rating: 1500, RD: 80}, Rating{Rating: 1900, RD: 50}, 0.093},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Expected(tt.player, tt.opponent); math.Abs(got-tt.want) > 0.0005 {
+				t.Errorf("Expected(%+v, %+v) = %.4f, want %.3f", tt.player, tt.opponent, got, tt.want)
+			}
+		})
+	}
+}

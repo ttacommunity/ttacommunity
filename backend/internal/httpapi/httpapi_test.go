@@ -115,6 +115,10 @@ func (f *fakeRatings) PlayerCareer(context.Context, int64, string, int, string) 
 	return "", nil, nil, nil
 }
 
+func (f *fakeRatings) UpsetPairs(context.Context, int64, int) (time.Time, time.Time, []store.UpsetPair, error) {
+	return time.Time{}, time.Time{}, nil, nil
+}
+
 func (f *fakeRatings) PlayerSeats(context.Context, int64, string, bool) (store.PlayerSeatStats, error) {
 	return store.PlayerSeatStats{}, nil
 }
@@ -227,6 +231,7 @@ type readsOnly struct {
 	BlitzReads
 	ChallengeReads
 	NostradamusReads
+	DiscordReads
 }
 
 type observed struct {

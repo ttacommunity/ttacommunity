@@ -49,6 +49,11 @@ func g(phi float64) float64 { return 1 / math.Sqrt(1+3*phi*phi/(math.Pi*math.Pi)
 
 func expected(mu, muJ, phiJ float64) float64 { return 1 / (1 + math.Exp(-g(phiJ)*(mu-muJ))) }
 
+// Expected is player's expected score against opponent, from 0 to 1, by the Glicko-2 formula Update uses.
+func Expected(player, opponent Rating) float64 {
+	return expected(player.mu(), opponent.mu(), opponent.phi())
+}
+
 func inactive(r Rating) Rating {
 	phi := math.Sqrt(r.phi()*r.phi() + r.Sigma*r.Sigma)
 	return Rating{Rating: r.Rating, RD: math.Min(phi*scale, maxRD), Sigma: r.Sigma}
