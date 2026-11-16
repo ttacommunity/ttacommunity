@@ -14,9 +14,6 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// minHubSecret is the shortest MOVIES_HUB_SECRET taken, in bytes.
-const minHubSecret = 32
-
 // openYouTube returns a Data API client with YOUTUBE_API_KEY, or nil without one.
 func openYouTube(getenv func(string) string) *movies.YouTube {
 	key := getenv("YOUTUBE_API_KEY")
@@ -27,14 +24,14 @@ func openYouTube(getenv func(string) string) *movies.YouTube {
 }
 
 // openMovieHub returns the hub's callback's dependencies, or nil (the callback a 404) without MOVIES_HUB_SECRET.
-// A secret shorter than minHubSecret, or one without a Data API client, refuses to start.
+// A secret shorter than movies.MinHubSecret, or one without a Data API client, refuses to start.
 func openMovieHub(getenv func(string) string, players *store.PlayerStore, ratings *store.RatingsReader, youtube *movies.YouTube, log *slog.Logger) (httpapi.MovieHub, error) {
 	secret := getenv("MOVIES_HUB_SECRET")
 	if secret == "" {
 		return nil, nil
 	}
-	if len(secret) < minHubSecret {
-		return nil, fmt.Errorf("MOVIES_HUB_SECRET must be at least %d bytes", minHubSecret)
+	if len(secret) < movies.MinHubSecret {
+		return nil, fmt.Errorf("MOVIES_HUB_SECRET must be at least %d bytes", movies.MinHubSecret)
 	}
 	if youtube == nil {
 		return nil, errors.New("MOVIES_HUB_SECRET is set without YOUTUBE_API_KEY, which pushed videos are classified with")

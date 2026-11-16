@@ -25,8 +25,6 @@ type MovieHub interface {
 	RemovePushedVideo(ctx context.Context, videoID, channelID string, at time.Time) error
 }
 
-const movieHubPath = "/v1/movies/hub"
-
 // movieHubGate lets through the hub's checks, and only pushes signed with the hub's secret, putting the body
 // back for the handler. With hub nil, no secret is set up here and the callback is a 404.
 func movieHubGate(next http.Handler, hub MovieHub, log *slog.Logger) http.Handler {
@@ -57,7 +55,7 @@ func movieHubGate(next http.Handler, hub MovieHub, log *slog.Logger) http.Handle
 // routeMovieHub sends the hub's callback through hub, without the public routes' CORS, and the rest to rest.
 func routeMovieHub(rest, hub http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == movieHubPath {
+		if r.URL.Path == movies.HubPath {
 			hub.ServeHTTP(w, r)
 			return
 		}
