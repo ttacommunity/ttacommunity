@@ -101,9 +101,9 @@ describe('channelStatus', () => {
       { kind: 'failing', text: 'Failing since 2026-11-15: the hub answered 500' },
     ],
     [
-      'an error before the last subscription',
-      channel({ subscribed_at: '2026-11-14T09:00:00Z', lease_ends_at: '2026-11-19T09:00:00Z', last_error: 'the hub answered 500', last_error_at: '2026-11-13T03:00:00Z' }),
-      { kind: 'ok', text: 'Subscribed until 2026-11-19' },
+      'an error in the run that also subscribed it',
+      channel({ subscribed_at: '2026-11-15T03:00:01Z', lease_ends_at: '2026-11-20T03:00:01Z', last_error: 'filling in its videos: HTTP 404', last_error_at: '2026-11-15T03:00:00Z' }),
+      { kind: 'failing', text: 'Failing since 2026-11-15: filling in its videos: HTTP 404' },
     ],
     [
       'an error and never subscribed',

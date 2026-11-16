@@ -17,15 +17,20 @@ import {
   type OverrideChoice,
 } from '../lib/admin-movies';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
+import { playerChoices } from '../lib/person-form';
 import Notice, { LoadNotice } from './Notice';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
+import PickBox from './PickBox';
+import usePeopleSearch from './usePeopleSearch';
 
 export default function MoviesPanel() {
   const [state, setState] = useState<Load<AdminMoviesState>>({ kind: 'loading' });
   const [channel, setChannel] = useState('');
   const [name, setName] = useState('');
   const [player, setPlayer] = useState('');
+  const [picked, setPicked] = useState('');
+  const found = usePeopleSearch('/api/people', player, player === picked, null);
   const [includeAll, setIncludeAll] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,6 +66,7 @@ export default function MoviesPanel() {
     setChannel('');
     setName('');
     setPlayer('');
+    setPicked('');
     setIncludeAll(false);
     setOutcome(succeeded(`Added ${r.data.name} (${r.data.channel_id}).`, 'movies-add'));
     await reload();
@@ -153,15 +159,17 @@ export default function MoviesPanel() {
               placeholder="Creator name"
             />
           </label>
-          <label>
-            Linked TTA player (optional)
-            <input
-              className="input-antique"
-              value={player}
-              onChange={(e) => setPlayer(e.target.value)}
-              placeholder="Exact player name"
-            />
-          </label>
+          <PickBox
+            label="Linked TTA player (optional)"
+            text={player}
+            placeholder="Search a TTA username"
+            options={playerChoices(found, player)}
+            onText={setPlayer}
+            onPick={(o) => {
+              setPlayer(o.label);
+              setPicked(o.label);
+            }}
+          />
           <label className="setting movies-include-all">
             <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
             <span>Include all uploads (skip TTA filter)</span>

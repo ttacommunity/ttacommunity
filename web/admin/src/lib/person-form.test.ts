@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyPerson, entrantToAdd, memberToAdd, personChoices, wildcardChoices, type Candidate, type PersonDetails } from './person-form';
+import { emptyPerson, entrantToAdd, linkChoices, memberToAdd, personChoices, playerChoices, wildcardChoices, type Candidate, type PersonDetails } from './person-form';
 
 const candidate = (c: Partial<Candidate> & { name: string }): Candidate => ({
   member: null,
@@ -82,5 +82,27 @@ describe('wildcardChoices', () => {
 
   it('picks an entrant by id', () => {
     expect(wildcardChoices(outsiders, [], 'dee', []).map((c) => c.key)).toEqual(['entrant 9']);
+  });
+});
+
+describe('linkChoices', () => {
+  const found = [
+    candidate({ member: 4, name: 'Ann', player: 'Ann', discord_name: 'ann_d' }),
+    candidate({ name: 'Rated_Rae', player: 'Rated_Rae' }),
+  ];
+  it('offers the members and rated players found, not a new name, which a link cannot make', () => {
+    expect(linkChoices(found, 'Zed').map((c) => c.label)).toEqual(['Ann', 'Rated_Rae']);
+  });
+});
+
+describe('playerChoices', () => {
+  const found = [
+    candidate({ member: 4, name: 'Ann', player: 'Ann' }),
+    candidate({ member: 5, name: 'Unrated_Una', player: '' }),
+    candidate({ member: 6, name: 'Bea', player: 'BeaTTA' }),
+    candidate({ name: 'Rated_Rae', player: 'Rated_Rae' }),
+  ];
+  it('offers only the rated players found, by the name the ratings know them by, and no new name', () => {
+    expect(playerChoices(found, 'Zed').map((c) => c.label)).toEqual(['Ann', 'BeaTTA', 'Rated_Rae']);
   });
 });

@@ -47,18 +47,17 @@ export function videoStatus(v: AdminVideo): { shown: boolean; why: string } {
   return { shown: v.shown, why: overrideChoice(v) === 'verdict' ? v.tta_reason : `by an admin (${v.tta_reason})` };
 }
 
-/** A channel's subscription to YouTube's pushes, as admin shows it: waiting, ok, or failing and why, at now. Its
- * times are written with when. */
+/** A channel's subscription to YouTube's pushes, as admin shows it: waiting, ok, or failing and why, at now. The
+ * daily job clears an error when a run goes well, so one recorded always shows. Its times are written with when. */
 export function channelStatus(
   c: AdminVideoChannel,
   now: Date,
   when: (iso: string) => string,
 ): { kind: 'waiting' | 'ok' | 'failing'; text: string } {
-  const subscribed = c.subscribed_at ? new Date(c.subscribed_at) : null;
-  if (c.last_error && c.last_error_at && (!subscribed || new Date(c.last_error_at) > subscribed)) {
+  if (c.last_error && c.last_error_at) {
     return { kind: 'failing', text: `Failing since ${when(c.last_error_at)}: ${c.last_error}` };
   }
-  if (!subscribed || !c.lease_ends_at) return { kind: 'waiting', text: 'Not subscribed yet' };
+  if (!c.subscribed_at || !c.lease_ends_at) return { kind: 'waiting', text: 'Not subscribed yet' };
   if (new Date(c.lease_ends_at) <= now) return { kind: 'failing', text: `Subscription ended ${when(c.lease_ends_at)}` };
   const pushed = c.last_push_at ? `; last video ${when(c.last_push_at)}` : '';
   return { kind: 'ok', text: `Subscribed until ${when(c.lease_ends_at)}${pushed}` };
