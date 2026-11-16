@@ -14,7 +14,8 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      backoffLimit: 1
+      # Two: a new pod's first database connection is refused, and its restart must not end the Job.
+      backoffLimit: 2
       activeDeadlineSeconds: 900
       template:
         metadata:
