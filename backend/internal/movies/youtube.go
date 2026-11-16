@@ -30,8 +30,8 @@ var (
 	ErrNoYouTube = errors.New("YouTube is not set up here: give the channel's UC… id or its /channel/ address")
 	// ErrNotAChannel means the text is neither a channel's id nor its /channel/ or @handle address.
 	ErrNotAChannel = errors.New("not a YouTube channel: give its @handle, its address or its UC… id")
-	// ErrNoSuchChannel means YouTube has no channel with that handle.
-	ErrNoSuchChannel = errors.New("YouTube has no channel with that handle")
+	// ErrNoSuchChannel means YouTube has no channel with that handle or id.
+	ErrNoSuchChannel = errors.New("YouTube has no such channel")
 
 	handlePattern = regexp.MustCompile(`^@[\p{L}\p{N}._-]{3,30}$`)
 )
