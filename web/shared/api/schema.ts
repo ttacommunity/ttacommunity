@@ -2589,26 +2589,6 @@ export interface paths {
         patch: operations["patchAdminMovieChannel"];
         trace?: never;
     };
-    "/v1/admin/movies/sync": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Fetch all YouTube creator feeds now (admins only)
-         * @description Audited. The Origin must be the admin site.
-         */
-        post: operations["postAdminMoviesSync"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/admin/movies/videos/{videoId}": {
         parameters: {
             query?: never;
@@ -6862,10 +6842,6 @@ export interface components {
             /** @description Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null) */
             override: boolean | null;
         };
-        MoviesSyncResult: {
-            checked: number;
-            added: number;
-        };
         NostradamusEditions: {
             editions: components["schemas"]["NostradamusEdition"][];
         };
@@ -10658,28 +10634,6 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-        };
-    };
-    postAdminMoviesSync: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Sync summary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MoviesSyncResult"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
         };
     };
     patchAdminMovieVideo: {

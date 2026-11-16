@@ -1,5 +1,5 @@
-/** Admin Movies panel: manage YouTube creator channels and see their subscriptions, trigger manual RSS syncs,
- * and override a video's verdict. */
+/** Admin Movies panel: manage YouTube creator channels and see their subscriptions, and override a video's
+ * verdict. */
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import type { Load } from '@ttac/shared/load';
@@ -14,7 +14,6 @@ import {
   type AdminMoviesState,
   type AdminVideo,
   type AdminVideoChannel,
-  type MoviesSyncResult,
   type OverrideChoice,
 } from '../lib/admin-movies';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
@@ -64,19 +63,6 @@ export default function MoviesPanel() {
     setPlayer('');
     setIncludeAll(false);
     setOutcome(succeeded(`Added ${r.data.name} (${r.data.channel_id}).`, 'movies-add'));
-    await reload();
-  };
-
-  const syncNow = async () => {
-    setBusy(true);
-    setOutcome(null);
-    const r = await adminRequest<MoviesSyncResult>('/api/movies/sync', { method: 'POST' });
-    setBusy(false);
-    if (!r.ok) {
-      setOutcome(outcomeOf(r, '', 'movies-sync'));
-      return;
-    }
-    setOutcome(succeeded(`Checked ${r.data.checked} channel(s), added ${r.data.added} new video(s).`, 'movies-sync'));
     await reload();
   };
 
@@ -136,19 +122,12 @@ export default function MoviesPanel() {
   const at = (iso: string) => formatInstant(iso, zone);
 
   return (
-    <AdminCard
-      id="movies-admin-heading"
-      title="Movies"
-      actions={
-        <button type="button" className="btn-antique" disabled={busy} onClick={() => void syncNow()}>
-          {busy ? 'Checking…' : 'Check for new videos'}
-        </button>
-      }
-    >
+    <AdminCard id="movies-admin-heading" title="Movies">
       {dialog.element}
       <p className="muted">
         YouTube creators whose Through the Ages videos appear on the Movies page. YouTube sends each new video as it is
-        published, and the feeds are also checked every 30 minutes.
+        published. Once a day, a new creator's latest videos are filled in, every subscription is renewed, and videos
+        YouTube no longer shows are dropped.
       </p>
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
@@ -267,7 +246,7 @@ export default function MoviesPanel() {
           <div>
             <h3 className="movies-subheading">Recent videos ({state.data.videos.length})</h3>
             {state.data.videos.length === 0 ? (
-              <p className="muted">No videos fetched yet. Click “Check for new videos” after adding a creator.</p>
+              <p className="muted">No videos yet. A new creator's latest videos are filled in by the next daily run.</p>
             ) : (
               <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why" className="movies-table">
                 <thead>

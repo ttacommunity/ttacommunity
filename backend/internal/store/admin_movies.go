@@ -1,4 +1,4 @@
-// Admin management of YouTube creator channels, video visibility, and RSS feed syncing.
+// Admin management of YouTube creator channels, their videos and admins' overrides of the videos' verdicts.
 package store
 
 import (
@@ -10,8 +10,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-
-	"ttacommunity/backend/internal/movies"
 )
 
 // AdminVideoChannel is one YouTube creator channel in admin.
@@ -50,12 +48,6 @@ type AdminMoviesState struct {
 	Videos   []AdminVideo
 }
 
-// MoviesSyncResult reports how many channels were checked and how many new videos were stored.
-type MoviesSyncResult struct {
-	Checked int
-	Added   int
-}
-
 var (
 	// ErrChannelExists means that YouTube channel is already registered.
 	ErrChannelExists = errors.New("that YouTube channel is already added")
@@ -66,11 +58,6 @@ var (
 	// ErrNoPlayerName means no player has that name.
 	ErrNoPlayerName = errors.New("no player with that name")
 )
-
-// MovieFeedFetcher fetches YouTube channel feeds.
-type MovieFeedFetcher interface {
-	FetchChannel(ctx context.Context, channelID string) ([]movies.Entry, error)
-}
 
 // AdminMovies lists all configured YouTube channels and the latest 100 fetched videos.
 func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) {
@@ -203,70 +190,6 @@ func (a *AdminStore) SetMovieVideoOverride(ctx context.Context, videoID string, 
 		return ErrNoVideo
 	}
 	return nil
-}
-
-// SyncMovies fetches every registered YouTube channel's RSS feed and stores new TTA videos.
-func (a *AdminStore) SyncMovies(ctx context.Context, fetcher MovieFeedFetcher, now time.Time) (MoviesSyncResult, error) {
-	type chRow struct {
-		id         string
-		includeAll bool
-	}
-	rows, err := a.pool.Query(ctx, "SELECT channel_id, include_all FROM video_channels ORDER BY channel_id")
-	if err != nil {
-		return MoviesSyncResult{}, fmt.Errorf("listing channels for sync: %w", err)
-	}
-	var channels []chRow
-	for rows.Next() {
-		var c chRow
-		if err := rows.Scan(&c.id, &c.includeAll); err != nil {
-			rows.Close()
-			return MoviesSyncResult{}, err
-		}
-		channels = append(channels, c)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return MoviesSyncResult{}, err
-	}
-	if len(channels) == 0 {
-		return MoviesSyncResult{}, nil
-	}
-
-	tRows, err := a.pool.Query(ctx, "SELECT name FROM series WHERE btrim(name) <> ''")
-	if err != nil {
-		return MoviesSyncResult{}, fmt.Errorf("reading tournament names: %w", err)
-	}
-	tournaments, err := pgx.CollectRows(tRows, pgx.RowTo[string])
-	if err != nil {
-		return MoviesSyncResult{}, err
-	}
-
-	var res MoviesSyncResult
-	for _, ch := range channels {
-		entries, err := fetcher.FetchChannel(ctx, ch.id)
-		if err != nil {
-			continue
-		}
-		res.Checked++
-		for _, e := range entries {
-			var exists bool
-			if err := a.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM videos WHERE video_id = $1)", e.VideoID).Scan(&exists); err != nil || exists {
-				continue
-			}
-			if !movies.Classify(movies.VideoText{Title: e.Title, Description: e.Description}, ch.includeAll, tournaments).TTA {
-				continue
-			}
-			tag, err := a.pool.Exec(ctx, `
-				INSERT INTO videos (video_id, channel_id, title, published_at, thumbnail_url, is_tta, tta_reason, created_at)
-				VALUES ($1, $2, $3, $4, $5, true, 'feed sync', $6)
-				ON CONFLICT (video_id) DO NOTHING`,
-				e.VideoID, ch.id, e.Title, e.PublishedAt, e.ThumbnailURL, now)
-			if err == nil && tag.RowsAffected() > 0 {
-				res.Added++
-			}
-		}
-	}
-	return res, nil
 }
 
 func resolveOptionalPlayer(ctx context.Context, tx pgx.Tx, player *string) (*int64, *string, error) {

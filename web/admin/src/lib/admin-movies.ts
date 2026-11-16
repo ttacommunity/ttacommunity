@@ -3,7 +3,6 @@ import type { components } from '@ttac/shared/api';
 export type AdminMoviesState = components['schemas']['AdminMoviesState'];
 export type AdminVideoChannel = components['schemas']['AdminVideoChannel'];
 export type AdminVideo = components['schemas']['AdminVideo'];
-export type MoviesSyncResult = components['schemas']['MoviesSyncResult'];
 
 /** Validates and normalizes the Add Creator form fields before sending to the API. */
 export function buildNewChannelBody(channel: string, name: string, player: string, includeAll: boolean): {

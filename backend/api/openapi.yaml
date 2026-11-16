@@ -3625,23 +3625,6 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/movies/sync:
-    post:
-      operationId: postAdminMoviesSync
-      tags: [admin]
-      summary: Fetch all YouTube creator feeds now (admins only)
-      description: Audited. The Origin must be the admin site.
-      responses:
-        "200":
-          description: Sync summary
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MoviesSyncResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
   /v1/admin/movies/videos/{videoId}:
     patch:
       operationId: patchAdminMovieVideo
@@ -11186,14 +11169,6 @@ components:
           type: boolean
           nullable: true
           description: Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null)
-    MoviesSyncResult:
-      type: object
-      required: [checked, added]
-      properties:
-        checked:
-          type: integer
-        added:
-          type: integer
 
     NostradamusEditions:
       type: object

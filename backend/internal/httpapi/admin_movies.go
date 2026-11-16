@@ -1,4 +1,4 @@
-// Admin management of YouTube creator channels, overrides of videos' verdicts, and manual feed sync.
+// Admin management of YouTube creator channels and overrides of videos' verdicts.
 package httpapi
 
 import (
@@ -158,19 +158,6 @@ func (s *server) DeleteAdminMovieChannel(ctx context.Context, req DeleteAdminMov
 		return nil, err
 	}
 	return DeleteAdminMovieChannel204Response{}, nil
-}
-
-func (s *server) PostAdminMoviesSync(ctx context.Context, _ PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil {
-		return nil, err
-	} else if !ok {
-		return PostAdminMoviesSync403JSONResponse{forbidden(onlyAdminsMovies)}, nil
-	}
-	res, err := s.admins.SyncMoviesNow(ctx, s.now().UTC().Truncate(time.Second))
-	if err != nil {
-		return nil, err
-	}
-	return PostAdminMoviesSync200JSONResponse{Checked: res.Checked, Added: res.Added}, nil
 }
 
 func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error) {

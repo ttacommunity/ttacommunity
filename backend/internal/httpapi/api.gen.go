@@ -3845,12 +3845,6 @@ type MoviesFeed struct {
 	Videos   []MovieVideo   `json:"videos"`
 }
 
-// MoviesSyncResult defines model for MoviesSyncResult.
-type MoviesSyncResult struct {
-	Added   int `json:"added"`
-	Checked int `json:"checked"`
-}
-
 // MyBlitz defines model for MyBlitz.
 type MyBlitz struct {
 	Match *MyBlitzMatch `json:"match"`
@@ -6091,9 +6085,6 @@ type ServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(w http.ResponseWriter, r *http.Request, channelId string)
-	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
-	// (POST /v1/admin/movies/sync)
-	PostAdminMoviesSync(w http.ResponseWriter, r *http.Request)
 	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(w http.ResponseWriter, r *http.Request, videoId string)
@@ -8479,20 +8470,6 @@ func (siw *ServerInterfaceWrapper) PatchAdminMovieChannel(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchAdminMovieChannel(w, r, channelId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostAdminMoviesSync operation middleware
-func (siw *ServerInterfaceWrapper) PostAdminMoviesSync(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostAdminMoviesSync(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12751,7 +12728,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.PostAdminMovieChannel)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.DeleteAdminMovieChannel)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.PatchAdminMovieChannel)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/sync", wrapper.PostAdminMoviesSync)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/videos/{videoId}", wrapper.PatchAdminMovieVideo)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
@@ -17872,57 +17848,6 @@ func (response PatchAdminMovieChannel404JSONResponse) VisitPatchAdminMovieChanne
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PostAdminMoviesSyncRequestObject struct {
-}
-
-type PostAdminMoviesSyncResponseObject interface {
-	VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error
-}
-
-type PostAdminMoviesSync200JSONResponse MoviesSyncResult
-
-func (response PostAdminMoviesSync200JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PostAdminMoviesSync401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response PostAdminMoviesSync401JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type PostAdminMoviesSync403JSONResponse struct{ ForbiddenJSONResponse }
-
-func (response PostAdminMoviesSync403JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -25770,9 +25695,6 @@ type StrictServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(ctx context.Context, request PatchAdminMovieChannelRequestObject) (PatchAdminMovieChannelResponseObject, error)
-	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
-	// (POST /v1/admin/movies/sync)
-	PostAdminMoviesSync(ctx context.Context, request PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error)
 	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(ctx context.Context, request PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error)
@@ -28073,30 +27995,6 @@ func (sh *strictHandler) PatchAdminMovieChannel(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchAdminMovieChannelResponseObject); ok {
 		if err := validResponse.VisitPatchAdminMovieChannelResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// PostAdminMoviesSync operation middleware
-func (sh *strictHandler) PostAdminMoviesSync(w http.ResponseWriter, r *http.Request) {
-	var request PostAdminMoviesSyncRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PostAdminMoviesSync(ctx, request.(PostAdminMoviesSyncRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PostAdminMoviesSync")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PostAdminMoviesSyncResponseObject); ok {
-		if err := validResponse.VisitPostAdminMoviesSyncResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

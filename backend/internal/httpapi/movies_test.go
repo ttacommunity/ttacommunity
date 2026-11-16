@@ -204,11 +204,6 @@ func TestAdminSeesEachVideosVerdictAndOverride(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"is_tta": false, "tta_reason": "no mention of TTA", "tta_override": true, "shown": true}`)
 }
 
-func (f *fakeAdmins) SyncMoviesNow(_ context.Context, _ time.Time) (store.MoviesSyncResult, error) {
-	f.notes = append(f.notes, "sync movies")
-	return store.MoviesSyncResult{Checked: 1, Added: 2}, nil
-}
-
 func TestMoviesFeedAndMarkSeen(t *testing.T) {
 	rec, _ := serve(t, &fakeRatings{}, "/v1/movies")
 	if rec.Code != http.StatusOK {
@@ -247,12 +242,6 @@ func TestAdminMoviesEndpoints(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST channel = %d %s, want 201", rec.Code, rec.Body)
 	}
-
-	rec = adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/movies/sync", site, "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST sync = %d %s, want 200", rec.Code, rec.Body)
-	}
-	wantJSON(t, rec.Body.Bytes(), "", `{"checked": 1, "added": 2}`)
 
 	rec = adminDoAs(t, f, owner, http.MethodPatch, "/v1/admin/movies/videos/vid00000001", site, `{"override": false}`)
 	if rec.Code != http.StatusNoContent {

@@ -47,7 +47,6 @@ type MovieAdmin interface {
 	DeleteMovieChannel(ctx context.Context, channelID string) error
 	SetMovieVideoOverride(ctx context.Context, videoID string, override *bool) error
 	ResolveMovieChannel(ctx context.Context, raw string) (string, error)
-	SyncMoviesNow(ctx context.Context, now time.Time) (store.MoviesSyncResult, error)
 }
 
 // NotificationAdmin is the webhooks notifications are posted to, and a test post to one.

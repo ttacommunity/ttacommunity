@@ -149,7 +149,6 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	startMovieSync(ctx, admins, log)
 	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, visits, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
@@ -184,11 +183,10 @@ func serveMetrics(ctx context.Context, addr string, reg *metrics.Registry, log *
 type adminDeps struct {
 	*access.Verifier
 	*store.AdminStore
-	origin       string
-	starter      *enginejob.Starter
-	poster       *notify.Discord
-	movieFetcher *movies.Fetcher
-	youtube      *movies.YouTube
+	origin  string
+	starter *enginejob.Starter
+	poster  *notify.Discord
+	youtube *movies.YouTube
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
@@ -198,34 +196,6 @@ func (d adminDeps) AllowedOrigin() string { return d.origin }
 // Data API.
 func (d adminDeps) ResolveMovieChannel(ctx context.Context, raw string) (string, error) {
 	return d.youtube.ResolveChannel(ctx, raw)
-}
-
-// SyncMoviesNow fetches YouTube RSS feeds for all enabled channels and stores new TTA videos.
-func (d adminDeps) SyncMoviesNow(ctx context.Context, now time.Time) (store.MoviesSyncResult, error) {
-	return d.SyncMovies(ctx, d.movieFetcher, now)
-}
-
-func startMovieSync(ctx context.Context, admins adminDeps, log *slog.Logger) {
-	if admins.AdminStore == nil || admins.movieFetcher == nil {
-		return
-	}
-	go func() {
-		ticker := time.NewTicker(30 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				res, err := admins.SyncMoviesNow(ctx, time.Now())
-				if err != nil {
-					log.Error("movie sync failed", "err", err)
-					continue
-				}
-				log.Info("movie sync completed", "channels", res.Checked, "added", res.Added)
-			}
-		}
-	}()
 }
 
 // Change runs fn in one transaction on the admin login, so a change and its audit commit together or not at all.
@@ -302,7 +272,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), movies.NewFetcher(nil), nil}, pool, nil
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

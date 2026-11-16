@@ -6,19 +6,9 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"ttacommunity/backend/internal/movies"
 )
 
-type stubMovieFetcher struct {
-	entries map[string][]movies.Entry
-}
-
-func (f stubMovieFetcher) FetchChannel(_ context.Context, channelID string) ([]movies.Entry, error) {
-	return f.entries[channelID], nil
-}
-
-func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {
+func TestMoviesChannelsFeedAndOverride(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
 	addPlayers(t, pool, "Alice")
@@ -35,20 +25,13 @@ func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {
 		t.Fatalf("got player = %v, want Alice", ch.Player)
 	}
 
-	fetcher := stubMovieFetcher{
-		entries: map[string][]movies.Entry{
-			ch.ChannelID: {
-				{VideoID: "vid00000001", Title: "Through the Ages Final", PublishedAt: now.Add(-time.Hour), ThumbnailURL: "https://i.ytimg.com/vi/vid00000001/hqdefault.jpg"},
-				{VideoID: "vid00000002", Title: "Random Chess Stream", PublishedAt: now, ThumbnailURL: "https://i.ytimg.com/vi/vid00000002/hqdefault.jpg"},
-			},
-		},
-	}
-	res, err := a.SyncMovies(ctx, fetcher, now)
-	if err != nil {
-		t.Fatalf("SyncMovies: %v", err)
-	}
-	if res.Checked != 1 || res.Added != 1 {
-		t.Fatalf("got sync %+v, want {Checked:1 Added:1}", res)
+	for _, v := range []PushedVideo{
+		{VideoID: "vid00000001", ChannelID: ch.ChannelID, Title: "Through the Ages Final", PublishedAt: now.Add(-time.Hour), ThumbnailURL: "x", TTA: true, Reason: "mentions Through the Ages"},
+		{VideoID: "vid00000002", ChannelID: ch.ChannelID, Title: "Random Chess Stream", PublishedAt: now, ThumbnailURL: "x", TTA: false, Reason: "no mention of TTA"},
+	} {
+		if err := a.SaveMovieVideo(ctx, v, now); err != nil {
+			t.Fatalf("SaveMovieVideo: %v", err)
+		}
 	}
 
 	feed, err := pub.Movies(ctx)
@@ -65,9 +48,9 @@ func TestMoviesChannelsSyncFeedAndHide(t *testing.T) {
 	}
 	feed, err = pub.Movies(ctx)
 	if err != nil {
-		t.Fatalf("Movies after hide: %v", err)
+		t.Fatalf("Movies after the override: %v", err)
 	}
 	if len(feed.Videos) != 0 {
-		t.Fatalf("got %d videos after hide, want 0", len(feed.Videos))
+		t.Fatalf("got %d videos after the override, want 0", len(feed.Videos))
 	}
 }
