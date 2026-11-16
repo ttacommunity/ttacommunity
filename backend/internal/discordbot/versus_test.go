@@ -46,6 +46,24 @@ func TestTallyVersusWithNoSharedGame(t *testing.T) {
 	}
 }
 
+func TestNoGamesTextNamesAFormatOnlyWhenOneIsAsked(t *testing.T) {
+	tests := []struct {
+		name   string
+		format int
+		want   string
+	}{
+		{"every format", 0, "have no rated games together"},
+		{"one format", 3, "have no rated 3-player games together"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := discordbot.VersusText("Quill", "Rook", tt.format, discordbot.Tally{}, "https://site.example"); !strings.Contains(got, tt.want) {
+				t.Errorf("VersusText(no games, format %d) = %q, want %q", tt.format, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestVersusTextNamesBothSafelyAndLinksTheFirst(t *testing.T) {
 	tally := discordbot.TallyVersus([]discordbot.Meeting{{PlayerCount: 2, NamePlace: 1, OtherPlace: 2}}, 0)
 	text := discordbot.VersusText("Player_One", "Two*", 0, tally, "https://site.example")

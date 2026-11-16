@@ -69,6 +69,14 @@ func FormatLabel(format int) string {
 	return fmt.Sprintf("%d-player", format)
 }
 
+// ratedGames names a player's rated games in format, the format left out when it is every format.
+func ratedGames(format int) string {
+	if format == 0 {
+		return "rated games"
+	}
+	return "rated " + FormatLabel(format) + " games"
+}
+
 // RatingText is the reply for s, linking the player's page on site.
 func RatingText(s Summary, site string) string {
 	head := "**" + EscapeMarkdown(s.Name) + "**"

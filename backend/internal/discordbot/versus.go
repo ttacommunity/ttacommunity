@@ -47,7 +47,7 @@ func TallyVersus(meetings []Meeting, format int) Tally {
 func VersusText(name, other string, format int, t Tally, site string) string {
 	a, b := "**"+EscapeMarkdown(name)+"**", "**"+EscapeMarkdown(other)+"**"
 	if t.Games == 0 {
-		return fmt.Sprintf("%s and %s have no rated %s games together.", a, b, FormatLabel(format))
+		return fmt.Sprintf("%s and %s have no %s together.", a, b, ratedGames(format))
 	}
 	text := fmt.Sprintf("%s vs %s · %s, rated games\n%s %d · %s %d", a, b, FormatLabel(format), a, t.Wins, b, t.Losses)
 	if t.Draws > 0 {

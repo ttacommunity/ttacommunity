@@ -34,7 +34,7 @@ func SeatsText(name string, format int, groups []SeatGroup, site string) string 
 		lines = append(lines, fmt.Sprintf("%d-player · %d games · %.1f%% won", g.PlayerCount, g.Games, g.WinRate), strings.Join(seats, " · "))
 	}
 	if len(lines) == 1 {
-		return fmt.Sprintf("%s has no rated %s games.", who, FormatLabel(format))
+		return fmt.Sprintf("%s has no %s.", who, ratedGames(format))
 	}
 	return strings.Join(lines, "\n") + "\n<" + PlayerURL(site, name) + ">"
 }

@@ -20,7 +20,7 @@ const shownRivals = 5
 func RivalsText(name string, format int, rivals []Rival, site string) string {
 	who := "**" + EscapeMarkdown(name) + "**"
 	if len(rivals) == 0 {
-		return fmt.Sprintf("%s has no rated %s games.", who, FormatLabel(format))
+		return fmt.Sprintf("%s has no %s.", who, ratedGames(format))
 	}
 	lines := []string{fmt.Sprintf("%s's most played opponents · %s, rated games", who, FormatLabel(format))}
 	for i, r := range rivals[:min(shownRivals, len(rivals))] {
