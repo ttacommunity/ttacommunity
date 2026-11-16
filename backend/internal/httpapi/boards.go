@@ -53,7 +53,7 @@ func (s *server) GetLeaderboard(ctx context.Context, req GetLeaderboardRequestOb
 		row := LeaderboardRow{
 			Rank: p.Rank, RankDelta: p.RankDelta, Name: p.Name, Rating: p.Rating, Rd: p.RD, CRating: p.CRating,
 			Games: p.Games, Opponents: p.Opponents, Wins: p.Wins, Losses: p.Losses, Draws: p.Draws, WinRate: p.WinRate,
-			Country: p.Country,
+			Country: p.Country, HasVideos: p.HasVideos,
 		}
 		if p.Title != nil {
 			row.Title = &Title{Code: TitleCode(p.Title.Code), Count: p.Title.Count, Reason: p.Title.Reason}

@@ -105,7 +105,7 @@ func TestPlayer(t *testing.T) {
 		t.Errorf("GET player: %d, %q; want 200, five minutes", rec.Code, rec.Header().Get("Cache-Control"))
 	}
 	want := `{"country":"PL","games":[{"format":0,"games":5},{"format":2,"games":0},{"format":3,"games":5},{"format":4,"games":0}],` +
-		`"last_played":"2026-08-31","name":"Ann","newest_game":"2026-08-31","peak":{"code":"WC","year":null},` +
+		`"has_videos":false,"last_played":"2026-08-31","name":"Ann","newest_game":"2026-08-31","peak":{"code":"WC","year":null},` +
 		`"ratings":[{"c_rating":1680,"format":3,"model":"glicko2_daneo_softer","opponents":12,"rank":4,"rating":1800,"rd":40,"win_rate":55.5}],` +
 		`"run_id":7,"title":{"code":"GM","count":2,"reason":"Royal League"}}`
 	if got := strings.TrimSpace(rec.Body.String()); got != want {

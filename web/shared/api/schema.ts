@@ -5288,6 +5288,8 @@ export interface components {
             title: components["schemas"]["Title"];
             /** @description Badges admin gave the player, by label, shown beside the title */
             badges?: components["schemas"]["ExtraBadge"][];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
         };
         /**
          * @description What a leaderboard delta compares with
@@ -5387,6 +5389,8 @@ export interface components {
             title: components["schemas"]["Title"];
             /** @description Badges admin gave the player, by label, shown beside the title */
             badges?: components["schemas"]["ExtraBadge"][];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
             peak: components["schemas"]["Peak"];
             /** Format: date */
             last_played: string | null;
@@ -5665,6 +5669,8 @@ export interface components {
              */
             last_played: string | null;
             previous: components["schemas"]["PreviousRating"];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
         };
         YearRecord: {
             opponents: number;

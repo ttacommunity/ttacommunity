@@ -1103,3 +1103,24 @@ func TestLeaderboardSendsEachPlayersBadgesOnlyWhenTheyHaveSome(t *testing.T) {
 		t.Errorf("leaderboard = %s, want ann's badge and no badges field for bob", body)
 	}
 }
+
+func TestLeaderboardAndPlayerSayWhoHasVideos(t *testing.T) {
+	rank := 1
+	f := &fakeRatings{run: store.PublishedRun{ID: 7}, board: []store.LeaderboardRow{
+		{Rank: &rank, Name: "ann", HasVideos: true},
+		{Name: "bob"},
+	}}
+	rec, _ := serve(t, f, "/v1/runs/7/leaderboard?model=glicko2_daneo&format=0")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET leaderboard = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "players.0", `{"name": "ann", "has_videos": true}`)
+	wantJSON(t, rec.Body.Bytes(), "players.1", `{"name": "bob", "has_videos": false}`)
+
+	p := &fakePlayers{player: store.Player{Name: "Ann", HasVideos: true, Games: map[int]int{0: 0}}}
+	rec, _ = serve(t, p, "/v1/runs/7/players/ann")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET player = %d %s", rec.Code, rec.Body)
+	}
+	wantJSON(t, rec.Body.Bytes(), "", `{"name": "Ann", "has_videos": true}`)
+}

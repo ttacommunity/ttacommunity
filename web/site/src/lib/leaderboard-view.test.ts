@@ -35,7 +35,7 @@ import {
 function row(name: string, c_rating: number, opponents = 40, last_played: string | null = '2026-01-01', extra: Partial<LeaderboardRow> = {}): LeaderboardRow {
   return {
     rank: 1, rank_delta: 0, name, rating: c_rating + 100, rd: 30, c_rating, games: opponents, opponents,
-    wins: 0, losses: 0, draws: 0, win_rate: 50, last_played, country: null, title: null, ...extra,
+    wins: 0, losses: 0, draws: 0, win_rate: 50, last_played, country: null, title: null, has_videos: false, ...extra,
   };
 }
 
@@ -430,12 +430,14 @@ describe('year view', () => {
         season: { opponents: 3, wins: 0, losses: 2, draws: 1, win_rate: 16.7 },
         career: { opponents: 6, wins: 3, losses: 2, draws: 1, win_rate: 58.3 },
         previous: { rating: 1590, rd: 30, c_rating: 1500 },
+        has_videos: true,
       },
       {
         name: 'bob', rating: 1740, rd: 30, c_rating: 1650, country: null, title: null, last_played: null,
         season: { opponents: 0, wins: 0, losses: 0, draws: 0, win_rate: 0 },
         career: { opponents: 4, wins: 1, losses: 3, draws: 0, win_rate: 25 },
         previous: null,
+        has_videos: false,
       },
     ],
   };
@@ -448,6 +450,7 @@ describe('year view', () => {
     ]);
     expect(yearRows(board, 'career').rows[0]).toMatchObject({ opponents: 6, wins: 3, win_rate: 58.3, last_played: '2024-12-20' });
     expect([...season.played]).toEqual(['ann']);
+    expect(season.rows.map((r) => r.has_videos)).toEqual([true, false]);
   });
 
   it('ranks the year view by who played that year, not by the live cutoff date', () => {

@@ -10,6 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// hasVideos is whether player p has a linked channel with a video the Movies page shows.
+const hasVideos = `EXISTS (
+	SELECT 1 FROM video_channels vc JOIN videos v USING (channel_id)
+	WHERE vc.player_id = p.player_id AND coalesce(v.tta_override, v.is_tta)
+)`
+
 // MovieCreator is one YouTube creator listed in the Movies filter.
 type MovieCreator struct {
 	ChannelID string

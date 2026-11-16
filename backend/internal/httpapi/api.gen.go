@@ -3660,9 +3660,12 @@ type LeaderboardRow struct {
 	CRating float64 `json:"c_rating"`
 
 	// Country The player's country, ISO 3166-1 alpha-2, if known
-	Country    *string             `json:"country"`
-	Draws      int                 `json:"draws"`
-	Games      int                 `json:"games"`
+	Country *string `json:"country"`
+	Draws   int     `json:"draws"`
+	Games   int     `json:"games"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos  bool                `json:"has_videos"`
 	LastPlayed *openapi_types.Date `json:"last_played"`
 	Losses     int                 `json:"losses"`
 	Name       string              `json:"name"`
@@ -4399,7 +4402,10 @@ type Player struct {
 	Country *string       `json:"country"`
 
 	// Games How many games the player has in the run, by format (0 is all)
-	Games      []FormatGames       `json:"games"`
+	Games []FormatGames `json:"games"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos  bool                `json:"has_videos"`
 	LastPlayed *openapi_types.Date `json:"last_played"`
 
 	// Name The player's name as stored, whatever case was asked for
@@ -5295,6 +5301,9 @@ type YearRow struct {
 	CRating float64    `json:"c_rating"`
 	Career  YearRecord `json:"career"`
 	Country *string    `json:"country"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos bool `json:"has_videos"`
 
 	// LastPlayed The player's last game that year
 	LastPlayed *openapi_types.Date `json:"last_played"`

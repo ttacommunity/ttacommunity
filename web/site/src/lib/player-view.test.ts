@@ -138,6 +138,7 @@ const player = (games: number, last: string | null, newest: string | null): Play
   country: null,
   title: null,
   peak: null,
+  has_videos: false,
   last_played: last,
   newest_game: newest,
   games: [

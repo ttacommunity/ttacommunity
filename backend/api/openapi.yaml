@@ -8380,7 +8380,7 @@ components:
             $ref: "#/components/schemas/LeaderboardRow"
     LeaderboardRow:
       type: object
-      required: [rank, rank_delta, name, rating, rd, c_rating, games, opponents, wins, losses, draws, win_rate, last_played, country, title]
+      required: [rank, rank_delta, name, rating, rd, c_rating, games, opponents, wins, losses, draws, win_rate, last_played, country, title, has_videos]
       properties:
         rank:
           type: integer
@@ -8430,6 +8430,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExtraBadge"
+        has_videos:
+          description: Whether the player has a YouTube channel on the Movies page with a video it shows
+          type: boolean
     DeltaWindow:
       description: What a leaderboard delta compares with
       type: string
@@ -8532,7 +8535,7 @@ components:
           type: string
     Player:
       type: object
-      required: [run_id, name, country, title, peak, last_played, newest_game, games, ratings]
+      required: [run_id, name, country, title, peak, last_played, newest_game, games, ratings, has_videos]
       properties:
         run_id:
           type: integer
@@ -8551,6 +8554,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExtraBadge"
+        has_videos:
+          description: Whether the player has a YouTube channel on the Movies page with a video it shows
+          type: boolean
         peak:
           $ref: "#/components/schemas/Peak"
         last_played:
@@ -8999,7 +9005,7 @@ components:
           type: boolean
     YearRow:
       type: object
-      required: [name, rating, rd, c_rating, country, title, season, career, last_played, previous]
+      required: [name, rating, rd, c_rating, country, title, season, career, last_played, previous, has_videos]
       properties:
         name:
           type: string
@@ -9029,6 +9035,9 @@ components:
           nullable: true
         previous:
           $ref: "#/components/schemas/PreviousRating"
+        has_videos:
+          description: Whether the player has a YouTube channel on the Movies page with a video it shows
+          type: boolean
     YearRecord:
       type: object
       required: [opponents, wins, losses, draws, win_rate]

@@ -25,6 +25,7 @@ type YearRow struct {
 	PreviousRating      *float64
 	PreviousRD          *float64
 	PreviousCRating     *float64
+	HasVideos           bool
 }
 
 // Champion is a year's World Champion; Reigning marks the current one.
@@ -122,7 +123,7 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 			coalesce(rec.s_opps, 0), coalesce(rec.s_wins, 0), coalesce(rec.s_losses, 0), coalesce(rec.s_draws, 0),
 			rec.last_played,
 			coalesce(rec.c_opps, 0), coalesce(rec.c_wins, 0), coalesce(rec.c_losses, 0), coalesce(rec.c_draws, 0),
-			prev.rating, prev.rd, prev.c_rating
+			prev.rating, prev.rd, prev.c_rating, `+hasVideos+`
 		FROM (SELECT DISTINCT ON (player_id) * FROM rating_history
 			WHERE run_id = $1 AND model_type = $2 AND player_count = $3 AND period_date <= $4 AND extract(year FROM period_date) = $5
 			ORDER BY player_id, period_date DESC) h
@@ -146,7 +147,7 @@ func (r *RatingsReader) YearBoard(ctx context.Context, run int64, year int, mode
 		err := row.Scan(&y.Name, &y.Rating, &y.RD, &y.CRating, &y.Country, &title, &count, &reason, &peak, &peakYear,
 			&y.Season.Opponents, &y.Season.Wins, &y.Season.Losses, &y.Season.Draws, &y.LastPlayed,
 			&y.Career.Opponents, &y.Career.Wins, &y.Career.Losses, &y.Career.Draws,
-			&y.PreviousRating, &y.PreviousRD, &y.PreviousCRating)
+			&y.PreviousRating, &y.PreviousRD, &y.PreviousCRating, &y.HasVideos)
 		if title != nil {
 			y.Title = &Title{Code: *title, Count: *count, Reason: *reason}
 		}

@@ -495,6 +495,7 @@ export function yearRows(board: YearLeaderboard, stats: StatsView): { rows: Lead
       last_played: p.last_played,
       country: p.country,
       title: p.title,
+      has_videos: p.has_videos,
     };
   });
   return { rows, played: new Set(board.players.filter((p) => p.season.opponents > 0).map((p) => p.name)) };

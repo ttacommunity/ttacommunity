@@ -61,7 +61,7 @@ func (s *server) GetYearLeaderboard(ctx context.Context, req GetYearLeaderboardR
 	}
 	for _, y := range b.Rows {
 		row := YearRow{
-			Name: y.Name, Rating: y.Rating, Rd: y.RD, CRating: y.CRating, Country: y.Country,
+			Name: y.Name, Rating: y.Rating, Rd: y.RD, CRating: y.CRating, Country: y.Country, HasVideos: y.HasVideos,
 			Season: yearRecord(y.Season), Career: yearRecord(y.Career),
 		}
 		if y.Title != nil {
