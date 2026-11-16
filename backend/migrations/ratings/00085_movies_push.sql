@@ -8,7 +8,8 @@ ALTER TABLE video_channels
     ADD COLUMN lease_ends_at timestamptz,
     ADD COLUMN last_push_at timestamptz,
     ADD COLUMN last_error text,
-    ADD COLUMN last_error_at timestamptz;
+    ADD COLUMN last_error_at timestamptz,
+    ADD COLUMN backfilled_at timestamptz;
 
 ALTER TABLE videos
     ADD COLUMN is_tta boolean NOT NULL DEFAULT true,
@@ -46,17 +47,17 @@ $$;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
--- store_pushed_video stores or updates a video the hub pushed for a linked channel, keeping an admin's override,
--- and answers 'stored' or 'no-channel'.
-CREATE FUNCTION store_pushed_video(video text, channel text, video_title text, published timestamptz, thumbnail text,
-                                   tta boolean, reason text, details_fetched timestamptz, at timestamptz) RETURNS text
-    LANGUAGE plpgsql SECURITY DEFINER
+-- save_movie_video stores or updates a linked channel's video with its verdict, keeping an admin's override and
+-- leaving another channel's video alone; false when the channel is not linked. The hub's pushes and the daily job
+-- both store through it.
+CREATE FUNCTION save_movie_video(video text, channel text, video_title text, published timestamptz, thumbnail text,
+                                 tta boolean, reason text, details_fetched timestamptz, at timestamptz) RETURNS boolean
+    LANGUAGE plpgsql
     SET search_path TO public, pg_temp
     AS $$
 BEGIN
-    UPDATE video_channels SET last_push_at = at WHERE channel_id = channel;
-    IF NOT FOUND THEN
-        RETURN 'no-channel';
+    IF NOT EXISTS (SELECT FROM video_channels WHERE channel_id = channel) THEN
+        RETURN false;
     END IF;
     INSERT INTO videos (video_id, channel_id, title, published_at, thumbnail_url, is_tta, tta_reason, details_fetched_at,
                         created_at, updated_at)
@@ -65,6 +66,24 @@ BEGIN
     SET title = EXCLUDED.title, thumbnail_url = EXCLUDED.thumbnail_url, is_tta = EXCLUDED.is_tta,
         tta_reason = EXCLUDED.tta_reason, details_fetched_at = EXCLUDED.details_fetched_at, updated_at = EXCLUDED.updated_at
     WHERE videos.channel_id = EXCLUDED.channel_id;
+    RETURN true;
+END
+$$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+-- store_pushed_video records the hub's push for a linked channel and saves its video, answering 'stored' or
+-- 'no-channel'.
+CREATE FUNCTION store_pushed_video(video text, channel text, video_title text, published timestamptz, thumbnail text,
+                                   tta boolean, reason text, details_fetched timestamptz, at timestamptz) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO public, pg_temp
+    AS $$
+BEGIN
+    UPDATE video_channels SET last_push_at = at WHERE channel_id = channel;
+    IF NOT save_movie_video(video, channel, video_title, published, thumbnail, tta, reason, details_fetched, at) THEN
+        RETURN 'no-channel';
+    END IF;
     RETURN 'stored';
 END
 $$;
@@ -81,6 +100,8 @@ CREATE FUNCTION remove_pushed_video(video text, channel text, at timestamptz) RE
 $$;
 -- +goose StatementEnd
 
+REVOKE ALL ON FUNCTION save_movie_video(text, text, text, timestamptz, text, boolean, text, timestamptz, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION save_movie_video(text, text, text, timestamptz, text, boolean, text, timestamptz, timestamptz) TO ratings_admin;
 REVOKE ALL ON FUNCTION confirm_movie_hub(text, text, integer, timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION store_pushed_video(text, text, text, timestamptz, text, boolean, text, timestamptz, timestamptz) FROM PUBLIC;
 REVOKE ALL ON FUNCTION remove_pushed_video(text, text, timestamptz) FROM PUBLIC;
@@ -91,6 +112,7 @@ GRANT EXECUTE ON FUNCTION remove_pushed_video(text, text, timestamptz) TO rating
 -- +goose Down
 DROP FUNCTION remove_pushed_video(text, text, timestamptz);
 DROP FUNCTION store_pushed_video(text, text, text, timestamptz, text, boolean, text, timestamptz, timestamptz);
+DROP FUNCTION save_movie_video(text, text, text, timestamptz, text, boolean, text, timestamptz, timestamptz);
 DROP FUNCTION confirm_movie_hub(text, text, integer, timestamptz);
 DROP INDEX videos_shown_idx;
 -- created_at is rebuilt after hidden, so the columns are in 84's order.
@@ -110,6 +132,7 @@ ALTER TABLE videos
     DROP COLUMN is_tta;
 CREATE INDEX videos_published_idx ON videos (published_at DESC) WHERE NOT hidden;
 ALTER TABLE video_channels
+    DROP COLUMN backfilled_at,
     DROP COLUMN last_error_at,
     DROP COLUMN last_error,
     DROP COLUMN last_push_at,
