@@ -238,7 +238,10 @@ agent runs them itself.
    in the browser's network tab
 4. **Read your own diff.** Every file in `git diff main...HEAD --stat` is
    explained in **What it does**. A migration, an `openapi.yaml` change
-   and a change to what an existing page shows are always named
+   and a change to what an existing page shows are always named. For each
+   field, control or piece of UI you wrote, search `shared/` and the app's
+   `components/` and `lib/` for one that already does it, and use it; the
+   second hand-made copy of anything becomes a component
 5. **Walk the issue's "Done when"** line by line and say how each is met.
    If something is not done, write `Part of #<n>`, not `Closes #<n>`
 

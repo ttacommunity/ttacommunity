@@ -50,7 +50,7 @@ flowchart LR
 |---|---|---|
 | **api** | Public ratings reads (cacheable, by run), and **admin routes that accept only a valid admin-app Access JWT** (audience-pinned, fail closed), reached through admin's Worker. Starts engine runs as Kubernetes Jobs. **Player sign-in** with Discord, Microsoft, Google or an emailed link: server-side sessions, and the signed-in player's own routes, fetched by the site alone with credentials. **The Discord bot's endpoint**, for our slash commands. **Notifications**: a player's request to be linked and their blitz reports and flags are queued in an outbox in the same transaction, and the api posts them to the Discord webhooks admin sets, each once across replicas. *(Planned: Tournaments and Pulse actions.)* | Ratings DB: admin's edits, runs started and published, through a role that can write only those; players' sign-ins, sessions and requests, through a third |
 | **engine** | Reads the games, computes every model and the tournament results, and writes a **new run**. It never overwrites a published one | Ratings DB: the run's result tables |
-| **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses | Ratings DB input tables |
+| **load** (`cmd/load`) | The data load job, run by hand: restores a baseline export, loads match CSVs, CGE's games and recorded facts, applies migrations, exports. It validates every row and records what it refuses. Also the daily **Movies** job (`load movies`, a CronJob): it reads every video of each linked YouTube channel again (admin can also start it, for every channel or for one), renews its subscription to YouTube's push notifications, and drops videos YouTube no longer shows | Ratings DB input tables; the Movies job writes channels and videos through admin's login |
 | **site, admin** | Astro, built and hosted by Cloudflare from `main` (previews from `dev`). One public site with sections, and admin on its own host behind Access. Types generated from the OpenAPI spec | nothing |
 | **worker** *(planned)* | Everything that happens *at a time*: reminders, kick-offs, rounds, the outbox. **Exactly one acts at a time** (a Postgres advisory lock), so a rollout cannot start a game twice | app DB |
 
@@ -578,12 +578,21 @@ TTA community server and email via `mail-relay`.
   reads sign-ins. Replies go to the asker alone unless they share them,
   mention no one, and escape Discord's formatting, since player names are
   scraped.
+- **The Movies callback takes only YouTube's hub's pushes**
+  (`/v1/movies/hub`): each must carry an HMAC of its body by the secret we
+  gave the hub when subscribing (`MOVIES_HUB_SECRET`), and any other is
+  refused with 401. The hub's check of a request is answered only for a
+  subscribe to a linked channel (or an unsubscribe from one no longer
+  linked). Pushed videos are judged with the YouTube Data API, read with an
+  API key limited to that API. With no secret set it is a 404.
 - **CSRF:** the sites and the API are same-site, so `SameSite` does not
   protect. Every state-changing request checks `Origin`.
 - **Egress:** default-deny. The api reaches only public HTTPS (Cloudflare
   Access's signing keys; Discord's, Microsoft's and Google's sign-in;
   Resend for sign-in emails; Turnstile; Cloudflare's GraphQL API for the
-  visit count) and the Kubernetes API (to start engine Jobs); the worker
+  visit count; the YouTube Data API) and the Kubernetes API (to start
+  engine and Movies Jobs); the Movies job reaches YouTube's hub and Data API
+  on public HTTPS and the ratings DB; the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
   timezone) is **never logged at any level**. A reported error is found by

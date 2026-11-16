@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, gameSlug, linkChoices, tokensText, toggled, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
+import { choicesFromText, choicesText, closeBlocker, emptyQuestionForm, gameHref, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, gameSlug, tokensText, toggled, withChoice, roundLabel, roundStatus, seriesChoices } from './nostradamus-admin';
 
 describe('outcomeValues', () => {
   it.each([
@@ -92,16 +92,6 @@ describe('roundLabel', () => {
     ['R1 in a new game', '  ', [], 'R1'],
   ])('is %s', (_name, typed, taken, want) => {
     expect(roundLabel(typed, taken)).toBe(want);
-  });
-});
-
-describe('linkChoices', () => {
-  const found = [
-    { member: 4, name: 'Ann', player: 'Ann', discord_name: 'ann_d', email: '', country: null, zone: null, banned: false },
-    { member: null, name: 'Rated_Rae', player: 'Rated_Rae', discord_name: '', email: '', country: null, zone: null, banned: false },
-  ];
-  it('offers the members and rated players found, not a new name, which a link cannot make', () => {
-    expect(linkChoices(found, 'Zed').map((c) => c.label)).toEqual(['Ann', 'Rated_Rae']);
   });
 });
 

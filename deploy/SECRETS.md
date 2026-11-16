@@ -28,6 +28,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup-config`'s `upload` container (rclone) | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The database backup's token cannot reach this bucket, nor this one its |
 | `cloudflare-readonly` | `token` | `backup-config`'s `export` init container | A Cloudflare API token that can only read the settings the configuration backup exports (below, "Backups": its permissions). It can change nothing |
 | `cloudflare-analytics` | `token`, `account-id` | `api`, `api-dev` | The site's visit count: a Cloudflare API token that can only read the account's analytics (below, "The visit count"), and the account's id. Optional: without it the api counts no visits |
+| `movies` | `hub-secret`, `youtube-api-key` | `api`, `movies` | Movies (below, "Movies"): the secret YouTube's hub signs its pushes to the api with (32 bytes or more), and a Google Cloud API key limited to the YouTube Data API v3. Optional for the api: without it the hub's callback is off; the `movies` job needs it |
+| `movies-dev` | `hub-secret`, `youtube-api-key` | `api-dev`, `movies-dev` | As `movies`, for the dev site, with a hub secret of its own |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -55,6 +57,7 @@ up nightly"). Reissuing is for when that copy is lost.
 | `backup-r2`, `backup-config-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
 | `cloudflare-readonly` | **Reissued**: a new API token with the permissions below ("Backups"), then the Secret; delete the old token |
 | `cloudflare-analytics` | **Reissued**: a new API token with Account Analytics Read alone (below, "The visit count"), then the Secret; delete the old token |
+| `movies`, `movies-dev` | **New at any time**: a new hub secret (below, "Movies"), and the API key reissued in Google Cloud (Credentials, the key, Regenerate key) or kept; then run the `movies` job by hand, which renews every subscription with the new secret |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
 ## Creating them
@@ -309,6 +312,32 @@ kubectl -n ttacommunity create secret generic cloudflare-analytics \
 rm /dev/shm/cf-token /dev/shm/cf-account
 kubectl -n ttacommunity rollout restart deployment/api deployment/api-dev
 ```
+
+### Movies
+
+`movies` holds the secret YouTube's WebSub hub signs each push with, and the
+YouTube Data API key. The key is `ttacommunity-movies` in the Google Cloud
+project `tta-community` (APIs & Services, Credentials), with **API
+restrictions: YouTube Data API v3** alone and no application restriction (the
+api and the job call it from the cluster, whose address can change). Its free
+quota is 10,000 units a day; the Movies use a few. The dev site's `movies-dev`
+gets a hub secret of its own, so neither api takes the other's pushes; the two
+may share the key. Run the `read` line on its own, then the rest; for dev, name
+the Secret `movies-dev` and restart `api-dev`:
+
+```sh
+umask 077
+openssl rand -hex 32 | tr -d '\n' > /dev/shm/hub-secret
+read -rsp 'YouTube Data API key: ' k; echo; printf %s "$k" > /dev/shm/youtube-key; unset k
+kubectl -n ttacommunity create secret generic movies \
+  --from-file=hub-secret=/dev/shm/hub-secret --from-file=youtube-api-key=/dev/shm/youtube-key
+rm /dev/shm/hub-secret /dev/shm/youtube-key
+kubectl -n ttacommunity rollout restart deployment/api
+kubectl -n ttacommunity create job --from=cronjob/movies movies-manual-1
+```
+
+A new hub secret takes effect for a channel when the job next subscribes it,
+so run the job by hand after replacing one.
 
 ### The tunnels
 

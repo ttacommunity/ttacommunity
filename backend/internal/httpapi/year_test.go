@@ -46,13 +46,13 @@ func TestYearLeaderboard(t *testing.T) {
 			Title:      &store.Title{Code: "GM", Count: 1, Reason: "Royal League"},
 			Season:     store.Record{Opponents: 3, Losses: 2, Draws: 1},
 			Career:     store.Record{Opponents: 6, Wins: 3, Losses: 2, Draws: 1},
-			LastPlayed: &last, PreviousRating: &pr, PreviousRD: &prd, PreviousCRating: &pc,
+			LastPlayed: &last, PreviousRating: &pr, PreviousRD: &prd, PreviousCRating: &pc, HasVideos: true,
 		}},
 	}}
 	rec, _ := serve(t, readsOnly{YearReads: f}, "/v1/runs/7/years/2024/leaderboard?model=glicko2_std&format=3")
 	want := `{"champions":[{"name":"bob","reigning":false}],"format":3,"games":2,"model":"glicko2_std","players":[` +
 		`{"c_rating":1600,"career":{"draws":1,"losses":2,"opponents":6,"win_rate":58.3,"wins":3},"country":"PL",` +
-		`"last_played":"2024-12-20","name":"ann","previous":{"c_rating":1500,"rating":1590,"rd":30},"rating":1690,"rd":30,` +
+		`"has_videos":true,"last_played":"2024-12-20","name":"ann","previous":{"c_rating":1500,"rating":1590,"rd":30},"rating":1690,"rd":30,` +
 		`"season":{"draws":1,"losses":2,"opponents":3,"win_rate":16.7,"wins":0},"title":{"code":"GM","count":1,"reason":"Royal League"}}],` +
 		`"previous":"2023-12-31","run_id":7,"snapshot":"2024-12-31","year":2024}`
 	if got := strings.TrimSpace(rec.Body.String()); rec.Code != http.StatusOK || got != want {

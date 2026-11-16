@@ -1,4 +1,4 @@
-// Admin management of YouTube creator channels, video visibility, and manual feed sync.
+// Admin management of YouTube creator channels and overrides of videos' verdicts.
 package httpapi
 
 import (
@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"ttacommunity/backend/internal/enginejob"
+	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -25,13 +27,18 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 	channels := make([]AdminVideoChannel, len(state.Channels))
 	for i, c := range state.Channels {
 		channels[i] = AdminVideoChannel{
-			ChannelId:     c.ChannelID,
-			Name:          c.Name,
-			Player:        c.Player,
-			IncludeAll:    c.IncludeAll,
-			CreatedAt:     c.CreatedAt.UTC(),
-			LastCheckedAt: inUTC(c.LastCheckedAt),
-			VideoCount:    c.VideoCount,
+			ChannelId:    c.ChannelID,
+			Name:         c.Name,
+			Player:       c.Player,
+			IncludeAll:   c.IncludeAll,
+			CreatedAt:    c.CreatedAt.UTC(),
+			SubscribedAt: inUTC(c.SubscribedAt),
+			LeaseEndsAt:  inUTC(c.LeaseEndsAt),
+			LastPushAt:   inUTC(c.LastPushAt),
+			LastError:    c.LastError,
+			LastErrorAt:  inUTC(c.LastErrorAt),
+			VideoCount:   c.VideoCount,
+			VideosFound:  c.VideosFound,
 		}
 	}
 	videos := make([]AdminVideo, len(state.Videos))
@@ -43,11 +50,18 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 			Title:        v.Title,
 			PublishedAt:  v.PublishedAt.UTC(),
 			ThumbnailUrl: v.ThumbnailURL,
-			Hidden:       v.Hidden,
+			IsTta:        v.IsTTA,
+			TtaReason:    v.TTAReason,
+			TtaOverride:  v.TTAOverride,
+			Shown:        v.Shown,
 		}
 	}
+	running, err := s.admins.MovieJobGoing(ctx)
+	if err != nil && !errors.Is(err, enginejob.ErrNotSetUp) {
+		s.log.Error("asking the cluster whether the Movies job is going failed; it is shown as not running", "err", err)
+	}
 	return GetAdminMovieChannels200JSONResponse{
-		Body:    AdminMoviesState{Channels: channels, Videos: videos},
+		Body:    AdminMoviesState{Channels: channels, Videos: videos, JobRunning: running && err == nil},
 		Headers: GetAdminMovieChannels200ResponseHeaders{CacheControl: cacheNone},
 	}, nil
 }
@@ -64,8 +78,13 @@ func (s *server) PostAdminMovieChannel(ctx context.Context, req PostAdminMovieCh
 		return PostAdminMovieChannel400JSONResponse{badRequest400("channel and creator name are required")}, nil
 	}
 	channelID, err := s.admins.ResolveMovieChannel(ctx, req.Body.Channel)
+	for _, refused := range []error{movies.ErrNotAChannel, movies.ErrNoSuchChannel, movies.ErrNoYouTube} {
+		if errors.Is(err, refused) {
+			return PostAdminMovieChannel400JSONResponse{badRequest400(refused.Error())}, nil
+		}
+	}
 	if err != nil {
-		return PostAdminMovieChannel400JSONResponse{badRequest400(err.Error())}, nil
+		return nil, err
 	}
 	now := s.now().UTC().Truncate(time.Second)
 	var ch store.AdminVideoChannel
@@ -86,13 +105,12 @@ func (s *server) PostAdminMovieChannel(ctx context.Context, req PostAdminMovieCh
 		return nil, err
 	}
 	return PostAdminMovieChannel201JSONResponse{
-		ChannelId:     ch.ChannelID,
-		Name:          ch.Name,
-		Player:        ch.Player,
-		IncludeAll:    ch.IncludeAll,
-		CreatedAt:     ch.CreatedAt.UTC(),
-		LastCheckedAt: inUTC(ch.LastCheckedAt),
-		VideoCount:    ch.VideoCount,
+		ChannelId:  ch.ChannelID,
+		Name:       ch.Name,
+		Player:     ch.Player,
+		IncludeAll: ch.IncludeAll,
+		CreatedAt:  ch.CreatedAt.UTC(),
+		VideoCount: ch.VideoCount,
 	}, nil
 }
 
@@ -148,19 +166,6 @@ func (s *server) DeleteAdminMovieChannel(ctx context.Context, req DeleteAdminMov
 	return DeleteAdminMovieChannel204Response{}, nil
 }
 
-func (s *server) PostAdminMoviesSync(ctx context.Context, _ PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error) {
-	if _, ok, err := adminOnly(ctx); err != nil {
-		return nil, err
-	} else if !ok {
-		return PostAdminMoviesSync403JSONResponse{forbidden(onlyAdminsMovies)}, nil
-	}
-	res, err := s.admins.SyncMoviesNow(ctx, s.now().UTC().Truncate(time.Second))
-	if err != nil {
-		return nil, err
-	}
-	return PostAdminMoviesSync200JSONResponse{Checked: res.Checked, Added: res.Added}, nil
-}
-
 func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error) {
 	me, ok, err := adminOnly(ctx)
 	if err != nil {
@@ -173,14 +178,10 @@ func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVi
 		return PatchAdminMovieVideo400JSONResponse{badRequest400("request body is required")}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
-		if err := tx.SetMovieVideoHidden(ctx, req.VideoId, req.Body.Hidden); err != nil {
+		if err := tx.SetMovieVideoOverride(ctx, req.VideoId, req.Body.Override); err != nil {
 			return err
 		}
-		action := "movie.video.show"
-		if req.Body.Hidden {
-			action = "movie.video.hide"
-		}
-		return tx.Audit(ctx, me.DiscordID, action, req.VideoId, nil)
+		return tx.Audit(ctx, me.DiscordID, "movie.video.override", req.VideoId, map[string]any{"override": req.Body.Override})
 	})
 	if errors.Is(err, store.ErrNoVideo) {
 		return PatchAdminMovieVideo404JSONResponse{notFound404("no such video")}, nil
@@ -189,4 +190,38 @@ func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVi
 		return nil, err
 	}
 	return PatchAdminMovieVideo204Response{}, nil
+}
+
+func (s *server) PostAdminMoviesRun(ctx context.Context, req PostAdminMoviesRunRequestObject) (PostAdminMoviesRunResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminMoviesRun403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	channel := ""
+	if req.Body != nil && req.Body.Channel != nil {
+		channel = strings.TrimSpace(*req.Body.Channel)
+	}
+	// The Job starts before the commit, so it runs unaudited only if the audit row or the commit fails.
+	var job string
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if job, err = tx.StartMovieJob(ctx, channel); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "movie.run", job, map[string]any{"channel": channel})
+	})
+	switch {
+	case errors.Is(err, store.ErrNoChannel):
+		return PostAdminMoviesRun404JSONResponse{notFound404("no such YouTube channel")}, nil
+	case errors.Is(err, enginejob.ErrRunning):
+		return PostAdminMoviesRun409JSONResponse{conflict409("a Movies job is already going")}, nil
+	case errors.Is(err, enginejob.ErrNotSetUp):
+		return PostAdminMoviesRun503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "starting the Movies job is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return PostAdminMoviesRun202JSONResponse{Job: job}, nil
 }

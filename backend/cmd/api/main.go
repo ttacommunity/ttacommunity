@@ -124,6 +124,18 @@ func main() {
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
 	}
+	admins.youtube = openYouTube(os.Getenv)
+	if admins.youtube == nil {
+		log.Info("admin takes YouTube channels only by id: YOUTUBE_API_KEY is not set")
+	}
+	hub, err := openMovieHub(os.Getenv, signIns.PlayerStore, ratings, admins.youtube, log)
+	if err != nil {
+		log.Error("refusing to start: the Movies hub callback is not set up", "err", err)
+		os.Exit(1)
+	}
+	if hub == nil {
+		log.Info("the Movies hub callback is off: MOVIES_HUB_SECRET is not set")
+	}
 	visits, err := openVisits(ctx, os.Getenv, signIns.SiteOrigin(), log)
 	if err != nil {
 		log.Error("refusing to start: counting visits is not set up", "err", err)
@@ -137,8 +149,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	startMovieSync(ctx, admins, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, visits, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, visits, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}
@@ -172,46 +183,39 @@ func serveMetrics(ctx context.Context, addr string, reg *metrics.Registry, log *
 type adminDeps struct {
 	*access.Verifier
 	*store.AdminStore
-	origin       string
-	starter      *enginejob.Starter
-	poster       *notify.Discord
-	movieFetcher *movies.Fetcher
+	origin  string
+	starter *enginejob.Starter
+	poster  *notify.Discord
+	youtube *movies.YouTube
+	// movieStarter starts Movies Jobs; nil without MOVIES_CRONJOB.
+	movieStarter *enginejob.Starter
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
 func (d adminDeps) AllowedOrigin() string { return d.origin }
 
-// ResolveMovieChannel resolves a YouTube channel URL, handle, or ID into a canonical UC... channel ID.
+// ResolveMovieChannel returns the channel id a channel's id, address or @handle names; a handle needs the
+// Data API.
 func (d adminDeps) ResolveMovieChannel(ctx context.Context, raw string) (string, error) {
-	return d.movieFetcher.ResolveChannel(ctx, raw)
+	return d.youtube.ResolveChannel(ctx, raw)
 }
 
-// SyncMoviesNow fetches YouTube RSS feeds for all enabled channels and stores new TTA videos.
-func (d adminDeps) SyncMoviesNow(ctx context.Context, now time.Time) (store.MoviesSyncResult, error) {
-	return d.SyncMovies(ctx, d.movieFetcher, now)
-}
-
-func startMovieSync(ctx context.Context, admins adminDeps, log *slog.Logger) {
-	if admins.AdminStore == nil || admins.movieFetcher == nil {
-		return
+// StartMovieJob starts the Movies job for channelID, or every channel when empty, or returns
+// enginejob.ErrNotSetUp when MOVIES_CRONJOB is not set.
+func (d adminDeps) StartMovieJob(ctx context.Context, channelID string) (string, error) {
+	if d.movieStarter == nil {
+		return "", enginejob.ErrNotSetUp
 	}
-	go func() {
-		ticker := time.NewTicker(30 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				res, err := admins.SyncMoviesNow(ctx, time.Now())
-				if err != nil {
-					log.Error("movie sync failed", "err", err)
-					continue
-				}
-				log.Info("movie sync completed", "channels", res.Checked, "added", res.Added)
-			}
-		}
-	}()
+	return startMovieJob(ctx, d.AdminStore, d.movieStarter, channelID)
+}
+
+// MovieJobGoing reports whether a Movies Job is unfinished, or returns enginejob.ErrNotSetUp when MOVIES_CRONJOB
+// is not set.
+func (d adminDeps) MovieJobGoing(ctx context.Context) (bool, error) {
+	if d.movieStarter == nil {
+		return false, enginejob.ErrNotSetUp
+	}
+	return d.movieStarter.Going(ctx)
 }
 
 // Change runs fn in one transaction on the admin login, so a change and its audit commit together or not at all.
@@ -249,6 +253,7 @@ func (d adminDeps) EngineGoing(ctx context.Context) (bool, error) {
 // openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 // ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.
+// MOVIES_CRONJOB, when set, names the CronJob admin starts Movies jobs from, in the same namespace.
 // ADMIN_DEV_USER, when set, bypasses Access for local development; addr must then be 127.0.0.1.
 // It returns admin and its pool, for the caller to close and report on.
 func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, error) {
@@ -281,14 +286,20 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 		pool.Close()
 		return adminDeps{}, nil, err
 	}
-	var starter *enginejob.Starter
+	var starter, movieStarter *enginejob.Starter
 	if cj := os.Getenv("ENGINE_CRONJOB"); cj != "" {
 		if starter, err = enginejob.InCluster(cj); err != nil {
 			pool.Close()
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), movies.NewFetcher(nil)}, pool, nil
+	if cj := os.Getenv("MOVIES_CRONJOB"); cj != "" {
+		if movieStarter, err = enginejob.InCluster(cj); err != nil {
+			pool.Close()
+			return adminDeps{}, nil, err
+		}
+	}
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

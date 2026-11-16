@@ -50,6 +50,7 @@ type LeaderboardRow struct {
 	Title      *Title
 	Peak       *Peak
 	Badges     []ExtraBadge
+	HasVideos  bool
 }
 
 // ExtraBadge is a badge admin gave a player, shown beside their title.
@@ -184,7 +185,7 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 	rows, err := r.pool.Query(ctx, `
 		SELECT r.rank, r.rank_delta, p.name, r.rating, r.rd, r.c_rating, r.games_played, r.opponents_count,
 			r.wins, r.losses, r.draws, r.win_rate, r.last_played, m.country_code, t.title, t.title_count, t.badge_reason,
-			k.peak_title, k.peak_year
+			k.peak_title, k.peak_year, `+hasVideos+`
 		FROM player_ratings r
 		JOIN players p USING (player_id)
 		LEFT JOIN members m ON m.player_id = p.player_id
@@ -201,7 +202,7 @@ func (r *RatingsReader) Leaderboard(ctx context.Context, run int64, model string
 		var title, reason, peak *string
 		var count, peakYear *int
 		err := row.Scan(&p.Rank, &p.RankDelta, &p.Name, &p.Rating, &p.RD, &p.CRating, &p.Games, &p.Opponents,
-			&p.Wins, &p.Losses, &p.Draws, &p.WinRate, &p.LastPlayed, &p.Country, &title, &count, &reason, &peak, &peakYear)
+			&p.Wins, &p.Losses, &p.Draws, &p.WinRate, &p.LastPlayed, &p.Country, &title, &count, &reason, &peak, &peakYear, &p.HasVideos)
 		p.Title, p.Peak = titleAndPeak(title, count, reason, peak, peakYear)
 		return p, err
 	})

@@ -64,7 +64,7 @@ spec:
       # Applies the ratings migrations to ratings_dev before the api starts, as its owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-0be8416b@sha256:a783cbd758591435d674ed405bdfd8fbd3fea0915e69d738da2cde01491cee9b
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-51032335@sha256:3711cf849147e8ded9abb0e3e71464d281a6772a42b5326bde8649f41f1b2939
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -85,7 +85,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-0be8416b@sha256:a783cbd758591435d674ed405bdfd8fbd3fea0915e69d738da2cde01491cee9b
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-51032335@sha256:3711cf849147e8ded9abb0e3e71464d281a6772a42b5326bde8649f41f1b2939
           ports:
             - name: http
               containerPort: 8080
@@ -111,6 +111,8 @@ spec:
               value: https://ttacommunitydev.cloudflareaccess.com
             - name: ENGINE_CRONJOB
               value: engine-dev
+            - name: MOVIES_CRONJOB
+              value: movies-dev
             - name: ACCESS_AUD
               value: 385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82
             - name: ADMIN_ORIGIN
@@ -179,6 +181,19 @@ spec:
                 secretKeyRef:
                   name: cloudflare-analytics
                   key: account-id
+                  optional: true
+            # Movies: as deploy/api.yaml, from the dev site's own Secret.
+            - name: MOVIES_HUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: movies-dev
+                  key: hub-secret
+                  optional: true
+            - name: YOUTUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: movies-dev
+                  key: youtube-api-key
                   optional: true
           resources:
             requests:

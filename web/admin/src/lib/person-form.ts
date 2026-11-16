@@ -41,6 +41,19 @@ export function personChoices(found: readonly Candidate[], typed: string, taken:
   return out;
 }
 
+/** linkChoices are whom a field may link to: the members and rated players the search found, as personChoices offers them, without a new name, which a link cannot make. */
+export function linkChoices(found: readonly Candidate[], typed: string): PersonChoice[] {
+  return personChoices(found, typed, { entered: [], membersTaken: false }).filter((c) => c.key !== 'new' && c.key !== 'entered');
+}
+
+/** playerChoices are the rated players the search found, for a field that links a player: as linkChoices offers them, each named as the ratings name them. */
+export function playerChoices(found: readonly Candidate[], typed: string): PersonChoice[] {
+  return linkChoices(
+    found.filter((c) => c.player !== '').map((c) => ({ ...c, name: c.player })),
+    typed,
+  );
+}
+
 /** details is the form's details as sent: trimmed, an empty one left out, the zone always. */
 function details(f: PersonDetails): Pick<NewMember, 'discord_name' | 'email' | 'country' | 'zone'> {
   const out: Pick<NewMember, 'discord_name' | 'email' | 'country' | 'zone'> = { zone: f.zone };

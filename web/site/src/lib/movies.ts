@@ -33,3 +33,15 @@ export function formatMovieDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d);
 }
+
+/** The Movies page filtered to a player's channels. */
+export function moviesHref(player: string): string {
+  return `/movies/?${new URLSearchParams({ player })}`;
+}
+
+/** The channels of the player the address's ?player= names, in any case; none when it names nobody. */
+export function creatorsOfPlayer(creators: readonly MovieCreator[], search: string): Set<string> {
+  const player = (new URLSearchParams(search).get('player') ?? '').trim().toLowerCase();
+  if (player === '') return new Set();
+  return new Set(creators.filter((c) => c.player?.toLowerCase() === player).map((c) => c.channel_id));
+}

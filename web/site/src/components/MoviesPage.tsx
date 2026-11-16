@@ -4,6 +4,7 @@ import { browserStorage } from '@ttac/shared/storage';
 import { seemsSignedIn } from '../lib/account';
 import {
   creatorVideoCounts,
+  creatorsOfPlayer,
   filterVideosByCreators,
   formatMovieDate,
   youtubeEmbedUrl,
@@ -39,7 +40,9 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
         return (await r.json()) as MoviesFeed;
       })
       .then((data) => {
-        if (!cancelled) setState({ kind: 'ready', data });
+        if (cancelled) return;
+        setSelected(creatorsOfPlayer(data.creators, window.location.search));
+        setState({ kind: 'ready', data });
       })
       .catch((err: unknown) => {
         if (!cancelled) setState({ kind: 'error', message: err instanceof Error ? err.message : 'Could not load videos' });

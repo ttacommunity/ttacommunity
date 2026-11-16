@@ -1355,6 +1355,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/movies/hub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * YouTube's hub checks a subscription request we made
+         * @description WebSub's verification of intent. Echoes `hub.challenge` for a
+         *     subscribe to a linked channel's feed, or an unsubscribe from one no
+         *     longer linked, and records a subscribe's lease; anything else is a
+         *     404. Without `MOVIES_HUB_SECRET` set here, every request is a 404.
+         *     Never cached.
+         */
+        get: operations["confirmMovieHub"];
+        put?: never;
+        /**
+         * YouTube's hub pushes a linked channel's new, changed or deleted videos
+         * @description Every request must carry `X-Hub-Signature`, the body's HMAC by
+         *     `MOVIES_HUB_SECRET`; any other is refused with 401 and stores
+         *     nothing. Videos of channels not linked are ignored. Without the
+         *     secret set here, it is a 404.
+         */
+        post: operations["receiveMoviePush"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/movies/seen": {
         parameters: {
             query?: never;
@@ -2520,12 +2551,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** YouTube creator channels and recent fetched videos (admins only) */
+        /** YouTube creator channels and every stored video, newest first (admins only) */
         get: operations["getAdminMovieChannels"];
         put?: never;
         /**
          * Add a YouTube creator channel to the Movies feed (admins only)
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. Its videos are read by the Movies job: admin starts it for the new channel with POST /v1/admin/movies/run, and the daily run reads every channel.
          */
         post: operations["postAdminMovieChannel"];
         delete?: never;
@@ -2558,7 +2589,7 @@ export interface paths {
         patch: operations["patchAdminMovieChannel"];
         trace?: never;
     };
-    "/v1/admin/movies/sync": {
+    "/v1/admin/movies/run": {
         parameters: {
             query?: never;
             header?: never;
@@ -2568,10 +2599,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Fetch all YouTube creator feeds now (admins only)
-         * @description Audited. The Origin must be the admin site.
+         * Start the Movies job now, for every creator or one (admins only)
+         * @description Starts the Movies job as a Job from its CronJob: it reads every upload of each creator's channel (only the channel given, when one is), subscribes it to YouTube's pushes, drops the videos YouTube no longer shows, and records on each channel what failed. One Movies job runs at a time. Audited. The Origin must be the admin site.
          */
-        post: operations["postAdminMoviesSync"];
+        post: operations["postAdminMoviesRun"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2592,7 +2623,7 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Hide or show a video in the Movies feed (admins only)
+         * Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
          * @description Audited. The Origin must be the admin site.
          */
         patch: operations["patchAdminMovieVideo"];
@@ -5277,6 +5308,8 @@ export interface components {
             title: components["schemas"]["Title"];
             /** @description Badges admin gave the player, by label, shown beside the title */
             badges?: components["schemas"]["ExtraBadge"][];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
         };
         /**
          * @description What a leaderboard delta compares with
@@ -5376,6 +5409,8 @@ export interface components {
             title: components["schemas"]["Title"];
             /** @description Badges admin gave the player, by label, shown beside the title */
             badges?: components["schemas"]["ExtraBadge"][];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
             peak: components["schemas"]["Peak"];
             /** Format: date */
             last_played: string | null;
@@ -5654,6 +5689,8 @@ export interface components {
              */
             last_played: string | null;
             previous: components["schemas"]["PreviousRating"];
+            /** @description Whether the player has a YouTube channel on the Movies page with a video it shows */
+            has_videos: boolean;
         };
         YearRecord: {
             opponents: number;
@@ -6766,6 +6803,14 @@ export interface components {
             creators: components["schemas"]["MovieCreator"][];
             videos: components["schemas"]["MovieVideo"][];
         };
+        StartMoviesRun: {
+            /** @description A linked channel's id, to read that channel alone; every channel when absent */
+            channel?: string;
+        };
+        StartedMoviesRun: {
+            /** @description The Movies Job's name */
+            job: string;
+        };
         AdminVideoChannel: {
             channel_id: string;
             name: string;
@@ -6773,9 +6818,29 @@ export interface components {
             include_all: boolean;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description When YouTube's hub last confirmed our subscription to the channel's uploads
+             */
+            subscribed_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When that subscription ends unless renewed
+             */
+            lease_ends_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When the hub last pushed a video for the channel
+             */
+            last_push_at?: string | null;
+            /** @description The last thing that went wrong subscribing or fetching the channel's videos */
+            last_error?: string | null;
             /** Format: date-time */
-            last_checked_at?: string | null;
+            last_error_at?: string | null;
+            /** @description How many of its videos the Movies page shows */
             video_count: number;
+            /** @description How many of its videos are stored, shown or not */
+            videos_found: number;
         };
         AdminVideo: {
             video_id: string;
@@ -6785,9 +6850,18 @@ export interface components {
             /** Format: date-time */
             published_at: string;
             thumbnail_url: string;
-            hidden: boolean;
+            /** @description Whether the video's title, description or tags say it is about TTA */
+            is_tta: boolean;
+            /** @description Why, as in "mentions Through the Ages" or "no mention of TTA" */
+            tta_reason: string;
+            /** @description An admin's say, shown (true) or not (false) whatever the verdict; null leaves it to the verdict */
+            tta_override: boolean | null;
+            /** @description Whether the Movies page shows the video, the override if any, else the verdict */
+            shown: boolean;
         };
         AdminMoviesState: {
+            /** @description Whether a Movies Job, scheduled or started from admin, has not finished; false where none can be started */
+            job_running: boolean;
             channels: components["schemas"]["AdminVideoChannel"][];
             videos: components["schemas"]["AdminVideo"][];
         };
@@ -6804,11 +6878,8 @@ export interface components {
             include_all?: boolean;
         };
         VideoPatch: {
-            hidden: boolean;
-        };
-        MoviesSyncResult: {
-            checked: number;
-            added: number;
+            /** @description Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null) */
+            override: boolean | null;
         };
         NostradamusEditions: {
             editions: components["schemas"]["NostradamusEdition"][];
@@ -8851,6 +8922,59 @@ export interface operations {
             };
         };
     };
+    confirmMovieHub: {
+        parameters: {
+            query: {
+                "hub.mode": string;
+                "hub.topic": string;
+                "hub.challenge": string;
+                "hub.lease_seconds"?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The challenge, echoed */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    receiveMoviePush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/atom+xml": string;
+            };
+        };
+        responses: {
+            /** @description Taken */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     postMyMoviesSeen: {
         parameters: {
             query?: never;
@@ -10551,26 +10675,33 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    postAdminMoviesSync: {
+    postAdminMoviesRun: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartMoviesRun"];
+            };
+        };
         responses: {
-            /** @description Sync summary */
-            200: {
+            /** @description The Movies Job was created */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MoviesSyncResult"];
+                    "application/json": components["schemas"]["StartedMoviesRun"];
                 };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
         };
     };
     patchAdminMovieVideo: {

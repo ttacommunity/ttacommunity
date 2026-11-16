@@ -9,7 +9,7 @@ import type { Load } from '@ttac/shared/load';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { closeBlocker, emptyQuestionForm, linkChoices, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
+import { closeBlocker, emptyQuestionForm, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
 import { useDialog } from '@ttac/shared/Dialog';
 import { countryNames, type Country } from '@ttac/shared/countries';
@@ -19,8 +19,7 @@ import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import AdminPage from './AdminPage';
 import Notice from './Notice';
 import PersonForm from './PersonForm';
-import PickBox from './PickBox';
-import usePeopleSearch from './usePeopleSearch';
+import PeoplePick from './PeoplePick';
 import ZonePick from './ZonePick';
 import './AdminApp.css';
 import AdminTable from './AdminTable';
@@ -301,7 +300,6 @@ function QuestionRow({ game, round, question: q, status, run }: { game: Game; ro
 function QuestionEditor({ title, start, onSave }: { title: string; start: QuestionForm; onSave: (f: QuestionForm) => Promise<void> }) {
   const [f, setF] = useState<QuestionForm>(start);
   const [typed, setTyped] = useState('');
-  const found = usePeopleSearch('/api/people', typed, false, f.choices);
   const save = async (e: FormEvent) => {
     e.preventDefault();
     await onSave(f);
@@ -350,8 +348,8 @@ function QuestionEditor({ title, start, onSave }: { title: string; start: Questi
         )}
       </div>
       {f.kind !== 'number' && (
-        <PickBox label="Add a player to the choices" text={typed} placeholder="Search a TTA username" options={linkChoices(found, typed)}
-          onText={setTyped} onPick={(o) => { setF({ ...f, choices: withChoice(f.choices, o.label) }); setTyped(''); }} />
+        <PeoplePick label="Add a player to the choices" value={typed} onChange={setTyped} refresh={f.choices}
+          onPick={(o) => { setF({ ...f, choices: withChoice(f.choices, o.label) }); setTyped(''); }} />
       )}
       {f.kind !== 'number' && (
         <label className="admin-block">
@@ -603,7 +601,6 @@ function MembersTab({ game, regions, countries, onReload, outcome, say }: Props 
 /** ParticipantRow is one participant: their status to change, and the member to link them to. */
 function ParticipantRow({ game, participant: p, run }: { game: Game; participant: Game['participants'][number]; run: (r: req.Request, done: string, at: string) => Promise<void> }) {
   const [member, setMember] = useState(p.member ?? '');
-  const found = usePeopleSearch('/api/people', member, member === (p.member ?? ''), game);
   return (
     <tr>
       <td>
@@ -622,8 +619,7 @@ function ParticipantRow({ game, participant: p, run }: { game: Game; participant
       <td>
         {!p.bot && (
           <>
-            <PickBox label={`Member: ${p.name}`} hideLabel text={member} placeholder="Search a TTA username" options={linkChoices(found, member)}
-              onText={setMember} onPick={(o) => setMember(o.label)} />{' '}
+            <PeoplePick label={`Member: ${p.name}`} hideLabel value={member} onChange={setMember} refresh={game} />{' '}
             <button type="button" className="btn-antique" disabled={member === (p.member ?? '')}
               onClick={() => void run(req.linkNostradamusParticipant(game.slug, p.id, member), member.trim() === '' ? `Unlinked ${p.name}.` : `Linked ${p.name} to ${member.trim()}.`, 'everyone')}>
               Save

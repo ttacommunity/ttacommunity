@@ -23,6 +23,7 @@ import AdminPage from './AdminPage';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
 import Notice, { NoticeRow } from './Notice';
+import PeoplePick from './PeoplePick';
 import PersonForm from './PersonForm';
 import PickBox from './PickBox';
 import usePeopleSearch from './usePeopleSearch';
@@ -982,8 +983,6 @@ function FormatWarnings({ warnings }: { warnings: readonly string[] }) {
 /** OrganisersPanel lists the members every round's Discord threads tell players to ping, removes one, and adds a member found by their username. */
 function OrganisersPanel({ at, ed, onReload, outcome, say }: Props) {
   const [typed, setTyped] = useState('');
-  const found = usePeopleSearch('/api/people', typed, false, ed);
-  const choices = organiserChoices(found, ed.organisers);
   const change = async (r: req.Request, done: string) => {
     const res = await req.send(r);
     say(outcomeOf(res, done, 'organisers'));
@@ -1007,16 +1006,14 @@ function OrganisersPanel({ at, ed, onReload, outcome, say }: Props) {
         </ul>
       )}
       <div className="admin-add">
-        <PickBox
+        <PeoplePick
           label="Add an organiser"
-          text={typed}
+          value={typed}
           placeholder="Type a member's name"
-          options={choices}
-          onText={setTyped}
-          onPick={(o) => {
-            const c = choices.find((x) => x.key === o.key);
-            if (c !== undefined && !c.disabled) void change(req.addBlitzOrganiser(at.slug, at.edition, Number(c.key)), `${c.label} organises it now.`);
-          }}
+          choices={(found) => organiserChoices(found, ed.organisers)}
+          refresh={ed}
+          onChange={setTyped}
+          onPick={(o) => void change(req.addBlitzOrganiser(at.slug, at.edition, Number(o.key)), `${o.label} organises it now.`)}
         />
       </div>
       <Notice outcome={shownAt(outcome, 'organisers')} onClose={() => say(null)} />

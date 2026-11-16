@@ -3,11 +3,18 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// hasVideos is whether player p has a linked channel with a video the Movies page shows.
+const hasVideos = `EXISTS (
+	SELECT 1 FROM video_channels vc JOIN videos v USING (channel_id)
+	WHERE vc.player_id = p.player_id AND coalesce(v.tta_override, v.is_tta)
+)`
 
 // MovieCreator is one YouTube creator listed in the Movies filter.
 type MovieCreator struct {
@@ -53,7 +60,7 @@ func (s *RatingsReader) Movies(ctx context.Context) (MoviesFeed, error) {
 		FROM videos v
 		JOIN video_channels vc USING (channel_id)
 		LEFT JOIN players p ON p.player_id = vc.player_id
-		WHERE NOT v.hidden
+		WHERE coalesce(v.tta_override, v.is_tta)
 		ORDER BY v.published_at DESC, v.video_id
 		LIMIT 200`)
 	if err != nil {
@@ -64,4 +71,26 @@ func (s *RatingsReader) Movies(ctx context.Context) (MoviesFeed, error) {
 		return MoviesFeed{}, fmt.Errorf("reading movie videos: %w", err)
 	}
 	return MoviesFeed{Creators: creators, Videos: videos}, nil
+}
+
+// MovieClassifying returns what a verdict on channelID's video needs: whether its every video counts, and every
+// tournament's name. It returns ErrNoChannel when the channel is not linked.
+func (s *RatingsReader) MovieClassifying(ctx context.Context, channelID string) (bool, []string, error) {
+	var includeAll bool
+	err := s.pool.QueryRow(ctx, "SELECT include_all FROM video_channels WHERE channel_id = $1", channelID).Scan(&includeAll)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil, ErrNoChannel
+	}
+	if err != nil {
+		return false, nil, fmt.Errorf("reading a video channel: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, "SELECT name FROM series WHERE btrim(name) <> '' ORDER BY name")
+	if err != nil {
+		return false, nil, fmt.Errorf("reading tournament names: %w", err)
+	}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return false, nil, fmt.Errorf("reading tournament names: %w", err)
+	}
+	return includeAll, names, nil
 }

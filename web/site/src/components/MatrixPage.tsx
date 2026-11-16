@@ -22,7 +22,7 @@ import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
-import { TitleBadge } from './PlayerMarks';
+import { TitleBadge, VideosButton } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
 import PanelHeader from './PanelHeader';
 
@@ -194,9 +194,12 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
         </>
       }
       links={
-        <a href={achievementsHref(player.name)} className="btn-antique">
-          🏆 Achievements »
-        </a>
+        <>
+          <a href={achievementsHref(player.name)} className="btn-antique">
+            🏆 Achievements »
+          </a>
+          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-antique" />
+        </>
       }
     />
   );

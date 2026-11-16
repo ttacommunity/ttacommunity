@@ -28,6 +28,7 @@ type Player struct {
 	Title      *Title
 	Peak       *Peak
 	Badges     []ExtraBadge
+	HasVideos  bool
 	LastPlayed *time.Time
 	NewestGame *time.Time
 	Games      map[int]int
@@ -164,12 +165,12 @@ func (r *RatingsReader) Player(ctx context.Context, run int64, asked string) (Pl
 	var count, peakYear *int
 	err = r.pool.QueryRow(ctx, `
 		SELECT m.country_code, t.title, t.title_count, t.badge_reason, k.peak_title, k.peak_year,
-			(SELECT max(date) FROM pairwise_matches WHERE run_id = $1)
+			(SELECT max(date) FROM pairwise_matches WHERE run_id = $1), `+hasVideos+`
 		FROM players p
 		LEFT JOIN members m ON m.player_id = p.player_id
 		LEFT JOIN player_titles t ON t.run_id = $1 AND t.player_id = p.player_id
 		LEFT JOIN player_peak_titles k ON k.run_id = $1 AND k.player_id = p.player_id
-		WHERE p.player_id = $2`, run, who.ID).Scan(&p.Country, &title, &count, &reason, &peak, &peakYear, &p.NewestGame)
+		WHERE p.player_id = $2`, run, who.ID).Scan(&p.Country, &title, &count, &reason, &peak, &peakYear, &p.NewestGame, &p.HasVideos)
 	if err != nil {
 		return Player{}, fmt.Errorf("reading a player in run %d: %w", run, err)
 	}

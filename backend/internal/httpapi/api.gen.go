@@ -1640,7 +1640,10 @@ type AdminMember struct {
 // AdminMoviesState defines model for AdminMoviesState.
 type AdminMoviesState struct {
 	Channels []AdminVideoChannel `json:"channels"`
-	Videos   []AdminVideo        `json:"videos"`
+
+	// JobRunning Whether a Movies Job, scheduled or started from admin, has not finished; false where none can be started
+	JobRunning bool         `json:"job_running"`
+	Videos     []AdminVideo `json:"videos"`
 }
 
 // AdminNostradamusAnswer defines model for AdminNostradamusAnswer.
@@ -2032,24 +2035,52 @@ type AdminTournamentRow struct {
 
 // AdminVideo defines model for AdminVideo.
 type AdminVideo struct {
-	ChannelId    string    `json:"channel_id"`
-	CreatorName  string    `json:"creator_name"`
-	Hidden       bool      `json:"hidden"`
-	PublishedAt  time.Time `json:"published_at"`
-	ThumbnailUrl string    `json:"thumbnail_url"`
-	Title        string    `json:"title"`
-	VideoId      string    `json:"video_id"`
+	ChannelId   string `json:"channel_id"`
+	CreatorName string `json:"creator_name"`
+
+	// IsTta Whether the video's title, description or tags say it is about TTA
+	IsTta       bool      `json:"is_tta"`
+	PublishedAt time.Time `json:"published_at"`
+
+	// Shown Whether the Movies page shows the video, the override if any, else the verdict
+	Shown        bool   `json:"shown"`
+	ThumbnailUrl string `json:"thumbnail_url"`
+	Title        string `json:"title"`
+
+	// TtaOverride An admin's say, shown (true) or not (false) whatever the verdict; null leaves it to the verdict
+	TtaOverride *bool `json:"tta_override"`
+
+	// TtaReason Why, as in "mentions Through the Ages" or "no mention of TTA"
+	TtaReason string `json:"tta_reason"`
+	VideoId   string `json:"video_id"`
 }
 
 // AdminVideoChannel defines model for AdminVideoChannel.
 type AdminVideoChannel struct {
-	ChannelId     string     `json:"channel_id"`
-	CreatedAt     time.Time  `json:"created_at"`
-	IncludeAll    bool       `json:"include_all"`
-	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
-	Name          string     `json:"name"`
-	Player        *string    `json:"player,omitempty"`
-	VideoCount    int        `json:"video_count"`
+	ChannelId  string    `json:"channel_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	IncludeAll bool      `json:"include_all"`
+
+	// LastError The last thing that went wrong subscribing or fetching the channel's videos
+	LastError   *string    `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+
+	// LastPushAt When the hub last pushed a video for the channel
+	LastPushAt *time.Time `json:"last_push_at,omitempty"`
+
+	// LeaseEndsAt When that subscription ends unless renewed
+	LeaseEndsAt *time.Time `json:"lease_ends_at,omitempty"`
+	Name        string     `json:"name"`
+	Player      *string    `json:"player,omitempty"`
+
+	// SubscribedAt When YouTube's hub last confirmed our subscription to the channel's uploads
+	SubscribedAt *time.Time `json:"subscribed_at,omitempty"`
+
+	// VideoCount How many of its videos the Movies page shows
+	VideoCount int `json:"video_count"`
+
+	// VideosFound How many of its videos are stored, shown or not
+	VideosFound int `json:"videos_found"`
 }
 
 // Agreement defines model for Agreement.
@@ -3637,9 +3668,12 @@ type LeaderboardRow struct {
 	CRating float64 `json:"c_rating"`
 
 	// Country The player's country, ISO 3166-1 alpha-2, if known
-	Country    *string             `json:"country"`
-	Draws      int                 `json:"draws"`
-	Games      int                 `json:"games"`
+	Country *string `json:"country"`
+	Draws   int     `json:"draws"`
+	Games   int     `json:"games"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos  bool                `json:"has_videos"`
 	LastPlayed *openapi_types.Date `json:"last_played"`
 	Losses     int                 `json:"losses"`
 	Name       string              `json:"name"`
@@ -3820,12 +3854,6 @@ type MovieVideo struct {
 type MoviesFeed struct {
 	Creators []MovieCreator `json:"creators"`
 	Videos   []MovieVideo   `json:"videos"`
-}
-
-// MoviesSyncResult defines model for MoviesSyncResult.
-type MoviesSyncResult struct {
-	Added   int `json:"added"`
-	Checked int `json:"checked"`
 }
 
 // MyBlitz defines model for MyBlitz.
@@ -4382,7 +4410,10 @@ type Player struct {
 	Country *string       `json:"country"`
 
 	// Games How many games the player has in the run, by format (0 is all)
-	Games      []FormatGames       `json:"games"`
+	Games []FormatGames `json:"games"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos  bool                `json:"has_videos"`
 	LastPlayed *openapi_types.Date `json:"last_played"`
 
 	// Name The player's name as stored, whatever case was asked for
@@ -4967,9 +4998,21 @@ type StandingsCheck struct {
 	StagesOnlyOnCge int `json:"stages_only_on_cge"`
 }
 
+// StartMoviesRun defines model for StartMoviesRun.
+type StartMoviesRun struct {
+	// Channel A linked channel's id, to read that channel alone; every channel when absent
+	Channel *string `json:"channel,omitempty"`
+}
+
 // StartRunRequest defines model for StartRunRequest.
 type StartRunRequest struct {
 	Ranking *RankingTrack `json:"ranking,omitempty"`
+}
+
+// StartedMoviesRun defines model for StartedMoviesRun.
+type StartedMoviesRun struct {
+	// Job The Movies Job's name
+	Job string `json:"job"`
 }
 
 // StartedRun defines model for StartedRun.
@@ -5225,7 +5268,8 @@ type VideoChannelPatch struct {
 
 // VideoPatch defines model for VideoPatch.
 type VideoPatch struct {
-	Hidden bool `json:"hidden"`
+	// Override Show the video (true) or not (false) whatever its verdict, or leave it to the verdict (null)
+	Override *bool `json:"override"`
 }
 
 // YearEntry defines model for YearEntry.
@@ -5277,6 +5321,9 @@ type YearRow struct {
 	CRating float64    `json:"c_rating"`
 	Career  YearRecord `json:"career"`
 	Country *string    `json:"country"`
+
+	// HasVideos Whether the player has a YouTube channel on the Movies page with a video it shows
+	HasVideos bool `json:"has_videos"`
 
 	// LastPlayed The player's last game that year
 	LastPlayed *openapi_types.Date `json:"last_played"`
@@ -5514,6 +5561,14 @@ type GetChallengePlayerParams struct {
 type GetChallengeBoardParams struct {
 	// Verified Count only entries that link a Discord proof (the official records), or every entry
 	Verified *ChallengeVerified `form:"verified,omitempty" json:"verified,omitempty"`
+}
+
+// ConfirmMovieHubParams defines parameters for ConfirmMovieHub.
+type ConfirmMovieHubParams struct {
+	HubMode         string `form:"hub.mode" json:"hub.mode"`
+	HubTopic        string `form:"hub.topic" json:"hub.topic"`
+	HubChallenge    string `form:"hub.challenge" json:"hub.challenge"`
+	HubLeaseSeconds *int   `form:"hub.lease_seconds,omitempty" json:"hub.lease_seconds,omitempty"`
 }
 
 // GetCurrentRunParams defines parameters for GetCurrentRun.
@@ -5759,6 +5814,9 @@ type PostAdminMovieChannelJSONRequestBody = NewVideoChannel
 
 // PatchAdminMovieChannelJSONRequestBody defines body for PatchAdminMovieChannel for application/json ContentType.
 type PatchAdminMovieChannelJSONRequestBody = VideoChannelPatch
+
+// PostAdminMoviesRunJSONRequestBody defines body for PostAdminMoviesRun for application/json ContentType.
+type PostAdminMoviesRunJSONRequestBody = StartMoviesRun
 
 // PatchAdminMovieVideoJSONRequestBody defines body for PatchAdminMovieVideo for application/json ContentType.
 type PatchAdminMovieVideoJSONRequestBody = VideoPatch
@@ -6047,7 +6105,7 @@ type ServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId)
-	// GetAdminMovieChannels YouTube creator channels and recent fetched videos (admins only)
+	// GetAdminMovieChannels YouTube creator channels and every stored video, newest first (admins only)
 	// (GET /v1/admin/movies/channels)
 	GetAdminMovieChannels(w http.ResponseWriter, r *http.Request)
 	// PostAdminMovieChannel Add a YouTube creator channel to the Movies feed (admins only)
@@ -6059,10 +6117,10 @@ type ServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(w http.ResponseWriter, r *http.Request, channelId string)
-	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
-	// (POST /v1/admin/movies/sync)
-	PostAdminMoviesSync(w http.ResponseWriter, r *http.Request)
-	// PatchAdminMovieVideo Hide or show a video in the Movies feed (admins only)
+	// PostAdminMoviesRun Start the Movies job now, for every creator or one (admins only)
+	// (POST /v1/admin/movies/run)
+	PostAdminMoviesRun(w http.ResponseWriter, r *http.Request)
+	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(w http.ResponseWriter, r *http.Request, videoId string)
 	// GetAdminNostradamusEditions Every Nostradamus game (admins and organisers)
@@ -6314,6 +6372,12 @@ type ServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(w http.ResponseWriter, r *http.Request)
+	// ConfirmMovieHub YouTube's hub checks a subscription request we made
+	// (GET /v1/movies/hub)
+	ConfirmMovieHub(w http.ResponseWriter, r *http.Request, params ConfirmMovieHubParams)
+	// ReceiveMoviePush YouTube's hub pushes a linked channel's new, changed or deleted videos
+	// (POST /v1/movies/hub)
+	ReceiveMoviePush(w http.ResponseWriter, r *http.Request)
 	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(w http.ResponseWriter, r *http.Request)
@@ -8450,11 +8514,11 @@ func (siw *ServerInterfaceWrapper) PatchAdminMovieChannel(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
-// PostAdminMoviesSync operation middleware
-func (siw *ServerInterfaceWrapper) PostAdminMoviesSync(w http.ResponseWriter, r *http.Request) {
+// PostAdminMoviesRun operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminMoviesRun(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostAdminMoviesSync(w, r)
+		siw.Handler.PostAdminMoviesRun(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -10763,6 +10827,92 @@ func (siw *ServerInterfaceWrapper) GetMovies(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ConfirmMovieHub operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmMovieHub(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ConfirmMovieHubParams
+
+	// ------------- Required query parameter "hub.mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.mode", r.URL.Query(), &params.HubMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.mode"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.mode", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "hub.topic" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.topic", r.URL.Query(), &params.HubTopic, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.topic"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.topic", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "hub.challenge" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.challenge", r.URL.Query(), &params.HubChallenge, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.challenge"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.challenge", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hub.lease_seconds" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hub.lease_seconds", r.URL.Query(), &params.HubLeaseSeconds, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.lease_seconds"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.lease_seconds", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmMovieHub(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReceiveMoviePush operation middleware
+func (siw *ServerInterfaceWrapper) ReceiveMoviePush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReceiveMoviePush(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetNostradamusEditions operation middleware
 func (siw *ServerInterfaceWrapper) GetNostradamusEditions(w http.ResponseWriter, r *http.Request) {
 
@@ -12561,6 +12711,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/discord/interactions", wrapper.AnswerDiscordInteraction)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/movies", wrapper.GetMovies)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/movies/hub", wrapper.ConfirmMovieHub)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/movies/hub", wrapper.ReceiveMoviePush)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/movies/seen", wrapper.PostMyMoviesSeen)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me", wrapper.DeleteMe)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me", wrapper.GetMe)
@@ -12625,7 +12777,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.PostAdminMovieChannel)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.DeleteAdminMovieChannel)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.PatchAdminMovieChannel)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/sync", wrapper.PostAdminMoviesSync)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/run", wrapper.PostAdminMoviesRun)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/videos/{videoId}", wrapper.PatchAdminMovieVideo)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
@@ -17750,30 +17902,31 @@ func (response PatchAdminMovieChannel404JSONResponse) VisitPatchAdminMovieChanne
 	return err
 }
 
-type PostAdminMoviesSyncRequestObject struct {
+type PostAdminMoviesRunRequestObject struct {
+	Body *PostAdminMoviesRunJSONRequestBody
 }
 
-type PostAdminMoviesSyncResponseObject interface {
-	VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error
+type PostAdminMoviesRunResponseObject interface {
+	VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error
 }
 
-type PostAdminMoviesSync200JSONResponse MoviesSyncResult
+type PostAdminMoviesRun202JSONResponse StartedMoviesRun
 
-func (response PostAdminMoviesSync200JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
+func (response PostAdminMoviesRun202JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(202)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type PostAdminMoviesSync401JSONResponse struct{ UnauthorizedJSONResponse }
+type PostAdminMoviesRun401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response PostAdminMoviesSync401JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
+func (response PostAdminMoviesRun401JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -17786,9 +17939,9 @@ func (response PostAdminMoviesSync401JSONResponse) VisitPostAdminMoviesSyncRespo
 	return err
 }
 
-type PostAdminMoviesSync403JSONResponse struct{ ForbiddenJSONResponse }
+type PostAdminMoviesRun403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response PostAdminMoviesSync403JSONResponse) VisitPostAdminMoviesSyncResponse(w http.ResponseWriter) error {
+func (response PostAdminMoviesRun403JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -17797,6 +17950,51 @@ func (response PostAdminMoviesSync403JSONResponse) VisitPostAdminMoviesSyncRespo
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminMoviesRun404JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminMoviesRun409JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response PostAdminMoviesRun503JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -23415,6 +23613,124 @@ func (response GetMovies200JSONResponse) VisitGetMoviesResponse(w http.ResponseW
 	return err
 }
 
+type ConfirmMovieHubRequestObject struct {
+	Params ConfirmMovieHubParams
+}
+
+type ConfirmMovieHubResponseObject interface {
+	VisitConfirmMovieHubResponse(w http.ResponseWriter) error
+}
+
+type ConfirmMovieHub200ResponseHeaders struct {
+	CacheControl string
+}
+
+type ConfirmMovieHub200TextResponse struct {
+	Body    string
+	Headers ConfirmMovieHub200ResponseHeaders
+}
+
+func (response ConfirmMovieHub200TextResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response.Body)))
+	return err
+}
+
+type ConfirmMovieHub400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ConfirmMovieHub400JSONResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmMovieHub404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConfirmMovieHub404JSONResponse) VisitConfirmMovieHubResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePushRequestObject struct {
+	Body io.Reader
+}
+
+type ReceiveMoviePushResponseObject interface {
+	VisitReceiveMoviePushResponse(w http.ResponseWriter) error
+}
+
+type ReceiveMoviePush204Response struct {
+}
+
+func (response ReceiveMoviePush204Response) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ReceiveMoviePush400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ReceiveMoviePush400JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePush401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ReceiveMoviePush401JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveMoviePush404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReceiveMoviePush404JSONResponse) VisitReceiveMoviePushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetNostradamusEditionsRequestObject struct {
 }
 
@@ -25514,7 +25830,7 @@ type StrictServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(ctx context.Context, request PutAdminMemberBanRequestObject) (PutAdminMemberBanResponseObject, error)
-	// GetAdminMovieChannels YouTube creator channels and recent fetched videos (admins only)
+	// GetAdminMovieChannels YouTube creator channels and every stored video, newest first (admins only)
 	// (GET /v1/admin/movies/channels)
 	GetAdminMovieChannels(ctx context.Context, request GetAdminMovieChannelsRequestObject) (GetAdminMovieChannelsResponseObject, error)
 	// PostAdminMovieChannel Add a YouTube creator channel to the Movies feed (admins only)
@@ -25526,10 +25842,10 @@ type StrictServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(ctx context.Context, request PatchAdminMovieChannelRequestObject) (PatchAdminMovieChannelResponseObject, error)
-	// PostAdminMoviesSync Fetch all YouTube creator feeds now (admins only)
-	// (POST /v1/admin/movies/sync)
-	PostAdminMoviesSync(ctx context.Context, request PostAdminMoviesSyncRequestObject) (PostAdminMoviesSyncResponseObject, error)
-	// PatchAdminMovieVideo Hide or show a video in the Movies feed (admins only)
+	// PostAdminMoviesRun Start the Movies job now, for every creator or one (admins only)
+	// (POST /v1/admin/movies/run)
+	PostAdminMoviesRun(ctx context.Context, request PostAdminMoviesRunRequestObject) (PostAdminMoviesRunResponseObject, error)
+	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(ctx context.Context, request PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error)
 	// GetAdminNostradamusEditions Every Nostradamus game (admins and organisers)
@@ -25781,6 +26097,12 @@ type StrictServerInterface interface {
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(ctx context.Context, request GetMoviesRequestObject) (GetMoviesResponseObject, error)
+	// ConfirmMovieHub YouTube's hub checks a subscription request we made
+	// (GET /v1/movies/hub)
+	ConfirmMovieHub(ctx context.Context, request ConfirmMovieHubRequestObject) (ConfirmMovieHubResponseObject, error)
+	// ReceiveMoviePush YouTube's hub pushes a linked channel's new, changed or deleted videos
+	// (POST /v1/movies/hub)
+	ReceiveMoviePush(ctx context.Context, request ReceiveMoviePushRequestObject) (ReceiveMoviePushResponseObject, error)
 	// GetNostradamusEditions Every Nostradamus game with a round published
 	// (GET /v1/nostradamus)
 	GetNostradamusEditions(ctx context.Context, request GetNostradamusEditionsRequestObject) (GetNostradamusEditionsResponseObject, error)
@@ -27830,23 +28152,33 @@ func (sh *strictHandler) PatchAdminMovieChannel(w http.ResponseWriter, r *http.R
 	}
 }
 
-// PostAdminMoviesSync operation middleware
-func (sh *strictHandler) PostAdminMoviesSync(w http.ResponseWriter, r *http.Request) {
-	var request PostAdminMoviesSyncRequestObject
+// PostAdminMoviesRun operation middleware
+func (sh *strictHandler) PostAdminMoviesRun(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminMoviesRunRequestObject
+
+	var body PostAdminMoviesRunJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.PostAdminMoviesSync(ctx, request.(PostAdminMoviesSyncRequestObject))
+		return sh.ssi.PostAdminMoviesRun(ctx, request.(PostAdminMoviesRunRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PostAdminMoviesSync")
+		handler = middleware(handler, "PostAdminMoviesRun")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(PostAdminMoviesSyncResponseObject); ok {
-		if err := validResponse.VisitPostAdminMoviesSyncResponse(w); err != nil {
+	} else if validResponse, ok := response.(PostAdminMoviesRunResponseObject); ok {
+		if err := validResponse.VisitPostAdminMoviesRunResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -30234,6 +30566,58 @@ func (sh *strictHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMoviesResponseObject); ok {
 		if err := validResponse.VisitGetMoviesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmMovieHub operation middleware
+func (sh *strictHandler) ConfirmMovieHub(w http.ResponseWriter, r *http.Request, params ConfirmMovieHubParams) {
+	var request ConfirmMovieHubRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmMovieHub(ctx, request.(ConfirmMovieHubRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmMovieHub")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmMovieHubResponseObject); ok {
+		if err := validResponse.VisitConfirmMovieHubResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReceiveMoviePush operation middleware
+func (sh *strictHandler) ReceiveMoviePush(w http.ResponseWriter, r *http.Request) {
+	var request ReceiveMoviePushRequestObject
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReceiveMoviePush(ctx, request.(ReceiveMoviePushRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReceiveMoviePush")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReceiveMoviePushResponseObject); ok {
+		if err := validResponse.VisitReceiveMoviePushResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

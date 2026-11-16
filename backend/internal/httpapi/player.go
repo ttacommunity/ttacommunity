@@ -62,7 +62,7 @@ func (s *server) GetPlayer(ctx context.Context, req GetPlayerRequestObject) (Get
 		return nil, err
 	}
 
-	body := Player{RunId: req.Run, Name: p.Name, Country: p.Country, Games: []FormatGames{}, Ratings: []PlayerRating{}}
+	body := Player{RunId: req.Run, Name: p.Name, Country: p.Country, HasVideos: p.HasVideos, Games: []FormatGames{}, Ratings: []PlayerRating{}}
 	if p.Title != nil {
 		body.Title = &Title{Code: TitleCode(p.Title.Code), Count: p.Title.Count, Reason: p.Title.Reason}
 	}

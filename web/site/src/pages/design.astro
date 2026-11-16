@@ -7,7 +7,7 @@ import DialogSamples from '../components/DialogSamples';
 import Note from '@ttac/shared/Note';
 import SignInNote from '../components/SignInNote';
 import Message from '../components/Message';
-import { Flag, TitleBadge } from '../components/PlayerMarks';
+import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
@@ -116,6 +116,14 @@ const rows = [
       <Flag country="US" />
       <Flag country="ES" />
       <Flag country={null} />
+    </p>
+
+    <h2>Videos link</h2>
+    <p class="design-row">
+      Invented Caster <VideosLink name="Invented Caster" hasVideos />
+    </p>
+    <p class="design-row design-buttons">
+      <VideosButton name="Invented Caster" hasVideos className="btn-antique" />
     </p>
 
     <h2>Buttons</h2>

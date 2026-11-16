@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine, backup]
+                values: [api, engine, backup, movies]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine, backup]
+        values: [api, engine, backup, movies]
   policyTypes: [Egress]
   egress:
     - to:
@@ -166,9 +166,9 @@ spec:
   # Admin requests are verified against Cloudflare Access's signing keys, fetched
   # over HTTPS from the team domain, player sign-in exchanges its code with
   # Discord, Microsoft or Google (and fetches Microsoft's and Google's signing
-  # keys), email sign-in calls Resend and Turnstile, and the visit count
-  # asks Cloudflare's GraphQL API: any public address on 443, RFC1918
-  # excluded.
+  # keys), email sign-in calls Resend and Turnstile, the visit count
+  # asks Cloudflare's GraphQL API, and Movies reads YouTube's Data API: any
+  # public address on 443, RFC1918 excluded.
   podSelector:
     matchLabels:
       app: api
@@ -254,6 +254,27 @@ spec:
       ports:
         - protocol: TCP
           port: 6443
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: movies-egress
+  namespace: ttacommunity
+spec:
+  # The Movies job asks YouTube's hub to subscribe and reads the YouTube Data API, neither with fixed
+  # addresses: any public address on 443, RFC1918 excluded.
+  podSelector:
+    matchLabels:
+      app: movies
+  policyTypes: [Egress]
+  egress:
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
