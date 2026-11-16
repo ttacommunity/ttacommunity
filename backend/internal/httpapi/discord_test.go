@@ -228,6 +228,16 @@ func TestRatingSuggestsPlayers(t *testing.T) {
 	}
 }
 
+func TestSuggestionsAreForTheOptionBeingTyped(t *testing.T) {
+	body := `{"type":4,"data":{"name":"versus","options":[{"name":"player","type":3,"value":"Quill"},` +
+		`{"name":"other","type":3,"value":"groz","focused":true}]}}`
+	ratings := newDiscordRatings()
+	discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, body, slog.New(slog.DiscardHandler)))
+	if !slices.Equal(ratings.searched, []string{"groz"}) {
+		t.Errorf("searched for %q, want the focused option's [groz]", ratings.searched)
+	}
+}
+
 func TestRatingWithAName(t *testing.T) {
 	tests := []struct {
 		name        string

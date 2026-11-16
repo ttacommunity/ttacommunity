@@ -103,7 +103,7 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 // suggestPlayers offers the players whose names hold what was typed: none before anything is, or when the search fails.
 func (s *server) suggestPlayers(ctx context.Context, i DiscordInteraction) DiscordReply {
 	choices := []DiscordChoice{}
-	if term := discordbot.SearchTerm(stringOption(i, "player")); term != "" {
+	if term := discordbot.SearchTerm(focusedOption(i)); term != "" {
 		run, err := s.ratings.CurrentRun(ctx)
 		var names []string
 		if err == nil {
@@ -233,6 +233,20 @@ func option(i DiscordInteraction, name string) any {
 		}
 	}
 	return nil
+}
+
+// focusedOption is what has been typed so far in the option Discord asks suggestions for, or "".
+func focusedOption(i DiscordInteraction) string {
+	if i.Data == nil || i.Data.Options == nil {
+		return ""
+	}
+	for _, o := range *i.Data.Options {
+		if o.Focused != nil && *o.Focused {
+			v, _ := o.Value.(string)
+			return v
+		}
+	}
+	return ""
 }
 
 func stringOption(i DiscordInteraction, name string) string {
