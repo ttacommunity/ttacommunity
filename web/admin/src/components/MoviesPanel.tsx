@@ -21,16 +21,13 @@ import { playerChoices } from '../lib/person-form';
 import Notice, { LoadNotice } from './Notice';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
-import PickBox from './PickBox';
-import usePeopleSearch from './usePeopleSearch';
+import PeoplePick from './PeoplePick';
 
 export default function MoviesPanel() {
   const [state, setState] = useState<Load<AdminMoviesState>>({ kind: 'loading' });
   const [channel, setChannel] = useState('');
   const [name, setName] = useState('');
   const [player, setPlayer] = useState('');
-  const [picked, setPicked] = useState('');
-  const found = usePeopleSearch('/api/people', player, player === picked, null);
   const [includeAll, setIncludeAll] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,7 +63,6 @@ export default function MoviesPanel() {
     setChannel('');
     setName('');
     setPlayer('');
-    setPicked('');
     setIncludeAll(false);
     setOutcome(succeeded(`Added ${r.data.name} (${r.data.channel_id}).`, 'movies-add'));
     await reload();
@@ -159,17 +155,7 @@ export default function MoviesPanel() {
               placeholder="Creator name"
             />
           </label>
-          <PickBox
-            label="Linked TTA player (optional)"
-            text={player}
-            placeholder="Search a TTA username"
-            options={playerChoices(found, player)}
-            onText={setPlayer}
-            onPick={(o) => {
-              setPlayer(o.label);
-              setPicked(o.label);
-            }}
-          />
+          <PeoplePick label="Linked TTA player (optional)" value={player} onChange={setPlayer} choices={playerChoices} />
           <label className="setting movies-include-all">
             <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
             <span>Include all uploads (skip TTA filter)</span>
