@@ -340,19 +340,13 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 
 	matches := make([]VersusMatch, 0, len(shared))
 	for _, m := range shared {
-		seats := slices.Clone(m.Seats)
-		slices.SortStableFunc(seats, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
+		seats := placed(m.Seats)
 		vm := VersusMatch{
 			MatchId: m.ID, Tournament: m.Tournament, Date: openapi_types.Date{Time: m.Date},
 			PlayerCount: m.PlayerCount, ReplayCode: m.ReplayCode, Rated: m.Rated, Seats: make([]Seat, 0, len(seats)),
 		}
-		for i, seat := range seats {
-			switch seat.Name {
-			case name:
-				vm.NamePlace = i + 1
-			case other:
-				vm.OtherPlace = i + 1
-			}
+		vm.NamePlace, vm.OtherPlace = placesOf(seats, name, other)
+		for _, seat := range seats {
 			vm.Seats = append(vm.Seats, Seat{Name: seat.Name, Score: seat.Score})
 		}
 		matches = append(matches, vm)
@@ -361,6 +355,27 @@ func (s *server) GetPlayerVersus(ctx context.Context, req GetPlayerVersusRequest
 		Body:    PlayerVersus{RunId: req.Run, Name: name, Other: other, Matches: matches},
 		Headers: GetPlayerVersus200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// placed is a game's seats in finishing order, the highest score first; equal scores keep their recorded order.
+func placed(seats []store.Seat) []store.Seat {
+	s := slices.Clone(seats)
+	slices.SortStableFunc(s, func(a, b store.Seat) int { return compareDesc(a.Score, b.Score) })
+	return s
+}
+
+// placesOf is where name and other finished among placed seats, 1 the winner, 0 for one not seated.
+func placesOf(placed []store.Seat, name, other string) (int, int) {
+	var a, b int
+	for i, seat := range placed {
+		switch seat.Name {
+		case name:
+			a = i + 1
+		case other:
+			b = i + 1
+		}
+	}
+	return a, b
 }
 
 func compareDesc(a, b float64) int {

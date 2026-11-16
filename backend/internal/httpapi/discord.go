@@ -94,6 +94,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.myRatingReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "roll":
 		reply = rollReply(*i)
+	case i.Type == discordCommand && commandName(*i) == "versus":
+		reply = s.versusReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -180,6 +182,40 @@ func rollReply(i DiscordInteraction) DiscordReply {
 	private, _ := option(i, "private").(bool)
 	rolls := discordbot.RollDice(d, func(sides int) int { return rand.IntN(sides) + 1 })
 	return discordText(discordbot.DiceText(d, rolls), private)
+}
+
+// versusReply shows two players' record in their rated games together, as the site's head-to-head counts it, or
+// tells the asker alone why it cannot.
+func (s *server) versusReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name, other := strings.TrimSpace(stringOption(i, "player")), strings.TrimSpace(stringOption(i, "other"))
+	switch {
+	case name == "" || other == "":
+		return discordText("Give two players' names: `/versus <player> <other>`", true)
+	case strings.EqualFold(name, other):
+		return discordText("Pick two different players.", true)
+	}
+	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+" or "+discordbot.EscapeMarkdown(other)+".", true)
+	if playerRefusal(1, name, N0) != "" || playerRefusal(1, other, N0) != "" {
+		return noPlayer
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	name, other, shared, err := s.ratings.Versus(ctx, run.ID, name, other, true, false)
+	if errors.Is(err, store.ErrPlayerNotFound) {
+		return noPlayer
+	}
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	meetings := make([]discordbot.Meeting, 0, len(shared))
+	for _, m := range shared {
+		a, b := placesOf(placed(m.Seats), name, other)
+		meetings = append(meetings, discordbot.Meeting{Date: m.Date, Tournament: m.Tournament, PlayerCount: m.PlayerCount, NamePlace: a, OtherPlace: b})
+	}
+	format := formatOption(i)
+	return discordText(discordbot.VersusText(name, other, format, discordbot.TallyVersus(meetings, format), s.discord.Site()), !shareOption(i))
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.

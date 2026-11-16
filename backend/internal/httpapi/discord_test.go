@@ -49,10 +49,11 @@ func (f *fakeDiscord) DiscordMember(_ context.Context, discordID string) (store.
 // discordRatings is fakeRatings with players by name and a name search's answer, recording each search's term.
 type discordRatings struct {
 	fakeRatings
-	players  map[string]store.Player
-	names    []string
-	err      error
-	searched []string
+	players     map[string]store.Player
+	names       []string
+	err         error
+	searched    []string
+	versusAsked []string
 }
 
 func (r *discordRatings) Player(_ context.Context, _ int64, name string) (store.Player, error) {
@@ -70,6 +71,24 @@ func (r *discordRatings) PlayerNamesLike(_ context.Context, _ int64, term string
 	r.calls++
 	r.searched = append(r.searched, term)
 	return r.names[:min(limit, len(r.names))], r.err
+}
+
+// Versus answers Quill's games with Rook, by either's name, and no other pair's.
+func (r *discordRatings) Versus(_ context.Context, _ int64, name, other string, rated, unrated bool) (string, string, []store.PlayerMatch, error) {
+	r.calls++
+	r.versusAsked = append(r.versusAsked, fmt.Sprintf("%s/%s rated=%v unrated=%v", name, other, rated, unrated))
+	if r.err != nil {
+		return "", "", nil, r.err
+	}
+	if _, ok := r.players[name]; !ok || (other != "Rook" && other != "Quill") {
+		return "", "", nil, store.ErrPlayerNotFound
+	}
+	day := time.Date(2026, 10, 9, 0, 0, 0, 0, time.UTC)
+	return name, other, []store.PlayerMatch{
+		{Date: day, Tournament: "Autumn Cup", PlayerCount: 2, Seats: []store.Seat{{Name: other, Score: 80}, {Name: name, Score: 95}}},
+		{Date: day.AddDate(0, 0, -7), Tournament: "Autumn Cup", PlayerCount: 3,
+			Seats: []store.Seat{{Name: name, Score: 50}, {Name: "Third", Score: 70}, {Name: other, Score: 90}}},
+	}, nil
 }
 
 func rank(n int) *int { return &n }
@@ -321,6 +340,43 @@ func TestRollIsSharedUnlessAskedPrivate(t *testing.T) {
 				t.Errorf("a roll read the ratings %d times, want none", ratings.calls)
 			}
 		})
+	}
+}
+
+func TestVersus(t *testing.T) {
+	two := func(a, b string) string {
+		return `{"name":"player","type":3,"value":"` + a + `"},{"name":"other","type":3,"value":"` + b + `"}`
+	}
+	tests := []struct {
+		name        string
+		options     string
+		readErr     error
+		wantPrivate bool
+		wantText    string
+	}{
+		{"the record, to the asker alone", two("Quill", "Rook"), nil, true, "**Quill** 1 · **Rook** 1"},
+		{"shared with everyone", two("Quill", "Rook") + `,{"name":"share","type":5,"value":true}`, nil, false, "2 games"},
+		{"in one format", two("Quill", "Rook") + `,{"name":"format","type":4,"value":3}`, nil, true, "**Quill** 0 · **Rook** 1"},
+		{"a name no player has, private though shared", two("Quill", "Nobody") + `,{"name":"share","type":5,"value":true}`, nil, true, "Nobody"},
+		{"the same player twice", two("Quill", "quill"), nil, true, "two different players"},
+		{"the ratings not answering", two("Quill", "Rook"), errors.New("database is down"), true, "try again"},
+		{"no other player", `{"name":"player","type":3,"value":"Quill"}`, nil, true, "/versus"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			ratings.err = tt.readErr
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("versus", tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, tt.wantText)
+		})
+	}
+}
+
+func TestVersusCountsRatedGamesAsTheSiteDoes(t *testing.T) {
+	ratings := newDiscordRatings()
+	discordDo(ratings, &fakeDiscord{}, discordKey, command("versus", `{"name":"player","type":3,"value":"Quill"},{"name":"other","type":3,"value":"Rook"}`), slog.New(slog.DiscardHandler))
+	if want := []string{"Quill/Rook rated=true unrated=false"}; !slices.Equal(ratings.versusAsked, want) {
+		t.Errorf("asked Versus for %q, want %q", ratings.versusAsked, want)
 	}
 }
 

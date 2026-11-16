@@ -101,6 +101,7 @@ func TestTheCommandsHaveTheOptionsTheApiReads(t *testing.T) {
 		"rating":   {"player required=true", "format required=false", "share required=false"},
 		"myrating": {"format required=false", "share required=false"},
 		"roll":     {"dice required=true", "private required=false"},
+		"versus":   {"player required=true", "other required=true", "format required=false", "share required=false"},
 	}
 	if !maps.EqualFunc(got, want, slices.Equal) {
 		t.Errorf("commands = %q, want %q", got, want)
