@@ -96,6 +96,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = rollReply(*i)
 	case i.Type == discordCommand && commandName(*i) == "versus":
 		reply = s.versusReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "rivals":
+		reply = s.rivalsReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -216,6 +218,36 @@ func (s *server) versusReply(ctx context.Context, i DiscordInteraction) DiscordR
 	}
 	format := formatOption(i)
 	return discordText(discordbot.VersusText(name, other, format, discordbot.TallyVersus(meetings, format), s.discord.Site()), !shareOption(i))
+}
+
+// rivalsReply shows the opponents a player met most in rated games, as the site's rivals panel does, or tells the
+// asker alone why it cannot.
+func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name := strings.TrimSpace(stringOption(i, "player"))
+	if name == "" {
+		return discordText("Give a player's name: `/rivals <name>`", true)
+	}
+	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
+	format := formatOption(i)
+	if playerRefusal(1, name, N0) != "" {
+		return noPlayer
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	name, got, err := s.ratings.PlayerRivals(ctx, run.ID, name, format, true, false)
+	if errors.Is(err, store.ErrPlayerNotFound) {
+		return noPlayer
+	}
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	rivals := make([]discordbot.Rival, 0, len(got))
+	for _, v := range got {
+		rivals = append(rivals, discordbot.Rival{Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v)})
+	}
+	return discordText(discordbot.RivalsText(name, format, rivals, s.discord.Site()), !shareOption(i))
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.

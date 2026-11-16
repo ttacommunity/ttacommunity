@@ -239,15 +239,19 @@ func (s *server) GetPlayerRivals(ctx context.Context, req GetPlayerRivalsRequest
 	}
 	rivals := make([]Rival, 0, len(got))
 	for _, v := range got {
-		rate := (float64(v.Wins) + 0.5*float64(v.Draws)) / float64(max(1, v.Games)) * 100
 		rivals = append(rivals, Rival{
-			Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: round.Tenth(rate),
+			Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v),
 		})
 	}
 	return GetPlayerRivals200JSONResponse{
 		Body:    PlayerRivals{RunId: req.Run, Name: name, Format: format, Rivals: rivals},
 		Headers: GetPlayerRivals200ResponseHeaders{CacheControl: cacheRun},
 	}, nil
+}
+
+// rivalWinRate is the percentage of games against v won, a draw counting half, to a tenth.
+func rivalWinRate(v store.Rival) float64 {
+	return round.Tenth((float64(v.Wins) + 0.5*float64(v.Draws)) / float64(max(1, v.Games)) * 100)
 }
 
 // GetPlayerCareer returns a player's record each year and their peak in one model.
