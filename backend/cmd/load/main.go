@@ -160,6 +160,12 @@ var commands = []command{
 		}
 		return loadChallengeWeeks(fs.Arg(0))
 	}},
+	{"movies", "", "the daily Movies job: fill in each new channel's videos from its feed, renew every channel's subscription to YouTube's pushes, then drop the videos YouTube no longer shows and read the details still missing; needs RATINGS_ADMIN_DATABASE_URL, YOUTUBE_API_KEY, MOVIES_HUB_SECRET and API_ORIGIN, and applies no migration", func(fs *flag.FlagSet, args []string) error {
+		if err := parse(fs, args, 0); err != nil {
+			return err
+		}
+		return runMovies(time.Now())
+	}},
 	{"input-tables", "", "print the tables that hold inputs, one per line, and touch no database", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {
 			return err
