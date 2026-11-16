@@ -105,12 +105,15 @@ func UpsetsText(from, to time.Time, format int, upsets []Upset) string {
 		ahead, level := opponentsText(u.Ahead), opponentsText(u.Level)
 		var what string
 		switch {
-		case u.Opponents == 1 && ahead != "":
+		case u.PlayerCount == 2 && ahead != "":
 			what = fmt.Sprintf("%s lost to %s, %.0f%% to win", who, ahead, math.Round(u.Expected*100))
-		case u.Opponents == 1:
+		case u.PlayerCount == 2:
 			what = fmt.Sprintf("%s drew with %s, %.0f%% to win", who, level, math.Round(u.Expected*100))
 		default:
 			what = fmt.Sprintf("%s beat %g of %d, expected %.1f", who, u.Actual, u.Opponents, u.Expected)
+			if uncounted := u.PlayerCount - 1 - u.Opponents; uncounted > 0 {
+				what += fmt.Sprintf(" (%d not counted)", uncounted)
+			}
 			if ahead != "" {
 				what += " · behind " + ahead
 			}

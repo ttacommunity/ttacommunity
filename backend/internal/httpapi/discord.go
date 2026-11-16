@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/discordbot"
+	"ttacommunity/backend/internal/ratingdelta"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -102,6 +103,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.compareReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "seats":
 		reply = s.seatsReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "upsets":
+		reply = s.upsetsReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -310,6 +313,30 @@ func (s *server) seatsReply(ctx context.Context, i DiscordInteraction) DiscordRe
 		groups = append(groups, group)
 	}
 	return discordText(discordbot.SeatsText(stats.Name, formatOption(i), groups, s.discord.Site()), !shareOption(i))
+}
+
+// shownUpsets is how many upsets /upsets lists.
+const shownUpsets = 5
+
+// upsetsReply shows the biggest upsets in the month up to the current run's last game: favourites who lost to or
+// drew with players they were expected to beat, by their Glicko-D ratings going in.
+func (s *server) upsetsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	format := formatOption(i)
+	from, to, got, err := s.ratings.UpsetPairs(ctx, run.ID, format)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	pairs := make([]discordbot.Pair, 0, len(got))
+	for _, p := range got {
+		expected := ratingdelta.Expected(ratingdelta.Rating{Rating: p.Rating, RD: p.RD}, ratingdelta.Rating{Rating: p.OtherRating, RD: p.OtherRD})
+		pairs = append(pairs, discordbot.Pair{GameID: p.GameID, Date: p.Date, Tournament: p.Tournament, PlayerCount: p.PlayerCount,
+			Name: p.Name, Other: p.Other, Rating: p.Rating, OtherRating: p.OtherRating, Expected: expected, Score: p.Score, TimedOut: p.TimedOut})
+	}
+	return discordText(discordbot.UpsetsText(from, to, format, discordbot.Upsets(pairs, shownUpsets)), !shareOption(i))
 }
 
 // askedPlayer is the player option and the current run's id for a command about one player, or the reply to give

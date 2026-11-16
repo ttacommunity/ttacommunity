@@ -96,6 +96,8 @@ func TestUpsetsText(t *testing.T) {
 	}{
 		{"a duel: the loser's chance", duel, 0, []string{`**Fav\_1** (1800) lost to **Dog** (1500)`, "96% to win", "2026-10-04 to 2026-11-03"}},
 		{"a table: opponents beaten against expected", four, 0, []string{"beat 1 of 3, expected 2.6", "**a** (1500), **b** (1500)"}},
+		{"a table with opponents not counted", discordbot.Upsets([]discordbot.Pair{pair(3, 4, "Big", "a", 0.93, 0)}, 5), 0,
+			[]string{"beat 0 of 1, expected 0.9 (2 not counted)", "behind **a** (1500)"}},
 		{"none in a format", nil, 3, []string{"No upsets in rated 3-player games"}},
 	}
 	for _, tt := range tests {

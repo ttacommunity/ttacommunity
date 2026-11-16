@@ -56,6 +56,7 @@ type discordRatings struct {
 	versusAsked []string
 	rivalsAsked []string
 	seatsAsked  []string
+	upsetsAsked []int
 }
 
 func (r *discordRatings) Player(_ context.Context, _ int64, name string) (store.Player, error) {
@@ -118,6 +119,24 @@ func (r *discordRatings) PlayerSeats(_ context.Context, _ int64, name string, un
 	}
 	return store.PlayerSeatStats{Name: name, Groups: []store.PlayerSeatGroup{{PlayerCount: 2, TotalGames: 10, WinRate: 60,
 		Seats: []store.PlayerSeatRow{{Seat: 1, Games: 5, WinRate: 80, DeltaWinRate: 20}, {Seat: 2, Games: 5, WinRate: 40, DeltaWinRate: -20}}}}}, nil
+}
+
+// UpsetPairs answers a duel the stronger player lost, and a trio whose favourite timed out, recording the format.
+func (r *discordRatings) UpsetPairs(_ context.Context, _ int64, format int) (time.Time, time.Time, []store.UpsetPair, error) {
+	r.calls++
+	r.upsetsAsked = append(r.upsetsAsked, format)
+	if r.err != nil {
+		return time.Time{}, time.Time{}, nil, r.err
+	}
+	day := time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
+	duel := []store.UpsetPair{
+		{GameID: 1, Date: day, Tournament: "Cup", PlayerCount: 2, Name: "Quill", Other: "Rook", Rating: 1900, RD: 50, OtherRating: 1500, OtherRD: 80, Score: 0},
+		{GameID: 1, Date: day, Tournament: "Cup", PlayerCount: 2, Name: "Rook", Other: "Quill", Rating: 1500, RD: 80, OtherRating: 1900, OtherRD: 50, Score: 1},
+	}
+	trio := []store.UpsetPair{{GameID: 2, Date: day, Tournament: "Cup", PlayerCount: 3, Name: "Wren", Other: "Rook", Rating: 2000, RD: 50,
+		OtherRating: 1400, OtherRD: 80, Score: 0, TimedOut: true}}
+	pairs := map[int][]store.UpsetPair{0: append(duel, trio...), 2: duel, 3: trio}[format]
+	return day.AddDate(0, 0, -16), day.AddDate(0, 0, 14), pairs, nil
 }
 
 func rank(n int) *int { return &n }
@@ -503,6 +522,38 @@ func TestSeats(t *testing.T) {
 			wantMessage(t, r, tt.wantPrivate, tt.wantText)
 			if !slices.Equal(ratings.seatsAsked, tt.wantAsked) {
 				t.Errorf("asked PlayerSeats for %q, want %q", ratings.seatsAsked, tt.wantAsked)
+			}
+		})
+	}
+}
+
+func TestUpsets(t *testing.T) {
+	tests := []struct {
+		name        string
+		options     string
+		readErr     error
+		wantPrivate bool
+		wantText    string
+		notWant     string
+		wantFormat  []int
+	}{
+		{"the favourite's loss, to the asker alone", ``, nil, true, "**Quill** (1900) lost to **Rook** (1500), 90% to win", "", []int{0}},
+		{"a favourite who timed out left out", ``, nil, true, "Quill", "Wren", []int{0}},
+		{"shared, in one format", `{"name":"format","type":4,"value":2},{"name":"share","type":5,"value":true}`, nil, false, "rated 2-player games", "", []int{2}},
+		{"none in a format", `{"name":"format","type":4,"value":3}`, nil, true, "No upsets", "", []int{3}},
+		{"the ratings not answering", ``, errors.New("database is down"), true, "try again", "", []int{0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			ratings.err = tt.readErr
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("upsets", tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, tt.wantText)
+			if tt.notWant != "" && strings.Contains(*r.Data.Content, tt.notWant) {
+				t.Errorf("content = %q, want no %q", *r.Data.Content, tt.notWant)
+			}
+			if !slices.Equal(ratings.upsetsAsked, tt.wantFormat) {
+				t.Errorf("asked UpsetPairs for formats %v, want %v", ratings.upsetsAsked, tt.wantFormat)
 			}
 		})
 	}

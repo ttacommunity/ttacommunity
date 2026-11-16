@@ -269,7 +269,7 @@ after.
 
 The api answers our Discord slash commands at
 `POST /v1/discord/interactions`: `/rating <name>`, `/myrating`, `/versus`,
-`/rivals`, `/compare`, `/seats` (shown to the asker alone unless `share` is
+`/rivals`, `/compare`, `/seats`, `/upsets` (shown to the asker alone unless `share` is
 set) and `/roll` (shown to the channel unless `private` is set). Discord sends each use of a command there,
 signed with the application's key, and the api checks the signature before
 anything else. The commands are defined in

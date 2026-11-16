@@ -302,5 +302,44 @@
         "required": false
       }
     ]
+  },
+  {
+    "name": "upsets",
+    "description": "The biggest upsets in the last month of rated games, by the ratings going in",
+    "contexts": [
+      0
+    ],
+    "options": [
+      {
+        "type": 4,
+        "name": "format",
+        "description": "Players per game",
+        "required": false,
+        "choices": [
+          {
+            "name": "All formats",
+            "value": 0
+          },
+          {
+            "name": "2-player",
+            "value": 2
+          },
+          {
+            "name": "3-player",
+            "value": 3
+          },
+          {
+            "name": "4-player",
+            "value": 4
+          }
+        ]
+      },
+      {
+        "type": 5,
+        "name": "share",
+        "description": "Post it for everyone in the channel, not just you",
+        "required": false
+      }
+    ]
   }
 ]
