@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math"
 	"net/url"
 	"strings"
 	"time"
@@ -84,8 +83,8 @@ func RatingText(s Summary, site string) string {
 	if s.LastPlayed != nil {
 		last = " · last game " + s.LastPlayed.Format(time.DateOnly)
 	}
-	return fmt.Sprintf("%s · %s, Glicko-D\n%s · Rating %.0f ± %.0f · C-Rating %.0f\n%d games · %d opponents · %.1f%% won%s\n<%s>",
-		head, FormatLabel(s.Format), rank, math.Round(s.Rating), math.Round(s.RD), math.Round(s.CRating),
+	return fmt.Sprintf("%s · %s, Glicko-D\n%s · Rating %.1f ± %.1f · C-Rating %.2f\n%d games · %d opponents · %.1f%% won%s\n<%s>",
+		head, FormatLabel(s.Format), rank, s.Rating, s.RD, s.CRating,
 		s.Games, s.Opponents, s.WinRate, last, PlayerURL(site, s.Name))
 }
 
