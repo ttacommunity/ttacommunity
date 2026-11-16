@@ -425,6 +425,43 @@ func TestRivals(t *testing.T) {
 	}
 }
 
+func TestCompare(t *testing.T) {
+	players := func(names ...string) string {
+		opts := make([]string, len(names))
+		for i, n := range names {
+			opts[i] = fmt.Sprintf(`{"name":"player%d","type":3,"value":"%s"}`, i+1, n)
+		}
+		return strings.Join(opts, ",")
+	}
+	tests := []struct {
+		name        string
+		options     string
+		readErr     error
+		wantPrivate bool
+		wantText    []string
+	}{
+		{"two players, to the asker alone", players("Quill", "Rook"), nil, true, []string{"**Quill** [SGM]", "**Rook**"}},
+		{"four players, shared", players("Quill", "Rook", "Wren", "Finch") + `,{"name":"share","type":5,"value":true}`, nil, false, []string{"**Finch**"}},
+		{"a name no player has, private though shared", players("Quill", "Nobody") + `,{"name":"share","type":5,"value":true}`, nil, true, []string{"Nobody"}},
+		{"the same player twice", players("Quill", "quill"), nil, true, []string{"different players"}},
+		{"the ratings not answering", players("Quill", "Rook"), errors.New("database is down"), true, []string{"try again"}},
+		{"one player only", players("Quill"), nil, true, []string{"/compare"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			for _, n := range []string{"Rook", "Wren", "Finch"} {
+				ratings.players[n] = store.Player{Name: n, Ratings: []store.PlayerRating{{Model: "glicko2_daneo", Rating: 1500, RD: 100}}}
+			}
+			ratings.err = tt.readErr
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("compare", tt.options), slog.New(slog.DiscardHandler)))
+			for _, want := range tt.wantText {
+				wantMessage(t, r, tt.wantPrivate, want)
+			}
+		})
+	}
+}
+
 func TestTheDiscordEndpointLogsNoDiscordIDOrName(t *testing.T) {
 	for name, body := range map[string]string{"own": command("myrating", ""), "named": rating(`{"name":"player","type":3,"value":"Quill"}`)} {
 		t.Run(name, func(t *testing.T) {

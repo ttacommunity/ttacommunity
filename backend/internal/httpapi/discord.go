@@ -98,6 +98,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.versusReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "rivals":
 		reply = s.rivalsReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "compare":
+		reply = s.compareReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -248,6 +250,53 @@ func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordR
 		rivals = append(rivals, discordbot.Rival{Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v)})
 	}
 	return discordText(discordbot.RivalsText(name, format, rivals, s.discord.Site()), !shareOption(i))
+}
+
+// compareReply shows two to four players' Glicko-D ratings in every format side by side, or tells the asker alone why
+// it cannot.
+func (s *server) compareReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	var names []string
+	for _, opt := range []string{"player1", "player2", "player3", "player4"} {
+		name := strings.TrimSpace(stringOption(i, opt))
+		if name == "" {
+			continue
+		}
+		for _, seen := range names {
+			if strings.EqualFold(seen, name) {
+				return discordText("Pick different players.", true)
+			}
+		}
+		names = append(names, name)
+	}
+	if len(names) < 2 {
+		return discordText("Give two to four players' names: `/compare <player1> <player2>`", true)
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	compared := make([]discordbot.Compared, 0, len(names))
+	for _, name := range names {
+		noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
+		if playerRefusal(1, name, N0) != "" {
+			return noPlayer
+		}
+		p, err := s.ratings.Player(ctx, run.ID, name)
+		if errors.Is(err, store.ErrPlayerNotFound) {
+			return noPlayer
+		}
+		if err != nil {
+			return s.notAnswering(ctx, err)
+		}
+		c := discordbot.Compared{Name: p.Name, Games: p.Games[0], Ratings: map[int]discordbot.Summary{}}
+		for _, format := range []int{0, 2, 3, 4} {
+			if r, ok := summarise(p, format); ok {
+				c.Title, c.Ratings[format] = r.Title, r
+			}
+		}
+		compared = append(compared, c)
+	}
+	return discordText(discordbot.CompareText(compared), !shareOption(i))
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.

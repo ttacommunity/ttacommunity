@@ -208,5 +208,52 @@
         "required": false
       }
     ]
+  },
+  {
+    "name": "compare",
+    "description": "Two to four players' Glicko-D ratings side by side",
+    "contexts": [
+      0
+    ],
+    "options": [
+      {
+        "type": 3,
+        "name": "player1",
+        "description": "A TTA username",
+        "required": true,
+        "autocomplete": true,
+        "max_length": 100
+      },
+      {
+        "type": 3,
+        "name": "player2",
+        "description": "Another TTA username",
+        "required": true,
+        "autocomplete": true,
+        "max_length": 100
+      },
+      {
+        "type": 3,
+        "name": "player3",
+        "description": "A third, if you like",
+        "required": false,
+        "autocomplete": true,
+        "max_length": 100
+      },
+      {
+        "type": 3,
+        "name": "player4",
+        "description": "A fourth, if you like",
+        "required": false,
+        "autocomplete": true,
+        "max_length": 100
+      },
+      {
+        "type": 5,
+        "name": "share",
+        "description": "Post it for everyone in the channel, not just you",
+        "required": false
+      }
+    ]
   }
 ]
