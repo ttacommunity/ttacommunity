@@ -67,11 +67,22 @@ func (f *fakeJobStore) SetMovieChannelError(_ context.Context, id string, msg *s
 	return nil
 }
 
-// fakeYouTube knows the videos in details, fails every call with err, and records each call's ids.
+// fakeYouTube knows the videos in details and each channel's uploads, fails every videos call with err and
+// jobFail's uploads, and records each call.
 type fakeYouTube struct {
 	details map[string]movies.VideoDetails
+	uploads map[string][]string
 	err     error
 	calls   [][]string
+	asked   []string
+}
+
+func (f *fakeYouTube) LatestUploads(_ context.Context, id string, n int) ([]string, error) {
+	f.asked = append(f.asked, id)
+	if id == jobFail {
+		return nil, errors.New("the Data API answered HTTP 500 (backendError)")
+	}
+	return f.uploads[id][:min(n, len(f.uploads[id]))], nil
 }
 
 func (f *fakeYouTube) Videos(_ context.Context, ids []string) (map[string]movies.VideoDetails, error) {
@@ -88,20 +99,6 @@ func (f *fakeYouTube) Videos(_ context.Context, ids []string) (map[string]movies
 	return out, nil
 }
 
-// fakeFeeds answers each channel's feed, and fails jobFail's.
-type fakeFeeds struct {
-	entries map[string][]movies.Entry
-	asked   []string
-}
-
-func (f *fakeFeeds) FetchChannel(_ context.Context, id string) ([]movies.Entry, error) {
-	f.asked = append(f.asked, id)
-	if id == jobFail {
-		return nil, errors.New("HTTP 500 from YouTube")
-	}
-	return f.entries[id], nil
-}
-
 // fakeHub accepts every subscribe but those in refuse.
 type fakeHub struct {
 	refuse     map[string]bool
@@ -116,40 +113,57 @@ func (f *fakeHub) Subscribe(_ context.Context, id string) error {
 	return nil
 }
 
-func newJob(s *fakeJobStore, y *fakeYouTube, f *fakeFeeds, h *fakeHub) movieJob {
-	return movieJob{store: s, videos: y, feeds: f, hub: h, now: jobNow}
+func newJob(s *fakeJobStore, y *fakeYouTube, h *fakeHub) movieJob {
+	return movieJob{store: s, youtube: y, hub: h, now: jobNow}
 }
 
 func TestTheMovieJobFillsInANewChannelOnce(t *testing.T) {
 	s := &fakeJobStore{channels: []store.MovieJobChannel{{ChannelID: jobNew}, {ChannelID: jobOld, BackfilledAt: &jobNow}}}
-	y := &fakeYouTube{details: map[string]movies.VideoDetails{
-		"vid00000001": {Title: "Game 5", Description: "Through the Ages, round 2"},
-		"vid00000002": {Title: "Chess"},
-	}}
-	f := &fakeFeeds{entries: map[string][]movies.Entry{jobNew: {
-		{VideoID: "vid00000001", Title: "Game 5", PublishedAt: jobNow.Add(-time.Hour)},
-		{VideoID: "vid00000002", Title: "Chess", PublishedAt: jobNow.Add(-2 * time.Hour)},
-		{VideoID: "vid00000003", Title: "Gone private", Description: "Invented Open final", PublishedAt: jobNow.Add(-3 * time.Hour)},
-	}}}
-	if _, err := newJob(s, y, f, &fakeHub{}).run(context.Background()); err != nil {
+	y := &fakeYouTube{
+		uploads: map[string][]string{jobNew: {"vid00000001", "vid00000002", "vid00000003"}},
+		details: map[string]movies.VideoDetails{
+			"vid00000001": {Title: "Game 5", Description: "Through the Ages, round 2", PublishedAt: jobNow.Add(-time.Hour)},
+			"vid00000002": {Title: "Invented Open final", PublishedAt: jobNow.Add(-2 * time.Hour)},
+			"vid00000003": {Title: "Chess", PublishedAt: jobNow.Add(-3 * time.Hour)},
+		},
+	}
+	report, err := newJob(s, y, &fakeHub{}).run(context.Background())
+	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !slices.Equal(f.asked, []string{jobNew}) || !slices.Equal(s.backfilled, []string{jobNew}) {
-		t.Errorf("feeds read %q, marked filled in %q; want only the new channel's", f.asked, s.backfilled)
+	if !slices.Equal(y.asked, []string{jobNew}) || !slices.Equal(s.backfilled, []string{jobNew}) {
+		t.Errorf("uploads read %q, marked filled in %q; want only the new channel's", y.asked, s.backfilled)
 	}
-	verdicts := map[string]string{}
+	got := map[string]string{}
 	for _, v := range s.saved {
-		verdicts[v.VideoID] = fmt.Sprintf("%v %s %v", v.TTA, v.Reason, v.DetailsFetchedAt != nil)
+		got[v.VideoID] = fmt.Sprintf("%s|%v|%s|%v|%v", v.Title, v.TTA, v.Reason, v.DetailsFetchedAt != nil, v.PublishedAt.Equal(y.details[v.VideoID].PublishedAt))
 	}
 	want := map[string]string{
-		"vid00000001": "true mentions Through the Ages true",
-		"vid00000002": "false no mention of TTA true",
-		"vid00000003": "true names the tournament Invented Open false",
+		"vid00000001": "Game 5|true|mentions Through the Ages|true|true",
+		"vid00000002": "Invented Open final|true|names the tournament Invented Open|true|true",
+		"vid00000003": "Chess|false|no mention of TTA|true|true",
 	}
 	for id, w := range want {
-		if verdicts[id] != w {
-			t.Errorf("%s saved as %q, want %q", id, verdicts[id], w)
+		if got[id] != w {
+			t.Errorf("%s saved as %q, want %q", id, got[id], w)
 		}
+	}
+	if report.Filled != 3 {
+		t.Errorf("report = %+v, want 3 filled in", report)
+	}
+}
+
+func TestTheMovieJobFillsInOnlyWhatYouTubeStillShows(t *testing.T) {
+	s := &fakeJobStore{channels: []store.MovieJobChannel{{ChannelID: jobNew}}}
+	y := &fakeYouTube{
+		uploads: map[string][]string{jobNew: {"vid00000001", "vid00000002"}},
+		details: map[string]movies.VideoDetails{"vid00000001": {Title: "Game 5", PublishedAt: jobNow}},
+	}
+	if _, err := newJob(s, y, &fakeHub{}).run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(s.saved) != 1 || s.saved[0].VideoID != "vid00000001" {
+		t.Errorf("saved %+v, want only the video YouTube still shows", s.saved)
 	}
 }
 
@@ -160,7 +174,7 @@ func TestTheMovieJobRenewsEverySubscriptionAndRecordsFailures(t *testing.T) {
 		errs:     map[string]*string{jobOld: &failing},
 	}
 	h := &fakeHub{refuse: map[string]bool{jobAll: true}}
-	report, err := newJob(s, &fakeYouTube{}, &fakeFeeds{}, h).run(context.Background())
+	report, err := newJob(s, &fakeYouTube{}, h).run(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "2 of 3 channels") {
 		t.Errorf("run = %v, want an error naming 2 of 3 channels failing", err)
 	}
@@ -170,7 +184,7 @@ func TestTheMovieJobRenewsEverySubscriptionAndRecordsFailures(t *testing.T) {
 	if s.errs[jobOld] != nil {
 		t.Errorf("%s's error = %q after a clean run, want it cleared", jobOld, *s.errs[jobOld])
 	}
-	for id, want := range map[string]string{jobAll: "subscribing: the hub answered HTTP 503", jobFail: "filling in its videos: HTTP 500 from YouTube"} {
+	for id, want := range map[string]string{jobAll: "subscribing: the hub answered HTTP 503", jobFail: "filling in its videos: the Data API answered HTTP 500"} {
 		if s.errs[id] == nil || !strings.Contains(*s.errs[id], want) {
 			t.Errorf("%s's error = %v, want it to say %q", id, s.errs[id], want)
 		}
@@ -198,7 +212,7 @@ func TestTheMovieJobChecksEveryStoredVideo(t *testing.T) {
 		"vid00000003": {Title: "New title", Tags: []string{"through the ages"}},
 		"vid00000004": {Title: "Chess"},
 	}}
-	report, err := newJob(s, y, &fakeFeeds{}, &fakeHub{}).run(context.Background())
+	report, err := newJob(s, y, &fakeHub{}).run(context.Background())
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
@@ -235,7 +249,7 @@ func TestTheMovieJobAsksForAtMost50VideosAtOnce(t *testing.T) {
 		details[id] = movies.VideoDetails{}
 	}
 	y := &fakeYouTube{details: details}
-	if _, err := newJob(s, y, &fakeFeeds{}, &fakeHub{}).run(context.Background()); err != nil {
+	if _, err := newJob(s, y, &fakeHub{}).run(context.Background()); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	var sizes []int
@@ -250,7 +264,7 @@ func TestTheMovieJobAsksForAtMost50VideosAtOnce(t *testing.T) {
 func TestTheMovieJobDeletesNothingWhenTheDataAPIFails(t *testing.T) {
 	s := &fakeJobStore{videos: []store.MovieJobVideo{{VideoID: "vid00000001", ChannelID: jobOld, DetailsFetched: true}}}
 	y := &fakeYouTube{err: errors.New("the Data API answered HTTP 403 (quotaExceeded)")}
-	if _, err := newJob(s, y, &fakeFeeds{}, &fakeHub{}).run(context.Background()); err == nil || !strings.Contains(err.Error(), "quotaExceeded") {
+	if _, err := newJob(s, y, &fakeHub{}).run(context.Background()); err == nil || !strings.Contains(err.Error(), "quotaExceeded") {
 		t.Errorf("run = %v, want the Data API's failure", err)
 	}
 	if len(s.deleted) != 0 || len(s.saved) != 0 {
@@ -300,5 +314,19 @@ func TestTheMovieJobNeedsItsConfig(t *testing.T) {
 				t.Errorf("the config prints a secret: %s", s)
 			}
 		})
+	}
+}
+
+func TestTheMovieJobTriesANewChannelAgainWhenItsDetailsFail(t *testing.T) {
+	s := &fakeJobStore{channels: []store.MovieJobChannel{{ChannelID: jobNew}}}
+	y := &fakeYouTube{uploads: map[string][]string{jobNew: {"vid00000001"}}, err: errors.New("the Data API answered HTTP 403 (quotaExceeded)")}
+	if _, err := newJob(s, y, &fakeHub{}).run(context.Background()); err == nil {
+		t.Error("run succeeded, want an error")
+	}
+	if len(s.backfilled) != 0 || len(s.saved) != 0 {
+		t.Errorf("marked filled in %q, saved %d; want neither, so tomorrow tries again", s.backfilled, len(s.saved))
+	}
+	if msg := s.errs[jobNew]; msg == nil || !strings.Contains(*msg, "filling in its videos: the Data API answered HTTP 403") {
+		t.Errorf("the channel's error = %v, want the Data API's failure", msg)
 	}
 }

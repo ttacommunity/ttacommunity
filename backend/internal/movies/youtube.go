@@ -1,4 +1,5 @@
-// The YouTube Data API v3, read with an API key: videos' descriptions and tags, and a handle's channel.
+// The YouTube Data API v3, read with an API key: videos' details, a channel's latest uploads, and a handle's
+// channel.
 package movies
 
 import (
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -38,6 +40,7 @@ type VideoDetails struct {
 	Title       string
 	Description string
 	Tags        []string
+	PublishedAt time.Time
 }
 
 // YouTube reads the Data API with a key, sent in a header so no address or error carries it.
@@ -72,10 +75,11 @@ func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDet
 		Items []struct {
 			ID      string `json:"id"`
 			Snippet struct {
-				ChannelID   string   `json:"channelId"`
-				Title       string   `json:"title"`
-				Description string   `json:"description"`
-				Tags        []string `json:"tags"`
+				ChannelID   string    `json:"channelId"`
+				Title       string    `json:"title"`
+				Description string    `json:"description"`
+				Tags        []string  `json:"tags"`
+				PublishedAt time.Time `json:"publishedAt"`
 			} `json:"snippet"`
 		} `json:"items"`
 	}
@@ -86,10 +90,52 @@ func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDet
 	for _, it := range resp.Items {
 		out[it.ID] = VideoDetails{
 			VideoID: it.ID, ChannelID: it.Snippet.ChannelID, Title: it.Snippet.Title,
-			Description: it.Snippet.Description, Tags: it.Snippet.Tags,
+			Description: it.Snippet.Description, Tags: it.Snippet.Tags, PublishedAt: it.Snippet.PublishedAt.UTC(),
 		}
 	}
 	return out, nil
+}
+
+// LatestUploads returns the ids of channelID's newest n uploads (at most 50), newest first, from its uploads
+// playlist. ErrNoSuchChannel when YouTube has no such channel.
+func (y *YouTube) LatestUploads(ctx context.Context, channelID string, n int) ([]string, error) {
+	if !channelIDPattern.MatchString(channelID) {
+		return nil, errors.New("invalid channel id")
+	}
+	var channels struct {
+		Items []struct {
+			ContentDetails struct {
+				RelatedPlaylists struct {
+					Uploads string `json:"uploads"`
+				} `json:"relatedPlaylists"`
+			} `json:"contentDetails"`
+		} `json:"items"`
+	}
+	if err := y.get(ctx, "/channels", url.Values{"part": {"contentDetails"}, "id": {channelID}}, &channels); err != nil {
+		return nil, fmt.Errorf("reading a channel: %w", err)
+	}
+	if len(channels.Items) == 0 || channels.Items[0].ContentDetails.RelatedPlaylists.Uploads == "" {
+		return nil, ErrNoSuchChannel
+	}
+	var items struct {
+		Items []struct {
+			ContentDetails struct {
+				VideoID string `json:"videoId"`
+			} `json:"contentDetails"`
+		} `json:"items"`
+	}
+	query := url.Values{"part": {"contentDetails"}, "playlistId": {channels.Items[0].ContentDetails.RelatedPlaylists.Uploads},
+		"maxResults": {strconv.Itoa(min(n, maxVideosPerCall))}}
+	if err := y.get(ctx, "/playlistItems", query, &items); err != nil {
+		return nil, fmt.Errorf("reading a channel's uploads: %w", err)
+	}
+	ids := make([]string, 0, len(items.Items))
+	for _, it := range items.Items {
+		if videoIDPattern.MatchString(it.ContentDetails.VideoID) {
+			ids = append(ids, it.ContentDetails.VideoID)
+		}
+	}
+	return ids, nil
 }
 
 // ResolveChannel returns the channel id raw names: a UC… id or a /channel/ address as it is, and an @handle or

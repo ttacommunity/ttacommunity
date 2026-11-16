@@ -1,18 +1,10 @@
-// Package movies reads YouTube channels' videos (their feeds, pushes and the Data API) and decides which are
-// about Through the Ages.
+// Package movies reads YouTube channels' videos (pushed by YouTube's hub, and from the Data API) and decides
+// which are about Through the Ages.
 package movies
 
 import (
-	"context"
-	"encoding/xml"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var (
@@ -20,15 +12,6 @@ var (
 	channelInURL     = regexp.MustCompile(`/channel/(UC[A-Za-z0-9_-]{22})`)
 	ttaWord          = regexp.MustCompile(`(?i)\btta\b`)
 )
-
-// Entry is one video from a YouTube channel's Atom feed.
-type Entry struct {
-	VideoID      string
-	Title        string
-	Description  string
-	PublishedAt  time.Time
-	ThumbnailURL string
-}
 
 // ParseChannelID extracts a YouTube UC... channel id from a bare id or /channel/ URL.
 func ParseChannelID(raw string) (string, bool) {
@@ -81,87 +64,3 @@ func Classify(v VideoText, includeAll bool, tournaments []string) Verdict {
 
 // Thumbnail is the address of videoID's thumbnail on YouTube's image host.
 func Thumbnail(videoID string) string { return "https://i.ytimg.com/vi/" + videoID + "/hqdefault.jpg" }
-
-// ParseFeed parses a YouTube channel's Atom XML feed into video entries.
-func ParseFeed(data []byte) ([]Entry, error) {
-	var feed struct {
-		Entries []struct {
-			VideoID   string `xml:"http://www.youtube.com/xml/schemas/2015 videoId"`
-			Title     string `xml:"title"`
-			Published string `xml:"published"`
-			Group     struct {
-				Thumbnail struct {
-					URL string `xml:"url,attr"`
-				} `xml:"http://search.yahoo.com/mrss/ thumbnail"`
-				Description string `xml:"http://search.yahoo.com/mrss/ description"`
-			} `xml:"http://search.yahoo.com/mrss/ group"`
-		} `xml:"entry"`
-	}
-	if err := xml.Unmarshal(data, &feed); err != nil {
-		return nil, fmt.Errorf("parsing YouTube feed: %w", err)
-	}
-	out := make([]Entry, 0, len(feed.Entries))
-	for _, e := range feed.Entries {
-		if e.VideoID == "" {
-			continue
-		}
-		pub, err := time.Parse(time.RFC3339, strings.TrimSpace(e.Published))
-		if err != nil {
-			continue
-		}
-		thumb := e.Group.Thumbnail.URL
-		if thumb == "" {
-			thumb = Thumbnail(e.VideoID)
-		}
-		out = append(out, Entry{
-			VideoID:      e.VideoID,
-			Title:        strings.TrimSpace(e.Title),
-			Description:  strings.TrimSpace(e.Group.Description),
-			PublishedAt:  pub.UTC(),
-			ThumbnailURL: thumb,
-		})
-	}
-	return out, nil
-}
-
-// Fetcher fetches YouTube channels' public Atom feeds.
-type Fetcher struct {
-	client *http.Client
-}
-
-// NewFetcher constructs a Fetcher using client (or a 15-second default client when nil).
-func NewFetcher(client *http.Client) *Fetcher {
-	if client == nil {
-		client = &http.Client{Timeout: 15 * time.Second}
-	}
-	return &Fetcher{client: client}
-}
-
-// FetchChannel fetches and parses a channel's public Atom feed.
-func (f *Fetcher) FetchChannel(ctx context.Context, channelID string) ([]Entry, error) {
-	if !channelIDPattern.MatchString(channelID) {
-		return nil, errors.New("invalid channel id")
-	}
-	body, err := f.get(ctx, "https://www.youtube.com/feeds/videos.xml?channel_id="+url.QueryEscape(channelID), 2<<20)
-	if err != nil {
-		return nil, err
-	}
-	return ParseFeed(body)
-}
-
-func (f *Fetcher) get(ctx context.Context, rawURL string, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "ttacommunity (+https://github.com/ttacommunity/ttacommunity)")
-	resp, err := f.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d from YouTube", resp.StatusCode)
-	}
-	return io.ReadAll(io.LimitReader(resp.Body, limit))
-}

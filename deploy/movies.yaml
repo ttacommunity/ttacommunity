@@ -1,4 +1,4 @@
-# The daily Movies job: fills in each new creator's latest videos from its feed, renews every channel's
+# The daily Movies job: fills in each new creator's latest videos from the Data API, renews every channel's
 # subscription to YouTube's push notifications (to the api's /v1/movies/hub), then drops the videos YouTube
 # no longer shows and reads the details still missing. It writes through the api's admin login. A run by hand:
 #   kubectl -n ttacommunity create job --from=cronjob/movies movies-manual-1

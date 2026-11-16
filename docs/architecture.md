@@ -591,7 +591,7 @@ TTA community server and email via `mail-relay`.
   Access's signing keys; Discord's, Microsoft's and Google's sign-in;
   Resend for sign-in emails; Turnstile; Cloudflare's GraphQL API for the
   visit count; the YouTube Data API) and the Kubernetes API (to start
-  engine Jobs); the Movies job reaches YouTube's hub, feeds and Data API
+  engine Jobs); the Movies job reaches YouTube's hub and Data API
   on public HTTPS and the ratings DB; the worker
   *(planned)* will reach CGE and Discord. RFC1918 ranges are excluded.
 - **Personal data** (Discord id and handle, optional email, TTA username,
