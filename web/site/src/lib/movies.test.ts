@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { creatorVideoCounts, filterVideosByCreators, formatMovieDate, youtubeEmbedUrl, youtubeWatchUrl, type MovieVideo } from './movies';
+import { creatorVideoCounts, creatorsOfPlayer, filterVideosByCreators, formatMovieDate, moviesHref, youtubeEmbedUrl, youtubeWatchUrl, type MovieCreator, type MovieVideo } from './movies';
 
 const sample: MovieVideo[] = [
   {
@@ -51,5 +51,33 @@ describe('youtube URLs', () => {
 describe('formatMovieDate', () => {
   it('falls back to the raw string on invalid dates', () => {
     expect(formatMovieDate('not-a-date')).toBe('not-a-date');
+  });
+});
+
+describe('moviesHref', () => {
+  it.each([
+    ['Ann', '/movies/?player=Ann'],
+    ['Invented Caster', '/movies/?player=Invented+Caster'],
+    ['a&b=c', '/movies/?player=a%26b%3Dc'],
+  ])('links %s to the Movies page filtered to them', (name, want) => {
+    expect(moviesHref(name)).toBe(want);
+  });
+});
+
+describe('creatorsOfPlayer', () => {
+  const creators: MovieCreator[] = [
+    { channel_id: 'UC1', name: 'Ann Casts', player: 'Ann' },
+    { channel_id: 'UC2', name: 'Ann Again', player: 'Ann' },
+    { channel_id: 'UC3', name: 'Bob Plays', player: 'Bob' },
+    { channel_id: 'UC4', name: 'No Player', player: null },
+  ];
+  it.each([
+    ['the player named', '?player=Ann', ['UC1', 'UC2']],
+    ['the name in any case', '?player=bOB', ['UC3']],
+    ['a name no creator has', '?player=Cy', []],
+    ['no player asked for', '', []],
+    ['an empty name', '?player=', []],
+  ])('selects %s', (_name, search, want) => {
+    expect([...creatorsOfPlayer(creators, search)]).toEqual(want);
   });
 });

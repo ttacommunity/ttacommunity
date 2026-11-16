@@ -17,7 +17,7 @@ import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import SideDrawer, { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
-import { ExtraBadges, Flag, TitleBadge } from './PlayerMarks';
+import { ExtraBadges, Flag, TitleBadge, VideosLink } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
 import {
   DEFAULT_VIEW,
@@ -492,6 +492,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
                 <div className="player-row-content">
                   <span className="player-name-wrapper">
                     <PlayerLink name={p.name} ranking={view.ranking} className="player-link" />
+                    <VideosLink name={p.name} hasVideos={p.has_videos} />
                     {p.provisional && (
                       <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>
                         ⏳

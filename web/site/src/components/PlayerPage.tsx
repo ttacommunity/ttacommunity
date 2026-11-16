@@ -66,6 +66,7 @@ import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
+import { VideosButton } from './PlayerMarks';
 import { SortButton } from '@ttac/shared/SortHeader';
 import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
@@ -281,6 +282,7 @@ function Header({
           <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
             <span aria-hidden="true">📊</span> Career Years »
           </a>
+          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-tournament-achievements btn-matrix" />
         </>
       }
     />

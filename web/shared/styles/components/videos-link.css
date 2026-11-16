@@ -1,0 +1,31 @@
+/* The play icon linking to a player's videos on the Movies page: by a name, as tall as its capitals, or in a button. */
+.videos-link {
+  display: inline-block;
+  margin-left: 0.35rem;
+  color: var(--accent-gold);
+  vertical-align: baseline;
+  text-decoration: none;
+}
+
+.videos-link:hover,
+.videos-link:focus-visible {
+  color: var(--accent-gold-light);
+}
+
+.videos-link .videos-icon {
+  display: block;
+  width: 1em;
+  height: 0.7em;
+  width: 1.4cap;
+  height: 1cap;
+}
+
+.videos-button .videos-icon {
+  width: 1.4em;
+  height: 1em;
+  vertical-align: -0.12em;
+}
+
+.videos-icon-play {
+  fill: var(--bg-dark);
+}

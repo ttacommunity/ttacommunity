@@ -1,6 +1,7 @@
-/** A player's title badge, admin's badges and country flag, as every page draws them. */
+/** A player's title badge, admin's badges, country flag and link to their videos, as every page draws them. */
 import type { LeaderboardRow, TitleCode } from '@ttac/shared/ratings';
 import { badgeHover, flagSrc, titleBadge } from '../lib/leaderboard-display';
+import { moviesHref } from '../lib/movies';
 
 /** TitleBadge shows a title in its colour: its code where room is short, its name when long, or a dash for none; the reason, else the name, on hover. */
 export function TitleBadge({ title, long = false, className }: { title: { code: TitleCode; reason?: string } | null; long?: boolean; className?: string }) {
@@ -26,6 +27,35 @@ export function ExtraBadges({ badges, tooltip = false }: { badges: LeaderboardRo
         );
       })}
     </>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg className="videos-icon" viewBox="1 3 14 10" aria-hidden="true" focusable="false">
+      <rect x="1" y="3" width="14" height="10" rx="2.5" fill="currentColor" />
+      <path className="videos-icon-play" d="M6.5 5.75v4.5L10.5 8z" />
+    </svg>
+  );
+}
+
+/** VideosLink is a play icon, as tall as capitals, linking to the player's videos on the Movies page; drawn only when they have some. */
+export function VideosLink({ name, hasVideos }: { name: string; hasVideos: boolean }) {
+  if (!hasVideos) return null;
+  return (
+    <a className="videos-link" href={moviesHref(name)} title={`Videos by ${name}`} aria-label={`Videos by ${name}`}>
+      <PlayIcon />
+    </a>
+  );
+}
+
+/** VideosButton is the "Movies »" link among a player page's buttons, in the button class given; drawn only when they have videos. */
+export function VideosButton({ name, hasVideos, className }: { name: string; hasVideos: boolean; className: string }) {
+  if (!hasVideos) return null;
+  return (
+    <a className={`${className} videos-button`} href={moviesHref(name)} title={`Videos by ${name}`}>
+      <PlayIcon /> Movies »
+    </a>
   );
 }
 
