@@ -3535,7 +3535,7 @@ paths:
     get:
       operationId: getAdminMovieChannels
       tags: [admin]
-      summary: YouTube creator channels and recent fetched videos (admins only)
+      summary: YouTube creator channels and every stored video, newest first (admins only)
       responses:
         "200":
           description: Channels and recent videos
@@ -11102,7 +11102,7 @@ components:
           type: string
     AdminVideoChannel:
       type: object
-      required: [channel_id, name, include_all, created_at, video_count]
+      required: [channel_id, name, include_all, created_at, video_count, videos_found]
       properties:
         channel_id:
           type: string
@@ -11141,6 +11141,10 @@ components:
           nullable: true
         video_count:
           type: integer
+          description: How many of its videos the Movies page shows
+        videos_found:
+          type: integer
+          description: How many of its videos are stored, shown or not
     AdminVideo:
       type: object
       required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url, is_tta, tta_reason, tta_override, shown]

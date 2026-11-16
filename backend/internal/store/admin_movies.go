@@ -24,7 +24,9 @@ type AdminVideoChannel struct {
 	LastPushAt   *time.Time
 	LastError    *string
 	LastErrorAt  *time.Time
-	VideoCount   int
+	// VideoCount is how many of its videos the Movies page shows, of the VideosFound stored.
+	VideoCount  int
+	VideosFound int
 }
 
 // AdminVideo is one stored video in admin, with its verdict, any admin override, and whether the Movies page
@@ -59,14 +61,15 @@ var (
 	ErrNoPlayerName = errors.New("no player with that name")
 )
 
-// AdminMovies lists all configured YouTube channels and the latest 100 fetched videos.
+// AdminMovies lists every configured YouTube channel and every stored video, newest first.
 func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) {
 	cRows, err := a.pool.Query(ctx, `
 		SELECT vc.channel_id, vc.name, p.name, vc.include_all, vc.created_at, vc.subscribed_at, vc.lease_ends_at,
-		       vc.last_push_at, vc.last_error, vc.last_error_at, count(v.video_id)::int
+		       vc.last_push_at, vc.last_error, vc.last_error_at,
+		       (count(v.video_id) FILTER (WHERE coalesce(v.tta_override, v.is_tta)))::int, count(v.video_id)::int
 		FROM video_channels vc
 		LEFT JOIN players p ON p.player_id = vc.player_id
-		LEFT JOIN videos v ON v.channel_id = vc.channel_id AND coalesce(v.tta_override, v.is_tta)
+		LEFT JOIN videos v ON v.channel_id = vc.channel_id
 		GROUP BY vc.channel_id, p.name
 		ORDER BY lower(vc.name), vc.channel_id`)
 	if err != nil {
@@ -82,8 +85,7 @@ func (a *AdminStore) AdminMovies(ctx context.Context) (AdminMoviesState, error) 
 		       v.tta_override, coalesce(v.tta_override, v.is_tta)
 		FROM videos v
 		JOIN video_channels vc USING (channel_id)
-		ORDER BY v.published_at DESC, v.video_id
-		LIMIT 100`)
+		ORDER BY v.published_at DESC, v.video_id`)
 	if err != nil {
 		return AdminMoviesState{}, fmt.Errorf("reading admin videos: %w", err)
 	}

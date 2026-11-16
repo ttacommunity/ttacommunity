@@ -49,10 +49,11 @@ func (f *fakeAdmins) AdminMovies(_ context.Context) (store.AdminMoviesState, err
 	return store.AdminMoviesState{
 		Channels: []store.AdminVideoChannel{
 			{
-				ChannelID:  "UC0000000000000000000001",
-				Name:       "Alice Casts",
-				CreatedAt:  time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC),
-				VideoCount: 1,
+				ChannelID:   "UC0000000000000000000001",
+				Name:        "Alice Casts",
+				CreatedAt:   time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC),
+				VideoCount:  1,
+				VideosFound: 3,
 			},
 		},
 		Videos: []store.AdminVideo{
@@ -283,6 +284,7 @@ func TestAdminSeesEachVideosVerdictAndOverride(t *testing.T) {
 		t.Fatalf("status = %d %s, want 200", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"is_tta": false, "tta_reason": "no mention of TTA", "tta_override": true, "shown": true}`)
+	wantJSON(t, rec.Body.Bytes(), "channels.0", `{"video_count": 1, "videos_found": 3}`)
 }
 
 func TestMoviesFeedAndMarkSeen(t *testing.T) {

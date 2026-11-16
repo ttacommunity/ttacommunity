@@ -3,25 +3,35 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import type { Load } from '@ttac/shared/load';
-import { formatDate, formatInstant, viewerZone } from '@ttac/shared/time';
+import { clockOrUtc, formatDate, formatInstant, todayIn, viewerZone } from '@ttac/shared/time';
 import { adminRequest } from '../lib/admin-api';
 import {
   buildNewChannelBody,
   channelStatus,
+  DATE_PRESETS,
   moviesRunStarted,
+  NO_VIDEO_FILTERS,
+  REASONS,
+  SHOWN_BY,
+  STATUSES,
   overrideChoice,
   overrideOf,
+  videoPage,
+  videosMatching,
   videoStatus,
   type AdminMoviesState,
   type AdminVideo,
   type AdminVideoChannel,
   type OverrideChoice,
+  type VideoFilters,
 } from '../lib/admin-movies';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { playerChoices } from '../lib/person-form';
 import Notice, { LoadNotice } from './Notice';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
+import NewerOlder from '@ttac/shared/NewerOlder';
+import MultiPick from './MultiPick';
 import PeoplePick from './PeoplePick';
 
 const POLL_MS = 5000;
@@ -35,6 +45,12 @@ export default function MoviesPanel() {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [filters, setFilters] = useState<VideoFilters>(NO_VIDEO_FILTERS);
+  const [page, setPage] = useState(1);
+  const filter = (f: Partial<VideoFilters>) => {
+    setFilters({ ...filters, ...f });
+    setPage(1);
+  };
   const dialog = useDialog();
 
   const reload = async () => {
@@ -91,18 +107,20 @@ export default function MoviesPanel() {
     await startRun(r.data, 'movies-add', `Added ${r.data.name} (${r.data.channel_id}). `);
   };
 
-  const toggleIncludeAll = async (c: AdminVideoChannel) => {
+  /** saveIncludeAll saves whether every upload of c counts, then starts the job for c so its verdicts follow. */
+  const saveIncludeAll = async (c: AdminVideoChannel, includeAll: boolean) => {
     setOutcome(null);
+    setStarting(true);
     const r = await adminRequest<unknown>(`/api/movies/channels/${encodeURIComponent(c.channel_id)}`, {
       method: 'PATCH',
-      json: { include_all: !c.include_all },
+      json: { include_all: includeAll },
     });
     if (!r.ok) {
+      setStarting(false);
       setOutcome(outcomeOf(r, '', `channel-${c.channel_id}`));
       return;
     }
-    setOutcome(succeeded(`${c.name} now ${!c.include_all ? 'includes all uploads' : 'uses the TTA filter'}.`, `channel-${c.channel_id}`));
-    await reload();
+    await startRun(c, `channel-${c.channel_id}`, `${c.name} now ${includeAll ? 'includes all uploads' : 'uses the TTA filter'}. `);
   };
 
   const deleteChannel = async (c: AdminVideoChannel, opener: HTMLElement) => {
@@ -145,6 +163,10 @@ export default function MoviesPanel() {
 
   const zone = viewerZone();
   const at = (iso: string) => formatInstant(iso, zone);
+  const shownVideos =
+    state.kind === 'ready' ? videosMatching(state.data.videos, filters, (iso) => clockOrUtc(zone, iso).day, todayIn(zone, new Date(), zone)) : [];
+  const creators = state.kind === 'ready' ? state.data.channels.map((c) => ({ value: c.channel_id, label: c.name })) : [];
+  const shownPage = videoPage(shownVideos, page);
 
   return (
     <AdminCard id="movies-admin-heading" title="Movies">
@@ -236,16 +258,21 @@ export default function MoviesPanel() {
                       </td>
                       <td>{c.player ?? <span className="muted">—</span>}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn-settings"
-                          onClick={() => void toggleIncludeAll(c)}
-                          title="Toggle Through the Ages keyword filter"
+                        <select
+                          className="input-antique"
+                          aria-label={`Which of ${c.name}'s uploads count`}
+                          title={running ? 'Wait for the Movies job to end' : 'Which uploads count: those the TTA check takes, or all'}
+                          value={c.include_all ? 'all' : 'tta'}
+                          disabled={running || starting}
+                          onChange={(e) => void saveIncludeAll(c, e.target.value === 'all')}
                         >
-                          {c.include_all ? 'All uploads' : 'TTA-filtered'}
-                        </button>
+                          <option value="tta">TTA-filtered</option>
+                          <option value="all">All uploads</option>
+                        </select>
                       </td>
-                      <td>{c.video_count}</td>
+                      <td>
+                        {c.videos_found} found · {c.video_count} shown
+                      </td>
                       <td>
                         <span className={`movies-status movies-status-${{ ok: 'visible', waiting: 'hidden', failing: 'failing' }[status.kind]}`}>
                           {status.text}
@@ -278,7 +305,46 @@ export default function MoviesPanel() {
           </div>
 
           <div>
-            <h3 className="movies-subheading">Recent videos ({state.data.videos.length})</h3>
+            <h3 className="movies-subheading">
+              Videos ({shownVideos.length === state.data.videos.length ? state.data.videos.length : `${shownVideos.length} of ${state.data.videos.length}`})
+            </h3>
+            {state.data.videos.length > 0 && (
+              <div className="movies-filter-bar">
+                <label>
+                  Title
+                  <input className="input-antique" type="search" placeholder="Search titles…" value={filters.title} onChange={(e) => filter({ title: e.target.value })} />
+                </label>
+                <MultiPick label="Creator" options={creators} ticked={filters.creators} onChange={(creators) => filter({ creators })} all="All creators" noun="creators" />
+                <label>
+                  Published
+                  <select className="input-antique" value={filters.date} onChange={(e) => filter({ date: e.target.value as VideoFilters['date'] })}>
+                    {DATE_PRESETS.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {filters.date === 'custom' && (
+                  <>
+                    <label>
+                      From
+                      <input className="input-antique" type="date" value={filters.from} onChange={(e) => filter({ from: e.target.value })} />
+                    </label>
+                    <label>
+                      To
+                      <input className="input-antique" type="date" value={filters.to} onChange={(e) => filter({ to: e.target.value })} />
+                    </label>
+                  </>
+                )}
+                <MultiPick label="Status" options={STATUSES} ticked={filters.statuses} onChange={(statuses) => filter({ statuses })} all="Any status" noun="statuses" />
+                <MultiPick label="Reason" options={REASONS} ticked={filters.reasons} onChange={(reasons) => filter({ reasons })} all="Any reason" noun="reasons" />
+                <MultiPick label="Shown by" options={SHOWN_BY} ticked={filters.shownBy} onChange={(shownBy) => filter({ shownBy })} all="Anyone" noun="choices" />
+                <button type="button" className="btn-antique" onClick={() => filter(NO_VIDEO_FILTERS)}>
+                  Clear filters
+                </button>
+              </div>
+            )}
             {state.data.videos.length === 0 ? (
               <p className="muted">No videos yet. The Movies job fills them in when a creator is added, or on Run now.</p>
             ) : (
@@ -293,7 +359,14 @@ export default function MoviesPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {state.data.videos.map((v) => {
+                  {shownVideos.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="muted">
+                        No video matches these filters.
+                      </td>
+                    </tr>
+                  )}
+                  {shownPage.rows.map((v) => {
                     const status = videoStatus(v);
                     return (
                     <tr key={v.video_id}>
@@ -342,6 +415,7 @@ export default function MoviesPanel() {
                 </tbody>
               </AdminTable>
             )}
+            {shownVideos.length > 0 && <NewerOlder page={shownPage.page} pages={shownPage.pages} onPage={setPage} />}
           </div>
         </div>
       )}

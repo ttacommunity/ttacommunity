@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -150,5 +151,27 @@ func TestTheMovieJobReadsOneChannel(t *testing.T) {
 	}
 	if _, err := a.MovieJobChannel(ctx, pushUnlinked); !errors.Is(err, ErrNoChannel) {
 		t.Errorf("an unlinked channel: err = %v, want %v", err, ErrNoChannel)
+	}
+}
+
+func TestAdminCountsEachChannelsVideosAndListsThemAll(t *testing.T) {
+	_, a, _, now := pushSetup(t)
+	ctx := context.Background()
+	for i := range 101 {
+		v := pushed(fmt.Sprintf("Video %d", i), i%2 == 0)
+		v.VideoID = fmt.Sprintf("vid%08d", i)
+		if err := a.SaveMovieVideo(ctx, v, now); err != nil {
+			t.Fatalf("SaveMovieVideo: %v", err)
+		}
+	}
+	state, err := a.AdminMovies(ctx)
+	if err != nil {
+		t.Fatalf("AdminMovies: %v", err)
+	}
+	if c := state.Channels[0]; c.VideosFound != 101 || c.VideoCount != 51 {
+		t.Errorf("found %d, shown %d; want 101 found and 51 shown", c.VideosFound, c.VideoCount)
+	}
+	if len(state.Videos) != 101 {
+		t.Errorf("listed %d videos, want all 101", len(state.Videos))
 	}
 }

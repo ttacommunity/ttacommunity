@@ -2551,7 +2551,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** YouTube creator channels and recent fetched videos (admins only) */
+        /** YouTube creator channels and every stored video, newest first (admins only) */
         get: operations["getAdminMovieChannels"];
         put?: never;
         /**
@@ -6837,7 +6837,10 @@ export interface components {
             last_error?: string | null;
             /** Format: date-time */
             last_error_at?: string | null;
+            /** @description How many of its videos the Movies page shows */
             video_count: number;
+            /** @description How many of its videos are stored, shown or not */
+            videos_found: number;
         };
         AdminVideo: {
             video_id: string;

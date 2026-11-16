@@ -38,6 +38,7 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 			LastError:    c.LastError,
 			LastErrorAt:  inUTC(c.LastErrorAt),
 			VideoCount:   c.VideoCount,
+			VideosFound:  c.VideosFound,
 		}
 	}
 	videos := make([]AdminVideo, len(state.Videos))

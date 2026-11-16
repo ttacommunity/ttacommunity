@@ -2075,7 +2075,12 @@ type AdminVideoChannel struct {
 
 	// SubscribedAt When YouTube's hub last confirmed our subscription to the channel's uploads
 	SubscribedAt *time.Time `json:"subscribed_at,omitempty"`
-	VideoCount   int        `json:"video_count"`
+
+	// VideoCount How many of its videos the Movies page shows
+	VideoCount int `json:"video_count"`
+
+	// VideosFound How many of its videos are stored, shown or not
+	VideosFound int `json:"videos_found"`
 }
 
 // Agreement defines model for Agreement.
@@ -6100,7 +6105,7 @@ type ServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(w http.ResponseWriter, r *http.Request, member MemberId)
-	// GetAdminMovieChannels YouTube creator channels and recent fetched videos (admins only)
+	// GetAdminMovieChannels YouTube creator channels and every stored video, newest first (admins only)
 	// (GET /v1/admin/movies/channels)
 	GetAdminMovieChannels(w http.ResponseWriter, r *http.Request)
 	// PostAdminMovieChannel Add a YouTube creator channel to the Movies feed (admins only)
@@ -25825,7 +25830,7 @@ type StrictServerInterface interface {
 	// PutAdminMemberBan Ban a member from taking part, with a reason (admins only)
 	// (PUT /v1/admin/members/{member}/ban)
 	PutAdminMemberBan(ctx context.Context, request PutAdminMemberBanRequestObject) (PutAdminMemberBanResponseObject, error)
-	// GetAdminMovieChannels YouTube creator channels and recent fetched videos (admins only)
+	// GetAdminMovieChannels YouTube creator channels and every stored video, newest first (admins only)
 	// (GET /v1/admin/movies/channels)
 	GetAdminMovieChannels(ctx context.Context, request GetAdminMovieChannelsRequestObject) (GetAdminMovieChannelsResponseObject, error)
 	// PostAdminMovieChannel Add a YouTube creator channel to the Movies feed (admins only)
