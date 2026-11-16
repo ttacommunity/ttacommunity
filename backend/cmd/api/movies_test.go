@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
@@ -140,5 +142,62 @@ func TestClassifyPushedAsksNothingForAnUnlinkedChannel(t *testing.T) {
 	}
 	if videos.calls != 0 || v.TTA {
 		t.Errorf("asked the Data API %d times, verdict %v; want no call and no verdict", videos.calls, v.TTA)
+	}
+}
+
+// fakeMovieStarter records the args each Movies Job starts with.
+type fakeMovieStarter struct{ started [][]string }
+
+func (f *fakeMovieStarter) StartWith(_ context.Context, args ...string) (string, error) {
+	f.started = append(f.started, args)
+	return "movies-admin-x1y2z", nil
+}
+
+// linkedChannels links only UC0000000000000000000001.
+type linkedChannels struct{}
+
+func (linkedChannels) MovieJobChannel(_ context.Context, id string) (store.MovieJobChannel, error) {
+	if id != "UC0000000000000000000001" {
+		return store.MovieJobChannel{}, store.ErrNoChannel
+	}
+	return store.MovieJobChannel{ChannelID: id}, nil
+}
+
+func TestStartMovieJobPassesTheChannel(t *testing.T) {
+	tests := []struct {
+		name, channel string
+		wantArgs      []string
+		wantErr       error
+	}{
+		{"every channel", "", []string{}, nil},
+		{"one channel", "UC0000000000000000000001", []string{"-channel", "UC0000000000000000000001"}, nil},
+		{"a channel not linked", "UC0000000000000000000009", nil, store.ErrNoChannel},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeMovieStarter{}
+			_, err := startMovieJob(context.Background(), linkedChannels{}, f, tt.channel)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("startMovieJob error = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantArgs == nil {
+				if len(f.started) != 0 {
+					t.Errorf("started %q, want no Job", f.started)
+				}
+				return
+			}
+			if len(f.started) != 1 || !slices.Equal(f.started[0], tt.wantArgs) {
+				t.Errorf("started %q, want one Job with args %q", f.started, tt.wantArgs)
+			}
+		})
+	}
+}
+
+func TestStartMovieJobWithoutACronJobIsNotSetUp(t *testing.T) {
+	if _, err := (adminDeps{}).StartMovieJob(context.Background(), ""); !errors.Is(err, enginejob.ErrNotSetUp) {
+		t.Errorf("StartMovieJob error = %v, want %v", err, enginejob.ErrNotSetUp)
+	}
+	if _, err := (adminDeps{}).MovieJobGoing(context.Background()); !errors.Is(err, enginejob.ErrNotSetUp) {
+		t.Errorf("MovieJobGoing error = %v, want %v", err, enginejob.ErrNotSetUp)
 	}
 }

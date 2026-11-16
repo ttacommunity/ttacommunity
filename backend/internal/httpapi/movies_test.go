@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
@@ -113,8 +114,12 @@ func TestAddingAMovieChannelSaysWhyAChannelIsRefused(t *testing.T) {
 			if strings.Contains(rec.Body.String(), "backendError") {
 				t.Errorf("body = %s, shows the Data API's own error", rec.Body)
 			}
-			if tt.wantCode != http.StatusCreated && slices.ContainsFunc(f.notes, func(n string) bool { return strings.HasPrefix(n, "add channel") }) {
-				t.Errorf("notes = %q, a refused channel was added", f.notes)
+			wantNotes := []string(nil)
+			if tt.wantCode == http.StatusCreated {
+				wantNotes = []string{"add channel UC0000000000000000000001 Invented Caster"}
+			}
+			if !slices.Equal(f.notes, wantNotes) {
+				t.Errorf("notes = %q, want %q: a refused channel is not added", f.notes, wantNotes)
 			}
 		})
 	}
@@ -129,6 +134,82 @@ func (f *fakeAdmins) AddMovieChannel(_ context.Context, channelID, name string, 
 		IncludeAll: includeAll,
 		CreatedAt:  now,
 	}, nil
+}
+
+func (f *fakeAdmins) StartMovieJob(_ context.Context, channelID string) (string, error) {
+	if f.moviesErr != nil {
+		return "", f.moviesErr
+	}
+	if channelID == "UC_missing" {
+		return "", store.ErrNoChannel
+	}
+	f.notes = append(f.notes, "start movies job for "+channelID)
+	return "movies-admin-x1y2z", nil
+}
+
+func (f *fakeAdmins) MovieJobGoing(context.Context) (bool, error) {
+	if f.moviesErr == enginejob.ErrNotSetUp {
+		return false, enginejob.ErrNotSetUp
+	}
+	return f.moviesGoing, nil
+}
+
+func TestAnAdminStartsTheMoviesJob(t *testing.T) {
+	const site, owner, org = "https://ttac-admin.example", "111111111111111111", "222222222222222222"
+	tests := []struct {
+		name, as, body string
+		err            error
+		wantCode       int
+		wantNote       string
+		wantDetail     string
+	}{
+		{"every creator", owner, "", nil, http.StatusAccepted, "start movies job for ", `{"channel":""}`},
+		{"one creator", owner, `{"channel": "UC0000000000000000000001"}`, nil, http.StatusAccepted, "start movies job for UC0000000000000000000001", `{"channel":"UC0000000000000000000001"}`},
+		{"a channel not linked", owner, `{"channel": "UC_missing"}`, nil, http.StatusNotFound, "", ""},
+		{"a job already running", owner, "", enginejob.ErrRunning, http.StatusConflict, "", ""},
+		{"no job set up here", owner, "", enginejob.ErrNotSetUp, http.StatusServiceUnavailable, "", ""},
+		{"an organiser", org, "", nil, http.StatusForbidden, "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{moviesErr: tt.err}
+			rec := adminDoAs(t, f, tt.as, http.MethodPost, "/v1/admin/movies/run", site, tt.body)
+			if rec.Code != tt.wantCode {
+				t.Fatalf("status = %d %s, want %d", rec.Code, rec.Body, tt.wantCode)
+			}
+			if tt.wantCode == http.StatusAccepted {
+				wantJSON(t, rec.Body.Bytes(), "", `{"job": "movies-admin-x1y2z"}`)
+			}
+			wantNotes, wantAudits, wantDetails := []string(nil), []string(nil), []string(nil)
+			if tt.wantNote != "" {
+				wantNotes = []string{tt.wantNote}
+				wantAudits, wantDetails = []string{owner + " movie.run movies-admin-x1y2z"}, []string{tt.wantDetail}
+			}
+			if !slices.Equal(f.notes, wantNotes) || !slices.Equal(f.audits, wantAudits) || !slices.Equal(f.details, wantDetails) {
+				t.Errorf("notes %q, audits %q %q; want %q, %q %q", f.notes, f.audits, f.details, wantNotes, wantAudits, wantDetails)
+			}
+		})
+	}
+}
+
+func TestAdminSeesWhetherTheMoviesJobIsRunning(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		f    *fakeAdmins
+		want string
+	}{
+		{"running", &fakeAdmins{moviesGoing: true}, "true"},
+		{"not running", &fakeAdmins{}, "false"},
+		{"not set up here", &fakeAdmins{moviesErr: enginejob.ErrNotSetUp}, "false"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := adminDoAs(t, tt.f, "111111111111111111", http.MethodGet, "/v1/admin/movies/channels", "", "")
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d %s, want 200", rec.Code, rec.Body)
+			}
+			wantJSON(t, rec.Body.Bytes(), "job_running", tt.want)
+		})
+	}
 }
 
 func (f *fakeAdmins) UpdateMovieChannel(_ context.Context, channelID string, _ *string, _ *string, _ bool, _ *bool) error {

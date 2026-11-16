@@ -137,3 +137,18 @@ func TestThePlayerLoginCannotSaveAVideoDirectly(t *testing.T) {
 		t.Errorf("the player login running save_movie_video: err = %v, want permission denied (42501): it stores only through store_pushed_video", err)
 	}
 }
+
+func TestTheMovieJobReadsOneChannel(t *testing.T) {
+	_, a, _, now := pushSetup(t)
+	ctx := context.Background()
+	if err := a.MarkMovieChannelBackfilled(ctx, pushChannel, now); err != nil {
+		t.Fatalf("MarkMovieChannelBackfilled: %v", err)
+	}
+	ch, err := a.MovieJobChannel(ctx, pushChannel)
+	if err != nil || ch.ChannelID != pushChannel || ch.BackfilledAt == nil || !ch.BackfilledAt.Equal(now) {
+		t.Errorf("MovieJobChannel(%s) = %+v, %v; want it, filled in at %v", pushChannel, ch, err, now)
+	}
+	if _, err := a.MovieJobChannel(ctx, pushUnlinked); !errors.Is(err, ErrNoChannel) {
+		t.Errorf("an unlinked channel: err = %v, want %v", err, ErrNoChannel)
+	}
+}

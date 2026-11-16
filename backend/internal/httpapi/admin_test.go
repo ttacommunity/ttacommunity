@@ -32,6 +32,9 @@ type fakeAdmins struct {
 	details  []string
 	startErr error
 	stopErr  error
+	// moviesErr is what starting the Movies job answers; moviesGoing what MovieJobGoing does.
+	moviesErr   error
+	moviesGoing bool
 	// engine is what EngineGoing answers: "" for a run going, "ended" for none, "unset" for not set up,
 	// "unreachable" for an error.
 	engine string

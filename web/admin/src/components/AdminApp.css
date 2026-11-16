@@ -882,6 +882,18 @@
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
 }
+.movies-run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+.movies-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
 .movies-status-failing {
   color: var(--loss);
   border: 1px solid var(--loss);

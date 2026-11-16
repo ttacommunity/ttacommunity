@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
 )
@@ -54,8 +55,12 @@ func (s *server) GetAdminMovieChannels(ctx context.Context, _ GetAdminMovieChann
 			Shown:        v.Shown,
 		}
 	}
+	running, err := s.admins.MovieJobGoing(ctx)
+	if err != nil && !errors.Is(err, enginejob.ErrNotSetUp) {
+		s.log.Error("asking the cluster whether the Movies job is going failed; it is shown as not running", "err", err)
+	}
 	return GetAdminMovieChannels200JSONResponse{
-		Body:    AdminMoviesState{Channels: channels, Videos: videos},
+		Body:    AdminMoviesState{Channels: channels, Videos: videos, JobRunning: running && err == nil},
 		Headers: GetAdminMovieChannels200ResponseHeaders{CacheControl: cacheNone},
 	}, nil
 }
@@ -184,4 +189,38 @@ func (s *server) PatchAdminMovieVideo(ctx context.Context, req PatchAdminMovieVi
 		return nil, err
 	}
 	return PatchAdminMovieVideo204Response{}, nil
+}
+
+func (s *server) PostAdminMoviesRun(ctx context.Context, req PostAdminMoviesRunRequestObject) (PostAdminMoviesRunResponseObject, error) {
+	me, ok, err := adminOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return PostAdminMoviesRun403JSONResponse{forbidden(onlyAdminsMovies)}, nil
+	}
+	channel := ""
+	if req.Body != nil && req.Body.Channel != nil {
+		channel = strings.TrimSpace(*req.Body.Channel)
+	}
+	// The Job starts before the commit, so it runs unaudited only if the audit row or the commit fails.
+	var job string
+	err = s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		if job, err = tx.StartMovieJob(ctx, channel); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, me.DiscordID, "movie.run", job, map[string]any{"channel": channel})
+	})
+	switch {
+	case errors.Is(err, store.ErrNoChannel):
+		return PostAdminMoviesRun404JSONResponse{notFound404("no such YouTube channel")}, nil
+	case errors.Is(err, enginejob.ErrRunning):
+		return PostAdminMoviesRun409JSONResponse{conflict409("a Movies job is already going")}, nil
+	case errors.Is(err, enginejob.ErrNotSetUp):
+		return PostAdminMoviesRun503JSONResponse{NotSetUpJSONResponse{Body: Error{Error: "starting the Movies job is not set up here"}, Headers: NotSetUpResponseHeaders{CacheControl: cacheNone}}}, nil
+	case err != nil:
+		return nil, err
+	}
+	return PostAdminMoviesRun202JSONResponse{Job: job}, nil
 }

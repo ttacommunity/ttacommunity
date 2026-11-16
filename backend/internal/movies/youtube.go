@@ -1,4 +1,4 @@
-// The YouTube Data API v3, read with an API key: videos' details, a channel's latest uploads, and a handle's
+// The YouTube Data API v3, read with an API key: videos' details, a channel's uploads, and a handle's
 // channel.
 package movies
 
@@ -19,8 +19,11 @@ import (
 // DataAPI is the YouTube Data API's address.
 const DataAPI = "https://www.googleapis.com/youtube/v3"
 
-// maxVideosPerCall is the most ids videos.list takes at once.
+// maxVideosPerCall is the most ids videos.list takes at once, and the most items a playlistItems.list page holds.
 const maxVideosPerCall = 50
+
+// maxUploadPages bounds how many pages of a channel's uploads Uploads reads: 10,000 videos.
+const maxUploadPages = 200
 
 var (
 	// ErrNoYouTube means no Data API key is set up here, so only a channel's id or /channel/ address is taken.
@@ -96,9 +99,9 @@ func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDet
 	return out, nil
 }
 
-// LatestUploads returns the ids of channelID's newest n uploads (at most 50), newest first, from its uploads
-// playlist. ErrNoSuchChannel when YouTube has no such channel.
-func (y *YouTube) LatestUploads(ctx context.Context, channelID string, n int) ([]string, error) {
+// Uploads returns the ids of every one of channelID's uploads, newest first, from its uploads playlist, 50 a
+// page and at most maxUploadPages pages. ErrNoSuchChannel when YouTube has no such channel.
+func (y *YouTube) Uploads(ctx context.Context, channelID string) ([]string, error) {
 	if !channelIDPattern.MatchString(channelID) {
 		return nil, errors.New("invalid channel id")
 	}
@@ -117,22 +120,32 @@ func (y *YouTube) LatestUploads(ctx context.Context, channelID string, n int) ([
 	if len(channels.Items) == 0 || channels.Items[0].ContentDetails.RelatedPlaylists.Uploads == "" {
 		return nil, ErrNoSuchChannel
 	}
-	var items struct {
-		Items []struct {
-			ContentDetails struct {
-				VideoID string `json:"videoId"`
-			} `json:"contentDetails"`
-		} `json:"items"`
-	}
-	query := url.Values{"part": {"contentDetails"}, "playlistId": {channels.Items[0].ContentDetails.RelatedPlaylists.Uploads},
-		"maxResults": {strconv.Itoa(min(n, maxVideosPerCall))}}
-	if err := y.get(ctx, "/playlistItems", query, &items); err != nil {
-		return nil, fmt.Errorf("reading a channel's uploads: %w", err)
-	}
-	ids := make([]string, 0, len(items.Items))
-	for _, it := range items.Items {
-		if videoIDPattern.MatchString(it.ContentDetails.VideoID) {
-			ids = append(ids, it.ContentDetails.VideoID)
+	playlist := channels.Items[0].ContentDetails.RelatedPlaylists.Uploads
+	var ids []string
+	token := ""
+	for range maxUploadPages {
+		var page struct {
+			Items []struct {
+				ContentDetails struct {
+					VideoID string `json:"videoId"`
+				} `json:"contentDetails"`
+			} `json:"items"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		query := url.Values{"part": {"contentDetails"}, "playlistId": {playlist}, "maxResults": {strconv.Itoa(maxVideosPerCall)}}
+		if token != "" {
+			query.Set("pageToken", token)
+		}
+		if err := y.get(ctx, "/playlistItems", query, &page); err != nil {
+			return nil, fmt.Errorf("reading a channel's uploads: %w", err)
+		}
+		for _, it := range page.Items {
+			if videoIDPattern.MatchString(it.ContentDetails.VideoID) {
+				ids = append(ids, it.ContentDetails.VideoID)
+			}
+		}
+		if token = page.NextPageToken; token == "" {
+			break
 		}
 	}
 	return ids, nil

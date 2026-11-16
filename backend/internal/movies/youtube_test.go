@@ -52,7 +52,11 @@ func fakeDataAPI(t *testing.T, requests *[]string) *httptest.Server {
 				_, _ = fmt.Fprint(w, `{"error":{"code":404,"errors":[{"reason":"playlistNotFound"}]}}`)
 				return
 			}
-			_, _ = fmt.Fprint(w, `{"items":[{"contentDetails":{"videoId":"vid00000002"}},{"contentDetails":{"videoId":"vid00000001"}}]}`)
+			if r.URL.Query().Get("pageToken") == "page2" {
+				_, _ = fmt.Fprint(w, `{"items":[{"contentDetails":{"videoId":"vid00000003"}},{"contentDetails":{"videoId":"not an id"}}]}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{"items":[{"contentDetails":{"videoId":"vid00000002"}},{"contentDetails":{"videoId":"vid00000001"}}],"nextPageToken":"page2"}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -161,7 +165,7 @@ func TestResolveChannelWithoutAKeyTakesOnlyIDs(t *testing.T) {
 	}
 }
 
-func TestYouTubeLatestUploads(t *testing.T) {
+func TestYouTubeUploads(t *testing.T) {
 	tests := []struct {
 		name         string
 		channel      string
@@ -169,9 +173,10 @@ func TestYouTubeLatestUploads(t *testing.T) {
 		wantErr      bool
 		wantRequests []string
 	}{
-		{"a channel's newest uploads", "UC0000000000000000000001", []string{"vid00000002", "vid00000001"}, false, []string{
+		{"every upload, page by page", "UC0000000000000000000001", []string{"vid00000002", "vid00000001", "vid00000003"}, false, []string{
 			"/channels?id=UC0000000000000000000001&part=contentDetails",
-			"/playlistItems?maxResults=15&part=contentDetails&playlistId=UU0000000000000000000001",
+			"/playlistItems?maxResults=50&part=contentDetails&playlistId=UU0000000000000000000001",
+			"/playlistItems?maxResults=50&pageToken=page2&part=contentDetails&playlistId=UU0000000000000000000001",
 		}},
 		{"a channel YouTube does not have", "UC0000000000000000000009", nil, true, []string{
 			"/channels?id=UC0000000000000000000009&part=contentDetails",
@@ -182,13 +187,30 @@ func TestYouTubeLatestUploads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var requests []string
 			y := NewYouTube(nil, fakeDataAPI(t, &requests).URL, inventedKey)
-			got, err := y.LatestUploads(context.Background(), tt.channel, 15)
+			got, err := y.Uploads(context.Background(), tt.channel)
 			if (err != nil) != tt.wantErr || !slices.Equal(got, tt.want) {
-				t.Errorf("LatestUploads(%q) = %q, %v; want %q, an error: %v", tt.channel, got, err, tt.want, tt.wantErr)
+				t.Errorf("Uploads(%q) = %q, %v; want %q, an error: %v", tt.channel, got, err, tt.want, tt.wantErr)
 			}
 			if !slices.Equal(requests, tt.wantRequests) {
 				t.Errorf("requests = %q, want %q", requests, tt.wantRequests)
 			}
 		})
+	}
+}
+
+func TestYouTubeUploadsStopsAtItsPageLimit(t *testing.T) {
+	pages := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/channels" {
+			_, _ = fmt.Fprint(w, `{"items":[{"contentDetails":{"relatedPlaylists":{"uploads":"UU0000000000000000000001"}}}]}`)
+			return
+		}
+		pages++
+		_, _ = fmt.Fprintf(w, `{"items":[{"contentDetails":{"videoId":"vid%08d"}}],"nextPageToken":"more"}`, pages)
+	}))
+	t.Cleanup(srv.Close)
+	got, err := NewYouTube(nil, srv.URL, inventedKey).Uploads(context.Background(), "UC0000000000000000000001")
+	if err != nil || pages != maxUploadPages || len(got) != maxUploadPages {
+		t.Errorf("a list that never ends: %d pages asked, %d ids, %v; want %d of each and no error", pages, len(got), err, maxUploadPages)
 	}
 }

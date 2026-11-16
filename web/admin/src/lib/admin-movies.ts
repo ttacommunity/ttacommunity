@@ -62,3 +62,10 @@ export function channelStatus(
   const pushed = c.last_push_at ? `; last video ${when(c.last_push_at)}` : '';
   return { kind: 'ok', text: `Subscribed until ${when(c.lease_ends_at)}${pushed}` };
 }
+
+/** What admin says when it starts the Movies job for the creator name, or every creator when null. */
+export function moviesRunStarted(name: string | null): string {
+  return name === null
+    ? 'Started the Movies job for every creator. Each row shows how it went when the job ends, in a minute or two.'
+    : `Started the Movies job for ${name}. Its row shows how it went when the job ends, in a minute or two.`;
+}

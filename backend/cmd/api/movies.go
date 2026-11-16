@@ -23,6 +23,22 @@ func openYouTube(getenv func(string) string) *movies.YouTube {
 	return movies.NewYouTube(nil, movies.DataAPI, key)
 }
 
+// startMovieJob starts a Movies Job through starter, for channelID alone when it is set (store.ErrNoChannel when
+// channels does not link it), else for every channel.
+func startMovieJob(ctx context.Context, channels interface {
+	MovieJobChannel(ctx context.Context, channelID string) (store.MovieJobChannel, error)
+}, starter interface {
+	StartWith(ctx context.Context, args ...string) (string, error)
+}, channelID string) (string, error) {
+	if channelID == "" {
+		return starter.StartWith(ctx)
+	}
+	if _, err := channels.MovieJobChannel(ctx, channelID); err != nil {
+		return "", err
+	}
+	return starter.StartWith(ctx, "-channel", channelID)
+}
+
 // openMovieHub returns the hub's callback's dependencies, or nil (the callback a 404) without MOVIES_HUB_SECRET.
 // A secret shorter than movies.MinHubSecret, or one without a Data API client, refuses to start.
 func openMovieHub(getenv func(string) string, players *store.PlayerStore, ratings *store.RatingsReader, youtube *movies.YouTube, log *slog.Logger) (httpapi.MovieHub, error) {

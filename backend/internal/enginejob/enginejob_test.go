@@ -114,6 +114,18 @@ func TestStartPassesRankingArg(t *testing.T) {
 	}
 }
 
+func TestStartWithAppendsItsArgs(t *testing.T) {
+	f := &fakeAPI{}
+	if _, err := starter(t, f).StartWith(context.Background(), "-channel", "UC0000000000000000000001"); err != nil {
+		t.Fatalf("StartWith: %v", err)
+	}
+	job, _ := json.Marshal(f.created[0])
+	want := `"args":["-m","tta_ratings_engine.run","-channel","UC0000000000000000000001"]`
+	if !strings.Contains(string(job), want) {
+		t.Errorf("job = %s, want it to contain %s", job, want)
+	}
+}
+
 func TestStartRefusesWhileARunIsGoing(t *testing.T) {
 	for _, tt := range []struct{ name, jobs string }{
 		{"no conditions yet", ownedJob("engine-dev-29", "")},

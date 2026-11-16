@@ -1,5 +1,5 @@
-// Package enginejob starts a rating run now, by creating a Job from the engine's CronJob through the Kubernetes API,
-// as `kubectl create job --from=cronjob/...` does.
+// Package enginejob starts a Job now from one of our CronJobs (the engine's, the Movies job's) through the
+// Kubernetes API, as `kubectl create job --from=cronjob/...` does.
 package enginejob
 
 import (
@@ -102,10 +102,17 @@ type jobList struct {
 	} `json:"items"`
 }
 
-// Start creates a Job from the CronJob's template for ranking (defaulting to the template's args when empty)
-// and returns its name. It returns ErrRunning when one of the CronJob's Jobs, scheduled or started by hand, has
-// not finished.
+// Start creates an engine Job for ranking (the template's args alone when empty), as StartWith does.
 func (s *Starter) Start(ctx context.Context, ranking string) (string, error) {
+	if ranking == "" {
+		return s.StartWith(ctx)
+	}
+	return s.StartWith(ctx, "--ranking", ranking)
+}
+
+// StartWith creates a Job from the CronJob's template, with args after the template's own, and returns its
+// name. It returns ErrRunning when one of the CronJob's Jobs, scheduled or started by hand, has not finished.
+func (s *Starter) StartWith(ctx context.Context, args ...string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	token, err := s.Token()
@@ -128,9 +135,9 @@ func (s *Starter) Start(ctx context.Context, ranking string) (string, error) {
 	for k, v := range cj.Spec.JobTemplate.Metadata.Annotations {
 		annotations[k] = v
 	}
-	spec, err := withRanking(cj.Spec.JobTemplate.Spec, ranking)
+	spec, err := withArgs(cj.Spec.JobTemplate.Spec, args)
 	if err != nil {
-		return "", fmt.Errorf("building the engine job: %w", err)
+		return "", fmt.Errorf("building the job: %w", err)
 	}
 	job := map[string]any{
 		"apiVersion": "batch/v1", "kind": "Job",
@@ -144,7 +151,7 @@ func (s *Starter) Start(ctx context.Context, ranking string) (string, error) {
 	}
 	body, err := json.Marshal(job)
 	if err != nil {
-		return "", fmt.Errorf("building the engine job: %w", err)
+		return "", fmt.Errorf("building the job: %w", err)
 	}
 	var created struct {
 		Metadata struct {
@@ -157,9 +164,9 @@ func (s *Starter) Start(ctx context.Context, ranking string) (string, error) {
 	return created.Metadata.Name, nil
 }
 
-// withRanking appends "--ranking", ranking to the first container's args in a Job spec when ranking is non-empty.
-func withRanking(raw json.RawMessage, ranking string) (json.RawMessage, error) {
-	if ranking == "" {
+// withArgs appends extra to the first container's args in a Job spec.
+func withArgs(raw json.RawMessage, extra []string) (json.RawMessage, error) {
+	if len(extra) == 0 {
 		return raw, nil
 	}
 	var spec map[string]any
@@ -170,11 +177,14 @@ func withRanking(raw json.RawMessage, ranking string) (json.RawMessage, error) {
 	podSpec, _ := tmpl["spec"].(map[string]any)
 	containers, _ := podSpec["containers"].([]any)
 	if len(containers) == 0 {
-		return nil, fmt.Errorf("engine job template has no containers")
+		return nil, fmt.Errorf("the job template has no containers")
 	}
 	first, _ := containers[0].(map[string]any)
 	args, _ := first["args"].([]any)
-	first["args"] = append(args, "--ranking", ranking)
+	for _, a := range extra {
+		args = append(args, a)
+	}
+	first["args"] = args
 	return json.Marshal(spec)
 }
 

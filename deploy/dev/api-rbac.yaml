@@ -1,5 +1,5 @@
-# The dev API's own account, so admin can start and stop a rating run: it may
-# read the engine-dev CronJob, and list, create and delete Jobs in this
+# The dev API's own account, so admin can start and stop a rating run and start
+# the Movies job: it may read the engine-dev and movies-dev CronJobs, and list, create and delete Jobs in this
 # namespace. Nothing else. Kubernetes cannot narrow delete to engine-dev's Jobs
 # (their names are generated); the API only ever deletes those.
 ---
@@ -18,7 +18,7 @@ metadata:
 rules:
   - apiGroups: [batch]
     resources: [cronjobs]
-    resourceNames: [engine-dev]
+    resourceNames: [engine-dev, movies-dev]
     verbs: [get]
   - apiGroups: [batch]
     resources: [jobs]

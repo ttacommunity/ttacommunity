@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNewChannelBody, channelStatus, overrideChoice, overrideOf, videoStatus, type AdminVideo, type AdminVideoChannel } from './admin-movies';
+import { buildNewChannelBody, channelStatus, moviesRunStarted, overrideChoice, overrideOf, videoStatus, type AdminVideo, type AdminVideoChannel } from './admin-movies';
 
 describe('buildNewChannelBody', () => {
   it('requires channel and name', () => {
@@ -112,5 +112,14 @@ describe('channelStatus', () => {
     ],
   ])('%s', (_name, c, want) => {
     expect(channelStatus(c, now, day)).toEqual(want);
+  });
+});
+
+describe('moviesRunStarted', () => {
+  it.each([
+    ['every creator', null, 'Started the Movies job for every creator. Each row shows how it went when the job ends, in a minute or two.'],
+    ['one creator', 'Invented Casts', 'Started the Movies job for Invented Casts. Its row shows how it went when the job ends, in a minute or two.'],
+  ] as const)('%s', (_, name, want) => {
+    expect(moviesRunStarted(name)).toBe(want);
   });
 });

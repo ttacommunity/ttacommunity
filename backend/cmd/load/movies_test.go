@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/movies"
+	"ttacommunity/backend/internal/moviesync"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -77,12 +78,12 @@ type fakeYouTube struct {
 	asked   []string
 }
 
-func (f *fakeYouTube) LatestUploads(_ context.Context, id string, n int) ([]string, error) {
+func (f *fakeYouTube) Uploads(_ context.Context, id string) ([]string, error) {
 	f.asked = append(f.asked, id)
 	if id == jobFail {
 		return nil, errors.New("the Data API answered HTTP 500 (backendError)")
 	}
-	return f.uploads[id][:min(n, len(f.uploads[id]))], nil
+	return f.uploads[id], nil
 }
 
 func (f *fakeYouTube) Videos(_ context.Context, ids []string) (map[string]movies.VideoDetails, error) {
@@ -114,10 +115,10 @@ func (f *fakeHub) Subscribe(_ context.Context, id string) error {
 }
 
 func newJob(s *fakeJobStore, y *fakeYouTube, h *fakeHub) movieJob {
-	return movieJob{store: s, youtube: y, hub: h, now: jobNow}
+	return movieJob{store: s, sync: moviesync.Syncer{Store: s, YouTube: y, Hub: h}, now: jobNow}
 }
 
-func TestTheMovieJobFillsInANewChannelOnce(t *testing.T) {
+func TestTheMovieJobReadsEveryChannelsUploads(t *testing.T) {
 	s := &fakeJobStore{channels: []store.MovieJobChannel{{ChannelID: jobNew}, {ChannelID: jobOld, BackfilledAt: &jobNow}}}
 	y := &fakeYouTube{
 		uploads: map[string][]string{jobNew: {"vid00000001", "vid00000002", "vid00000003"}},
@@ -131,8 +132,8 @@ func TestTheMovieJobFillsInANewChannelOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !slices.Equal(y.asked, []string{jobNew}) || !slices.Equal(s.backfilled, []string{jobNew}) {
-		t.Errorf("uploads read %q, marked filled in %q; want only the new channel's", y.asked, s.backfilled)
+	if both := []string{jobNew, jobOld}; !slices.Equal(y.asked, both) || !slices.Equal(s.backfilled, both) {
+		t.Errorf("uploads read %q, marked filled in %q; want every channel's, %q", y.asked, s.backfilled, both)
 	}
 	got := map[string]string{}
 	for _, v := range s.saved {
@@ -329,4 +330,44 @@ func TestTheMovieJobTriesANewChannelAgainWhenItsDetailsFail(t *testing.T) {
 	if msg := s.errs[jobNew]; msg == nil || !strings.Contains(*msg, "filling in its videos: the Data API answered HTTP 403") {
 		t.Errorf("the channel's error = %v, want the Data API's failure", msg)
 	}
+}
+
+func TestTheMovieJobDoesOneChannelWhenAsked(t *testing.T) {
+	newStore := func() *fakeJobStore {
+		return &fakeJobStore{
+			channels: []store.MovieJobChannel{{ChannelID: jobNew}, {ChannelID: jobOld, BackfilledAt: &jobNow}},
+			videos: []store.MovieJobVideo{
+				{VideoID: "vid00000001", ChannelID: jobNew, DetailsFetched: true},
+				{VideoID: "vid00000002", ChannelID: jobOld, DetailsFetched: true},
+			},
+		}
+	}
+	s, y, h := newStore(), &fakeYouTube{}, &fakeHub{}
+	job := newJob(s, y, h)
+	job.only = jobOld
+	if _, err := job.run(context.Background()); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !slices.Equal(y.asked, []string{jobOld}) || !slices.Equal(h.subscribed, []string{jobOld}) || !slices.Equal(s.deleted, []string{"vid00000002"}) {
+		t.Errorf("uploads read %q, subscribed %q, deleted %q; want %s's alone", y.asked, h.subscribed, s.deleted, jobOld)
+	}
+
+	s, y, h = newStore(), &fakeYouTube{}, &fakeHub{}
+	job = newJob(s, y, h)
+	job.only = jobFail
+	if _, err := job.run(context.Background()); !errors.Is(err, store.ErrNoChannel) {
+		t.Errorf("an unlinked channel: err = %v, want %v", err, store.ErrNoChannel)
+	}
+	if len(y.asked)+len(h.subscribed)+len(s.deleted) != 0 {
+		t.Errorf("an unlinked channel: read %q, subscribed %q, deleted %q; want nothing done", y.asked, h.subscribed, s.deleted)
+	}
+}
+
+func (f *fakeJobStore) MovieJobChannel(_ context.Context, id string) (store.MovieJobChannel, error) {
+	for _, ch := range f.channels {
+		if ch.ChannelID == id {
+			return ch, nil
+		}
+	}
+	return store.MovieJobChannel{}, store.ErrNoChannel
 }

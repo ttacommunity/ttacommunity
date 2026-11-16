@@ -1,4 +1,4 @@
-// The daily Movies job: it fills in each new channel's latest videos, renews every channel's subscription to
+// The daily Movies job: it reads every channel's videos again, renews every channel's subscription to
 // YouTube's pushes, then drops the videos YouTube no longer shows and reads the details still missing.
 package main
 
@@ -8,42 +8,36 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
 
 	"ttacommunity/backend/internal/movies"
+	"ttacommunity/backend/internal/moviesync"
 	"ttacommunity/backend/internal/store"
 )
 
 // videosPerCall is the most ids one videos.list call takes.
 const videosPerCall = 50
 
-// newChannelVideos is how many of a new channel's latest uploads are filled in.
-const newChannelVideos = 15
-
 // movieJobStore is what the job reads and writes, through the admin login.
 type movieJobStore interface {
 	MovieJobChannels(ctx context.Context) ([]store.MovieJobChannel, error)
+	MovieJobChannel(ctx context.Context, channelID string) (store.MovieJobChannel, error)
 	MovieJobVideos(ctx context.Context) ([]store.MovieJobVideo, error)
 	MovieTournamentNames(ctx context.Context) ([]string, error)
-	SaveMovieVideo(ctx context.Context, v store.PushedVideo, at time.Time) error
 	DeleteMovieVideo(ctx context.Context, videoID string) error
-	MarkMovieChannelBackfilled(ctx context.Context, channelID string, at time.Time) error
-	SetMovieChannelError(ctx context.Context, channelID string, msg *string, at time.Time) error
+	moviesync.Store
 }
 
-// movieJob is one run of the job at now.
+// movieJob is one run of the job at now, setting each channel up with sync, whose store is store; only the
+// channel only when it is set.
 type movieJob struct {
-	store   movieJobStore
-	youtube interface {
-		Videos(ctx context.Context, ids []string) (map[string]movies.VideoDetails, error)
-		LatestUploads(ctx context.Context, channelID string, n int) ([]string, error)
-	}
-	hub interface {
-		Subscribe(ctx context.Context, channelID string) error
-	}
-	now time.Time
+	store movieJobStore
+	sync  moviesync.Syncer
+	now   time.Time
+	only  string
 }
 
 // movieJobReport counts what a run did.
@@ -59,7 +53,7 @@ func (j movieJob) run(ctx context.Context) (movieJobReport, error) {
 	if err != nil {
 		return r, err
 	}
-	channels, err := j.store.MovieJobChannels(ctx)
+	channels, err := j.channels(ctx)
 	if err != nil {
 		return r, err
 	}
@@ -67,29 +61,16 @@ func (j movieJob) run(ctx context.Context) (movieJobReport, error) {
 	for _, ch := range channels {
 		includeAll[ch.ChannelID] = ch.IncludeAll
 		r.Channels++
-		var problems []string
-		if ch.BackfilledAt == nil {
-			filled, err := j.fillIn(ctx, ch, tournaments)
-			if err != nil {
-				problems = append(problems, "filling in its videos: "+err.Error())
-			} else if err := j.store.MarkMovieChannelBackfilled(ctx, ch.ChannelID, j.now); err != nil {
-				return r, err
-			}
-			r.Filled += filled
+		done, err := j.sync.Channel(ctx, ch, tournaments, j.now)
+		if err != nil {
+			return r, err
 		}
-		if err := j.hub.Subscribe(ctx, ch.ChannelID); err != nil {
-			problems = append(problems, "subscribing: "+err.Error())
-		} else {
+		r.Filled += done.Filled
+		if done.Subscribed {
 			r.Subscribed++
 		}
-		var msg *string
-		if len(problems) > 0 {
+		if done.Problem != "" {
 			r.Failed++
-			joined := strings.Join(problems, "; ")
-			msg = &joined
-		}
-		if err := j.store.SetMovieChannelError(ctx, ch.ChannelID, msg, j.now); err != nil && !errors.Is(err, store.ErrNoChannel) {
-			return r, err
 		}
 	}
 	if err := j.check(ctx, includeAll, tournaments, &r); err != nil {
@@ -101,29 +82,17 @@ func (j movieJob) run(ctx context.Context) (movieJobReport, error) {
 	return r, nil
 }
 
-// fillIn saves ch's latest uploads that YouTube still shows, with their details, and returns how many it saved.
-func (j movieJob) fillIn(ctx context.Context, ch store.MovieJobChannel, tournaments []string) (int, error) {
-	ids, err := j.youtube.LatestUploads(ctx, ch.ChannelID, newChannelVideos)
+// channels returns the linked channels, or only the channel only when it is set: store.ErrNoChannel when that
+// one is not linked.
+func (j movieJob) channels(ctx context.Context) ([]store.MovieJobChannel, error) {
+	if j.only == "" {
+		return j.store.MovieJobChannels(ctx)
+	}
+	ch, err := j.store.MovieJobChannel(ctx, j.only)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	details, err := j.youtube.Videos(ctx, ids)
-	if err != nil {
-		return 0, err
-	}
-	saved := 0
-	for _, id := range ids {
-		d, ok := details[id]
-		if !ok {
-			continue
-		}
-		v := store.PushedVideo{VideoID: id, ChannelID: ch.ChannelID, PublishedAt: d.PublishedAt}
-		if err := j.save(ctx, v, d, ch.IncludeAll, tournaments); err != nil {
-			return 0, err
-		}
-		saved++
-	}
-	return saved, nil
+	return []store.MovieJobChannel{ch}, nil
 }
 
 // check asks the Data API about every stored video, 50 at a time: it deletes those YouTube no longer shows,
@@ -133,13 +102,16 @@ func (j movieJob) check(ctx context.Context, includeAll map[string]bool, tournam
 	if err != nil {
 		return err
 	}
+	if j.only != "" {
+		stored = slices.DeleteFunc(stored, func(v store.MovieJobVideo) bool { return v.ChannelID != j.only })
+	}
 	for start := 0; start < len(stored); start += videosPerCall {
 		batch := stored[start:min(start+videosPerCall, len(stored))]
 		ids := make([]string, len(batch))
 		for i, v := range batch {
 			ids[i] = v.VideoID
 		}
-		details, err := j.youtube.Videos(ctx, ids)
+		details, err := j.sync.YouTube.Videos(ctx, ids)
 		if err != nil {
 			return err
 		}
@@ -153,27 +125,12 @@ func (j movieJob) check(ctx context.Context, includeAll map[string]bool, tournam
 				r.Removed++
 			case !v.DetailsFetched:
 				pv := store.PushedVideo{VideoID: v.VideoID, ChannelID: v.ChannelID, Title: v.Title, PublishedAt: v.PublishedAt}
-				if err := j.save(ctx, pv, d, includeAll[v.ChannelID], tournaments); err != nil {
+				if err := j.sync.Save(ctx, pv, d, includeAll[v.ChannelID], tournaments, j.now); err != nil {
 					return err
 				}
 				r.Classified++
 			}
 		}
-	}
-	return nil
-}
-
-// save stores v with its verdict and title from d, the Data API's details, read now.
-func (j movieJob) save(ctx context.Context, v store.PushedVideo, d movies.VideoDetails, includeAll bool, tournaments []string) error {
-	if d.Title != "" {
-		v.Title = d.Title
-	}
-	v.ThumbnailURL = movies.Thumbnail(v.VideoID)
-	verdict := movies.Classify(movies.VideoText{Title: v.Title, Description: d.Description, Tags: d.Tags}, includeAll, tournaments)
-	v.TTA, v.Reason = verdict.TTA, verdict.Reason
-	v.DetailsFetchedAt = &j.now
-	if err := j.store.SaveMovieVideo(ctx, v, j.now); err != nil && !errors.Is(err, store.ErrNoChannel) {
-		return err
 	}
 	return nil
 }
@@ -217,7 +174,7 @@ func movieJobConfigFrom(getenv func(string) string) (movieJobConfig, error) {
 }
 
 // runMovies runs the job at now on the admin login, refusing a login that can change more than admin edits.
-func runMovies(now time.Time) error {
+func runMovies(now time.Time, only string) error {
 	cfg, err := movieJobConfigFrom(os.Getenv)
 	if err != nil {
 		return err
@@ -234,10 +191,14 @@ func runMovies(now time.Time) error {
 		return err
 	}
 	job := movieJob{
-		store:   admin,
-		youtube: movies.NewYouTube(nil, movies.DataAPI, cfg.youtubeKey),
-		hub:     movies.NewHubClient(nil, movies.Hub, cfg.callback, cfg.hubSecret),
-		now:     now.UTC(),
+		store: admin,
+		sync: moviesync.Syncer{
+			Store:   admin,
+			YouTube: movies.NewYouTube(nil, movies.DataAPI, cfg.youtubeKey),
+			Hub:     movies.NewHubClient(nil, movies.Hub, cfg.callback, cfg.hubSecret),
+		},
+		now:  now.UTC(),
+		only: only,
 	}
 	r, err := job.run(ctx)
 	fmt.Printf("channels: %d, subscribed: %d, failed: %d; videos filled in: %d, removed: %d, classified: %d\n",

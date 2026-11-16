@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,19 @@ func (a *AdminStore) MovieJobChannels(ctx context.Context) ([]MovieJobChannel, e
 		return nil, fmt.Errorf("listing channels for the movies job: %w", err)
 	}
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[MovieJobChannel])
+}
+
+// MovieJobChannel reads the linked channel channelID; ErrNoChannel when none is linked.
+func (a *AdminStore) MovieJobChannel(ctx context.Context, channelID string) (MovieJobChannel, error) {
+	rows, err := a.pool.Query(ctx, "SELECT channel_id, include_all, backfilled_at FROM video_channels WHERE channel_id = $1", channelID)
+	if err != nil {
+		return MovieJobChannel{}, fmt.Errorf("reading a channel for the movies job: %w", err)
+	}
+	ch, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[MovieJobChannel])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MovieJobChannel{}, ErrNoChannel
+	}
+	return ch, err
 }
 
 // MovieJobVideos lists every stored video.

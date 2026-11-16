@@ -1640,7 +1640,10 @@ type AdminMember struct {
 // AdminMoviesState defines model for AdminMoviesState.
 type AdminMoviesState struct {
 	Channels []AdminVideoChannel `json:"channels"`
-	Videos   []AdminVideo        `json:"videos"`
+
+	// JobRunning Whether a Movies Job, scheduled or started from admin, has not finished; false where none can be started
+	JobRunning bool         `json:"job_running"`
+	Videos     []AdminVideo `json:"videos"`
 }
 
 // AdminNostradamusAnswer defines model for AdminNostradamusAnswer.
@@ -4990,9 +4993,21 @@ type StandingsCheck struct {
 	StagesOnlyOnCge int `json:"stages_only_on_cge"`
 }
 
+// StartMoviesRun defines model for StartMoviesRun.
+type StartMoviesRun struct {
+	// Channel A linked channel's id, to read that channel alone; every channel when absent
+	Channel *string `json:"channel,omitempty"`
+}
+
 // StartRunRequest defines model for StartRunRequest.
 type StartRunRequest struct {
 	Ranking *RankingTrack `json:"ranking,omitempty"`
+}
+
+// StartedMoviesRun defines model for StartedMoviesRun.
+type StartedMoviesRun struct {
+	// Job The Movies Job's name
+	Job string `json:"job"`
 }
 
 // StartedRun defines model for StartedRun.
@@ -5795,6 +5810,9 @@ type PostAdminMovieChannelJSONRequestBody = NewVideoChannel
 // PatchAdminMovieChannelJSONRequestBody defines body for PatchAdminMovieChannel for application/json ContentType.
 type PatchAdminMovieChannelJSONRequestBody = VideoChannelPatch
 
+// PostAdminMoviesRunJSONRequestBody defines body for PostAdminMoviesRun for application/json ContentType.
+type PostAdminMoviesRunJSONRequestBody = StartMoviesRun
+
 // PatchAdminMovieVideoJSONRequestBody defines body for PatchAdminMovieVideo for application/json ContentType.
 type PatchAdminMovieVideoJSONRequestBody = VideoPatch
 
@@ -6094,6 +6112,9 @@ type ServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(w http.ResponseWriter, r *http.Request, channelId string)
+	// PostAdminMoviesRun Start the Movies job now, for every creator or one (admins only)
+	// (POST /v1/admin/movies/run)
+	PostAdminMoviesRun(w http.ResponseWriter, r *http.Request)
 	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(w http.ResponseWriter, r *http.Request, videoId string)
@@ -8479,6 +8500,20 @@ func (siw *ServerInterfaceWrapper) PatchAdminMovieChannel(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PatchAdminMovieChannel(w, r, channelId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminMoviesRun operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminMoviesRun(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminMoviesRun(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12737,6 +12772,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.PostAdminMovieChannel)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.DeleteAdminMovieChannel)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.PatchAdminMovieChannel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/run", wrapper.PostAdminMoviesRun)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/movies/videos/{videoId}", wrapper.PatchAdminMovieVideo)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/badges", wrapper.GetAdminBadges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/badges", wrapper.PostAdminBadge)
@@ -17857,6 +17893,103 @@ func (response PatchAdminMovieChannel404JSONResponse) VisitPatchAdminMovieChanne
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRunRequestObject struct {
+	Body *PostAdminMoviesRunJSONRequestBody
+}
+
+type PostAdminMoviesRunResponseObject interface {
+	VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error
+}
+
+type PostAdminMoviesRun202JSONResponse StartedMoviesRun
+
+func (response PostAdminMoviesRun202JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminMoviesRun401JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminMoviesRun403JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminMoviesRun404JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminMoviesRun409JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminMoviesRun503JSONResponse struct{ NotSetUpJSONResponse }
+
+func (response PostAdminMoviesRun503JSONResponse) VisitPostAdminMoviesRunResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -25704,6 +25837,9 @@ type StrictServerInterface interface {
 	// PatchAdminMovieChannel Update a YouTube creator channel (admins only)
 	// (PATCH /v1/admin/movies/channels/{channelId})
 	PatchAdminMovieChannel(ctx context.Context, request PatchAdminMovieChannelRequestObject) (PatchAdminMovieChannelResponseObject, error)
+	// PostAdminMoviesRun Start the Movies job now, for every creator or one (admins only)
+	// (POST /v1/admin/movies/run)
+	PostAdminMoviesRun(ctx context.Context, request PostAdminMoviesRunRequestObject) (PostAdminMoviesRunResponseObject, error)
 	// PatchAdminMovieVideo Show or keep a video off the Movies page whatever its verdict, or leave it to the verdict (admins only)
 	// (PATCH /v1/admin/movies/videos/{videoId})
 	PatchAdminMovieVideo(ctx context.Context, request PatchAdminMovieVideoRequestObject) (PatchAdminMovieVideoResponseObject, error)
@@ -28004,6 +28140,40 @@ func (sh *strictHandler) PatchAdminMovieChannel(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PatchAdminMovieChannelResponseObject); ok {
 		if err := validResponse.VisitPatchAdminMovieChannelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminMoviesRun operation middleware
+func (sh *strictHandler) PostAdminMoviesRun(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminMoviesRunRequestObject
+
+	var body PostAdminMoviesRunJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminMoviesRun(ctx, request.(PostAdminMoviesRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminMoviesRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminMoviesRunResponseObject); ok {
+		if err := validResponse.VisitPostAdminMoviesRunResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

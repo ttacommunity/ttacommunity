@@ -166,9 +166,9 @@ spec:
   # Admin requests are verified against Cloudflare Access's signing keys, fetched
   # over HTTPS from the team domain, player sign-in exchanges its code with
   # Discord, Microsoft or Google (and fetches Microsoft's and Google's signing
-  # keys), email sign-in calls Resend and Turnstile, and the visit count
-  # asks Cloudflare's GraphQL API: any public address on 443, RFC1918
-  # excluded.
+  # keys), email sign-in calls Resend and Turnstile, the visit count
+  # asks Cloudflare's GraphQL API, and Movies reads YouTube's Data API: any
+  # public address on 443, RFC1918 excluded.
   podSelector:
     matchLabels:
       app: api

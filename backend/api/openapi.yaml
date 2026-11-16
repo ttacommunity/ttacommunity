@@ -3554,7 +3554,9 @@ paths:
       operationId: postAdminMovieChannel
       tags: [admin]
       summary: Add a YouTube creator channel to the Movies feed (admins only)
-      description: Audited. The Origin must be the admin site.
+      description: >-
+        Audited. The Origin must be the admin site. Its videos are read by the Movies job: admin starts it for
+        the new channel with POST /v1/admin/movies/run, and the daily run reads every channel.
       requestBody:
         required: true
         content:
@@ -3625,6 +3627,39 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/movies/run:
+    post:
+      operationId: postAdminMoviesRun
+      tags: [admin]
+      summary: Start the Movies job now, for every creator or one (admins only)
+      description: >-
+        Starts the Movies job as a Job from its CronJob: it reads every upload of each creator's channel (only the
+        channel given, when one is), subscribes it to YouTube's pushes, drops the videos YouTube no longer shows,
+        and records on each channel what failed. One Movies job runs at a time. Audited. The Origin must be the
+        admin site.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartMoviesRun"
+      responses:
+        "202":
+          description: The Movies Job was created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartedMoviesRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/NotSetUp"
   /v1/admin/movies/videos/{videoId}:
     patch:
       operationId: patchAdminMovieVideo
@@ -11052,6 +11087,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MovieVideo"
+    StartMoviesRun:
+      type: object
+      properties:
+        channel:
+          type: string
+          description: A linked channel's id, to read that channel alone; every channel when absent
+    StartedMoviesRun:
+      type: object
+      required: [job]
+      properties:
+        job:
+          description: The Movies Job's name
+          type: string
     AdminVideoChannel:
       type: object
       required: [channel_id, name, include_all, created_at, video_count]
@@ -11125,8 +11173,11 @@ components:
           description: Whether the Movies page shows the video, the override if any, else the verdict
     AdminMoviesState:
       type: object
-      required: [channels, videos]
+      required: [channels, videos, job_running]
       properties:
+        job_running:
+          type: boolean
+          description: Whether a Movies Job, scheduled or started from admin, has not finished; false where none can be started
         channels:
           type: array
           items:

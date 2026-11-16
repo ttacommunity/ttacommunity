@@ -187,6 +187,8 @@ type adminDeps struct {
 	starter *enginejob.Starter
 	poster  *notify.Discord
 	youtube *movies.YouTube
+	// movieStarter starts Movies Jobs; nil without MOVIES_CRONJOB.
+	movieStarter *enginejob.Starter
 }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
@@ -196,6 +198,24 @@ func (d adminDeps) AllowedOrigin() string { return d.origin }
 // Data API.
 func (d adminDeps) ResolveMovieChannel(ctx context.Context, raw string) (string, error) {
 	return d.youtube.ResolveChannel(ctx, raw)
+}
+
+// StartMovieJob starts the Movies job for channelID, or every channel when empty, or returns
+// enginejob.ErrNotSetUp when MOVIES_CRONJOB is not set.
+func (d adminDeps) StartMovieJob(ctx context.Context, channelID string) (string, error) {
+	if d.movieStarter == nil {
+		return "", enginejob.ErrNotSetUp
+	}
+	return startMovieJob(ctx, d.AdminStore, d.movieStarter, channelID)
+}
+
+// MovieJobGoing reports whether a Movies Job is unfinished, or returns enginejob.ErrNotSetUp when MOVIES_CRONJOB
+// is not set.
+func (d adminDeps) MovieJobGoing(ctx context.Context) (bool, error) {
+	if d.movieStarter == nil {
+		return false, enginejob.ErrNotSetUp
+	}
+	return d.movieStarter.Going(ctx)
 }
 
 // Change runs fn in one transaction on the admin login, so a change and its audit commit together or not at all.
@@ -233,6 +253,7 @@ func (d adminDeps) EngineGoing(ctx context.Context) (bool, error) {
 // openAdmin builds admin from ACCESS_TEAM, ACCESS_AUD, ADMIN_ORIGIN and RATINGS_ADMIN_DATABASE_URL. Any of them
 // unset, or an admin login that can change more than admin edits, is an error: admin never starts open.
 // ENGINE_CRONJOB, when set, names the CronJob admin starts runs from, in the pod's namespace.
+// MOVIES_CRONJOB, when set, names the CronJob admin starts Movies jobs from, in the same namespace.
 // ADMIN_DEV_USER, when set, bypasses Access for local development; addr must then be 127.0.0.1.
 // It returns admin and its pool, for the caller to close and report on.
 func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, error) {
@@ -265,14 +286,20 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 		pool.Close()
 		return adminDeps{}, nil, err
 	}
-	var starter *enginejob.Starter
+	var starter, movieStarter *enginejob.Starter
 	if cj := os.Getenv("ENGINE_CRONJOB"); cj != "" {
 		if starter, err = enginejob.InCluster(cj); err != nil {
 			pool.Close()
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil}, pool, nil
+	if cj := os.Getenv("MOVIES_CRONJOB"); cj != "" {
+		if movieStarter, err = enginejob.InCluster(cj); err != nil {
+			pool.Close()
+			return adminDeps{}, nil, err
+		}
+	}
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

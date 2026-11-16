@@ -120,6 +120,8 @@ spec:
               value: https://ttacommunitydev.cloudflareaccess.com
             - name: ENGINE_CRONJOB
               value: engine
+            - name: MOVIES_CRONJOB
+              value: movies
             - name: ACCESS_AUD
               value: 385c7c2eee5489fc256c2aadfc1299c1a79ce78b9b712523026ffb92bf757f82
             - name: ADMIN_ORIGIN

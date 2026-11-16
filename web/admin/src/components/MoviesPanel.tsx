@@ -8,6 +8,7 @@ import { adminRequest } from '../lib/admin-api';
 import {
   buildNewChannelBody,
   channelStatus,
+  moviesRunStarted,
   overrideChoice,
   overrideOf,
   videoStatus,
@@ -23,6 +24,8 @@ import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
 import PeoplePick from './PeoplePick';
 
+const POLL_MS = 5000;
+
 export default function MoviesPanel() {
   const [state, setState] = useState<Load<AdminMoviesState>>({ kind: 'loading' });
   const [channel, setChannel] = useState('');
@@ -31,6 +34,7 @@ export default function MoviesPanel() {
   const [includeAll, setIncludeAll] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [busy, setBusy] = useState(false);
+  const [starting, setStarting] = useState(false);
   const dialog = useDialog();
 
   const reload = async () => {
@@ -41,6 +45,26 @@ export default function MoviesPanel() {
   useEffect(() => {
     void reload();
   }, []);
+
+  const running = state.kind === 'ready' && state.data.job_running;
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => void reload(), POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  /** startRun starts the Movies job for c, or every creator when null, and says so under key. */
+  const startRun = async (c: AdminVideoChannel | null, key: string, before = '') => {
+    setStarting(true);
+    const r = await adminRequest<unknown>('/api/movies/run', { method: 'POST', json: c === null ? {} : { channel: c.channel_id } });
+    setStarting(false);
+    if (!r.ok) {
+      setOutcome(refused(`${before}The Movies job did not start: ${r.message}`, key));
+    } else {
+      setOutcome(succeeded(before + moviesRunStarted(c === null ? null : c.name), key));
+    }
+    await reload();
+  };
 
   const addChannel = async (e: FormEvent) => {
     e.preventDefault();
@@ -64,8 +88,7 @@ export default function MoviesPanel() {
     setName('');
     setPlayer('');
     setIncludeAll(false);
-    setOutcome(succeeded(`Added ${r.data.name} (${r.data.channel_id}).`, 'movies-add'));
-    await reload();
+    await startRun(r.data, 'movies-add', `Added ${r.data.name} (${r.data.channel_id}). `);
   };
 
   const toggleIncludeAll = async (c: AdminVideoChannel) => {
@@ -128,9 +151,17 @@ export default function MoviesPanel() {
       {dialog.element}
       <p className="muted">
         YouTube creators whose Through the Ages videos appear on the Movies page. YouTube sends each new video as it is
-        published. Once a day, a new creator's latest videos are filled in, every subscription is renewed, and videos
-        YouTube no longer shows are dropped.
+        published. The Movies job reads every creator's videos, renews their subscriptions and drops videos YouTube
+        no longer shows: once a day, for a new creator when added, and when started here, for every creator or
+        one.
       </p>
+
+      <div className="movies-run">
+        <button type="button" className="btn-antique" disabled={running || starting} onClick={() => void startRun(null, 'movies-run')}>
+          {running ? 'The Movies job is running…' : 'Run now'}
+        </button>
+        {running && <span className="muted">This page refreshes until it ends.</span>}
+      </div>
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
 
@@ -220,7 +251,16 @@ export default function MoviesPanel() {
                           {status.text}
                         </span>
                       </td>
-                      <td>
+                      <td className="movies-actions">
+                        <button
+                          type="button"
+                          className="btn-settings"
+                          disabled={running || starting}
+                          onClick={() => void startRun(c, `channel-${c.channel_id}`)}
+                          title="Start the Movies job for this creator alone"
+                        >
+                          Fetch now
+                        </button>
                         <button
                           type="button"
                           className="btn-settings"
@@ -240,7 +280,7 @@ export default function MoviesPanel() {
           <div>
             <h3 className="movies-subheading">Recent videos ({state.data.videos.length})</h3>
             {state.data.videos.length === 0 ? (
-              <p className="muted">No videos yet. A new creator's latest videos are filled in by the next daily run.</p>
+              <p className="muted">No videos yet. The Movies job fills them in when a creator is added, or on Run now.</p>
             ) : (
               <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why" className="movies-table">
                 <thead>

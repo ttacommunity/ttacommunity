@@ -2556,7 +2556,7 @@ export interface paths {
         put?: never;
         /**
          * Add a YouTube creator channel to the Movies feed (admins only)
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. Its videos are read by the Movies job: admin starts it for the new channel with POST /v1/admin/movies/run, and the daily run reads every channel.
          */
         post: operations["postAdminMovieChannel"];
         delete?: never;
@@ -2587,6 +2587,26 @@ export interface paths {
          * @description Audited. The Origin must be the admin site.
          */
         patch: operations["patchAdminMovieChannel"];
+        trace?: never;
+    };
+    "/v1/admin/movies/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the Movies job now, for every creator or one (admins only)
+         * @description Starts the Movies job as a Job from its CronJob: it reads every upload of each creator's channel (only the channel given, when one is), subscribes it to YouTube's pushes, drops the videos YouTube no longer shows, and records on each channel what failed. One Movies job runs at a time. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminMoviesRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/movies/videos/{videoId}": {
@@ -6783,6 +6803,14 @@ export interface components {
             creators: components["schemas"]["MovieCreator"][];
             videos: components["schemas"]["MovieVideo"][];
         };
+        StartMoviesRun: {
+            /** @description A linked channel's id, to read that channel alone; every channel when absent */
+            channel?: string;
+        };
+        StartedMoviesRun: {
+            /** @description The Movies Job's name */
+            job: string;
+        };
         AdminVideoChannel: {
             channel_id: string;
             name: string;
@@ -6829,6 +6857,8 @@ export interface components {
             shown: boolean;
         };
         AdminMoviesState: {
+            /** @description Whether a Movies Job, scheduled or started from admin, has not finished; false where none can be started */
+            job_running: boolean;
             channels: components["schemas"]["AdminVideoChannel"][];
             videos: components["schemas"]["AdminVideo"][];
         };
@@ -10640,6 +10670,35 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminMoviesRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartMoviesRun"];
+            };
+        };
+        responses: {
+            /** @description The Movies Job was created */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartedMoviesRun"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["NotSetUp"];
         };
     };
     patchAdminMovieVideo: {

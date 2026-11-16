@@ -39,7 +39,7 @@ type Admins interface {
 	MovieAdmin
 }
 
-// MovieAdmin manages YouTube creator channels, video visibility, and RSS syncing.
+// MovieAdmin manages YouTube creator channels and video visibility, and starts the Movies job.
 type MovieAdmin interface {
 	AdminMovies(ctx context.Context) (store.AdminMoviesState, error)
 	AddMovieChannel(ctx context.Context, channelID, name string, player *string, includeAll bool, now time.Time) (store.AdminVideoChannel, error)
@@ -47,6 +47,12 @@ type MovieAdmin interface {
 	DeleteMovieChannel(ctx context.Context, channelID string) error
 	SetMovieVideoOverride(ctx context.Context, videoID string, override *bool) error
 	ResolveMovieChannel(ctx context.Context, raw string) (string, error)
+	// StartMovieJob starts the Movies job for channelID alone, or every channel when empty, and returns the
+	// Job's name: store.ErrNoChannel when channelID is not linked, enginejob.ErrRunning while one is going,
+	// enginejob.ErrNotSetUp when no Movies CronJob is set up here.
+	StartMovieJob(ctx context.Context, channelID string) (string, error)
+	// MovieJobGoing reports whether a Movies Job has not finished: enginejob.ErrNotSetUp as StartMovieJob.
+	MovieJobGoing(ctx context.Context) (bool, error)
 }
 
 // NotificationAdmin is the webhooks notifications are posted to, and a test post to one.
