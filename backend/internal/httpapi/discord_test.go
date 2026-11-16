@@ -290,6 +290,30 @@ func TestMyRatingFindsTheAskerInADirectMessage(t *testing.T) {
 	wantMessage(t, discordReply(t, discordDo(newDiscordRatings(), discord, discordKey, body, slog.New(slog.DiscardHandler))), false, "2-player")
 }
 
+func TestRollIsSharedUnlessAskedPrivate(t *testing.T) {
+	tests := []struct {
+		name        string
+		options     string
+		wantPrivate bool
+		wantText    string
+	}{
+		{"shared by default", `{"name":"dice","type":3,"value":"2d6+1"}`, false, "2d6+1"},
+		{"private when asked", `{"name":"dice","type":3,"value":"d20"},{"name":"private","type":5,"value":true}`, true, "1d20"},
+		{"refused dice, to the asker alone", `{"name":"dice","type":3,"value":"500d6"}`, true, "1 to 100 dice"},
+		{"no dice at all", ``, true, "2d6"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command("roll", tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, tt.wantText)
+			if ratings.calls != 0 {
+				t.Errorf("a roll read the ratings %d times, want none", ratings.calls)
+			}
+		})
+	}
+}
+
 func TestTheDiscordEndpointLogsNoDiscordIDOrName(t *testing.T) {
 	for name, body := range map[string]string{"own": command("myrating", ""), "named": rating(`{"name":"player","type":3,"value":"Quill"}`)} {
 		t.Run(name, func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
@@ -74,8 +75,8 @@ func routeDiscord(rest, discord http.Handler) http.Handler {
 	})
 }
 
-// AnswerDiscordInteraction answers one interaction Discord signed: its PING, /rating and its suggestions, or
-// /myrating.
+// AnswerDiscordInteraction answers one interaction Discord signed: its PING, a command, or names for the player
+// option being typed.
 func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscordInteractionRequestObject) (AnswerDiscordInteractionResponseObject, error) {
 	ctx, cancel := context.WithTimeout(ctx, discordAnswerTime)
 	defer cancel()
@@ -91,6 +92,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.ratingReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "myrating":
 		reply = s.myRatingReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "roll":
+		reply = rollReply(*i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -166,6 +169,17 @@ func (s *server) showRating(ctx context.Context, name string, format int, shared
 		return discordText(discordbot.EscapeMarkdown(p.Name)+" has no "+discordbot.FormatLabel(format)+" rating.", true)
 	}
 	return discordText(discordbot.RatingText(summary, s.discord.Site()), !shared)
+}
+
+// rollReply rolls the dice asked for, for everyone to see unless asked private, or tells the asker alone why not.
+func rollReply(i DiscordInteraction) DiscordReply {
+	d, err := discordbot.ParseDice(stringOption(i, "dice"))
+	if err != nil {
+		return discordText("Those dice can't be rolled: "+err.Error()+".", true)
+	}
+	private, _ := option(i, "private").(bool)
+	rolls := discordbot.RollDice(d, func(sides int) int { return rand.IntN(sides) + 1 })
+	return discordText(discordbot.DiceText(d, rolls), private)
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.
