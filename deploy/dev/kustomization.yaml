@@ -9,4 +9,5 @@ resources:
   - api-rbac.yaml
   - api.yaml
   - engine.yaml
+  - movies.yaml
   - cloudflare-tunnel.yaml

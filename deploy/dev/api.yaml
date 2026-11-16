@@ -180,6 +180,19 @@ spec:
                   name: cloudflare-analytics
                   key: account-id
                   optional: true
+            # Movies: as deploy/api.yaml, from the dev site's own Secret.
+            - name: MOVIES_HUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: movies-dev
+                  key: hub-secret
+                  optional: true
+            - name: YOUTUBE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: movies-dev
+                  key: youtube-api-key
+                  optional: true
           resources:
             requests:
               cpu: 25m

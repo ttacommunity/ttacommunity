@@ -97,7 +97,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api-dev, engine-dev]
+                values: [api-dev, engine-dev, movies-dev]
       ports:
         - protocol: TCP
           port: 5432
@@ -112,7 +112,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api-dev, engine-dev]
+        values: [api-dev, engine-dev, movies-dev]
   policyTypes: [Egress]
   egress:
     - to:
@@ -173,3 +173,23 @@ spec:
       ports:
         - protocol: TCP
           port: 6443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: movies-dev-egress
+  namespace: ttacommunity
+spec:
+  # As movies-egress: any public address on 443, RFC1918 excluded.
+  podSelector:
+    matchLabels:
+      app: movies-dev
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443

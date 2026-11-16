@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine, backup]
+                values: [api, engine, backup, movies]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine, backup]
+        values: [api, engine, backup, movies]
   policyTypes: [Egress]
   egress:
     - to:
@@ -254,6 +254,27 @@ spec:
       ports:
         - protocol: TCP
           port: 6443
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: movies-egress
+  namespace: ttacommunity
+spec:
+  # The Movies job asks YouTube's hub to subscribe, and reads the Data API and channels' feeds, none with fixed
+  # addresses: any public address on 443, RFC1918 excluded.
+  podSelector:
+    matchLabels:
+      app: movies
+  policyTypes: [Egress]
+  egress:
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
