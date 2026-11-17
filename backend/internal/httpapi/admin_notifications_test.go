@@ -76,8 +76,8 @@ func TestAnAdminAddsChangesAndRemovesNotificationEndpoints(t *testing.T) {
 	f := &fakeAdmins{}
 	rec := adminDoAs(t, f, owner, http.MethodGet, "/v1/admin/notification-endpoints", "", "")
 	var list []NotificationEndpoint
-	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list) != 1 || list[0].Url != testWebhook || list[0].Prefix != "[dev]" {
-		t.Fatalf("GET endpoints = %d %s, want the endpoint with its URL", rec.Code, rec.Body)
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list) != 1 || list[0].WebhookId != "100000000000000001" || list[0].Prefix != "[dev]" {
+		t.Fatalf("GET endpoints = %d %s, want the endpoint with its webhook's id", rec.Code, rec.Body)
 	}
 	rec = adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site,
 		`{"name": "Organisers", "url": "`+testWebhook+`", "events": ["blitz_report", "blitz_flag"]}`)
@@ -99,6 +99,31 @@ func TestAnAdminAddsChangesAndRemovesNotificationEndpoints(t *testing.T) {
 	}
 	if want := []string{owner + " notification.endpoint.add Organisers", owner + " notification.endpoint.set 3", owner + " notification.endpoint.remove 3"}; strings.Join(f.audits, "|") != strings.Join(want, "|") {
 		t.Errorf("audits = %q, want %q", f.audits, want)
+	}
+}
+
+func TestAWebhooksSecretIsNeverAnsweredOrAudited(t *testing.T) {
+	const site, owner, secret = "https://ttac-admin.example", "111111111111111111", "/token"
+	tests := []struct{ name, method, path, body, wantAudit string }{
+		{"listing", http.MethodGet, "/v1/admin/notification-endpoints", "", ""},
+		{"adding", http.MethodPost, "/v1/admin/notification-endpoints", `{"name": "Admins", "url": "` + testWebhook + `", "events": []}`, "webhook 100000000000000001"},
+		{"changing the URL", http.MethodPut, "/v1/admin/notification-endpoints/3", `{"name": "Admins", "url": "` + testWebhook + `", "events": []}`, "webhook 100000000000000001"},
+		{"changing the rest", http.MethodPut, "/v1/admin/notification-endpoints/3", `{"name": "Admins", "events": []}`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			rec := adminDoAs(t, f, owner, tt.method, tt.path, site, tt.body)
+			if rec.Code >= 300 || strings.Contains(rec.Body.String(), secret) {
+				t.Errorf("%s %s = %d %s, want success without the webhook's secret", tt.method, tt.path, rec.Code, rec.Body)
+			}
+			for _, d := range f.details {
+				var detail struct{ URL string }
+				if err := json.Unmarshal([]byte(d), &detail); err != nil || detail.URL != tt.wantAudit {
+					t.Errorf("audited url = %q (%v), want %q", detail.URL, err, tt.wantAudit)
+				}
+			}
+		})
 	}
 }
 

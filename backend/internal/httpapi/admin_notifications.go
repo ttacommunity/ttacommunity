@@ -24,7 +24,7 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	if feeds == nil {
 		feeds = []int64{}
 	}
-	out := NotificationEndpoint{Id: e.ID, Name: e.Name, Url: e.URL, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, Prefix: e.Prefix,
+	out := NotificationEndpoint{Id: e.ID, Name: e.Name, WebhookId: e.WebhookID(), Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, Prefix: e.Prefix,
 		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID,
 		Colour: e.Look.Colour, Text: RedditPostText(e.Look.Text), Image: e.Look.Image, Author: e.Look.Author,
 		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
@@ -40,7 +40,10 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	if b == nil {
 		return store.NotificationEndpoint{}, "an endpoint: name, url and events"
 	}
-	e := store.NotificationEndpoint{Name: b.Name, URL: b.Url, Format: string(NotificationFormatDiscord), Events: []string{}, Feeds: []int64{}}
+	e := store.NotificationEndpoint{Name: b.Name, Format: string(NotificationFormatDiscord), Events: []string{}, Feeds: []int64{}}
+	if b.Url != nil {
+		e.URL = *b.Url
+	}
 	if b.Feeds != nil {
 		e.Feeds = *b.Feeds
 	}
@@ -88,6 +91,16 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	return e, ""
 }
 
+// audited is the setting b as the audit log keeps it: its URL, the webhook's secret, written as the webhook's id.
+func audited(b *NotificationEndpointSetting) NotificationEndpointSetting {
+	a := *b
+	if a.Url != nil && *a.Url != "" {
+		id := "webhook " + store.NotificationEndpoint{URL: *a.Url}.WebhookID()
+		a.Url = &id
+	}
+	return a
+}
+
 func (s *server) GetAdminNotificationEndpoints(ctx context.Context, _ GetAdminNotificationEndpointsRequestObject) (GetAdminNotificationEndpointsResponseObject, error) {
 	_, ok, err := adminOnly(ctx)
 	if err != nil {
@@ -124,7 +137,7 @@ func (s *server) PostAdminNotificationEndpoint(ctx context.Context, req PostAdmi
 		if e.ID, err = tx.AddNotificationEndpoint(ctx, e, s.now()); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "notification.endpoint.add", e.Name, req.Body)
+		return tx.Audit(ctx, me.DiscordID, "notification.endpoint.add", e.Name, audited(req.Body))
 	})
 	switch {
 	case errors.Is(err, store.ErrBadNotificationEndpoint):
@@ -152,7 +165,7 @@ func (s *server) PutAdminNotificationEndpoint(ctx context.Context, req PutAdminN
 		if err := tx.SetNotificationEndpoint(ctx, e); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "notification.endpoint.set", fmt.Sprint(e.ID), req.Body)
+		return tx.Audit(ctx, me.DiscordID, "notification.endpoint.set", fmt.Sprint(e.ID), audited(req.Body))
 	})
 	switch {
 	case errors.Is(err, store.ErrNoNotificationEndpoint):

@@ -153,11 +153,12 @@ func setFeeds(ctx context.Context, tx pgx.Tx, endpoint int64, feeds []int64) err
 	return err
 }
 
-// SetNotificationEndpoint changes an endpoint, or returns ErrNoNotificationEndpoint or ErrBadNotificationEndpoint.
+// SetNotificationEndpoint changes an endpoint, keeping its URL when e's is empty, or returns ErrNoNotificationEndpoint
+// or ErrBadNotificationEndpoint.
 func (a *AdminStore) SetNotificationEndpoint(ctx context.Context, e NotificationEndpoint) error {
 	e = trimEndpoint(e)
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE notification_endpoints SET name = $2, url = $3, format = $4,
+		tag, err := tx.Exec(ctx, `UPDATE notification_endpoints SET name = $2, url = coalesce(nullif($3, ''), url), format = $4,
 			events = ARRAY(SELECT DISTINCT unnest($5::text[]) ORDER BY 1), prefix = $6, paused = $7, forum = $8, username = $9,
 			avatar_url = $10, role_id = $11, colour = $12, show_text = $13, show_image = $14, show_author = $15 WHERE endpoint_id = $1`,
 			e.ID, e.Name, e.URL, e.Format, e.Events, e.Prefix, e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID,
@@ -189,4 +190,17 @@ func (a *AdminStore) RemoveNotificationEndpoint(ctx context.Context, id int64) e
 		return ErrNoNotificationEndpoint
 	}
 	return nil
+}
+
+// WebhookID is the id in e's webhook URL, the part of it that is not secret, or "" when the URL holds none.
+func (e NotificationEndpoint) WebhookID() string {
+	_, rest, ok := strings.Cut(e.URL, "/api/webhooks/")
+	if !ok {
+		return ""
+	}
+	id, _, ok := strings.Cut(rest, "/")
+	if !ok {
+		return ""
+	}
+	return id
 }

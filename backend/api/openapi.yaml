@@ -6105,14 +6105,15 @@ components:
       enum: [sign_up, link_request, blitz_report, blitz_flag, reddit_failing]
     NotificationEndpoint:
       type: object
-      required: [id, name, url, format, events, feeds, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
+      required: [id, name, webhook_id, format, events, feeds, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
       properties:
         id:
           type: integer
           format: int64
         name:
           type: string
-        url:
+        webhook_id:
+          description: The Discord webhook's id. Its URL holds its secret and is never sent back
           type: string
         format:
           $ref: "#/components/schemas/NotificationFormat"
@@ -6175,12 +6176,12 @@ components:
     NotificationEndpointSetting:
       type: object
       additionalProperties: false
-      required: [name, url, events]
+      required: [name, events]
       properties:
         name:
           type: string
         url:
-          description: A Discord webhook's URL, https://discord.com/api/webhooks/…
+          description: A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
           type: string
         format:
           $ref: "#/components/schemas/NotificationFormat"

@@ -4520,10 +4520,12 @@ type NotificationEndpoint struct {
 
 	// Text How much of a Reddit post's text an endpoint shows
 	Text RedditPostText `json:"text"`
-	Url  string         `json:"url"`
 
 	// Username The name its messages show; the webhook's own when empty
 	Username string `json:"username"`
+
+	// WebhookId The Discord webhook's id. Its URL holds its secret and is never sent back
+	WebhookId string `json:"webhook_id"`
 }
 
 // NotificationEndpointSetting defines model for NotificationEndpointSetting.
@@ -4554,8 +4556,8 @@ type NotificationEndpointSetting struct {
 	// Text How much of a Reddit post's text an endpoint shows
 	Text *RedditPostText `json:"text,omitempty"`
 
-	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…
-	Url      string  `json:"url"`
+	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
+	Url      *string `json:"url,omitempty"`
 	Username *string `json:"username,omitempty"`
 }
 
