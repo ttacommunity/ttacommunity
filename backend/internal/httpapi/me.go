@@ -26,7 +26,7 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 	}
 	if l.Request != nil {
 		me.Request = &MyLinkRequest{Name: l.Request.Name, Status: RequestStatus(l.Request.Status), Reason: l.Request.Reason,
-			RequestedAt: l.Request.RequestedAt}
+			RequestedAt: l.Request.RequestedAt.UTC()}
 	}
 	if l.AdminRole != "" {
 		role := Role(l.AdminRole)

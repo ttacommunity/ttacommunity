@@ -16,7 +16,7 @@ import (
 // account; request 99 and account 99 do not exist.
 func (f *fakeAdmins) Accounts(context.Context) ([]store.AccountRow, error) {
 	ann := int64(3)
-	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
+	at := time.Date(2026, 10, 18, 23, 0, 0, 0, time.FixedZone("UTC+11", 11*60*60))
 	return []store.AccountRow{
 		{ID: 2, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_two", SignedInAt: at}}, SignedInAt: at,
 			Request: &store.PendingRequest{ID: 20, Name: "Bob", Country: "NZ", Zone: "Pacific/Auckland", MemberEmail: "", RequestedAt: at.Add(time.Minute)}},
@@ -88,6 +88,9 @@ func TestAdminListsAccountsWithWhatTheyAsk(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "1.refused", `null`)
 	wantJSON(t, rec.Body.Bytes(), "2.refused.name", `"Cat"`)
 	wantJSON(t, rec.Body.Bytes(), "2.refused.reason", `"Not the same player"`)
+	wantJSON(t, rec.Body.Bytes(), "0.request.requested_at", `"2026-10-18T12:01:00Z"`)
+	wantJSON(t, rec.Body.Bytes(), "0.signed_in_at", `"2026-10-18T12:00:00Z"`)
+	wantJSON(t, rec.Body.Bytes(), "1.logins.1.signed_in_at", `"2026-10-18T13:00:00Z"`)
 	wantJSON(t, rec.Body.Bytes(), "1.auto_link", `true`)
 	wantJSON(t, rec.Body.Bytes(), "2.auto_link", `false`)
 }
