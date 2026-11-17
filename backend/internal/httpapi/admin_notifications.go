@@ -20,7 +20,11 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	for i, ev := range e.Events {
 		events[i] = NotificationEvent(ev)
 	}
-	return NotificationEndpoint{Id: e.ID, Name: e.Name, Url: e.URL, Format: NotificationFormat(e.Format), Events: events, Prefix: e.Prefix}
+	feeds := e.Feeds
+	if feeds == nil {
+		feeds = []int64{}
+	}
+	return NotificationEndpoint{Id: e.ID, Name: e.Name, Url: e.URL, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, Prefix: e.Prefix}
 }
 
 // endpointIn is the endpoint a setting asks for, discord when no format is given, or the refusal of an unknown
@@ -29,7 +33,10 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	if b == nil {
 		return store.NotificationEndpoint{}, "an endpoint: name, url and events"
 	}
-	e := store.NotificationEndpoint{Name: b.Name, URL: b.Url, Format: string(NotificationFormatDiscord), Events: []string{}}
+	e := store.NotificationEndpoint{Name: b.Name, URL: b.Url, Format: string(NotificationFormatDiscord), Events: []string{}, Feeds: []int64{}}
+	if b.Feeds != nil {
+		e.Feeds = *b.Feeds
+	}
 	if b.Format != nil {
 		if !b.Format.Valid() {
 			return store.NotificationEndpoint{}, "the format is discord"

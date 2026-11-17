@@ -2739,6 +2739,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/reddit-feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The subreddits whose new posts are posted to Discord (admins only) */
+        get: operations["getAdminRedditFeeds"];
+        put?: never;
+        /**
+         * Add a subreddit to read for new posts (admins only)
+         * @description Audited. The Origin must be the admin site. The Reddit job's first read of it posts nothing, so its older posts are not posted; endpoints take it once it is among their feeds.
+         */
+        post: operations["postAdminRedditFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reddit-feeds/{feed}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause or resume a Reddit feed (admins only)
+         * @description Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came while it was paused is not posted.
+         */
+        put: operations["putAdminRedditFeed"];
+        post?: never;
+        /**
+         * Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminRedditFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -3902,6 +3947,8 @@ export interface components {
             url: string;
             format: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
+            /** @description The Reddit feeds it takes, by id */
+            feeds: number[];
             /** @description Text put before each message, such as [dev] */
             prefix: string;
         };
@@ -3916,7 +3963,38 @@ export interface components {
             url: string;
             format?: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
+            /** @description The Reddit feeds it takes, by id; none when not given */
+            feeds?: number[];
             prefix?: string;
+        };
+        RedditFeed: {
+            /** Format: int64 */
+            id: number;
+            /** @description Its name, without r/ */
+            subreddit: string;
+            /** @description Not read while paused */
+            paused: boolean;
+            /**
+             * Format: date-time
+             * @description When the Reddit job last read it
+             */
+            checked_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When its newest post seen was posted on Reddit
+             */
+            last_post_at?: string | null;
+            /** @description Why its last read failed, until a read succeeds */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
+        };
+        NewRedditFeed: {
+            /** @description Its name, without r/ */
+            subreddit: string;
+        };
+        RedditFeedSetting: {
+            paused: boolean;
         };
         NotificationTest: {
             delivered: boolean;
@@ -7268,6 +7346,7 @@ export interface components {
         MemberId: number;
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
+        AdminRedditFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
         /** @description Any run's id, published or not */
@@ -10958,6 +11037,109 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NotificationTest"];
                 };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminRedditFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feeds, by subreddit */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedditFeed"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRedditFeed"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedditFeed"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRedditFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedditFeedSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRedditFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];

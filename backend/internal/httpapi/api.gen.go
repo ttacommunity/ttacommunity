@@ -4161,6 +4161,12 @@ type NewMember struct {
 	Zone *string `json:"zone,omitempty"`
 }
 
+// NewRedditFeed defines model for NewRedditFeed.
+type NewRedditFeed struct {
+	// Subreddit Its name, without r/
+	Subreddit string `json:"subreddit"`
+}
+
 // NewSeason defines model for NewSeason.
 type NewSeason struct {
 	// Label As the site shows it, e.g. "1" or "2023 Play Off"
@@ -4350,6 +4356,9 @@ type NostradamusStanding struct {
 type NotificationEndpoint struct {
 	Events []NotificationEvent `json:"events"`
 
+	// Feeds The Reddit feeds it takes, by id
+	Feeds []int64 `json:"feeds"`
+
 	// Format How the endpoint takes messages; discord so far
 	Format NotificationFormat `json:"format"`
 	Id     int64              `json:"id"`
@@ -4363,6 +4372,9 @@ type NotificationEndpoint struct {
 // NotificationEndpointSetting defines model for NotificationEndpointSetting.
 type NotificationEndpointSetting struct {
 	Events []NotificationEvent `json:"events"`
+
+	// Feeds The Reddit feeds it takes, by id; none when not given
+	Feeds *[]int64 `json:"feeds,omitempty"`
 
 	// Format How the endpoint takes messages; discord so far
 	Format *NotificationFormat `json:"format,omitempty"`
@@ -4691,6 +4703,31 @@ type RecentPodium struct {
 type RecentPodiums struct {
 	Podiums []RecentPodium `json:"podiums"`
 	RunId   int64          `json:"run_id"`
+}
+
+// RedditFeed defines model for RedditFeed.
+type RedditFeed struct {
+	// CheckedAt When the Reddit job last read it
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+	Id        int64      `json:"id"`
+
+	// LastError Why its last read failed, until a read succeeds
+	LastError   *string    `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+
+	// LastPostAt When its newest post seen was posted on Reddit
+	LastPostAt *time.Time `json:"last_post_at,omitempty"`
+
+	// Paused Not read while paused
+	Paused bool `json:"paused"`
+
+	// Subreddit Its name, without r/
+	Subreddit string `json:"subreddit"`
+}
+
+// RedditFeedSetting defines model for RedditFeedSetting.
+type RedditFeedSetting struct {
+	Paused bool `json:"paused"`
 }
 
 // Region A zone a member may have besides an IANA one
@@ -5359,6 +5396,9 @@ type AdminNotificationEndpointId = int64
 // AdminPlayer defines model for AdminPlayer.
 type AdminPlayer = string
 
+// AdminRedditFeedId defines model for AdminRedditFeedId.
+type AdminRedditFeedId = int64
+
 // AdminRunId defines model for AdminRunId.
 type AdminRunId = int64
 
@@ -5866,6 +5906,12 @@ type PostAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
 // PutAdminNotificationEndpointJSONRequestBody defines body for PutAdminNotificationEndpoint for application/json ContentType.
 type PutAdminNotificationEndpointJSONRequestBody = NotificationEndpointSetting
 
+// PostAdminRedditFeedJSONRequestBody defines body for PostAdminRedditFeed for application/json ContentType.
+type PostAdminRedditFeedJSONRequestBody = NewRedditFeed
+
+// PutAdminRedditFeedJSONRequestBody defines body for PutAdminRedditFeed for application/json ContentType.
+type PutAdminRedditFeedJSONRequestBody = RedditFeedSetting
+
 // PostAdminRunJSONRequestBody defines body for PostAdminRun for application/json ContentType.
 type PostAdminRunJSONRequestBody = StartRunRequest
 
@@ -6201,6 +6247,18 @@ type ServerInterface interface {
 	// GetAdminPeople The five members and players the ratings know who best match a name (admins and organisers)
 	// (GET /v1/admin/people)
 	GetAdminPeople(w http.ResponseWriter, r *http.Request, params GetAdminPeopleParams)
+	// GetAdminRedditFeeds The subreddits whose new posts are posted to Discord (admins only)
+	// (GET /v1/admin/reddit-feeds)
+	GetAdminRedditFeeds(w http.ResponseWriter, r *http.Request)
+	// PostAdminRedditFeed Add a subreddit to read for new posts (admins only)
+	// (POST /v1/admin/reddit-feeds)
+	PostAdminRedditFeed(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminRedditFeed Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/reddit-feeds/{feed})
+	DeleteAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId)
+	// PutAdminRedditFeed Pause or resume a Reddit feed (admins only)
+	// (PUT /v1/admin/reddit-feeds/{feed})
+	PutAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId)
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)
 	// (GET /v1/admin/regions)
 	GetAdminRegions(w http.ResponseWriter, r *http.Request)
@@ -9315,6 +9373,86 @@ func (siw *ServerInterfaceWrapper) GetAdminPeople(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminPeople(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRedditFeeds operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRedditFeeds(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRedditFeeds(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminRedditFeed operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminRedditFeed(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminRedditFeed(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminRedditFeed operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminRedditFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminRedditFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminRedditFeed(w, r, feed)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRedditFeed operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRedditFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminRedditFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRedditFeed(w, r, feed)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12788,6 +12926,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.DeleteAdminNotificationEndpoint)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.PutAdminNotificationEndpoint)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}/test", wrapper.PostAdminNotificationEndpointTest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/reddit-feeds", wrapper.GetAdminRedditFeeds)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/reddit-feeds", wrapper.PostAdminRedditFeed)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/reddit-feeds/{feed}", wrapper.DeleteAdminRedditFeed)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/reddit-feeds/{feed}", wrapper.PutAdminRedditFeed)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -20125,6 +20267,293 @@ func (response GetAdminPeople403JSONResponse) VisitGetAdminPeopleResponse(w http
 	return err
 }
 
+type GetAdminRedditFeedsRequestObject struct {
+}
+
+type GetAdminRedditFeedsResponseObject interface {
+	VisitGetAdminRedditFeedsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminRedditFeeds200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminRedditFeeds200JSONResponse struct {
+	Body    []RedditFeed
+	Headers GetAdminRedditFeeds200ResponseHeaders
+}
+
+func (response GetAdminRedditFeeds200JSONResponse) VisitGetAdminRedditFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRedditFeeds401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminRedditFeeds401JSONResponse) VisitGetAdminRedditFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRedditFeeds403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminRedditFeeds403JSONResponse) VisitGetAdminRedditFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRedditFeedRequestObject struct {
+	Body *PostAdminRedditFeedJSONRequestBody
+}
+
+type PostAdminRedditFeedResponseObject interface {
+	VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error
+}
+
+type PostAdminRedditFeed201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminRedditFeed201JSONResponse struct {
+	Body    RedditFeed
+	Headers PostAdminRedditFeed201ResponseHeaders
+}
+
+func (response PostAdminRedditFeed201JSONResponse) VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRedditFeed400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminRedditFeed400JSONResponse) VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRedditFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminRedditFeed401JSONResponse) VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRedditFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminRedditFeed403JSONResponse) VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRedditFeed409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminRedditFeed409JSONResponse) VisitPostAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRedditFeedRequestObject struct {
+	Feed AdminRedditFeedId `json:"feed"`
+}
+
+type DeleteAdminRedditFeedResponseObject interface {
+	VisitDeleteAdminRedditFeedResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminRedditFeed204Response struct {
+}
+
+func (response DeleteAdminRedditFeed204Response) VisitDeleteAdminRedditFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminRedditFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminRedditFeed401JSONResponse) VisitDeleteAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRedditFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminRedditFeed403JSONResponse) VisitDeleteAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRedditFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminRedditFeed404JSONResponse) VisitDeleteAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRedditFeedRequestObject struct {
+	Feed AdminRedditFeedId `json:"feed"`
+	Body *PutAdminRedditFeedJSONRequestBody
+}
+
+type PutAdminRedditFeedResponseObject interface {
+	VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error
+}
+
+type PutAdminRedditFeed204Response struct {
+}
+
+func (response PutAdminRedditFeed204Response) VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminRedditFeed400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminRedditFeed400JSONResponse) VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRedditFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminRedditFeed401JSONResponse) VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRedditFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminRedditFeed403JSONResponse) VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRedditFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminRedditFeed404JSONResponse) VisitPutAdminRedditFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminRegionsRequestObject struct {
 }
 
@@ -25926,6 +26355,18 @@ type StrictServerInterface interface {
 	// GetAdminPeople The five members and players the ratings know who best match a name (admins and organisers)
 	// (GET /v1/admin/people)
 	GetAdminPeople(ctx context.Context, request GetAdminPeopleRequestObject) (GetAdminPeopleResponseObject, error)
+	// GetAdminRedditFeeds The subreddits whose new posts are posted to Discord (admins only)
+	// (GET /v1/admin/reddit-feeds)
+	GetAdminRedditFeeds(ctx context.Context, request GetAdminRedditFeedsRequestObject) (GetAdminRedditFeedsResponseObject, error)
+	// PostAdminRedditFeed Add a subreddit to read for new posts (admins only)
+	// (POST /v1/admin/reddit-feeds)
+	PostAdminRedditFeed(ctx context.Context, request PostAdminRedditFeedRequestObject) (PostAdminRedditFeedResponseObject, error)
+	// DeleteAdminRedditFeed Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/reddit-feeds/{feed})
+	DeleteAdminRedditFeed(ctx context.Context, request DeleteAdminRedditFeedRequestObject) (DeleteAdminRedditFeedResponseObject, error)
+	// PutAdminRedditFeed Pause or resume a Reddit feed (admins only)
+	// (PUT /v1/admin/reddit-feeds/{feed})
+	PutAdminRedditFeed(ctx context.Context, request PutAdminRedditFeedRequestObject) (PutAdminRedditFeedResponseObject, error)
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)
 	// (GET /v1/admin/regions)
 	GetAdminRegions(ctx context.Context, request GetAdminRegionsRequestObject) (GetAdminRegionsResponseObject, error)
@@ -29000,6 +29441,120 @@ func (sh *strictHandler) GetAdminPeople(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminPeopleResponseObject); ok {
 		if err := validResponse.VisitGetAdminPeopleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminRedditFeeds operation middleware
+func (sh *strictHandler) GetAdminRedditFeeds(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminRedditFeedsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminRedditFeeds(ctx, request.(GetAdminRedditFeedsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminRedditFeeds")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminRedditFeedsResponseObject); ok {
+		if err := validResponse.VisitGetAdminRedditFeedsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminRedditFeed operation middleware
+func (sh *strictHandler) PostAdminRedditFeed(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminRedditFeedRequestObject
+
+	var body PostAdminRedditFeedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminRedditFeed(ctx, request.(PostAdminRedditFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminRedditFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminRedditFeedResponseObject); ok {
+		if err := validResponse.VisitPostAdminRedditFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminRedditFeed operation middleware
+func (sh *strictHandler) DeleteAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId) {
+	var request DeleteAdminRedditFeedRequestObject
+
+	request.Feed = feed
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminRedditFeed(ctx, request.(DeleteAdminRedditFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminRedditFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminRedditFeedResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminRedditFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminRedditFeed operation middleware
+func (sh *strictHandler) PutAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId) {
+	var request PutAdminRedditFeedRequestObject
+
+	request.Feed = feed
+
+	var body PutAdminRedditFeedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminRedditFeed(ctx, request.(PutAdminRedditFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminRedditFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminRedditFeedResponseObject); ok {
+		if err := validResponse.VisitPutAdminRedditFeedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
