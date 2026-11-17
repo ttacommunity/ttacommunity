@@ -48,7 +48,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: movies
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-bfbe6560@sha256:945c6e25a7d06525c32409bb67295260065cb29c25a21b2fa53aae343e241aa3
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-bceb11c8@sha256:aacc8ac34651136573963bda850ae934c61249d6f22ccc69241dad1d5f364b25
               args: [movies]
               env:
                 - name: RATINGS_ADMIN_DATABASE_URL
