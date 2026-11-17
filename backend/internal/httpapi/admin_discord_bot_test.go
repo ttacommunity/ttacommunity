@@ -46,6 +46,8 @@ func TestAnAdminSeesEachCommandWithItsSettings(t *testing.T) {
 	}{
 		{"rating", "on true private format 0 results <nil>"},
 		{"roll", "on true shared format <nil> results <nil>"},
+		{"choose", "on true shared format <nil> results <nil>"},
+		{"permutation", "on true shared format <nil> results <nil>"},
 		{"rivals", "on true private format 0 results 5"},
 		{"upsets", "on false always_shared format 2 results 8"},
 	}

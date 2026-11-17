@@ -19,10 +19,10 @@ var listCommands = []string{"rivals", "upsets"}
 const discordInteger, discordBoolean = 4, 5
 
 // commandDefaults are name's settings until admins save others: on; a reply private unless the asker shares it, but
-// for /roll shared unless asked private, as its private option says; every format; defaultRows for a list.
+// shared unless asked private for a command with a private option; every format; defaultRows for a list.
 func commandDefaults(name string) store.CommandSettings {
 	c := store.CommandSettings{Name: name, On: true, Reply: "private"}
-	if name == "roll" {
+	if cmd, ok := discordcommands.Find(name); ok && cmd.Takes("private") {
 		c.Reply = "shared"
 	}
 	if slices.Contains(listCommands, name) {
@@ -44,7 +44,7 @@ func (s *server) settingsFor(ctx context.Context, name string) store.CommandSett
 }
 
 // applySettings returns the settings of i's command and, when it is on, fills in i's options from them: who sees
-// the reply (its share option, or /roll's private), and the format when the asker gave none.
+// the reply (its share option, or its private one), and the format when the asker gave none.
 func (s *server) applySettings(ctx context.Context, i *DiscordInteraction) store.CommandSettings {
 	name := commandName(*i)
 	c := s.settingsFor(ctx, name)

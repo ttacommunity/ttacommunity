@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"math/rand/v2"
 	"net/http"
 	"strings"
@@ -103,6 +104,10 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.myRatingReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "roll":
 		reply = rollReply(*i)
+	case i.Type == discordCommand && commandName(*i) == "choose":
+		reply = chooseReply(*i)
+	case i.Type == discordCommand && commandName(*i) == "permutation":
+		reply = permutationReply(*i)
 	case i.Type == discordCommand && commandName(*i) == "versus":
 		reply = s.versusReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "rivals":
@@ -199,6 +204,39 @@ func rollReply(i DiscordInteraction) DiscordReply {
 	private, _ := option(i, "private").(bool)
 	rolls := discordbot.RollDice(d, func(sides int) int { return rand.IntN(sides) + 1 })
 	return discordText(discordbot.DiceText(d, rolls), private)
+}
+
+// chooseReply picks the count asked for of the entries given, in their order, for everyone to see unless asked
+// private, or tells the asker alone why not.
+func chooseReply(i DiscordInteraction) DiscordReply {
+	items, err := discordbot.ParseItems(stringOption(i, "items"))
+	if err == nil {
+		count, _ := countOption(i)
+		items, err = discordbot.Choose(items, count, rand.IntN)
+	}
+	if err != nil {
+		return discordText("Those can't be chosen from: "+err.Error()+".", true)
+	}
+	private, _ := option(i, "private").(bool)
+	return discordText(discordbot.ItemsText(items), private)
+}
+
+// permutationReply puts the entries given, or the count asked for of them, in a random order, for everyone to see
+// unless asked private, or tells the asker alone why not.
+func permutationReply(i DiscordInteraction) DiscordReply {
+	items, err := discordbot.ParseItems(stringOption(i, "items"))
+	if err == nil {
+		count, given := countOption(i)
+		if !given {
+			count = len(items)
+		}
+		items, err = discordbot.Permute(items, count, rand.IntN)
+	}
+	if err != nil {
+		return discordText("Those can't be shuffled: "+err.Error()+".", true)
+	}
+	private, _ := option(i, "private").(bool)
+	return discordText(discordbot.ItemsText(items), private)
 }
 
 // versusReply shows two players' record in their rated games together, as the site's head-to-head counts it, or
@@ -453,6 +491,19 @@ func stringOption(i DiscordInteraction, name string) string {
 func shareOption(i DiscordInteraction) bool {
 	v, _ := option(i, "share").(bool)
 	return v
+}
+
+// countOption is the count option given, with false when none is; JSON gives its number as a float64, and one
+// not from 1 to 100 (a list's most entries) or not whole is 0, which no draw takes.
+func countOption(i DiscordInteraction) (int, bool) {
+	f, ok := option(i, "count").(float64)
+	if !ok {
+		return 0, false
+	}
+	if f != math.Trunc(f) || f < 1 || f > 100 {
+		return 0, true
+	}
+	return int(f), true
 }
 
 // formatOption is the format option given, or every format together; JSON gives its number as a float64.

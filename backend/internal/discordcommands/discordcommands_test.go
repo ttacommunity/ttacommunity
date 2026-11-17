@@ -110,13 +110,15 @@ func TestTheCommandsHaveTheOptionsTheApiReads(t *testing.T) {
 		}
 	}
 	want := map[string][]string{
-		"rating":   {"player required=true", "format required=false", "share required=false"},
-		"myrating": {"format required=false", "share required=false"},
-		"roll":     {"dice required=true", "private required=false"},
-		"versus":   {"player required=true", "other required=true", "format required=false", "share required=false"},
-		"rivals":   {"player required=true", "format required=false", "share required=false"},
-		"seats":    {"player required=true", "format required=false", "share required=false"},
-		"upsets":   {"format required=false", "share required=false"},
+		"rating":      {"player required=true", "format required=false", "share required=false"},
+		"myrating":    {"format required=false", "share required=false"},
+		"roll":        {"dice required=true", "private required=false"},
+		"choose":      {"count required=true", "items required=true", "private required=false"},
+		"permutation": {"items required=true", "count required=false", "private required=false"},
+		"versus":      {"player required=true", "other required=true", "format required=false", "share required=false"},
+		"rivals":      {"player required=true", "format required=false", "share required=false"},
+		"seats":       {"player required=true", "format required=false", "share required=false"},
+		"upsets":      {"format required=false", "share required=false"},
 		"compare": {"player1 required=true", "player2 required=true", "player3 required=false", "player4 required=false",
 			"share required=false"},
 	}
@@ -158,7 +160,8 @@ func TestACommandSaysWhichOptionsItTakes(t *testing.T) {
 	for _, c := range list {
 		takes[c.Name] = map[string]bool{"format": c.Takes("format"), "share": c.Takes("share"), "private": c.Takes("private")}
 	}
-	if !takes["rating"]["format"] || !takes["rating"]["share"] || takes["roll"]["share"] || !takes["roll"]["private"] || takes["compare"]["format"] {
-		t.Errorf("options taken = %v, want /rating format and share, /roll private alone, /compare no format", takes)
+	if !takes["rating"]["format"] || !takes["rating"]["share"] || takes["roll"]["share"] || !takes["roll"]["private"] || takes["compare"]["format"] ||
+		!takes["choose"]["private"] || !takes["permutation"]["private"] {
+		t.Errorf("options taken = %v, want /rating format and share, /roll, /choose and /permutation private, /compare no format", takes)
 	}
 }

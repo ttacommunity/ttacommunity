@@ -108,6 +108,66 @@
     ]
   },
   {
+    "name": "choose",
+    "description": "Pick some of the names given at random, such as who goes first",
+    "contexts": [
+      0
+    ],
+    "options": [
+      {
+        "type": 4,
+        "name": "count",
+        "description": "How many to pick",
+        "required": true,
+        "min_value": 1,
+        "max_value": 100
+      },
+      {
+        "type": 3,
+        "name": "items",
+        "description": "Names separated by commas: Alex, Beta, Claus",
+        "required": true,
+        "max_length": 1000
+      },
+      {
+        "type": 5,
+        "name": "private",
+        "description": "Show it to you alone, not the channel",
+        "required": false
+      }
+    ]
+  },
+  {
+    "name": "permutation",
+    "description": "Put the names given in a random order, such as the seats",
+    "contexts": [
+      0
+    ],
+    "options": [
+      {
+        "type": 3,
+        "name": "items",
+        "description": "Names separated by commas: Alex, Beta, Claus",
+        "required": true,
+        "max_length": 1000
+      },
+      {
+        "type": 4,
+        "name": "count",
+        "description": "How many to pick and order, if not all",
+        "required": false,
+        "min_value": 1,
+        "max_value": 100
+      },
+      {
+        "type": 5,
+        "name": "private",
+        "description": "Show it to you alone, not the channel",
+        "required": false
+      }
+    ]
+  },
+  {
     "name": "versus",
     "description": "Two players' record in their rated games together",
     "contexts": [
