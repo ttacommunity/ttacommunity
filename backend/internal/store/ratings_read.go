@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"ttacommunity/backend/internal/runcache"
 )
 
 // Errors a public read can end in. Their text is safe to show a visitor.
@@ -105,12 +107,13 @@ type HistoryRow struct {
 
 // RatingsReader reads published ratings through a read-only pool.
 type RatingsReader struct {
-	pool *pgxpool.Pool
+	pool            *pgxpool.Pool
+	tournamentGames *runcache.Cache[string, tournamentGames]
 }
 
 // NewRatingsReader returns a reader over pool, which should act as ratings_read.
 func NewRatingsReader(pool *pgxpool.Pool) *RatingsReader {
-	return &RatingsReader{pool: pool}
+	return &RatingsReader{pool: pool, tournamentGames: runcache.New[string, tournamentGames]()}
 }
 
 // Ping returns an error if the database does not answer.
