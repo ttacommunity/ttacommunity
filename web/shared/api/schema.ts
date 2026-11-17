@@ -3981,7 +3981,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
-            url: string;
+            /** @description The Discord webhook's id. Its URL holds its secret and is never sent back */
+            webhook_id: string;
             format: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
             /** @description The Reddit feeds it takes, by id */
@@ -4022,8 +4023,8 @@ export interface components {
         NotificationFormat: "discord";
         NotificationEndpointSetting: {
             name: string;
-            /** @description A Discord webhook's URL, https://discord.com/api/webhooks/… */
-            url: string;
+            /** @description A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one */
+            url?: string;
             format?: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
             /** @description The Reddit feeds it takes, by id; none when not given */

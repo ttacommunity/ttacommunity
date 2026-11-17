@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { EVENTS, endpointChanged, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
+import { EVENTS, endpointChanged, endpointSetting, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
 
-const SAVED = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000000000001/token', events: ['link_request' as const], feeds: [2, 5], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', colour: '#ff4500', text: 'full' as const, image: true, author: true };
+const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', colour: '#ff4500', text: 'full' as const, image: true, author: true };
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
@@ -28,9 +28,25 @@ describe('notification endpoints', () => {
     ['hiding the author', { ...SAVED, author: false }, true],
     ['taking the same feeds in another order', { ...SAVED, feeds: [5, 2] }, false],
     ['left without a name', { ...SAVED, name: '  ' }, false],
-    ['left without a URL', { ...SAVED, url: '' }, false],
   ])('can be saved when %s: %s', (_, draft, want) => {
     expect(endpointChanged(SAVED, draft)).toBe(want);
+  });
+
+  const NEW = { ...SAVED, name: '', webhook_id: '' };
+  it.each([
+    ['named, without a URL', { ...NEW, name: 'Admins' }, false],
+    ['named, with a URL', { ...NEW, name: 'Admins', url: 'https://discord.com/api/webhooks/100000000000000002/token' }, true],
+  ])('can be added when %s', (_, draft, want) => {
+    expect(endpointChanged(NEW, draft)).toBe(want);
+  });
+
+  it.each([
+    ['keeps the saved URL when none is given', { ...SAVED, url: '  ' }, undefined],
+    ['sends a new URL', { ...SAVED, url: ' https://discord.com/api/webhooks/100000000000000002/token ' }, 'https://discord.com/api/webhooks/100000000000000002/token'],
+  ])('a setting %s', (_, draft, want) => {
+    const setting = endpointSetting(draft);
+    expect(setting.url).toBe(want);
+    expect('webhook_id' in setting).toBe(false);
   });
 
   it.each([

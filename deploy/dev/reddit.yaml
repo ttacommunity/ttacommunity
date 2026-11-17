@@ -48,7 +48,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: reddit
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-bceb11c8@sha256:aacc8ac34651136573963bda850ae934c61249d6f22ccc69241dad1d5f364b25
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-40b3fad0@sha256:a2eb645c857a920c72722df60c3d15a3f892c8b146be1d529adcff50f5b5682c
               args: [reddit]
               env:
                 - name: RATINGS_ADMIN_DATABASE_URL

@@ -358,6 +358,13 @@ func TestAdminKeepsNotificationEndpoints(t *testing.T) {
 	if got, err := a.NotificationEndpoint(ctx, id); err != nil || got.Name != "Nobody" || len(got.Events) != 0 {
 		t.Errorf("after the change = %+v, %v; want Nobody with no events", got, err)
 	}
+	got.URL = ""
+	if err := a.SetNotificationEndpoint(ctx, got); err != nil {
+		t.Fatalf("SetNotificationEndpoint without a URL: %v", err)
+	}
+	if got, err := a.NotificationEndpoint(ctx, id); err != nil || got.URL != webhook(2) {
+		t.Errorf("after a change without a URL, the URL = %q, %v; want the saved one", got.URL, err)
+	}
 	if err := a.RemoveNotificationEndpoint(ctx, id); err != nil {
 		t.Fatalf("RemoveNotificationEndpoint: %v", err)
 	}
@@ -464,5 +471,13 @@ func TestANewPlayersFirstSignInIsNotified(t *testing.T) {
 				t.Errorf("sent = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestAnEndpointIsNotAddedWithoutAURL(t *testing.T) {
+	a, _, _ := outboxFixture(t)
+	_, err := a.AddNotificationEndpoint(context.Background(), NotificationEndpoint{Name: "Admins", Format: "discord", Events: []string{"link_request"}}, reportsAt)
+	if !errors.Is(err, ErrBadNotificationEndpoint) {
+		t.Errorf("AddNotificationEndpoint without a URL: %v, want ErrBadNotificationEndpoint", err)
 	}
 }

@@ -3,19 +3,19 @@ import { useRef, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
 import * as req from '../lib/admin-requests';
-import { EVENTS, TEXTS, endpointChanged, toggled, toggledFeed } from '../lib/notification-endpoints';
+import { EVENTS, TEXTS, endpointChanged, endpointSetting, toggled, toggledFeed } from '../lib/notification-endpoints';
 import { refused, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
 type Feed = components['schemas']['RedditFeed'];
-export type Draft = Pick<
+export type Draft = { url: string } & Pick<
   Endpoint,
-  'name' | 'url' | 'events' | 'feeds' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+  'name' | 'webhook_id' | 'events' | 'feeds' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
 >;
 
 export const EMPTY: Draft = {
-  name: '', url: '', events: [], feeds: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
+  name: '', url: '', webhook_id: '', events: [], feeds: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
   colour: '#ff4500', text: 'full', image: true, author: true,
 };
 
@@ -31,13 +31,13 @@ interface Props {
 
 export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const saved = endpoint ?? EMPTY;
+  const saved: Draft = endpoint === null ? EMPTY : { ...endpoint, url: '' };
   const [draft, setDraft] = useState<Draft>(saved);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const id = endpoint === null ? 'endpoint-new' : `endpoint-${endpoint.id}`;
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await req.send(endpoint === null ? req.addEndpoint(draft) : req.setEndpoint(endpoint.id, draft));
+    const r = await req.send(endpoint === null ? req.addEndpoint(endpointSetting(draft)) : req.setEndpoint(endpoint.id, endpointSetting(draft)));
     if (!r.ok) {
       setOutcome(refused(r.message, id));
       return;
@@ -60,9 +60,10 @@ export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onC
         </div>
         <div className="admin-add">
           <label className="title-reason">
-            Discord webhook URL
-            <input className="input-antique" type="url" value={draft.url} placeholder="https://discord.com/api/webhooks/…"
-              onChange={(e) => setDraft({ ...draft, url: e.target.value })} required />
+            {saved.webhook_id === '' ? 'Discord webhook URL' : `Discord webhook URL (webhook ${saved.webhook_id} saved; paste a new one to replace it)`}
+            <input className="input-antique" type="url" value={draft.url} autoComplete="off"
+              placeholder={saved.webhook_id === '' ? 'https://discord.com/api/webhooks/…' : 'Kept as saved'}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value })} required={saved.webhook_id === ''} />
           </label>
         </div>
         <fieldset className="check-kinds">

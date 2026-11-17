@@ -1,12 +1,14 @@
-/** The Notifications tab's decisions: the events and feeds an endpoint may take, what it takes in a line, and whether an edit can be saved. */
+/** The Notifications tab's decisions: the events and feeds an endpoint may take, what it takes in a line, whether an edit can be saved, and what is sent. */
 import type { components } from '@ttac/shared/api';
 
 type Event = components['schemas']['NotificationEvent'];
 type Feed = Pick<components['schemas']['RedditFeed'], 'id' | 'subreddit'>;
 type Setting = Pick<
   components['schemas']['NotificationEndpoint'],
-  'name' | 'url' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
 > & {
+  /** A new webhook URL, or '' to keep the saved one: the API never sends it back. */
+  url: string;
   events: readonly Event[];
   feeds: readonly number[];
 };
@@ -28,13 +30,20 @@ export const EVENTS: { key: Event; label: string }[] = [
   { key: 'reddit_failing', label: 'Reddit feeds failing or reading again' },
 ];
 
-/** endpointChanged says whether an endpoint's edit can be saved: it has a name and a URL, and differs from what is saved. */
+/** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved, and differs from what is saved. */
 export function endpointChanged(saved: Setting, draft: Setting): boolean {
-  if (draft.name.trim() === '' || draft.url.trim() === '') return false;
+  if (draft.name.trim() === '' || (draft.url.trim() === '' && saved.webhook_id === '')) return false;
   const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id'] as const;
   const choices = ['paused', 'forum', 'colour', 'text', 'image', 'author'] as const;
   return texts.some((k) => draft[k].trim() !== saved[k]) || choices.some((k) => draft[k] !== saved[k]) ||
     !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds);
+}
+
+/** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */
+export function endpointSetting(draft: Setting): Omit<components['schemas']['NotificationEndpointSetting'], 'format'> {
+  const { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author } = draft;
+  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author, events: [...draft.events], feeds: [...draft.feeds] };
+  return draft.url.trim() === '' ? setting : { ...setting, url: draft.url.trim() };
 }
 
 /** endpointStatus says how an endpoint's posts are going, its times written with when: paused, failing and why, sent, or nothing yet. */
