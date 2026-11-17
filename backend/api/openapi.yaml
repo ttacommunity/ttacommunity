@@ -7733,7 +7733,7 @@ components:
     BlitzStanding:
       description: One row of the standings
       type: object
-      required: [rank, place_from, place_to, name, country, starting_rank, points, games, wins, losses, draws, byes, forfeit_points, bye_points, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
+      required: [rank, place_from, place_to, name, country, starting_rank, points, games, wins, losses, draws, forfeit_wins, forfeit_losses, byes, forfeit_points, bye_points, buchholz_cut1, buchholz, sonneborn_berger, opponents_buchholz, opponents_sonneborn_berger, status]
       properties:
         rank:
           type: integer
@@ -7771,6 +7771,12 @@ components:
           type: integer
         draws:
           description: Non-forfeit games drawn
+          type: integer
+        forfeit_wins:
+          description: Games won by forfeit
+          type: integer
+        forfeit_losses:
+          description: Games lost by forfeit
           type: integer
         byes:
           type: integer

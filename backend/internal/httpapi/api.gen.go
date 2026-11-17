@@ -2568,8 +2568,14 @@ type BlitzStanding struct {
 	// Draws Non-forfeit games drawn
 	Draws int `json:"draws"`
 
+	// ForfeitLosses Games lost by forfeit
+	ForfeitLosses int `json:"forfeit_losses"`
+
 	// ForfeitPoints Points scored from forfeit outcomes
 	ForfeitPoints float64 `json:"forfeit_points"`
+
+	// ForfeitWins Games won by forfeit
+	ForfeitWins int `json:"forfeit_wins"`
 
 	// Games Games played (finished, resigned or timed out); forfeits and byes aside
 	Games int `json:"games"`

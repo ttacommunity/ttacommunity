@@ -1,7 +1,7 @@
 /** BlitzStandingsTable is the head and body of a blitz edition's standings, sortable by any column, for the site and admin alike; each puts its own table around it. */
 import type { ReactNode } from 'react';
 import SortHeader, { useSort } from './SortHeader';
-import { STANDING_COLUMNS, drawLabel, pointsNote, resultsLabel, startLabel } from './blitz';
+import { STANDING_COLUMNS, drawLabel, gamesCount, gamesNote, pointsNote, resultsLabel, startLabel } from './blitz';
 import type { BlitzStanding } from './game-form';
 
 interface Props {
@@ -30,7 +30,7 @@ export default function BlitzStandingsTable({ standings, fixedBy, tieBreaks, mar
             Points
           </SortHeader>
           <SortHeader col="played" sort={sort} onSort={sortBy} className="num">
-            <span data-tooltip="Non-forfeit games played">Games</span>
+            <span data-tooltip="Games played and forfeits">Games</span>
           </SortHeader>
           <SortHeader col="results" sort={sort} onSort={sortBy} className="num">
             <span data-tooltip="Win–Loss–Tie">Results</span>
@@ -61,6 +61,7 @@ export default function BlitzStandingsTable({ standings, fixedBy, tieBreaks, mar
       <tbody>
         {rows.map((s) => {
           const note = pointsNote(s);
+          const gNote = gamesNote(s);
           return (
             <tr key={s.name} className={s.status === 'dropped' ? 'blitz-dropped' : undefined}>
               <td className="num">
@@ -82,7 +83,16 @@ export default function BlitzStandingsTable({ standings, fixedBy, tieBreaks, mar
                   s.points
                 )}
               </td>
-              <td className="num">{s.games}</td>
+              <td className="num">
+                {gNote !== null ? (
+                  <span data-tooltip={gNote}>
+                    {gamesCount(s)}
+                    <span className="blitz-draw">*</span>
+                  </span>
+                ) : (
+                  gamesCount(s)
+                )}
+              </td>
               <td className="num">{resultsLabel(s)}</td>
               <td className="num">{s.byes}</td>
               {tieBreaks && (
