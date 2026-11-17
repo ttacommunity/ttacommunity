@@ -306,11 +306,12 @@ export function pointsNote(s: Pick<BlitzStanding, 'forfeit_points' | 'bye_points
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
-export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'results' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'played' | 'results' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
   rank: { value: (s) => s.rank, first: 'asc' },
   start: { value: (s) => s.starting_rank, first: 'asc' },
   player: { value: (s) => s.name, first: 'asc' },
   points: { value: (s) => s.points, first: 'desc' },
+  played: { value: (s) => s.games, first: 'desc' },
   results: { value: (s) => [s.wins, s.draws, s.games], first: 'desc' },
   byes: { value: (s) => s.byes, first: 'desc' },
   cut1: { value: (s) => s.buchholz_cut1, first: 'desc' },

@@ -250,6 +250,7 @@ describe('STANDING_COLUMNS', () => {
     ['starting rank, none last', { col: 'start', desc: false }, ['bo', 'cy', 'Ann']],
     ['player', { col: 'player', desc: false }, ['Ann', 'bo', 'cy']],
     ['points', { col: 'points', desc: true }, ['cy', 'Ann', 'bo']],
+    ['games played', { col: 'played', desc: true }, ['cy', 'Ann', 'bo']],
     ['results, by wins then draws then games', { col: 'results', desc: true }, ['cy', 'Ann', 'bo']],
     ['Buchholz Cut 1', { col: 'cut1', desc: true }, ['Ann', 'bo', 'cy']],
     ['Buchholz', { col: 'buchholz', desc: true }, ['Ann', 'bo', 'cy']],
