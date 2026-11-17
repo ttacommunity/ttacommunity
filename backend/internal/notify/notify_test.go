@@ -155,3 +155,98 @@ func TestPostFailsWithoutSayingTheURL(t *testing.T) {
 		})
 	}
 }
+
+func redditPost(kind, image string) store.Notification {
+	return store.Notification{Kind: "reddit_post", Reddit: store.RedditNotice{Subreddit: "example", Post: store.RedditPost{
+		PostID: "t3_abc1", Kind: kind, Title: "A *bold* claim", URL: "https://www.reddit.com/r/example/comments/abc1/a/",
+		Author: "some_user", Body: "Hello", ImageURL: image, PublishedAt: time.Date(2026, 11, 14, 10, 4, 38, 0, time.UTC),
+	}}}
+}
+
+func TestARedditPostIsAnEmbedLikeMee6s(t *testing.T) {
+	const preview = "https://preview.redd.it/abc.jpeg?width=140"
+	tests := []struct {
+		name, kind, image, wantHeading string
+		wantImage, wantThumbnail       string
+	}{
+		{"a text post", "text", "", "New post on /r/example", "", ""},
+		{"an image", "image", "https://i.redd.it/abc.jpeg", "New image post on /r/example", "https://i.redd.it/abc.jpeg", ""},
+		{"a gallery, its small preview in the corner", "image", preview, "New image post on /r/example", "", preview},
+		{"a video", "video", preview, "New video post on /r/example", "", preview},
+		{"a link", "link", preview, "New link post on /r/example", "", preview},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := notify.Payload(redditPost(tt.kind, tt.image), store.NotificationEndpoint{}, admin)
+			if p.Content != "" || len(p.Embeds) != 1 {
+				t.Fatalf("payload = %+v, want one embed and no text", p)
+			}
+			e := p.Embeds[0]
+			if e.Author == nil || e.Author.Name != tt.wantHeading {
+				t.Errorf("heading = %+v, want %q", e.Author, tt.wantHeading)
+			}
+			if image, thumb := urlOf(e.Image), urlOf(e.Thumbnail); image != tt.wantImage || thumb != tt.wantThumbnail {
+				t.Errorf("image, thumbnail = %q, %q; want %q, %q", image, thumb, tt.wantImage, tt.wantThumbnail)
+			}
+		})
+	}
+}
+
+func urlOf(i *notify.EmbedImage) string {
+	if i == nil {
+		return ""
+	}
+	return i.URL
+}
+
+func TestARedditEmbedLinksThePostAndNamesItsAuthor(t *testing.T) {
+	p := notify.Payload(redditPost("text", ""), store.NotificationEndpoint{Prefix: "[dev]"}, admin)
+	e := p.Embeds[0]
+	if p.Content != `\[dev\]` {
+		t.Errorf("content = %q, want the prefix alone", p.Content)
+	}
+	if e.Title != `A \*bold\* claim` || e.URL != "https://www.reddit.com/r/example/comments/abc1/a/" || e.Description != "Hello" {
+		t.Errorf("title, url, text = %q, %q, %q; want the post's, its title escaped", e.Title, e.URL, e.Description)
+	}
+	if len(e.Fields) != 1 || e.Fields[0].Name != "Post Author" || e.Fields[0].Value != `/u/some\_user` {
+		t.Errorf("fields = %+v, want Post Author /u/some\\_user", e.Fields)
+	}
+	if e.Timestamp != "2026-11-14T10:04:38Z" {
+		t.Errorf("timestamp = %q, want when it was posted", e.Timestamp)
+	}
+}
+
+func TestARedditEmbedWithoutAnAuthorHasNoAuthorField(t *testing.T) {
+	n := redditPost("text", "")
+	n.Reddit.Post.Author = ""
+	if e := notify.Payload(n, store.NotificationEndpoint{}, admin).Embeds[0]; len(e.Fields) != 0 {
+		t.Errorf("fields = %+v, want none", e.Fields)
+	}
+}
+
+func TestOtherNotificationsAreText(t *testing.T) {
+	n := store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}}
+	e := store.NotificationEndpoint{Prefix: "[dev]"}
+	if p := notify.Payload(n, e, admin); p.Content != notify.Message(n, e, admin) || len(p.Embeds) != 0 {
+		t.Errorf("payload = %+v, want Message's text alone", p)
+	}
+}
+
+func TestSendPostsEmbedsWithNoMentionsAllowed(t *testing.T) {
+	var got map[string]any
+	s := discord(t, http.StatusNoContent, &got)
+	p := notify.Payload(redditPost("text", ""), store.NotificationEndpoint{}, admin)
+	if err := notify.NewDiscord(s.Client()).Send(context.Background(), s.URL, p); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	embeds, _ := got["embeds"].([]any)
+	if len(embeds) != 1 || embeds[0].(map[string]any)["title"] != `A \*bold\* claim` {
+		t.Errorf("embeds = %v, want the post's", got["embeds"])
+	}
+	if _, ok := got["content"]; ok {
+		t.Errorf("content = %v, want none sent", got["content"])
+	}
+	if mentions, _ := json.Marshal(got["allowed_mentions"]); string(mentions) != `{"parse":[]}` {
+		t.Errorf("allowed_mentions = %s, want {\"parse\":[]}", mentions)
+	}
+}

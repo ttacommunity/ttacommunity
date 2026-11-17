@@ -26,7 +26,7 @@ func (d adminDeps) PostTestNotification(ctx context.Context, e store.Notificatio
 func sendNotifications(ctx context.Context, a *store.AdminStore, poster *notify.Discord, admin string, log *slog.Logger) {
 	for {
 		done, err := a.SendNotifications(ctx, time.Now(), notifyBatch, func(ctx context.Context, n store.Notification, e store.NotificationEndpoint) error {
-			err := poster.Post(ctx, e.URL, notify.Message(n, e, admin))
+			err := poster.Send(ctx, e.URL, notify.Payload(n, e, admin))
 			if err != nil {
 				log.Warn("posting a notification failed", "kind", n.Kind, "endpoint", e.ID, "err", err)
 			}
