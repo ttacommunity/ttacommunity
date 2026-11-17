@@ -32,6 +32,9 @@ type Notification struct {
 	ReportedBy            string
 	Corrected             bool
 	FlagReason            string
+	// A Reddit post: the post and its subreddit, posted to the endpoints taking FeedID.
+	FeedID int64
+	Reddit RedditNotice
 }
 
 // NotificationsSent counts what SendNotifications did: sent, failed (to be tried again), and given up on after
@@ -49,6 +52,14 @@ func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, n
 		return fmt.Errorf("queueing a notification: %w", err)
 	}
 	return nil
+}
+
+// takes says whether e takes n: a Reddit post when e takes its feed, anything else when e takes its kind.
+func (e NotificationEndpoint) takes(n Notification) bool {
+	if n.Kind == "reddit_post" {
+		return slices.Contains(e.Feeds, n.FeedID)
+	}
+	return slices.Contains(e.Events, n.Kind)
 }
 
 // notificationRetry is how long after its attempts-th failure a notification is tried again: a minute, doubling,
@@ -74,8 +85,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id), o.attempts, o.sent_to,
-			       CASE o.kind WHEN 'sign_up' THEN true
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.reddit_post_id), o.attempts, o.sent_to,
+			       CASE o.kind WHEN 'sign_up' THEN true WHEN 'reddit_post' THEN true
 			                   WHEN 'link_request' THEN lr.status = 'pending'
 			                   WHEN 'blitz_report' THEN bm.report IS NOT NULL
 			                   ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
@@ -86,8 +97,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(s.slug, ''), coalesce(s.name, ''), coalesce(t.label, ''), coalesce(r.number, 0),
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
-			       coalesce(bm.flag_reason, '')
+			       coalesce(bm.flag_reason, ''),
+			       coalesce(rp.feed_id, 0), coalesce(rf.subreddit, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
+			       coalesce(rp.title, ''), coalesce(rp.url, ''), coalesce(rp.author, ''), coalesce(rp.body, ''),
+			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at)
 			FROM notification_outbox o
+			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN reddit_feeds rf ON rf.feed_id = rp.feed_id
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
@@ -116,7 +131,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			var d due
 			n := &d.n
 			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
-				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason); err != nil {
+				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason,
+				&n.FeedID, &n.Reddit.Subreddit, &n.Reddit.Post.PostID, &n.Reddit.Post.Kind, &n.Reddit.Post.Title, &n.Reddit.Post.URL,
+				&n.Reddit.Post.Author, &n.Reddit.Post.Body, &n.Reddit.Post.ImageURL, &n.Reddit.Post.PublishedAt); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -138,7 +155,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			seen[key] = true
 			failed := false
 			for _, e := range endpoints {
-				if !d.open || !slices.Contains(e.Events, d.n.Kind) || slices.Contains(d.sentTo, e.ID) {
+				if !d.open || !e.takes(d.n) || slices.Contains(d.sentTo, e.ID) {
 					continue
 				}
 				if send(ctx, d.n, e) != nil {
