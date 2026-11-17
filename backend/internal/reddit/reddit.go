@@ -156,15 +156,17 @@ func Parse(r io.Reader) ([]store.RedditPost, error) {
 	return posts, nil
 }
 
-// kindOf tells a post's kind from what its [link] points at: the post itself for text, Reddit's image or video
-// hosts, or anywhere else.
+// kindOf tells a post's kind from what its [link] points at: the post itself for text, Reddit's image host, a
+// gallery, Reddit's video host, or anywhere else.
 func kindOf(link, post string) string {
 	u, err := url.Parse(link)
 	switch {
 	case link == "" || link == post || err != nil:
 		return "text"
-	case u.Host == "i.redd.it" || strings.HasPrefix(u.Path, "/gallery/"):
+	case u.Host == "i.redd.it":
 		return "image"
+	case strings.HasPrefix(u.Path, "/gallery/"):
+		return "gallery"
 	case u.Host == "v.redd.it":
 		return "video"
 	}

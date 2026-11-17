@@ -28,8 +28,8 @@ type RedditFeed struct {
 	LastErrorAt    *time.Time
 }
 
-// RedditPost is a post as the feed shows it: its id (t3_…), kind (text, image, video or link), title, link, author
-// (without /u/), text, image ("" for none) and when it was posted.
+// RedditPost is a post as the feed shows it: its id (t3_…), kind (text, image, gallery, video or link), title,
+// link, author (without /u/), text, image ("" for none) and when it was posted.
 type RedditPost struct {
 	PostID, Kind, Title, URL, Author, Body, ImageURL string
 	PublishedAt                                      time.Time
@@ -49,7 +49,7 @@ var (
 	// ErrRedditFeedExists means a feed for that subreddit is already there.
 	ErrRedditFeedExists = errors.New("that subreddit is already a feed")
 	// ErrBadRedditKinds means kinds of post the database refuses.
-	ErrBadRedditKinds = errors.New("a feed's kinds of post are text, image, video and link")
+	ErrBadRedditKinds = errors.New("a feed's kinds of post are text, image, gallery, video and link")
 )
 
 // maxFeedError is the most characters of a read's failure kept on its feed.

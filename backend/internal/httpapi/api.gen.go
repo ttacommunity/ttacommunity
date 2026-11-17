@@ -843,15 +843,18 @@ func (e RanksFixedBy) Valid() bool {
 
 // Defines values for RedditPostKind.
 const (
-	Image RedditPostKind = "image"
-	Link  RedditPostKind = "link"
-	Text  RedditPostKind = "text"
-	Video RedditPostKind = "video"
+	Gallery RedditPostKind = "gallery"
+	Image   RedditPostKind = "image"
+	Link    RedditPostKind = "link"
+	Text    RedditPostKind = "text"
+	Video   RedditPostKind = "video"
 )
 
 // Valid indicates whether the value is a known member of the RedditPostKind enum.
 func (e RedditPostKind) Valid() bool {
 	switch e {
+	case Gallery:
+		return true
 	case Image:
 		return true
 	case Link:

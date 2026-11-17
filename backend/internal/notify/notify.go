@@ -172,7 +172,7 @@ const shortText = 300
 const testHeading = "Test from ttacommunity admin"
 
 // redditKinds name each kind of post in an embed's heading.
-var redditKinds = map[string]string{"text": "post", "image": "image post", "video": "video post", "link": "link post"}
+var redditKinds = map[string]string{"text": "post", "image": "image post", "gallery": "gallery post", "video": "video post", "link": "link post"}
 
 // Payload is n as e is sent it: an embed in e's colour, a Reddit post's in e's look and any other headed by what
 // it is; under e's prefix and role, shown with e's name and picture, and opening a thread when e is a forum

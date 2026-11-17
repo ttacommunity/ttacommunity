@@ -16,7 +16,8 @@ describe('reddit feeds', () => {
   });
 
   it.each([
-    ['every kind', ['text', 'image', 'video', 'link'] as const, 'every kind'],
+    ['every kind', ['text', 'image', 'gallery', 'video', 'link'] as const, 'every kind'],
+    ['images without galleries', ['text', 'image', 'video', 'link'] as const, 'text, images, videos, links'],
     ['some, in the sheet\'s order', ['link', 'text'] as const, 'text, links'],
   ])('says what a feed sends: %s', (_, kinds, want) => {
     expect(feedSends(kinds)).toBe(want);

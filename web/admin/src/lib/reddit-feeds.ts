@@ -8,6 +8,7 @@ type Kind = components['schemas']['RedditPostKind'];
 export const KINDS: { key: Kind; label: string }[] = [
   { key: 'text', label: 'Text' },
   { key: 'image', label: 'Images' },
+  { key: 'gallery', label: 'Galleries' },
   { key: 'video', label: 'Videos' },
   { key: 'link', label: 'Links' },
 ];

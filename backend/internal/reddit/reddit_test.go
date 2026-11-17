@@ -62,7 +62,7 @@ func TestParseTellsAPostsKindAndImage(t *testing.T) {
 	}{
 		{"a text post", comments, "", "text", ""},
 		{"an image", "https://i.redd.it/abc.jpeg", preview, "image", "https://i.redd.it/abc.jpeg"},
-		{"a gallery", "https://www.reddit.com/gallery/abc1", preview, "image", preview},
+		{"a gallery", "https://www.reddit.com/gallery/abc1", preview, "gallery", preview},
 		{"a video", "https://v.redd.it/abc", preview, "video", preview},
 		{"a link", "https://example.com/tool", preview, "link", preview},
 		{"a link without a thumbnail", "https://example.com/tool", "", "link", ""},
