@@ -15,7 +15,7 @@ import (
 )
 
 // refused are the store's answers to a change it will not make, each a request the admin can correct.
-var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrBadKind, store.ErrBadPodiumSource, store.ErrGroupCycle,
+var refused = []error{store.ErrBadScoring, store.ErrBadLevelName, store.ErrBadPlayerCounts, store.ErrTwoRatedTracks, store.ErrBadKind, store.ErrBadPodiumSource, store.ErrGroupCycle,
 	store.ErrBadLeagueRules,
 	store.ErrBadGroup, store.ErrNotAGroup, store.ErrBadPenalty, store.ErrBadPodium, store.ErrBadCard, store.ErrBadStory,
 	store.ErrSeasonHasGames, store.ErrSeasonExists, store.ErrNoPlayer}

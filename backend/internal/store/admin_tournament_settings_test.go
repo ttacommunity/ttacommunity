@@ -14,6 +14,7 @@ import (
 	"ttacommunity/backend/internal/tournamentcsv"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pressly/goose/v3"
 )
 
 func TestSetTournamentChangesOnlyWhatItIsGiven(t *testing.T) {
@@ -477,5 +478,65 @@ func TestStoriesAndPodiumsRefuseANameThatIsNoPlayers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestATournamentIsRatedInOneTrackAtMost(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	a := NewAdminStore(asAdminLogin(t, pool))
+	yes, no := true, false
+	tracks := func() (bool, bool) {
+		t.Helper()
+		w := adminTournament(t, a, "wimbledon")
+		return w.Rated, w.SuperBlitzRated
+	}
+	if std, sb := tracks(); !std || sb {
+		t.Fatalf("before: rated = %v, superblitz = %v, want standard only", std, sb)
+	}
+
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{SuperBlitzRated: &yes}); !errors.Is(err, ErrTwoRatedTracks) {
+		t.Errorf("SetTournament(superblitz too) = %v, want ErrTwoRatedTracks", err)
+	}
+	if std, sb := tracks(); !std || sb {
+		t.Errorf("after the refusal: rated = %v, superblitz = %v, want standard only", std, sb)
+	}
+
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Rated: &no, SuperBlitzRated: &yes}); err != nil {
+		t.Fatalf("SetTournament(standard to superblitz): %v", err)
+	}
+	if std, sb := tracks(); std || !sb {
+		t.Errorf("after the switch: rated = %v, superblitz = %v, want superblitz only", std, sb)
+	}
+	if err := a.SetTournament(ctx, "wimbledon", TournamentSettings{Rated: &yes, SuperBlitzRated: &no}); err != nil {
+		t.Fatalf("SetTournament(superblitz to standard): %v", err)
+	}
+	if std, sb := tracks(); !std || sb {
+		t.Errorf("after switching back: rated = %v, superblitz = %v, want standard only", std, sb)
+	}
+}
+
+func TestMigration90sDownTakesTheOneTrackCheckAwayAndUpBringsItBack(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	present := func() []string {
+		return rowsOf(t, pool, `SELECT tgname FROM pg_trigger WHERE tgname = 'ranking_series_one_track'`)
+	}
+	want := []string{"ranking_series_one_track"}
+	if got := present(); !slices.Equal(got, want) {
+		t.Fatalf("migrated: %q, want %q", got, want)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 89); return err }); err != nil {
+		t.Fatalf("migrating down to 89: %v", err)
+	}
+	if got := present(); len(got) != 0 {
+		t.Errorf("at 89, %q remain, want none", got)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up again: %v", err)
+	}
+	if got := present(); !slices.Equal(got, want) {
+		t.Errorf("up again: %q, want %q", got, want)
 	}
 }

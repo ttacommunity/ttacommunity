@@ -294,7 +294,7 @@ func TestMeAnswersTheSiteAboutItsSession(t *testing.T) {
 	linked := sessionFor(f, "linked", store.Account{ID: 8, Provider: "discord", Username: "player_one", DisplayName: "Player One",
 		Member:  &store.LinkedMember{ID: 3, Name: "ann", Player: "Ann"},
 		Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Left games unfinished",
-		Request:   &store.LinkRequest{Name: "ann", Status: "approved", RequestedAt: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)},
+		Request:   &store.LinkRequest{Name: "ann", Status: "approved", RequestedAt: time.Date(2026, 10, 18, 23, 0, 0, 0, time.FixedZone("UTC+11", 11*60*60))},
 		AdminRole: org})
 	tests := []struct {
 		name     string
@@ -327,6 +327,7 @@ func TestMeAnswersTheSiteAboutItsSession(t *testing.T) {
 	rec := playerDo(t, f, http.MethodGet, "/v1/me", siteOrigin, "", linked)
 	wantJSON(t, rec.Body.Bytes(), "username", `"player_one"`)
 	wantJSON(t, rec.Body.Bytes(), "member.name", `"ann"`)
+	wantJSON(t, rec.Body.Bytes(), "request.requested_at", `"2026-10-18T12:00:00Z"`)
 	wantJSON(t, rec.Body.Bytes(), "member.banned", `true`)
 	wantJSON(t, rec.Body.Bytes(), "member.ban_reason", `"Left games unfinished"`)
 	wantJSON(t, rec.Body.Bytes(), "country", `"NZ"`)
