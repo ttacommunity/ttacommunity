@@ -52,7 +52,8 @@ type Standing struct {
 	Rank                             int
 	PlaceFrom, PlaceTo               int
 	Points                           float64
-	Games, Wins, Losses, Draws, Byes int
+	Games, Wins, Losses, Draws       int
+	ForfeitWins, ForfeitLosses, Byes int
 	ForfeitPoints, ByePoints         float64
 	BuchholzCut1                     float64
 	Buchholz                         float64
@@ -161,6 +162,16 @@ func Standings(entrants []Entrant, matches []Played, rounds int, scoring Scoring
 		if m.Forfeit {
 			a.ForfeitPoints += pa
 			b.ForfeitPoints += pb
+			if lostA {
+				a.ForfeitLosses++
+			} else if m.Result == WinA {
+				a.ForfeitWins++
+			}
+			if lostB {
+				b.ForfeitLosses++
+			} else if m.Result == WinB {
+				b.ForfeitWins++
+			}
 			lostByForfeit[m.A][m.Round], lostByForfeit[m.B][m.Round] = lostA, lostB
 			continue
 		}

@@ -4888,6 +4888,10 @@ export interface components {
             losses: number;
             /** @description Non-forfeit games drawn */
             draws: number;
+            /** @description Games won by forfeit */
+            forfeit_wins: number;
+            /** @description Games lost by forfeit */
+            forfeit_losses: number;
             byes: number;
             /**
              * Format: double
