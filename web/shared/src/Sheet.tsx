@@ -1,6 +1,6 @@
 /** A modal sheet: a framed dialog with its heading and a large close button, for content too long for a short question. */
 import type { ReactNode, RefObject } from 'react';
-import { useModal } from '@ttac/shared/modal';
+import { useModal } from './modal';
 
 interface Props {
   /** The dialog, for the caller to close it from its own buttons. */

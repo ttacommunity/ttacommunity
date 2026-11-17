@@ -6,7 +6,7 @@ import { versusTally, type GameRatingFilter } from '../lib/career';
 import { formatTournamentDisplay } from '../lib/achievements';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
-import Sheet from './Sheet';
+import Sheet from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from './CopyCode';

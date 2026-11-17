@@ -22,6 +22,7 @@
     "./SubTabs": "./src/SubTabs.tsx",
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
+    "./Sheet": "./src/Sheet.tsx",
     "./InfoDialog": "./src/InfoDialog.tsx",
     "./modal": "./src/modal.ts",
     "./tabs": "./src/tabs.ts",

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"ttacommunity/backend/internal/store"
@@ -21,13 +22,16 @@ func feedOut(f store.RedditFeed) RedditFeed {
 	return out
 }
 
-// subredditName is the name typed, without spaces, r/ or a trailing slash, as admins often paste it.
+// subredditPath finds a subreddit's name after r/ in a path or address.
+var subredditPath = regexp.MustCompile(`(?i)(?:^|/)r/([^/?#\s]+)`)
+
+// subredditName is the subreddit's name in what was typed: a name, r/name or the subreddit's address.
 func subredditName(typed string) string {
-	name := strings.Trim(strings.TrimSpace(typed), "/")
-	if len(name) > 2 && strings.EqualFold(name[:2], "r/") {
-		name = name[2:]
+	t := strings.TrimSpace(typed)
+	if m := subredditPath.FindStringSubmatch(t); m != nil {
+		return m[1]
 	}
-	return name
+	return strings.Trim(t, "/")
 }
 
 func (s *server) GetAdminRedditFeeds(ctx context.Context, _ GetAdminRedditFeedsRequestObject) (GetAdminRedditFeedsResponseObject, error) {

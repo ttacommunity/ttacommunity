@@ -1,135 +1,202 @@
-/** Notifications, for admins: the Discord webhooks the api posts link requests and blitz reports to, each tested here. */
-import { useEffect, useState, type FormEvent } from 'react';
+/** Notifications, for admins: the Discord webhooks the api posts site events and Reddit posts to, each tested here, and the Reddit feeds read. */
+import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
+import { formatInstant, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
-import { EVENTS, endpointChanged, toggled } from '../lib/notification-endpoints';
+import { subscriptions } from '../lib/notification-endpoints';
+import { feedStatus } from '../lib/reddit-feeds';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
+import AdminTable from './AdminTable';
+import EndpointSheet from './EndpointSheet';
+import FeedSheet from './FeedSheet';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
+type Feed = components['schemas']['RedditFeed'];
 type NotificationTest = components['schemas']['NotificationTest'];
-type Draft = Pick<Endpoint, 'name' | 'url' | 'events' | 'prefix'>;
 
-const EMPTY: Draft = { name: '', url: '', events: [], prefix: '' };
-
-/** EndpointFields edits an endpoint's name, webhook URL, prefix and events; id keeps each field's id its own. */
-function EndpointFields({ id, draft, onChange }: { id: string; draft: Draft; onChange: (d: Draft) => void }) {
-  return (
-    <>
-      <div className="admin-add">
-        <label>
-          Name
-          <input className="input-antique" id={`${id}-name`} value={draft.name} maxLength={100} onChange={(e) => onChange({ ...draft, name: e.target.value })} required />
-        </label>
-        <label className="title-reason">
-          Discord webhook URL
-          <input className="input-antique" id={`${id}-url`} type="url" value={draft.url} placeholder="https://discord.com/api/webhooks/…"
-            onChange={(e) => onChange({ ...draft, url: e.target.value })} required />
-        </label>
-        <label>
-          Prefix (such as [dev])
-          <input className="input-antique" id={`${id}-prefix`} value={draft.prefix} maxLength={20} onChange={(e) => onChange({ ...draft, prefix: e.target.value })} />
-        </label>
-      </div>
-      <fieldset className="check-kinds">
-        <legend>Posts</legend>
-        {EVENTS.map(({ key, label }) => (
-          <label key={key}>
-            <input type="checkbox" checked={draft.events.includes(key)} onChange={(e) => onChange({ ...draft, events: toggled(draft.events, key, e.target.checked) })} /> {label}
-          </label>
-        ))}
-      </fieldset>
-    </>
-  );
-}
-
-/** EndpointRow is one endpoint to change, test or remove, with what became of the last action on it. */
-function EndpointRow({ endpoint, onReload, outcome, say }: { endpoint: Endpoint; onReload: () => Promise<void>; outcome: Outcome | null; say: (o: Outcome | null) => void }) {
-  const at = `endpoint ${endpoint.id}`;
-  const [draft, setDraft] = useState<Draft>(endpoint);
+/** FeedsCard lists the Reddit feeds, to pause, resume or remove, and adds new ones. */
+function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () => Promise<void> }) {
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [adding, setAdding] = useState<HTMLElement | null>(null);
   const dialog = useDialog();
-  const save = async () => {
-    const r = await req.send(req.setEndpoint(endpoint.id, draft));
-    say(outcomeOf(r, `Saved ${draft.name.trim()}.`, at));
+  const zone = viewerZone();
+  const when = (iso: string) => formatInstant(iso, zone);
+  const pause = async (f: Feed) => {
+    const r = await req.send(req.pauseFeed(f.id, !f.paused));
+    setOutcome(outcomeOf(r, f.paused ? `Resumed r/${f.subreddit}: posts from its next read on are posted.` : `Paused r/${f.subreddit}.`, 'feeds'));
     await onReload();
   };
-  const test = async () => {
-    const r = await req.send<NotificationTest>(req.testEndpoint(endpoint.id));
-    if (!r.ok) say(refused(r.message, at));
-    else say(r.data.delivered ? succeeded(r.data.message, at) : refused(r.data.message, at));
-  };
-  const remove = async (opener: HTMLElement) => {
-    const sure = await dialog.confirm({ heading: `Remove ${endpoint.name}?`, text: 'Nothing more is posted to it.', action: 'Remove', final: true }, opener);
+  const remove = async (f: Feed, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Remove r/${f.subreddit}?`, text: 'Its new posts are no longer posted, and endpoints stop taking it.', action: 'Remove', final: true }, opener);
     if (!sure) return;
-    const r = await req.send(req.removeEndpoint(endpoint.id));
-    say(outcomeOf(r, `Removed ${endpoint.name}.`, at, 'endpoints'));
+    const r = await req.send(req.removeFeed(f.id));
+    setOutcome(outcomeOf(r, `Removed r/${f.subreddit}.`, 'feeds'));
     await onReload();
   };
   return (
-    <div className="badge-row">
+    <AdminCard
+      id="reddit-feeds-heading"
+      title="Reddit feeds"
+      actions={
+        <button type="button" className="btn-antique" onClick={(e) => setAdding(e.currentTarget)}>
+          Add feed
+        </button>
+      }
+    >
       {dialog.element}
-      <EndpointFields id={`endpoint-${endpoint.id}`} draft={draft} onChange={setDraft} />
-      <div className="admin-add">
-        <button type="button" className="btn-antique" onClick={() => void save()} disabled={!endpointChanged(endpoint, draft)}>
-          Save
-        </button>
-        <button type="button" className="btn-antique" onClick={() => void test()}>
-          Test
-        </button>
-        <button type="button" className="btn-antique" onClick={(e) => void remove(e.currentTarget)}>
-          Remove
-        </button>
-      </div>
-      <Notice outcome={shownAt(outcome, at)} onClose={() => say(null)} />
-    </div>
+      <p className="muted">
+        Subreddits read every 10 minutes. Each new post goes to the endpoints that take its feed (choose them above). A feed's first read, and its first
+        after resuming, posts nothing, so older posts are not posted.
+      </p>
+      <Notice outcome={shownAt(outcome, 'feeds')} onClose={() => setOutcome(null)} />
+      {feeds.length === 0 ? (
+        <p className="muted">No feeds yet.</p>
+      ) : (
+        <AdminTable caption="The subreddits read, each with how its last read went">
+          <thead>
+            <tr>
+              <th>Subreddit</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {feeds.map((f) => (
+              <tr key={f.id}>
+                <td>
+                  <a href={`https://www.reddit.com/r/${encodeURIComponent(f.subreddit)}/new/`} target="_blank" rel="noopener noreferrer">
+                    r/{f.subreddit}
+                  </a>
+                </td>
+                <td>{feedStatus(f, when)}</td>
+                <td>
+                  <button type="button" className="btn-settings" onClick={() => void pause(f)}>
+                    {f.paused ? 'Resume' : 'Pause'}
+                  </button>
+                  <button type="button" className="btn-settings" onClick={(e) => void remove(f, e.currentTarget)}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </AdminTable>
+      )}
+      {adding !== null && (
+        <FeedSheet
+          opener={adding}
+          onAdded={(f) => {
+            setOutcome(succeeded(`Added r/${f.subreddit}. Its first read, within 10 minutes, posts nothing; choose which endpoints take it above.`, 'feeds'));
+            void onReload();
+          }}
+          onClose={() => setAdding(null)}
+        />
+      )}
+    </AdminCard>
   );
 }
 
-/** NotificationsPanel lists the endpoints and adds new ones. */
+/** NotificationsPanel lists the endpoints, each to edit, test or remove, and adds new ones; then the Reddit feeds they may take. */
 export default function NotificationsPanel() {
   const [list, setList] = useState<Endpoint[] | null>(null);
+  const [feeds, setFeeds] = useState<Feed[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [editing, setEditing] = useState<{ endpoint: Endpoint | null; opener: HTMLElement } | null>(null);
+  const dialog = useDialog();
 
   const load = async () => {
-    const r = await adminRequest<Endpoint[]>('/api/notification-endpoints', {});
-    if (r.ok) setList(r.data);
-    else setOutcome(loadFailure(r.message, 'endpoints'));
+    const [endpoints, read] = await Promise.all([adminRequest<Endpoint[]>('/api/notification-endpoints', {}), adminRequest<Feed[]>('/api/reddit-feeds', {})]);
+    if (endpoints.ok) setList(endpoints.data);
+    else setOutcome(loadFailure(endpoints.message, 'endpoints'));
+    if (read.ok) setFeeds(read.data);
+    else setOutcome(loadFailure(read.message, 'endpoints'));
   };
   useEffect(() => {
     void load();
   }, []);
 
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    const r = await req.send<Endpoint>(req.addEndpoint(draft));
-    setOutcome(r.ok ? succeeded(`Added ${r.data.name}. Test it to see a message arrive.`, 'add endpoint') : refused(r.message, 'add endpoint'));
-    if (r.ok) setDraft(EMPTY);
+  const test = async (e: Endpoint) => {
+    const r = await req.send<NotificationTest>(req.testEndpoint(e.id));
+    if (!r.ok) setOutcome(refused(r.message, 'endpoints'));
+    else setOutcome(r.data.delivered ? succeeded(`${e.name}: ${r.data.message}`, 'endpoints') : refused(`${e.name}: ${r.data.message}`, 'endpoints'));
+  };
+  const remove = async (e: Endpoint, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Remove ${e.name}?`, text: 'Nothing more is posted to it.', action: 'Remove', final: true }, opener);
+    if (!sure) return;
+    const r = await req.send(req.removeEndpoint(e.id));
+    setOutcome(outcomeOf(r, `Removed ${e.name}.`, 'endpoints'));
     await load();
   };
 
   return (
-    <AdminCard id="notifications-heading" title="Notifications">
-      <p className="muted">
-        Discord channels the site posts to when a new player signs up, a player asks to be linked, or one reports, corrects or flags a blitz result.
-        Make a webhook in the channel's settings (Integrations, Webhooks) and paste its URL here.
-      </p>
-      <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />
-      {list?.map((e) => (
-        <EndpointRow key={`${e.id}-${e.name}-${e.url}-${e.prefix}-${e.events.join()}`} endpoint={e} onReload={load} outcome={outcome} say={setOutcome} />
-      ))}
-      {list !== null && list.length === 0 && <p className="muted">No endpoints yet: nothing is posted.</p>}
-      <form onSubmit={(e) => void add(e)}>
-        <h3>Add an endpoint</h3>
-        <EndpointFields id="endpoint-new" draft={draft} onChange={setDraft} />
-        <button type="submit" className="btn-antique">
-          Add endpoint
-        </button>
-      </form>
-      <Notice outcome={shownAt(outcome, 'add endpoint')} onClose={() => setOutcome(null)} />
-    </AdminCard>
+    <>
+      <AdminCard
+        id="notifications-heading"
+        title="Notifications"
+        actions={
+          <button type="button" className="btn-antique" onClick={(e) => setEditing({ endpoint: null, opener: e.currentTarget })}>
+            Add endpoint
+          </button>
+        }
+      >
+        {dialog.element}
+        <p className="muted">
+          Discord channels the site posts to: when a new player signs up, a player asks to be linked, one reports, corrects or flags a blitz result, or a
+          Reddit feed has a new post. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
+        </p>
+        <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />
+        {list !== null && list.length === 0 && <p className="muted">No endpoints yet: nothing is posted.</p>}
+        {list !== null && list.length > 0 && (
+          <AdminTable caption="The Discord channels posted to, each with what it takes">
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>Takes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    {e.name}
+                    {e.prefix !== '' && <span className="muted"> {e.prefix}</span>}
+                  </td>
+                  <td>{subscriptions(e.events, e.feeds, feeds)}</td>
+                  <td>
+                    <button type="button" className="btn-settings" onClick={(ev) => setEditing({ endpoint: e, opener: ev.currentTarget })}>
+                      Edit
+                    </button>
+                    <button type="button" className="btn-settings" onClick={() => void test(e)}>
+                      Test
+                    </button>
+                    <button type="button" className="btn-settings" onClick={(ev) => void remove(e, ev.currentTarget)}>
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </AdminTable>
+        )}
+        {editing !== null && (
+          <EndpointSheet
+            endpoint={editing.endpoint}
+            allFeeds={feeds}
+            opener={editing.opener}
+            onSaved={(message) => {
+              setOutcome(succeeded(message, 'endpoints'));
+              void load();
+            }}
+            onClose={() => setEditing(null)}
+          />
+        )}
+      </AdminCard>
+      <FeedsCard feeds={feeds} onReload={load} />
+    </>
   );
 }

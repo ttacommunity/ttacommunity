@@ -6,7 +6,7 @@ import { DEFAULT_FEED_SETTINGS, withPlayer, withoutPlayer } from '../lib/feed-se
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
 import { waitingText } from '../lib/waiting';
 import SearchBox, { type SearchPlayer } from './SearchBox';
-import Sheet from './Sheet';
+import Sheet from '@ttac/shared/Sheet';
 import './FeedOptionsModal.css';
 
 export interface AvailableTournament {

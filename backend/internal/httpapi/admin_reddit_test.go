@@ -104,3 +104,19 @@ func TestRedditFeedChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		})
 	}
 }
+
+func TestASubredditIsReadFromWhatWasTyped(t *testing.T) {
+	for _, tt := range []struct{ name, typed, want string }{
+		{"a name", "throughtheages", "throughtheages"},
+		{"with r/", "r/throughtheages", "throughtheages"},
+		{"with /r/ and a slash", " /r/throughtheages/ ", "throughtheages"},
+		{"its address", "https://www.reddit.com/r/throughtheages/new/", "throughtheages"},
+		{"nothing", "  ", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := subredditName(tt.typed); got != tt.want {
+				t.Errorf("subredditName(%q) = %q, want %q", tt.typed, got, tt.want)
+			}
+		})
+	}
+}
