@@ -256,3 +256,115 @@ func TestTheRedditMigrationGoesDownAndUp(t *testing.T) {
 		t.Errorf("RedditFeeds after down and up = %v, %v; want none", list, err)
 	}
 }
+
+// sentKinds sends the outbox at now and returns each notification sent, as "endpoint:kind r/subreddit".
+func sentKinds(t *testing.T, a *AdminStore, now time.Time) []string {
+	t.Helper()
+	var got []string
+	if _, err := a.SendNotifications(context.Background(), now, 10, func(_ context.Context, n Notification, e NotificationEndpoint) error {
+		got = append(got, fmt.Sprintf("%s:%s r/%s", e.Name, n.Kind, n.Reddit.Subreddit))
+		return nil
+	}); err != nil {
+		t.Fatalf("SendNotifications: %v", err)
+	}
+	return got
+}
+
+func TestAFeedFailingThreeReadsInARowIsNotifiedOnceAndSoIsItsRecovery(t *testing.T) {
+	ctx := context.Background()
+	a := redditStore(t)
+	feed := addFeed(t, a, "example")
+	for i, e := range []NotificationEndpoint{{Name: "Ops", Events: []string{"reddit_failing"}}, {Name: "Posts", Feeds: []int64{feed}}} {
+		e.URL, e.Format = webhook(i+1), "discord"
+		if _, err := a.AddNotificationEndpoint(ctx, e, redditAt); err != nil {
+			t.Fatalf("AddNotificationEndpoint(%s): %v", e.Name, err)
+		}
+	}
+	record(t, a, feed, redditAt)
+	fail := func(n int) {
+		for i := range n {
+			if err := a.RedditFeedFailed(ctx, feed, "reddit answered 429", redditAt.Add(time.Duration(i)*time.Minute)); err != nil {
+				t.Fatalf("RedditFeedFailed: %v", err)
+			}
+		}
+	}
+	steps := []struct {
+		name string
+		do   func()
+		want []string
+	}{
+		{"two failures", func() { fail(2) }, nil},
+		{"a good read after them", func() { record(t, a, feed, redditAt) }, nil},
+		{"three failures", func() { fail(3) }, []string{"Ops:reddit_failed r/example"}},
+		{"more failures", func() { fail(4) }, nil},
+		{"a good read", func() { record(t, a, feed, redditAt) }, []string{"Ops:reddit_recovered r/example"}},
+	}
+	for _, s := range steps {
+		s.do()
+		if got := sentKinds(t, a, redditAt.Add(time.Hour)); !slices.Equal(got, s.want) {
+			t.Errorf("after %s: sent %q, want %q", s.name, got, s.want)
+		}
+	}
+}
+
+func TestAFailingNotificationCarriesTheError(t *testing.T) {
+	ctx := context.Background()
+	a := redditStore(t)
+	feed := addFeed(t, a, "example")
+	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "Ops", URL: webhook(1), Format: "discord", Events: []string{"reddit_failing"}}, redditAt); err != nil {
+		t.Fatalf("AddNotificationEndpoint: %v", err)
+	}
+	for range FeedFailuresNotified {
+		if err := a.RedditFeedFailed(ctx, feed, "reddit answered 403", redditAt); err != nil {
+			t.Fatalf("RedditFeedFailed: %v", err)
+		}
+	}
+	var got Notification
+	if _, err := a.SendNotifications(ctx, redditAt, 10, func(_ context.Context, n Notification, _ NotificationEndpoint) error {
+		got = n
+		return nil
+	}); err != nil {
+		t.Fatalf("SendNotifications: %v", err)
+	}
+	if got.Kind != "reddit_failed" || got.Reddit.Subreddit != "example" || got.FeedError != "reddit answered 403" {
+		t.Errorf("notification = %s r/%s %q, want reddit_failed r/example with its error", got.Kind, got.Reddit.Subreddit, got.FeedError)
+	}
+}
+
+func TestAPostsTextIsKeptOnlyUntilItIsPosted(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	feed := addFeed(t, a, "example")
+	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "Posts", URL: webhook(1), Format: "discord", Feeds: []int64{feed}}, redditAt); err != nil {
+		t.Fatalf("AddNotificationEndpoint: %v", err)
+	}
+	kept := func() []string {
+		t.Helper()
+		var got []string
+		rows, err := pool.Query(ctx, "SELECT post_id || ':' || title || author || body || url || image_url FROM reddit_posts ORDER BY post_id")
+		if err != nil {
+			t.Fatalf("reading reddit_posts: %v", err)
+		}
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatalf("reading reddit_posts: %v", err)
+			}
+			got = append(got, s)
+		}
+		return got
+	}
+	record(t, a, feed, redditAt, post(1))
+	if got, want := kept(), []string{"t3_abc1:"}; !slices.Equal(got, want) {
+		t.Errorf("after the first read, kept %q, want %q: a post never posted keeps no text", got, want)
+	}
+	record(t, a, feed, redditAt.Add(time.Minute), post(2), post(1))
+	if got := kept(); len(got) != 2 || got[1] == "t3_abc2:" {
+		t.Errorf("before sending, kept %q, want post 2's text kept to send", got)
+	}
+	sentPosts(t, a, redditAt.Add(time.Minute))
+	if got, want := kept(), []string{"t3_abc1:", "t3_abc2:"}; !slices.Equal(got, want) {
+		t.Errorf("after sending, kept %q, want %q", got, want)
+	}
+}

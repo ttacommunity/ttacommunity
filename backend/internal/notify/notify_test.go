@@ -54,6 +54,10 @@ func TestText(t *testing.T) {
 			"**Blitz report flagged**: US Open 2026, round 2: Ann says Bob's report (Ann and Bob drew) is wrong: I won on culture. <" + admin + "/blitz/?t=us_open&e=2026>"},
 		{"names written as typed, not as markdown or mentions", store.Notification{Kind: "link_request", Name: "@everyone <@100000000000000001> **x**", SignIns: []string{"email"}},
 			`**Link request**: a player who signs in with email asks to be linked to **@everyone \<@100000000000000001\> \*\*x\*\***. Answer it in admin: <` + admin + "/#members>"},
+		{"a Reddit feed failing", store.Notification{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "some_sub"}, FeedError: "reddit answered 403"},
+			`**Reddit feed failing**: r/some\_sub has failed its last 3 reads: reddit answered 403. <` + admin + "/#notifications>"},
+		{"a Reddit feed reading again", store.Notification{Kind: "reddit_recovered", Reddit: store.RedditNotice{Subreddit: "some_sub"}},
+			`**Reddit feed reading again**: r/some\_sub reads again; its new posts are posted. <` + admin + "/#notifications>"},
 		{"an edition's address escaped", store.Notification{Kind: "blitz_report", Slug: "us_open", Series: "US Open", Edition: "Season 1 & 2", Round: 1, A: "Ann", B: "Bob", Result: "a", ReportedBy: "Ann"},
 			"**Blitz result reported**: US Open Season 1 & 2, round 1: Ann beat Bob, reported by Ann. <" + admin + "/blitz/?t=us_open&e=Season+1+%26+2>"},
 	}

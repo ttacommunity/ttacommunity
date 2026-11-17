@@ -74,6 +74,11 @@ func Text(n store.Notification, admin string) string {
 	case "link_request":
 		return fmt.Sprintf("**Link request**: a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
 			list(ways), esc(n.Name), admin)
+	case "reddit_failed":
+		return fmt.Sprintf("**Reddit feed failing**: r/%s has failed its last %d reads: %s. <%s/#notifications>",
+			esc(n.Reddit.Subreddit), store.FeedFailuresNotified, esc(n.FeedError), admin)
+	case "reddit_recovered":
+		return fmt.Sprintf("**Reddit feed reading again**: r/%s reads again; its new posts are posted. <%s/#notifications>", esc(n.Reddit.Subreddit), admin)
 	}
 	where := fmt.Sprintf("%s %s, round %d", esc(n.Series), esc(n.Edition), n.Round)
 	link := fmt.Sprintf("<%s/blitz/?t=%s&e=%s>", admin, url.QueryEscape(n.Slug), url.QueryEscape(n.Edition))

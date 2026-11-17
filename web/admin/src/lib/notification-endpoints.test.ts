@@ -5,7 +5,7 @@ const SAVED = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
-    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag']);
+    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'reddit_failing']);
   });
 
   it.each([
@@ -38,7 +38,7 @@ describe('notification endpoints', () => {
 
   it.each([
     ['nothing', [], [], 'Nothing: no posts reach it'],
-    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag'] as const, [], 'every site event'],
+    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'reddit_failing'] as const, [], 'every site event'],
     ['some events, in the tab\'s order', ['blitz_flag', 'sign_up'] as const, [], 'New players signing up, Blitz reports flagged'],
     ['a feed', [], [5], 'r/boardgames'],
     ['events and feeds', ['link_request'] as const, [2, 5], 'Requests to be linked; r/throughtheages; r/boardgames'],

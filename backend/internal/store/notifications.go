@@ -32,9 +32,11 @@ type Notification struct {
 	ReportedBy            string
 	Corrected             bool
 	FlagReason            string
-	// A Reddit post: the post and its subreddit, posted to the endpoints taking FeedID.
-	FeedID int64
-	Reddit RedditNotice
+	// A Reddit post: the post and its subreddit, posted to the endpoints taking FeedID. A feed failing or reading
+	// again: its subreddit, and FeedError, why its last read failed.
+	FeedID    int64
+	Reddit    RedditNotice
+	FeedError string
 }
 
 // NotificationsSent counts what SendNotifications did: sent, failed (to be tried again), and given up on after
@@ -54,10 +56,27 @@ func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, n
 	return nil
 }
 
-// takes says whether e takes n: a Reddit post when e takes its feed, anything else when e takes its kind.
+// forgetPostText clears a Reddit post's text once its notification n, about post ref, has left the outbox: what
+// stays is its id and date, so it is never posted again.
+func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) error {
+	if n.Kind != "reddit_post" {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE reddit_posts SET title = '', url = '', author = '', body = '', image_url = ''
+		WHERE reddit_post_id = $1`, ref); err != nil {
+		return fmt.Errorf("forgetting a Reddit post's text: %w", err)
+	}
+	return nil
+}
+
+// takes says whether e takes n: a Reddit post when e takes its feed, a feed failing or reading again when e takes
+// reddit_failing, anything else when e takes its kind.
 func (e NotificationEndpoint) takes(n Notification) bool {
-	if n.Kind == "reddit_post" {
+	switch n.Kind {
+	case "reddit_post":
 		return slices.Contains(e.Feeds, n.FeedID)
+	case "reddit_failed", "reddit_recovered":
+		return slices.Contains(e.Events, "reddit_failing")
 	}
 	return slices.Contains(e.Events, n.Kind)
 }
@@ -85,11 +104,11 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.reddit_post_id), o.attempts, o.sent_to,
-			       CASE o.kind WHEN 'sign_up' THEN true WHEN 'reddit_post' THEN true
-			                   WHEN 'link_request' THEN lr.status = 'pending'
-			                   WHEN 'blitz_report' THEN bm.report IS NOT NULL
-			                   ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.reddit_post_id, o.feed_id), o.attempts, o.sent_to,
+			       CASE WHEN o.kind IN ('sign_up', 'reddit_post', 'reddit_failed', 'reddit_recovered') THEN true
+			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
+			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
+			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
 			       coalesce(lr.tta_name, am.tta_name, ''),
 			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
 			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
@@ -98,11 +117,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, ''),
-			       coalesce(rp.feed_id, 0), coalesce(rf.subreddit, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
+			       coalesce(rp.feed_id, o.feed_id, 0), coalesce(rf.subreddit, ff.subreddit, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
 			       coalesce(rp.title, ''), coalesce(rp.url, ''), coalesce(rp.author, ''), coalesce(rp.body, ''),
-			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at)
+			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at), coalesce(ff.last_error, '')
 			FROM notification_outbox o
 			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN reddit_feeds rf ON rf.feed_id = rp.feed_id
+			LEFT JOIN reddit_feeds ff ON ff.feed_id = o.feed_id
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
@@ -133,7 +153,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
 				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason,
 				&n.FeedID, &n.Reddit.Subreddit, &n.Reddit.Post.PostID, &n.Reddit.Post.Kind, &n.Reddit.Post.Title, &n.Reddit.Post.URL,
-				&n.Reddit.Post.Author, &n.Reddit.Post.Body, &n.Reddit.Post.ImageURL, &n.Reddit.Post.PublishedAt); err != nil {
+				&n.Reddit.Post.Author, &n.Reddit.Post.Body, &n.Reddit.Post.ImageURL, &n.Reddit.Post.PublishedAt, &n.FeedError); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -176,6 +196,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			if !failed || attempts >= MaxNotificationAttempts {
 				if _, err := tx.Exec(ctx, "DELETE FROM notification_outbox WHERE notification_id = $1", d.n.ID); err != nil {
 					return fmt.Errorf("deleting a notification: %w", err)
+				}
+				if err := forgetPostText(ctx, tx, d.n, d.ref); err != nil {
+					return err
 				}
 				continue
 			}

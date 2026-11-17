@@ -50,7 +50,8 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
       {dialog.element}
       <p className="muted">
         Subreddits read every 10 minutes. Each new post goes to the endpoints that take its feed (choose them above). A feed's first read, and its first
-        after resuming, posts nothing, so older posts are not posted.
+        after resuming, posts nothing, so older posts are not posted. A feed that fails 3 reads in a row, and reads again after, is posted to the
+        endpoints taking Reddit feeds failing.
       </p>
       <Notice outcome={shownAt(outcome, 'feeds')} onClose={() => setOutcome(null)} />
       {feeds.length === 0 ? (

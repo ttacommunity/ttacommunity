@@ -41,7 +41,7 @@ type redditJobReport struct {
 }
 
 // run reads every feed not paused. Only the database failing is run's error: Reddit refusing a read is recorded
-// on its feed, so a passing rate limit does not alert anyone.
+// on its feed, which tells the admins taking reddit_failing after a few in a row, so a passing rate limit is quiet.
 func (j redditJob) run(ctx context.Context) (redditJobReport, error) {
 	var r redditJobReport
 	feeds, err := j.store.RedditFeeds(ctx)
