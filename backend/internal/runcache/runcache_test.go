@@ -47,6 +47,54 @@ func TestGetLoadsEachRunAndKeyOnceWhileTheRunIsKept(t *testing.T) {
 	}
 }
 
+func TestGetFreshReloadsAValueNoLongerFresh(t *testing.T) {
+	tests := []struct {
+		name  string
+		wants []int
+		loads []bool
+	}{
+		{"a fresh value is kept", []int{1, 1}, []bool{true, false}},
+		{"a stale value is loaded again", []int{1, 2}, []bool{true, true}},
+		{"the reloaded value is kept", []int{1, 2, 2}, []bool{true, true, false}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New[string, int]()
+			var got []bool
+			for _, want := range tt.wants {
+				loaded := false
+				v, err := c.GetFresh(1, "a", func(v int) bool { return v == want }, func() (int, error) {
+					loaded = true
+					return want, nil
+				})
+				if err != nil || v != want {
+					t.Fatalf("GetFresh wanting %d = %d, %v; want %d, nil", want, v, err, want)
+				}
+				got = append(got, loaded)
+			}
+			if !slices.Equal(got, tt.loads) {
+				t.Errorf("wanting %v loaded %v, want %v", tt.wants, got, tt.loads)
+			}
+		})
+	}
+}
+
+func TestGetFreshKeepsTheOldValueWhenItsReloadFails(t *testing.T) {
+	c := New[string, int]()
+	if _, err := c.Get(1, "a", func() (int, error) { return 1, nil }); err != nil {
+		t.Fatal(err)
+	}
+	failed := errors.New("database gone")
+	stale := func(int) bool { return false }
+	if _, err := c.GetFresh(1, "a", stale, func() (int, error) { return 0, failed }); !errors.Is(err, failed) {
+		t.Fatalf("GetFresh with a failing load = %v, want %v", err, failed)
+	}
+	v, err := c.Get(1, "a", func() (int, error) { return 9, nil })
+	if err != nil || v != 1 {
+		t.Errorf("Get after a failed reload = %d, %v; want 1, nil", v, err)
+	}
+}
+
 func TestGetKeepsNoFailure(t *testing.T) {
 	c := New[string, int]()
 	failed := errors.New("database gone")
