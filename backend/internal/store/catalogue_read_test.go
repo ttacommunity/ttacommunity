@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"ttacommunity/backend/internal/tournamentcsv"
 )
@@ -849,6 +850,85 @@ func TestCatalogueTournamentMasksDeletedAndBannedSeats(t *testing.T) {
 	}
 	if slices.Contains(got.Players, "ann") || slices.Contains(got.Players, "bob") {
 		t.Errorf("got.Players = %v, want deleted/banned players excluded from suggestions", got.Players)
+	}
+}
+
+func TestCatalogueTournamentShowsAGameAddedOrPlayedSinceItWasRead(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(t *testing.T, pool *pgxpool.Pool)
+		best   string
+	}{
+		{"a game added", func(t *testing.T, pool *pgxpool.Pool) {
+			if _, err := pool.Exec(context.Background(), `
+				INSERT INTO games (batch_id, source_file, source_line, name, date, state, group_id)
+				SELECT batch_id, source_file, source_line + 100, 'Wimbledon 2024 Stage 1 - group 1 game 3', '2024-07-03', 'played', group_id
+				FROM games WHERE name LIKE '%game 1'`); err != nil {
+				t.Fatalf("adding game 3: %v", err)
+			}
+			setSeats(t, pool, "%game 3", Seat{"eve", 200}, Seat{"fay", 10})
+		}, "eve"},
+		{"a game reported played", func(t *testing.T, pool *pgxpool.Pool) {
+			setGameState(t, pool, "%game 2", "played")
+		}, "cat"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			run := publishedRun(t, pool)
+			placedOn(t, pool, map[string]time.Time{
+				"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01"),
+				"Wimbledon 2024 Stage 1 - group 1 game 2": day("2024-07-02"),
+			})
+			setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{"bob", 80})
+			setSeats(t, pool, "%game 2", Seat{"cat", 150}, Seat{"dan", 10})
+			setGameState(t, pool, "%game 2", "never_played")
+			withSpans(t, pool, run)
+			ctx := context.Background()
+			r := NewRatingsReader(asReader(t, pool))
+			if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil {
+				t.Fatalf("CatalogueTournament: %v", err)
+			}
+
+			tt.change(t, pool)
+			got, err := r.CatalogueTournament(ctx, run, "wimbledon")
+			if err != nil {
+				t.Fatalf("CatalogueTournament again: %v", err)
+			}
+			if len(got.GameRecords) == 0 || got.GameRecords[0].Name != tt.best {
+				t.Errorf("after %s, game records = %+v, want %s's first", tt.name, got.GameRecords, tt.best)
+			}
+			if !slices.Contains(got.Players, tt.best) {
+				t.Errorf("after %s, players = %q, want %s among them", tt.name, got.Players, tt.best)
+			}
+		})
+	}
+}
+
+func TestCatalogueTournamentHidesAPlayerBannedSinceItWasRead(t *testing.T) {
+	pool := migrated(t)
+	run := publishedRun(t, pool)
+	placedOn(t, pool, map[string]time.Time{"Wimbledon 2024 Stage 1 - group 1 game 1": day("2024-07-01")})
+	setSeats(t, pool, "%game 1", Seat{"ann", 120}, Seat{"bob", 80})
+	withSpans(t, pool, run)
+	ctx := context.Background()
+	r := NewRatingsReader(asReader(t, pool))
+	if _, err := r.CatalogueTournament(ctx, run, "wimbledon"); err != nil {
+		t.Fatalf("CatalogueTournament: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, "INSERT INTO player_accounts (cge_user, player_id, name, banned) SELECT 1, player_id, 'ann', true FROM players WHERE name = 'ann'"); err != nil {
+		t.Fatalf("banning ann: %v", err)
+	}
+	got, err := r.CatalogueTournament(ctx, run, "wimbledon")
+	if err != nil {
+		t.Fatalf("CatalogueTournament again: %v", err)
+	}
+	if len(got.GameRecords) != 1 || got.GameRecords[0].Name != DeletedPlayer {
+		t.Errorf("game records = %+v, want ann's win shown as %s", got.GameRecords, DeletedPlayer)
+	}
+	if slices.Contains(got.Players, "ann") {
+		t.Errorf("players = %q, want ann left out once banned", got.Players)
 	}
 }
 

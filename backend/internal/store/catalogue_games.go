@@ -60,21 +60,24 @@ type CatalogueGames struct {
 }
 
 // shownGames is every placed game of a shown tournament (rated or made
-// visible), never-played ones included, with its season and stage.
+// visible), never-played ones included, with its season and stage. It reads
+// no seats' arrays, so that only a page's own games pay for game_lines.
 const shownGames = `
-	SELECT m.game_id AS match_id, m.date, s.label AS season, st.label AS stage, m.group_name AS group_label,
-	       coalesce(m.game_number, 0) AS game, m.state, coalesce(m.share_code, '') AS code,
-	       m.state = 'played' AND s.rated AND m.player_count = ANY(t.rated_player_counts)
-	         AND EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id) AS rated,
-	       m.players, m.cultures, m.places, m.outcomes
-	FROM game_lines m
-	JOIN stages st USING (stage_id)
-	JOIN tournaments s ON s.tournament_id = st.tournament_id
-	JOIN series t ON t.series_id = s.series_id
+	SELECT g.game_id AS match_id, g.date, s.label AS season, st.label AS stage, gr.name AS group_label,
+	       coalesce(g.game_number, 0) AS game, g.state, coalesce(g.share_code, '') AS code,
+	       g.state = 'played' AND s.rated
+	         AND EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id) AS rateable,
+	       t.rated_player_counts
+	FROM series t
+	JOIN tournaments s ON s.series_id = t.series_id
+	JOIN stages st ON st.tournament_id = s.tournament_id
+	JOIN groups gr ON gr.stage_id = st.stage_id
+	JOIN games g ON g.group_id = gr.group_id
 	WHERE t.slug = $1
 	  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
 	  AND ($2 = '' OR s.label = $2) AND ($3 = '' OR st.label = $3)
-	  AND ($4 = '' OR lower($4) IN (SELECT lower(x) FROM unnest(m.players) x))`
+	  AND ($4 = '' OR EXISTS (SELECT 1 FROM seats x JOIN players p ON p.player_id = x.player_id
+	                          WHERE x.game_id = g.game_id AND lower(p.name) = lower($4)))`
 
 // CatalogueGames returns one page of a shown tournament's games, newest
 // first, for a published run. A page past the last gives the last. A
@@ -115,13 +118,20 @@ func (r *RatingsReader) CatalogueGames(ctx context.Context, run int64, slug stri
 	got.Pages = max(1, (got.Total+catalogueGamesPage-1)/catalogueGamesPage)
 	got.Page = min(max(f.Page, 1), got.Pages)
 
+	// The id array lets Postgres read game_lines by key for the page's games, instead of scanning every game.
 	rows, err := r.pool.Query(ctx, `
-		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code, g.rated,
-		       g.players, g.cultures, g.places, g.outcomes
-		FROM (`+shownGames+`) g
-		WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '') AND ($9 = '' OR g.state = $9)
-		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id DESC
-		LIMIT $7 OFFSET $8`,
+		WITH page AS (
+		    SELECT * FROM (`+shownGames+`) g
+		    WHERE ($5 = '' OR g.group_label = $5) AND (NOT $6 OR g.code <> '') AND ($9 = '' OR g.state = $9)
+		    ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id DESC
+		    LIMIT $7 OFFSET $8)
+		SELECT g.match_id, g.date, g.season, g.stage, g.group_label, g.game, g.state, g.code,
+		       g.rateable AND m.player_count = ANY(g.rated_player_counts) AS rated,
+		       m.players, m.cultures, m.places, m.outcomes
+		FROM page g
+		JOIN game_lines m ON m.game_id = g.match_id
+		WHERE m.game_id = ANY(ARRAY(SELECT match_id FROM page))
+		ORDER BY g.date DESC, g.season, g.stage, g.group_label, g.game DESC, g.match_id DESC`,
 		slug, f.Season, f.Stage, f.Player, f.Group, f.Coded, catalogueGamesPage, (got.Page-1)*catalogueGamesPage, f.State)
 	if err != nil {
 		return fail("games", err)

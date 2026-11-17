@@ -449,21 +449,14 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if err != nil {
 		return fail("rated", err)
 	}
-	// The best scores come from the seats; game_lines builds its arrays only for the games shown.
-	rows, err = r.pool.Query(ctx, `
-		WITH top AS (
-		    SELECT g.game_id, max(p.culture) AS best
-		    FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
-		    JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
-		    WHERE t.slug = $1 AND g.state = 'played'
-		    GROUP BY g.game_id ORDER BY best DESC, g.game_id LIMIT $2)
-		SELECT m.name, m.date, m.players, m.cultures, m.places
-		FROM top JOIN game_lines m USING (game_id) ORDER BY top.best DESC, top.game_id`, slug, recordsShown)
+	games, err := r.readTournamentGames(ctx, run, slug)
 	if err != nil {
-		return fail("game records", err)
+		return fail("games", err)
 	}
-	if got.GameRecords, err = pgx.CollectRows(rows, scanGameRecord); err != nil {
-		return fail("game records", err)
+	got.GameRecords = make([]GameRecord, len(games.records))
+	for i, g := range games.records {
+		g.Opponents = slices.Clone(g.Opponents)
+		got.GameRecords[i] = g
 	}
 	if err := r.maskGameRecords(ctx, got.GameRecords); err != nil {
 		return fail("game records", err)
@@ -474,23 +467,90 @@ func (r *RatingsReader) CatalogueTournament(ctx context.Context, run int64, slug
 	if got.Stories, err = r.shownStories(ctx, slug); err != nil {
 		return fail("stories", err)
 	}
-
-	// Every player of the shown tournament, for a search box's suggestions.
-	rows, err = r.pool.Query(ctx, `
-		SELECT DISTINCT p.name
-		FROM games g JOIN seats s USING (game_id) JOIN players p USING (player_id)
-		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
-		JOIN tournaments se USING (tournament_id) JOIN series t USING (series_id)
-		WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
-		  AND `+notHiddenPlayer+`
-		ORDER BY p.name`, slug)
-	if err != nil {
-		return fail("players", err)
-	}
-	if got.Players, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+	if got.Players, err = r.shownPlayers(ctx, games.players); err != nil {
 		return fail("players", err)
 	}
 	return got, nil
+}
+
+// tournamentGames is what a tournament's page reads from every one of its games, before any player is
+// hidden: its highest winning scores and its players' names, in order. version is the games it was read from.
+type tournamentGames struct {
+	version gamesVersion
+	records []GameRecord
+	players []string
+}
+
+// gamesVersion tells one state of a tournament's games from another: how many there are, how many are
+// played, and the newest.
+type gamesVersion struct {
+	games, played int
+	newest        int64
+}
+
+// readTournamentGames returns slug's tournamentGames, kept for run and read again only when its games
+// have changed since.
+func (r *RatingsReader) readTournamentGames(ctx context.Context, run int64, slug string) (tournamentGames, error) {
+	var v gamesVersion
+	err := r.pool.QueryRow(ctx, `
+		SELECT count(*), count(*) FILTER (WHERE g.state = 'played'), coalesce(max(g.game_id), 0)
+		FROM series t
+		JOIN tournaments s ON s.series_id = t.series_id
+		JOIN stages st ON st.tournament_id = s.tournament_id
+		JOIN groups gr ON gr.stage_id = st.stage_id
+		JOIN games g ON g.group_id = gr.group_id
+		WHERE t.slug = $1`, slug).Scan(&v.games, &v.played, &v.newest)
+	if err != nil {
+		return tournamentGames{}, fmt.Errorf("counting %s's games: %w", slug, err)
+	}
+	fresh := func(kept tournamentGames) bool { return kept.version == v }
+	return r.tournamentGames.GetFresh(run, slug, fresh, func() (tournamentGames, error) {
+		got := tournamentGames{version: v}
+		// The best scores come from the seats; game_lines builds its arrays only for the games shown.
+		rows, err := r.pool.Query(ctx, `
+			WITH top AS (
+			    SELECT g.game_id, max(p.culture) AS best
+			    FROM games g JOIN seats p USING (game_id) JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+			    JOIN tournaments s USING (tournament_id) JOIN series t USING (series_id)
+			    WHERE t.slug = $1 AND g.state = 'played'
+			    GROUP BY g.game_id ORDER BY best DESC, g.game_id LIMIT $2)
+			SELECT m.name, m.date, m.players, m.cultures, m.places
+			FROM top JOIN game_lines m USING (game_id) ORDER BY top.best DESC, top.game_id`, slug, recordsShown)
+		if err != nil {
+			return got, fmt.Errorf("reading %s's game records: %w", slug, err)
+		}
+		if got.records, err = pgx.CollectRows(rows, scanGameRecord); err != nil {
+			return got, fmt.Errorf("reading %s's game records: %w", slug, err)
+		}
+		// Every player of the shown tournament, for a search box's suggestions.
+		rows, err = r.pool.Query(ctx, `
+			SELECT DISTINCT p.name
+			FROM games g JOIN seats s USING (game_id) JOIN players p USING (player_id)
+			JOIN groups gr USING (group_id) JOIN stages st USING (stage_id)
+			JOIN tournaments se USING (tournament_id) JOIN series t USING (series_id)
+			WHERE t.slug = $1 AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
+			ORDER BY p.name`, slug)
+		if err != nil {
+			return got, fmt.Errorf("reading %s's players: %w", slug, err)
+		}
+		if got.players, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+			return got, fmt.Errorf("reading %s's players: %w", slug, err)
+		}
+		return got, nil
+	})
+}
+
+// shownPlayers returns a copy of names without the players who have a deleted or banned CGE account.
+func (r *RatingsReader) shownPlayers(ctx context.Context, names []string) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT p.name FROM players p WHERE NOT `+notHiddenPlayer)
+	if err != nil {
+		return nil, fmt.Errorf("reading hidden players: %w", err)
+	}
+	hidden, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("reading hidden players: %w", err)
+	}
+	return slices.DeleteFunc(slices.Clone(names), func(n string) bool { return slices.Contains(hidden, n) }), nil
 }
 
 // regulations returns a tournament's or group's format and regulations as admin writes them, empty for none.

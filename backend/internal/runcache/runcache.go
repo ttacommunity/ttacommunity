@@ -34,10 +34,16 @@ func New[K comparable, V any]() *Cache[K, V] {
 // what it returns; an error is returned and not kept. Callers asking for the same run and
 // key together wait for one load; callers for other keys do not wait.
 func (c *Cache[K, V]) Get(run int64, key K, load func() (V, error)) (V, error) {
+	return c.GetFresh(run, key, func(V) bool { return true }, load)
+}
+
+// GetFresh is Get, but calls load again when fresh says the value kept is out of date, keeping the
+// old value if that load fails.
+func (c *Cache[K, V]) GetFresh(run int64, key K, fresh func(V) bool, load func() (V, error)) (V, error) {
 	e := c.entry(run, key)
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.loaded {
+	if e.loaded && fresh(e.val) {
 		return e.val, nil
 	}
 	v, err := load()
