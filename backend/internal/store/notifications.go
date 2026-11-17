@@ -3,6 +3,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -32,6 +33,11 @@ type Notification struct {
 	ReportedBy            string
 	Corrected             bool
 	FlagReason            string
+	// A Reddit post: the post and its subreddit, posted to the endpoints taking FeedID. A feed failing or reading
+	// again: its subreddit, and FeedError, why its last read failed.
+	FeedID    int64
+	Reddit    RedditNotice
+	FeedError string
 }
 
 // NotificationsSent counts what SendNotifications did: sent, failed (to be tried again), and given up on after
@@ -51,6 +57,57 @@ func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, n
 	return nil
 }
 
+// delivery is how a post to an endpoint went: sent, or why not (an error that names no URL).
+type delivery struct {
+	endpoint int64
+	err      error
+}
+
+// recordDeliveries keeps on each endpoint how its last post in deliveries went at now, endpoint by endpoint, each
+// in its own statement: outside the sending transaction, so no endpoint is locked while Discord answers.
+func (a *AdminStore) recordDeliveries(ctx context.Context, deliveries []delivery, now time.Time) error {
+	slices.SortStableFunc(deliveries, func(x, y delivery) int { return cmp.Compare(x.endpoint, y.endpoint) })
+	for _, d := range deliveries {
+		var err error
+		if d.err == nil {
+			_, err = a.pool.Exec(ctx, "UPDATE notification_endpoints SET last_sent_at = $2, last_error = NULL, last_error_at = NULL WHERE endpoint_id = $1", d.endpoint, now)
+		} else {
+			msg := []rune(d.err.Error())
+			_, err = a.pool.Exec(ctx, "UPDATE notification_endpoints SET last_error = $2, last_error_at = $3 WHERE endpoint_id = $1",
+				d.endpoint, string(msg[:min(len(msg), maxFeedError)]), now)
+		}
+		if err != nil {
+			return fmt.Errorf("recording how a notification went: %w", err)
+		}
+	}
+	return nil
+}
+
+// forgetPostText clears a Reddit post's text once its notification n, about post ref, has left the outbox: what
+// stays is its id and date, so it is never posted again.
+func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) error {
+	if n.Kind != "reddit_post" {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE reddit_posts SET title = '', url = '', author = '', body = '', image_url = ''
+		WHERE reddit_post_id = $1`, ref); err != nil {
+		return fmt.Errorf("forgetting a Reddit post's text: %w", err)
+	}
+	return nil
+}
+
+// takes says whether e takes n: a Reddit post when e takes its feed, a feed failing or reading again when e takes
+// reddit_failing, anything else when e takes its kind.
+func (e NotificationEndpoint) takes(n Notification) bool {
+	switch n.Kind {
+	case "reddit_post":
+		return slices.Contains(e.Feeds, n.FeedID)
+	case "reddit_failed", "reddit_recovered":
+		return slices.Contains(e.Events, "reddit_failing")
+	}
+	return slices.Contains(e.Events, n.Kind)
+}
+
 // notificationRetry is how long after its attempts-th failure a notification is tried again: a minute, doubling,
 // at most an hour.
 func notificationRetry(attempts int) time.Duration {
@@ -64,6 +121,7 @@ func notificationRetry(attempts int) time.Duration {
 func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit int,
 	send func(context.Context, Notification, NotificationEndpoint) error) (NotificationsSent, error) {
 	var done NotificationsSent
+	var deliveries []delivery
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, "SELECT "+endpointColumns+" FROM notification_endpoints ORDER BY endpoint_id")
 		if err != nil {
@@ -74,11 +132,11 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id), o.attempts, o.sent_to,
-			       CASE o.kind WHEN 'sign_up' THEN true
-			                   WHEN 'link_request' THEN lr.status = 'pending'
-			                   WHEN 'blitz_report' THEN bm.report IS NOT NULL
-			                   ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.reddit_post_id, o.feed_id), o.attempts, o.sent_to,
+			       CASE WHEN o.kind IN ('sign_up', 'reddit_post', 'reddit_failed', 'reddit_recovered') THEN true
+			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
+			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
+			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
 			       coalesce(lr.tta_name, am.tta_name, ''),
 			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
 			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
@@ -86,8 +144,13 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(s.slug, ''), coalesce(s.name, ''), coalesce(t.label, ''), coalesce(r.number, 0),
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
-			       coalesce(bm.flag_reason, '')
+			       coalesce(bm.flag_reason, ''),
+			       coalesce(rp.feed_id, o.feed_id, 0), coalesce(rf.subreddit, ff.subreddit, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
+			       coalesce(rp.title, ''), coalesce(rp.url, ''), coalesce(rp.author, ''), coalesce(rp.body, ''),
+			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at), coalesce(ff.last_error, '')
 			FROM notification_outbox o
+			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN reddit_feeds rf ON rf.feed_id = rp.feed_id
+			LEFT JOIN reddit_feeds ff ON ff.feed_id = o.feed_id
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
@@ -116,7 +179,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			var d due
 			n := &d.n
 			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
-				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason); err != nil {
+				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason,
+				&n.FeedID, &n.Reddit.Subreddit, &n.Reddit.Post.PostID, &n.Reddit.Post.Kind, &n.Reddit.Post.Title, &n.Reddit.Post.URL,
+				&n.Reddit.Post.Author, &n.Reddit.Post.Body, &n.Reddit.Post.ImageURL, &n.Reddit.Post.PublishedAt, &n.FeedError); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -138,10 +203,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			seen[key] = true
 			failed := false
 			for _, e := range endpoints {
-				if !d.open || !slices.Contains(e.Events, d.n.Kind) || slices.Contains(d.sentTo, e.ID) {
+				if !d.open || e.Paused || !e.takes(d.n) || slices.Contains(d.sentTo, e.ID) {
 					continue
 				}
-				if send(ctx, d.n, e) != nil {
+				sendErr := send(ctx, d.n, e)
+				deliveries = append(deliveries, delivery{e.ID, sendErr})
+				if sendErr != nil {
 					failed = true
 					continue
 				}
@@ -160,6 +227,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				if _, err := tx.Exec(ctx, "DELETE FROM notification_outbox WHERE notification_id = $1", d.n.ID); err != nil {
 					return fmt.Errorf("deleting a notification: %w", err)
 				}
+				if err := forgetPostText(ctx, tx, d.n, d.ref); err != nil {
+					return err
+				}
 				continue
 			}
 			if _, err := tx.Exec(ctx, "UPDATE notification_outbox SET attempts = $2, next_at = $3, sent_to = $4 WHERE notification_id = $1",
@@ -172,5 +242,5 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 	if err != nil {
 		return NotificationsSent{}, err
 	}
-	return done, nil
+	return done, a.recordDeliveries(ctx, deliveries, now)
 }

@@ -3835,7 +3835,9 @@ paths:
       operationId: putAdminNotificationEndpoint
       tags: [admin]
       summary: Change a notification webhook (admins only)
-      description: Audited. The Origin must be the admin site.
+      description: >-
+        Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its
+        default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
       parameters:
         - $ref: "#/components/parameters/AdminNotificationEndpointId"
       requestBody:
@@ -3889,6 +3891,151 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NotificationTest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/discord-bot:
+    get:
+      operationId: getAdminDiscordBot
+      tags: [admin]
+      summary: The Discord bot's commands, settings and registration (admins only)
+      responses:
+        "200":
+          description: The bot
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscordBot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/discord-bot/commands/{command}:
+    put:
+      operationId: putAdminDiscordCommand
+      tags: [admin]
+      summary: Save a Discord command's settings (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. A command turned off stays registered with Discord and
+        answers its asker alone that it is off.
+      parameters:
+        - name: command
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscordCommandSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/reddit-feeds:
+    get:
+      operationId: getAdminRedditFeeds
+      tags: [admin]
+      summary: The subreddits whose new posts are posted to Discord (admins only)
+      responses:
+        "200":
+          description: The feeds, by subreddit
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RedditFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminRedditFeed
+      tags: [admin]
+      summary: Add a subreddit to read for new posts (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. The Reddit job's first read of it posts nothing, so its
+        older posts are not posted; endpoints take it once it is among their feeds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRedditFeed"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedditFeed"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/reddit-feeds/{feed}:
+    put:
+      operationId: putAdminRedditFeed
+      tags: [admin]
+      summary: Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came
+        while it was paused is not posted.
+      parameters:
+        - $ref: "#/components/parameters/AdminRedditFeedId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedditFeedSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminRedditFeed
+      tags: [admin]
+      summary: Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminRedditFeedId"
+      responses:
+        "204":
+          description: Removed
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5417,6 +5564,14 @@ components:
         type: integer
         format: int64
         minimum: 1
+    AdminRedditFeedId:
+      name: feed
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminPlayer:
       name: player
       in: path
@@ -5947,10 +6102,10 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [sign_up, link_request, blitz_report, blitz_flag]
+      enum: [sign_up, link_request, blitz_report, blitz_flag, reddit_failing]
     NotificationEndpoint:
       type: object
-      required: [id, name, url, format, events, prefix]
+      required: [id, name, url, format, events, feeds, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
       properties:
         id:
           type: integer
@@ -5965,9 +6120,54 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NotificationEvent"
+        feeds:
+          description: The Reddit feeds it takes, by id
+          type: array
+          items:
+            type: integer
+            format: int64
         prefix:
           description: Text put before each message, such as [dev]
           type: string
+        paused:
+          description: Sent nothing while paused
+          type: boolean
+        forum:
+          description: Posts each message as a new thread, for a forum channel's webhook
+          type: boolean
+        username:
+          description: The name its messages show; the webhook's own when empty
+          type: string
+        avatar_url:
+          description: The picture its messages show; the webhook's own when empty
+          type: string
+        role_id:
+          description: A Discord role pinged with each message; none when empty
+          type: string
+        colour:
+          description: "A Reddit post's embed colour, #rrggbb"
+          type: string
+        text:
+          $ref: "#/components/schemas/RedditPostText"
+        image:
+          description: Whether a Reddit post shows its image
+          type: boolean
+        author:
+          description: Whether a Reddit post shows its author
+          type: boolean
+        last_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a notification last reached it
+        last_error:
+          type: string
+          nullable: true
+          description: Why the last notification failed to reach it, until one does
+        last_error_at:
+          type: string
+          format: date-time
+          nullable: true
     NotificationFormat:
       description: How the endpoint takes messages; discord so far
       type: string
@@ -5988,8 +6188,163 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NotificationEvent"
+        feeds:
+          description: The Reddit feeds it takes, by id; none when not given
+          type: array
+          items:
+            type: integer
+            format: int64
         prefix:
           type: string
+        paused:
+          type: boolean
+        forum:
+          type: boolean
+        username:
+          type: string
+        avatar_url:
+          description: An https picture
+          type: string
+        role_id:
+          description: A Discord role's id
+          type: string
+        colour:
+          description: "#rrggbb, in lower case; Reddit's orange when not given"
+          type: string
+        text:
+          $ref: "#/components/schemas/RedditPostText"
+        image:
+          type: boolean
+        author:
+          type: boolean
+    DiscordBot:
+      type: object
+      required: [commands, registered]
+      properties:
+        commands:
+          description: Every command the bot has, in the order Discord lists them, with its settings
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscordBotCommand"
+        registered_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the api last registered the commands with Discord
+        registered:
+          description: The commands Discord then held
+          type: array
+          items:
+            type: string
+        install_url:
+          type: string
+          nullable: true
+          description: The link that adds the bot's commands to a server; none when no application is set up
+    DiscordBotCommand:
+      type: object
+      required: [name, description, "on", reply]
+      properties:
+        name:
+          description: Its name, without /
+          type: string
+        description:
+          type: string
+        "on":
+          type: boolean
+        reply:
+          $ref: "#/components/schemas/DiscordReplyVisibility"
+        format:
+          description: The format shown when the asker gives none, 0 for every format; none for a command without formats
+          type: integer
+          nullable: true
+        results:
+          description: How many rows its list shows; none for a command that lists nothing
+          type: integer
+          nullable: true
+    DiscordCommandSetting:
+      type: object
+      additionalProperties: false
+      required: ["on", reply]
+      properties:
+        "on":
+          type: boolean
+        reply:
+          $ref: "#/components/schemas/DiscordReplyVisibility"
+        format:
+          description: 0, 2, 3 or 4, for a command with formats
+          type: integer
+        results:
+          description: 1 to 10, for a command that lists
+          type: integer
+    DiscordReplyVisibility:
+      description: >-
+        Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private,
+        or always one or the other
+      type: string
+      enum: [private, shared, always_private, always_shared]
+    RedditFeed:
+      type: object
+      required: [id, subreddit, paused, kinds]
+      properties:
+        id:
+          type: integer
+          format: int64
+        subreddit:
+          description: Its name, without r/
+          type: string
+        paused:
+          description: Not read while paused
+          type: boolean
+        kinds:
+          description: The kinds of post it sends
+          type: array
+          items:
+            $ref: "#/components/schemas/RedditPostKind"
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Reddit job last read it
+        last_post_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When its newest post seen was posted on Reddit
+        last_error:
+          type: string
+          nullable: true
+          description: Why its last read failed, until a read succeeds
+        last_error_at:
+          type: string
+          format: date-time
+          nullable: true
+    NewRedditFeed:
+      type: object
+      additionalProperties: false
+      required: [subreddit]
+      properties:
+        subreddit:
+          description: Its name, without r/
+          type: string
+    RedditFeedSetting:
+      type: object
+      additionalProperties: false
+      required: [paused, kinds]
+      properties:
+        paused:
+          type: boolean
+        kinds:
+          type: array
+          items:
+            $ref: "#/components/schemas/RedditPostKind"
+    RedditPostText:
+      description: How much of a Reddit post's text an endpoint shows
+      type: string
+      enum: [full, short, none]
+    RedditPostKind:
+      description: A kind of Reddit post
+      type: string
+      enum: [text, image, video, link]
     NotificationTest:
       type: object
       required: [delivered, message]

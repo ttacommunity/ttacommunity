@@ -3,7 +3,7 @@ import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } f
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'movies', 'titles', 'admins', 'notifications', 'audit']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'movies', 'titles', 'admins', 'notifications', 'bot', 'audit']],
     ['organiser', ['tournaments', 'blitz', 'challenges', 'nostradamus', 'members', 'data']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
@@ -20,6 +20,8 @@ describe('admin tabs', () => {
     ['#audit', 'admin', 'audit'],
     ['#audit', 'organiser', 'tournaments'],
     ['#notifications', 'admin', 'notifications'],
+    ['#bot', 'admin', 'bot'],
+    ['#bot', 'organiser', 'tournaments'],
     ['#movies', 'admin', 'movies'],
     ['#movies', 'organiser', 'tournaments'],
     ['#notifications', 'organiser', 'tournaments'],
@@ -71,7 +73,7 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'movies', 'admins', 'notifications', 'audit']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'movies', 'admins', 'notifications', 'bot', 'audit']]]],
     ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);

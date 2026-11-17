@@ -2705,7 +2705,7 @@ export interface paths {
         get?: never;
         /**
          * Change a notification webhook (admins only)
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
          */
         put: operations["putAdminNotificationEndpoint"];
         post?: never;
@@ -2734,6 +2734,88 @@ export interface paths {
          */
         post: operations["postAdminNotificationEndpointTest"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/discord-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Discord bot's commands, settings and registration (admins only) */
+        get: operations["getAdminDiscordBot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/discord-bot/commands/{command}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a Discord command's settings (admins only)
+         * @description Audited. The Origin must be the admin site. A command turned off stays registered with Discord and answers its asker alone that it is off.
+         */
+        put: operations["putAdminDiscordCommand"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reddit-feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The subreddits whose new posts are posted to Discord (admins only) */
+        get: operations["getAdminRedditFeeds"];
+        put?: never;
+        /**
+         * Add a subreddit to read for new posts (admins only)
+         * @description Audited. The Origin must be the admin site. The Reddit job's first read of it posts nothing, so its older posts are not posted; endpoints take it once it is among their feeds.
+         */
+        post: operations["postAdminRedditFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/reddit-feeds/{feed}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
+         * @description Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came while it was paused is not posted.
+         */
+        put: operations["putAdminRedditFeed"];
+        post?: never;
+        /**
+         * Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminRedditFeed"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3894,7 +3976,7 @@ export interface components {
          * @description What a notification tells of, which an endpoint chooses among
          * @enum {string}
          */
-        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag";
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "reddit_failing";
         NotificationEndpoint: {
             /** Format: int64 */
             id: number;
@@ -3902,8 +3984,36 @@ export interface components {
             url: string;
             format: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
+            /** @description The Reddit feeds it takes, by id */
+            feeds: number[];
             /** @description Text put before each message, such as [dev] */
             prefix: string;
+            /** @description Sent nothing while paused */
+            paused: boolean;
+            /** @description Posts each message as a new thread, for a forum channel's webhook */
+            forum: boolean;
+            /** @description The name its messages show; the webhook's own when empty */
+            username: string;
+            /** @description The picture its messages show; the webhook's own when empty */
+            avatar_url: string;
+            /** @description A Discord role pinged with each message; none when empty */
+            role_id: string;
+            /** @description A Reddit post's embed colour, #rrggbb */
+            colour: string;
+            text: components["schemas"]["RedditPostText"];
+            /** @description Whether a Reddit post shows its image */
+            image: boolean;
+            /** @description Whether a Reddit post shows its author */
+            author: boolean;
+            /**
+             * Format: date-time
+             * @description When a notification last reached it
+             */
+            last_sent_at?: string | null;
+            /** @description Why the last notification failed to reach it, until one does */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
         };
         /**
          * @description How the endpoint takes messages; discord so far
@@ -3916,8 +4026,101 @@ export interface components {
             url: string;
             format?: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
+            /** @description The Reddit feeds it takes, by id; none when not given */
+            feeds?: number[];
             prefix?: string;
+            paused?: boolean;
+            forum?: boolean;
+            username?: string;
+            /** @description An https picture */
+            avatar_url?: string;
+            /** @description A Discord role's id */
+            role_id?: string;
+            /** @description #rrggbb, in lower case; Reddit's orange when not given */
+            colour?: string;
+            text?: components["schemas"]["RedditPostText"];
+            image?: boolean;
+            author?: boolean;
         };
+        DiscordBot: {
+            /** @description Every command the bot has, in the order Discord lists them, with its settings */
+            commands: components["schemas"]["DiscordBotCommand"][];
+            /**
+             * Format: date-time
+             * @description When the api last registered the commands with Discord
+             */
+            registered_at?: string | null;
+            /** @description The commands Discord then held */
+            registered: string[];
+            /** @description The link that adds the bot's commands to a server; none when no application is set up */
+            install_url?: string | null;
+        };
+        DiscordBotCommand: {
+            /** @description Its name, without / */
+            name: string;
+            description: string;
+            on: boolean;
+            reply: components["schemas"]["DiscordReplyVisibility"];
+            /** @description The format shown when the asker gives none, 0 for every format; none for a command without formats */
+            format?: number | null;
+            /** @description How many rows its list shows; none for a command that lists nothing */
+            results?: number | null;
+        };
+        DiscordCommandSetting: {
+            on: boolean;
+            reply: components["schemas"]["DiscordReplyVisibility"];
+            /** @description 0, 2, 3 or 4, for a command with formats */
+            format?: number;
+            /** @description 1 to 10, for a command that lists */
+            results?: number;
+        };
+        /**
+         * @description Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private, or always one or the other
+         * @enum {string}
+         */
+        DiscordReplyVisibility: "private" | "shared" | "always_private" | "always_shared";
+        RedditFeed: {
+            /** Format: int64 */
+            id: number;
+            /** @description Its name, without r/ */
+            subreddit: string;
+            /** @description Not read while paused */
+            paused: boolean;
+            /** @description The kinds of post it sends */
+            kinds: components["schemas"]["RedditPostKind"][];
+            /**
+             * Format: date-time
+             * @description When the Reddit job last read it
+             */
+            checked_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When its newest post seen was posted on Reddit
+             */
+            last_post_at?: string | null;
+            /** @description Why its last read failed, until a read succeeds */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
+        };
+        NewRedditFeed: {
+            /** @description Its name, without r/ */
+            subreddit: string;
+        };
+        RedditFeedSetting: {
+            paused: boolean;
+            kinds: components["schemas"]["RedditPostKind"][];
+        };
+        /**
+         * @description How much of a Reddit post's text an endpoint shows
+         * @enum {string}
+         */
+        RedditPostText: "full" | "short" | "none";
+        /**
+         * @description A kind of Reddit post
+         * @enum {string}
+         */
+        RedditPostKind: "text" | "image" | "video" | "link";
         NotificationTest: {
             delivered: boolean;
             /** @description What happened, for admin to show */
@@ -7268,6 +7471,7 @@ export interface components {
         MemberId: number;
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
+        AdminRedditFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
         /** @description Any run's id, published or not */
@@ -10964,6 +11168,160 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminDiscordBot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bot */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscordBot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminDiscordCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                command: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscordCommandSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminRedditFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feeds, by subreddit */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedditFeed"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRedditFeed"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedditFeed"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRedditFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedditFeedSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminRedditFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRedditFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminTitles: {
         parameters: {
             query?: never;
@@ -12442,8 +12800,11 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: Rea
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
+export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
+export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
+export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];

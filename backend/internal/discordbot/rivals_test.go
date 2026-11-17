@@ -8,14 +8,17 @@ import (
 	"ttacommunity/backend/internal/discordbot"
 )
 
-func TestRivalsTextShowsTheFiveMostPlayed(t *testing.T) {
+func TestRivalsTextShowsTheMostPlayedItIsAskedFor(t *testing.T) {
 	var rivals []discordbot.Rival
-	for i := range 7 {
-		rivals = append(rivals, discordbot.Rival{Name: fmt.Sprintf("Rival%d", i), Games: 70 - i})
+	for i := range 12 {
+		rivals = append(rivals, discordbot.Rival{Name: fmt.Sprintf("Rival%02d_%s", i, strings.Repeat("x", 12)), Games: 70 - i, WinRate: 50})
 	}
-	text := discordbot.RivalsText("Quill", 0, rivals, "https://site.example")
-	if !strings.Contains(text, "Rival4") || strings.Contains(text, "Rival5") {
-		t.Errorf("RivalsText = %q, want Rival0 to Rival4 and no more", text)
+	for _, n := range []int{1, 5, 10} {
+		text := discordbot.RivalsText("Quill", 0, rivals, n, "https://site.example")
+		last, next := fmt.Sprintf("Rival%02d", n-1), fmt.Sprintf("Rival%02d", n)
+		if !strings.Contains(text, last) || strings.Contains(text, next) || len([]rune(text)) > discordbot.MaxReply {
+			t.Errorf("RivalsText for %d = %q, want up to %s and no more, within Discord's limit", n, text, last)
+		}
 	}
 }
 
@@ -30,7 +33,7 @@ func TestRivalsTextEscapesNamesAndSaysWhenThereAreNone(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := discordbot.RivalsText("Quill", 2, tt.rivals, "https://site.example"); !strings.Contains(got, tt.want) {
+			if got := discordbot.RivalsText("Quill", 2, tt.rivals, 5, "https://site.example"); !strings.Contains(got, tt.want) {
 				t.Errorf("RivalsText = %q, want it to contain %q", got, tt.want)
 			}
 		})

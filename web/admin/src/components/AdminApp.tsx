@@ -18,6 +18,7 @@ import StandingsCheckPanel from './StandingsCheckPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import NotificationsPanel from './NotificationsPanel';
+import DiscordBotPanel from './DiscordBotPanel';
 import CommunityPanel from './CommunityPanel';
 import BlitzPanel from './BlitzPanel';
 import ChallengesPanel from './ChallengesPanel';
@@ -111,6 +112,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <AdminList myName={myName} />;
     case 'notifications':
       return <NotificationsPanel />;
+    case 'bot':
+      return <DiscordBotPanel />;
     case 'audit':
       return <AuditPanel />;
 

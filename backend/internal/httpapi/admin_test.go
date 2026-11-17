@@ -28,6 +28,9 @@ type fakeAdmins struct {
 	settings       []store.TournamentSettings
 	notes          []string
 	audits         []string
+	// feeds is the Reddit feeds the last endpoint added or changed takes; options its other settings.
+	feeds   []int64
+	options string
 	// details is each audit's detail, as JSON.
 	details  []string
 	startErr error

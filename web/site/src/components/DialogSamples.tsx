@@ -1,7 +1,7 @@
 /** The design page's dialog samples: a question to confirm, one that cannot be undone, one wanting a typed answer, and a sheet. */
 import { useRef, useState } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import Sheet from './Sheet';
+import Sheet from '@ttac/shared/Sheet';
 
 /** DialogSamples opens each kind of dialog and says what it answered. */
 export default function DialogSamples() {

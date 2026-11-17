@@ -16,9 +16,9 @@ const (
 	notifyBatch = 10
 )
 
-// PostTestNotification posts notify.TestMessage to e.
+// PostTestNotification sends e notify.TestPayload.
 func (d adminDeps) PostTestNotification(ctx context.Context, e store.NotificationEndpoint) error {
-	return d.poster.Post(ctx, e.URL, notify.TestMessage(e))
+	return d.poster.Send(ctx, e.URL, notify.TestPayload(e))
 }
 
 // sendNotifications sends the outbox through a to its endpoints with poster, linking to admin at origin admin, every
@@ -26,7 +26,7 @@ func (d adminDeps) PostTestNotification(ctx context.Context, e store.Notificatio
 func sendNotifications(ctx context.Context, a *store.AdminStore, poster *notify.Discord, admin string, log *slog.Logger) {
 	for {
 		done, err := a.SendNotifications(ctx, time.Now(), notifyBatch, func(ctx context.Context, n store.Notification, e store.NotificationEndpoint) error {
-			err := poster.Post(ctx, e.URL, notify.Message(n, e, admin))
+			err := poster.Send(ctx, e.URL, notify.Payload(n, e, admin))
 			if err != nil {
 				log.Warn("posting a notification failed", "kind", n.Kind, "endpoint", e.ID, "err", err)
 			}

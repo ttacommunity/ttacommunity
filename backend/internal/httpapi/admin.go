@@ -36,6 +36,8 @@ type Admins interface {
 	ChallengeAdmin
 	NostradamusAdmin
 	NotificationAdmin
+	RedditAdmin
+	BotAdmin
 	MovieAdmin
 }
 
@@ -64,6 +66,23 @@ type NotificationAdmin interface {
 	RemoveNotificationEndpoint(ctx context.Context, id int64) error
 	// PostTestNotification posts notify.TestText to e: a *notify.RefusedError when Discord refuses it.
 	PostTestNotification(ctx context.Context, e store.NotificationEndpoint) error
+}
+
+// BotAdmin is the Discord bot's commands' saved settings, when they were registered, and its application's id (""
+// when none is set up here).
+type BotAdmin interface {
+	DiscordCommands(ctx context.Context) ([]store.CommandSettings, error)
+	SetDiscordCommand(ctx context.Context, c store.CommandSettings) error
+	BotRegistration(ctx context.Context) (store.BotRegistration, error)
+	DiscordAppID() string
+}
+
+// RedditAdmin is the Reddit feeds whose new posts are posted to Discord.
+type RedditAdmin interface {
+	RedditFeeds(ctx context.Context) ([]store.RedditFeed, error)
+	AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error)
+	SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error
+	RemoveRedditFeed(ctx context.Context, id int64) error
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.

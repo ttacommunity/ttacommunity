@@ -29,6 +29,14 @@ type fakeDiscord struct {
 	members map[string]store.DiscordMember
 	err     error
 	asked   []string
+	// commands are the settings saved for each command; settingsErr, when set, is what reading them answers.
+	commands    map[string]store.CommandSettings
+	settingsErr error
+}
+
+func (f *fakeDiscord) CommandSettings(_ context.Context, name string) (store.CommandSettings, bool, error) {
+	c, ok := f.commands[name]
+	return c, ok, f.settingsErr
 }
 
 func (f *fakeDiscord) PublicKey() ed25519.PublicKey { return discordKey.Public().(ed25519.PublicKey) }
@@ -617,5 +625,109 @@ func wantMessage(t *testing.T, r DiscordReply, private bool, text string) {
 	}
 	if !strings.Contains(*r.Data.Content, text) {
 		t.Errorf("content = %q, want it to contain %q", *r.Data.Content, text)
+	}
+}
+
+func TestATurnedOffCommandSaysSoToTheAskerAlone(t *testing.T) {
+	for _, tt := range []struct{ name, body string }{
+		{"rating", rating(`{"name":"player","type":3,"value":"Quill"},{"name":"share","type":5,"value":true}`)},
+		{"roll", command("roll", `{"name":"dice","type":3,"value":"2d6"}`)},
+		{"upsets", command("upsets", `{"name":"share","type":5,"value":true}`)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			app := &fakeDiscord{commands: map[string]store.CommandSettings{tt.name: {Name: tt.name, On: false, Reply: "always_shared"}}}
+			r := discordReply(t, discordDo(ratings, app, discordKey, tt.body, slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, true, "/"+tt.name+" is turned off")
+			if ratings.calls != 0 {
+				t.Errorf("the ratings were asked %d times, want none for a command turned off", ratings.calls)
+			}
+		})
+	}
+}
+
+func TestWhoSeesAReplyFollowsTheCommandsSetting(t *testing.T) {
+	quill := `{"name":"player","type":3,"value":"Quill"}`
+	share := func(v bool) string { return fmt.Sprintf(`,{"name":"share","type":5,"value":%t}`, v) }
+	tests := []struct {
+		name        string
+		reply       string
+		readErr     error
+		options     string
+		wantPrivate bool
+	}{
+		{"nothing saved, not given", "", nil, quill, true},
+		{"nothing saved, shared", "", nil, quill + share(true), false},
+		{"shared unless private, not given", "shared", nil, quill, false},
+		{"shared unless private, asked private", "shared", nil, quill + share(false), true},
+		{"private unless shared, asked shared", "private", nil, quill + share(true), false},
+		{"always private, asked shared", "always_private", nil, quill + share(true), true},
+		{"always shared, asked private", "always_shared", nil, quill + share(false), false},
+		{"the settings not answering: the default", "always_shared", errors.New("database is down"), quill, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := &fakeDiscord{settingsErr: tt.readErr}
+			if tt.reply != "" {
+				app.commands = map[string]store.CommandSettings{"rating": {Name: "rating", On: true, Reply: tt.reply}}
+			}
+			r := discordReply(t, discordDo(newDiscordRatings(), app, discordKey, rating(tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, "Quill")
+		})
+	}
+}
+
+func TestRollsReplyFollowsItsSettingThroughItsPrivateOption(t *testing.T) {
+	dice := `{"name":"dice","type":3,"value":"2d6"}`
+	private := func(v bool) string { return fmt.Sprintf(`,{"name":"private","type":5,"value":%t}`, v) }
+	tests := []struct {
+		name, reply, options string
+		wantPrivate          bool
+	}{
+		{"nothing saved: shared", "", dice, false},
+		{"private unless shared, not given", "private", dice, true},
+		{"private unless shared, asked public", "private", dice + private(false), false},
+		{"always shared, asked private", "always_shared", dice + private(true), false},
+		{"always private, asked public", "always_private", dice + private(false), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := &fakeDiscord{}
+			if tt.reply != "" {
+				app.commands = map[string]store.CommandSettings{"roll": {Name: "roll", On: true, Reply: tt.reply}}
+			}
+			r := discordReply(t, discordDo(newDiscordRatings(), app, discordKey, command("roll", tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, "2d6")
+		})
+	}
+}
+
+func TestACommandsDefaultFormatIsUsedWhenNoneIsGiven(t *testing.T) {
+	quill := `{"name":"player","type":3,"value":"Quill"}`
+	tests := []struct {
+		name, options string
+		wantAsked     string
+	}{
+		{"none given", quill, "Quill format=2 rated=true unrated=false"},
+		{"one given", quill + `,{"name":"format","type":4,"value":3}`, "Quill format=3 rated=true unrated=false"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			app := &fakeDiscord{commands: map[string]store.CommandSettings{"rivals": {Name: "rivals", On: true, Reply: "private", Format: 2}}}
+			discordReply(t, discordDo(ratings, app, discordKey, command("rivals", tt.options), slog.New(slog.DiscardHandler)))
+			if !slices.Equal(ratings.rivalsAsked, []string{tt.wantAsked}) {
+				t.Errorf("asked %q, want %q", ratings.rivalsAsked, tt.wantAsked)
+			}
+		})
+	}
+}
+
+func TestAListCommandShowsAsManyRowsAsSet(t *testing.T) {
+	app := &fakeDiscord{commands: map[string]store.CommandSettings{"rivals": {Name: "rivals", On: true, Reply: "private", Results: 1}}}
+	r := discordReply(t, discordDo(newDiscordRatings(), app, discordKey, command("rivals", `{"name":"player","type":3,"value":"Quill"}`), slog.New(slog.DiscardHandler)))
+	wantMessage(t, r, true, "Rook")
+	if strings.Contains(*r.Data.Content, "Wren") {
+		t.Errorf("reply = %q, want only the first rival", *r.Data.Content)
 	}
 }

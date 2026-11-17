@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { shownZone, viewerZone } from '@ttac/shared/time';
 import { countryName } from '@ttac/shared/countries';
 import { fetchMyData, keptGroups, type KeptGroup } from '../lib/kept-data';
-import Sheet from './Sheet';
+import Sheet from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import './KeptData.css';
 import { useLoad } from './useLoad';

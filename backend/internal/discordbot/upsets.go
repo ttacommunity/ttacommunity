@@ -123,7 +123,25 @@ func UpsetsText(from, to time.Time, format int, upsets []Upset) string {
 		}
 		lines = append(lines, fmt.Sprintf("%d. %s · %d-player, %s, %s", i+1, what, u.PlayerCount, EscapeMarkdown(u.Tournament), u.Date.Format(time.DateOnly)))
 	}
-	return strings.Join(lines, "\n")
+	return fitted(lines)
+}
+
+// MaxReply is the most characters Discord takes in a reply.
+const MaxReply = 2000
+
+// fitted joins a heading and its numbered lines, leaving out the last lines that would take the reply past
+// MaxReply and saying how many it left out.
+func fitted(lines []string) string {
+	for left := 0; ; left++ {
+		kept := lines[:len(lines)-left]
+		text := strings.Join(kept, "\n")
+		if left > 0 {
+			text += fmt.Sprintf("\n…and %d more that do not fit in a Discord message", left)
+		}
+		if len([]rune(text)) <= MaxReply || len(kept) <= 2 {
+			return text
+		}
+	}
 }
 
 // opponentsText lists opponents in bold with their ratings, or "" for none.

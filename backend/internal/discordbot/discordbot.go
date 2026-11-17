@@ -110,3 +110,20 @@ func OwnRatingProblem(state, site string) string {
 	}
 	return "Sign in with Discord on " + account + " and link your TTA name, or look up a name with `/rating <name>`"
 }
+
+// CutAtWord shortens text to at most n characters, at a word's end when one falls in its second half, ending
+// with … when it was longer.
+func CutAtWord(text string, n int) string {
+	r := []rune(text)
+	if len(r) <= n {
+		return text
+	}
+	short := r[:n-1]
+	for i := len(short) - 1; i > n/2; i-- {
+		if short[i] == ' ' || short[i] == '\n' {
+			short = short[:i]
+			break
+		}
+	}
+	return strings.TrimSpace(string(short)) + "…"
+}
