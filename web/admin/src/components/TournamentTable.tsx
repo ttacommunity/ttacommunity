@@ -1,7 +1,7 @@
 /** Admin's table of tournaments and groups: the main list, a group's members, and Modify's choices. */
 import type { ReactNode } from 'react';
 import type { AdminTournamentRow } from '../lib/admin-api';
-import { dateSpan, detail, membersOf, ratedLabel, rowTotals, typeLabel } from '../lib/tournament-groups';
+import { dateSpan, detail, isRated, membersOf, ratedLabel, rowTotals, typeLabel } from '../lib/tournament-groups';
 import { SETTINGS, settingsHref } from '../lib/tournament-page';
 import { trackName, trackShort } from '@ttac/shared/tracks';
 import AdminTable from './AdminTable';
@@ -45,7 +45,7 @@ export default function TournamentTable({
           <th scope="col" title={`${SHOWN_SETTING.label}: ${SHOWN_SETTING.hint}`} className="col-setting">
             {SHOWN_SETTING.short}
           </th>
-          <th scope="col" title={`Rated track: ${trackShort('community')} (${trackName('community')}), ${trackShort('superblitz')} (${trackName('superblitz')}), or ? (unrated)`} className="col-setting">
+          <th scope="col" title={`Rated track: ${trackShort('community')} (${trackName('community')}), ${trackShort('superblitz')} (${trackName('superblitz')}), or – (unrated)`} className="col-setting">
             Rated
           </th>
           {TAIL_SETTINGS.map((s) => (
@@ -77,7 +77,7 @@ export default function TournamentTable({
                 {!t.is_group && <YesNo on={t[SHOWN_SETTING.key]} label={SHOWN_SETTING.label} name={t.name} />}
               </td>
               <td className="col-setting">
-                <RatedCell track={ratedLabel(all, t.slug)} name={t.name} />
+                <RatedCell track={ratedLabel(all, t.slug)} rated={isRated(all, t.slug)} name={t.name} />
               </td>
               {TAIL_SETTINGS.map((s) => (
                 <td key={s.key} className="col-setting">
@@ -95,9 +95,9 @@ export default function TournamentTable({
 }
 
 /** RatedCell shows the tracks a tournament is rated in (track, as ratedLabel writes them), named for a screen reader. */
-function RatedCell({ track, name }: { track: string; name: string }) {
+function RatedCell({ track, rated, name }: { track: string; rated: boolean; name: string }) {
   return (
-    <span className={track === '?' ? 'no' : 'yes'} title={`Rated for ${name}: ${track}`} aria-label={`Rated for ${name}: ${track}`}>
+    <span className={rated ? 'yes' : 'no'} title={`Rated for ${name}: ${track}`} aria-label={`Rated for ${name}: ${track}`}>
       {track}
     </span>
   );
