@@ -213,6 +213,9 @@ func (f *fakeAdmins) SetTournament(_ context.Context, slug string, s store.Tourn
 	if s.Kind == "tour" {
 		return store.ErrBadKind
 	}
+	if s.Rated != nil && *s.Rated && s.SuperBlitzRated != nil && *s.SuperBlitzRated {
+		return store.ErrTwoRatedTracks
+	}
 	if slices.ContainsFunc(s.Divisions, func(d store.Division) bool { return d.Tier > 7 }) {
 		return store.ErrBadLeagueRules
 	}

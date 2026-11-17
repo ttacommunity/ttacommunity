@@ -240,6 +240,7 @@ func TestAnOrganiserSetsWhatOfATournamentIsRated(t *testing.T) {
 	}{
 		{"a 5-player count", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated_player_counts": [2, 5]}`, http.StatusBadRequest},
 		{"an unknown kind", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"kind": "tour"}`, http.StatusBadRequest},
+		{"rated in both tracks", http.MethodPatch, "/v1/admin/tournaments/worlds", site, `{"rated": true, "superblitz_rated": true}`, http.StatusBadRequest},
 		{"a season that does not exist", http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/1999", site, `{"rated": false}`, http.StatusNotFound},
 		{"a season of no tournament", http.MethodPatch, "/v1/admin/tournaments/nope/seasons/2023", site, `{"rated": false}`, http.StatusNotFound},
 	} {

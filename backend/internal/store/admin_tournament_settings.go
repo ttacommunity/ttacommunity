@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // TournamentSettings are the settings to change; a nil field is left as it is. RatedPlayerCounts are the player
@@ -78,6 +79,9 @@ var ErrBadKind = errors.New("a tournament is a league, a cup or a ladder; a grou
 
 // ErrBadPlayerCounts means rated player counts that are empty or not among 2, 3 and 4.
 var ErrBadPlayerCounts = errors.New("rated player counts are one or more of 2, 3 and 4")
+
+// ErrTwoRatedTracks means a tournament or group rated in both the standard and the SuperBlitz track.
+var ErrTwoRatedTracks = errors.New("a tournament is rated in the standard or the SuperBlitz track, not both")
 
 // validScoring reports whether points suit a game of that many players: none, or one per place,
 // never negative and never higher for a worse place.
@@ -279,14 +283,15 @@ func (a *AdminStore) SetTournament(ctx context.Context, slug string, s Tournamen
 				return fmt.Errorf("setting %s: %w", slug, err)
 			}
 		}
-		if s.Rated != nil {
-			if err := setRankingSeries(ctx, tx, id, "community", *s.Rated); err != nil {
-				return fmt.Errorf("setting %s: %w", slug, err)
-			}
-		}
-		if s.SuperBlitzRated != nil {
-			if err := setRankingSeries(ctx, tx, id, "superblitz", *s.SuperBlitzRated); err != nil {
-				return fmt.Errorf("setting %s: %w", slug, err)
+		// A track turned off goes first, so a switch from one track to the other passes the database's check.
+		for _, on := range []bool{false, true} {
+			for ranking, rated := range map[string]*bool{"community": s.Rated, "superblitz": s.SuperBlitzRated} {
+				if rated == nil || *rated != on {
+					continue
+				}
+				if err := setRankingSeries(ctx, tx, id, ranking, on); err != nil {
+					return fmt.Errorf("setting %s: %w", slug, err)
+				}
 			}
 		}
 		if s.Rated != nil || s.SuperBlitzRated != nil {
@@ -448,6 +453,9 @@ func setRankingSeries(ctx context.Context, tx pgx.Tx, seriesID int64, rankingSlu
 			ON CONFLICT DO NOTHING`
 	}
 	_, err := tx.Exec(ctx, q, seriesID, rankingSlug)
+	if pg := (*pgconn.PgError)(nil); errors.As(err, &pg) && pg.ConstraintName == "ranking_series_one_track" {
+		return ErrTwoRatedTracks
+	}
 	return err
 }
 
