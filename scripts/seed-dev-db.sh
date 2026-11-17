@@ -79,6 +79,13 @@ if [ "$result" != exit=0 ]; then
   exit 1
 fi
 
+# Production's webhooks post to real channels: dev's admin adds its own.
+echo "removing production's notification webhooks from ratings_dev"
+sql -d ratings_dev <<'SQL'
+DELETE FROM notification_outbox;
+DELETE FROM notification_endpoints;
+SQL
+
 # The copy keeps production's grants; ratings_dev gets its own default privileges for the tables its migrations create.
 sql -d ratings_dev <<'SQL'
 GRANT USAGE ON SCHEMA public TO ratings_read;
