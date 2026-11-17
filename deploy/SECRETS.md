@@ -11,11 +11,11 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-db` | `password` | `ratings-db` | Password of `ratings`, the ratings database's owner |
 | `ratings-engine` | `database-url` | `engine`, `api`'s `migrate` init container | The engine's connection URL, as `ratings`; the api's init container applies the migrations with it |
 | `ratings-api` | `password`, `database-url` | `api`, `scripts/seed-cluster-db.sh` | The read-only `ratings_api` login |
-| `ratings-admin` | `password`, `database-url` | `api` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
+| `ratings-admin` | `password`, `database-url` | `api`, `movies`, `reddit` | The api's admin login `ratings_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ghcr` | `.dockerconfigjson` | `api`, `engine` | Pulls the private images from GHCR. A machine account's classic token with `read:packages` only |
 | `ratings-dev-engine` | `database-url` | `engine-dev`, `api-dev`'s `migrate` init container | The dev engine's connection URL, as `ratings_dev`, owner of `ratings_dev` only; the dev api's init container applies the migrations with it |
 | `ratings-dev-api` | `password`, `database-url` | `api-dev`, `scripts/seed-dev-db.sh` | The dev api's read-only `ratings_dev_api` login |
-| `ratings-dev-admin` | `password`, `database-url` | `api-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
+| `ratings-dev-admin` | `password`, `database-url` | `api-dev`, `movies-dev`, `reddit-dev` | The dev api's admin login `ratings_dev_admin_api`, a member of `ratings_admin` (writes only what admin edits) |
 | `ratings-player` | `password`, `database-url` | `api` | The api's player login `ratings_player_api`, a member of `ratings_player` (sign-ins, sessions, requests to be linked, a member's own country and zone) |
 | `ratings-dev-player` | `password`, `database-url` | `api-dev` | The dev api's player login `ratings_dev_player_api`, a member of `ratings_player` |
 | `discord-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |

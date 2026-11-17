@@ -1,0 +1,69 @@
+# The dev site's Reddit job, deploy/reddit.yaml for api-dev and ratings_dev: it posts only once dev's admin has
+# a feed and a webhook taking it. A run by hand:
+#   kubectl -n ttacommunity create job --from=cronjob/reddit-dev reddit-dev-manual-1
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reddit-dev
+  namespace: ttacommunity
+spec:
+  schedule: "5-55/10 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # Two: a new pod's first database connection is refused, and its restart must not end the Job.
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: reddit-dev
+        spec:
+          # A new pod's first connection can be refused before the NetworkPolicy admits it; a restart keeps the pod.
+          restartPolicy: OnFailure
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: workload-size
+                        operator: In
+                        values: [large, medium, small]
+          tolerations:
+            - key: workload-class
+              operator: Equal
+              value: amd64-opt-in
+              effect: NoSchedule
+          automountServiceAccountToken: false
+          imagePullSecrets:
+            - name: ghcr
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reddit
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-acdfdfe2@sha256:1c4ce5d74dfbf5cdc323b1319de05cf529e02776470c57e81bdf4995615a39fe
+              args: [reddit]
+              env:
+                - name: RATINGS_ADMIN_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: ratings-dev-admin
+                      key: database-url
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]

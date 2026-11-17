@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine, backup, movies]
+                values: [api, engine, backup, movies, reddit]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine, backup, movies]
+        values: [api, engine, backup, movies, reddit]
   policyTypes: [Egress]
   egress:
     - to:
@@ -273,6 +273,26 @@ spec:
   podSelector:
     matchLabels:
       app: movies
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: reddit-egress
+  namespace: ttacommunity
+spec:
+  # The Reddit job reads www.reddit.com, which has no fixed addresses: any public address on 443, RFC1918 excluded.
+  podSelector:
+    matchLabels:
+      app: reddit
   policyTypes: [Egress]
   egress:
     - to:
