@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { EVENTS, endpointChanged, subscriptions, toggled, toggledFeed } from './notification-endpoints';
+import { EVENTS, endpointChanged, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
 
-const SAVED = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000000000001/token', events: ['link_request' as const], feeds: [2, 5], prefix: '' };
+const SAVED = { name: 'Admins', url: 'https://discord.com/api/webhooks/100000000000000001/token', events: ['link_request' as const], feeds: [2, 5], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', colour: '#ff4500', text: 'full' as const, image: true, author: true };
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
@@ -16,6 +16,16 @@ describe('notification endpoints', () => {
     ['taking another event', { ...SAVED, events: ['link_request' as const, 'blitz_flag' as const] }, true],
     ['taking the same events in another order', { ...SAVED, events: [...SAVED.events] }, false],
     ['taking another feed', { ...SAVED, feeds: [2] }, true],
+    ['paused', { ...SAVED, paused: true }, true],
+    ['made a forum channel\'s', { ...SAVED, forum: true }, true],
+    ['given a display name', { ...SAVED, username: 'TTA Reddit' }, true],
+    ['given a picture', { ...SAVED, avatar_url: 'https://example.com/a.png' }, true],
+    ['given a role to ping', { ...SAVED, role_id: '100000000000000002' }, true],
+    ['given only spaces as a display name', { ...SAVED, username: '  ' }, false],
+    ['given a colour', { ...SAVED, colour: '#123abc' }, true],
+    ['showing less text', { ...SAVED, text: 'short' as const }, true],
+    ['hiding the image', { ...SAVED, image: false }, true],
+    ['hiding the author', { ...SAVED, author: false }, true],
     ['taking the same feeds in another order', { ...SAVED, feeds: [5, 2] }, false],
     ['left without a name', { ...SAVED, name: '  ' }, false],
     ['left without a URL', { ...SAVED, url: '' }, false],
@@ -53,5 +63,17 @@ describe('notification endpoints', () => {
     ['taking one out', [2, 5], 2, false, [5]],
   ])('toggles feeds: %s', (_, feeds, feed, on, want) => {
     expect(toggledFeed(feeds, feed, on)).toEqual(want);
+  });
+
+  const when = (iso: string) => `[${iso}]`;
+  const DELIVERY = { paused: false, last_sent_at: null, last_error: null, last_error_at: null };
+
+  it.each([
+    ['new', DELIVERY, 'Nothing sent yet'],
+    ['sent', { ...DELIVERY, last_sent_at: '2026-11-17T01:00:00Z' }, 'Sent [2026-11-17T01:00:00Z]'],
+    ['failing', { ...DELIVERY, last_sent_at: '2026-11-17T01:00:00Z', last_error: 'Discord answered 404', last_error_at: '2026-11-17T02:00:00Z' }, 'Failed [2026-11-17T02:00:00Z]: Discord answered 404'],
+    ['paused', { ...DELIVERY, paused: true, last_sent_at: '2026-11-17T01:00:00Z' }, 'Paused: sent nothing'],
+  ])('says how an endpoint is doing: %s', (_, e, want) => {
+    expect(endpointStatus(e, when)).toBe(want);
   });
 });

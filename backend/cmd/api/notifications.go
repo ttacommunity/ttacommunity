@@ -16,9 +16,9 @@ const (
 	notifyBatch = 10
 )
 
-// PostTestNotification posts notify.TestMessage to e.
+// PostTestNotification sends e notify.TestPayload.
 func (d adminDeps) PostTestNotification(ctx context.Context, e store.NotificationEndpoint) error {
-	return d.poster.Post(ctx, e.URL, notify.TestMessage(e))
+	return d.poster.Send(ctx, e.URL, notify.TestPayload(e))
 }
 
 // sendNotifications sends the outbox through a to its endpoints with poster, linking to admin at origin admin, every

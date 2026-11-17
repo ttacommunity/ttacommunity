@@ -3,6 +3,7 @@
 package store
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -56,6 +57,32 @@ func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, n
 	return nil
 }
 
+// delivery is how a post to an endpoint went: sent, or why not (an error that names no URL).
+type delivery struct {
+	endpoint int64
+	err      error
+}
+
+// recordDeliveries keeps on each endpoint how its last post in deliveries went at now, endpoint by endpoint, each
+// in its own statement: outside the sending transaction, so no endpoint is locked while Discord answers.
+func (a *AdminStore) recordDeliveries(ctx context.Context, deliveries []delivery, now time.Time) error {
+	slices.SortStableFunc(deliveries, func(x, y delivery) int { return cmp.Compare(x.endpoint, y.endpoint) })
+	for _, d := range deliveries {
+		var err error
+		if d.err == nil {
+			_, err = a.pool.Exec(ctx, "UPDATE notification_endpoints SET last_sent_at = $2, last_error = NULL, last_error_at = NULL WHERE endpoint_id = $1", d.endpoint, now)
+		} else {
+			msg := []rune(d.err.Error())
+			_, err = a.pool.Exec(ctx, "UPDATE notification_endpoints SET last_error = $2, last_error_at = $3 WHERE endpoint_id = $1",
+				d.endpoint, string(msg[:min(len(msg), maxFeedError)]), now)
+		}
+		if err != nil {
+			return fmt.Errorf("recording how a notification went: %w", err)
+		}
+	}
+	return nil
+}
+
 // forgetPostText clears a Reddit post's text once its notification n, about post ref, has left the outbox: what
 // stays is its id and date, so it is never posted again.
 func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) error {
@@ -94,6 +121,7 @@ func notificationRetry(attempts int) time.Duration {
 func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit int,
 	send func(context.Context, Notification, NotificationEndpoint) error) (NotificationsSent, error) {
 	var done NotificationsSent
+	var deliveries []delivery
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, "SELECT "+endpointColumns+" FROM notification_endpoints ORDER BY endpoint_id")
 		if err != nil {
@@ -175,10 +203,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			seen[key] = true
 			failed := false
 			for _, e := range endpoints {
-				if !d.open || !e.takes(d.n) || slices.Contains(d.sentTo, e.ID) {
+				if !d.open || e.Paused || !e.takes(d.n) || slices.Contains(d.sentTo, e.ID) {
 					continue
 				}
-				if send(ctx, d.n, e) != nil {
+				sendErr := send(ctx, d.n, e)
+				deliveries = append(deliveries, delivery{e.ID, sendErr})
+				if sendErr != nil {
 					failed = true
 					continue
 				}
@@ -212,5 +242,5 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 	if err != nil {
 		return NotificationsSent{}, err
 	}
-	return done, nil
+	return done, a.recordDeliveries(ctx, deliveries, now)
 }

@@ -28,12 +28,17 @@ func (f *fakeAdmins) AddRedditFeed(_ context.Context, subreddit string, _ time.T
 	return 4, nil
 }
 
-func (f *fakeAdmins) SetRedditFeedPaused(_ context.Context, id int64, paused bool) error {
+func (f *fakeAdmins) SetRedditFeed(_ context.Context, id int64, paused bool, kinds []string) error {
 	if id != 3 {
 		return store.ErrNoRedditFeed
 	}
-	f.notes = append(f.notes, fmt.Sprintf("feed %d paused %t", id, paused))
+	f.notes = append(f.notes, fmt.Sprintf("feed %d paused %t %v", id, paused, kinds))
 	return nil
+}
+
+// feedSetting is a PUT body for a feed, sending the kinds given.
+func feedSetting(kinds string) string {
+	return `{"paused": true, "kinds": [` + kinds + `]}`
 }
 
 func (f *fakeAdmins) RemoveRedditFeed(_ context.Context, id int64) error {
@@ -59,14 +64,14 @@ func TestAnAdminAddsPausesAndRemovesRedditFeeds(t *testing.T) {
 		t.Fatalf("POST feed = %d %s, want 201 with id 4 for throughtheages", rec.Code, rec.Body)
 	}
 	for _, step := range []struct{ method, path, body string }{
-		{http.MethodPut, "/v1/admin/reddit-feeds/3", `{"paused": true}`},
+		{http.MethodPut, "/v1/admin/reddit-feeds/3", feedSetting(`"text", "link"`)},
 		{http.MethodDelete, "/v1/admin/reddit-feeds/3", ""},
 	} {
 		if rec := adminDoAs(t, f, owner, step.method, step.path, site, step.body); rec.Code != http.StatusNoContent {
 			t.Errorf("%s %s = %d %s, want 204", step.method, step.path, rec.Code, rec.Body)
 		}
 	}
-	if got, want := strings.Join(f.notes, "|"), "add feed throughtheages|feed 3 paused true|remove feed 3"; got != want {
+	if got, want := strings.Join(f.notes, "|"), "add feed throughtheages|feed 3 paused true [text link]|remove feed 3"; got != want {
 		t.Errorf("changes = %q, want %q", got, want)
 	}
 	want := []string{owner + " reddit.feed.add throughtheages", owner + " reddit.feed.set 3", owner + " reddit.feed.remove 3"}
@@ -83,13 +88,14 @@ func TestRedditFeedChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	}{
 		{"an organiser lists", org, http.MethodGet, "/v1/admin/reddit-feeds", "", "", http.StatusForbidden},
 		{"an organiser adds", org, http.MethodPost, "/v1/admin/reddit-feeds", site, `{"subreddit": "new"}`, http.StatusForbidden},
-		{"an organiser pauses", org, http.MethodPut, "/v1/admin/reddit-feeds/3", site, `{"paused": true}`, http.StatusForbidden},
+		{"an organiser pauses", org, http.MethodPut, "/v1/admin/reddit-feeds/3", site, feedSetting(`"text"`), http.StatusForbidden},
+		{"an unknown kind", owner, http.MethodPut, "/v1/admin/reddit-feeds/3", site, feedSetting(`"poll"`), http.StatusBadRequest},
 		{"an organiser removes", org, http.MethodDelete, "/v1/admin/reddit-feeds/3", site, "", http.StatusForbidden},
 		{"another site", owner, http.MethodPost, "/v1/admin/reddit-feeds", "https://evil.example", `{"subreddit": "new"}`, http.StatusForbidden},
 		{"a name Reddit cannot have", owner, http.MethodPost, "/v1/admin/reddit-feeds", site, `{"subreddit": "bad name"}`, http.StatusBadRequest},
 		{"one already there", owner, http.MethodPost, "/v1/admin/reddit-feeds", site, `{"subreddit": "example"}`, http.StatusConflict},
 		{"no subreddit", owner, http.MethodPost, "/v1/admin/reddit-feeds", site, `{}`, http.StatusBadRequest},
-		{"pausing one that is not there", owner, http.MethodPut, "/v1/admin/reddit-feeds/9", site, `{"paused": true}`, http.StatusNotFound},
+		{"pausing one that is not there", owner, http.MethodPut, "/v1/admin/reddit-feeds/9", site, feedSetting(`"text"`), http.StatusNotFound},
 		{"removing one that is not there", owner, http.MethodDelete, "/v1/admin/reddit-feeds/9", site, "", http.StatusNotFound},
 	}
 	for _, tt := range tests {

@@ -24,7 +24,14 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	if feeds == nil {
 		feeds = []int64{}
 	}
-	return NotificationEndpoint{Id: e.ID, Name: e.Name, Url: e.URL, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, Prefix: e.Prefix}
+	out := NotificationEndpoint{Id: e.ID, Name: e.Name, Url: e.URL, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, Prefix: e.Prefix,
+		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID,
+		Colour: e.Look.Colour, Text: RedditPostText(e.Look.Text), Image: e.Look.Image, Author: e.Look.Author,
+		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
+	if e.LastError != "" {
+		out.LastError = &e.LastError
+	}
+	return out
 }
 
 // endpointIn is the endpoint a setting asks for, discord when no format is given, or the refusal of an unknown
@@ -51,6 +58,32 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	if b.Prefix != nil {
 		e.Prefix = *b.Prefix
+	}
+	e.Paused, e.Forum = b.Paused != nil && *b.Paused, b.Forum != nil && *b.Forum
+	if b.Username != nil {
+		e.Username = *b.Username
+	}
+	if b.AvatarUrl != nil {
+		e.AvatarURL = *b.AvatarUrl
+	}
+	if b.RoleId != nil {
+		e.RoleID = *b.RoleId
+	}
+	e.Look = store.DefaultLook
+	if b.Colour != nil {
+		e.Look.Colour = *b.Colour
+	}
+	if b.Text != nil {
+		if !b.Text.Valid() {
+			return store.NotificationEndpoint{}, "text is full, short or none"
+		}
+		e.Look.Text = string(*b.Text)
+	}
+	if b.Image != nil {
+		e.Look.Image = *b.Image
+	}
+	if b.Author != nil {
+		e.Look.Author = *b.Author
 	}
 	return e, ""
 }

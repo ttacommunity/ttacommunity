@@ -42,6 +42,7 @@ func (f *fakeAdmins) AddNotificationEndpoint(_ context.Context, e store.Notifica
 		return 0, err
 	}
 	f.notes, f.feeds = append(f.notes, note), e.Feeds
+	f.options = fmt.Sprintf("paused %t forum %t %s %s %s %+v", e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID, e.Look)
 	return 4, nil
 }
 
@@ -117,6 +118,7 @@ func TestNotificationEndpointChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"an endpoint the database refuses", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "bad", "url": "x", "events": []}`, http.StatusBadRequest},
 		{"an unknown event", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": ["pizza"]}`, http.StatusBadRequest},
 		{"a feed id that is not a number", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": [], "feeds": ["x"]}`, http.StatusBadRequest},
+		{"an unknown text choice", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": [], "text": "some"}`, http.StatusBadRequest},
 		{"another format", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "format": "slack", "events": []}`, http.StatusBadRequest},
 		{"a change the database refuses", owner, http.MethodPut, "/v1/admin/notification-endpoints/3", site, `{"name": "bad", "url": "x", "events": []}`, http.StatusBadRequest},
 		{"changing one that is not there", owner, http.MethodPut, "/v1/admin/notification-endpoints/9", site, good, http.StatusNotFound},
@@ -197,5 +199,24 @@ func TestAnEndpointsFeedsReachTheStoreAndComeBack(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAnEndpointsOptionsReachTheStoreAndComeBack(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	body := `{"name": "Reddit", "url": "` + testWebhook + `", "events": [], "paused": true, "forum": true, "username": "TTA Reddit",
+		"avatar_url": "https://example.com/a.png", "role_id": "100000000000000002", "colour": "#123abc", "text": "short", "author": false}`
+	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site, body)
+	var made NotificationEndpoint
+	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("POST endpoint = %d %s, want 201", rec.Code, rec.Body)
+	}
+	if !made.Paused || !made.Forum || made.Username != "TTA Reddit" || made.AvatarUrl != "https://example.com/a.png" || made.RoleId != "100000000000000002" ||
+		made.Colour != "#123abc" || made.Text != "short" || !made.Image || made.Author {
+		t.Errorf("answered %+v, want its options", made)
+	}
+	if got, want := f.options, "paused true forum true TTA Reddit https://example.com/a.png 100000000000000002 {Colour:#123abc Text:short Image:true Author:false}"; got != want {
+		t.Errorf("stored options %q, want %q", got, want)
 	}
 }

@@ -5,8 +5,8 @@ import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
-import { subscriptions } from '../lib/notification-endpoints';
-import { feedStatus } from '../lib/reddit-feeds';
+import { endpointStatus, subscriptions } from '../lib/notification-endpoints';
+import { feedSends, feedStatus } from '../lib/reddit-feeds';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
@@ -18,15 +18,15 @@ type Endpoint = components['schemas']['NotificationEndpoint'];
 type Feed = components['schemas']['RedditFeed'];
 type NotificationTest = components['schemas']['NotificationTest'];
 
-/** FeedsCard lists the Reddit feeds, to pause, resume or remove, and adds new ones. */
+/** FeedsCard lists the Reddit feeds, to edit, pause, resume or remove, and adds new ones. */
 function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () => Promise<void> }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [adding, setAdding] = useState<HTMLElement | null>(null);
+  const [editing, setEditing] = useState<{ feed: Feed | null; opener: HTMLElement } | null>(null);
   const dialog = useDialog();
   const zone = viewerZone();
   const when = (iso: string) => formatInstant(iso, zone);
   const pause = async (f: Feed) => {
-    const r = await req.send(req.pauseFeed(f.id, !f.paused));
+    const r = await req.send(req.setFeed(f.id, { kinds: f.kinds, paused: !f.paused }));
     setOutcome(outcomeOf(r, f.paused ? `Resumed r/${f.subreddit}: posts from its next read on are posted.` : `Paused r/${f.subreddit}.`, 'feeds'));
     await onReload();
   };
@@ -42,7 +42,7 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
       id="reddit-feeds-heading"
       title="Reddit feeds"
       actions={
-        <button type="button" className="btn-antique" onClick={(e) => setAdding(e.currentTarget)}>
+        <button type="button" className="btn-antique" onClick={(e) => setEditing({ feed: null, opener: e.currentTarget })}>
           Add feed
         </button>
       }
@@ -57,10 +57,11 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
       {feeds.length === 0 ? (
         <p className="muted">No feeds yet.</p>
       ) : (
-        <AdminTable caption="The subreddits read, each with how its last read went">
+        <AdminTable caption="The subreddits read, each with the kinds of post it sends and how its last read went">
           <thead>
             <tr>
               <th>Subreddit</th>
+              <th>Sends</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -73,8 +74,12 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
                     r/{f.subreddit}
                   </a>
                 </td>
+                <td>{feedSends(f.kinds)}</td>
                 <td>{feedStatus(f, when)}</td>
                 <td>
+                  <button type="button" className="btn-settings" onClick={(e) => setEditing({ feed: f, opener: e.currentTarget })}>
+                    Edit
+                  </button>
                   <button type="button" className="btn-settings" onClick={() => void pause(f)}>
                     {f.paused ? 'Resume' : 'Pause'}
                   </button>
@@ -87,14 +92,15 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
           </tbody>
         </AdminTable>
       )}
-      {adding !== null && (
+      {editing !== null && (
         <FeedSheet
-          opener={adding}
-          onAdded={(f) => {
-            setOutcome(succeeded(`Added r/${f.subreddit}. Its first read, within 10 minutes, posts nothing; choose which endpoints take it above.`, 'feeds'));
+          feed={editing.feed}
+          opener={editing.opener}
+          onSaved={(message) => {
+            setOutcome(succeeded(message, 'feeds'));
             void onReload();
           }}
-          onClose={() => setAdding(null)}
+          onClose={() => setEditing(null)}
         />
       )}
     </AdminCard>
@@ -108,6 +114,8 @@ export default function NotificationsPanel() {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [editing, setEditing] = useState<{ endpoint: Endpoint | null; opener: HTMLElement } | null>(null);
   const dialog = useDialog();
+  const zone = viewerZone();
+  const when = (iso: string) => formatInstant(iso, zone);
 
   const load = async () => {
     const [endpoints, read] = await Promise.all([adminRequest<Endpoint[]>('/api/notification-endpoints', {}), adminRequest<Feed[]>('/api/reddit-feeds', {})]);
@@ -157,6 +165,7 @@ export default function NotificationsPanel() {
               <tr>
                 <th>Channel</th>
                 <th>Takes</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -168,6 +177,7 @@ export default function NotificationsPanel() {
                     {e.prefix !== '' && <span className="muted"> {e.prefix}</span>}
                   </td>
                   <td>{subscriptions(e.events, e.feeds, feeds)}</td>
+                  <td>{endpointStatus(e, when)}</td>
                   <td>
                     <button type="button" className="btn-settings" onClick={(ev) => setEditing({ endpoint: e, opener: ev.currentTarget })}>
                       Edit

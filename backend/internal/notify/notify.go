@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,8 +55,15 @@ func outcome(result, a, b string) string {
 	return "no result"
 }
 
-// Text is n as a Discord message, linking to where admin, at origin admin, answers it.
+// Text is n as a Discord message: its heading in bold, then what it tells, linking to where admin, at origin admin,
+// answers it.
 func Text(n store.Notification, admin string) string {
+	heading, body := parts(n, admin)
+	return "**" + heading + "**: " + body
+}
+
+// parts is n's heading, such as Link request, and what it tells, as Text writes them.
+func parts(n store.Notification, admin string) (string, string) {
 	esc := discordbot.EscapeMarkdown
 	ways := make([]string, len(n.SignIns))
 	for i, s := range n.SignIns {
@@ -70,15 +78,15 @@ func Text(n store.Notification, admin string) string {
 		case "approved":
 			linked = fmt.Sprintf("was linked by an admin to **%s**", esc(n.Name))
 		}
-		return fmt.Sprintf("**New player**: someone signed in with %s for the first time and %s. <%s/#members>", list(ways), linked, admin)
+		return "New player", fmt.Sprintf("someone signed in with %s for the first time and %s. <%s/#members>", list(ways), linked, admin)
 	case "link_request":
-		return fmt.Sprintf("**Link request**: a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
+		return "Link request", fmt.Sprintf("a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
 			list(ways), esc(n.Name), admin)
 	case "reddit_failed":
-		return fmt.Sprintf("**Reddit feed failing**: r/%s has failed its last %d reads: %s. <%s/#notifications>",
+		return "Reddit feed failing", fmt.Sprintf("r/%s has failed its last %d reads: %s. <%s/#notifications>",
 			esc(n.Reddit.Subreddit), store.FeedFailuresNotified, esc(n.FeedError), admin)
 	case "reddit_recovered":
-		return fmt.Sprintf("**Reddit feed reading again**: r/%s reads again; its new posts are posted. <%s/#notifications>", esc(n.Reddit.Subreddit), admin)
+		return "Reddit feed reading again", fmt.Sprintf("r/%s reads again; its new posts are posted. <%s/#notifications>", esc(n.Reddit.Subreddit), admin)
 	}
 	where := fmt.Sprintf("%s %s, round %d", esc(n.Series), esc(n.Edition), n.Round)
 	link := fmt.Sprintf("<%s/blitz/?t=%s&e=%s>", admin, url.QueryEscape(n.Slug), url.QueryEscape(n.Edition))
@@ -88,23 +96,15 @@ func Text(n store.Notification, admin string) string {
 		if n.ReportedBy == n.A {
 			flagger = n.B
 		}
-		return fmt.Sprintf("**Blitz report flagged**: %s: %s says %s's report (%s) is wrong: %s. %s",
+		return "Blitz report flagged", fmt.Sprintf("%s: %s says %s's report (%s) is wrong: %s. %s",
 			where, esc(flagger), esc(n.ReportedBy), how, esc(n.FlagReason), link)
 	}
 	title := "Blitz result reported"
 	if n.Corrected {
 		title = "Blitz result corrected"
 	}
-	return fmt.Sprintf("**%s**: %s: %s, reported by %s. %s", title, where, how, esc(n.ReportedBy), link)
+	return title, fmt.Sprintf("%s: %s, reported by %s. %s", where, how, esc(n.ReportedBy), link)
 }
-
-// Message is n as e posts it: Text after e's prefix.
-func Message(n store.Notification, e store.NotificationEndpoint, admin string) string {
-	return prefixed(e, Text(n, admin))
-}
-
-// TestMessage is what admin's Test button posts to e: TestText after e's prefix.
-func TestMessage(e store.NotificationEndpoint) string { return prefixed(e, TestText) }
 
 // prefixed puts e's prefix, if any, before text.
 func prefixed(e store.NotificationEndpoint, text string) string {
@@ -114,10 +114,15 @@ func prefixed(e store.NotificationEndpoint, text string) string {
 	return discordbot.EscapeMarkdown(e.Prefix) + " " + text
 }
 
-// WebhookMessage is what a webhook is sent: text, embeds, or both.
+// WebhookMessage is what a webhook is sent: text, embeds, or both, with the name and picture it shows (the
+// webhook's own when empty), the thread it opens in a forum channel, and the roles it may ping.
 type WebhookMessage struct {
-	Content string  `json:"content,omitempty"`
-	Embeds  []Embed `json:"embeds,omitempty"`
+	Content    string   `json:"content,omitempty"`
+	Embeds     []Embed  `json:"embeds,omitempty"`
+	Username   string   `json:"username,omitempty"`
+	AvatarURL  string   `json:"avatar_url,omitempty"`
+	ThreadName string   `json:"thread_name,omitempty"`
+	Roles      []string `json:"-"`
 }
 
 // Embed is a Discord embed: a framed card with a heading (its author), a linked title, text, fields and pictures.
@@ -149,48 +154,107 @@ type EmbedImage struct {
 	URL string `json:"url"`
 }
 
-// Discord's limits on an embed's parts, in characters.
+// Discord's limits on an embed's parts and a thread's name, in characters.
 const (
 	maxEmbedTitle = 256
 	maxEmbedText  = 4096
 	maxFieldValue = 1024
+	maxThreadName = 100
 )
 
-// redditOrange is the embed's colour for a Reddit post.
-const redditOrange = 0xFF4500
+// ShortText is the most characters of a post's text a feed showing its start shows.
+const ShortText = 300
+
+// testHeading heads admin's test message, and names the thread it opens in a forum channel.
+const testHeading = "Test from ttacommunity admin"
 
 // redditKinds name each kind of post in an embed's heading.
 var redditKinds = map[string]string{"text": "post", "image": "image post", "video": "video post", "link": "link post"}
 
-// Payload is n as e is sent it: a Reddit post as an embed under e's prefix, anything else as Message's text.
+// Payload is n as e is sent it: an embed in e's colour, a Reddit post's in e's look and any other headed by what
+// it is; under e's prefix and role, shown with e's name and picture, and opening a thread when e is a forum
+// channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
 	if n.Kind != "reddit_post" {
-		return WebhookMessage{Content: Message(n, e, admin)}
+		heading, body := parts(n, admin)
+		return shaped(e, Embed{Title: heading, Description: body, Color: colour(e.Look.Colour)}, heading)
 	}
-	r, p := n.Reddit, n.Reddit.Post
+	return shaped(e, redditEmbed(n.Reddit, e.Look), n.Reddit.Post.Title)
+}
+
+// TestPayload is what admin's Test button sends e: TestText, shaped as e shapes every message.
+func TestPayload(e store.NotificationEndpoint) WebhookMessage {
+	return shaped(e, Embed{Title: testHeading, Description: TestText, Color: colour(e.Look.Colour)}, testHeading)
+}
+
+// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture, and opening a
+// thread named thread when e is a forum channel's.
+func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMessage {
+	m := WebhookMessage{Embeds: []Embed{embed}, Username: e.Username, AvatarURL: e.AvatarURL}
+	var ping string
+	if e.RoleID != "" {
+		ping = "<@&" + e.RoleID + ">"
+		m.Roles = []string{e.RoleID}
+	}
+	m.Content = strings.TrimSpace(prefixed(e, ping))
+	if e.Forum {
+		m.ThreadName = cut(strings.TrimSpace(thread), maxThreadName)
+	}
+	return m
+}
+
+// redditEmbed is a Reddit post as Mee6 showed one, in look: colour, how much text, image and author.
+func redditEmbed(r store.RedditNotice, look store.EmbedLook) Embed {
+	p := r.Post
 	embed := Embed{
-		Author:      &EmbedName{Name: fmt.Sprintf("New %s on /r/%s", redditKinds[p.Kind], r.Subreddit)},
-		Title:       cut(discordbot.EscapeMarkdown(p.Title), maxEmbedTitle),
-		URL:         p.URL,
-		Description: cut(p.Body, maxEmbedText),
-		Color:       redditOrange,
-		Timestamp:   p.PublishedAt.UTC().Format(time.RFC3339),
+		Author:    &EmbedName{Name: fmt.Sprintf("New %s on /r/%s", redditKinds[p.Kind], r.Subreddit)},
+		Title:     cut(discordbot.EscapeMarkdown(p.Title), maxEmbedTitle),
+		URL:       p.URL,
+		Color:     colour(look.Colour),
+		Timestamp: p.PublishedAt.UTC().Format(time.RFC3339),
 	}
-	if p.Author != "" {
+	switch look.Text {
+	case "full":
+		embed.Description = cut(p.Body, maxEmbedText)
+	case "short":
+		embed.Description = atWord(p.Body, ShortText)
+	}
+	if look.Author && p.Author != "" {
 		embed.Fields = []EmbedField{{Name: "Post Author", Value: cut("/u/"+discordbot.EscapeMarkdown(p.Author), maxFieldValue)}}
 	}
 	// Reddit's feed has a full image only for i.redd.it; its other previews are 140 pixels wide.
 	switch {
+	case !look.Image:
 	case strings.HasPrefix(p.ImageURL, "https://i.redd.it/"):
 		embed.Image = &EmbedImage{URL: p.ImageURL}
 	case p.ImageURL != "":
 		embed.Thumbnail = &EmbedImage{URL: p.ImageURL}
 	}
-	var prefix string
-	if e.Prefix != "" {
-		prefix = discordbot.EscapeMarkdown(e.Prefix)
+	return embed
+}
+
+// colour is #rrggbb as Discord takes it, or Reddit's orange when it is not one.
+func colour(hex string) int {
+	if v, err := strconv.ParseUint(strings.TrimPrefix(hex, "#"), 16, 32); err == nil && len(hex) == 7 && hex[0] == '#' {
+		return int(v)
 	}
-	return WebhookMessage{Content: prefix, Embeds: []Embed{embed}}
+	return redditOrange
+}
+
+// redditOrange is a Reddit embed's colour when its endpoint has none.
+const redditOrange = 0xFF4500
+
+// atWord shortens s to at most n characters at a word's end, ending with … when it was longer.
+func atWord(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	short := string(r[:n-1])
+	if i := strings.LastIndexAny(short, " \n"); i > n/2 {
+		short = short[:i]
+	}
+	return strings.TrimSpace(short) + "…"
 }
 
 // cut shortens s to at most n characters, ending with … when it was longer.
@@ -213,15 +277,20 @@ func (d *Discord) Post(ctx context.Context, webhook, content string) error {
 	return d.Send(ctx, webhook, WebhookMessage{Content: content})
 }
 
-// Send posts m, its text cut to Discord's limit, to the webhook at webhook, as Post does.
+// Send posts m, its text cut to Discord's limit, to the webhook at webhook, as Post does, allowing only m's roles
+// to be pinged.
 func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) error {
 	if r := []rune(m.Content); len(r) > maxContent {
 		m.Content = string(r[:maxContent])
 	}
+	mentions := map[string][]string{"parse": {}}
+	if len(m.Roles) > 0 {
+		mentions["roles"] = m.Roles
+	}
 	body, err := json.Marshal(struct {
 		WebhookMessage
 		AllowedMentions map[string][]string `json:"allowed_mentions"`
-	}{m, map[string][]string{"parse": {}}})
+	}{m, mentions})
 	if err != nil {
 		return fmt.Errorf("writing a Discord message: %w", err)
 	}

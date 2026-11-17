@@ -181,8 +181,8 @@ export const removeEndpoint = (id: number) => to(`/api/notification-endpoints/${
 export const testEndpoint = (id: number) => to(`/api/notification-endpoints/${id}/test`, 'POST');
 /** addFeed adds a subreddit to read for new posts, as typed: its name, r/name or its address. */
 export const addFeed = (subreddit: string) => to('/api/reddit-feeds', 'POST', { subreddit });
-/** pauseFeed pauses a Reddit feed, or resumes it. */
-export const pauseFeed = (id: number, paused: boolean) => to(`/api/reddit-feeds/${id}`, 'PUT', { paused });
+/** setFeed changes a Reddit feed: paused or not, and what its posts show. */
+export const setFeed = (id: number, setting: Schemas['RedditFeedSetting']) => to(`/api/reddit-feeds/${id}`, 'PUT', setting);
 /** removeFeed removes a Reddit feed. */
 export const removeFeed = (id: number) => to(`/api/reddit-feeds/${id}`, 'DELETE');
 /** setTitle sets a player's title by hand, with its reason. */

@@ -15,7 +15,11 @@ const onlyAdminsReddit = "only admins manage Reddit feeds"
 
 // feedOut is a feed as the API sends it.
 func feedOut(f store.RedditFeed) RedditFeed {
-	out := RedditFeed{Id: f.ID, Subreddit: f.Subreddit, Paused: f.Paused, CheckedAt: inUTC(f.CheckedAt), LastPostAt: inUTC(f.LastPostAt), LastErrorAt: inUTC(f.LastErrorAt)}
+	kinds := make([]RedditPostKind, len(f.Kinds))
+	for i, k := range f.Kinds {
+		kinds[i] = RedditPostKind(k)
+	}
+	out := RedditFeed{Id: f.ID, Subreddit: f.Subreddit, Paused: f.Paused, CheckedAt: inUTC(f.CheckedAt), LastPostAt: inUTC(f.LastPostAt), LastErrorAt: inUTC(f.LastErrorAt), Kinds: kinds}
 	if f.LastError != "" {
 		out.LastError = &f.LastError
 	}
@@ -32,6 +36,21 @@ func subredditName(typed string) string {
 		return m[1]
 	}
 	return strings.Trim(t, "/")
+}
+
+// kindsIn is the kinds of post a feed's setting asks for, or the refusal of an unknown one.
+func kindsIn(b *RedditFeedSetting) ([]string, string) {
+	if b == nil {
+		return nil, "a feed's setting: paused and kinds"
+	}
+	kinds := []string{}
+	for _, k := range b.Kinds {
+		if !k.Valid() {
+			return nil, "kinds are text, image, video and link"
+		}
+		kinds = append(kinds, string(k))
+	}
+	return kinds, ""
 }
 
 func (s *server) GetAdminRedditFeeds(ctx context.Context, _ GetAdminRedditFeedsRequestObject) (GetAdminRedditFeedsResponseObject, error) {
@@ -89,11 +108,12 @@ func (s *server) PutAdminRedditFeed(ctx context.Context, req PutAdminRedditFeedR
 	if !ok {
 		return PutAdminRedditFeed403JSONResponse{forbidden(onlyAdminsReddit)}, nil
 	}
-	if req.Body == nil {
-		return PutAdminRedditFeed400JSONResponse{badRequest400("paused: true or false")}, nil
+	kinds, msg := kindsIn(req.Body)
+	if msg != "" {
+		return PutAdminRedditFeed400JSONResponse{badRequest400(msg)}, nil
 	}
 	err = s.admins.Change(ctx, func(tx Admins) error {
-		if err := tx.SetRedditFeedPaused(ctx, req.Feed, req.Body.Paused); err != nil {
+		if err := tx.SetRedditFeed(ctx, req.Feed, req.Body.Paused, kinds); err != nil {
 			return err
 		}
 		return tx.Audit(ctx, me.DiscordID, "reddit.feed.set", fmt.Sprint(req.Feed), req.Body)
@@ -101,6 +121,8 @@ func (s *server) PutAdminRedditFeed(ctx context.Context, req PutAdminRedditFeedR
 	switch {
 	case errors.Is(err, store.ErrNoRedditFeed):
 		return PutAdminRedditFeed404JSONResponse{notFound404("no such feed")}, nil
+	case errors.Is(err, store.ErrBadRedditKinds):
+		return PutAdminRedditFeed400JSONResponse{badRequest400(store.ErrBadRedditKinds.Error())}, nil
 	case err != nil:
 		return nil, err
 	}

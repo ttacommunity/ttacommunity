@@ -71,7 +71,7 @@ type NotificationAdmin interface {
 type RedditAdmin interface {
 	RedditFeeds(ctx context.Context) ([]store.RedditFeed, error)
 	AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error)
-	SetRedditFeedPaused(ctx context.Context, id int64, paused bool) error
+	SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error
 	RemoveRedditFeed(ctx context.Context, id int64) error
 }
 

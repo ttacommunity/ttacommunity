@@ -2705,7 +2705,7 @@ export interface paths {
         get?: never;
         /**
          * Change a notification webhook (admins only)
-         * @description Audited. The Origin must be the admin site.
+         * @description Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
          */
         put: operations["putAdminNotificationEndpoint"];
         post?: never;
@@ -2769,7 +2769,7 @@ export interface paths {
         };
         get?: never;
         /**
-         * Pause or resume a Reddit feed (admins only)
+         * Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
          * @description Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came while it was paused is not posted.
          */
         put: operations["putAdminRedditFeed"];
@@ -3951,6 +3951,32 @@ export interface components {
             feeds: number[];
             /** @description Text put before each message, such as [dev] */
             prefix: string;
+            /** @description Sent nothing while paused */
+            paused: boolean;
+            /** @description Posts each message as a new thread, for a forum channel's webhook */
+            forum: boolean;
+            /** @description The name its messages show; the webhook's own when empty */
+            username: string;
+            /** @description The picture its messages show; the webhook's own when empty */
+            avatar_url: string;
+            /** @description A Discord role pinged with each message; none when empty */
+            role_id: string;
+            /** @description A Reddit post's embed colour, #rrggbb */
+            colour: string;
+            text: components["schemas"]["RedditPostText"];
+            /** @description Whether a Reddit post shows its image */
+            image: boolean;
+            /** @description Whether a Reddit post shows its author */
+            author: boolean;
+            /**
+             * Format: date-time
+             * @description When a notification last reached it
+             */
+            last_sent_at?: string | null;
+            /** @description Why the last notification failed to reach it, until one does */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
         };
         /**
          * @description How the endpoint takes messages; discord so far
@@ -3966,6 +3992,18 @@ export interface components {
             /** @description The Reddit feeds it takes, by id; none when not given */
             feeds?: number[];
             prefix?: string;
+            paused?: boolean;
+            forum?: boolean;
+            username?: string;
+            /** @description An https picture */
+            avatar_url?: string;
+            /** @description A Discord role's id */
+            role_id?: string;
+            /** @description #rrggbb, in lower case; Reddit's orange when not given */
+            colour?: string;
+            text?: components["schemas"]["RedditPostText"];
+            image?: boolean;
+            author?: boolean;
         };
         RedditFeed: {
             /** Format: int64 */
@@ -3974,6 +4012,8 @@ export interface components {
             subreddit: string;
             /** @description Not read while paused */
             paused: boolean;
+            /** @description The kinds of post it sends */
+            kinds: components["schemas"]["RedditPostKind"][];
             /**
              * Format: date-time
              * @description When the Reddit job last read it
@@ -3995,7 +4035,18 @@ export interface components {
         };
         RedditFeedSetting: {
             paused: boolean;
+            kinds: components["schemas"]["RedditPostKind"][];
         };
+        /**
+         * @description How much of a Reddit post's text an endpoint shows
+         * @enum {string}
+         */
+        RedditPostText: "full" | "short" | "none";
+        /**
+         * @description A kind of Reddit post
+         * @enum {string}
+         */
+        RedditPostKind: "text" | "image" | "video" | "link";
         NotificationTest: {
             delivered: boolean;
             /** @description What happened, for admin to show */
@@ -12626,6 +12677,8 @@ export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
+export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
+export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];

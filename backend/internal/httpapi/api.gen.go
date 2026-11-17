@@ -817,6 +817,51 @@ func (e RanksFixedBy) Valid() bool {
 	}
 }
 
+// Defines values for RedditPostKind.
+const (
+	Image RedditPostKind = "image"
+	Link  RedditPostKind = "link"
+	Text  RedditPostKind = "text"
+	Video RedditPostKind = "video"
+)
+
+// Valid indicates whether the value is a known member of the RedditPostKind enum.
+func (e RedditPostKind) Valid() bool {
+	switch e {
+	case Image:
+		return true
+	case Link:
+		return true
+	case Text:
+		return true
+	case Video:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RedditPostText.
+const (
+	RedditPostTextFull  RedditPostText = "full"
+	RedditPostTextNone  RedditPostText = "none"
+	RedditPostTextShort RedditPostText = "short"
+)
+
+// Valid indicates whether the value is a known member of the RedditPostText enum.
+func (e RedditPostText) Valid() bool {
+	switch e {
+	case RedditPostTextFull:
+		return true
+	case RedditPostTextNone:
+		return true
+	case RedditPostTextShort:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RequestStatus.
 const (
 	RequestStatusApproved RequestStatus = "approved"
@@ -4357,6 +4402,14 @@ type NostradamusStanding struct {
 
 // NotificationEndpoint defines model for NotificationEndpoint.
 type NotificationEndpoint struct {
+	// Author Whether a Reddit post shows its author
+	Author bool `json:"author"`
+
+	// AvatarUrl The picture its messages show; the webhook's own when empty
+	AvatarUrl string `json:"avatar_url"`
+
+	// Colour A Reddit post's embed colour, #rrggbb
+	Colour string              `json:"colour"`
 	Events []NotificationEvent `json:"events"`
 
 	// Feeds The Reddit feeds it takes, by id
@@ -4364,16 +4417,48 @@ type NotificationEndpoint struct {
 
 	// Format How the endpoint takes messages; discord so far
 	Format NotificationFormat `json:"format"`
-	Id     int64              `json:"id"`
-	Name   string             `json:"name"`
+
+	// Forum Posts each message as a new thread, for a forum channel's webhook
+	Forum bool  `json:"forum"`
+	Id    int64 `json:"id"`
+
+	// Image Whether a Reddit post shows its image
+	Image bool `json:"image"`
+
+	// LastError Why the last notification failed to reach it, until one does
+	LastError   *string    `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+
+	// LastSentAt When a notification last reached it
+	LastSentAt *time.Time `json:"last_sent_at,omitempty"`
+	Name       string     `json:"name"`
+
+	// Paused Sent nothing while paused
+	Paused bool `json:"paused"`
 
 	// Prefix Text put before each message, such as [dev]
 	Prefix string `json:"prefix"`
-	Url    string `json:"url"`
+
+	// RoleId A Discord role pinged with each message; none when empty
+	RoleId string `json:"role_id"`
+
+	// Text How much of a Reddit post's text an endpoint shows
+	Text RedditPostText `json:"text"`
+	Url  string         `json:"url"`
+
+	// Username The name its messages show; the webhook's own when empty
+	Username string `json:"username"`
 }
 
 // NotificationEndpointSetting defines model for NotificationEndpointSetting.
 type NotificationEndpointSetting struct {
+	Author *bool `json:"author,omitempty"`
+
+	// AvatarUrl An https picture
+	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// Colour #rrggbb, in lower case; Reddit's orange when not given
+	Colour *string             `json:"colour,omitempty"`
 	Events []NotificationEvent `json:"events"`
 
 	// Feeds The Reddit feeds it takes, by id; none when not given
@@ -4381,11 +4466,21 @@ type NotificationEndpointSetting struct {
 
 	// Format How the endpoint takes messages; discord so far
 	Format *NotificationFormat `json:"format,omitempty"`
+	Forum  *bool               `json:"forum,omitempty"`
+	Image  *bool               `json:"image,omitempty"`
 	Name   string              `json:"name"`
+	Paused *bool               `json:"paused,omitempty"`
 	Prefix *string             `json:"prefix,omitempty"`
 
+	// RoleId A Discord role's id
+	RoleId *string `json:"role_id,omitempty"`
+
+	// Text How much of a Reddit post's text an endpoint shows
+	Text *RedditPostText `json:"text,omitempty"`
+
 	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…
-	Url string `json:"url"`
+	Url      string  `json:"url"`
+	Username *string `json:"username,omitempty"`
 }
 
 // NotificationEvent What a notification tells of, which an endpoint chooses among
@@ -4714,6 +4809,9 @@ type RedditFeed struct {
 	CheckedAt *time.Time `json:"checked_at,omitempty"`
 	Id        int64      `json:"id"`
 
+	// Kinds The kinds of post it sends
+	Kinds []RedditPostKind `json:"kinds"`
+
 	// LastError Why its last read failed, until a read succeeds
 	LastError   *string    `json:"last_error,omitempty"`
 	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
@@ -4730,8 +4828,15 @@ type RedditFeed struct {
 
 // RedditFeedSetting defines model for RedditFeedSetting.
 type RedditFeedSetting struct {
-	Paused bool `json:"paused"`
+	Kinds  []RedditPostKind `json:"kinds"`
+	Paused bool             `json:"paused"`
 }
+
+// RedditPostKind A kind of Reddit post
+type RedditPostKind string
+
+// RedditPostText How much of a Reddit post's text an endpoint shows
+type RedditPostText string
 
 // Region A zone a member may have besides an IANA one
 type Region struct {
@@ -6259,7 +6364,7 @@ type ServerInterface interface {
 	// DeleteAdminRedditFeed Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
 	// (DELETE /v1/admin/reddit-feeds/{feed})
 	DeleteAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId)
-	// PutAdminRedditFeed Pause or resume a Reddit feed (admins only)
+	// PutAdminRedditFeed Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
 	// (PUT /v1/admin/reddit-feeds/{feed})
 	PutAdminRedditFeed(w http.ResponseWriter, r *http.Request, feed AdminRedditFeedId)
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)
@@ -26367,7 +26472,7 @@ type StrictServerInterface interface {
 	// DeleteAdminRedditFeed Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
 	// (DELETE /v1/admin/reddit-feeds/{feed})
 	DeleteAdminRedditFeed(ctx context.Context, request DeleteAdminRedditFeedRequestObject) (DeleteAdminRedditFeedResponseObject, error)
-	// PutAdminRedditFeed Pause or resume a Reddit feed (admins only)
+	// PutAdminRedditFeed Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
 	// (PUT /v1/admin/reddit-feeds/{feed})
 	PutAdminRedditFeed(ctx context.Context, request PutAdminRedditFeedRequestObject) (PutAdminRedditFeedResponseObject, error)
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)

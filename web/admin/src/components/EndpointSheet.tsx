@@ -3,15 +3,21 @@ import { useRef, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
 import * as req from '../lib/admin-requests';
-import { EVENTS, endpointChanged, toggled, toggledFeed } from '../lib/notification-endpoints';
+import { EVENTS, TEXTS, endpointChanged, toggled, toggledFeed } from '../lib/notification-endpoints';
 import { refused, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
 type Feed = components['schemas']['RedditFeed'];
-export type Draft = Pick<Endpoint, 'name' | 'url' | 'events' | 'feeds' | 'prefix'>;
+export type Draft = Pick<
+  Endpoint,
+  'name' | 'url' | 'events' | 'feeds' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+>;
 
-export const EMPTY: Draft = { name: '', url: '', events: [], feeds: [], prefix: '' };
+export const EMPTY: Draft = {
+  name: '', url: '', events: [], feeds: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
+  colour: '#ff4500', text: 'full', image: true, author: true,
+};
 
 interface Props {
   /** The endpoint to edit, or null to add one. */
@@ -60,6 +66,34 @@ export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onC
           </label>
         </div>
         <fieldset className="check-kinds">
+          <legend>Message</legend>
+          <label>
+            Shown as (the webhook's name if empty)
+            <input className="input-antique" value={draft.username} maxLength={80} placeholder="TTA Reddit" onChange={(e) => setDraft({ ...draft, username: e.target.value })} />
+          </label>
+          <label>
+            Picture URL (the webhook's if empty)
+            <input className="input-antique" type="url" value={draft.avatar_url} placeholder="https://…" onChange={(e) => setDraft({ ...draft, avatar_url: e.target.value })} />
+          </label>
+          <label>
+            Side bar colour <input type="color" value={draft.colour} onChange={(e) => setDraft({ ...draft, colour: e.target.value })} />
+          </label>
+          <label>
+            Role to ping (its id; none if empty)
+            <input className="input-antique" value={draft.role_id} inputMode="numeric" placeholder="Copy Role ID in Discord"
+              onChange={(e) => setDraft({ ...draft, role_id: e.target.value })} />
+          </label>
+        </fieldset>
+        <fieldset className="check-kinds">
+          <legend>Posting</legend>
+          <label>
+            <input type="checkbox" checked={draft.forum} onChange={(e) => setDraft({ ...draft, forum: e.target.checked })} /> A forum channel: each message opens a thread
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.paused} onChange={(e) => setDraft({ ...draft, paused: e.target.checked })} /> Paused: send nothing
+          </label>
+        </fieldset>
+        <fieldset className="check-kinds">
           <legend>Site events</legend>
           {EVENTS.map(({ key, label }) => (
             <label key={key}>
@@ -77,6 +111,25 @@ export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onC
               {f.paused && <span className="muted"> (paused)</span>}
             </label>
           ))}
+        </fieldset>
+        <fieldset className="check-kinds">
+          <legend>Reddit posts show</legend>
+          <label>
+            Post text{' '}
+            <select className="input-antique" value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value as Draft['text'] })}>
+              {TEXTS.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.checked })} /> Their image
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.author} onChange={(e) => setDraft({ ...draft, author: e.target.checked })} /> Their author
+          </label>
         </fieldset>
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
         <div className="site-dialog-buttons">

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -70,19 +71,16 @@ func TestText(t *testing.T) {
 	}
 }
 
-func TestMessagePutsTheEndpointsPrefixFirst(t *testing.T) {
+func TestPayloadPutsTheEndpointsPrefixAsTheMessagesText(t *testing.T) {
 	n := store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}}
-	tests := []struct{ prefix, want string }{
-		{"", notify.Text(n, admin)},
-		{"[dev]", `\[dev\] ` + notify.Text(n, admin)},
-	}
-	for _, tt := range tests {
-		if got := notify.Message(n, store.NotificationEndpoint{Prefix: tt.prefix}, admin); got != tt.want {
-			t.Errorf("Message with prefix %q = %q, want %q", tt.prefix, got, tt.want)
+	for _, tt := range []struct{ prefix, want string }{{"", ""}, {"[dev]", `\[dev\]`}} {
+		e := store.NotificationEndpoint{Prefix: tt.prefix}
+		if got := notify.Payload(n, e, admin).Content; got != tt.want {
+			t.Errorf("Payload with prefix %q: text = %q, want %q", tt.prefix, got, tt.want)
 		}
-	}
-	if got, want := notify.TestMessage(store.NotificationEndpoint{Prefix: "[dev]"}), `\[dev\] `+notify.TestText; got != want {
-		t.Errorf("TestMessage = %q, want %q", got, want)
+		if got := notify.TestPayload(e).Content; got != tt.want {
+			t.Errorf("TestPayload with prefix %q: text = %q, want %q", tt.prefix, got, tt.want)
+		}
 	}
 }
 
@@ -181,7 +179,7 @@ func TestARedditPostIsAnEmbedLikeMee6s(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := notify.Payload(redditPost(tt.kind, tt.image), store.NotificationEndpoint{}, admin)
+			p := notify.Payload(redditPost(tt.kind, tt.image), store.NotificationEndpoint{Look: store.DefaultLook}, admin)
 			if p.Content != "" || len(p.Embeds) != 1 {
 				t.Fatalf("payload = %+v, want one embed and no text", p)
 			}
@@ -204,7 +202,7 @@ func urlOf(i *notify.EmbedImage) string {
 }
 
 func TestARedditEmbedLinksThePostAndNamesItsAuthor(t *testing.T) {
-	p := notify.Payload(redditPost("text", ""), store.NotificationEndpoint{Prefix: "[dev]"}, admin)
+	p := notify.Payload(redditPost("text", ""), store.NotificationEndpoint{Prefix: "[dev]", Look: store.DefaultLook}, admin)
 	e := p.Embeds[0]
 	if p.Content != `\[dev\]` {
 		t.Errorf("content = %q, want the prefix alone", p.Content)
@@ -223,16 +221,28 @@ func TestARedditEmbedLinksThePostAndNamesItsAuthor(t *testing.T) {
 func TestARedditEmbedWithoutAnAuthorHasNoAuthorField(t *testing.T) {
 	n := redditPost("text", "")
 	n.Reddit.Post.Author = ""
-	if e := notify.Payload(n, store.NotificationEndpoint{}, admin).Embeds[0]; len(e.Fields) != 0 {
+	if e := notify.Payload(n, store.NotificationEndpoint{Look: store.DefaultLook}, admin).Embeds[0]; len(e.Fields) != 0 {
 		t.Errorf("fields = %+v, want none", e.Fields)
 	}
 }
 
-func TestOtherNotificationsAreText(t *testing.T) {
-	n := store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}}
-	e := store.NotificationEndpoint{Prefix: "[dev]"}
-	if p := notify.Payload(n, e, admin); p.Content != notify.Message(n, e, admin) || len(p.Embeds) != 0 {
-		t.Errorf("payload = %+v, want Message's text alone", p)
+func TestOtherNotificationsAreEmbedsHeadedByWhatTheyAre(t *testing.T) {
+	e := store.NotificationEndpoint{Look: store.EmbedLook{Colour: "#123abc"}}
+	for _, n := range []store.Notification{
+		{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}},
+		{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "example"}, FeedError: "reddit answered 403"},
+	} {
+		p := notify.Payload(n, e, admin)
+		if len(p.Embeds) != 1 {
+			t.Fatalf("%s: payload = %+v, want one embed", n.Kind, p)
+		}
+		got := p.Embeds[0]
+		if "**"+got.Title+"**: "+got.Description != notify.Text(n, admin) || got.Color != 0x123abc {
+			t.Errorf("%s: embed = %q / %q in %x, want Text's heading and body in the endpoint's colour", n.Kind, got.Title, got.Description, got.Color)
+		}
+	}
+	if got := notify.TestPayload(e).Embeds[0]; got.Description != notify.TestText || got.Color != 0x123abc {
+		t.Errorf("test embed = %q in %x, want TestText in the endpoint's colour", got.Description, got.Color)
 	}
 }
 
@@ -252,5 +262,80 @@ func TestSendPostsEmbedsWithNoMentionsAllowed(t *testing.T) {
 	}
 	if mentions, _ := json.Marshal(got["allowed_mentions"]); string(mentions) != `{"parse":[]}` {
 		t.Errorf("allowed_mentions = %s, want {\"parse\":[]}", mentions)
+	}
+}
+
+func TestARedditEmbedFollowsItsEndpointsLook(t *testing.T) {
+	long := strings.Repeat("word ", 200)
+	tests := []struct {
+		name                 string
+		look                 store.EmbedLook
+		wantColour           int
+		wantText             string
+		wantImage, wantField bool
+	}{
+		{"all shown", store.EmbedLook{Colour: "#123abc", Text: "full", Image: true, Author: true}, 0x123abc, long, true, true},
+		{"the start of the text", store.EmbedLook{Colour: "#ff4500", Text: "short", Image: true, Author: true}, 0xff4500, "short", true, true},
+		{"no text, image or author", store.EmbedLook{Colour: "#ff4500", Text: "none"}, 0xff4500, "", false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := redditPost("image", "https://i.redd.it/abc.jpeg")
+			n.Reddit.Post.Body = long
+			e := notify.Payload(n, store.NotificationEndpoint{Look: tt.look}, admin).Embeds[0]
+			text := e.Description
+			if tt.wantText == "short" {
+				if n := len([]rune(text)); n > notify.ShortText || !strings.HasSuffix(text, "…") {
+					t.Errorf("text is %d characters ending %q, want at most %d ending …", n, text[max(0, len(text)-5):], notify.ShortText)
+				}
+			} else if text != tt.wantText {
+				t.Errorf("text = %d characters, want %d", len(text), len(tt.wantText))
+			}
+			if e.Color != tt.wantColour || (e.Image != nil) != tt.wantImage || (len(e.Fields) > 0) != tt.wantField {
+				t.Errorf("colour %x, image %t, author %t; want %x, %t, %t", e.Color, e.Image != nil, len(e.Fields) > 0, tt.wantColour, tt.wantImage, tt.wantField)
+			}
+		})
+	}
+}
+
+func TestAnEndpointsNameAvatarForumAndRoleShapeEveryMessage(t *testing.T) {
+	e := store.NotificationEndpoint{Prefix: "[dev]", Username: "TTA Reddit", AvatarURL: "https://example.com/a.png", Forum: true, RoleID: "100000000000000002"}
+	tests := []struct {
+		name, wantThread string
+		p                notify.WebhookMessage
+	}{
+		{"a Reddit post", "A *bold* claim", notify.Payload(redditPost("text", ""), e, admin)},
+		{"a link request", "Link request", notify.Payload(store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}}, e, admin)},
+		{"a test", "Test from ttacommunity admin", notify.TestPayload(e)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := tt.p
+			if p.Username != "TTA Reddit" || p.AvatarURL != "https://example.com/a.png" || p.ThreadName != tt.wantThread {
+				t.Errorf("name, avatar, thread = %q, %q, %q; want the endpoint's, thread %q", p.Username, p.AvatarURL, p.ThreadName, tt.wantThread)
+			}
+			if p.Content != `\[dev\] <@&100000000000000002>` || !slices.Equal(p.Roles, []string{"100000000000000002"}) {
+				t.Errorf("content = %q, roles = %v; want the prefix, then the role pinged and allowed", p.Content, p.Roles)
+			}
+		})
+	}
+	plain := notify.Payload(redditPost("text", ""), store.NotificationEndpoint{}, admin)
+	if plain.ThreadName != "" || plain.Username != "" || len(plain.Roles) != 0 {
+		t.Errorf("a plain endpoint's payload = %+v, want no thread, name or role", plain)
+	}
+}
+
+func TestSendAllowsOnlyTheRoleItPings(t *testing.T) {
+	var got map[string]any
+	s := discord(t, http.StatusNoContent, &got)
+	p := notify.WebhookMessage{Content: "<@&100000000000000002> hi @everyone", Roles: []string{"100000000000000002"}, ThreadName: "Hi", Username: "TTA"}
+	if err := notify.NewDiscord(s.Client()).Send(context.Background(), s.URL, p); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if mentions, _ := json.Marshal(got["allowed_mentions"]); string(mentions) != `{"parse":[],"roles":["100000000000000002"]}` {
+		t.Errorf("allowed_mentions = %s, want only that role", mentions)
+	}
+	if got["thread_name"] != "Hi" || got["username"] != "TTA" {
+		t.Errorf("thread_name, username = %v, %v; want Hi, TTA", got["thread_name"], got["username"])
 	}
 }
