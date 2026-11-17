@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -21,6 +22,12 @@ const admin = "https://admin.example.test"
 func blitz(kind, result string) store.Notification {
 	return store.Notification{Kind: kind, Slug: "us_open", Series: "US Open", Edition: "2026", Round: 2, A: "Ann", B: "Bob",
 		Result: result, ReportedBy: "Ann", FlagReason: "I won on culture"}
+}
+
+// text is n as a plain endpoint's embed says it: its heading in bold, then its text.
+func text(n store.Notification) string {
+	e := notify.Payload(n, store.NotificationEndpoint{}, admin).Embeds[0]
+	return "**" + e.Title + "**: " + e.Description
 }
 
 func TestText(t *testing.T) {
@@ -57,6 +64,8 @@ func TestText(t *testing.T) {
 			`**Link request**: a player who signs in with email asks to be linked to **@everyone \<@100000000000000001\> \*\*x\*\***. Answer it in admin: <` + admin + "/#members>"},
 		{"a Reddit feed failing", store.Notification{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "some_sub"}, FeedError: "reddit answered 403"},
 			`**Reddit feed failing**: r/some\_sub has failed its last 3 reads: reddit answered 403. <` + admin + "/#notifications>"},
+		{"a Reddit feed failing, its reason gone by when it is sent", store.Notification{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "example"}},
+			"**Reddit feed failing**: r/example has failed its last 3 reads. <" + admin + "/#notifications>"},
 		{"a Reddit feed reading again", store.Notification{Kind: "reddit_recovered", Reddit: store.RedditNotice{Subreddit: "some_sub"}},
 			`**Reddit feed reading again**: r/some\_sub reads again; its new posts are posted. <` + admin + "/#notifications>"},
 		{"an edition's address escaped", store.Notification{Kind: "blitz_report", Slug: "us_open", Series: "US Open", Edition: "Season 1 & 2", Round: 1, A: "Ann", B: "Bob", Result: "a", ReportedBy: "Ann"},
@@ -64,7 +73,7 @@ func TestText(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := notify.Text(tt.n, admin); got != tt.want {
+			if got := text(tt.n); got != tt.want {
 				t.Errorf("Text(%+v)\n got = %q\nwant %q", tt.n, got, tt.want)
 			}
 		})
@@ -104,7 +113,7 @@ func discord(t *testing.T, status int, got *map[string]any) *httptest.Server {
 func TestPostSendsTheMessageWithNoMentionsAllowed(t *testing.T) {
 	var got map[string]any
 	s := discord(t, http.StatusNoContent, &got)
-	if err := notify.NewDiscord(s.Client()).Post(context.Background(), s.URL+"/api/webhooks/1/token", "hello @everyone"); err != nil {
+	if err := notify.NewDiscord(s.Client()).Send(context.Background(), s.URL+"/api/webhooks/1/token", notify.WebhookMessage{Content: "hello @everyone"}); err != nil {
 		t.Fatalf("Post: %v", err)
 	}
 	if got["content"] != "hello @everyone" {
@@ -119,7 +128,7 @@ func TestPostSendsTheMessageWithNoMentionsAllowed(t *testing.T) {
 func TestPostCutsAMessageToDiscordsLimit(t *testing.T) {
 	var got map[string]any
 	s := discord(t, http.StatusNoContent, &got)
-	if err := notify.NewDiscord(s.Client()).Post(context.Background(), s.URL, strings.Repeat("é", 2500)); err != nil {
+	if err := notify.NewDiscord(s.Client()).Send(context.Background(), s.URL, notify.WebhookMessage{Content: strings.Repeat("é", 2500)}); err != nil {
 		t.Fatalf("Post: %v", err)
 	}
 	if n := len([]rune(got["content"].(string))); n != 2000 {
@@ -143,7 +152,7 @@ func TestPostFailsWithoutSayingTheURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := notify.NewDiscord(&http.Client{Timeout: 5 * time.Second}).Post(context.Background(), tt.url, "hello")
+			err := notify.NewDiscord(&http.Client{Timeout: 5 * time.Second}).Send(context.Background(), tt.url, notify.WebhookMessage{Content: "hello"})
 			if err == nil {
 				t.Fatal("Post: nil, want an error")
 			}
@@ -237,7 +246,7 @@ func TestOtherNotificationsAreEmbedsHeadedByWhatTheyAre(t *testing.T) {
 			t.Fatalf("%s: payload = %+v, want one embed", n.Kind, p)
 		}
 		got := p.Embeds[0]
-		if "**"+got.Title+"**: "+got.Description != notify.Text(n, admin) || got.Color != 0x123abc {
+		if "**"+got.Title+"**: "+got.Description != text(n) || got.Color != 0x123abc {
 			t.Errorf("%s: embed = %q / %q in %x, want Text's heading and body in the endpoint's colour", n.Kind, got.Title, got.Description, got.Color)
 		}
 	}
@@ -285,8 +294,8 @@ func TestARedditEmbedFollowsItsEndpointsLook(t *testing.T) {
 			e := notify.Payload(n, store.NotificationEndpoint{Look: tt.look}, admin).Embeds[0]
 			text := e.Description
 			if tt.wantText == "short" {
-				if n := len([]rune(text)); n > notify.ShortText || !strings.HasSuffix(text, "…") {
-					t.Errorf("text is %d characters ending %q, want at most %d ending …", n, text[max(0, len(text)-5):], notify.ShortText)
+				if n := len([]rune(text)); n > 300 || !strings.HasSuffix(text, "…") {
+					t.Errorf("text is %d characters ending %q, want at most 300 ending …", n, text[max(0, len(text)-5):])
 				}
 			} else if text != tt.wantText {
 				t.Errorf("text = %d characters, want %d", len(text), len(tt.wantText))
@@ -314,7 +323,7 @@ func TestAnEndpointsNameAvatarForumAndRoleShapeEveryMessage(t *testing.T) {
 			if p.Username != "TTA Reddit" || p.AvatarURL != "https://example.com/a.png" || p.ThreadName != tt.wantThread {
 				t.Errorf("name, avatar, thread = %q, %q, %q; want the endpoint's, thread %q", p.Username, p.AvatarURL, p.ThreadName, tt.wantThread)
 			}
-			if p.Content != `\[dev\] <@&100000000000000002>` || !slices.Equal(p.Roles, []string{"100000000000000002"}) {
+			if !strings.HasPrefix(p.Content, `\[dev\] <@&100000000000000002>`) || !slices.Equal(p.Roles, []string{"100000000000000002"}) {
 				t.Errorf("content = %q, roles = %v; want the prefix, then the role pinged and allowed", p.Content, p.Roles)
 			}
 		})
@@ -337,5 +346,138 @@ func TestSendAllowsOnlyTheRoleItPings(t *testing.T) {
 	}
 	if got["thread_name"] != "Hi" || got["username"] != "TTA" {
 		t.Errorf("thread_name, username = %v, %v; want Hi, TTA", got["thread_name"], got["username"])
+	}
+}
+
+func TestAForumPostPutsItsTextOnTheCardAndItsImageUp(t *testing.T) {
+	forum := store.NotificationEndpoint{Forum: true, Prefix: "[dev]", Look: store.DefaultLook}
+	tests := []struct {
+		name, image, wantUpload string
+		look                    store.EmbedLook
+		wantContent             string
+	}{
+		{"a text post", "", "", store.DefaultLook, `\[dev\] Hello`},
+		{"an image post", "https://i.redd.it/abc.jpeg", "https://i.redd.it/abc.jpeg", store.DefaultLook, `\[dev\] Hello`},
+		{"a gallery's preview", "https://preview.redd.it/abc.jpeg?width=140", "https://preview.redd.it/abc.jpeg?width=140", store.DefaultLook, `\[dev\] Hello`},
+		{"an image the endpoint does not show", "https://i.redd.it/abc.jpeg", "", store.EmbedLook{Colour: "#ff4500", Text: "full"}, `\[dev\] Hello`},
+		{"no text shown", "", "", store.EmbedLook{Colour: "#ff4500", Text: "none", Image: true}, `\[dev\]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := forum
+			e.Look = tt.look
+			p := notify.Payload(redditPost("image", tt.image), e, admin)
+			embed := p.Embeds[0]
+			if p.Content != tt.wantContent || embed.Description != "" {
+				t.Errorf("text = %q, embed text = %q; want %q on the card and none in the embed", p.Content, embed.Description, tt.wantContent)
+			}
+			if p.Upload != tt.wantUpload || embed.Image != nil || embed.Thumbnail != nil {
+				t.Errorf("upload = %q, image %v, thumbnail %v; want %q uploaded and no picture in the embed", p.Upload, embed.Image, embed.Thumbnail, tt.wantUpload)
+			}
+		})
+	}
+	n := store.Notification{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}}
+	p := notify.Payload(n, forum, admin)
+	if !strings.HasPrefix(p.Content, `\[dev\] a player who signs in`) || p.Embeds[0].Description != "" || p.Embeds[0].Title != "Link request" {
+		t.Errorf("a forum's link request = %q with embed %+v, want its body on the card and its heading in the embed", p.Content, p.Embeds[0])
+	}
+}
+
+// imageHost serves a small invented image at /abc.png, or status when not 200.
+func imageHost(t *testing.T, status int) *httptest.Server {
+	t.Helper()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte("\x89PNG invented"))
+	}))
+	t.Cleanup(s.Close)
+	return s
+}
+
+func TestSendUploadsTheImageItIsGiven(t *testing.T) {
+	img := imageHost(t, http.StatusOK)
+	var form *multipart.Form
+	var contentType string
+	hook := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType = r.Header.Get("Content-Type")
+		if err := r.ParseMultipartForm(1 << 20); err == nil {
+			form = r.MultipartForm
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(hook.Close)
+	d := notify.NewDiscord(hook.Client())
+	d.ImageHosts = []string{strings.TrimPrefix(img.URL, "http://")}
+	d.ImageScheme = "http"
+	m := notify.WebhookMessage{Content: "Hello", Embeds: []notify.Embed{{Title: "A post"}}, ThreadName: "A post", Upload: img.URL + "/abc.png"}
+	if err := d.Send(context.Background(), hook.URL, m); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if !strings.HasPrefix(contentType, "multipart/form-data") || form == nil || len(form.File["files[0]"]) != 1 {
+		t.Fatalf("Discord got %q with form %v, want multipart with files[0]", contentType, form)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(form.Value["payload_json"][0]), &payload); err != nil || payload["thread_name"] != "A post" || payload["content"] != "Hello" {
+		t.Errorf("payload_json = %v (%v), want the message with its thread", form.Value["payload_json"], err)
+	}
+	if f := form.File["files[0]"][0]; f.Filename != "image.png" {
+		t.Errorf("file name = %q, want image.png", f.Filename)
+	}
+}
+
+func TestSendPutsTheImageInTheEmbedWhenItCannotUploadIt(t *testing.T) {
+	refusing := imageHost(t, http.StatusNotFound)
+	for name, upload := range map[string]string{
+		"an image host not allowed": "https://example.com/abc.png",
+		"an image that is gone":     refusing.URL + "/abc.png",
+	} {
+		t.Run(name, func(t *testing.T) {
+			var got map[string]any
+			s := discord(t, http.StatusNoContent, &got)
+			d := notify.NewDiscord(s.Client())
+			d.ImageHosts = []string{strings.TrimPrefix(refusing.URL, "http://")}
+			d.ImageScheme = "http"
+			m := notify.WebhookMessage{Embeds: []notify.Embed{{Title: "A post"}}, Upload: upload}
+			if err := d.Send(context.Background(), s.URL, m); err != nil {
+				t.Fatalf("Send: %v", err)
+			}
+			embeds, _ := got["embeds"].([]any)
+			thumb, _ := embeds[0].(map[string]any)["thumbnail"].(map[string]any)
+			if thumb["url"] != upload {
+				t.Errorf("embed thumbnail = %v, want %s, as it could not be uploaded and is not an i.redd.it image", thumb, upload)
+			}
+		})
+	}
+}
+
+func TestAForumPostsLongTextIsCutAtAWordWithinDiscordsLimit(t *testing.T) {
+	n := redditPost("text", "")
+	n.Reddit.Post.Body = strings.Repeat("word ", 700)
+	e := store.NotificationEndpoint{Forum: true, Prefix: "[dev]", RoleID: "100000000000000002", Look: store.DefaultLook}
+	p := notify.Payload(n, e, admin)
+	if got := []rune(p.Content); len(got) > 2000 || !strings.HasSuffix(p.Content, "word…") || !strings.HasPrefix(p.Content, `\[dev\] <@&100000000000000002> word`) {
+		t.Errorf("text is %d characters ending %q, want at most 2000, the prefix and ping first, cut at a word", len(got), string(got[len(got)-8:]))
+	}
+}
+
+func TestSendDoesNotFollowAnImagesRedirectToAnotherHost(t *testing.T) {
+	elsewhere := imageHost(t, http.StatusOK)
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+"/abc.png", http.StatusFound)
+	}))
+	t.Cleanup(redirecting.Close)
+	var got map[string]any
+	hook := discord(t, http.StatusNoContent, &got)
+	d := notify.NewDiscord(hook.Client())
+	d.ImageHosts = []string{strings.TrimPrefix(redirecting.URL, "http://")}
+	d.ImageScheme = "http"
+	m := notify.WebhookMessage{Embeds: []notify.Embed{{Title: "A post"}}, Upload: redirecting.URL + "/abc.png"}
+	if err := d.Send(context.Background(), hook.URL, m); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	embeds, _ := got["embeds"].([]any)
+	if picture, _ := embeds[0].(map[string]any)["thumbnail"].(map[string]any); picture["url"] != m.Upload {
+		t.Errorf("embeds = %v, want the image left as a link, not read from the host it redirected to", got["embeds"])
 	}
 }

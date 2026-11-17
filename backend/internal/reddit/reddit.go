@@ -149,7 +149,7 @@ func Parse(r io.Reader) ([]store.RedditPost, error) {
 		}
 		posts = append(posts, store.RedditPost{
 			PostID: e.ID, Kind: kind, Title: strings.TrimSpace(e.Title), URL: e.Link.Href,
-			Author: strings.TrimPrefix(strings.TrimSpace(e.Author), "/u/"), Body: cut(body, MaxBody),
+			Author: strings.TrimPrefix(strings.TrimSpace(e.Author), "/u/"), Body: discordbot.CutAtWord(body, MaxBody),
 			ImageURL: image, PublishedAt: at.UTC(),
 		})
 	}
@@ -169,19 +169,6 @@ func kindOf(link, post string) string {
 		return "video"
 	}
 	return "link"
-}
-
-// cut shortens text to at most n characters, ending with … at a word's end.
-func cut(text string, n int) string {
-	r := []rune(text)
-	if len(r) <= n {
-		return text
-	}
-	short := string(r[:n-1])
-	if i := strings.LastIndexAny(short, " \n"); i > n/2 {
-		short = short[:i]
-	}
-	return strings.TrimSpace(short) + "…"
 }
 
 // content is what a post's HTML holds: its text, as Discord markdown, and where its [link] points.

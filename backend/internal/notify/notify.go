@@ -8,8 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -55,14 +58,8 @@ func outcome(result, a, b string) string {
 	return "no result"
 }
 
-// Text is n as a Discord message: its heading in bold, then what it tells, linking to where admin, at origin admin,
-// answers it.
-func Text(n store.Notification, admin string) string {
-	heading, body := parts(n, admin)
-	return "**" + heading + "**: " + body
-}
-
-// parts is n's heading, such as Link request, and what it tells, as Text writes them.
+// parts is n's heading, such as Link request, and what it tells, linking to where admin, at origin admin, answers
+// it.
 func parts(n store.Notification, admin string) (string, string) {
 	esc := discordbot.EscapeMarkdown
 	ways := make([]string, len(n.SignIns))
@@ -83,8 +80,12 @@ func parts(n store.Notification, admin string) (string, string) {
 		return "Link request", fmt.Sprintf("a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
 			list(ways), esc(n.Name), admin)
 	case "reddit_failed":
-		return "Reddit feed failing", fmt.Sprintf("r/%s has failed its last %d reads: %s. <%s/#notifications>",
-			esc(n.Reddit.Subreddit), store.FeedFailuresNotified, esc(n.FeedError), admin)
+		why := ""
+		if n.FeedError != "" {
+			why = ": " + esc(n.FeedError)
+		}
+		return "Reddit feed failing", fmt.Sprintf("r/%s has failed its last %d reads%s. <%s/#notifications>",
+			esc(n.Reddit.Subreddit), store.FeedFailuresNotified, why, admin)
 	case "reddit_recovered":
 		return "Reddit feed reading again", fmt.Sprintf("r/%s reads again; its new posts are posted. <%s/#notifications>", esc(n.Reddit.Subreddit), admin)
 	}
@@ -123,6 +124,8 @@ type WebhookMessage struct {
 	AvatarURL  string   `json:"avatar_url,omitempty"`
 	ThreadName string   `json:"thread_name,omitempty"`
 	Roles      []string `json:"-"`
+	// Upload is an image's address, sent as a file: a forum post's card shows an uploaded image, not an embed's.
+	Upload string `json:"-"`
 }
 
 // Embed is a Discord embed: a framed card with a heading (its author), a linked title, text, fields and pictures.
@@ -162,8 +165,8 @@ const (
 	maxThreadName = 100
 )
 
-// ShortText is the most characters of a post's text a feed showing its start shows.
-const ShortText = 300
+// shortText is the most characters of a post's text an endpoint showing its start shows.
+const shortText = 300
 
 // testHeading heads admin's test message, and names the thread it opens in a forum channel.
 const testHeading = "Test from ttacommunity admin"
@@ -179,7 +182,11 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 		heading, body := parts(n, admin)
 		return shaped(e, Embed{Title: heading, Description: body, Color: colour(e.Look.Colour)}, heading)
 	}
-	return shaped(e, redditEmbed(n.Reddit, e.Look), n.Reddit.Post.Title)
+	m := shaped(e, redditEmbed(n.Reddit, e.Look), n.Reddit.Post.Title)
+	if e.Forum && e.Look.Image && n.Reddit.Post.ImageURL != "" {
+		m.Upload, m.Embeds[0].Image, m.Embeds[0].Thumbnail = n.Reddit.Post.ImageURL, nil, nil
+	}
+	return m
 }
 
 // TestPayload is what admin's Test button sends e: TestText, shaped as e shapes every message.
@@ -187,8 +194,8 @@ func TestPayload(e store.NotificationEndpoint) WebhookMessage {
 	return shaped(e, Embed{Title: testHeading, Description: TestText, Color: colour(e.Look.Colour)}, testHeading)
 }
 
-// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture, and opening a
-// thread named thread when e is a forum channel's.
+// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture. For a forum
+// channel it opens a thread named thread, and the embed's text moves to the message, which the forum's card shows.
 func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMessage {
 	m := WebhookMessage{Embeds: []Embed{embed}, Username: e.Username, AvatarURL: e.AvatarURL}
 	var ping string
@@ -196,9 +203,13 @@ func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMes
 		ping = "<@&" + e.RoleID + ">"
 		m.Roles = []string{e.RoleID}
 	}
-	m.Content = strings.TrimSpace(prefixed(e, ping))
+	head := strings.TrimSpace(prefixed(e, ping))
+	m.Content = head
 	if e.Forum {
 		m.ThreadName = cut(strings.TrimSpace(thread), maxThreadName)
+		room := maxContent - len([]rune(head)) - 1
+		m.Content = strings.TrimSpace(head + " " + discordbot.CutAtWord(m.Embeds[0].Description, room))
+		m.Embeds[0].Description = ""
 	}
 	return m
 }
@@ -217,7 +228,7 @@ func redditEmbed(r store.RedditNotice, look store.EmbedLook) Embed {
 	case "full":
 		embed.Description = cut(p.Body, maxEmbedText)
 	case "short":
-		embed.Description = atWord(p.Body, ShortText)
+		embed.Description = discordbot.CutAtWord(p.Body, shortText)
 	}
 	if look.Author && p.Author != "" {
 		embed.Fields = []EmbedField{{Name: "Post Author", Value: cut("/u/"+discordbot.EscapeMarkdown(p.Author), maxFieldValue)}}
@@ -244,19 +255,6 @@ func colour(hex string) int {
 // redditOrange is a Reddit embed's colour when its endpoint has none.
 const redditOrange = 0xFF4500
 
-// atWord shortens s to at most n characters at a word's end, ending with … when it was longer.
-func atWord(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
-	}
-	short := string(r[:n-1])
-	if i := strings.LastIndexAny(short, " \n"); i > n/2 {
-		short = short[:i]
-	}
-	return strings.TrimSpace(short) + "…"
-}
-
 // cut shortens s to at most n characters, ending with … when it was longer.
 func cut(s string, n int) string {
 	if r := []rune(s); len(r) > n {
@@ -265,40 +263,67 @@ func cut(s string, n int) string {
 	return s
 }
 
-// Discord posts messages to Discord webhooks.
-type Discord struct{ hc *http.Client }
-
-// NewDiscord returns a poster using hc, whose timeout bounds each post.
-func NewDiscord(hc *http.Client) *Discord { return &Discord{hc: hc} }
-
-// Post posts content, cut to Discord's limit, to the webhook at webhook, allowing no mentions. It returns a
-// *RefusedError when Discord answers other than success; no error holds the URL, whose path is the webhook's secret.
-func (d *Discord) Post(ctx context.Context, webhook, content string) error {
-	return d.Send(ctx, webhook, WebhookMessage{Content: content})
+// Discord posts messages to Discord webhooks. ImageHosts and ImageScheme are where a message's Upload may be read
+// from: Reddit's image hosts over https.
+type Discord struct {
+	hc          *http.Client
+	ImageHosts  []string
+	ImageScheme string
 }
 
-// Send posts m, its text cut to Discord's limit, to the webhook at webhook, as Post does, allowing only m's roles
-// to be pinged.
+// NewDiscord returns a poster using hc, whose timeout bounds each post and image read.
+func NewDiscord(hc *http.Client) *Discord {
+	return &Discord{hc: hc, ImageHosts: []string{"i.redd.it", "preview.redd.it"}, ImageScheme: "https"}
+}
+
+// maxImage is the most bytes of an image uploaded; Discord takes 10 MB in all.
+const maxImage = 8 << 20
+
+// imageTypes name an uploaded image's file by its type.
+var imageTypes = map[string]string{"image/jpeg": "image.jpg", "image/png": "image.png", "image/gif": "image.gif", "image/webp": "image.webp"}
+
+// Send posts m, its text cut to Discord's limit, to the webhook at webhook, allowing only m's roles to be pinged.
+// m's Upload is read and sent as a file, or, when it cannot be, shown in its first embed: as its image when it is a
+// full i.redd.it one, else as its thumbnail. It returns a *RefusedError when Discord answers other than success; no
+// error holds the URL, whose path is the webhook's secret.
 func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) error {
 	if r := []rune(m.Content); len(r) > maxContent {
 		m.Content = string(r[:maxContent])
+	}
+	var file []byte
+	var name string
+	if m.Upload != "" {
+		var ok bool
+		if file, name, ok = d.image(ctx, m.Upload); !ok && len(m.Embeds) > 0 {
+			if strings.HasPrefix(m.Upload, "https://i.redd.it/") {
+				m.Embeds[0].Image = &EmbedImage{URL: m.Upload}
+			} else {
+				m.Embeds[0].Thumbnail = &EmbedImage{URL: m.Upload}
+			}
+		}
 	}
 	mentions := map[string][]string{"parse": {}}
 	if len(m.Roles) > 0 {
 		mentions["roles"] = m.Roles
 	}
-	body, err := json.Marshal(struct {
+	payload, err := json.Marshal(struct {
 		WebhookMessage
 		AllowedMentions map[string][]string `json:"allowed_mentions"`
 	}{m, mentions})
 	if err != nil {
 		return fmt.Errorf("writing a Discord message: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook, bytes.NewReader(body))
+	body, contentType := bytes.NewReader(payload), "application/json"
+	if file != nil {
+		if body, contentType, err = withFile(payload, name, file); err != nil {
+			return err
+		}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook, body)
 	if err != nil {
 		return errors.New("posting to Discord: not a URL")
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	resp, err := d.hc.Do(req)
 	if err != nil {
 		var u *url.Error
@@ -312,4 +337,62 @@ func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) er
 		return &RefusedError{Status: resp.StatusCode}
 	}
 	return nil
+}
+
+// image reads the image at address, from an allowed host only, redirects included, and returns it with its file
+// name, or false when it is not an allowed host's, not an image Discord shows, too big, or cannot be read.
+func (d *Discord) image(ctx context.Context, address string) ([]byte, string, bool) {
+	allowed := func(u *url.URL) bool { return u.Scheme == d.ImageScheme && slices.Contains(d.ImageHosts, u.Host) }
+	u, err := url.Parse(address)
+	if err != nil || !allowed(u) {
+		return nil, "", false
+	}
+	hc := *d.hc
+	hc.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if !allowed(req.URL) || len(via) >= 5 {
+			return errors.New("redirected away from Reddit's image hosts")
+		}
+		return nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return nil, "", false
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return nil, "", false
+	}
+	defer resp.Body.Close()
+	name, ok := imageTypes[strings.TrimSpace(strings.Split(resp.Header.Get("Content-Type"), ";")[0])]
+	if resp.StatusCode != http.StatusOK || !ok {
+		return nil, "", false
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImage+1))
+	if err != nil || len(data) > maxImage {
+		return nil, "", false
+	}
+	return data, name, true
+}
+
+// withFile is payload with file attached as files[0], named name, as a multipart body and its content type.
+func withFile(payload []byte, name string, file []byte) (*bytes.Reader, string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	pj, err := w.CreateFormField("payload_json")
+	if err == nil {
+		_, err = pj.Write(payload)
+	}
+	if err == nil {
+		var f io.Writer
+		if f, err = w.CreateFormFile("files[0]", name); err == nil {
+			_, err = f.Write(file)
+		}
+	}
+	if err == nil {
+		err = w.Close()
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("writing a Discord message with a file: %w", err)
+	}
+	return bytes.NewReader(buf.Bytes()), w.FormDataContentType(), nil
 }

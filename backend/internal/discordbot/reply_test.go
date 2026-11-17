@@ -102,3 +102,25 @@ func TestOwnRatingProblem(t *testing.T) {
 		})
 	}
 }
+
+func TestCutAtWordShortensAtAWordsEndWithinTheCharactersGiven(t *testing.T) {
+	tests := []struct {
+		name, in string
+		n        int
+		want     string
+	}{
+		{"short enough", "a few words", 20, "a few words"},
+		{"cut at a space", "one two three four", 12, "one two…"},
+		{"cut at a line's end", "one two\nthree four", 12, "one two…"},
+		{"counted in characters, not bytes", "éééé éééé éééé", 11, "éééé éééé…"},
+		{"one long word cut inside", strings.Repeat("x", 30), 10, strings.Repeat("x", 9) + "…"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := discordbot.CutAtWord(tt.in, tt.n)
+			if got != tt.want || len([]rune(got)) > tt.n {
+				t.Errorf("CutAtWord(%q, %d) = %q, want %q", tt.in, tt.n, got, tt.want)
+			}
+		})
+	}
+}
