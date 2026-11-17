@@ -17,7 +17,7 @@ import (
 var redditAt = time.Date(2026, 11, 17, 1, 0, 0, 0, time.UTC)
 
 // allKinds are every kind of post, as a new feed sends.
-var allKinds = []string{"text", "image", "video", "link"}
+var allKinds = []string{"text", "image", "gallery", "video", "link"}
 
 // redditStore is a fresh database's admin store, on the admin login as the job and the api use it.
 func redditStore(t *testing.T) *AdminStore {
@@ -578,5 +578,49 @@ func TestSendingLocksNoEndpointWhileDiscordAnswers(t *testing.T) {
 	}
 	if e, _ := a.NotificationEndpoint(ctx, ids[0]); e.LastSentAt == nil || e.Name != "First, renamed" {
 		t.Errorf("first endpoint = %q sent at %v, want the edit kept and its delivery recorded", e.Name, e.LastSentAt)
+	}
+}
+
+func TestGalleriesBecomeAKindOfTheirOwnSentByFeedsThatSendImages(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	images, text := addFeed(t, a, "example"), addFeed(t, a, "elsewhere")
+	migrate := func(down bool) {
+		t.Helper()
+		if err := withRatingsMigrations(pool, func(p *goose.Provider) error {
+			if down {
+				_, err := p.DownTo(ctx, 88)
+				return err
+			}
+			_, err := p.Up(ctx)
+			return err
+		}); err != nil {
+			t.Fatalf("migrating (down %t): %v", down, err)
+		}
+	}
+	migrate(true)
+	if _, err := pool.Exec(ctx, `UPDATE reddit_feeds SET kinds = CASE feed_id WHEN $1 THEN ARRAY['text', 'image'] ELSE ARRAY['text'] END`, images); err != nil {
+		t.Fatalf("setting the feeds' kinds before 00089: %v", err)
+	}
+	migrate(false)
+	kinds := map[int64][]string{}
+	list, err := a.RedditFeeds(ctx)
+	if err != nil {
+		t.Fatalf("RedditFeeds: %v", err)
+	}
+	for _, f := range list {
+		kinds[f.ID] = f.Kinds
+	}
+	if !slices.Contains(kinds[images], "gallery") || slices.Contains(kinds[text], "gallery") {
+		t.Errorf("kinds after 00089 = %v, want galleries for the feed sending images alone", kinds)
+	}
+	g := post(1)
+	g.Kind = "gallery"
+	record(t, a, images, redditAt, g)
+	migrate(true)
+	var kind string
+	if err := pool.QueryRow(ctx, "SELECT kind FROM reddit_posts WHERE post_id = $1", g.PostID).Scan(&kind); err != nil || kind != "image" {
+		t.Errorf("a gallery after 00089's Down: kind %q, %v; want image, as before", kind, err)
 	}
 }

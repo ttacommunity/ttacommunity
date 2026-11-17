@@ -6344,7 +6344,7 @@ components:
     RedditPostKind:
       description: A kind of Reddit post
       type: string
-      enum: [text, image, video, link]
+      enum: [text, image, gallery, video, link]
     NotificationTest:
       type: object
       required: [delivered, message]

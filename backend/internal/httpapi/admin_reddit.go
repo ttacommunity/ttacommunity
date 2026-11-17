@@ -46,7 +46,7 @@ func kindsIn(b *RedditFeedSetting) ([]string, string) {
 	kinds := []string{}
 	for _, k := range b.Kinds {
 		if !k.Valid() {
-			return nil, "kinds are text, image, video and link"
+			return nil, "kinds are text, image, gallery, video and link"
 		}
 		kinds = append(kinds, string(k))
 	}

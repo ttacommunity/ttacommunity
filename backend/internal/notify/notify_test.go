@@ -182,7 +182,8 @@ func TestARedditPostIsAnEmbedLikeMee6s(t *testing.T) {
 	}{
 		{"a text post", "text", "", "New post on /r/example", "", ""},
 		{"an image", "image", "https://i.redd.it/abc.jpeg", "New image post on /r/example", "https://i.redd.it/abc.jpeg", ""},
-		{"a gallery, its small preview in the corner", "image", preview, "New image post on /r/example", "", preview},
+		{"an image with only a small preview, in the corner", "image", preview, "New image post on /r/example", "", preview},
+		{"a gallery, its small preview in the corner", "gallery", preview, "New gallery post on /r/example", "", preview},
 		{"a video", "video", preview, "New video post on /r/example", "", preview},
 		{"a link", "link", preview, "New link post on /r/example", "", preview},
 	}

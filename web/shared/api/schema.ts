@@ -4120,7 +4120,7 @@ export interface components {
          * @description A kind of Reddit post
          * @enum {string}
          */
-        RedditPostKind: "text" | "image" | "video" | "link";
+        RedditPostKind: "text" | "image" | "gallery" | "video" | "link";
         NotificationTest: {
             delivered: boolean;
             /** @description What happened, for admin to show */
@@ -12804,7 +12804,7 @@ export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<compon
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
-export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "video", "link"];
+export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "gallery", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
