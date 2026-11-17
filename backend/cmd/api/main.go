@@ -23,6 +23,7 @@ import (
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/discord"
 	"ttacommunity/backend/internal/discordbot"
+	"ttacommunity/backend/internal/discordcommands"
 	"ttacommunity/backend/internal/enginejob"
 	"ttacommunity/backend/internal/httpapi"
 	"ttacommunity/backend/internal/metrics"
@@ -123,6 +124,7 @@ func main() {
 	}
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
+		go registerCommands(ctx, os.Getenv, &http.Client{Timeout: 30 * time.Second}, discordcommands.API, log)
 	}
 	admins.youtube = openYouTube(os.Getenv)
 	if admins.youtube == nil {

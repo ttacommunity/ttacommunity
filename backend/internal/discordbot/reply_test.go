@@ -69,6 +69,15 @@ func TestRatingTextNamesThePlayerSafelyAndLinksTheirPage(t *testing.T) {
 	}
 }
 
+func TestRatingTextShowsTheSitesDecimals(t *testing.T) {
+	text := discordbot.RatingText(discordbot.Summary{Name: "Quill", Rating: 1908.64, RD: 45.33, CRating: 1580.271}, "https://site.example")
+	for _, want := range []string{"1908.6 ± 45.3", "1580.27"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("RatingText = %q, want it to contain %q", text, want)
+		}
+	}
+}
+
 func TestOwnRatingProblem(t *testing.T) {
 	const site = "https://site.example"
 	tests := []struct {

@@ -8,11 +8,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
 
 	"ttacommunity/backend/internal/discordbot"
+	"ttacommunity/backend/internal/ratingdelta"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -74,8 +76,8 @@ func routeDiscord(rest, discord http.Handler) http.Handler {
 	})
 }
 
-// AnswerDiscordInteraction answers one interaction Discord signed: its PING, /rating and its suggestions, or
-// /myrating.
+// AnswerDiscordInteraction answers one interaction Discord signed: its PING, a command, or names for the player
+// option being typed.
 func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscordInteractionRequestObject) (AnswerDiscordInteractionResponseObject, error) {
 	ctx, cancel := context.WithTimeout(ctx, discordAnswerTime)
 	defer cancel()
@@ -91,6 +93,18 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = s.ratingReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "myrating":
 		reply = s.myRatingReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "roll":
+		reply = rollReply(*i)
+	case i.Type == discordCommand && commandName(*i) == "versus":
+		reply = s.versusReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "rivals":
+		reply = s.rivalsReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "compare":
+		reply = s.compareReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "seats":
+		reply = s.seatsReply(ctx, *i)
+	case i.Type == discordCommand && commandName(*i) == "upsets":
+		reply = s.upsetsReply(ctx, *i)
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -100,7 +114,7 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 // suggestPlayers offers the players whose names hold what was typed: none before anything is, or when the search fails.
 func (s *server) suggestPlayers(ctx context.Context, i DiscordInteraction) DiscordReply {
 	choices := []DiscordChoice{}
-	if term := discordbot.SearchTerm(stringOption(i, "player")); term != "" {
+	if term := discordbot.SearchTerm(focusedOption(i)); term != "" {
 		run, err := s.ratings.CurrentRun(ctx)
 		var names []string
 		if err == nil {
@@ -146,7 +160,7 @@ func (s *server) myRatingReply(ctx context.Context, i DiscordInteraction) Discor
 // showRating shows name's rating in format to the asker alone, or to everyone when shared, or says to the asker
 // alone why it cannot.
 func (s *server) showRating(ctx context.Context, name string, format int, shared bool) DiscordReply {
-	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
+	noPlayer := noPlayerReply(name)
 	if playerRefusal(1, name, N0) != "" {
 		return noPlayer
 	}
@@ -166,6 +180,196 @@ func (s *server) showRating(ctx context.Context, name string, format int, shared
 		return discordText(discordbot.EscapeMarkdown(p.Name)+" has no "+discordbot.FormatLabel(format)+" rating.", true)
 	}
 	return discordText(discordbot.RatingText(summary, s.discord.Site()), !shared)
+}
+
+// rollReply rolls the dice asked for, for everyone to see unless asked private, or tells the asker alone why not.
+func rollReply(i DiscordInteraction) DiscordReply {
+	d, err := discordbot.ParseDice(stringOption(i, "dice"))
+	if err != nil {
+		return discordText("Those dice can't be rolled: "+err.Error()+".", true)
+	}
+	private, _ := option(i, "private").(bool)
+	rolls := discordbot.RollDice(d, func(sides int) int { return rand.IntN(sides) + 1 })
+	return discordText(discordbot.DiceText(d, rolls), private)
+}
+
+// versusReply shows two players' record in their rated games together, as the site's head-to-head counts it, or
+// tells the asker alone why it cannot.
+func (s *server) versusReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name, other := strings.TrimSpace(stringOption(i, "player")), strings.TrimSpace(stringOption(i, "other"))
+	switch {
+	case name == "" || other == "":
+		return discordText("Give two players' names: `/versus <player> <other>`", true)
+	case strings.EqualFold(name, other):
+		return discordText("Pick two different players.", true)
+	}
+	noPlayer := discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+" or "+discordbot.EscapeMarkdown(other)+".", true)
+	if playerRefusal(1, name, N0) != "" || playerRefusal(1, other, N0) != "" {
+		return noPlayer
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	name, other, shared, err := s.ratings.Versus(ctx, run.ID, name, other, true, false)
+	if errors.Is(err, store.ErrPlayerNotFound) {
+		return noPlayer
+	}
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	meetings := make([]discordbot.Meeting, 0, len(shared))
+	for _, m := range shared {
+		a, b := placesOf(placed(m.Seats), name, other)
+		meetings = append(meetings, discordbot.Meeting{Date: m.Date, Tournament: m.Tournament, PlayerCount: m.PlayerCount, NamePlace: a, OtherPlace: b})
+	}
+	format := formatOption(i)
+	return discordText(discordbot.VersusText(name, other, format, discordbot.TallyVersus(meetings, format), s.discord.Site()), !shareOption(i))
+}
+
+// rivalsReply shows the opponents a player met most in rated games, as the site's rivals panel does, or tells the
+// asker alone why it cannot.
+func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name, run, refusal := s.askedPlayer(ctx, i, "rivals")
+	if refusal != nil {
+		return *refusal
+	}
+	format := formatOption(i)
+	stored, got, err := s.ratings.PlayerRivals(ctx, run, name, format, true, false)
+	if err != nil {
+		return s.readFailed(ctx, err, name)
+	}
+	rivals := make([]discordbot.Rival, 0, len(got))
+	for _, v := range got {
+		rivals = append(rivals, discordbot.Rival{Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v)})
+	}
+	return discordText(discordbot.RivalsText(stored, format, rivals, s.discord.Site()), !shareOption(i))
+}
+
+// compareReply shows two to four players' Glicko-D ratings in every format side by side, or tells the asker alone why
+// it cannot.
+func (s *server) compareReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	var names []string
+	for _, opt := range []string{"player1", "player2", "player3", "player4"} {
+		name := strings.TrimSpace(stringOption(i, opt))
+		if name == "" {
+			continue
+		}
+		for _, seen := range names {
+			if strings.EqualFold(seen, name) {
+				return discordText("Pick different players.", true)
+			}
+		}
+		names = append(names, name)
+	}
+	if len(names) < 2 {
+		return discordText("Give two to four players' names: `/compare <player1> <player2>`", true)
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	compared := make([]discordbot.Compared, 0, len(names))
+	for _, name := range names {
+		noPlayer := noPlayerReply(name)
+		if playerRefusal(1, name, N0) != "" {
+			return noPlayer
+		}
+		p, err := s.ratings.Player(ctx, run.ID, name)
+		if errors.Is(err, store.ErrPlayerNotFound) {
+			return noPlayer
+		}
+		if err != nil {
+			return s.notAnswering(ctx, err)
+		}
+		c := discordbot.Compared{Name: p.Name, Games: p.Games[0], Ratings: map[int]discordbot.Summary{}}
+		for _, format := range []int{0, 2, 3, 4} {
+			if r, ok := summarise(p, format); ok {
+				c.Title, c.Ratings[format] = r.Title, r
+			}
+		}
+		compared = append(compared, c)
+	}
+	return discordText(discordbot.CompareText(compared), !shareOption(i))
+}
+
+// seatsReply shows a player's win rate from each seat in rated games, as the site's seat panel does, or tells the
+// asker alone why it cannot.
+func (s *server) seatsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	name, run, refusal := s.askedPlayer(ctx, i, "seats")
+	if refusal != nil {
+		return *refusal
+	}
+	stats, err := s.ratings.PlayerSeats(ctx, run, name, false)
+	if err != nil {
+		return s.readFailed(ctx, err, name)
+	}
+	groups := make([]discordbot.SeatGroup, 0, len(stats.Groups))
+	for _, g := range stats.Groups {
+		group := discordbot.SeatGroup{PlayerCount: g.PlayerCount, Games: g.TotalGames, WinRate: g.WinRate}
+		for _, r := range g.Seats {
+			group.Seats = append(group.Seats, discordbot.SeatRow{Seat: r.Seat, Games: r.Games, WinRate: r.WinRate, Delta: r.DeltaWinRate})
+		}
+		groups = append(groups, group)
+	}
+	return discordText(discordbot.SeatsText(stats.Name, formatOption(i), groups, s.discord.Site()), !shareOption(i))
+}
+
+// shownUpsets is how many upsets /upsets lists.
+const shownUpsets = 5
+
+// upsetsReply shows the biggest upsets in the month up to the current run's last game: favourites who lost to or
+// drew with players they were expected to beat, by their Glicko-D ratings going in.
+func (s *server) upsetsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	format := formatOption(i)
+	from, to, got, err := s.ratings.UpsetPairs(ctx, run.ID, format)
+	if err != nil {
+		return s.notAnswering(ctx, err)
+	}
+	pairs := make([]discordbot.Pair, 0, len(got))
+	for _, p := range got {
+		expected := ratingdelta.Expected(ratingdelta.Rating{Rating: p.Rating, RD: p.RD}, ratingdelta.Rating{Rating: p.OtherRating, RD: p.OtherRD})
+		pairs = append(pairs, discordbot.Pair{GameID: p.GameID, Date: p.Date, Tournament: p.Tournament, PlayerCount: p.PlayerCount,
+			Name: p.Name, Other: p.Other, Rating: p.Rating, OtherRating: p.OtherRating, Expected: expected, Score: p.Score, TimedOut: p.TimedOut})
+	}
+	return discordText(discordbot.UpsetsText(from, to, format, discordbot.Upsets(pairs, shownUpsets)), !shareOption(i))
+}
+
+// askedPlayer is the player option and the current run's id for a command about one player, or the reply to give
+// the asker alone instead: for no name, a name no player could have, or no run to read.
+func (s *server) askedPlayer(ctx context.Context, i DiscordInteraction, command string) (string, int64, *DiscordReply) {
+	name := strings.TrimSpace(stringOption(i, "player"))
+	if name == "" {
+		r := discordText("Give a player's name: `/"+command+" <name>`", true)
+		return "", 0, &r
+	}
+	if playerRefusal(1, name, N0) != "" {
+		r := noPlayerReply(name)
+		return "", 0, &r
+	}
+	run, err := s.ratings.CurrentRun(ctx)
+	if err != nil {
+		r := s.notAnswering(ctx, err)
+		return "", 0, &r
+	}
+	return name, run.ID, nil
+}
+
+// readFailed is the reply when reading name's data failed: no such player, or the ratings not answering.
+func (s *server) readFailed(ctx context.Context, err error, name string) DiscordReply {
+	if errors.Is(err, store.ErrPlayerNotFound) {
+		return noPlayerReply(name)
+	}
+	return s.notAnswering(ctx, err)
+}
+
+// noPlayerReply tells the asker alone that no rated player has name.
+func noPlayerReply(name string) DiscordReply {
+	return discordText("No rated player is named "+discordbot.EscapeMarkdown(name)+".", true)
 }
 
 // notAnswering logs why a reply could not be built and tells the asker alone to try again.
@@ -219,6 +423,20 @@ func option(i DiscordInteraction, name string) any {
 		}
 	}
 	return nil
+}
+
+// focusedOption is what has been typed so far in the option Discord asks suggestions for, or "".
+func focusedOption(i DiscordInteraction) string {
+	if i.Data == nil || i.Data.Options == nil {
+		return ""
+	}
+	for _, o := range *i.Data.Options {
+		if o.Focused != nil && *o.Focused {
+			v, _ := o.Value.(string)
+			return v
+		}
+	}
+	return ""
 }
 
 func stringOption(i DiscordInteraction, name string) string {

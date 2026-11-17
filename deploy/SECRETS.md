@@ -19,6 +19,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `ratings-player` | `password`, `database-url` | `api` | The api's player login `ratings_player_api`, a member of `ratings_player` (sign-ins, sessions, requests to be linked, a member's own country and zone) |
 | `ratings-dev-player` | `password`, `database-url` | `api-dev` | The dev api's player login `ratings_dev_player_api`, a member of `ratings_player` |
 | `discord-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Discord application, whose id is `DISCORD_CLIENT_ID` in `api.yaml` (not the Access sign-in Worker's app) |
+| `discord-bot` | `token` | `api` | The bot token of the Discord app "TTA Community Hub" (`DISCORD_APP_ID` in `api.yaml`), with which the api registers the bot's slash commands as it starts. Optional: without it the api registers nothing |
 | `microsoft-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Microsoft app "TTA Community" (Entra tenant "TTA Community", owned by accounts@ttacommunity.org), whose id is `MICROSOFT_CLIENT_ID` in `api.yaml`. **Expires 2028-10-20**: issue the next one before then |
 | `google-signin` | `client-secret` | `api`, `api-dev` | The client secret of the players' Google Web client, in the Google Cloud project "TTA Community" (`tta-community`, no organisation, owned by accounts@ttacommunity.org), whose id is `GOOGLE_CLIENT_ID` in `api.yaml`. It does not expire, but **Google deletes a client after 6 months without a sign-in** (restorable for 30 days from the project's deleted credentials) |
 | `email-signin` | `resend-api-key` | `api`, `api-dev` | Resend's API key for the sign-in emails: sending access, restricted to ttacommunity.org |
@@ -48,6 +49,7 @@ up nightly"). Reissuing is for when that copy is lost.
 | `ratings-db`, `ratings-engine` | **New on a rebuild**, before the database's first start (below). On the running database, Postgres keeps the old password whatever the Secret says: set a new one with `ALTER ROLE ratings PASSWORD …` inside the pod, then replace both Secrets |
 | `ratings-api`, `ratings-admin`, `ratings-player`, and the `ratings-dev-*` logins | **New on a rebuild**, or at any time: a new password with `ALTER ROLE`, then the Secret (below) |
 | `discord-signin` | **Reissued** from Discord's developer portal (Reset Secret) |
+| `discord-bot` | **Reissued** from Discord's developer portal (the app's Bot page, Reset Token), then the Secret (below) and a restart of `api` |
 | `microsoft-signin` | **Reissued**: a new client secret on the app (entra.microsoft.com, App registrations, Certificates & secrets), then delete the old one |
 | `google-signin` | **Reissued**: add a new secret to the client (Google Auth Platform, Clients; Google shows it only once, so store it as below before closing), then disable and delete the old one |
 | `email-signin` | **Reissued**: a new key in Resend's dashboard (API Keys: sending access, domain ttacommunity.org), then delete the old one |
@@ -162,6 +164,18 @@ Its redirects must include each api's `/v1/auth/discord/callback`:
 read -rsp 'Discord client secret: ' secret; echo
 printf %s "$secret" | kubectl -n ttacommunity create secret generic discord-signin --from-file=client-secret=/dev/stdin
 unset secret
+```
+
+`discord-bot` is the bot token of "TTA Community Hub" (the app's Bot page,
+Reset Token). Each api pod registers the commands in
+`backend/internal/discordcommands/commands.json` everywhere the app is
+installed as it starts, and logs "registered the Discord bot's commands":
+
+```sh
+read -rsp 'Discord bot token: ' token; echo
+printf %s "$token" | kubectl -n ttacommunity create secret generic discord-bot --from-file=token=/dev/stdin
+unset token
+kubectl -n ttacommunity rollout restart deployment api
 ```
 
 `microsoft-signin` is the players' Microsoft app's client secret (Certificates
