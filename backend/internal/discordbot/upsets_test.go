@@ -111,3 +111,21 @@ func TestUpsetsText(t *testing.T) {
 		})
 	}
 }
+
+func TestUpsetsTextLeavesOutWhatDoesNotFitInAMessage(t *testing.T) {
+	long := strings.Repeat("N", 20)
+	var upsets []discordbot.Upset
+	for range 10 {
+		o := discordbot.Opponent{Name: long, Rating: 1800}
+		upsets = append(upsets, discordbot.Upset{Tournament: strings.Repeat("T", 40), PlayerCount: 4, Name: long, Rating: 1500,
+			Expected: 2.5, Opponents: 3, Ahead: []discordbot.Opponent{o, o, o}, Date: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)})
+	}
+	from, to := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	text := discordbot.UpsetsText(from, to, 0, upsets)
+	if n := len([]rune(text)); n > discordbot.MaxReply || !strings.Contains(text, "more that do not fit") {
+		t.Errorf("UpsetsText of 10 long upsets is %d characters, want at most %d, saying how many it left out", n, discordbot.MaxReply)
+	}
+	if short := discordbot.UpsetsText(from, to, 0, upsets[:2]); strings.Contains(short, "more that do not fit") {
+		t.Errorf("UpsetsText of 2 upsets = %q, want all of them", short)
+	}
+}

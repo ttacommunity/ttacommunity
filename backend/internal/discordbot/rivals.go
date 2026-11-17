@@ -13,17 +13,14 @@ type Rival struct {
 	WinRate                    float64
 }
 
-// shownRivals is how many opponents /rivals lists.
-const shownRivals = 5
-
-// RivalsText is the reply for name's rivals in format, most games first, linking name's page on site.
-func RivalsText(name string, format int, rivals []Rival, site string) string {
+// RivalsText is the reply for name's first n rivals in format, most games first, linking name's page on site.
+func RivalsText(name string, format int, rivals []Rival, n int, site string) string {
 	who := "**" + EscapeMarkdown(name) + "**"
 	if len(rivals) == 0 {
 		return fmt.Sprintf("%s has no %s.", who, ratedGames(format))
 	}
 	lines := []string{fmt.Sprintf("%s's most played opponents · %s, rated games", who, FormatLabel(format))}
-	for i, r := range rivals[:min(shownRivals, len(rivals))] {
+	for i, r := range rivals[:min(n, len(rivals))] {
 		lines = append(lines, fmt.Sprintf("%d. %s · %d games · %d–%d–%d · %.1f%% won",
 			i+1, EscapeMarkdown(r.Name), r.Games, r.Wins, r.Losses, r.Draws, r.WinRate))
 	}

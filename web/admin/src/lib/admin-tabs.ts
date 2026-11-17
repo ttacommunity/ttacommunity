@@ -1,7 +1,7 @@
 /** The admin page's tabs: which a role sees, and which one the address opens. Rating runs sit in Data. */
 
 export type Role = 'admin' | 'organiser';
-export type TabKey = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'movies' | 'titles' | 'admins' | 'notifications' | 'audit';
+export type TabKey = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'movies' | 'titles' | 'admins' | 'notifications' | 'bot' | 'audit';
 
 /** TABS are admin's tabs in order; adminOnly ones an organiser does not see. */
 export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
@@ -16,6 +16,7 @@ export const TABS: { key: TabKey; label: string; adminOnly: boolean }[] = [
   { key: 'titles', label: 'Titles & badges', adminOnly: true },
   { key: 'admins', label: 'Admins', adminOnly: true },
   { key: 'notifications', label: 'Notifications', adminOnly: true },
+  { key: 'bot', label: 'Discord bot', adminOnly: true },
   { key: 'audit', label: 'Audit', adminOnly: true },
 ];
 
@@ -24,7 +25,7 @@ const GROUPS: { label: string; tabs: TabKey[] }[] = [
   { label: 'Tournaments', tabs: ['tournaments', 'community', 'blitz'] },
   { label: 'Bread & Circuses', tabs: ['challenges', 'nostradamus'] },
   { label: 'Players', tabs: ['members', 'titles'] },
-  { label: 'Site', tabs: ['data', 'movies', 'admins', 'notifications', 'audit'] },
+  { label: 'Site', tabs: ['data', 'movies', 'admins', 'notifications', 'bot', 'audit'] },
 ];
 
 /** groupsFor returns the header's menus holding the given tabs, each with the total of its tabs' counts; a menu left with no tab is dropped. */
@@ -49,7 +50,7 @@ export function tabFrom(hash: string, role: Role): TabKey {
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
 
-export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'runs' | 'standings' | 'movies' | 'titles' | 'badges' | 'admins' | 'notifications' | 'audit';
+export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'runs' | 'standings' | 'movies' | 'titles' | 'badges' | 'admins' | 'notifications' | 'bot' | 'audit';
 
 /** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. */
 export function panelsFor(tab: TabKey, role: Role): Panel[] {

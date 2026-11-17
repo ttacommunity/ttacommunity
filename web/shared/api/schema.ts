@@ -2739,6 +2739,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/discord-bot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Discord bot's commands, settings and registration (admins only) */
+        get: operations["getAdminDiscordBot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/discord-bot/commands/{command}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a Discord command's settings (admins only)
+         * @description Audited. The Origin must be the admin site. A command turned off stays registered with Discord and answers its asker alone that it is off.
+         */
+        put: operations["putAdminDiscordCommand"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/reddit-feeds": {
         parameters: {
             query?: never;
@@ -4005,6 +4042,43 @@ export interface components {
             image?: boolean;
             author?: boolean;
         };
+        DiscordBot: {
+            /** @description Every command the bot has, in the order Discord lists them, with its settings */
+            commands: components["schemas"]["DiscordBotCommand"][];
+            /**
+             * Format: date-time
+             * @description When the api last registered the commands with Discord
+             */
+            registered_at?: string | null;
+            /** @description The commands Discord then held */
+            registered: string[];
+            /** @description The link that adds the bot's commands to a server; none when no application is set up */
+            install_url?: string | null;
+        };
+        DiscordBotCommand: {
+            /** @description Its name, without / */
+            name: string;
+            description: string;
+            on: boolean;
+            reply: components["schemas"]["DiscordReplyVisibility"];
+            /** @description The format shown when the asker gives none, 0 for every format; none for a command without formats */
+            format?: number | null;
+            /** @description How many rows its list shows; none for a command that lists nothing */
+            results?: number | null;
+        };
+        DiscordCommandSetting: {
+            on: boolean;
+            reply: components["schemas"]["DiscordReplyVisibility"];
+            /** @description 0, 2, 3 or 4, for a command with formats */
+            format?: number;
+            /** @description 1 to 10, for a command that lists */
+            results?: number;
+        };
+        /**
+         * @description Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private, or always one or the other
+         * @enum {string}
+         */
+        DiscordReplyVisibility: "private" | "shared" | "always_private" | "always_shared";
         RedditFeed: {
             /** Format: int64 */
             id: number;
@@ -11094,6 +11168,57 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminDiscordBot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bot */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscordBot"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putAdminDiscordCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                command: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscordCommandSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminRedditFeeds: {
         parameters: {
             query?: never;
@@ -12677,6 +12802,7 @@ export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
+export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
 export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];

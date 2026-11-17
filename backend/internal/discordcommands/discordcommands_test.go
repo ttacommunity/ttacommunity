@@ -124,3 +124,41 @@ func TestTheCommandsHaveTheOptionsTheApiReads(t *testing.T) {
 		t.Errorf("commands = %q, want %q", got, want)
 	}
 }
+
+func TestListGivesEveryCommandInItsOrder(t *testing.T) {
+	list, err := discordcommands.List()
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	var file []struct{ Name, Description string }
+	if err := json.Unmarshal(discordcommands.Commands, &file); err != nil {
+		t.Fatalf("reading commands.json: %v", err)
+	}
+	if len(list) != len(file) || list[0].Name != file[0].Name || list[0].Description == "" {
+		t.Errorf("List = %+v, want commands.json's %d commands, each with its description", list, len(file))
+	}
+}
+
+func TestInstallURLAddsTheAppsCommandsToAServer(t *testing.T) {
+	const want = "https://discord.com/oauth2/authorize?client_id=100000000000000003&scope=applications.commands"
+	if got := discordcommands.InstallURL("100000000000000003"); got != want {
+		t.Errorf("InstallURL = %q, want %q", got, want)
+	}
+	if got := discordcommands.InstallURL("not-an-id"); got != "" {
+		t.Errorf("InstallURL(not an id) = %q, want none", got)
+	}
+}
+
+func TestACommandSaysWhichOptionsItTakes(t *testing.T) {
+	list, err := discordcommands.List()
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	takes := map[string]map[string]bool{}
+	for _, c := range list {
+		takes[c.Name] = map[string]bool{"format": c.Takes("format"), "share": c.Takes("share"), "private": c.Takes("private")}
+	}
+	if !takes["rating"]["format"] || !takes["rating"]["share"] || takes["roll"]["share"] || !takes["roll"]["private"] || takes["compare"]["format"] {
+		t.Errorf("options taken = %v, want /rating format and share, /roll private alone, /compare no format", takes)
+	}
+}

@@ -124,7 +124,7 @@ func main() {
 	}
 	if discord != nil {
 		log.Info("the Discord bot's endpoint is on")
-		go registerCommands(ctx, os.Getenv, &http.Client{Timeout: 30 * time.Second}, discordcommands.API, log)
+		go registerCommands(ctx, os.Getenv, &http.Client{Timeout: 30 * time.Second}, discordcommands.API, admins.RecordCommandsRegistered, time.Now, log)
 	}
 	admins.youtube = openYouTube(os.Getenv)
 	if admins.youtube == nil {
@@ -191,7 +191,12 @@ type adminDeps struct {
 	youtube *movies.YouTube
 	// movieStarter starts Movies Jobs; nil without MOVIES_CRONJOB.
 	movieStarter *enginejob.Starter
+	// appID is the Discord application's id, DISCORD_APP_ID; "" when none is set up.
+	appID string
 }
+
+// DiscordAppID is the Discord application's id, or "" when none is set up here.
+func (d adminDeps) DiscordAppID() string { return d.appID }
 
 // AllowedOrigin is the admin site's origin, the only one a change may come from.
 func (d adminDeps) AllowedOrigin() string { return d.origin }
@@ -301,7 +306,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter}, pool, nil
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter, os.Getenv("DISCORD_APP_ID")}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

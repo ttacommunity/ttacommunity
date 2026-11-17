@@ -451,6 +451,30 @@ func (e DeltaWindow) Valid() bool {
 	}
 }
 
+// Defines values for DiscordReplyVisibility.
+const (
+	AlwaysPrivate DiscordReplyVisibility = "always_private"
+	AlwaysShared  DiscordReplyVisibility = "always_shared"
+	Private       DiscordReplyVisibility = "private"
+	Shared        DiscordReplyVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the DiscordReplyVisibility enum.
+func (e DiscordReplyVisibility) Valid() bool {
+	switch e {
+	case AlwaysPrivate:
+		return true
+	case AlwaysShared:
+		return true
+	case Private:
+		return true
+	case Shared:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EmailSignedInOutcome.
 const (
 	Added EmailSignedInOutcome = "added"
@@ -3407,6 +3431,39 @@ type DiscordAllowedMentions struct {
 	Parse []string `json:"parse"`
 }
 
+// DiscordBot defines model for DiscordBot.
+type DiscordBot struct {
+	// Commands Every command the bot has, in the order Discord lists them, with its settings
+	Commands []DiscordBotCommand `json:"commands"`
+
+	// InstallUrl The link that adds the bot's commands to a server; none when no application is set up
+	InstallUrl *string `json:"install_url,omitempty"`
+
+	// Registered The commands Discord then held
+	Registered []string `json:"registered"`
+
+	// RegisteredAt When the api last registered the commands with Discord
+	RegisteredAt *time.Time `json:"registered_at,omitempty"`
+}
+
+// DiscordBotCommand defines model for DiscordBotCommand.
+type DiscordBotCommand struct {
+	Description string `json:"description"`
+
+	// Format The format shown when the asker gives none, 0 for every format; none for a command without formats
+	Format *int `json:"format,omitempty"`
+
+	// Name Its name, without /
+	Name string `json:"name"`
+	On   bool   `json:"on"`
+
+	// Reply Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private, or always one or the other
+	Reply DiscordReplyVisibility `json:"reply"`
+
+	// Results How many rows its list shows; none for a command that lists nothing
+	Results *int `json:"results,omitempty"`
+}
+
 // DiscordChoice defines model for DiscordChoice.
 type DiscordChoice struct {
 	Name  string `json:"name"`
@@ -3418,6 +3475,19 @@ type DiscordCommandData struct {
 	// Name The command's name
 	Name    *string          `json:"name,omitempty"`
 	Options *[]DiscordOption `json:"options,omitempty"`
+}
+
+// DiscordCommandSetting defines model for DiscordCommandSetting.
+type DiscordCommandSetting struct {
+	// Format 0, 2, 3 or 4, for a command with formats
+	Format *int `json:"format,omitempty"`
+	On     bool `json:"on"`
+
+	// Reply Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private, or always one or the other
+	Reply DiscordReplyVisibility `json:"reply"`
+
+	// Results 1 to 10, for a command that lists
+	Results *int `json:"results,omitempty"`
 }
 
 // DiscordGuildMember Who used the command in a server
@@ -3468,6 +3538,9 @@ type DiscordReplyData struct {
 	// Flags 64 shows the message to the asker alone
 	Flags *int `json:"flags,omitempty"`
 }
+
+// DiscordReplyVisibility Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private, or always one or the other
+type DiscordReplyVisibility string
 
 // DiscordUser Who used the command in a direct message, or within member in a server
 type DiscordUser struct {
@@ -5945,6 +6018,9 @@ type PostAdminCommunityEditionJSONRequestBody = CommunityEditionItem
 // PatchAdminCommunityEditionJSONRequestBody defines body for PatchAdminCommunityEdition for application/json ContentType.
 type PatchAdminCommunityEditionJSONRequestBody = CommunityEditionPatch
 
+// PutAdminDiscordCommandJSONRequestBody defines body for PutAdminDiscordCommand for application/json ContentType.
+type PutAdminDiscordCommandJSONRequestBody = DiscordCommandSetting
+
 // PutAdminLinkRefusalJSONRequestBody defines body for PutAdminLinkRefusal for application/json ContentType.
 type PutAdminLinkRefusalJSONRequestBody = LinkRefusal
 
@@ -6229,6 +6305,12 @@ type ServerInterface interface {
 	// GetAdminData The loaded data at a glance
 	// (GET /v1/admin/data)
 	GetAdminData(w http.ResponseWriter, r *http.Request)
+	// GetAdminDiscordBot The Discord bot's commands, settings and registration (admins only)
+	// (GET /v1/admin/discord-bot)
+	GetAdminDiscordBot(w http.ResponseWriter, r *http.Request)
+	// PutAdminDiscordCommand Save a Discord command's settings (admins only)
+	// (PUT /v1/admin/discord-bot/commands/{command})
+	PutAdminDiscordCommand(w http.ResponseWriter, r *http.Request, command string)
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(w http.ResponseWriter, r *http.Request)
@@ -8379,6 +8461,46 @@ func (siw *ServerInterfaceWrapper) GetAdminData(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminData(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminDiscordBot operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminDiscordBot(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminDiscordBot(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminDiscordCommand operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminDiscordCommand(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "command" -------------
+	var command string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "command", r.PathValue("command"), &command, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "command", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminDiscordCommand(w, r, command)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13034,6 +13156,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.DeleteAdminNotificationEndpoint)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}", wrapper.PutAdminNotificationEndpoint)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/notification-endpoints/{endpoint}/test", wrapper.PostAdminNotificationEndpointTest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/discord-bot", wrapper.GetAdminDiscordBot)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/discord-bot/commands/{command}", wrapper.PutAdminDiscordCommand)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/reddit-feeds", wrapper.GetAdminRedditFeeds)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/reddit-feeds", wrapper.PostAdminRedditFeed)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/reddit-feeds/{feed}", wrapper.DeleteAdminRedditFeed)
@@ -17123,6 +17247,142 @@ func (response GetAdminData403JSONResponse) VisitGetAdminDataResponse(w http.Res
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminDiscordBotRequestObject struct {
+}
+
+type GetAdminDiscordBotResponseObject interface {
+	VisitGetAdminDiscordBotResponse(w http.ResponseWriter) error
+}
+
+type GetAdminDiscordBot200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminDiscordBot200JSONResponse struct {
+	Body    DiscordBot
+	Headers GetAdminDiscordBot200ResponseHeaders
+}
+
+func (response GetAdminDiscordBot200JSONResponse) VisitGetAdminDiscordBotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminDiscordBot401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminDiscordBot401JSONResponse) VisitGetAdminDiscordBotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminDiscordBot403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminDiscordBot403JSONResponse) VisitGetAdminDiscordBotResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminDiscordCommandRequestObject struct {
+	Command string `json:"command"`
+	Body    *PutAdminDiscordCommandJSONRequestBody
+}
+
+type PutAdminDiscordCommandResponseObject interface {
+	VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error
+}
+
+type PutAdminDiscordCommand204Response struct {
+}
+
+func (response PutAdminDiscordCommand204Response) VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminDiscordCommand400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminDiscordCommand400JSONResponse) VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminDiscordCommand401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminDiscordCommand401JSONResponse) VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminDiscordCommand403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminDiscordCommand403JSONResponse) VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminDiscordCommand404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminDiscordCommand404JSONResponse) VisitPutAdminDiscordCommandResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -26337,6 +26597,12 @@ type StrictServerInterface interface {
 	// GetAdminData The loaded data at a glance
 	// (GET /v1/admin/data)
 	GetAdminData(ctx context.Context, request GetAdminDataRequestObject) (GetAdminDataResponseObject, error)
+	// GetAdminDiscordBot The Discord bot's commands, settings and registration (admins only)
+	// (GET /v1/admin/discord-bot)
+	GetAdminDiscordBot(ctx context.Context, request GetAdminDiscordBotRequestObject) (GetAdminDiscordBotResponseObject, error)
+	// PutAdminDiscordCommand Save a Discord command's settings (admins only)
+	// (PUT /v1/admin/discord-bot/commands/{command})
+	PutAdminDiscordCommand(ctx context.Context, request PutAdminDiscordCommandRequestObject) (PutAdminDiscordCommandResponseObject, error)
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(ctx context.Context, request GetAdminExportRequestObject) (GetAdminExportResponseObject, error)
@@ -28300,6 +28566,63 @@ func (sh *strictHandler) GetAdminData(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminDataResponseObject); ok {
 		if err := validResponse.VisitGetAdminDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminDiscordBot operation middleware
+func (sh *strictHandler) GetAdminDiscordBot(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminDiscordBotRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminDiscordBot(ctx, request.(GetAdminDiscordBotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminDiscordBot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminDiscordBotResponseObject); ok {
+		if err := validResponse.VisitGetAdminDiscordBotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminDiscordCommand operation middleware
+func (sh *strictHandler) PutAdminDiscordCommand(w http.ResponseWriter, r *http.Request, command string) {
+	var request PutAdminDiscordCommandRequestObject
+
+	request.Command = command
+
+	var body PutAdminDiscordCommandJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminDiscordCommand(ctx, request.(PutAdminDiscordCommandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminDiscordCommand")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminDiscordCommandResponseObject); ok {
+		if err := validResponse.VisitPutAdminDiscordCommandResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -3897,6 +3897,56 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/discord-bot:
+    get:
+      operationId: getAdminDiscordBot
+      tags: [admin]
+      summary: The Discord bot's commands, settings and registration (admins only)
+      responses:
+        "200":
+          description: The bot
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscordBot"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/discord-bot/commands/{command}:
+    put:
+      operationId: putAdminDiscordCommand
+      tags: [admin]
+      summary: Save a Discord command's settings (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. A command turned off stays registered with Discord and
+        answers its asker alone that it is off.
+      parameters:
+        - name: command
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscordCommandSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/reddit-feeds:
     get:
       operationId: getAdminRedditFeeds
@@ -6167,6 +6217,71 @@ components:
           type: boolean
         author:
           type: boolean
+    DiscordBot:
+      type: object
+      required: [commands, registered]
+      properties:
+        commands:
+          description: Every command the bot has, in the order Discord lists them, with its settings
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscordBotCommand"
+        registered_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the api last registered the commands with Discord
+        registered:
+          description: The commands Discord then held
+          type: array
+          items:
+            type: string
+        install_url:
+          type: string
+          nullable: true
+          description: The link that adds the bot's commands to a server; none when no application is set up
+    DiscordBotCommand:
+      type: object
+      required: [name, description, "on", reply]
+      properties:
+        name:
+          description: Its name, without /
+          type: string
+        description:
+          type: string
+        "on":
+          type: boolean
+        reply:
+          $ref: "#/components/schemas/DiscordReplyVisibility"
+        format:
+          description: The format shown when the asker gives none, 0 for every format; none for a command without formats
+          type: integer
+          nullable: true
+        results:
+          description: How many rows its list shows; none for a command that lists nothing
+          type: integer
+          nullable: true
+    DiscordCommandSetting:
+      type: object
+      additionalProperties: false
+      required: ["on", reply]
+      properties:
+        "on":
+          type: boolean
+        reply:
+          $ref: "#/components/schemas/DiscordReplyVisibility"
+        format:
+          description: 0, 2, 3 or 4, for a command with formats
+          type: integer
+        results:
+          description: 1 to 10, for a command that lists
+          type: integer
+    DiscordReplyVisibility:
+      description: >-
+        Who sees a command's reply: the asker alone unless they share it, everyone unless they keep it private,
+        or always one or the other
+      type: string
+      enum: [private, shared, always_private, always_shared]
     RedditFeed:
       type: object
       required: [id, subreddit, paused, kinds]

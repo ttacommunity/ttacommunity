@@ -185,6 +185,8 @@ export const addFeed = (subreddit: string) => to('/api/reddit-feeds', 'POST', { 
 export const setFeed = (id: number, setting: Schemas['RedditFeedSetting']) => to(`/api/reddit-feeds/${id}`, 'PUT', setting);
 /** removeFeed removes a Reddit feed. */
 export const removeFeed = (id: number) => to(`/api/reddit-feeds/${id}`, 'DELETE');
+/** setCommand saves a Discord command's settings. */
+export const setCommand = (name: string, setting: Schemas['DiscordCommandSetting']) => to(`/api/discord-bot/commands/${encodeURIComponent(name)}`, 'PUT', setting);
 /** setTitle sets a player's title by hand, with its reason. */
 export const setTitle = (player: string, title: string, reason: string) =>
   to(`/api/titles/${encodeURIComponent(player.trim())}`, 'PUT', { title, reason: reason.trim() });

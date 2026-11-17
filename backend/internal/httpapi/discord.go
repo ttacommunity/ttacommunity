@@ -24,6 +24,8 @@ type DiscordApp interface {
 	PublicKey() ed25519.PublicKey
 	Site() string
 	DiscordMember(ctx context.Context, discordID string) (store.DiscordMember, error)
+	// CommandSettings are the settings admins saved for the command name, with false when none are.
+	CommandSettings(ctx context.Context, name string) (store.CommandSettings, bool, error)
 }
 
 const discordPrefix = "/v1/discord/"
@@ -82,6 +84,10 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 	ctx, cancel := context.WithTimeout(ctx, discordAnswerTime)
 	defer cancel()
 	var reply DiscordReply
+	var settings store.CommandSettings
+	if i := req.Body; i != nil && i.Type == discordCommand {
+		settings = s.applySettings(ctx, i)
+	}
 	switch i := req.Body; {
 	case i == nil:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("no interaction")}, nil
@@ -89,6 +95,8 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 		reply = DiscordReply{Type: discordPong}
 	case i.Type == discordAutocomplete:
 		reply = s.suggestPlayers(ctx, *i)
+	case i.Type == discordCommand && !settings.On:
+		reply = discordText("/"+commandName(*i)+" is turned off by the site's admins.", true)
 	case i.Type == discordCommand && commandName(*i) == "rating":
 		reply = s.ratingReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "myrating":
@@ -98,13 +106,13 @@ func (s *server) AnswerDiscordInteraction(ctx context.Context, req AnswerDiscord
 	case i.Type == discordCommand && commandName(*i) == "versus":
 		reply = s.versusReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "rivals":
-		reply = s.rivalsReply(ctx, *i)
+		reply = s.rivalsReply(ctx, *i, rows(settings))
 	case i.Type == discordCommand && commandName(*i) == "compare":
 		reply = s.compareReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "seats":
 		reply = s.seatsReply(ctx, *i)
 	case i.Type == discordCommand && commandName(*i) == "upsets":
-		reply = s.upsetsReply(ctx, *i)
+		reply = s.upsetsReply(ctx, *i, rows(settings))
 	default:
 		return AnswerDiscordInteraction400JSONResponse{badRequestBody("unknown interaction")}, nil
 	}
@@ -229,7 +237,7 @@ func (s *server) versusReply(ctx context.Context, i DiscordInteraction) DiscordR
 
 // rivalsReply shows the opponents a player met most in rated games, as the site's rivals panel does, or tells the
 // asker alone why it cannot.
-func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction, n int) DiscordReply {
 	name, run, refusal := s.askedPlayer(ctx, i, "rivals")
 	if refusal != nil {
 		return *refusal
@@ -243,7 +251,7 @@ func (s *server) rivalsReply(ctx context.Context, i DiscordInteraction) DiscordR
 	for _, v := range got {
 		rivals = append(rivals, discordbot.Rival{Name: v.Name, Games: v.Games, Wins: v.Wins, Losses: v.Losses, Draws: v.Draws, WinRate: rivalWinRate(v)})
 	}
-	return discordText(discordbot.RivalsText(stored, format, rivals, s.discord.Site()), !shareOption(i))
+	return discordText(discordbot.RivalsText(stored, format, rivals, n, s.discord.Site()), !shareOption(i))
 }
 
 // compareReply shows two to four players' Glicko-D ratings in every format side by side, or tells the asker alone why
@@ -315,12 +323,9 @@ func (s *server) seatsReply(ctx context.Context, i DiscordInteraction) DiscordRe
 	return discordText(discordbot.SeatsText(stats.Name, formatOption(i), groups, s.discord.Site()), !shareOption(i))
 }
 
-// shownUpsets is how many upsets /upsets lists.
-const shownUpsets = 5
-
 // upsetsReply shows the biggest upsets in the month up to the current run's last game: favourites who lost to or
 // drew with players they were expected to beat, by their Glicko-D ratings going in.
-func (s *server) upsetsReply(ctx context.Context, i DiscordInteraction) DiscordReply {
+func (s *server) upsetsReply(ctx context.Context, i DiscordInteraction, n int) DiscordReply {
 	run, err := s.ratings.CurrentRun(ctx)
 	if err != nil {
 		return s.notAnswering(ctx, err)
@@ -336,7 +341,7 @@ func (s *server) upsetsReply(ctx context.Context, i DiscordInteraction) DiscordR
 		pairs = append(pairs, discordbot.Pair{GameID: p.GameID, Date: p.Date, Tournament: p.Tournament, PlayerCount: p.PlayerCount,
 			Name: p.Name, Other: p.Other, Rating: p.Rating, OtherRating: p.OtherRating, Expected: expected, Score: p.Score, TimedOut: p.TimedOut})
 	}
-	return discordText(discordbot.UpsetsText(from, to, format, discordbot.Upsets(pairs, shownUpsets)), !shareOption(i))
+	return discordText(discordbot.UpsetsText(from, to, format, discordbot.Upsets(pairs, n)), !shareOption(i))
 }
 
 // askedPlayer is the player option and the current run's id for a command about one player, or the reply to give

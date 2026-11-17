@@ -14,6 +14,7 @@ import {
   REASONS,
   SHOWN_BY,
   STATUSES,
+  UPLOADS,
   overrideChoice,
   overrideOf,
   videoPage,
@@ -32,6 +33,7 @@ import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
 import NewerOlder from '@ttac/shared/NewerOlder';
 import MultiPick from './MultiPick';
+import RowSelect from './RowSelect';
 import PeoplePick from './PeoplePick';
 
 const POLL_MS = 5000;
@@ -258,17 +260,14 @@ export default function MoviesPanel() {
                       </td>
                       <td>{c.player ?? <span className="muted">—</span>}</td>
                       <td>
-                        <select
-                          className="input-antique"
-                          aria-label={`Which of ${c.name}'s uploads count`}
+                        <RowSelect
+                          label={`Which of ${c.name}'s uploads count`}
                           title={running ? 'Wait for the Movies job to end' : 'Which uploads count: those the TTA check takes, or all'}
                           value={c.include_all ? 'all' : 'tta'}
+                          options={UPLOADS}
                           disabled={running || starting}
-                          onChange={(e) => void saveIncludeAll(c, e.target.value === 'all')}
-                        >
-                          <option value="tta">TTA-filtered</option>
-                          <option value="all">All uploads</option>
-                        </select>
+                          onChange={(v) => void saveIncludeAll(c, v === 'all')}
+                        />
                       </td>
                       <td>
                         {c.videos_found} found · {c.video_count} shown
@@ -398,16 +397,12 @@ export default function MoviesPanel() {
                         <span className="muted movies-why">{status.why}</span>
                       </td>
                       <td>
-                        <select
-                          className="input-antique"
-                          aria-label={`Who decides whether “${v.title}” is shown`}
+                        <RowSelect
+                          label={`Who decides whether “${v.title}” is shown`}
                           value={overrideChoice(v)}
-                          onChange={(e) => void overrideVideo(v, e.target.value as OverrideChoice)}
-                        >
-                          <option value="verdict">Its verdict</option>
-                          <option value="show">Always show</option>
-                          <option value="hide">Never show</option>
-                        </select>
+                          options={SHOWN_BY}
+                          onChange={(choice) => void overrideVideo(v, choice)}
+                        />
                       </td>
                     </tr>
                     );

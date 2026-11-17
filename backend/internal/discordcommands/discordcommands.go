@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
+	"sync"
 )
 
 // Commands is commands.json: every command, with the options the api reads.
@@ -71,4 +73,54 @@ func Register(ctx context.Context, client *http.Client, api, app, server, token 
 		names[i] = "/" + c.Name
 	}
 	return names, nil
+}
+
+// Command is a command as admin lists it: its name, without /, what it does, and its options.
+type Command struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Options     []Option `json:"options"`
+}
+
+// Option is one of a command's options, by name.
+type Option struct {
+	Name string `json:"name"`
+}
+
+// Takes says whether c has the option name.
+func (c Command) Takes(name string) bool {
+	return slices.ContainsFunc(c.Options, func(o Option) bool { return o.Name == name })
+}
+
+// List is every command in commands.json, in its order.
+func List() ([]Command, error) { return list() }
+
+// list reads commands.json once.
+var list = sync.OnceValues(func() ([]Command, error) {
+	var commands []Command
+	if err := json.Unmarshal(Commands, &commands); err != nil {
+		return nil, fmt.Errorf("reading commands.json: %w", err)
+	}
+	return commands, nil
+})
+
+// Find is the command named name, with false when there is none or commands.json cannot be read.
+func Find(name string) (Command, bool) {
+	commands, err := list()
+	if err != nil {
+		return Command{}, false
+	}
+	i := slices.IndexFunc(commands, func(c Command) bool { return c.Name == name })
+	if i < 0 {
+		return Command{}, false
+	}
+	return commands[i], true
+}
+
+// InstallURL is the link that adds app's commands to a server, or "" when app is not a Discord id.
+func InstallURL(app string) string {
+	if !snowflake.MatchString(app) {
+		return ""
+	}
+	return "https://discord.com/oauth2/authorize?client_id=" + app + "&scope=applications.commands"
 }

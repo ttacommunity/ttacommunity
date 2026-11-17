@@ -111,7 +111,13 @@ export const STATUSES: readonly { value: 'shown' | 'hidden'; label: string }[] =
   { value: 'hidden', label: 'Not shown' },
 ];
 
-/** SHOWN_BY are the Shown by filter's choices. */
+/** UPLOADS are which of a creator's uploads count: those the TTA check takes, or all. */
+export const UPLOADS: readonly { value: 'tta' | 'all'; label: string }[] = [
+  { value: 'tta', label: 'TTA-filtered' },
+  { value: 'all', label: 'All uploads' },
+];
+
+/** SHOWN_BY are the Shown by filter's choices, and who decides whether a video is shown. */
 export const SHOWN_BY: readonly { value: OverrideChoice; label: string }[] = [
   { value: 'verdict', label: 'Its verdict' },
   { value: 'show', label: 'Always show' },
