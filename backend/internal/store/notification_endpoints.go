@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,8 +15,8 @@ import (
 )
 
 // NotificationEndpoint is a webhook notifications are posted to: its URL, its format (discord so far), the events
-// it takes (sign_up, link_request, blitz_report, blitz_flag, reddit_failing), the Reddit feeds it takes, by id, and the prefix put
-// before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
+// it takes (sign_up, link_request, blitz_report, blitz_flag, reddit_failing), the feeds it takes, by id, with each
+// one's options, and the prefix put before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
 // picture its messages show; Forum posts each as a new thread of a forum channel; RoleID ("" for none) is pinged with
 // each; Look is how a Reddit post looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
 type NotificationEndpoint struct {
@@ -25,6 +26,7 @@ type NotificationEndpoint struct {
 	Format              string
 	Events              []string
 	Feeds               []int64
+	FeedOptions         []FeedOptions
 	Prefix              string
 	Paused, Forum       bool
 	Username, AvatarURL string
@@ -33,6 +35,54 @@ type NotificationEndpoint struct {
 	LastSentAt          *time.Time
 	LastError           string
 	LastErrorAt         *time.Time
+}
+
+// FeedOptions is how an endpoint takes a feed: a Twitch stream only in one of Categories or with one of Keywords
+// in its title (any stream when both are empty), and WasLive, its post edited when the stream ends.
+type FeedOptions struct {
+	Feed       int64    `json:"feed"`
+	Categories []string `json:"categories"`
+	Keywords   []string `json:"keywords"`
+	WasLive    bool     `json:"was_live"`
+}
+
+// options returns e's options for feed, and whether e takes it.
+func (e NotificationEndpoint) options(feed int64) (FeedOptions, bool) {
+	if !slices.Contains(e.Feeds, feed) {
+		return FeedOptions{}, false
+	}
+	for _, o := range e.FeedOptions {
+		if o.Feed == feed {
+			return o, true
+		}
+	}
+	return FeedOptions{Feed: feed}, true
+}
+
+// TakesWasLive says whether e edits its post of feed's stream when the stream ends.
+func (e NotificationEndpoint) TakesWasLive(feed int64) bool {
+	o, ok := e.options(feed)
+	return ok && o.WasLive
+}
+
+// matches says whether stream t passes o: in one of its categories or with one of its keywords in the title, in any
+// letters, or any stream when o has neither.
+func (o FeedOptions) matches(t TwitchNotice) bool {
+	if len(o.Categories) == 0 && len(o.Keywords) == 0 {
+		return true
+	}
+	for _, c := range o.Categories {
+		if strings.EqualFold(c, t.Category) {
+			return true
+		}
+	}
+	title := strings.ToLower(t.Title)
+	for _, k := range o.Keywords {
+		if strings.Contains(title, strings.ToLower(k)) {
+			return true
+		}
+	}
+	return false
 }
 
 // EmbedLook is how a Reddit post looks in an endpoint's channel: the embed's colour (#rrggbb), how much of the
@@ -67,12 +117,14 @@ func badEndpoint(err error) error {
 // endpointColumns are an endpoint's columns as scanEndpoint reads them.
 const endpointColumns = `endpoint_id, name, url, format, events,
 	ARRAY(SELECT s.feed_id FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id ORDER BY s.feed_id),
+	coalesce((SELECT json_agg(json_build_object('feed', s.feed_id, 'categories', s.categories, 'keywords', s.keywords, 'was_live', s.was_live)
+		ORDER BY s.feed_id) FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id), '[]'),
 	prefix, paused, forum, username, avatar_url, role_id, colour, show_text, show_image, show_author, last_sent_at,
 	coalesce(last_error, ''), last_error_at`
 
 func scanEndpoint(row pgx.CollectableRow) (NotificationEndpoint, error) {
 	var e NotificationEndpoint
-	err := row.Scan(&e.ID, &e.Name, &e.URL, &e.Format, &e.Events, &e.Feeds, &e.Prefix, &e.Paused, &e.Forum, &e.Username, &e.AvatarURL,
+	err := row.Scan(&e.ID, &e.Name, &e.URL, &e.Format, &e.Events, &e.Feeds, &e.FeedOptions, &e.Prefix, &e.Paused, &e.Forum, &e.Username, &e.AvatarURL,
 		&e.RoleID, &e.Look.Colour, &e.Look.Text, &e.Look.Image, &e.Look.Author, &e.LastSentAt, &e.LastError, &e.LastErrorAt)
 	return e, err
 }
@@ -135,7 +187,7 @@ func (a *AdminStore) AddNotificationEndpoint(ctx context.Context, e Notification
 			e.Look.Colour, e.Look.Text, e.Look.Image, e.Look.Author).Scan(&id); err != nil {
 			return err
 		}
-		return setFeeds(ctx, tx, id, e.Feeds)
+		return setFeeds(ctx, tx, id, e.Feeds, e.FeedOptions)
 	})
 	if err != nil {
 		return 0, fmt.Errorf("adding a notification endpoint: %w", badEndpoint(err))
@@ -143,14 +195,31 @@ func (a *AdminStore) AddNotificationEndpoint(ctx context.Context, e Notification
 	return id, nil
 }
 
-// setFeeds makes feeds the Reddit feeds endpoint takes.
-func setFeeds(ctx context.Context, tx pgx.Tx, endpoint int64, feeds []int64) error {
+// setFeeds makes feeds the feeds endpoint takes, each with its options from opts (none when it has no entry).
+func setFeeds(ctx context.Context, tx pgx.Tx, endpoint int64, feeds []int64, opts []FeedOptions) error {
 	if _, err := tx.Exec(ctx, "DELETE FROM notification_feed_subscriptions WHERE endpoint_id = $1", endpoint); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, `INSERT INTO notification_feed_subscriptions (endpoint_id, feed_id)
-		SELECT DISTINCT $1::bigint, unnest($2::bigint[])`, endpoint, feeds)
-	return err
+	e := NotificationEndpoint{Feeds: feeds, FeedOptions: opts}
+	for _, feed := range slices.Compact(slices.Sorted(slices.Values(feeds))) {
+		o, _ := e.options(feed)
+		if _, err := tx.Exec(ctx, `INSERT INTO notification_feed_subscriptions (endpoint_id, feed_id, categories, keywords, was_live)
+			VALUES ($1, $2, $3, $4, $5)`, endpoint, feed, cleanWords(o.Categories), cleanWords(o.Keywords), o.WasLive); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// cleanWords is words trimmed, without empty ones or repeats.
+func cleanWords(words []string) []string {
+	out := []string{}
+	for _, w := range words {
+		if w = strings.TrimSpace(w); w != "" && !slices.Contains(out, w) {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 // SetNotificationEndpoint changes an endpoint, keeping its URL when e's is empty, or returns ErrNoNotificationEndpoint
@@ -169,7 +238,7 @@ func (a *AdminStore) SetNotificationEndpoint(ctx context.Context, e Notification
 		if tag.RowsAffected() == 0 {
 			return ErrNoNotificationEndpoint
 		}
-		return setFeeds(ctx, tx, e.ID, e.Feeds)
+		return setFeeds(ctx, tx, e.ID, e.Feeds, e.FeedOptions)
 	})
 	if errors.Is(err, ErrNoNotificationEndpoint) {
 		return err

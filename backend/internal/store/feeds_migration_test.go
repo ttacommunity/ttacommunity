@@ -58,3 +58,27 @@ func feedState(t *testing.T, pool *pgxpool.Pool) []string {
 	}
 	return lines
 }
+
+func TestMigration93DropsOnlyTwitchGoingDown(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	reddit := addFeed(t, a, "throughtheages")
+	feed := twitchFeed(t, a, "some_streamer", "100000001")
+	subscribed(t, a, "Twitch", 1, FeedOptions{Feed: feed, Keywords: []string{"tta"}, WasLive: true})
+	if err := a.TwitchStreamOnline(ctx, "msg-1", stream("1", "Friday games", ""), twitchAt); err != nil {
+		t.Fatalf("TwitchStreamOnline: %v", err)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 92); return err }); err != nil {
+		t.Fatalf("migrating down to 92: %v", err)
+	}
+	if got := rowsOf(t, pool, "SELECT kind || ' ' || source FROM feeds ORDER BY feed_id"); len(got) != 1 || got[0] != "reddit throughtheages" {
+		t.Errorf("feeds at 92 = %q, want only the Reddit feed", got)
+	}
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
+		t.Fatalf("migrating up: %v", err)
+	}
+	if feeds, err := a.RedditFeeds(ctx); err != nil || len(feeds) != 1 || feeds[0].ID != reddit {
+		t.Errorf("Reddit feeds after down and up = %+v, %v; want the one feed", feeds, err)
+	}
+}
