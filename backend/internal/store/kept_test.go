@@ -75,6 +75,8 @@ var keptColumns = map[string]string{
 	"notification_outbox.feed_id":             "omitted: the feed it tells admins is failing or reading again",
 	"notification_outbox.twitch_stream_id":    "omitted: the public Twitch stream it tells a Discord channel of",
 	"notification_outbox.youtube_stream_id":   "omitted: the public YouTube stream it tells a Discord channel of",
+	"notification_outbox.published_run_id":    "omitted: the published run whose news it tells",
+	"notification_outbox.before_run_id":       "omitted: the run that news is compared with",
 	"notification_outbox.rss_item_id":         "omitted: the public feed item it tells a Discord channel of",
 	"notification_outbox.created_at":          "omitted: a notification to admins, deleted once posted",
 	"notification_outbox.next_at":             "omitted: when it is next tried",

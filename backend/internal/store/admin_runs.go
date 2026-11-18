@@ -54,12 +54,17 @@ func (a *AdminStore) Runs(ctx context.Context) ([]AdminRun, error) {
 	return runs, nil
 }
 
-// Publish makes a complete run its ranking's current one, which also rolls back to an older run.
-// It returns ErrRunNotFound or ErrRunNotComplete.
+// Publish makes a complete run its ranking's current one, which also rolls back to an older run. A community run
+// published for the first time queues its news, compared with the run current before it: ratings_run, and
+// ratings_top10 when there was one. It returns ErrRunNotFound or ErrRunNotComplete.
 func (a *AdminStore) Publish(ctx context.Context, run int64) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var status string
-		err := tx.QueryRow(ctx, "SELECT status FROM rating_runs WHERE run_id = $1", run).Scan(&status)
+		var community bool
+		var before *int64
+		err := tx.QueryRow(ctx, `SELECT r.status, k.slug = 'community', c.run_id
+			FROM rating_runs r JOIN rankings k USING (ranking_id) LEFT JOIN current_run c ON c.ranking_id = r.ranking_id
+			WHERE r.run_id = $1`, run).Scan(&status, &community, &before)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrRunNotFound
 		}
@@ -75,8 +80,21 @@ func (a *AdminStore) Publish(ctx context.Context, run int64) error {
 			ON CONFLICT (ranking_id) DO UPDATE SET run_id = excluded.run_id`, run); err != nil {
 			return fmt.Errorf("publishing run %d: %w", run, err)
 		}
-		if _, err := tx.Exec(ctx, "UPDATE rating_runs SET published_at = now() WHERE run_id = $1 AND published_at IS NULL", run); err != nil {
+		tag, err := tx.Exec(ctx, "UPDATE rating_runs SET published_at = now() WHERE run_id = $1 AND published_at IS NULL", run)
+		if err != nil {
 			return fmt.Errorf("publishing run %d: %w", run, err)
+		}
+		if tag.RowsAffected() == 0 || !community {
+			return nil
+		}
+		for _, kind := range []string{"ratings_run", "ratings_top10"} {
+			if kind == "ratings_top10" && before == nil {
+				continue
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, published_run_id, before_run_id, created_at, next_at)
+				VALUES ($1, $2, $3, now(), now())`, kind, run, before); err != nil {
+				return fmt.Errorf("queueing run %d's news: %w", run, err)
+			}
 		}
 		return nil
 	})
