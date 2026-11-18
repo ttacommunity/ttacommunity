@@ -1,8 +1,10 @@
 /** The Notifications tab's decisions: the events and feeds an endpoint may take, what it takes in a line, whether an edit can be saved, and what is sent. */
 import type { components } from '@ttac/shared/api';
+import { KIND_LABELS, type FeedChoice } from './feeds';
 
 type Event = components['schemas']['NotificationEvent'];
-type Feed = Pick<components['schemas']['RedditFeed'], 'id' | 'subreddit'>;
+type Feed = Pick<FeedChoice, 'kind' | 'id' | 'name'>;
+type FeedOption = components['schemas']['FeedOption'];
 type Setting = Pick<
   components['schemas']['NotificationEndpoint'],
   'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
@@ -11,6 +13,7 @@ type Setting = Pick<
   url: string;
   events: readonly Event[];
   feeds: readonly number[];
+  feed_options: readonly FeedOption[];
 };
 type Delivery = Pick<components['schemas']['NotificationEndpoint'], 'paused' | 'last_sent_at' | 'last_error' | 'last_error_at'>;
 
@@ -36,13 +39,20 @@ export function endpointChanged(saved: Setting, draft: Setting): boolean {
   const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id'] as const;
   const choices = ['paused', 'forum', 'colour', 'text', 'image', 'author'] as const;
   return texts.some((k) => draft[k].trim() !== saved[k]) || choices.some((k) => draft[k] !== saved[k]) ||
-    !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds);
+    !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds) ||
+    JSON.stringify(takenOptions(saved)) !== JSON.stringify(takenOptions(draft));
+}
+
+/** takenOptions is s's feed options for the feeds it takes, by feed. */
+function takenOptions(s: Pick<Setting, 'feeds' | 'feed_options'>): FeedOption[] {
+  return s.feed_options.filter((o) => s.feeds.includes(o.feed)).sort((a, b) => a.feed - b.feed);
 }
 
 /** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */
 export function endpointSetting(draft: Setting): Omit<components['schemas']['NotificationEndpointSetting'], 'format'> {
   const { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author } = draft;
-  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author, events: [...draft.events], feeds: [...draft.feeds] };
+  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author, events: [...draft.events], feeds: [...draft.feeds],
+    feed_options: takenOptions(draft) };
   return draft.url.trim() === '' ? setting : { ...setting, url: draft.url.trim() };
 }
 
@@ -64,7 +74,7 @@ export function subscriptions(events: readonly Event[], feeds: readonly number[]
   const parts: string[] = [];
   if (events.length === EVENTS.length) parts.push('every site event');
   else if (events.length > 0) parts.push(EVENTS.filter((e) => events.includes(e.key)).map((e) => e.label).join(', '));
-  parts.push(...all.filter((f) => feeds.includes(f.id)).map((f) => `r/${f.subreddit}`));
+  parts.push(...all.filter((f) => feeds.includes(f.id)).map((f) => (f.kind === 'reddit' ? f.name : `${f.name} on ${KIND_LABELS[f.kind]}`)));
   return parts.length === 0 ? 'Nothing: no posts reach it' : parts.join('; ');
 }
 

@@ -82,6 +82,9 @@ describe('admin requests', () => {
     ['a notification endpoint', req.setEndpoint(3, ENDPOINT), '/api/notification-endpoints/3', 'PUT', { ...ENDPOINT, format: 'discord' }],
     ['removing a notification endpoint', req.removeEndpoint(3), '/api/notification-endpoints/3', 'DELETE', undefined],
     ['testing a notification endpoint', req.testEndpoint(3), '/api/notification-endpoints/3/test', 'POST', undefined],
+    ['a new Twitch streamer', req.addTwitchFeed('some_streamer'), '/api/twitch-feeds', 'POST', { login: 'some_streamer' }],
+    ['pausing a Twitch streamer', req.setTwitchFeed(3, true), '/api/twitch-feeds/3', 'PUT', { paused: true }],
+    ['removing a Twitch streamer', req.removeTwitchFeed(3), '/api/twitch-feeds/3', 'DELETE', undefined],
     // Nostradamus
     ['a new game', req.addNostradamusGame({ slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }), '/api/nostradamus', 'POST', { slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }],
     ['a game finished', req.setNostradamusFinished('wc-2031', true), '/api/nostradamus/wc-2031/finished', 'PUT', { finished: true }],

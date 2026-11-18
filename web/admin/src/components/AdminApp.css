@@ -435,6 +435,20 @@
   padding: 0 0.3rem;
   color: var(--text-muted);
 }
+.feed-group {
+  display: grid;
+  flex-basis: 100%;
+  gap: 0.35rem;
+}
+.feed-group-label {
+  color: var(--text-muted);
+}
+.feed-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-left: 1.5rem;
+}
 .new-group {
   display: grid;
   gap: 0.6rem;

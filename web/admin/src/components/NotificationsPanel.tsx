@@ -1,4 +1,4 @@
-/** Notifications, for admins: the Discord webhooks the api posts site events and Reddit posts to, each tested here, and the Reddit feeds read. */
+/** Notifications, for admins: the Discord webhooks the api posts site events and feeds to, each tested here, and the feeds: subreddits and Twitch streamers. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
@@ -6,7 +6,7 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { adminRequest } from '../lib/admin-api';
 import { endpointStatus, subscriptions } from '../lib/notification-endpoints';
-import { feedSends, feedStatus } from '../lib/reddit-feeds';
+import { feedGroups, feedRows, KIND_LABELS, type FeedRow } from '../lib/feeds';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
@@ -16,31 +16,34 @@ import FeedSheet from './FeedSheet';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
 type Feed = components['schemas']['RedditFeed'];
+type TwitchFeed = components['schemas']['TwitchFeed'];
 type NotificationTest = components['schemas']['NotificationTest'];
 
-/** FeedsCard lists the Reddit feeds, to edit, pause, resume or remove, and adds new ones. */
-function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () => Promise<void> }) {
+/** FeedsCard lists every feed, Reddit's and Twitch's, to edit (a Reddit feed's kinds of post), pause, resume or remove, and adds new ones. */
+function FeedsCard({ reddit, twitch, onReload }: { reddit: readonly Feed[]; twitch: readonly TwitchFeed[]; onReload: () => Promise<void> }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [editing, setEditing] = useState<{ feed: Feed | null; opener: HTMLElement } | null>(null);
   const dialog = useDialog();
   const zone = viewerZone();
-  const when = (iso: string) => formatInstant(iso, zone);
-  const pause = async (f: Feed) => {
-    const r = await req.send(req.setFeed(f.id, { kinds: f.kinds, paused: !f.paused }));
-    setOutcome(outcomeOf(r, f.paused ? `Resumed r/${f.subreddit}: posts from its next read on are posted.` : `Paused r/${f.subreddit}.`, 'feeds'));
+  const rows = feedRows(reddit, twitch, (iso) => formatInstant(iso, zone));
+  const pause = async (row: FeedRow) => {
+    const feed = reddit.find((f) => f.id === row.id);
+    const r = await req.send(row.kind === 'twitch' ? req.setTwitchFeed(row.id, !row.paused) : req.setFeed(row.id, { kinds: feed?.kinds ?? [], paused: !row.paused }));
+    const resumed = row.kind === 'twitch' ? `Resumed ${row.name}: their next stream is posted.` : `Resumed ${row.name}: posts from its next read on are posted.`;
+    setOutcome(outcomeOf(r, row.paused ? resumed : `Paused ${row.name}.`, 'feeds'));
     await onReload();
   };
-  const remove = async (f: Feed, opener: HTMLElement) => {
-    const sure = await dialog.confirm({ heading: `Remove r/${f.subreddit}?`, text: 'Its new posts are no longer posted, and endpoints stop taking it.', action: 'Remove', final: true }, opener);
+  const remove = async (row: FeedRow, opener: HTMLElement) => {
+    const sure = await dialog.confirm({ heading: `Remove ${row.name}?`, text: 'Nothing more of it is posted, and endpoints stop taking it.', action: 'Remove', final: true }, opener);
     if (!sure) return;
-    const r = await req.send(req.removeFeed(f.id));
-    setOutcome(outcomeOf(r, `Removed r/${f.subreddit}.`, 'feeds'));
+    const r = await req.send(row.kind === 'twitch' ? req.removeTwitchFeed(row.id) : req.removeFeed(row.id));
+    setOutcome(outcomeOf(r, `Removed ${row.name}.`, 'feeds'));
     await onReload();
   };
   return (
     <AdminCard
-      id="reddit-feeds-heading"
-      title="Reddit feeds"
+      id="feeds-heading"
+      title="Feeds"
       actions={
         <button type="button" className="btn-antique" onClick={(e) => setEditing({ feed: null, opener: e.currentTarget })}>
           Add feed
@@ -49,41 +52,45 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
     >
       {dialog.element}
       <p className="muted">
-        Subreddits read every 10 minutes. Each new post goes to the endpoints that take its feed (choose them above). A feed's first read, and its first
-        after resuming, posts nothing, so older posts are not posted. A feed that fails 3 reads in a row, and reads again after, is posted to the
-        endpoints taking Reddit feeds failing.
+        Every source the endpoints above can take. Subreddits are read every 10 minutes, and a feed's first read, and its first after resuming, posts
+        nothing. A Twitch streamer is posted when they go live, through Twitch's push. A Reddit feed that fails 3 reads in a row, and reads again after, is
+        posted to the endpoints taking Reddit feeds failing.
       </p>
       <Notice outcome={shownAt(outcome, 'feeds')} onClose={() => setOutcome(null)} />
-      {feeds.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="muted">No feeds yet.</p>
       ) : (
-        <AdminTable caption="The subreddits read, each with the kinds of post it sends and how its last read went">
+        <AdminTable caption="Every feed, with what it sends and how it is doing">
           <thead>
             <tr>
-              <th>Subreddit</th>
+              <th>Kind</th>
+              <th>Source</th>
               <th>Sends</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {feeds.map((f) => (
-              <tr key={f.id}>
+            {rows.map((row) => (
+              <tr key={`${row.kind}-${row.id}`}>
+                <td>{KIND_LABELS[row.kind]}</td>
                 <td>
-                  <a href={`https://www.reddit.com/r/${encodeURIComponent(f.subreddit)}/new/`} target="_blank" rel="noopener noreferrer">
-                    r/{f.subreddit}
+                  <a href={row.href} target="_blank" rel="noopener noreferrer">
+                    {row.name}
                   </a>
                 </td>
-                <td>{feedSends(f.kinds)}</td>
-                <td>{feedStatus(f, when)}</td>
+                <td>{row.sends}</td>
+                <td>{row.status}</td>
                 <td>
-                  <button type="button" className="btn-settings" onClick={(e) => setEditing({ feed: f, opener: e.currentTarget })}>
-                    Edit
+                  {row.kind === 'reddit' && (
+                    <button type="button" className="btn-settings" onClick={(e) => setEditing({ feed: reddit.find((f) => f.id === row.id) ?? null, opener: e.currentTarget })}>
+                      Edit
+                    </button>
+                  )}
+                  <button type="button" className="btn-settings" onClick={() => void pause(row)}>
+                    {row.paused ? 'Resume' : 'Pause'}
                   </button>
-                  <button type="button" className="btn-settings" onClick={() => void pause(f)}>
-                    {f.paused ? 'Resume' : 'Pause'}
-                  </button>
-                  <button type="button" className="btn-settings" onClick={(e) => void remove(f, e.currentTarget)}>
+                  <button type="button" className="btn-settings" onClick={(e) => void remove(row, e.currentTarget)}>
                     Remove
                   </button>
                 </td>
@@ -111,18 +118,26 @@ function FeedsCard({ feeds, onReload }: { feeds: readonly Feed[]; onReload: () =
 export default function NotificationsPanel() {
   const [list, setList] = useState<Endpoint[] | null>(null);
   const [feeds, setFeeds] = useState<Feed[]>([]);
+  const [streamers, setStreamers] = useState<TwitchFeed[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [editing, setEditing] = useState<{ endpoint: Endpoint | null; opener: HTMLElement } | null>(null);
   const dialog = useDialog();
   const zone = viewerZone();
   const when = (iso: string) => formatInstant(iso, zone);
+  const groups = feedGroups(feeds, streamers);
 
   const load = async () => {
-    const [endpoints, read] = await Promise.all([adminRequest<Endpoint[]>('/api/notification-endpoints', {}), adminRequest<Feed[]>('/api/reddit-feeds', {})]);
+    const [endpoints, read, twitch] = await Promise.all([
+      adminRequest<Endpoint[]>('/api/notification-endpoints', {}),
+      adminRequest<Feed[]>('/api/reddit-feeds', {}),
+      adminRequest<TwitchFeed[]>('/api/twitch-feeds', {}),
+    ]);
     if (endpoints.ok) setList(endpoints.data);
     else setOutcome(loadFailure(endpoints.message, 'endpoints'));
     if (read.ok) setFeeds(read.data);
     else setOutcome(loadFailure(read.message, 'endpoints'));
+    if (twitch.ok) setStreamers(twitch.data);
+    else setOutcome(loadFailure(twitch.message, 'endpoints'));
   };
   useEffect(() => {
     void load();
@@ -154,8 +169,8 @@ export default function NotificationsPanel() {
       >
         {dialog.element}
         <p className="muted">
-          Discord channels the site posts to: when a new player signs up, a player asks to be linked, one reports, corrects or flags a blitz result, or a
-          Reddit feed has a new post. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
+          Discord channels the site posts to: when a new player signs up, a player asks to be linked, one reports, corrects or flags a blitz result, a
+          Reddit feed has a new post, or a Twitch streamer goes live. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
         </p>
         <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />
         {list !== null && list.length === 0 && <p className="muted">No endpoints yet: nothing is posted.</p>}
@@ -176,7 +191,7 @@ export default function NotificationsPanel() {
                     {e.name}
                     {e.prefix !== '' && <span className="muted"> {e.prefix}</span>}
                   </td>
-                  <td>{subscriptions(e.events, e.feeds, feeds)}</td>
+                  <td>{subscriptions(e.events, e.feeds, groups.flatMap((g) => g.feeds))}</td>
                   <td>{endpointStatus(e, when)}</td>
                   <td>
                     <button type="button" className="btn-settings" onClick={(ev) => setEditing({ endpoint: e, opener: ev.currentTarget })}>
@@ -197,7 +212,7 @@ export default function NotificationsPanel() {
         {editing !== null && (
           <EndpointSheet
             endpoint={editing.endpoint}
-            allFeeds={feeds}
+            groups={groups}
             opener={editing.opener}
             onSaved={(message) => {
               setOutcome(succeeded(message, 'endpoints'));
@@ -207,7 +222,7 @@ export default function NotificationsPanel() {
           />
         )}
       </AdminCard>
-      <FeedsCard feeds={feeds} onReload={load} />
+      <FeedsCard reddit={feeds} twitch={streamers} onReload={load} />
     </>
   );
 }
