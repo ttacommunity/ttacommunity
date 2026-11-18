@@ -552,6 +552,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/runs/{run}/analysis/percentiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where players stand among the leaderboard's players
+         * @description The players the leaderboard shows for a model, format, status, title
+         *     and minimum opponents, counted into bins of conservative rating (the
+         *     rating the leaderboard ranks by) or plain rating, with the ratings at
+         *     chosen percentiles and the titles held before the title filter. With
+         *     `player`, also where that player stands among them, whether or not
+         *     the filters include them. An unknown player is a 404. Players whose
+         *     CGE accounts are deleted or banned are left out. Cached for five
+         *     minutes.
+         */
+        get: operations["getRatingPercentiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/runs/{run}/tournaments": {
         parameters: {
             query?: never;
@@ -6155,6 +6182,71 @@ export interface components {
             /** Format: double */
             active_mean: number;
         };
+        /**
+         * @description Which players count, by whether they played in the 12 months before the run's last game
+         * @default active
+         * @enum {string}
+         */
+        PercentileStatus: "active" | "all" | "inactive";
+        /**
+         * @description Which rating to count, conservative (rating less three RDs, as the leaderboard ranks) or plain
+         * @default c_rating
+         * @enum {string}
+         */
+        RatingBasis: "c_rating" | "rating";
+        RatingPercentiles: {
+            /** Format: int64 */
+            run_id: number;
+            model: components["schemas"]["Model"];
+            format: components["schemas"]["Format"];
+            status: components["schemas"]["PercentileStatus"];
+            min_opps: number;
+            /** @description The title filter, or null for any */
+            title: components["schemas"]["TitleCode"] | null;
+            rating: components["schemas"]["RatingBasis"];
+            /** @description The titles held by the players the other filters count, for the title choice */
+            titles: components["schemas"]["TitleCode"][];
+            /** @description How many players the filters count */
+            players: number;
+            /** @description Each bin's width in rating points */
+            bin_width: number;
+            /** @description Every bin from the lowest counted rating's to the highest's, lowest first; empty without players */
+            bins: components["schemas"]["RatingBin"][];
+            /** @description The counted rating at the 10th, 25th, 50th, 75th, 90th and 99th percentiles; empty without players */
+            marks: components["schemas"]["PercentileMark"][];
+            player?: components["schemas"]["PlayerPercentile"];
+        };
+        RatingBin: {
+            /** @description The bin's lowest rating; it holds ratings from here to below the next bin's */
+            from: number;
+            count: number;
+        };
+        PercentileMark: {
+            percentile: number;
+            /**
+             * Format: double
+             * @description The lowest counted rating that this share of the counted players are rated at or below (nearest rank)
+             */
+            value: number;
+        };
+        /** @description Where the asked-for player stands among the counted players */
+        PlayerPercentile: {
+            name: string;
+            /**
+             * Format: double
+             * @description The player's rating of the counted kind
+             */
+            value: number;
+            /** @description One more than the counted players rated higher */
+            rank: number;
+            /**
+             * Format: double
+             * @description The share of counted players rated lower, in per cent to one place
+             */
+            percentile: number;
+            /** @description Whether the filters count the player themself */
+            counted: boolean;
+        };
         Agreement: {
             /** Format: int64 */
             run_id: number;
@@ -8446,6 +8538,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SeatAnalysis"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRatingPercentiles: {
+        parameters: {
+            query?: {
+                model?: components["parameters"]["Model"];
+                format?: components["parameters"]["Format"];
+                /** @description Active players (played in the 12 months before the run's last game), inactive ones, or all */
+                status?: components["schemas"]["PercentileStatus"];
+                /** @description The fewest opponents a player needs (30 by default) */
+                min_opps?: number;
+                /** @description Only the players holding this title */
+                title?: components["schemas"]["TitleCode"];
+                rating?: components["schemas"]["RatingBasis"];
+                /** @description Each bin's width in rating points */
+                bin_width?: 25 | 50 | 100;
+                /** @description A player's name, exactly as rated */
+                player?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A published run's id, from `/v1/runs/current` */
+                run: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The spread of conservative ratings, and the player's place in it */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RatingPercentiles"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -13241,6 +13373,7 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const pathsV1RunsRunAnalysisPercentilesGetParametersQueryBin_widthValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/analysis/percentiles"]["get"]["parameters"]["query"]["bin_width"]> = [25, 50, 100];
 export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/twitch/eventsub"]["post"]["parameters"]["header"]["Twitch-Eventsub-Message-Type"]> = ["notification", "webhook_callback_verification", "revocation"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
@@ -13278,6 +13411,8 @@ export const matchSideValues: ReadonlyArray<FlattenedDeepRequired<components>["s
 export const requestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RequestStatus"]> = ["pending", "approved", "refused"];
 export const linkedHowValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LinkedHow"]> = ["match", "approved"];
 export const calibrationRowModeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["CalibrationRow"]["mode"]> = ["standard", "walk_forward"];
+export const percentileStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PercentileStatus"]> = ["active", "all", "inactive"];
+export const ratingBasisValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RatingBasis"]> = ["c_rating", "rating"];
 export const tournamentRecordMedalValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentRecord"]["medal"]> = ["gold", "silver", "bronze"];
 export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Series"]> = ["international", "intermezzo", "royal_league", "worlds", "grand_slams", "ladders"];
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];

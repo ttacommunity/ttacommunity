@@ -814,6 +814,27 @@ func (e NotificationFormat) Valid() bool {
 	}
 }
 
+// Defines values for PercentileStatus.
+const (
+	PercentileStatusActive   PercentileStatus = "active"
+	PercentileStatusAll      PercentileStatus = "all"
+	PercentileStatusInactive PercentileStatus = "inactive"
+)
+
+// Valid indicates whether the value is a known member of the PercentileStatus enum.
+func (e PercentileStatus) Valid() bool {
+	switch e {
+	case PercentileStatusActive:
+		return true
+	case PercentileStatusAll:
+		return true
+	case PercentileStatusInactive:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PodiumSource.
 const (
 	PodiumSourceFinalStage   PodiumSource = "final_stage"
@@ -874,6 +895,24 @@ func (e RanksFixedBy) Valid() bool {
 	case RanksFixedByLot:
 		return true
 	case RanksFixedByRating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RatingBasis.
+const (
+	RatingBasisCRating RatingBasis = "c_rating"
+	RatingBasisRating  RatingBasis = "rating"
+)
+
+// Valid indicates whether the value is a known member of the RatingBasis enum.
+func (e RatingBasis) Valid() bool {
+	switch e {
+	case RatingBasisCRating:
+		return true
+	case RatingBasisRating:
 		return true
 	default:
 		return false
@@ -1153,6 +1192,27 @@ func (e TrophyRowTitle) Valid() bool {
 	case TrophyRowTitleM:
 		return true
 	case TrophyRowTitleWC:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetRatingPercentilesParamsBinWidth.
+const (
+	N100 GetRatingPercentilesParamsBinWidth = 100
+	N25  GetRatingPercentilesParamsBinWidth = 25
+	N50  GetRatingPercentilesParamsBinWidth = 50
+)
+
+// Valid indicates whether the value is a known member of the GetRatingPercentilesParamsBinWidth enum.
+func (e GetRatingPercentilesParamsBinWidth) Valid() bool {
+	switch e {
+	case N100:
+		return true
+	case N25:
+		return true
+	case N50:
 		return true
 	default:
 		return false
@@ -4628,6 +4688,17 @@ type Peak struct {
 	Year *int      `json:"year"`
 }
 
+// PercentileMark defines model for PercentileMark.
+type PercentileMark struct {
+	Percentile int `json:"percentile"`
+
+	// Value The lowest counted rating that this share of the counted players are rated at or below (nearest rank)
+	Value float64 `json:"value"`
+}
+
+// PercentileStatus Which players count, by whether they played in the 12 months before the run's last game
+type PercentileStatus string
+
 // PlacePoints Points for each place in a game of that many players, best place first, from the next run; empty for a player count the tournament does not score. Never negative, never higher for a worse place
 type PlacePoints = []float64
 
@@ -4759,6 +4830,22 @@ type PlayerMatrix struct {
 
 	// Year The year asked for, or null for the run's ratings
 	Year *int `json:"year"`
+}
+
+// PlayerPercentile Where the asked-for player stands among the counted players
+type PlayerPercentile struct {
+	// Counted Whether the filters count the player themself
+	Counted bool   `json:"counted"`
+	Name    string `json:"name"`
+
+	// Percentile The share of counted players rated lower, in per cent to one place
+	Percentile float64 `json:"percentile"`
+
+	// Rank One more than the counted players rated higher
+	Rank int `json:"rank"`
+
+	// Value The player's rating of the counted kind
+	Value float64 `json:"value"`
 }
 
 // PlayerRating defines model for PlayerRating.
@@ -4932,6 +5019,58 @@ type RankingTrack string
 
 // RanksFixedBy What fixed a blitz edition's starting ranks
 type RanksFixedBy string
+
+// RatingBasis Which rating to count, conservative (rating less three RDs, as the leaderboard ranks) or plain
+type RatingBasis string
+
+// RatingBin defines model for RatingBin.
+type RatingBin struct {
+	Count int `json:"count"`
+
+	// From The bin's lowest rating; it holds ratings from here to below the next bin's
+	From int `json:"from"`
+}
+
+// RatingPercentiles defines model for RatingPercentiles.
+type RatingPercentiles struct {
+	// BinWidth Each bin's width in rating points
+	BinWidth int `json:"bin_width"`
+
+	// Bins Every bin from the lowest counted rating's to the highest's, lowest first; empty without players
+	Bins []RatingBin `json:"bins"`
+
+	// Format Players per game. 0 is every format together
+	Format Format `json:"format"`
+
+	// Marks The counted rating at the 10th, 25th, 50th, 75th, 90th and 99th percentiles; empty without players
+	Marks   []PercentileMark `json:"marks"`
+	MinOpps int              `json:"min_opps"`
+
+	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
+	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2
+	// (`glicko2_std`), the benchmark. The other models of upstream's site
+	// were retired in 2026-10 and are refused.
+	Model Model `json:"model"`
+
+	// Player Where the asked-for player stands among the counted players
+	Player *PlayerPercentile `json:"player,omitempty"`
+
+	// Players How many players the filters count
+	Players int `json:"players"`
+
+	// Rating Which rating to count, conservative (rating less three RDs, as the leaderboard ranks) or plain
+	Rating RatingBasis `json:"rating"`
+	RunId  int64       `json:"run_id"`
+
+	// Status Which players count, by whether they played in the 12 months before the run's last game
+	Status PercentileStatus `json:"status"`
+
+	// Title The title filter, or null for any
+	Title *TitleCode `json:"title"`
+
+	// Titles The titles held by the players the other filters count, for the title choice
+	Titles []TitleCode `json:"titles"`
+}
 
 // RecentPodium A tournament season's podium
 type RecentPodium struct {
@@ -5930,6 +6069,31 @@ type GetDistributionParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// GetRatingPercentilesParams defines parameters for GetRatingPercentiles.
+type GetRatingPercentilesParams struct {
+	Model  *Model  `form:"model,omitempty" json:"model,omitempty"`
+	Format *Format `form:"format,omitempty" json:"format,omitempty"`
+
+	// Status Active players (played in the 12 months before the run's last game), inactive ones, or all
+	Status *PercentileStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// MinOpps The fewest opponents a player needs (30 by default)
+	MinOpps *int `form:"min_opps,omitempty" json:"min_opps,omitempty"`
+
+	// Title Only the players holding this title
+	Title  *TitleCode   `form:"title,omitempty" json:"title,omitempty"`
+	Rating *RatingBasis `form:"rating,omitempty" json:"rating,omitempty"`
+
+	// BinWidth Each bin's width in rating points
+	BinWidth *GetRatingPercentilesParamsBinWidth `form:"bin_width,omitempty" json:"bin_width,omitempty"`
+
+	// Player A player's name, exactly as rated
+	Player *string `form:"player,omitempty" json:"player,omitempty"`
+}
+
+// GetRatingPercentilesParamsBinWidth defines parameters for GetRatingPercentiles.
+type GetRatingPercentilesParamsBinWidth int
+
 // GetComparedPlayersParams defines parameters for GetComparedPlayers.
 type GetComparedPlayersParams struct {
 	Format *Format `form:"format,omitempty" json:"format,omitempty"`
@@ -6817,6 +6981,9 @@ type ServerInterface interface {
 	// GetDistribution How ratings spread in each engine
 	// (GET /v1/runs/{run}/analysis/distribution)
 	GetDistribution(w http.ResponseWriter, r *http.Request, run RunId, params GetDistributionParams)
+	// GetRatingPercentiles Where players stand among the leaderboard's players
+	// (GET /v1/runs/{run}/analysis/percentiles)
+	GetRatingPercentiles(w http.ResponseWriter, r *http.Request, run RunId, params GetRatingPercentilesParams)
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(w http.ResponseWriter, r *http.Request, run RunId, params GetComparedPlayersParams)
@@ -11823,6 +11990,139 @@ func (siw *ServerInterfaceWrapper) GetDistribution(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetRatingPercentiles operation middleware
+func (siw *ServerInterfaceWrapper) GetRatingPercentiles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "run" -------------
+	var run RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "run", r.PathValue("run"), &run, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRatingPercentilesParams
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "min_opps" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "min_opps", r.URL.Query(), &params.MinOpps, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "min_opps"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "min_opps", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "title" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "title", r.URL.Query(), &params.Title, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "title"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "title", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "rating" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "rating", r.URL.Query(), &params.Rating, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "rating"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rating", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "bin_width" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "bin_width", r.URL.Query(), &params.BinWidth, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "bin_width"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bin_width", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "player" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "player", r.URL.Query(), &params.Player, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "player"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRatingPercentiles(w, r, run, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetComparedPlayers operation middleware
 func (siw *ServerInterfaceWrapper) GetComparedPlayers(w http.ResponseWriter, r *http.Request) {
 
@@ -13439,6 +13739,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/players", wrapper.GetComparedPlayers)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/activity", wrapper.GetActivity)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/seats", wrapper.GetSeatAnalysis)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/analysis/percentiles", wrapper.GetRatingPercentiles)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments", wrapper.GetHallOfFame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/tournaments/{series}", wrapper.GetTournamentSeries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/runs/{run}/catalogue", wrapper.GetCatalogue)
@@ -25888,6 +26189,67 @@ func (response GetDistribution404JSONResponse) VisitGetDistributionResponse(w ht
 	return err
 }
 
+type GetRatingPercentilesRequestObject struct {
+	Run    RunId `json:"run"`
+	Params GetRatingPercentilesParams
+}
+
+type GetRatingPercentilesResponseObject interface {
+	VisitGetRatingPercentilesResponse(w http.ResponseWriter) error
+}
+
+type GetRatingPercentiles200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetRatingPercentiles200JSONResponse struct {
+	Body    RatingPercentiles
+	Headers GetRatingPercentiles200ResponseHeaders
+}
+
+func (response GetRatingPercentiles200JSONResponse) VisitGetRatingPercentilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRatingPercentiles400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetRatingPercentiles400JSONResponse) VisitGetRatingPercentilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRatingPercentiles404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRatingPercentiles404JSONResponse) VisitGetRatingPercentilesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetComparedPlayersRequestObject struct {
 	Run    RunId `json:"run"`
 	Params GetComparedPlayersParams
@@ -28043,6 +28405,9 @@ type StrictServerInterface interface {
 	// GetDistribution How ratings spread in each engine
 	// (GET /v1/runs/{run}/analysis/distribution)
 	GetDistribution(ctx context.Context, request GetDistributionRequestObject) (GetDistributionResponseObject, error)
+	// GetRatingPercentiles Where players stand among the leaderboard's players
+	// (GET /v1/runs/{run}/analysis/percentiles)
+	GetRatingPercentiles(ctx context.Context, request GetRatingPercentilesRequestObject) (GetRatingPercentilesResponseObject, error)
 	// GetComparedPlayers Players across every model
 	// (GET /v1/runs/{run}/analysis/players)
 	GetComparedPlayers(ctx context.Context, request GetComparedPlayersRequestObject) (GetComparedPlayersResponseObject, error)
@@ -33114,6 +33479,33 @@ func (sh *strictHandler) GetDistribution(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetDistributionResponseObject); ok {
 		if err := validResponse.VisitGetDistributionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRatingPercentiles operation middleware
+func (sh *strictHandler) GetRatingPercentiles(w http.ResponseWriter, r *http.Request, run RunId, params GetRatingPercentilesParams) {
+	var request GetRatingPercentilesRequestObject
+
+	request.Run = run
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRatingPercentiles(ctx, request.(GetRatingPercentilesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRatingPercentiles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRatingPercentilesResponseObject); ok {
+		if err := validResponse.VisitGetRatingPercentilesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

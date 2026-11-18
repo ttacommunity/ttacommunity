@@ -784,6 +784,78 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/runs/{run}/analysis/percentiles:
+    get:
+      operationId: getRatingPercentiles
+      tags: [ratings]
+      summary: Where players stand among the leaderboard's players
+      description: |
+        The players the leaderboard shows for a model, format, status, title
+        and minimum opponents, counted into bins of conservative rating (the
+        rating the leaderboard ranks by) or plain rating, with the ratings at
+        chosen percentiles and the titles held before the title filter. With
+        `player`, also where that player stands among them, whether or not
+        the filters include them. An unknown player is a 404. Players whose
+        CGE accounts are deleted or banned are left out. Cached for five
+        minutes.
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/Model"
+        - $ref: "#/components/parameters/Format"
+        - name: status
+          in: query
+          required: false
+          description: Active players (played in the 12 months before the run's last game), inactive ones, or all
+          schema:
+            $ref: "#/components/schemas/PercentileStatus"
+        - name: min_opps
+          in: query
+          required: false
+          description: The fewest opponents a player needs (30 by default)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1000
+        - name: title
+          in: query
+          required: false
+          description: Only the players holding this title
+          schema:
+            $ref: "#/components/schemas/TitleCode"
+        - name: rating
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RatingBasis"
+        - name: bin_width
+          in: query
+          required: false
+          description: Each bin's width in rating points
+          schema:
+            type: integer
+            enum: [25, 50, 100]
+            default: 50
+        - name: player
+          in: query
+          required: false
+          description: A player's name, exactly as rated
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: The spread of conservative ratings, and the player's place in it
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatingPercentiles"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/runs/{run}/tournaments:
     get:
       operationId: getHallOfFame
@@ -9955,6 +10027,101 @@ components:
         active_mean:
           type: number
           format: double
+    PercentileStatus:
+      description: Which players count, by whether they played in the 12 months before the run's last game
+      type: string
+      enum: [active, all, inactive]
+      default: active
+    RatingBasis:
+      description: Which rating to count, conservative (rating less three RDs, as the leaderboard ranks) or plain
+      type: string
+      enum: [c_rating, rating]
+      default: c_rating
+    RatingPercentiles:
+      type: object
+      required: [run_id, model, format, status, min_opps, title, rating, titles, players, bin_width, bins, marks]
+      properties:
+        run_id:
+          type: integer
+          format: int64
+        model:
+          $ref: "#/components/schemas/Model"
+        format:
+          $ref: "#/components/schemas/Format"
+        status:
+          $ref: "#/components/schemas/PercentileStatus"
+        min_opps:
+          type: integer
+        title:
+          description: The title filter, or null for any
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/TitleCode"
+        rating:
+          $ref: "#/components/schemas/RatingBasis"
+        titles:
+          description: The titles held by the players the other filters count, for the title choice
+          type: array
+          items:
+            $ref: "#/components/schemas/TitleCode"
+        players:
+          description: How many players the filters count
+          type: integer
+        bin_width:
+          description: Each bin's width in rating points
+          type: integer
+        bins:
+          description: Every bin from the lowest counted rating's to the highest's, lowest first; empty without players
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingBin"
+        marks:
+          description: The counted rating at the 10th, 25th, 50th, 75th, 90th and 99th percentiles; empty without players
+          type: array
+          items:
+            $ref: "#/components/schemas/PercentileMark"
+        player:
+          $ref: "#/components/schemas/PlayerPercentile"
+    RatingBin:
+      type: object
+      required: [from, count]
+      properties:
+        from:
+          description: The bin's lowest rating; it holds ratings from here to below the next bin's
+          type: integer
+        count:
+          type: integer
+    PercentileMark:
+      type: object
+      required: [percentile, value]
+      properties:
+        percentile:
+          type: integer
+        value:
+          description: The lowest counted rating that this share of the counted players are rated at or below (nearest rank)
+          type: number
+          format: double
+    PlayerPercentile:
+      description: Where the asked-for player stands among the counted players
+      type: object
+      required: [name, value, rank, percentile, counted]
+      properties:
+        name:
+          type: string
+        value:
+          description: The player's rating of the counted kind
+          type: number
+          format: double
+        rank:
+          description: One more than the counted players rated higher
+          type: integer
+        percentile:
+          description: The share of counted players rated lower, in per cent to one place
+          type: number
+          format: double
+        counted:
+          description: Whether the filters count the player themself
+          type: boolean
     Agreement:
       type: object
       required: [run_id, format, sample, top, weakest]

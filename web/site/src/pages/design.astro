@@ -14,6 +14,8 @@ import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
+import TitleSelect from '../components/TitleSelect';
+import MinOppsField from '../components/MinOppsField';
 import NewerOlder from '@ttac/shared/NewerOlder';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { emptyGameForm } from '@ttac/shared/game-form';
@@ -164,6 +166,14 @@ const rows = [
     <h2>Messages</h2>
     <Message>A message where a page's content would be, such as nothing found.</Message>
     <Message form="inline">The same, as a line in a panel.</Message>
+
+    <h2>Filters</h2>
+    <p class="design-row">
+      <TitleSelect id="design-title" titles={['GM', 'M', 'P']} value={null} onChange={() => {}} />
+    </p>
+    <p class="design-row">
+      <MinOppsField id="design-min-opps" value={30} onApply={() => {}} />
+    </p>
 
     <h2>Tooltip</h2>
     <p class="design-row">

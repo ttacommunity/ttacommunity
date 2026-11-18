@@ -1,0 +1,19 @@
+---
+import { PUBLIC_API_URL } from 'astro:env/client';
+import SiteLayout from '../../../../layouts/SiteLayout.astro';
+import AnalysisNav from '../../../../components/AnalysisNav.astro';
+import PercentilesPage from '../../../../components/PercentilesPage';
+import '../../../../components/AnalysisPage.css';
+import '../../../../components/PlayerPage.css';
+import PageHeader from '@ttac/shared/PageHeader';
+---
+<SiteLayout title="Rating Percentiles | Through the Ages" description="How Through the Ages players spread over conservative ratings, and in which percentile a player stands.">
+  <AnalysisNav page="percentiles" />
+
+  <PageHeader
+    title="Rating Percentiles & Distribution"
+    subtitle="How the leaderboard's players spread over their ratings, and where a player stands among them."
+  />
+
+  <PercentilesPage client:only="react" apiUrl={PUBLIC_API_URL} />
+</SiteLayout>

@@ -3,7 +3,7 @@
 import SubpageNav from './SubpageNav.astro';
 
 interface Props {
-  page: 'overview' | 'activity' | 'seats';
+  page: 'overview' | 'activity' | 'seats' | 'percentiles';
 }
 
 const { page } = Astro.props;
@@ -12,6 +12,7 @@ const tabs = [
   { id: 'overview', href: '/ratings/analysis/', label: plain ? 'Overview & Calibration' : '📈 Overview & Calibration' },
   { id: 'seats', href: '/ratings/analysis/seats/', label: plain ? 'Turn Order & Seats' : '🎲 Turn Order & Seats' },
   { id: 'activity', href: '/ratings/analysis/activity/', label: plain ? 'Activity & Demographics' : '🌎 Activity & Demographics' },
+  { id: 'percentiles', href: '/ratings/analysis/percentiles/', label: plain ? 'Rating Percentiles' : '📊 Rating Percentiles' },
 ].map((t) => ({ ...t, current: t.id === page }));
 ---
 <SubpageNav label="Model analysis pages" tabs={tabs} />

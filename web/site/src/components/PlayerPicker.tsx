@@ -4,8 +4,8 @@ import { pickPlayer } from '../lib/leaderboard-view';
 import SearchBox from './SearchBox';
 import './GamesTable.css';
 
-/** PlayerPicker narrows a games list to one of players: onPick gets the name, or '' when the search is cleared. */
-export default function PlayerPicker({ players, value, onPick }: { players: string[]; value: string; onPick: (player: string) => void }) {
+/** PlayerPicker narrows a games list to one of players: onPick gets the name, or '' when the search is cleared; onFocus is for a page that loads the players only once the box is used. */
+export default function PlayerPicker({ players, value, onPick, onFocus }: { players: string[]; value: string; onPick: (player: string) => void; onFocus?: () => void }) {
   const [missed, setMissed] = useState(false);
   const names = useMemo(() => players.map((name) => ({ name })), [players]);
   const search = (term: string) => {
@@ -16,7 +16,7 @@ export default function PlayerPicker({ players, value, onPick }: { players: stri
   return (
     <div className="games-player">
       <span>Player</span>
-      <SearchBox players={names} value={value} onSearch={search} />
+      <SearchBox players={names} value={value} onSearch={search} onFocus={onFocus} />
       {missed && (
         <span className="games-player-missed" role="status">
           No player matches

@@ -1,9 +1,10 @@
 /** Upstream's Options & Filters drawer: engine, reset mode, prior, and the status, title and opponent filters. */
-import { useEffect, useState } from 'react';
 import type { TitleCode, YearEntry } from '@ttac/shared/ratings';
 import { RESET_MODES, engineName, resetName } from '../lib/leaderboard-display';
 import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type DeltaWindow, type Engine, type Status, type View } from '../lib/leaderboard-view';
 import Segmented from '@ttac/shared/Segmented';
+import MinOppsField from './MinOppsField';
+import TitleSelect from './TitleSelect';
 import type { Link } from '../lib/navigate';
 import { TRACKS } from '@ttac/shared/tracks';
 
@@ -14,8 +15,6 @@ const engineTips: Record<Engine, string> = {
   glicko2_daneo: '👑 GlickoD: φ^(N-2) multiplayer decomposition and 15-game emergent prior re-calibration.',
   glicko2_std: 'Standard naive 1v1 pairwise baseline without multiplayer calibration.',
 };
-
-const titleLabels: Partial<Record<TitleCode, string>> = { GM: 'Grandmaster (GM)', M: 'Master (M)', P: 'Platinum (P)', G: 'Gold (G)' };
 
 /** The CSV downloads of the table as shown, and of every player, with how many rows the first has. */
 export interface Downloads {
@@ -41,8 +40,6 @@ function archiveView(view: View, year: number | null): View {
 
 /** OptionsDrawer shows every option; choosing one goes to that view at page 1. */
 export default function OptionsDrawer({ view, titles, years, downloads, linkTo, go, onClose }: Props) {
-  const [minOpps, setMinOpps] = useState(String(view.minOpps));
-  useEffect(() => setMinOpps(String(view.minOpps)), [view.minOpps]);
   const at = (change: Partial<View>) => ({ ...view, ...change, page: 1 });
   const shownReset = resetName(view.reset);
 
@@ -143,13 +140,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const n = Number(minOpps);
-          if (Number.isInteger(n) && n >= 0 && n <= 1000) go(at({ minOpps: n }));
-        }}
-      >
+      <div>
         <div className="options-field">
           <label className="options-group-title" htmlFor="options-status">
             <span>👤 Activity Status</span>
@@ -170,19 +161,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           <label className="options-group-title" htmlFor="options-title">
             <span>🏅 Titles Filter</span>
           </label>
-          <select
-            id="options-title"
-            className="input-antique"
-            value={view.title ?? 'ALL'}
-            onChange={(e) => go(at({ title: e.target.value === 'ALL' ? null : (e.target.value as TitleCode) }))}
-          >
-            <option value="ALL">All Titles</option>
-            {titles.map((t) => (
-              <option key={t} value={t}>
-                {titleLabels[t] ?? t}
-              </option>
-            ))}
-          </select>
+          <TitleSelect id="options-title" titles={titles} value={view.title} onChange={(title) => go(at({ title }))} />
         </div>
 
         <div className="options-field">
@@ -207,23 +186,9 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           <label className="options-group-title" htmlFor="options-min">
             <span>⚔️ Minimum Opponents</span>
           </label>
-          <div className="options-min-row">
-            <input
-              id="options-min"
-              type="number"
-              min={0}
-              max={1000}
-              className="input-antique"
-              placeholder="Min opponents"
-              value={minOpps}
-              onChange={(e) => setMinOpps(e.target.value)}
-            />
-            <button type="submit" className="btn-antique">
-              Apply
-            </button>
-          </div>
+          <MinOppsField id="options-min" value={view.minOpps} onApply={(minOpps) => go(at({ minOpps }))} />
         </div>
-      </form>
+      </div>
 
       {downloads && (
         <div className="options-export">
