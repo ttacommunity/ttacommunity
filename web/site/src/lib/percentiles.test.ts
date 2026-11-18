@@ -12,6 +12,7 @@ import {
   tierOf,
   tierSpans,
   topShare,
+  withMe,
 } from './percentiles';
 
 const parse = (query: string, remembered = {}) => parsePercentileView(new URLSearchParams(query), remembered);
@@ -172,5 +173,18 @@ describe('tierSpans', () => {
     ['no bins', bins(0, 0, 50), []],
   ])('spans %s', (_name, r, want) => {
     expect(spans(r)).toEqual(want);
+  });
+});
+
+describe('withMe', () => {
+  const linked = (player: string) => ({ member: { name: 'tta-name', player, banned: false, ban_reason: '' } });
+  it.each([
+    ['shows the signed-in player when none is asked for', '', linked('ann'), 'ann'],
+    ['keeps the player asked for', 'bob', linked('ann'), 'bob'],
+    ['shows nobody when signed out', '', null, ''],
+    ['shows nobody when not linked', '', { member: null }, ''],
+    ['shows nobody when linked with no rated games', '', linked(''), ''],
+  ])('%s', (_name, player, me, want) => {
+    expect(withMe({ ...parse(''), player }, me).player).toBe(want);
   });
 });
