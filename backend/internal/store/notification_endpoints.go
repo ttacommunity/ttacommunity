@@ -39,7 +39,8 @@ type NotificationEndpoint struct {
 
 // FeedOptions is how an endpoint takes a feed: a Twitch stream only in one of Categories and with one of Keywords
 // in its title, or either when Match is "any" ("all", the default, else); an empty list does not narrow. WasLive
-// edits its post when the stream ends. An RSS item only with one of Keywords in its title or summary.
+// edits its post when the stream ends. A YouTube stream only with one of Keywords in its title, WasLive as Twitch's.
+// An RSS item only with one of Keywords in its title or summary.
 type FeedOptions struct {
 	Feed       int64    `json:"feed"`
 	Categories []string `json:"categories"`
@@ -80,6 +81,13 @@ func (o FeedOptions) matches(t TwitchNotice) bool {
 		return inCategory || withKeyword
 	}
 	return (len(o.Categories) == 0 || inCategory) && (len(o.Keywords) == 0 || withKeyword)
+}
+
+// matchesTitle says whether a YouTube stream titled title passes o: with one of its keywords in the title, in any
+// letters; o without keywords takes every stream.
+func (o FeedOptions) matchesTitle(title string) bool {
+	lower := strings.ToLower(title)
+	return len(o.Keywords) == 0 || slices.ContainsFunc(o.Keywords, func(k string) bool { return strings.Contains(lower, strings.ToLower(k)) })
 }
 
 // matchesItem says whether RSS item i passes o: with one of its keywords in its title or summary, in any letters;

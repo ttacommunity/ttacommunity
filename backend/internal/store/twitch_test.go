@@ -205,7 +205,7 @@ func TestAStreamEndingEditsOnlyThePostsKept(t *testing.T) {
 	}
 	if _, err := a.SendNotifications(ctx, twitchAt, 50, func(_ context.Context, n Notification, e NotificationEndpoint) error {
 		if e.ID == kept {
-			return a.RecordTwitchPost(ctx, n.StreamRef, e.ID, TwitchPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"})
+			return a.RecordTwitchPost(ctx, n.StreamRef, e.ID, DiscordPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"})
 		}
 		return nil
 	}); err != nil {

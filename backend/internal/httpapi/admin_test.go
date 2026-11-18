@@ -33,6 +33,8 @@ type fakeAdmins struct {
 	options string
 	// twitchErr is what looking a streamer up on Twitch answers, when set; twitchPaused the last pause set.
 	twitchErr error
+	// youtubeThere makes adding the YouTube Live feed find it there already.
+	youtubeThere bool
 	// feedOptions is the feed options the last endpoint added or changed takes.
 	feedOptions  string
 	twitchPaused *bool

@@ -16,13 +16,14 @@ import (
 )
 
 // MovieHub is what the hub's callback needs: the secret pushes are signed with, our answer to the hub's check
-// of a request, a pushed video's verdict, and storing or removing what it pushes.
+// of a request, a pushed video's verdict, storing or removing what it pushes, and noting a stream to check.
 type MovieHub interface {
 	Secret() []byte
 	ConfirmMovieHub(ctx context.Context, channelID, mode string, leaseSeconds int, at time.Time) (bool, error)
 	ClassifyPushed(ctx context.Context, e movies.PushedEntry, at time.Time) (store.PushedVideo, error)
 	StorePushedVideo(ctx context.Context, v store.PushedVideo, at time.Time) error
 	RemovePushedVideo(ctx context.Context, videoID, channelID string, at time.Time) error
+	NoteYouTubeStream(ctx context.Context, videoID, channelID string, at time.Time) error
 }
 
 // movieHubGate lets through the hub's checks, and only pushes signed with the hub's secret, putting the body
@@ -83,8 +84,8 @@ func (s *server) ConfirmMovieHub(ctx context.Context, req ConfirmMovieHubRequest
 	return ConfirmMovieHub200TextResponse{Body: req.Params.HubChallenge, Headers: ConfirmMovieHub200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
-// ReceiveMoviePush stores each video the hub pushed for a linked channel, with its verdict, and removes each it
-// says was deleted. A failure to store answers 500, so the hub sends the push again.
+// ReceiveMoviePush stores each video the hub pushed for a linked channel, with its verdict, noting a live or
+// scheduled stream for YouTube Live, and removes each it says was deleted. A failure to store answers 500, so the hub sends the push again.
 func (s *server) ReceiveMoviePush(ctx context.Context, req ReceiveMoviePushRequestObject) (ReceiveMoviePushResponseObject, error) {
 	body, err := io.ReadAll(req.Body)
 	if err != nil {
@@ -100,8 +101,17 @@ func (s *server) ReceiveMoviePush(ctx context.Context, req ReceiveMoviePushReque
 		if err != nil {
 			return nil, err
 		}
-		if err := s.movieHub.StorePushedVideo(ctx, v, now); err != nil && !errors.Is(err, store.ErrNoChannel) {
+		err = s.movieHub.StorePushedVideo(ctx, v, now)
+		if errors.Is(err, store.ErrNoChannel) {
+			continue
+		}
+		if err != nil {
 			return nil, err
+		}
+		if v.Stream {
+			if err := s.movieHub.NoteYouTubeStream(ctx, v.VideoID, v.ChannelID, now); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, d := range push.Deleted {

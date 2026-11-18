@@ -191,6 +191,12 @@ export const addRSSFeed = (url: string) => to('/api/rss-feeds', 'POST', { url: u
 export const setRSSFeed = (id: number, paused: boolean) => to(`/api/rss-feeds/${id}`, 'PUT', { paused });
 /** removeRSSFeed removes an RSS feed. */
 export const removeRSSFeed = (id: number) => to(`/api/rss-feeds/${id}`, 'DELETE');
+/** addYouTubeFeed adds the YouTube Live feed, of Movies' channels' live streams. */
+export const addYouTubeFeed = () => to('/api/youtube-feeds', 'POST');
+/** setYouTubeFeed pauses or resumes the YouTube Live feed. */
+export const setYouTubeFeed = (id: number, paused: boolean) => to(`/api/youtube-feeds/${id}`, 'PUT', { paused });
+/** removeYouTubeFeed removes the YouTube Live feed. */
+export const removeYouTubeFeed = (id: number) => to(`/api/youtube-feeds/${id}`, 'DELETE');
 /** setCommand saves a Discord command's settings. */
 export const setCommand = (name: string, setting: Schemas['DiscordCommandSetting']) => to(`/api/discord-bot/commands/${encodeURIComponent(name)}`, 'PUT', setting);
 /** setTitle sets a player's title by hand, with its reason. */

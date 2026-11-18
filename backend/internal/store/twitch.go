@@ -37,9 +37,9 @@ type TwitchStream struct {
 	StartedAt                                       time.Time
 }
 
-// TwitchPost is the Discord message an endpoint was posted for a stream, and the channel or forum thread it is in,
+// DiscordPost is the Discord message an endpoint was posted of a stream, and the channel or forum thread it is in,
 // kept to edit it when the stream ends.
-type TwitchPost struct {
+type DiscordPost struct {
 	MessageID string `json:"message_id"`
 	ChannelID string `json:"channel_id"`
 }
@@ -50,7 +50,7 @@ type TwitchNotice struct {
 	Login, DisplayName, Title, Category, ThumbnailURL string
 	StartedAt                                         time.Time
 	EndedAt                                           *time.Time
-	Posts                                             map[int64]TwitchPost
+	Posts                                             map[int64]DiscordPost
 }
 
 var (
@@ -254,7 +254,7 @@ func queueTwitch(ctx context.Context, tx pgx.Tx, kind string, ref int64, now tim
 
 // RecordTwitchPost keeps the message endpoint was posted of the stream ref, so it can be edited when the stream
 // ends; a second post replaces the first.
-func (a *AdminStore) RecordTwitchPost(ctx context.Context, ref, endpoint int64, p TwitchPost) error {
+func (a *AdminStore) RecordTwitchPost(ctx context.Context, ref, endpoint int64, p DiscordPost) error {
 	if _, err := a.pool.Exec(ctx, `INSERT INTO twitch_posts (twitch_stream_id, endpoint_id, message_id, channel_id) VALUES ($1, $2, $3, $4)
 		ON CONFLICT (twitch_stream_id, endpoint_id) DO UPDATE SET message_id = $3, channel_id = $4`, ref, endpoint, p.MessageID, p.ChannelID); err != nil {
 		return fmt.Errorf("keeping a Twitch post: %w", err)

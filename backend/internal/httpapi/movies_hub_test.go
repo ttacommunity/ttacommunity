@@ -32,6 +32,7 @@ type fakeHub struct {
 	confirmed []string
 	stored    []string
 	removed   []string
+	noted     []string
 	storeErr  error
 }
 
@@ -43,7 +44,13 @@ func (f *fakeHub) ConfirmMovieHub(_ context.Context, channelID, mode string, lea
 }
 
 func (f *fakeHub) ClassifyPushed(_ context.Context, e movies.PushedEntry, _ time.Time) (store.PushedVideo, error) {
-	return store.PushedVideo{VideoID: e.VideoID, ChannelID: e.ChannelID, Title: e.Title, PublishedAt: e.PublishedAt, TTA: true}, nil
+	return store.PushedVideo{VideoID: e.VideoID, ChannelID: e.ChannelID, Title: e.Title, PublishedAt: e.PublishedAt, TTA: true,
+		Stream: strings.HasPrefix(e.Title, "Live")}, nil
+}
+
+func (f *fakeHub) NoteYouTubeStream(_ context.Context, videoID, channelID string, _ time.Time) error {
+	f.noted = append(f.noted, videoID+"|"+channelID)
+	return nil
 }
 
 func (f *fakeHub) StorePushedVideo(_ context.Context, v store.PushedVideo, _ time.Time) error {
@@ -147,6 +154,29 @@ func TestTheHubCallbackStoresAPushedUpload(t *testing.T) {
 	}
 	if want := []string{"vid00000001|Through the Ages final"}; !slices.Equal(hub.stored, want) {
 		t.Errorf("stored = %q, want %q", hub.stored, want)
+	}
+}
+
+func TestTheHubCallbackNotesOnlyAStoredLiveOrScheduledStream(t *testing.T) {
+	tests := []struct {
+		name, channel, title string
+		want                 []string
+	}{
+		{"a linked channel's stream", hubLinked, "Live final", []string{"vid00000001|" + hubLinked}},
+		{"a linked channel's upload", hubLinked, "Through the Ages final", nil},
+		{"an unlinked channel's stream", hubUnlinked, "Live final", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hub := &fakeHub{}
+			body := hubUpload(tt.channel, "vid00000001", tt.title)
+			if rec := hubPost(hub, body, hubSign(hubSecret, body)); rec.Code != http.StatusNoContent {
+				t.Fatalf("status = %d, want 204; body %s", rec.Code, rec.Body)
+			}
+			if !slices.Equal(hub.noted, tt.want) {
+				t.Errorf("noted = %q, want %q", hub.noted, tt.want)
+			}
+		})
 	}
 }
 
