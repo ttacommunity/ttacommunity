@@ -90,6 +90,18 @@
   letter-spacing: 0;
 }
 
+/* In a ViewBar's actions: the box alone, filling the line on a phone. */
+.games-player-inline {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+@media (max-width: 768px) {
+  .games-player-inline {
+    flex: 1;
+  }
+}
+
 .games-player-missed {
   text-transform: none;
 }

@@ -32,6 +32,7 @@
   --draw: #ffa726;
   --medal-silver: #cfd8dc;
   --medal-bronze: #cd7f32;
+  --accent-sky: #4fc3f7;
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;

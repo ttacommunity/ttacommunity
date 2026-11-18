@@ -6,6 +6,7 @@ import { formatCards, COUNTRY_COLUMNS, titleLabel, type CountryColumn } from '..
 import { runYears } from '../lib/player-view';
 import { Flag, TitleBadge } from './PlayerMarks';
 import PanelHeader from './PanelHeader';
+import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
@@ -40,28 +41,12 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="stats-grid-4">
-        <div className="metric-card">
-          <div className="metric-label">Active Players (12m)</div>
-          <div className="metric-number metric-active">{count(a.active)}</div>
-          <div className="metric-note">{pct(a.active)}% active retention</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Inactive / Retired</div>
-          <div className="metric-number metric-inactive">{count(a.inactive)}</div>
-          <div className="metric-note">{pct(a.inactive)}% inactive (&gt;12m)</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Total Matches Recorded</div>
-          <div className="metric-number metric-matches">{count(formats.total)}</div>
-          <div className="metric-note">{years ? `Across ${years[0]}–${years[1]} seasons` : 'Across every season'}</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">All Recorded Competitors</div>
-          <div className="metric-number metric-players">{count(total)}</div>
-          <div className="metric-note">Unique tournament players</div>
-        </div>
-      </div>
+      <MetricGrid>
+        <MetricCard label="Active Players (12m)" value={count(a.active)} note={<>{pct(a.active)}% active retention</>} tone="win" />
+        <MetricCard label="Inactive / Retired" value={count(a.inactive)} note={<>{pct(a.inactive)}% inactive (&gt;12m)</>} tone="muted" />
+        <MetricCard label="Total Matches Recorded" value={count(formats.total)} note={years ? `Across ${years[0]}–${years[1]} seasons` : 'Across every season'} tone="gold" />
+        <MetricCard label="All Recorded Competitors" value={count(total)} note="Unique tournament players" tone="sky" />
+      </MetricGrid>
 
       <div className="activity-columns">
         <div className="rating-card panel-card">

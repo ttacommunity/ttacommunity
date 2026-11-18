@@ -1,6 +1,7 @@
 /** Top-level player profile options drawer: track, reset mode, engine, and trajectory chart controls. */
 import { OptionsDivider, OptionsPanel, OptionsSection } from './SideDrawer';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
+import ToggleGroup from '@ttac/shared/ToggleGroup';
 import type { Engine, ResetMode, Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
 import type { ChartCurve, ChartMode, ChartOptionsState, ChartScale, ChartTiers, PlayerView } from '../lib/player-view';
@@ -13,10 +14,16 @@ export interface PlayerOptionsDrawerProps {
   setTiers: (t: ChartTiers) => void;
   setMode: (m: ChartMode) => void;
   setCurve: (c: ChartCurve) => void;
-  toggleEngine: (engine: string) => void;
+  /** Chooses the chart's engines; an empty choice is ignored. */
+  setEngines: (engines: Set<string>) => void;
   onReset: () => void;
   onClose: () => void;
 }
+
+const CHART_ENGINE_OPTIONS: Option<string>[] = [
+  { value: 'glicko2_daneo', label: '👑 GlickoD', title: "DANeo's multiplayer-weighted Glicko-2 baseline" },
+  { value: 'glicko2_std', label: 'Glicko-2 Standard', title: 'Standard Glicko-2 model (unselected by default)' },
+];
 
 const TRACK_OPTIONS: Option<Track>[] = [
   { value: 'community', label: 'Standard', tooltip: 'Classical asynchronous community tournaments' },
@@ -74,7 +81,7 @@ export default function PlayerOptionsDrawer({
   setTiers,
   setMode,
   setCurve,
-  toggleEngine,
+  setEngines,
   onReset,
   onClose,
 }: PlayerOptionsDrawerProps) {
@@ -97,26 +104,7 @@ export default function PlayerOptionsDrawer({
       <OptionsDivider>Trajectory Chart</OptionsDivider>
 
       <OptionsSection title="Chart Models" tip="Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default.">
-        <div className="format-bar-group" role="group" aria-label="Chart models">
-          <button
-            type="button"
-            className={chart.engines.has('glicko2_daneo') ? 'format-btn active' : 'format-btn'}
-            aria-pressed={chart.engines.has('glicko2_daneo')}
-            title="DANeo's multiplayer-weighted Glicko-2 baseline"
-            onClick={() => toggleEngine('glicko2_daneo')}
-          >
-            👑 GlickoD
-          </button>
-          <button
-            type="button"
-            className={chart.engines.has('glicko2_std') ? 'format-btn active' : 'format-btn'}
-            aria-pressed={chart.engines.has('glicko2_std')}
-            title="Standard Glicko-2 model (unselected by default)"
-            onClick={() => toggleEngine('glicko2_std')}
-          >
-            Glicko-2 Standard
-          </button>
-        </div>
+        <ToggleGroup label="Chart models" options={CHART_ENGINE_OPTIONS} chosen={chart.engines} onChange={setEngines} />
       </OptionsSection>
 
       <OptionsSection title="Time Scale" tip="Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing.">

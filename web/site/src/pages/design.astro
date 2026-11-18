@@ -3,6 +3,9 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
+import ToggleGroup from '@ttac/shared/ToggleGroup';
+import MetricCard, { MetricGrid } from '../components/MetricCard';
+import ViewBar, { FormatPick } from '../components/ViewBar';
 import DialogSamples from '../components/DialogSamples';
 import OptionsSample from '../components/OptionsSample';
 import Note from '@ttac/shared/Note';
@@ -99,6 +102,22 @@ const rows = [
     <p>A choice sets what a page shows (above); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>
     <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
     <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
+
+    <h2>Toggle group</h2>
+    <ToggleGroup label="Sample toggles" all="All" options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set(['one'])} onChange={() => {}} />
+
+    <h2>View bar</h2>
+    <ViewBar>
+      <FormatPick value={0} onChange={() => {}} what="the sample" />
+    </ViewBar>
+
+    <h2>Headline figures</h2>
+    <MetricGrid>
+      <MetricCard label="Sample count" value="1,234" note="A note under it" tone="win" />
+      <MetricCard label="Sample share" value="56.7%" note="Muted" tone="muted" />
+      <MetricCard label="Sample total" value="890" tone="gold" />
+      <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
+    </MetricGrid>
 
     <h2>Badges</h2>
     <p class="design-row">

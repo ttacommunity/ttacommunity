@@ -1,8 +1,8 @@
-/** Options & filters drawer for the rating percentiles page. */
+/** Options & filters drawer for the rating percentiles page; the format is chosen in its ViewBar. */
 import type { RatingBasis, TitleCode } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import * as show from '../lib/leaderboard-display';
-import { ENGINES, FORMATS, type Status } from '../lib/leaderboard-view';
+import { ENGINES, type Status } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
 import { BIN_WIDTHS, withDefaults, type PercentileView } from '../lib/percentiles';
 import MinOppsField from './MinOppsField';
@@ -35,15 +35,6 @@ export default function PercentilesOptionsDrawer({ view, titles, linkTo, go, onC
 
   return (
     <OptionsPanel label="Percentiles options and filters" onClose={onClose} reset={linkTo(withDefaults(view))}>
-      <OptionsSection icon="🎮" title="Format">
-        <Segmented
-          label="Format"
-          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating spread for ${show.formatName(f)}` }))}
-          value={board.format}
-          link={(format) => linkTo(at({ format }))}
-        />
-      </OptionsSection>
-
       <OptionsSection icon="⚡" title="Rating Engine">
         <Segmented
           label="Rating engine"

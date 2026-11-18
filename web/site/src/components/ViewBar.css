@@ -1,0 +1,55 @@
+/* A page's full-width bar of view choices, as upstream's matrix draws its snapshot filter. */
+.view-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.view-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.view-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.view-group-reset {
+  margin-left: auto;
+}
+
+.view-bar-label {
+  margin-right: 0.35rem;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .view-bar {
+    padding: 0.5rem;
+  }
+
+  .view-group-reset {
+    margin-left: 0;
+  }
+
+  .view-bar-actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+}

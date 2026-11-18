@@ -1,0 +1,54 @@
+/* Headline figures: a row of cards, each a label, a big value and a note. */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.metric-card {
+  padding: 1.5rem;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.metric-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.metric-number {
+  margin: 0.4rem 0;
+  font-family: var(--font-heading);
+  font-size: 2.3rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.metric-win { color: var(--win); }
+.metric-muted { color: var(--text-muted); }
+.metric-gold { color: var(--accent-gold); }
+.metric-sky { color: var(--accent-sky); }
+
+.metric-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    padding: 1rem 0.75rem;
+  }
+
+  .metric-number {
+    font-size: 1.6rem;
+  }
+}

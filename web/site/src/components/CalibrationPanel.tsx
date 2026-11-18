@@ -1,5 +1,5 @@
-/** Upstream's calibration diagram, ranked model table and analysis selector. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+/** Upstream's calibration diagram and ranked model table, with the format in a ViewBar and the other choices in an options drawer. */
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import { CategoryScale, Chart, Legend, LineController, LineElement, LinearScale, PointElement, Tooltip } from 'chart.js';
@@ -21,43 +21,17 @@ import { browserStorage } from '@ttac/shared/storage';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
-import { toggledSet } from '@ttac/shared/toggle';
 import { formatName } from '../lib/leaderboard-display';
-import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
 import PanelHeader from './PanelHeader';
+import CalibrationOptionsDrawer from './CalibrationOptionsDrawer';
+import { OptionsToggle } from './SideDrawer';
+import ViewBar, { FormatPick } from './ViewBar';
 
 Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Legend, Tooltip);
 
 const ALL_ENGINES: Family[] = ['glicko2_daneo', 'glicko2_std'];
-const ALL_RESETS: Reset[] = ['continuous', 'softer'];
 const BIN_LABELS = ['50-55%', '55-60%', '60-65%', '65-70%', '70-75%', '75-80%', '80-85%', '85-90%', '90-95%', '95-100%'];
-const FORMAT_OPTIONS: { value: Format; label: string }[] = FORMATS.map((f) => ({ value: f, label: formatName(f) }));
-const FAMILY_BUTTONS: { family: Family; label: string; className: string }[] = [
-  { family: 'glicko2_daneo', label: '👑 GlickoD', className: 'family-daneo' },
-  { family: 'glicko2_std', label: 'G2 Std', className: 'family-std' },
-];
-
-
-function Toggle({ active, onClick, className, tip, children }: { active: boolean; onClick: () => void; className?: string; tip?: string; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      className={`opt-toggle-btn${className ? ` ${className}` : ''}${active ? ' active' : ''}`}
-      aria-pressed={active}
-      data-tooltip={tip}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** toggled adds or removes one value; "all" selects every value, or none when all are already selected. */
-function toggled<T>(set: ReadonlySet<T>, value: T | 'all', every: readonly T[]): Set<T> {
-  if (value === 'all') return set.size === every.length ? new Set() : new Set(every);
-  return toggledSet(set, value);
-}
 
 /** CalibrationPanel loads the current run's calibration and lets the reader choose which models to compare. */
 export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
@@ -66,6 +40,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
   const [format, setFormat] = useState<Format>(initial.format);
   const [engines, setEngines] = useState<ReadonlySet<Family>>(new Set(ALL_ENGINES));
   const [resets, setResets] = useState<ReadonlySet<Reset>>(new Set<Reset>(['continuous']));
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const load = useLoad('calibration', () => currentRun(apiUrl).then((r) => calibration(apiUrl, r.run_id)));
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'line'> | null>(null);
@@ -174,152 +149,105 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     .join(', ');
 
   return (
-    <div className="analysis-layout-grid">
-      <div className="analysis-main-column">
-        <div className="rating-card panel-card graph-main-card">
-          <PanelHeader title="Reliability Calibration Diagram" subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins">
-            <div className="card-badges">
-              <span className="mode-badge">{MODE_NAMES[mode]}</span>
-              <span className="format-badge">{formatName(format)}</span>
-            </div>
-          </PanelHeader>
-          <div className="hero-chart-container">
-            {load.kind === 'error' ? (
-              <Waiting load={load} what="the calibration" form="inline" />
-            ) : (
-              <canvas ref={canvas} aria-label={`Calibration of each model against the ideal diagonal. Curves: ${curveSummary}. The table below gives the figures.`} />
-            )}
-          </div>
-        </div>
-
-        <div className="rating-card panel-card eval-table-card">
-          <PanelHeader
-            title="Overall Predictive Model Rankings (4-Metric Evaluation)"
-            subtitle={
-              <>
-                Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
-              </>
-            }
+    <div className="analysis-stack">
+      <ViewBar
+        actions={
+          <OptionsToggle
+            title="Evaluation mode, engines, and reset modes"
+            active={mode !== 'standard' || engines.size !== ALL_ENGINES.length || resets.size !== 1 || !resets.has('continuous')}
+            open={optionsOpen}
+            onClick={() => setOptionsOpen(!optionsOpen)}
           />
-          <ScrollTable hint="all 4 metrics">
-            <table className="leaderboard-table ranked-table">
-              <thead>
-                <tr>
-                  <th scope="col">Rank</th>
-                  <th scope="col">Rating Model &amp; Season Mode</th>
-                  <th scope="col" data-tooltip="Expected Calibration Error: Mean percentage gap between predicted win chance & actual outcome. Lower is better.">
-                    ECE ↓
-                  </th>
-                  <th scope="col" data-tooltip="Brier Score (Mean Squared Error): Overall probabilistic forecast loss. Lower is better (0.0 = perfect, 0.25 = random).">
-                    Brier ↓
-                  </th>
-                  <th scope="col" data-tooltip="Log Loss (Cross-Entropy): Information-theoretic penalty for confident mispredictions. Lower is better.">
-                    Log Loss ↓
-                  </th>
-                  <th scope="col" data-tooltip="Accuracy & Actual vs. Expected: Compares the favorite's actual win rate (Actual) with their average predicted win probability (Expected).">
-                    Favorite Win% (Actual vs. Expected) ↑
-                  </th>
-                  <th scope="col" data-tooltip="Composite Predictive Score (0–100): Weighted index of predictive quality = Brier Score MSE (35%) + Expected Calibration Error ECE (35%) + Log Loss Cross-Entropy (15%) + Favorite Accuracy (15%). Higher is better.">
-                    Score ⓘ
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {ready &&
-                  ranked.map((rm) => (
-                      <tr key={rm.key} className={`ranked-eval-row model-${rm.key}${active.has(rm.key) ? ' active-highlight' : ''}`}>
-                        <td className="rank-cell">#{rm.rank}</td>
-                        <td>
-                          <span className="model-dot" />
-                          <strong className="model-name">{rm.name}</strong>
-                        </td>
-                        <td className={`ece-${eceClass(rm.ecePct)}`}>{rm.ecePct.toFixed(2)}%</td>
-                        <td className="brier-cell">{rm.brier.toFixed(4)}</td>
-                        <td className="logloss-cell">{rm.logLoss.toFixed(4)}</td>
-                        <td className="ist-cell">
-                          <strong>{rm.pIstPct.toFixed(1)}%</strong>{' '}
-                          <span className={rm.pDeltaPct >= 0 ? 'soll-up' : 'soll-down'}>(Expected: {rm.pSollPct.toFixed(1)}%)</span>
-                        </td>
-                        <td>
-                          <span className="score-badge">{rm.composite.toFixed(1)}</span>
-                        </td>
-                      </tr>
-                    ))}
-              </tbody>
-            </table>
-            {load.kind === 'loading' && <Waiting load={load} what="the calibration" form="inline" />}
-          </ScrollTable>
+        }
+      >
+        <FormatPick value={format} onChange={setFormat} what="calibration" />
+      </ViewBar>
+      {optionsOpen && (
+        <CalibrationOptionsDrawer
+          mode={mode}
+          engines={engines}
+          resets={resets}
+          curves={active.size}
+          setMode={setMode}
+          setEngines={setEngines}
+          setResets={setResets}
+          onReset={resetAll}
+          onClose={() => setOptionsOpen(false)}
+        />
+      )}
+      <div className="rating-card panel-card graph-main-card">
+        <PanelHeader title="Reliability Calibration Diagram" subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins">
+          <div className="card-badges">
+            <span className="mode-badge">{MODE_NAMES[mode]}</span>
+            <span className="format-badge">{formatName(format)}</span>
+          </div>
+        </PanelHeader>
+        <div className="hero-chart-container">
+          {load.kind === 'error' ? (
+            <Waiting load={load} what="the calibration" form="inline" />
+          ) : (
+            <canvas ref={canvas} aria-label={`Calibration of each model against the ideal diagonal. Curves: ${curveSummary}. The table below gives the figures.`} />
+          )}
         </div>
       </div>
 
-      <div className="analysis-sidebar-column">
-        <div className="options-sticky-panel">
-          <div className="options-head">
-            <span>⚙ Analysis Selector</span>
-            <button type="button" className="options-reset" onClick={resetAll}>
-              Reset All
-            </button>
-          </div>
-
-          <div role="group" aria-label="Evaluation Mode">
-            <div className="opt-section-title">🔮 Evaluation Mode</div>
-            <div className="opt-btn-grid">
-              <Toggle active={mode === 'standard'} onClick={() => setMode('standard')} tip="Standard match-time in-sample evaluation">
-                Standard
-              </Toggle>
-              <Toggle active={mode === 'walk_forward'} onClick={() => setMode('walk_forward')} tip="Strict out-of-sample monthly freeze testing">
-                Walk-Forward
-              </Toggle>
-            </div>
-          </div>
-
-          <div role="group" aria-label="Player Format">
-            <div className="opt-section-title">🎮 Player Format</div>
-            <div className="opt-btn-grid">
-              {FORMAT_OPTIONS.map((f) => (
-                <Toggle key={f.value} active={format === f.value} onClick={() => setFormat(f.value)}>
-                  {f.label}
-                </Toggle>
-              ))}
-            </div>
-          </div>
-
-          <div role="group" aria-label="Rating Engine Family">
-            <div className="opt-section-title">🏅 Rating Engine Family</div>
-            <div className="opt-btn-grid">
-              <Toggle active={engines.size === ALL_ENGINES.length} onClick={() => setEngines(toggled(engines, 'all', ALL_ENGINES))}>
-                All Engines
-              </Toggle>
-              {FAMILY_BUTTONS.map((b) => (
-                <Toggle key={b.family} className={b.className} active={engines.has(b.family)} onClick={() => setEngines(toggled(engines, b.family, ALL_ENGINES))}>
-                  {b.label}
-                </Toggle>
-              ))}
-            </div>
-          </div>
-
-          <div role="group" aria-label="Season Reset Mode">
-            <div className="opt-section-title">↻ Season Reset Mode</div>
-            <div className="opt-btn-grid">
-              <Toggle active={resets.size === ALL_RESETS.length} onClick={() => setResets(toggled(resets, 'all', ALL_RESETS))}>
-                All Resets
-              </Toggle>
-              <Toggle active={resets.has('continuous')} onClick={() => setResets(toggled(resets, 'continuous', ALL_RESETS))}>
-                Continuous
-              </Toggle>
-              <Toggle active={resets.has('softer')} onClick={() => setResets(toggled(resets, 'softer', ALL_RESETS))}>
-                Season Reset
-              </Toggle>
-            </div>
-          </div>
-
-          <div className="options-foot">
-            <span>
-              Active Curves: <strong>{active.size}</strong>
-            </span>
-            <span className="options-live">Live Reactivity ✔</span>
-          </div>
-        </div>
+      <div className="rating-card panel-card eval-table-card">
+        <PanelHeader
+          title="Overall Predictive Model Rankings (4-Metric Evaluation)"
+          subtitle={
+            <>
+              Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
+            </>
+          }
+        />
+        <ScrollTable hint="all 4 metrics">
+          <table className="leaderboard-table ranked-table">
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Rating Model &amp; Season Mode</th>
+                <th scope="col" data-tooltip="Expected Calibration Error: Mean percentage gap between predicted win chance & actual outcome. Lower is better.">
+                  ECE ↓
+                </th>
+                <th scope="col" data-tooltip="Brier Score (Mean Squared Error): Overall probabilistic forecast loss. Lower is better (0.0 = perfect, 0.25 = random).">
+                  Brier ↓
+                </th>
+                <th scope="col" data-tooltip="Log Loss (Cross-Entropy): Information-theoretic penalty for confident mispredictions. Lower is better.">
+                  Log Loss ↓
+                </th>
+                <th scope="col" data-tooltip="Accuracy & Actual vs. Expected: Compares the favorite's actual win rate (Actual) with their average predicted win probability (Expected).">
+                  Favorite Win% (Actual vs. Expected) ↑
+                </th>
+                <th scope="col" data-tooltip="Composite Predictive Score (0–100): Weighted index of predictive quality = Brier Score MSE (35%) + Expected Calibration Error ECE (35%) + Log Loss Cross-Entropy (15%) + Favorite Accuracy (15%). Higher is better.">
+                  Score ⓘ
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {ready &&
+                ranked.map((rm) => (
+                    <tr key={rm.key} className={`ranked-eval-row model-${rm.key}${active.has(rm.key) ? ' active-highlight' : ''}`}>
+                      <td className="rank-cell">#{rm.rank}</td>
+                      <td>
+                        <span className="model-dot" />
+                        <strong className="model-name">{rm.name}</strong>
+                      </td>
+                      <td className={`ece-${eceClass(rm.ecePct)}`}>{rm.ecePct.toFixed(2)}%</td>
+                      <td className="brier-cell">{rm.brier.toFixed(4)}</td>
+                      <td className="logloss-cell">{rm.logLoss.toFixed(4)}</td>
+                      <td className="ist-cell">
+                        <strong>{rm.pIstPct.toFixed(1)}%</strong>{' '}
+                        <span className={rm.pDeltaPct >= 0 ? 'soll-up' : 'soll-down'}>(Expected: {rm.pSollPct.toFixed(1)}%)</span>
+                      </td>
+                      <td>
+                        <span className="score-badge">{rm.composite.toFixed(1)}</span>
+                      </td>
+                    </tr>
+                  ))}
+            </tbody>
+          </table>
+          {load.kind === 'loading' && <Waiting load={load} what="the calibration" form="inline" />}
+        </ScrollTable>
       </div>
     </div>
   );

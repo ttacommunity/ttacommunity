@@ -11,36 +11,6 @@
   text-align: center;
 }
 
-/* Stat Summary Tiles */
-.comm-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin: 1.5rem 0;
-}
-.stat-tile {
-  background: rgba(16, 10, 7, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1rem;
-  text-align: center;
-  box-shadow: 0 2px 8px var(--shadow);
-}
-.stat-tile-num {
-  font-size: 1.8rem;
-  font-weight: 700;
-  font-family: var(--font-stats);
-  color: var(--accent-gold-light);
-  line-height: 1.2;
-}
-.stat-tile-label {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 0.35rem;
-}
-
 /* Guide and Explainer Accordion Cards */
 .explainer-cards {
   display: grid;
@@ -363,18 +333,7 @@
     padding: 1.25rem 1rem;
     margin-bottom: 1.25rem;
   }
-  /* Columns may shrink below a long name, which then wraps inside its tile. */
-  .comm-stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.6rem;
-  }
-  .stat-tile {
-    padding: 0.75rem 0.5rem;
-  }
-  .stat-tile-num {
-    font-size: 1.4rem;
-    overflow-wrap: anywhere;
-  }
+
   .comm-controls {
     padding: 0.85rem;
     flex-direction: column;

@@ -23,10 +23,12 @@ import { profileHref } from '../lib/player-view';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Message from './Message';
+import MetricCard, { MetricGrid } from './MetricCard';
 import { OptionsToggle } from './SideDrawer';
 import PanelHeader from './PanelHeader';
 import PercentilesOptionsDrawer from './PercentilesOptionsDrawer';
 import PlayerPicker from './PlayerPicker';
+import ViewBar, { FormatPick } from './ViewBar';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { useKeptFound, useLoad } from './useLoad';
@@ -74,12 +76,16 @@ export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="view-bar view-bar-row percentiles-toolbar">
-        <div className="percentiles-picker">
-          <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} />
-        </div>
-        <OptionsToggle title="Format, engine, population, and binning options" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
-      </div>
+      <ViewBar
+        actions={
+          <>
+            <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} inline />
+            <OptionsToggle title="Engine, population, and binning options" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+          </>
+        }
+      >
+        <FormatPick value={view.board.format} link={(format) => linkTo({ ...view, board: { ...view.board, format } })} what="the rating spread" />
+      </ViewBar>
       {optionsOpen && <PercentilesOptionsDrawer view={view} titles={titles} linkTo={linkTo} go={go} onClose={() => setOptionsOpen(false)} />}
 
       {run.kind === 'error' ? (
@@ -105,30 +111,20 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
   return (
     <>
       {p !== undefined && (
-        <div className="stats-grid-4">
-          <div className="metric-card">
-            <div className="metric-label">
-              <a href={profileHref(p.name, view.board)}>{p.name}</a>
-            </div>
-            <div className="metric-number metric-matches">{ordinal(Math.floor(p.percentile))}</div>
-            <div className="metric-note">percentile: rated above {p.percentile.toFixed(1)}% of {who}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Standing</div>
-            <div className="metric-number">{topShare(p, data.players)}</div>
-            <div className="metric-note">
-              #{count(p.rank)} of {count(data.players + (p.counted ? 0 : 1))}
-              {p.counted ? '' : ` (${p.name} is outside these filters)`}
-            </div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">{rating}</div>
-            <div className="metric-number">{p.value.toFixed(1)}</div>
-            <div className="metric-note">
-              {show.engineName(percentileQuery(view).model)}, {show.formatName(data.format)}
-            </div>
-          </div>
-        </div>
+        <MetricGrid>
+          <MetricCard
+            label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
+            value={ordinal(Math.floor(p.percentile))}
+            note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
+            tone="gold"
+          />
+          <MetricCard
+            label="Standing"
+            value={topShare(p, data.players)}
+            note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
+          />
+          <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
+        </MetricGrid>
       )}
 
       <div className="rating-card panel-card percentiles-chart-card">
