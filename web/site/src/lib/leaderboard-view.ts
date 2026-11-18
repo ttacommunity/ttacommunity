@@ -411,10 +411,15 @@ export function pickPlayer(names: readonly string[], typed: string): string | nu
   return suggest(names.map((name) => ({ name })), t)[0]?.name ?? null;
 }
 
-/** titleOptions lists the titles some row holds: GM, M, P and G first, as upstream orders them. */
-export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
-  const held = new Set(rows.map((p) => p.title?.code));
+/** titlesInOrder orders title codes as upstream does, GM, M, P and G first, each once. */
+export function titlesInOrder(codes: readonly (TitleCode | undefined)[]): TitleCode[] {
+  const held = new Set(codes);
   return TITLES.filter((t) => held.has(t));
+}
+
+/** titleOptions lists the titles some row holds, in titlesInOrder's order. */
+export function titleOptions(rows: readonly LeaderboardRow[]): TitleCode[] {
+  return titlesInOrder(rows.map((p) => p.title?.code));
 }
 
 /** Delta is a player's change over the chosen window, and their rank then (null without a past rating). */

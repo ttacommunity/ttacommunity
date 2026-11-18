@@ -20,6 +20,7 @@ import {
   hiddenMatches,
   hiddenNote,
   titleOptions,
+  titlesInOrder,
   viewParams,
   withRanking,
   defaultMinOpps,
@@ -319,6 +320,12 @@ describe('titleOptions', () => {
     ['only those present', [row('f', 1, 40, null, titled('B')), row('g', 1, 40, null, titled('W'))], ['W', 'B']],
   ])('lists the titles present, as upstream: %s', (_name, present, want) => {
     expect(titleOptions(present)).toEqual(want);
+  });
+});
+
+describe('titlesInOrder', () => {
+  it('orders title codes as upstream, dropping repeats', () => {
+    expect(titlesInOrder(['WC', 'M', 'B', 'GM', 'M'])).toEqual(['GM', 'M', 'WC', 'B']);
   });
 });
 

@@ -21,6 +21,7 @@ import {
   recentPodiums,
   agreement,
   seatAnalysis,
+  ratingPercentiles,
   calibration,
   comparedPlayers,
   currentRun,
@@ -266,6 +267,20 @@ describe('analysis pages', () => {
       'https://api.example/v1/runs/5/analysis/players?format=0',
       'https://api.example/v1/runs/5/analysis/activity',
       'https://api.example/v1/runs/5/analysis/seats?tier=grandmaster&format=2',
+    ]);
+    expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
+  });
+});
+
+describe('percentiles page', () => {
+  it('asks for the spread with the chosen filters, and the player only when one is named', async () => {
+    const f = fakeFetch(200, '{}');
+    const q = { model: 'glicko2_std', format: 3, status: 'all', minOpps: 0, title: 'GM', rating: 'rating', binWidth: 25, player: 'ann b' } as const;
+    await ratingPercentiles('https://api.example', 5, q, f.fetch);
+    await ratingPercentiles('https://api.example', 5, { ...q, model: 'glicko2_daneo', format: 0, status: 'active', minOpps: 30, title: null, rating: 'c_rating', binWidth: 50, player: '' }, f.fetch);
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://api.example/v1/runs/5/analysis/percentiles?model=glicko2_std&format=3&status=all&min_opps=0&rating=rating&bin_width=25&title=GM&player=ann+b',
+      'https://api.example/v1/runs/5/analysis/percentiles?model=glicko2_daneo&format=0&status=active&min_opps=30&rating=c_rating&bin_width=50',
     ]);
     expect(f.calls.every((c) => c.init?.credentials === 'omit')).toBe(true);
   });
