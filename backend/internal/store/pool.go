@@ -1,9 +1,11 @@
-// Opening the api's connection pools.
+// Opening the api's connection pools, and waiting for a new pod's first connection to be let through.
 package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,5 +28,59 @@ func OpenPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		conn.TypeMap().RegisterType(&pgtype.Type{Name: "timestamptz", OID: pgtype.TimestamptzOID, Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC}})
 		return nil
 	}
-	return pgxpool.NewWithConfig(ctx, config)
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+	if err := WaitForDatabase(ctx, pool); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return pool, nil
+}
+
+// How long a new pod waits for the network to let its first connection through: the first wait, and all of them.
+const (
+	firstWait     = 250 * time.Millisecond
+	waitingAtMost = 10 * time.Second
+)
+
+// WaitForDatabase pings pool until it connects. A refused connection is tried again, waiting 250 ms, then twice as
+// long each time, for waitingAtMost in all: a new pod's address is let through the network policy about a second
+// after it starts. Any other error, or still refused after that, is returned.
+func WaitForDatabase(ctx context.Context, pool *pgxpool.Pool) error {
+	return waitForConnection(ctx, pool.Ping, func(ctx context.Context, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(d):
+			return nil
+		}
+	})
+}
+
+// waitForConnection calls ping until it answers anything but refused, waiting with sleep between tries as
+// WaitForDatabase does.
+func waitForConnection(ctx context.Context, ping func(context.Context) error, sleep func(context.Context, time.Duration) error) error {
+	wait, waited := firstWait, time.Duration(0)
+	for {
+		err := ping(ctx)
+		if !refused(err) || waited >= waitingAtMost {
+			if err != nil {
+				return fmt.Errorf("connecting to the database: %w", err)
+			}
+			return nil
+		}
+		d := min(wait, waitingAtMost-waited)
+		if err := sleep(ctx, d); err != nil {
+			return fmt.Errorf("waiting for the database: %w", err)
+		}
+		waited += d
+		wait *= 2
+	}
+}
+
+// refused says whether err is a connection the other end refused.
+func refused(err error) bool {
+	return errors.Is(err, syscall.ECONNREFUSED)
 }

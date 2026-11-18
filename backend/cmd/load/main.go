@@ -392,6 +392,9 @@ func withPool(f func(context.Context, *pgxpool.Pool) error) error {
 		return fmt.Errorf("opening the ratings database: %w", err)
 	}
 	defer pool.Close()
+	if err := store.WaitForDatabase(ctx, pool); err != nil {
+		return err
+	}
 	return f(ctx, pool)
 }
 

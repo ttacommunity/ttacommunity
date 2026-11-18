@@ -9,7 +9,16 @@ import (
 	"maps"
 	"strings"
 	"testing"
+	"time"
 )
+
+// unreachable is a context for opening a database no test can reach: it ends before the first wait for a
+// refused connection, so the failure comes at once.
+func unreachable(t *testing.T) context.Context {
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	t.Cleanup(cancel)
+	return ctx
+}
 
 func TestMigrateRefusesWithoutTheOwnersURL(t *testing.T) {
 	err := migrate(context.Background(), "")
@@ -41,7 +50,7 @@ func TestSignInRefusesToStartWithoutItsConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := maps.Clone(full)
 			env[tt.key] = tt.value
-			_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+			_, _, err := openSignIns(unreachable(t), func(k string) string { return env[k] })
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("openSignIns with %s=%q = %v, want a refusal naming %s", tt.key, tt.value, err, tt.want)
 			}
@@ -69,13 +78,13 @@ func TestTheDiscordStandInIsOnlyForThisMachine(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := maps.Clone(local)
 			env[tt.key] = tt.value
-			_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+			_, _, err := openSignIns(unreachable(t), func(k string) string { return env[k] })
 			if err == nil || !strings.Contains(err.Error(), "DISCORD_DEV_USER") {
 				t.Errorf("openSignIns with %s=%q = %v, want a refusal naming DISCORD_DEV_USER", tt.key, tt.value, err)
 			}
 		})
 	}
-	_, _, err := openSignIns(context.Background(), func(k string) string { return local[k] })
+	_, _, err := openSignIns(unreachable(t), func(k string) string { return local[k] })
 	if err == nil || !strings.Contains(err.Error(), "player login") {
 		t.Errorf("openSignIns on this machine = %v, want it past the config, failing only to reach the database", err)
 	}
@@ -119,7 +128,7 @@ func TestMicrosoftAndGoogleSignInAreOffOrFullySetUp(t *testing.T) {
 				if tt.wantPrefixed {
 					want = app.prefix
 				}
-				_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+				_, _, err := openSignIns(unreachable(t), func(k string) string { return env[k] })
 				if err == nil || !strings.Contains(err.Error(), want) {
 					t.Errorf("openSignIns = %v, want an error naming %s", err, want)
 				}
@@ -154,13 +163,13 @@ func TestTheMicrosoftAndGoogleStandInsAreOnlyForThisMachine(t *testing.T) {
 				} else {
 					env[tt.key] = tt.value
 				}
-				_, _, err := openSignIns(context.Background(), func(k string) string { return env[k] })
+				_, _, err := openSignIns(unreachable(t), func(k string) string { return env[k] })
 				if err == nil || !strings.Contains(err.Error(), app.prefix+"_DEV_USER") {
 					t.Errorf("openSignIns with %s=%q = %v, want a refusal naming %s_DEV_USER", tt.key, tt.value, err, app.prefix)
 				}
 			})
 		}
-		_, _, err := openSignIns(context.Background(), func(k string) string { return local[k] })
+		_, _, err := openSignIns(unreachable(t), func(k string) string { return local[k] })
 		if err == nil || !strings.Contains(err.Error(), "player login") {
 			t.Errorf("openSignIns on this machine with %s_DEV_USER = %v, want it past the config, failing only to reach the database", app.prefix, err)
 		}

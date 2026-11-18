@@ -43,6 +43,9 @@ func migrate(ctx context.Context, url string) error {
 		return fmt.Errorf("opening the ratings database: %w", err)
 	}
 	defer pool.Close()
+	if err := store.WaitForDatabase(ctx, pool); err != nil {
+		return err
+	}
 	return store.MigrateRatings(ctx, pool)
 }
 
@@ -462,7 +465,7 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 	}
 	pool, err := store.OpenPool(ctx, dbURL)
 	if err != nil {
-		return signInDeps{}, nil, errors.New("opening the player pool failed")
+		return signInDeps{}, nil, errors.New("the player login could not reach the database")
 	}
 	p := store.NewPlayerStore(pool)
 	if err := p.CheckLimits(ctx); err != nil {
