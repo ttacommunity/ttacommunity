@@ -64,7 +64,7 @@ spec:
       # Applies the ratings migrations to ratings_dev before the api starts, as its owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-40b3fad0@sha256:0c8802248bbb1efd9533689ac03c193fa5a44a6b0fe6eee1f4877f9c84e9cd78
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-2fff2664@sha256:7c436242d8ff57fe8e0df0355700416af4331a2e367196d757aa1cdeb91340b2
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -85,7 +85,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-40b3fad0@sha256:0c8802248bbb1efd9533689ac03c193fa5a44a6b0fe6eee1f4877f9c84e9cd78
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-2fff2664@sha256:7c436242d8ff57fe8e0df0355700416af4331a2e367196d757aa1cdeb91340b2
           ports:
             - name: http
               containerPort: 8080
@@ -194,6 +194,25 @@ spec:
                 secretKeyRef:
                   name: movies-dev
                   key: youtube-api-key
+                  optional: true
+            # Twitch: as deploy/api.yaml, from the dev site's own Twitch app.
+            - name: TWITCH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: client-id
+                  optional: true
+            - name: TWITCH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: client-secret
+                  optional: true
+            - name: TWITCH_EVENTSUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: eventsub-secret
                   optional: true
           resources:
             requests:

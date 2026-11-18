@@ -10,5 +10,5 @@ resources:
   - api.yaml
   - engine.yaml
   - movies.yaml
-  - reddit.yaml
+  - feeds.yaml
   - cloudflare-tunnel.yaml

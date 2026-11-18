@@ -182,7 +182,7 @@ func discordDo(ratings Ratings, discord DiscordApp, key ed25519.PrivateKey, inte
 		req.Header.Set("X-Signature-Ed25519", hex.EncodeToString(ed25519.Sign(key, []byte(ts+interaction))))
 	}
 	rec := httptest.NewRecorder()
-	NewMux(ratings, nil, nil, discord, nil, nil, log, &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+	NewMux(ratings, nil, nil, discord, nil, nil, nil, log, &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -238,7 +238,7 @@ func TestTheDiscordEndpointTakesOnlyDiscordsRequests(t *testing.T) {
 				req.Header.Set("X-Signature-Ed25519", hex.EncodeToString(ed25519.Sign(tt.key, []byte("1760000000"+signed))))
 			}
 			rec := httptest.NewRecorder()
-			NewMux(ratings, nil, nil, app, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+			NewMux(ratings, nil, nil, app, nil, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 			if rec.Code != tt.wantCode {
 				t.Errorf("status = %d, want %d", rec.Code, tt.wantCode)
 			}

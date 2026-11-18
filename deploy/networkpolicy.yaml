@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine, backup, movies, reddit]
+                values: [api, engine, backup, movies, feeds]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine, backup, movies, reddit]
+        values: [api, engine, backup, movies, feeds]
   policyTypes: [Egress]
   egress:
     - to:
@@ -167,8 +167,9 @@ spec:
   # over HTTPS from the team domain, player sign-in exchanges its code with
   # Discord, Microsoft or Google (and fetches Microsoft's and Google's signing
   # keys), email sign-in calls Resend and Turnstile, the visit count
-  # asks Cloudflare's GraphQL API, and Movies reads YouTube's Data API: any
-  # public address on 443, RFC1918 excluded.
+  # asks Cloudflare's GraphQL API, Movies reads YouTube's Data API, and Twitch
+  # is asked for a token, streams and subscriptions: any public address on 443,
+  # RFC1918 excluded.
   podSelector:
     matchLabels:
       app: api
@@ -286,13 +287,14 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: reddit-egress
+  name: feeds-egress
   namespace: ttacommunity
 spec:
-  # The Reddit job reads www.reddit.com, which has no fixed addresses: any public address on 443, RFC1918 excluded.
+  # The feeds job reads the RSS feeds admins add, which have no fixed addresses: any public address on 443, RFC1918
+  # excluded. The job itself refuses every address that is not public.
   podSelector:
     matchLabels:
-      app: reddit
+      app: feeds
   policyTypes: [Egress]
   egress:
     - to:

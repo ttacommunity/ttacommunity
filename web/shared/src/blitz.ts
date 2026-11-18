@@ -292,6 +292,19 @@ export const UNPLAYED_NOTE = "A bye, a forfeit or a missed round counts as a gam
 
 export type BlitzStanding = components['schemas']['BlitzStanding'];
 
+/** gamesCount returns played games plus forfeit outcomes. */
+export function gamesCount(s: Pick<BlitzStanding, 'games' | 'forfeit_wins' | 'forfeit_losses'>): number {
+  return s.games + s.forfeit_wins + s.forfeit_losses;
+}
+
+/** gamesNote explains forfeit outcomes included in the Games column, or null when none. */
+export function gamesNote(s: Pick<BlitzStanding, 'forfeit_wins' | 'forfeit_losses'>): string | null {
+  const parts: string[] = [];
+  if (s.forfeit_wins > 0) parts.push(`${s.forfeit_wins} ${s.forfeit_wins === 1 ? "game won by opponent's forfeit" : "games won by opponents' forfeit"}`);
+  if (s.forfeit_losses > 0) parts.push(`${s.forfeit_losses} ${s.forfeit_losses === 1 ? 'game lost by forfeit' : 'games lost by forfeit'}`);
+  return parts.length > 0 ? `Includes ${parts.join(', ')}` : null;
+}
+
 /** STANDING_COLUMNS are the standings tables' sortable columns, on the site and in admin. */
 /** resultsLabel formats a standing's non-forfeit record as Win-Loss-Tie. */
 export function resultsLabel(s: Pick<BlitzStanding, 'wins' | 'losses' | 'draws'>): string {
@@ -306,11 +319,12 @@ export function pointsNote(s: Pick<BlitzStanding, 'forfeit_points' | 'bye_points
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
-export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'results' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
+export const STANDING_COLUMNS: SortColumns<BlitzStanding, 'rank' | 'player' | 'start' | 'points' | 'played' | 'results' | 'byes' | 'cut1' | 'buchholz' | 'sb'> = {
   rank: { value: (s) => s.rank, first: 'asc' },
   start: { value: (s) => s.starting_rank, first: 'asc' },
   player: { value: (s) => s.name, first: 'asc' },
   points: { value: (s) => s.points, first: 'desc' },
+  played: { value: (s) => gamesCount(s), first: 'desc' },
   results: { value: (s) => [s.wins, s.draws, s.games], first: 'desc' },
   byes: { value: (s) => s.byes, first: 'desc' },
   cut1: { value: (s) => s.buchholz_cut1, first: 'desc' },

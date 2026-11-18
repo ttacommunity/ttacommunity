@@ -16,6 +16,7 @@ import (
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/twitch"
 )
 
 // adminPrefix is where the admin routes sit.
@@ -36,9 +37,11 @@ type Admins interface {
 	ChallengeAdmin
 	NostradamusAdmin
 	NotificationAdmin
-	RedditAdmin
+	RSSAdmin
+	YouTubeAdmin
 	BotAdmin
 	MovieAdmin
+	TwitchAdmin
 }
 
 // MovieAdmin manages YouTube creator channels and video visibility, and starts the Movies job.
@@ -55,6 +58,20 @@ type MovieAdmin interface {
 	StartMovieJob(ctx context.Context, channelID string) (string, error)
 	// MovieJobGoing reports whether a Movies Job has not finished: enginejob.ErrNotSetUp as StartMovieJob.
 	MovieJobGoing(ctx context.Context) (bool, error)
+}
+
+// TwitchAdmin is the Twitch streamers whose streams are posted: the feeds, and Twitch's side of them, looking a
+// streamer up and subscribing to their events, which answer ErrTwitchNotSetUp when Twitch is not set up here.
+type TwitchAdmin interface {
+	TwitchFeeds(ctx context.Context) ([]store.TwitchFeed, error)
+	TwitchFeed(ctx context.Context, id int64) (store.TwitchFeed, error)
+	AddTwitchFeed(ctx context.Context, login, userID, displayName string, now time.Time) (int64, error)
+	SetTwitchFeedPaused(ctx context.Context, id int64, paused bool) error
+	RemoveTwitchFeed(ctx context.Context, id int64) error
+	SetTwitchSubscription(ctx context.Context, feed int64, typ, id, status string, now time.Time) error
+	TwitchUser(ctx context.Context, login string) (twitch.User, error)
+	SubscribeTwitch(ctx context.Context, typ, userID string) (twitch.Subscription, error)
+	UnsubscribeTwitch(ctx context.Context, id string) error
 }
 
 // NotificationAdmin is the webhooks notifications are posted to, and a test post to one.
@@ -77,12 +94,20 @@ type BotAdmin interface {
 	DiscordAppID() string
 }
 
-// RedditAdmin is the Reddit feeds whose new posts are posted to Discord.
-type RedditAdmin interface {
-	RedditFeeds(ctx context.Context) ([]store.RedditFeed, error)
-	AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error)
-	SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error
-	RemoveRedditFeed(ctx context.Context, id int64) error
+// RSSAdmin is the RSS and Atom feeds whose new items are posted to Discord.
+type RSSAdmin interface {
+	RSSFeeds(ctx context.Context) ([]store.RSSFeed, error)
+	AddRSSFeed(ctx context.Context, url string, now time.Time) (int64, error)
+	SetRSSFeed(ctx context.Context, id int64, paused bool) error
+	RemoveRSSFeed(ctx context.Context, id int64) error
+}
+
+// YouTubeAdmin is the YouTube Live feed, which posts Movies' channels' live streams to Discord.
+type YouTubeAdmin interface {
+	YouTubeFeeds(ctx context.Context) ([]store.YouTubeFeed, error)
+	AddYouTubeFeed(ctx context.Context, now time.Time) (int64, error)
+	SetYouTubeFeedPaused(ctx context.Context, id int64, paused bool) error
+	RemoveYouTubeFeed(ctx context.Context, id int64) error
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.
@@ -398,6 +423,10 @@ func badRequest400(msg string) BadRequestJSONResponse {
 
 func notFound404(msg string) NotFoundJSONResponse {
 	return NotFoundJSONResponse{Body: Error{Error: msg}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}
+}
+
+func unavailable503(msg string) UnavailableJSONResponse {
+	return UnavailableJSONResponse{Body: Error{Error: msg}, Headers: UnavailableResponseHeaders{CacheControl: cacheNone}}
 }
 
 func conflict409(msg string) ConflictJSONResponse {

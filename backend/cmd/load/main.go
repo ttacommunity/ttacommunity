@@ -167,11 +167,11 @@ var commands = []command{
 		}
 		return runMovies(time.Now(), *only)
 	}},
-	{"reddit", "", "the Reddit job: read each Reddit feed not paused and queue its new posts for the api to post to Discord; a feed's first read after it is added or resumed posts nothing. Needs RATINGS_ADMIN_DATABASE_URL, and applies no migration", func(fs *flag.FlagSet, args []string) error {
+	{"feeds", "", "the feeds job: read each RSS and Atom feed not paused and queue its new posts for the api to post to Discord; a feed's first read after it is added or resumed posts nothing. Needs RATINGS_ADMIN_DATABASE_URL, and applies no migration", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {
 			return err
 		}
-		return runReddit(time.Now())
+		return runFeeds(time.Now())
 	}},
 	{"input-tables", "", "print the tables that hold inputs, one per line, and touch no database", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {

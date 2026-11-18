@@ -554,18 +554,18 @@ func TestStandingsResultsAndBonusPoints(t *testing.T) {
 	tests := []struct {
 		id                         int64
 		wins, losses, draws, games int
-		byes                       int
+		fWins, fLosses, byes       int
 		points, forfeitPts, byePts float64
 	}{
-		{1, 1, 0, 1, 2, 0, 4, 0, 0},
-		{2, 0, 1, 0, 1, 0, 3, 3, 0},
-		{3, 0, 0, 1, 1, 1, 3, 0, 2},
+		{1, 1, 0, 1, 2, 0, 0, 0, 4, 0, 0},
+		{2, 0, 1, 0, 1, 1, 0, 0, 3, 3, 0},
+		{3, 0, 0, 1, 1, 0, 1, 1, 3, 0, 2},
 	}
 	for _, tt := range tests {
 		s := got[tt.id]
-		if s.Wins != tt.wins || s.Losses != tt.losses || s.Draws != tt.draws || s.Games != tt.games || s.Byes != tt.byes {
-			t.Errorf("player %d record = %d-%d-%d (games=%d, byes=%d), want %d-%d-%d (games=%d, byes=%d)",
-				tt.id, s.Wins, s.Losses, s.Draws, s.Games, s.Byes, tt.wins, tt.losses, tt.draws, tt.games, tt.byes)
+		if s.Wins != tt.wins || s.Losses != tt.losses || s.Draws != tt.draws || s.Games != tt.games || s.ForfeitWins != tt.fWins || s.ForfeitLosses != tt.fLosses || s.Byes != tt.byes {
+			t.Errorf("player %d record = %d-%d-%d (games=%d, fw=%d, fl=%d, byes=%d), want %d-%d-%d (games=%d, fw=%d, fl=%d, byes=%d)",
+				tt.id, s.Wins, s.Losses, s.Draws, s.Games, s.ForfeitWins, s.ForfeitLosses, s.Byes, tt.wins, tt.losses, tt.draws, tt.games, tt.fWins, tt.fLosses, tt.byes)
 		}
 		if s.Points != tt.points || s.ForfeitPoints != tt.forfeitPts || s.ByePoints != tt.byePts {
 			t.Errorf("player %d points = %g (forfeit=%g, bye=%g), want %g (forfeit=%g, bye=%g)",
