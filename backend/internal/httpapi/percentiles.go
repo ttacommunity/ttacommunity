@@ -79,7 +79,7 @@ func (s *server) GetRatingPercentiles(ctx context.Context, req GetRatingPercenti
 	spread := analysis.SpreadOf(ratings, int(width))
 	body := RatingPercentiles{
 		RunId: req.Run, Model: model, Format: format, Status: status, MinOpps: minOpps, Title: p.Title, Rating: basis, Titles: titles,
-		Players: spread.Players, BinWidth: int(width), Bins: make([]RatingBin, 0, len(spread.Bins)), Marks: make([]PercentileMark, 0, len(spread.Marks)),
+		Players: spread.Players, Mean: spread.Mean, BinWidth: int(width), Bins: make([]RatingBin, 0, len(spread.Bins)), Marks: make([]PercentileMark, 0, len(spread.Marks)),
 	}
 	for _, b := range spread.Bins {
 		body.Bins = append(body.Bins, RatingBin{From: b.From, Count: b.Count})

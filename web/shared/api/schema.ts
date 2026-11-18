@@ -6208,6 +6208,11 @@ export interface components {
             titles: components["schemas"]["TitleCode"][];
             /** @description How many players the filters count */
             players: number;
+            /**
+             * Format: double
+             * @description Arithmetic mean of the counted players' ratings; 0 without players
+             */
+            mean: number;
             /** @description Each bin's width in rating points */
             bin_width: number;
             /** @description Every bin from the lowest counted rating's to the highest's, lowest first; empty without players */

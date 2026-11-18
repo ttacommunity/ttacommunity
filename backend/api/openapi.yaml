@@ -10039,7 +10039,7 @@ components:
       default: c_rating
     RatingPercentiles:
       type: object
-      required: [run_id, model, format, status, min_opps, title, rating, titles, players, bin_width, bins, marks]
+      required: [run_id, model, format, status, min_opps, title, rating, titles, players, mean, bin_width, bins, marks]
       properties:
         run_id:
           type: integer
@@ -10067,6 +10067,10 @@ components:
         players:
           description: How many players the filters count
           type: integer
+        mean:
+          description: Arithmetic mean of the counted players' ratings; 0 without players
+          type: number
+          format: double
         bin_width:
           description: Each bin's width in rating points
           type: integer

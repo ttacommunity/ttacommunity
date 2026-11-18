@@ -93,6 +93,7 @@ describe('chartBins', () => {
     rating: 'c_rating',
     titles: [],
     players: 4,
+    mean: 1500,
     bin_width: 50,
     bins: [
       { from: 1500, count: 1 },

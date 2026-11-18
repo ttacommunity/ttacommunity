@@ -1,13 +1,11 @@
 /** The rating percentiles page: how the leaderboard's players spread over the chosen rating, and where a chosen player stands. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, LinearScale, Tooltip, type Plugin } from 'chart.js';
-import { currentRun, leaderboard, ratingPercentiles, type RatingBasis, type RatingPercentiles, type TitleCode } from '@ttac/shared/ratings';
-import Segmented from '@ttac/shared/Segmented';
+import { currentRun, leaderboard, ratingPercentiles, type RatingPercentiles, type TitleCode } from '@ttac/shared/ratings';
 import { count, counted, ordinal } from '@ttac/shared/numbers';
 import * as show from '../lib/leaderboard-display';
-import { DEFAULT_VIEW, ENGINES, modelOf, titlesInOrder, type Status } from '../lib/leaderboard-view';
+import { DEFAULT_VIEW, modelOf, titlesInOrder, type Status } from '../lib/leaderboard-view';
 import {
-  BIN_WIDTHS,
   chartBins,
   leaderboardHref,
   markLabel,
@@ -18,21 +16,18 @@ import {
   tierOf,
   tierSpans,
   topShare,
-  withMe,
   type PercentileView,
   type TierSpan,
 } from '../lib/percentiles';
-import { seemsSignedIn, sharedMe } from '../lib/account';
 import { profileHref } from '../lib/player-view';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Message from './Message';
-import MinOppsField from './MinOppsField';
+import { OptionsToggle } from './SideDrawer';
 import PanelHeader from './PanelHeader';
+import PercentilesOptionsDrawer from './PercentilesOptionsDrawer';
 import PlayerPicker from './PlayerPicker';
 import ScrollTable from './ScrollTable';
-import TitleSelect from './TitleSelect';
-import ViewSelectors from './ViewSelectors';
 import Waiting from './Waiting';
 import { useKeptFound, useLoad } from './useLoad';
 import { useAddressView, type Address } from './useAddressView';
@@ -46,40 +41,19 @@ const ADDRESS: Address<PercentileView> = {
   remembers: (v) => ({ ...DEFAULT_VIEW, ...recall(browserStorage()), engine: v.board.engine, reset: v.board.reset, format: v.board.format }),
 };
 
-const STATUS_OPTIONS: { value: Status; label: string; tooltip: string }[] = [
-  { value: 'active', label: 'Active', tooltip: "Players with a game in the 12 months before the run's last game" },
-  { value: 'all', label: 'All', tooltip: 'Every rated player' },
-  { value: 'inactive', label: 'Inactive', tooltip: 'Players without a game in those 12 months' },
-];
-
-const RATING_OPTIONS: { value: RatingBasis; label: string; tooltip: string }[] = [
-  { value: 'c_rating', label: 'Conservative', tooltip: 'C-Rating: rating minus three times its deviation, as the leaderboard ranks' },
-  { value: 'rating', label: 'Plain', tooltip: 'The rating itself, however uncertain' },
-];
-
 const statusWord: Record<Status, string> = { active: 'active ', all: '', inactive: 'inactive ' };
 
 /**
  * PercentilesPage loads the spread for the view in the address, and the rated players' names once the search box is
- * used. With no player in the address, a signed-in player sees their own standing: the spread waits for who they are.
+ * used. Only once a player is entered does it highlight their percentile bin and standing.
  */
 export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
-  const { view, go, replace, linkTo } = useAddressView(ADDRESS);
-  const [knowWho, setKnowWho] = useState(() => view.player !== '' || !seemsSignedIn(browserStorage()));
-  useEffect(() => {
-    if (knowWho) return;
-    sharedMe(apiUrl)
-      .then((me) => {
-        const mine = withMe(view, me);
-        if (mine !== view) replace(mine);
-      })
-      .catch(() => undefined)
-      .finally(() => setKnowWho(true));
-  }, [knowWho, apiUrl, view, replace]);
+  const { view, go, linkTo } = useAddressView(ADDRESS);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const run = useLoad('run', () => currentRun(apiUrl).then((r) => r.run_id));
   const runId = run.kind === 'ready' ? run.data : null;
   const q = percentileQuery(view);
-  const spread = useKeptFound(`${runId}|${percentileParams(view)}`, runId === null || !knowWho ? null : () => ratingPercentiles(apiUrl, runId, q));
+  const spread = useKeptFound(`${runId}|${percentileParams(view)}`, runId === null ? null : () => ratingPercentiles(apiUrl, runId, q));
 
   const [used, setUsed] = useState(false);
   const names = useLoad(
@@ -91,75 +65,22 @@ export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
   const pick = (player: string) => go({ ...view, player });
   const held = spread.kind === 'ready' ? titlesInOrder(spread.data.titles) : [];
   const titles: TitleCode[] = board.title === null || held.includes(board.title) ? held : [...held, board.title];
+  const activeOptions =
+    board.status !== DEFAULT_VIEW.status ||
+    board.title !== DEFAULT_VIEW.title ||
+    board.minOpps !== DEFAULT_VIEW.minOpps ||
+    view.rating !== 'c_rating' ||
+    view.binWidth !== 50;
 
   return (
     <>
-      <ViewSelectors
-        reset={board.reset}
-        format={board.format}
-        linkReset={(reset) => linkTo({ ...view, board: { ...board, reset } })}
-        linkFormat={(format) => linkTo({ ...view, board: { ...board, format } })}
-      >
-        <div className="view-bar view-bar-row">
-          <Segmented
-            label="Engine"
-            groupClass="view-group"
-            prefix={<span className="view-bar-label">Engine:</span>}
-            options={ENGINES.map((e) => ({ value: e, label: show.engineName(e) }))}
-            value={board.engine}
-            link={(engine) => linkTo({ ...view, board: { ...board, engine } })}
-          />
-          <Segmented
-            label="Players counted"
-            groupClass="view-group"
-            prefix={<span className="view-bar-label">Players:</span>}
-            options={STATUS_OPTIONS}
-            value={board.status}
-            link={(status) => linkTo({ ...view, board: { ...board, status } })}
-          />
+      <div className="percentiles-toolbar">
+        <div className="percentiles-picker">
+          <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} />
         </div>
-        <div className="view-bar view-bar-row">
-          <Segmented
-            label="Rating counted"
-            groupClass="view-group"
-            prefix={<span className="view-bar-label">Rating:</span>}
-            options={RATING_OPTIONS}
-            value={view.rating}
-            link={(rating) => linkTo({ ...view, rating })}
-          />
-          <Segmented
-            label="Bin width"
-            groupClass="view-group"
-            prefix={<span className="view-bar-label">Bins:</span>}
-            options={BIN_WIDTHS.map((w) => ({ value: w, label: String(w), tooltip: `${w}-point bins` }))}
-            value={view.binWidth}
-            link={(binWidth) => linkTo({ ...view, binWidth })}
-          />
-        </div>
-        <div className="view-bar view-bar-row">
-          <div className="view-group">
-            <label className="view-bar-label" htmlFor="percentiles-title">
-              Title:
-            </label>
-            <TitleSelect
-              id="percentiles-title"
-              titles={titles}
-              value={board.title}
-              onChange={(title) => go({ ...view, board: { ...board, title } })}
-            />
-          </div>
-          <div className="view-group">
-            <label className="view-bar-label" htmlFor="percentiles-min">
-              Min opponents:
-            </label>
-            <MinOppsField id="percentiles-min" value={board.minOpps} onApply={(minOpps) => go({ ...view, board: { ...board, minOpps } })} />
-          </div>
-        </div>
-      </ViewSelectors>
-
-      <div className="percentiles-picker">
-        <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} />
+        <OptionsToggle title="Format, engine, population, and binning options" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
       </div>
+      {optionsOpen && <PercentilesOptionsDrawer view={view} titles={titles} linkTo={linkTo} go={go} onClose={() => setOptionsOpen(false)} />}
 
       {run.kind === 'error' ? (
         <Waiting load={run} what="the ratings" />
@@ -227,7 +148,15 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
               )}
             </>
           }
-        />
+        >
+          {data.players > 0 && (
+            <div className="density-means">
+              <span className={`density-mean ${view.board.engine === 'glicko2_std' ? 'mean-std' : 'mean-daneo'}`}>
+                {show.engineName(view.board.engine)} Mean: <strong>{data.mean.toFixed(1)}</strong>
+              </span>
+            </div>
+          )}
+        </PanelHeader>
         {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
       </div>
 
