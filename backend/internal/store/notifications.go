@@ -145,12 +145,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, ''),
-			       coalesce(rp.feed_id, o.feed_id, 0), coalesce(rf.subreddit, ff.subreddit, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
+			       coalesce(rp.feed_id, o.feed_id, 0), coalesce(rf.source, ff.source, ''), coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
 			       coalesce(rp.title, ''), coalesce(rp.url, ''), coalesce(rp.author, ''), coalesce(rp.body, ''),
 			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at), coalesce(ff.last_error, '')
 			FROM notification_outbox o
-			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN reddit_feeds rf ON rf.feed_id = rp.feed_id
-			LEFT JOIN reddit_feeds ff ON ff.feed_id = o.feed_id
+			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN feeds rf ON rf.feed_id = rp.feed_id
+			LEFT JOIN feeds ff ON ff.feed_id = o.feed_id
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id

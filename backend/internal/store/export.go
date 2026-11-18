@@ -74,7 +74,7 @@ var exportColumns = map[string][]string{
 // endpoints, Reddit feeds, the posts seen and the notifications waiting to be sent, and the Discord bot and its
 // commands. A backup restores them in this order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
-	"accounts", "logins", "link_requests", "player_sessions", "email_links", "notification_endpoints", "reddit_feeds", "reddit_posts", "notification_feed_subscriptions", "notification_outbox", "video_channels", "videos", "discord_bot", "discord_commands"}
+	"accounts", "logins", "link_requests", "player_sessions", "email_links", "notification_endpoints", "feeds", "reddit_posts", "notification_feed_subscriptions", "notification_outbox", "video_channels", "videos", "discord_bot", "discord_commands"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets, and notifications waiting
 // seconds to be sent. Players sign in again after a restore.
