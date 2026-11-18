@@ -33,10 +33,9 @@ type Notification struct {
 	ReportedBy            string
 	Corrected             bool
 	FlagReason            string
-	// A Reddit post or RSS item, posted to the endpoints taking FeedID. A feed failing or reading again: its kind
-	// (reddit or rss), its name (a subreddit, or a feed's title or else address), and FeedError, why it failed.
+	// An RSS item, posted to the endpoints taking FeedID. A feed failing or reading again: its kind (rss), its
+	// name (its title or else its address), and FeedError, why it failed.
 	FeedID             int64
-	Reddit             RedditNotice
 	RSS                RSSNotice
 	FeedKind, FeedName string
 	FeedError          string
@@ -88,30 +87,22 @@ func (a *AdminStore) recordDeliveries(ctx context.Context, deliveries []delivery
 	return nil
 }
 
-// forgetPostText clears a Reddit post's or RSS item's text once its notification n, about ref, has left the
-// outbox: what stays is its id and date, so it is never posted again.
+// forgetPostText clears an RSS item's text once its notification n, about ref, has left the outbox: what stays is
+// its id and date, so it is never posted again.
 func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) error {
-	var err error
-	switch n.Kind {
-	case "reddit_post":
-		_, err = tx.Exec(ctx, `UPDATE reddit_posts SET title = '', url = '', author = '', body = '', image_url = ''
-			WHERE reddit_post_id = $1`, ref)
-	case "rss_item":
-		_, err = tx.Exec(ctx, "UPDATE rss_items SET title = '', url = '', summary = '', image_url = '' WHERE rss_item_id = $1", ref)
+	if n.Kind != "rss_item" {
+		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("forgetting a post's text: %w", err)
+	if _, err := tx.Exec(ctx, "UPDATE rss_items SET title = '', url = '', summary = '', image_url = '' WHERE rss_item_id = $1", ref); err != nil {
+		return fmt.Errorf("forgetting an item's text: %w", err)
 	}
 	return nil
 }
 
-// takes says whether e takes n: a Reddit post when e takes its feed, a Twitch stream or RSS item when it also
-// passes e's options for its feed, a feed failing or reading again when e takes feed_failing, anything else when e
+// takes says whether e takes n: a Twitch stream or RSS item when e takes its feed and it passes e's options for it, a feed failing or reading again when e takes feed_failing, anything else when e
 // takes its kind.
 func (e NotificationEndpoint) takes(n Notification) bool {
 	switch n.Kind {
-	case "reddit_post":
-		return slices.Contains(e.Feeds, n.FeedID)
 	case "twitch_live":
 		o, ok := e.options(n.FeedID)
 		return ok && o.matches(n.Twitch)
@@ -151,8 +142,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.reddit_post_id, o.feed_id, o.twitch_stream_id, o.rss_item_id), o.attempts, o.sent_to,
-			       CASE WHEN o.kind IN ('sign_up', 'reddit_post', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item') THEN true
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id), o.attempts, o.sent_to,
+			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item') THEN true
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
 			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
@@ -164,10 +155,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, ''),
-			       coalesce(rp.feed_id, o.feed_id, ts.feed_id, ri.feed_id, 0), coalesce(rf.source, CASE WHEN ff.kind = 'reddit' THEN ff.source END, ''),
-			       coalesce(rp.post_id, ''), coalesce(rp.kind, ''),
-			       coalesce(rp.title, ''), coalesce(rp.url, ''), coalesce(rp.author, ''), coalesce(rp.body, ''),
-			       coalesce(rp.image_url, ''), coalesce(rp.published_at, o.created_at), coalesce(ff.last_error, ''),
+			       coalesce(o.feed_id, ts.feed_id, ri.feed_id, 0), coalesce(ff.last_error, ''),
 			       coalesce(o.twitch_stream_id, 0), coalesce(tf.source, ''), coalesce(tf.display_name, ''), coalesce(ts.title, ''),
 			       coalesce(ts.category, ''), coalesce(ts.thumbnail_url, ''), coalesce(ts.started_at, o.created_at), ts.ended_at,
 			       coalesce((SELECT json_object_agg(tp.endpoint_id, json_build_object('message_id', tp.message_id, 'channel_id', tp.channel_id))
@@ -178,7 +166,6 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			FROM notification_outbox o
 			LEFT JOIN rss_items ri ON ri.rss_item_id = o.rss_item_id LEFT JOIN feeds xf ON xf.feed_id = ri.feed_id
 			LEFT JOIN twitch_streams ts ON ts.twitch_stream_id = o.twitch_stream_id LEFT JOIN feeds tf ON tf.feed_id = ts.feed_id
-			LEFT JOIN reddit_posts rp ON rp.reddit_post_id = o.reddit_post_id LEFT JOIN feeds rf ON rf.feed_id = rp.feed_id
 			LEFT JOIN feeds ff ON ff.feed_id = o.feed_id
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
@@ -209,8 +196,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			n := &d.n
 			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
 				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason,
-				&n.FeedID, &n.Reddit.Subreddit, &n.Reddit.Post.PostID, &n.Reddit.Post.Kind, &n.Reddit.Post.Title, &n.Reddit.Post.URL,
-				&n.Reddit.Post.Author, &n.Reddit.Post.Body, &n.Reddit.Post.ImageURL, &n.Reddit.Post.PublishedAt, &n.FeedError,
+				&n.FeedID, &n.FeedError,
 				&n.StreamRef, &n.Twitch.Login, &n.Twitch.DisplayName, &n.Twitch.Title, &n.Twitch.Category, &n.Twitch.ThumbnailURL,
 				&n.Twitch.StartedAt, &n.Twitch.EndedAt, &n.Twitch.Posts, &n.FeedKind, &n.FeedName,
 				&n.RSS.Feed, &n.RSS.Item.ItemID, &n.RSS.Item.Title, &n.RSS.Item.URL, &n.RSS.Item.Summary, &n.RSS.Item.ImageURL,

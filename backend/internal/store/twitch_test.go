@@ -56,7 +56,7 @@ func twitchSent(t *testing.T, a *AdminStore, now time.Time) []string {
 }
 
 func TestAdminKeepsTwitchFeeds(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	ctx := context.Background()
 	id := twitchFeed(t, a, "some_streamer", "100000001")
 	if err := a.SetTwitchSubscription(ctx, id, "stream.online", "sub-1", "webhook_callback_verification_pending", twitchAt); err != nil {
@@ -73,8 +73,8 @@ func TestAdminKeepsTwitchFeeds(t *testing.T) {
 	if f.Login != "some_streamer" || f.UserID != "100000001" || len(f.Subscriptions) != 1 || f.Subscriptions[0].Status != "enabled" {
 		t.Errorf("the feed = %+v, want some_streamer with its subscription enabled", f)
 	}
-	if reddit, err := a.RedditFeeds(ctx); err != nil || len(reddit) != 0 {
-		t.Errorf("RedditFeeds = %+v, %v; want no Twitch feed among them", reddit, err)
+	if rss, err := a.RSSFeeds(ctx); err != nil || len(rss) != 0 {
+		t.Errorf("RSSFeeds = %+v, %v; want no Twitch feed among them", rss, err)
 	}
 	if err := a.RemoveTwitchFeed(ctx, id); err != nil {
 		t.Fatalf("RemoveTwitchFeed: %v", err)
@@ -95,7 +95,7 @@ func TestATwitchFeedIsRefusedWhenItShouldBe(t *testing.T) {
 		{"a streamer already there, in other letters", "Some_Streamer", "100000002", ErrTwitchFeedExists},
 		{"a user id already there", "renamed_streamer", "100000001", ErrTwitchFeedExists},
 	}
-	a := redditStore(t)
+	a := feedStore(t)
 	twitchFeed(t, a, "some_streamer", "100000001")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestAStreamGoingLiveIsPostedToTheEndpointsWhoseOptionsItMatches(t *testing.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := redditStore(t)
+			a := feedStore(t)
 			feed := twitchFeed(t, a, "some_streamer", "100000001")
 			subscribed(t, a, "Any", 1, FeedOptions{Feed: feed})
 			subscribed(t, a, "Category", 2, FeedOptions{Feed: feed, Categories: []string{"through the ages"}})
@@ -156,7 +156,7 @@ func TestAStreamIsPostedOnce(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := redditStore(t)
+			a := feedStore(t)
 			ctx := context.Background()
 			subscribed(t, a, "Any", 1, FeedOptions{Feed: twitchFeed(t, a, "some_streamer", "100000001")})
 			if err := a.TwitchStreamOnline(ctx, "msg-1", stream("1", "Friday games", ""), twitchAt); err != nil {
@@ -174,7 +174,7 @@ func TestAStreamIsPostedOnce(t *testing.T) {
 }
 
 func TestAStreamOfNoFeedOrAPausedFeedIsNotPosted(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	ctx := context.Background()
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
 	subscribed(t, a, "Any", 1, FeedOptions{Feed: feed})
@@ -195,7 +195,7 @@ func TestAStreamOfNoFeedOrAPausedFeedIsNotPosted(t *testing.T) {
 }
 
 func TestAStreamEndingEditsOnlyThePostsKept(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	ctx := context.Background()
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
 	kept := subscribed(t, a, "Was live", 1, FeedOptions{Feed: feed, WasLive: true})
@@ -227,7 +227,7 @@ func TestAStreamEndingEditsOnlyThePostsKept(t *testing.T) {
 }
 
 func TestAnEndpointKeepsItsFeedOptions(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	ctx := context.Background()
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
 	want := FeedOptions{Feed: feed, Categories: []string{"Through the Ages"}, Keywords: []string{"tta", "tournament"}, Match: "any", WasLive: true}
@@ -243,7 +243,7 @@ func TestAnEndpointKeepsItsFeedOptions(t *testing.T) {
 }
 
 func TestAnEndpointsFeedOptionsMatchAllUnlessTold(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
 	id := subscribed(t, a, "Twitch", 1, FeedOptions{Feed: feed, Keywords: []string{"tta"}})
 	e, err := a.NotificationEndpoint(context.Background(), id)

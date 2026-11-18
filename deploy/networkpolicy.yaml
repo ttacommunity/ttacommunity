@@ -290,8 +290,8 @@ metadata:
   name: feeds-egress
   namespace: ttacommunity
 spec:
-  # The feeds job reads www.reddit.com and the RSS feeds admins add, which have no fixed addresses: any public
-  # address on 443, RFC1918 excluded. The job itself refuses every address that is not public.
+  # The feeds job reads the RSS feeds admins add, which have no fixed addresses: any public address on 443, RFC1918
+  # excluded. The job itself refuses every address that is not public.
   podSelector:
     matchLabels:
       app: feeds

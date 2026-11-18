@@ -4,81 +4,86 @@ package store
 
 import (
 	"context"
-	"fmt"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 )
 
-func TestMigration92KeepsRedditFeedsDownAndUp(t *testing.T) {
-	ctx := context.Background()
-	pool := migrated(t)
-	a := NewAdminStore(asAdminLogin(t, pool))
-	feed := addFeed(t, a, "throughtheages")
-	if err := a.SetRedditFeed(ctx, feed, false, []string{"text", "link"}); err != nil {
-		t.Fatalf("SetRedditFeed: %v", err)
-	}
-	record(t, a, feed, redditAt, post(1))
-	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "Reddit", URL: webhook(1), Format: "discord", Feeds: []int64{feed}}, redditAt); err != nil {
-		t.Fatalf("AddNotificationEndpoint: %v", err)
-	}
-	want := feedState(t, pool)
-	for _, step := range []func(p *goose.Provider) error{
-		func(p *goose.Provider) error { _, err := p.DownTo(ctx, 91); return err },
-		func(p *goose.Provider) error { _, err := p.Up(ctx); return err },
-	} {
-		if err := withRatingsMigrations(pool, step); err != nil {
-			t.Fatalf("migrating: %v", err)
-		}
-	}
-	if got := feedState(t, pool); len(got) != len(want) || got[0] != want[0] {
-		t.Errorf("after down and up: %q, want %q", got, want)
-	}
-	if _, err := a.AddRedditFeed(ctx, "ThroughTheAges", redditAt); err == nil {
-		t.Errorf("AddRedditFeed of the same subreddit in other letters after down and up: no error, want ErrRedditFeedExists")
-	}
-}
-
-// feedState is each Reddit feed with its kinds, posts and subscriptions, a line each, as the store reads them.
-func feedState(t *testing.T, pool *pgxpool.Pool) []string {
+// migrateTo moves pool's ratings schema down or up to version.
+func migrateTo(t *testing.T, pool *pgxpool.Pool, version int64, down bool) {
 	t.Helper()
-	a := NewAdminStore(asAdminLogin(t, pool))
-	feeds, err := a.RedditFeeds(context.Background())
-	if err != nil {
-		t.Fatalf("RedditFeeds: %v", err)
+	if err := withRatingsMigrations(pool, func(p *goose.Provider) error {
+		var err error
+		if down {
+			_, err = p.DownTo(context.Background(), version)
+		} else {
+			_, err = p.UpTo(context.Background(), version)
+		}
+		return err
+	}); err != nil {
+		t.Fatalf("migrating to %d: %v", version, err)
 	}
-	ends, err := a.NotificationEndpoints(context.Background())
-	if err != nil {
-		t.Fatalf("NotificationEndpoints: %v", err)
-	}
-	var lines []string
-	for _, f := range feeds {
-		lines = append(lines, fmt.Sprintf("%s %v %v %v", f.Subreddit, f.Kinds, f.LastPostAt.UTC(), ends[0].Feeds))
-	}
-	return lines
 }
 
 func TestMigration93DropsOnlyTwitchGoingDown(t *testing.T) {
 	ctx := context.Background()
 	pool := migrated(t)
 	a := NewAdminStore(asAdminLogin(t, pool))
-	reddit := addFeed(t, a, "throughtheages")
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
 	subscribed(t, a, "Twitch", 1, FeedOptions{Feed: feed, Keywords: []string{"tta"}, WasLive: true})
 	if err := a.TwitchStreamOnline(ctx, "msg-1", stream("1", "Friday games", ""), twitchAt); err != nil {
 		t.Fatalf("TwitchStreamOnline: %v", err)
 	}
-	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 92); return err }); err != nil {
-		t.Fatalf("migrating down to 92: %v", err)
+	migrateTo(t, pool, 94, true)
+	if _, err := pool.Exec(ctx, "INSERT INTO feeds (kind, source, created_at) VALUES ('reddit', 'throughtheages', now())"); err != nil {
+		t.Fatalf("adding a Reddit feed at 94: %v", err)
 	}
+	migrateTo(t, pool, 92, true)
 	if got := rowsOf(t, pool, "SELECT kind || ' ' || source FROM feeds ORDER BY feed_id"); len(got) != 1 || got[0] != "reddit throughtheages" {
 		t.Errorf("feeds at 92 = %q, want only the Reddit feed", got)
 	}
-	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
-		t.Fatalf("migrating up: %v", err)
+	migrateTo(t, pool, 95, false)
+}
+
+func TestMigration95DropsRedditAndKeepsEveryOtherFeedAndEndpoint(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	rss := rssFeed(t, a, 1)
+	streamer := twitchFeed(t, a, "some_streamer", "100000001")
+	recordItems(t, a, rss, rssAt)
+	recordItems(t, a, rss, rssAt.Add(time.Minute), item(1, "Queued", ""))
+	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "News", URL: webhook(1), Format: "discord", Events: []string{"feed_failing"},
+		Feeds: []int64{rss, streamer}, FeedOptions: []FeedOptions{{Feed: rss, Keywords: []string{"tta"}}, {Feed: streamer, WasLive: true}},
+		Look: EmbedLook{Colour: "#123abc", Text: "short", Image: false}}, rssAt); err != nil {
+		t.Fatalf("AddNotificationEndpoint: %v", err)
 	}
-	if feeds, err := a.RedditFeeds(ctx); err != nil || len(feeds) != 1 || feeds[0].ID != reddit {
-		t.Errorf("Reddit feeds after down and up = %+v, %v; want the one feed", feeds, err)
+	const state = `SELECT kind || ' ' || source FROM feeds
+		UNION ALL SELECT 'item ' || item_id FROM rss_items
+		UNION ALL SELECT 'subscription ' || feed_id || ' ' || array_to_string(keywords, ',') || ' ' || was_live FROM notification_feed_subscriptions
+		UNION ALL SELECT 'endpoint ' || name || ' ' || array_to_string(events, ',') || ' ' || colour || ' ' || show_text || ' ' || show_image FROM notification_endpoints
+		UNION ALL SELECT 'outbox ' || kind FROM notification_outbox ORDER BY 1`
+	want := rowsOf(t, pool, state)
+	migrateTo(t, pool, 94, true)
+	for _, q := range []string{
+		"INSERT INTO feeds (kind, source, created_at) VALUES ('reddit', 'throughtheages', now())",
+		`INSERT INTO reddit_posts (feed_id, post_id, kind, published_at, recorded_at)
+			SELECT feed_id, 't3_abc1', 'text', now(), now() FROM feeds WHERE kind = 'reddit'`,
+		`INSERT INTO notification_outbox (kind, reddit_post_id, created_at, next_at) SELECT 'reddit_post', reddit_post_id, now(), now() FROM reddit_posts`,
+		`INSERT INTO notification_feed_subscriptions (endpoint_id, feed_id) SELECT e.endpoint_id, f.feed_id FROM notification_endpoints e, feeds f WHERE f.kind = 'reddit'`,
+	} {
+		if _, err := pool.Exec(ctx, q); err != nil {
+			t.Fatalf("adding Reddit rows at 94: %v", err)
+		}
+	}
+	migrateTo(t, pool, 95, false)
+	if got := rowsOf(t, pool, state); !slices.Equal(got, want) {
+		t.Errorf("after 95 = %q, want %q: Reddit gone and the rest as before", got, want)
+	}
+	if got := rowsOf(t, pool, "SELECT column_name::text FROM information_schema.columns WHERE table_name IN ('feeds', 'notification_endpoints', 'notification_outbox') AND column_name IN ('post_kinds', 'show_author', 'reddit_post_id')"); len(got) != 0 {
+		t.Errorf("Reddit's columns after 95 = %q, want none", got)
 	}
 }

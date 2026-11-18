@@ -179,12 +179,6 @@ export const setEndpoint = (id: number, e: EndpointSetting) => to(`/api/notifica
 export const removeEndpoint = (id: number) => to(`/api/notification-endpoints/${id}`, 'DELETE');
 /** testEndpoint posts a test message to a notification webhook. */
 export const testEndpoint = (id: number) => to(`/api/notification-endpoints/${id}/test`, 'POST');
-/** addFeed adds a subreddit to read for new posts, as typed: its name, r/name or its address. */
-export const addFeed = (subreddit: string) => to('/api/reddit-feeds', 'POST', { subreddit });
-/** setFeed changes a Reddit feed: paused or not, and what its posts show. */
-export const setFeed = (id: number, setting: Schemas['RedditFeedSetting']) => to(`/api/reddit-feeds/${id}`, 'PUT', setting);
-/** removeFeed removes a Reddit feed. */
-export const removeFeed = (id: number) => to(`/api/reddit-feeds/${id}`, 'DELETE');
 /** addTwitchFeed adds a Twitch streamer, as typed: their name or channel's address. */
 export const addTwitchFeed = (login: string) => to('/api/twitch-feeds', 'POST', { login });
 /** setTwitchFeed pauses or resumes a Twitch streamer. */

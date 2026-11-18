@@ -58,7 +58,7 @@ func sentItems(t *testing.T, a *AdminStore, now time.Time) []string {
 }
 
 func TestAnRSSFeedsFirstReadPostsNothingAndLaterOnesPostEachNewItemOnce(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := rssFeed(t, a, 1)
 	subscribed(t, a, "News", 1, FeedOptions{Feed: feed})
 	if got := recordItems(t, a, feed, rssAt, item(1, "One", ""), item(2, "Two", "")); got != 0 {
@@ -77,7 +77,7 @@ func TestAnRSSFeedsFirstReadPostsNothingAndLaterOnesPostEachNewItemOnce(t *testi
 
 func TestAResumedRSSFeedPostsNothingMissedWhilePaused(t *testing.T) {
 	ctx := context.Background()
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := rssFeed(t, a, 1)
 	subscribed(t, a, "News", 1, FeedOptions{Feed: feed})
 	recordItems(t, a, feed, rssAt)
@@ -95,7 +95,7 @@ func TestAResumedRSSFeedPostsNothingMissedWhilePaused(t *testing.T) {
 }
 
 func TestAnRSSItemIsPostedOnlyWhereItsKeywordsMatch(t *testing.T) {
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := rssFeed(t, a, 1)
 	subscribed(t, a, "All", 1, FeedOptions{Feed: feed})
 	subscribed(t, a, "TTA", 2, FeedOptions{Feed: feed, Keywords: []string{"Through the Ages", "tta"}})
@@ -111,7 +111,7 @@ func TestAnRSSItemIsPostedOnlyWhereItsKeywordsMatch(t *testing.T) {
 
 func TestAnRSSNotificationCarriesTheItemAndAnRSSFeedShowsItsState(t *testing.T) {
 	ctx := context.Background()
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := rssFeed(t, a, 1)
 	subscribed(t, a, "News", 1, FeedOptions{Feed: feed})
 	recordItems(t, a, feed, rssAt)
@@ -157,7 +157,7 @@ func TestAnRSSItemsTextIsKeptOnlyUntilItIsPosted(t *testing.T) {
 
 func TestRSSFeedsRefuseWhatTheDatabaseRefuses(t *testing.T) {
 	ctx := context.Background()
-	a := redditStore(t)
+	a := feedStore(t)
 	rssFeed(t, a, 1)
 	for _, tt := range []struct {
 		name, url string
@@ -184,15 +184,15 @@ func TestRSSFeedsRefuseWhatTheDatabaseRefuses(t *testing.T) {
 			t.Errorf("%s an unknown feed: err = %v, want %v", name, err, ErrNoRSSFeed)
 		}
 	}
-	reddit := addFeed(t, a, "example")
-	if err := a.SetRSSFeed(ctx, reddit, true); !errors.Is(err, ErrNoRSSFeed) {
-		t.Errorf("pausing a Reddit feed as RSS: err = %v, want %v", err, ErrNoRSSFeed)
+	streamer := twitchFeed(t, a, "some_streamer", "100000001")
+	if err := a.SetRSSFeed(ctx, streamer, true); !errors.Is(err, ErrNoRSSFeed) {
+		t.Errorf("pausing a Twitch feed as RSS: err = %v, want %v", err, ErrNoRSSFeed)
 	}
 }
 
 func TestAnRSSFeedFailingIsNotifiedByItsName(t *testing.T) {
 	ctx := context.Background()
-	a := redditStore(t)
+	a := feedStore(t)
 	feed := rssFeed(t, a, 1)
 	endpoint(t, a, "Ops", 1, "feed_failing")
 	for range FeedFailuresNotified {
@@ -203,13 +203,13 @@ func TestAnRSSFeedFailingIsNotifiedByItsName(t *testing.T) {
 	recordItems(t, a, feed, rssAt.Add(time.Minute))
 	var got []string
 	if _, err := a.SendNotifications(ctx, rssAt.Add(time.Hour), 10, func(_ context.Context, n Notification, _ NotificationEndpoint) error {
-		got = append(got, fmt.Sprintf("%s %s %s %q %q", n.Kind, n.FeedKind, n.FeedName, n.FeedError, n.Reddit.Subreddit))
+		got = append(got, fmt.Sprintf("%s %s %s %q", n.Kind, n.FeedKind, n.FeedName, n.FeedError))
 		return nil
 	}); err != nil {
 		t.Fatalf("SendNotifications: %v", err)
 	}
 	// Its error is cleared by the good read before the notice is sent.
-	want := []string{`feed_failed rss Example news "" ""`, `feed_recovered rss Example news "" ""`}
+	want := []string{`feed_failed rss Example news ""`, `feed_recovered rss Example news ""`}
 	if !slices.Equal(got, want) {
 		t.Errorf("sent %q, want %q", got, want)
 	}
@@ -222,7 +222,7 @@ func TestMigration94DropsOnlyRSSGoingDownAndKeepsFeedFailing(t *testing.T) {
 	ctx := context.Background()
 	pool := migrated(t)
 	a := NewAdminStore(asAdminLogin(t, pool))
-	addFeed(t, a, "throughtheages")
+	twitchFeed(t, a, "some_streamer", "100000001")
 	feed := rssFeed(t, a, 1)
 	recordItems(t, a, feed, rssAt)
 	recordItems(t, a, feed, rssAt.Add(time.Minute), item(1, "Queued", ""))
@@ -232,8 +232,8 @@ func TestMigration94DropsOnlyRSSGoingDownAndKeepsFeedFailing(t *testing.T) {
 		to   int64
 		want []string
 	}{
-		{93, []string{"reddit throughtheages", "reddit_failing"}},
-		{94, []string{"feed_failing", "reddit throughtheages"}},
+		{93, []string{"reddit_failing", "twitch some_streamer"}},
+		{94, []string{"feed_failing", "twitch some_streamer"}},
 	}
 	for _, s := range steps {
 		if err := withRatingsMigrations(pool, func(p *goose.Provider) error {

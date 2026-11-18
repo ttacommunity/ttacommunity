@@ -209,7 +209,7 @@ func TestAnEndpointsFeedsReachTheStoreAndComeBack(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeAdmins{}
-			body := `{"name": "Reddit", "url": "` + testWebhook + `", "events": []` + tt.feeds + `}`
+			body := `{"name": "News", "url": "` + testWebhook + `", "events": []` + tt.feeds + `}`
 			rec := adminDoAs(t, f, owner, tt.method, tt.path, site, body)
 			if rec.Code >= 300 {
 				t.Fatalf("%s %s = %d %s, want success", tt.method, tt.path, rec.Code, rec.Body)
@@ -230,18 +230,18 @@ func TestAnEndpointsFeedsReachTheStoreAndComeBack(t *testing.T) {
 func TestAnEndpointsOptionsReachTheStoreAndComeBack(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	f := &fakeAdmins{}
-	body := `{"name": "Reddit", "url": "` + testWebhook + `", "events": [], "paused": true, "forum": true, "username": "TTA Reddit",
-		"avatar_url": "https://example.com/a.png", "role_id": "100000000000000002", "colour": "#123abc", "text": "short", "author": false}`
+	body := `{"name": "News", "url": "` + testWebhook + `", "events": [], "paused": true, "forum": true, "username": "TTA News",
+		"avatar_url": "https://example.com/a.png", "role_id": "100000000000000002", "colour": "#123abc", "text": "short", "image": false}`
 	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site, body)
 	var made NotificationEndpoint
 	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated {
 		t.Fatalf("POST endpoint = %d %s, want 201", rec.Code, rec.Body)
 	}
-	if !made.Paused || !made.Forum || made.Username != "TTA Reddit" || made.AvatarUrl != "https://example.com/a.png" || made.RoleId != "100000000000000002" ||
-		made.Colour != "#123abc" || made.Text != "short" || !made.Image || made.Author {
+	if !made.Paused || !made.Forum || made.Username != "TTA News" || made.AvatarUrl != "https://example.com/a.png" || made.RoleId != "100000000000000002" ||
+		made.Colour != "#123abc" || made.Text != "short" || made.Image {
 		t.Errorf("answered %+v, want its options", made)
 	}
-	if got, want := f.options, "paused true forum true TTA Reddit https://example.com/a.png 100000000000000002 {Colour:#123abc Text:short Image:true Author:false}"; got != want {
+	if got, want := f.options, "paused true forum true TTA News https://example.com/a.png 100000000000000002 {Colour:#123abc Text:short Image:false}"; got != want {
 		t.Errorf("stored options %q, want %q", got, want)
 	}
 }

@@ -7,7 +7,7 @@ type Feed = Pick<FeedChoice, 'kind' | 'id' | 'name'>;
 type FeedOption = components['schemas']['FeedOption'];
 type Setting = Pick<
   components['schemas']['NotificationEndpoint'],
-  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image'
 > & {
   /** A new webhook URL, or '' to keep the saved one: the API never sends it back. */
   url: string;
@@ -17,8 +17,8 @@ type Setting = Pick<
 };
 type Delivery = Pick<components['schemas']['NotificationEndpoint'], 'paused' | 'last_sent_at' | 'last_error' | 'last_error_at'>;
 
-/** TEXTS are how much of a Reddit post's text an endpoint may show. */
-export const TEXTS: { key: components['schemas']['RedditPostText']; label: string }[] = [
+/** TEXTS are how much of a feed item's text an endpoint may show. */
+export const TEXTS: { key: components['schemas']['FeedItemText']; label: string }[] = [
   { key: 'full', label: 'All of it' },
   { key: 'short', label: 'The first few lines' },
   { key: 'none', label: 'None: title only' },
@@ -37,7 +37,7 @@ export const EVENTS: { key: Event; label: string }[] = [
 export function endpointChanged(saved: Setting, draft: Setting): boolean {
   if (draft.name.trim() === '' || (draft.url.trim() === '' && saved.webhook_id === '')) return false;
   const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id'] as const;
-  const choices = ['paused', 'forum', 'colour', 'text', 'image', 'author'] as const;
+  const choices = ['paused', 'forum', 'colour', 'text', 'image'] as const;
   return texts.some((k) => draft[k].trim() !== saved[k]) || choices.some((k) => draft[k] !== saved[k]) ||
     !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds) ||
     JSON.stringify(takenOptions(saved)) !== JSON.stringify(takenOptions(draft));
@@ -53,8 +53,8 @@ function takenOptions(s: Pick<Setting, 'feeds' | 'feed_options'>): FeedOption[] 
 
 /** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */
 export function endpointSetting(draft: Setting): Omit<components['schemas']['NotificationEndpointSetting'], 'format'> {
-  const { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author } = draft;
-  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author, events: [...draft.events], feeds: [...draft.feeds],
+  const { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image } = draft;
+  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, events: [...draft.events], feeds: [...draft.feeds],
     feed_options: takenOptions(draft) };
   return draft.url.trim() === '' ? setting : { ...setting, url: draft.url.trim() };
 }
@@ -77,7 +77,7 @@ export function subscriptions(events: readonly Event[], feeds: readonly number[]
   const parts: string[] = [];
   if (events.length === EVENTS.length) parts.push('every site event');
   else if (events.length > 0) parts.push(EVENTS.filter((e) => events.includes(e.key)).map((e) => e.label).join(', '));
-  parts.push(...all.filter((f) => feeds.includes(f.id)).map((f) => (f.kind === 'reddit' ? f.name : `${f.name} on ${KIND_LABELS[f.kind]}`)));
+  parts.push(...all.filter((f) => feeds.includes(f.id)).map((f) => `${f.name} on ${KIND_LABELS[f.kind]}`));
   return parts.length === 0 ? 'Nothing: no posts reach it' : parts.join('; ');
 }
 

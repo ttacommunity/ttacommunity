@@ -18,7 +18,7 @@ import (
 // it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing), the feeds it takes, by id, with each
 // one's options, and the prefix put before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
 // picture its messages show; Forum posts each as a new thread of a forum channel; RoleID ("" for none) is pinged with
-// each; Look is how a Reddit post looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
+// each; Look is how a feed's item looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
 type NotificationEndpoint struct {
 	ID                  int64
 	Name                string
@@ -89,15 +89,15 @@ func (o FeedOptions) matchesItem(i RSSItem) bool {
 	return len(o.Keywords) == 0 || slices.ContainsFunc(o.Keywords, func(k string) bool { return strings.Contains(text, strings.ToLower(k)) })
 }
 
-// EmbedLook is how a Reddit post looks in an endpoint's channel: the embed's colour (#rrggbb), how much of the
-// post's text it shows (full, short or none), and whether it shows the image and the author.
+// EmbedLook is how a feed's item looks in an endpoint's channel: the embed's colour (#rrggbb), how much of its
+// text it shows (full, short or none), and whether it shows its image.
 type EmbedLook struct {
-	Colour, Text  string
-	Image, Author bool
+	Colour, Text string
+	Image        bool
 }
 
-// DefaultLook is an endpoint's look when none is given, the database's defaults: Reddit's orange, all of it.
-var DefaultLook = EmbedLook{Colour: "#ff4500", Text: "full", Image: true, Author: true}
+// DefaultLook is an endpoint's look when none is given, the database's defaults: orange, all of it.
+var DefaultLook = EmbedLook{Colour: "#ff4500", Text: "full", Image: true}
 
 var (
 	// ErrNoNotificationEndpoint means no endpoint has that id.
@@ -123,13 +123,13 @@ const endpointColumns = `endpoint_id, name, url, format, events,
 	ARRAY(SELECT s.feed_id FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id ORDER BY s.feed_id),
 	coalesce((SELECT json_agg(json_build_object('feed', s.feed_id, 'categories', s.categories, 'keywords', s.keywords, 'match', s.match, 'was_live', s.was_live)
 		ORDER BY s.feed_id) FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id), '[]'),
-	prefix, paused, forum, username, avatar_url, role_id, colour, show_text, show_image, show_author, last_sent_at,
+	prefix, paused, forum, username, avatar_url, role_id, colour, show_text, show_image, last_sent_at,
 	coalesce(last_error, ''), last_error_at`
 
 func scanEndpoint(row pgx.CollectableRow) (NotificationEndpoint, error) {
 	var e NotificationEndpoint
 	err := row.Scan(&e.ID, &e.Name, &e.URL, &e.Format, &e.Events, &e.Feeds, &e.FeedOptions, &e.Prefix, &e.Paused, &e.Forum, &e.Username, &e.AvatarURL,
-		&e.RoleID, &e.Look.Colour, &e.Look.Text, &e.Look.Image, &e.Look.Author, &e.LastSentAt, &e.LastError, &e.LastErrorAt)
+		&e.RoleID, &e.Look.Colour, &e.Look.Text, &e.Look.Image, &e.LastSentAt, &e.LastError, &e.LastErrorAt)
 	return e, err
 }
 
@@ -184,11 +184,11 @@ func (a *AdminStore) AddNotificationEndpoint(ctx context.Context, e Notification
 	var id int64
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `INSERT INTO notification_endpoints (name, url, format, events, prefix, created_at,
-				paused, forum, username, avatar_url, role_id, colour, show_text, show_image, show_author)
-			VALUES ($1, $2, $3, ARRAY(SELECT DISTINCT unnest($4::text[]) ORDER BY 1), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+				paused, forum, username, avatar_url, role_id, colour, show_text, show_image)
+			VALUES ($1, $2, $3, ARRAY(SELECT DISTINCT unnest($4::text[]) ORDER BY 1), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 			RETURNING endpoint_id`,
 			e.Name, e.URL, e.Format, e.Events, e.Prefix, now, e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID,
-			e.Look.Colour, e.Look.Text, e.Look.Image, e.Look.Author).Scan(&id); err != nil {
+			e.Look.Colour, e.Look.Text, e.Look.Image).Scan(&id); err != nil {
 			return err
 		}
 		return setFeeds(ctx, tx, id, e.Feeds, e.FeedOptions)
@@ -237,9 +237,9 @@ func (a *AdminStore) SetNotificationEndpoint(ctx context.Context, e Notification
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE notification_endpoints SET name = $2, url = coalesce(nullif($3, ''), url), format = $4,
 			events = ARRAY(SELECT DISTINCT unnest($5::text[]) ORDER BY 1), prefix = $6, paused = $7, forum = $8, username = $9,
-			avatar_url = $10, role_id = $11, colour = $12, show_text = $13, show_image = $14, show_author = $15 WHERE endpoint_id = $1`,
+			avatar_url = $10, role_id = $11, colour = $12, show_text = $13, show_image = $14 WHERE endpoint_id = $1`,
 			e.ID, e.Name, e.URL, e.Format, e.Events, e.Prefix, e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID,
-			e.Look.Colour, e.Look.Text, e.Look.Image, e.Look.Author)
+			e.Look.Colour, e.Look.Text, e.Look.Image)
 		if err != nil {
 			return err
 		}

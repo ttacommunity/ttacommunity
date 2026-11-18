@@ -12,12 +12,12 @@ import Notice from './Notice';
 type Endpoint = components['schemas']['NotificationEndpoint'];
 export type Draft = { url: string } & Pick<
   Endpoint,
-  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image'
 >;
 
 export const EMPTY: Draft = {
   name: '', url: '', webhook_id: '', events: [], feeds: [], feed_options: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
-  colour: '#ff4500', text: 'full', image: true, author: true,
+  colour: '#ff4500', text: 'full', image: true,
 };
 
 interface Props {
@@ -72,7 +72,7 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
           <legend>Message</legend>
           <label>
             Shown as (the webhook's name if empty)
-            <input className="input-antique" value={draft.username} maxLength={80} placeholder="TTA Reddit" onChange={(e) => setDraft({ ...draft, username: e.target.value })} />
+            <input className="input-antique" value={draft.username} maxLength={80} placeholder="TTA News" onChange={(e) => setDraft({ ...draft, username: e.target.value })} />
           </label>
           <label>
             Picture URL (the webhook's if empty)
@@ -117,7 +117,7 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
                     {f.name}
                     {f.paused && <span className="muted"> (paused)</span>}
                   </label>
-                  {f.kind !== 'reddit' && draft.feeds.includes(f.id) && (
+                  {draft.feeds.includes(f.id) && (
                     <FeedOptions kind={f.kind} options={optionsFor(draft.feed_options, f.id)}
                       onChange={(change) => setDraft((d) => ({ ...d, feed_options: withOptions(d.feed_options, f.id, change) }))} />
                   )}
@@ -127,7 +127,7 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
           ))}
         </fieldset>
         <fieldset className="check-kinds">
-          <legend>Reddit posts and RSS items show</legend>
+          <legend>Feed items show</legend>
           <label>
             Post text{' '}
             <select className="input-antique" value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value as Draft['text'] })}>
@@ -140,9 +140,6 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
           </label>
           <label>
             <input type="checkbox" checked={draft.image} onChange={(e) => setDraft({ ...draft, image: e.target.checked })} /> Their image
-          </label>
-          <label>
-            <input type="checkbox" checked={draft.author} onChange={(e) => setDraft({ ...draft, author: e.target.checked })} /> Their author
           </label>
         </fieldset>
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
