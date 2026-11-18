@@ -1,13 +1,22 @@
-/** The Notifications tab's feeds of every kind: one list of rows, a Twitch streamer's status, the feeds an endpoint may take by kind, and each one's options. */
+/** The Notifications tab's feeds of every kind: one list of rows, a Twitch streamer's and an RSS feed's status, the feeds an endpoint may take by kind, and each one's options. */
 import type { components } from '@ttac/shared/api';
 import { feedSends, feedStatus } from './reddit-feeds';
+import * as req from './admin-requests';
 
 type RedditFeed = Pick<components['schemas']['RedditFeed'], 'id' | 'subreddit' | 'paused' | 'kinds' | 'checked_at' | 'last_post_at' | 'last_error' | 'last_error_at'>;
 type TwitchFeed = Pick<components['schemas']['TwitchFeed'], 'id' | 'login' | 'paused' | 'subscriptions'>;
+type RSSFeed = Pick<components['schemas']['RSSFeed'], 'id' | 'url' | 'title' | 'paused' | 'checked_at' | 'last_item_at' | 'last_error' | 'last_error_at'>;
+
+/** Feeds are the feeds of each kind, as the API lists them. */
+export interface Feeds {
+  reddit: readonly RedditFeed[];
+  twitch: readonly TwitchFeed[];
+  rss: readonly RSSFeed[];
+}
 type FeedOption = components['schemas']['FeedOption'];
 
 /** Kind is a feed's source. */
-export type Kind = 'reddit' | 'twitch';
+export type Kind = 'reddit' | 'twitch' | 'rss';
 
 /** FeedRow is a feed as the Feeds card lists it. */
 export interface FeedRow {
@@ -29,9 +38,19 @@ export interface FeedChoice {
 }
 
 /** KIND_LABELS name each kind of feed. */
-export const KIND_LABELS: Record<Kind, string> = { reddit: 'Reddit', twitch: 'Twitch' };
+export const KIND_LABELS: Record<Kind, string> = { reddit: 'Reddit', twitch: 'Twitch', rss: 'RSS' };
 
 const redditName = (f: Pick<RedditFeed, 'subreddit'>) => `r/${f.subreddit}`;
+
+/** rssName is an RSS feed's name: its own title, or until its first read its address's host. */
+export function rssName(f: Pick<RSSFeed, 'title' | 'url'>): string {
+  if (f.title !== '') return f.title;
+  try {
+    return new URL(f.url).host;
+  } catch {
+    return f.url;
+  }
+}
 
 /** twitchStatus says how a Twitch streamer is doing: paused, subscribed, waiting for Twitch's check, or why not subscribed. */
 export function twitchStatus(f: TwitchFeed): string {
@@ -43,8 +62,8 @@ export function twitchStatus(f: TwitchFeed): string {
   return 'Subscribed';
 }
 
-/** feedRows is every feed as the Feeds card lists it: Reddit's then Twitch's, each by name, times written with when. */
-export function feedRows(reddit: readonly RedditFeed[], twitch: readonly TwitchFeed[], when: (iso: string) => string): FeedRow[] {
+/** feedRows is every feed as the Feeds card lists it: Reddit's, Twitch's then RSS's, each by name, times written with when. */
+export function feedRows({ reddit, twitch, rss }: Feeds, when: (iso: string) => string): FeedRow[] {
   const byName = (a: FeedRow, b: FeedRow) => a.name.localeCompare(b.name);
   return [
     ...reddit.map((f): FeedRow => ({
@@ -55,14 +74,19 @@ export function feedRows(reddit: readonly RedditFeed[], twitch: readonly TwitchF
       kind: 'twitch', id: f.id, name: f.login, href: `https://www.twitch.tv/${encodeURIComponent(f.login)}`,
       sends: 'streams going live', status: twitchStatus(f), paused: f.paused,
     })).sort(byName),
+    ...rss.map((f): FeedRow => ({
+      kind: 'rss', id: f.id, name: rssName(f), href: f.url, sends: 'new items',
+      status: feedStatus({ ...f, last_post_at: f.last_item_at }, when, 'item'), paused: f.paused,
+    })).sort(byName),
   ];
 }
 
 /** feedGroups is the feeds an endpoint may take, by kind, each by name; a kind with no feed is left out. */
-export function feedGroups(reddit: readonly RedditFeed[], twitch: readonly TwitchFeed[]): { kind: Kind; label: string; feeds: FeedChoice[] }[] {
+export function feedGroups({ reddit, twitch, rss }: Feeds): { kind: Kind; label: string; feeds: FeedChoice[] }[] {
   const groups: { kind: Kind; label: string; feeds: FeedChoice[] }[] = [
     { kind: 'reddit', label: KIND_LABELS.reddit, feeds: reddit.map((f) => ({ kind: 'reddit' as const, id: f.id, name: redditName(f), paused: f.paused })) },
     { kind: 'twitch', label: KIND_LABELS.twitch, feeds: twitch.map((f) => ({ kind: 'twitch' as const, id: f.id, name: f.login, paused: f.paused })) },
+    { kind: 'rss', label: KIND_LABELS.rss, feeds: rss.map((f) => ({ kind: 'rss' as const, id: f.id, name: rssName(f), paused: f.paused })) },
   ];
   return groups.filter((g) => g.feeds.length > 0).map((g) => ({ ...g, feeds: g.feeds.sort((a, b) => a.name.localeCompare(b.name)) }));
 }
@@ -86,4 +110,23 @@ export function withOptions(opts: readonly FeedOption[], feed: number, change: P
   const rest = opts.filter((o) => o.feed !== feed);
   const empty = next.categories.length === 0 && next.keywords.length === 0 && next.match === 'all' && !next.was_live;
   return (empty ? rest : [...rest, next]).sort((a, b) => a.feed - b.feed);
+}
+
+/** pauseRequest is the request that pauses row's feed, or resumes it when paused; a Reddit feed keeps its kinds of post. */
+export function pauseRequest(row: Pick<FeedRow, 'kind' | 'id' | 'paused'>, redditKinds: RedditFeed['kinds']) {
+  if (row.kind === 'twitch') return req.setTwitchFeed(row.id, !row.paused);
+  if (row.kind === 'rss') return req.setRSSFeed(row.id, !row.paused);
+  return req.setFeed(row.id, { kinds: [...redditKinds], paused: !row.paused });
+}
+
+/** removeRequest is the request that removes row's feed. */
+export function removeRequest(row: Pick<FeedRow, 'kind' | 'id'>) {
+  if (row.kind === 'twitch') return req.removeTwitchFeed(row.id);
+  if (row.kind === 'rss') return req.removeRSSFeed(row.id);
+  return req.removeFeed(row.id);
+}
+
+/** resumedText says what resuming row's feed does: a streamer's next stream is posted, a feed's items from its next read on. */
+export function resumedText(row: Pick<FeedRow, 'kind' | 'name'>): string {
+  return row.kind === 'twitch' ? `Resumed ${row.name}: their next stream is posted.` : `Resumed ${row.name}: posts from its next read on are posted.`;
 }

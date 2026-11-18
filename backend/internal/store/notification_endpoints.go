@@ -15,7 +15,7 @@ import (
 )
 
 // NotificationEndpoint is a webhook notifications are posted to: its URL, its format (discord so far), the events
-// it takes (sign_up, link_request, blitz_report, blitz_flag, reddit_failing), the feeds it takes, by id, with each
+// it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing), the feeds it takes, by id, with each
 // one's options, and the prefix put before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
 // picture its messages show; Forum posts each as a new thread of a forum channel; RoleID ("" for none) is pinged with
 // each; Look is how a Reddit post looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
@@ -39,7 +39,7 @@ type NotificationEndpoint struct {
 
 // FeedOptions is how an endpoint takes a feed: a Twitch stream only in one of Categories and with one of Keywords
 // in its title, or either when Match is "any" ("all", the default, else); an empty list does not narrow. WasLive
-// edits its post when the stream ends.
+// edits its post when the stream ends. An RSS item only with one of Keywords in its title or summary.
 type FeedOptions struct {
 	Feed       int64    `json:"feed"`
 	Categories []string `json:"categories"`
@@ -80,6 +80,13 @@ func (o FeedOptions) matches(t TwitchNotice) bool {
 		return inCategory || withKeyword
 	}
 	return (len(o.Categories) == 0 || inCategory) && (len(o.Keywords) == 0 || withKeyword)
+}
+
+// matchesItem says whether RSS item i passes o: with one of its keywords in its title or summary, in any letters;
+// o without keywords takes every item.
+func (o FeedOptions) matchesItem(i RSSItem) bool {
+	text := strings.ToLower(i.Title + "\n" + i.Summary)
+	return len(o.Keywords) == 0 || slices.ContainsFunc(o.Keywords, func(k string) bool { return strings.Contains(text, strings.ToLower(k)) })
 }
 
 // EmbedLook is how a Reddit post looks in an endpoint's channel: the embed's colour (#rrggbb), how much of the

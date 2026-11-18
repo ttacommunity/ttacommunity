@@ -1,4 +1,4 @@
-/** The sheet that adds or edits a notification endpoint: its name, webhook URL and prefix, and what it takes, site events and Reddit feeds in groups. */
+/** The sheet that adds or edits a notification endpoint: its name, webhook URL and prefix, and what it takes, site events and feeds in groups. */
 import { useRef, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
@@ -117,8 +117,8 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
                     {f.name}
                     {f.paused && <span className="muted"> (paused)</span>}
                   </label>
-                  {f.kind === 'twitch' && draft.feeds.includes(f.id) && (
-                    <FeedOptions options={optionsFor(draft.feed_options, f.id)}
+                  {f.kind !== 'reddit' && draft.feeds.includes(f.id) && (
+                    <FeedOptions kind={f.kind} options={optionsFor(draft.feed_options, f.id)}
                       onChange={(change) => setDraft((d) => ({ ...d, feed_options: withOptions(d.feed_options, f.id, change) }))} />
                   )}
                 </div>
@@ -127,7 +127,7 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
           ))}
         </fieldset>
         <fieldset className="check-kinds">
-          <legend>Reddit posts show</legend>
+          <legend>Reddit posts and RSS items show</legend>
           <label>
             Post text{' '}
             <select className="input-antique" value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value as Draft['text'] })}>

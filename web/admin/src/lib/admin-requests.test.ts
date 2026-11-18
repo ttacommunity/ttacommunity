@@ -85,6 +85,9 @@ describe('admin requests', () => {
     ['a new Twitch streamer', req.addTwitchFeed('some_streamer'), '/api/twitch-feeds', 'POST', { login: 'some_streamer' }],
     ['pausing a Twitch streamer', req.setTwitchFeed(3, true), '/api/twitch-feeds/3', 'PUT', { paused: true }],
     ['removing a Twitch streamer', req.removeTwitchFeed(3), '/api/twitch-feeds/3', 'DELETE', undefined],
+    ['a new RSS feed, trimmed', req.addRSSFeed(' https://news.example.com/feed.xml '), '/api/rss-feeds', 'POST', { url: 'https://news.example.com/feed.xml' }],
+    ['pausing an RSS feed', req.setRSSFeed(5, true), '/api/rss-feeds/5', 'PUT', { paused: true }],
+    ['removing an RSS feed', req.removeRSSFeed(5), '/api/rss-feeds/5', 'DELETE', undefined],
     // Nostradamus
     ['a new game', req.addNostradamusGame({ slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }), '/api/nostradamus', 'POST', { slug: 'wc-2031', name: 'Nostradamus #9', series: 'worlds', tournament: '2031' }],
     ['a game finished', req.setNostradamusFinished('wc-2031', true), '/api/nostradamus/wc-2031/finished', 'PUT', { finished: true }],

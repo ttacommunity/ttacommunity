@@ -42,8 +42,10 @@ type RedditNotice struct {
 }
 
 var (
-	// ErrNoRedditFeed means no feed has that id.
+	// ErrNoRedditFeed means no Reddit feed has that id.
 	ErrNoRedditFeed = errors.New("no such Reddit feed")
+	// ErrNoFeed means no feed of any kind has that id.
+	ErrNoFeed = errors.New("no such feed")
 	// ErrBadRedditFeed means a subreddit name the database refuses.
 	ErrBadRedditFeed = errors.New("a subreddit is named by 3 to 21 letters, digits or underscores, without r/")
 	// ErrRedditFeedExists means a feed for that subreddit is already there.
@@ -130,30 +132,17 @@ func (a *AdminStore) RemoveRedditFeed(ctx context.Context, id int64) error {
 
 // RecordRedditPosts records a good read of feed at now: each post not seen before is kept and, once the feed is
 // primed and the post's kind is one the feed sends, queued to be posted, all in one transaction, so a second read
-// never posts one twice. A post not queued
-// keeps only its id and date. A feed that had failed FeedFailuresNotified reads queues word that it reads again.
-// It returns how many posts it queued.
+// never posts one twice. A post not queued keeps only its id and date. It returns how many posts it queued.
 func (a *AdminStore) RecordRedditPosts(ctx context.Context, feed int64, posts []RedditPost, now time.Time) (int, error) {
 	queued := 0
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
-		var primed bool
-		var failures int
-		var kinds []string
-		err := tx.QueryRow(ctx, "SELECT primed, failures, post_kinds FROM feeds WHERE feed_id = $1 FOR UPDATE", feed).Scan(&primed, &failures, &kinds)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNoRedditFeed
-		}
+		primed, err := readWell(ctx, tx, feed, now)
 		if err != nil {
+			return err
+		}
+		var kinds []string
+		if err := tx.QueryRow(ctx, "SELECT post_kinds FROM feeds WHERE feed_id = $1", feed).Scan(&kinds); err != nil {
 			return fmt.Errorf("reading a Reddit feed: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `UPDATE feeds SET primed = true, checked_at = $2, last_error = NULL, last_error_at = NULL,
-			failures = 0 WHERE feed_id = $1`, feed, now); err != nil {
-			return fmt.Errorf("marking a Reddit feed read: %w", err)
-		}
-		if failures >= FeedFailuresNotified {
-			if err := queueFeedNotice(ctx, tx, "reddit_recovered", feed, now); err != nil {
-				return err
-			}
 		}
 		for _, p := range posts {
 			send := primed && slices.Contains(kinds, p.Kind)
@@ -187,33 +176,55 @@ func (a *AdminStore) RecordRedditPosts(ctx context.Context, feed int64, posts []
 	return queued, nil
 }
 
-// RedditFeedFailed records that reading feed failed at now with msg, cut to what the database keeps; the
-// FeedFailuresNotified-th failure in a row queues word of it.
-func (a *AdminStore) RedditFeedFailed(ctx context.Context, feed int64, msg string, now time.Time) error {
-	if r := []rune(msg); len(r) > maxFeedError {
-		msg = string(r[:maxFeedError])
+// readWell marks feed, of any kind, read well at now in tx, locking it, and returns whether it was primed: its
+// failures are cleared, and a feed that had failed FeedFailuresNotified reads queues word that it reads again.
+func readWell(ctx context.Context, tx pgx.Tx, feed int64, now time.Time) (bool, error) {
+	var primed bool
+	var failures int
+	err := tx.QueryRow(ctx, "SELECT primed, failures FROM feeds WHERE feed_id = $1 FOR UPDATE", feed).Scan(&primed, &failures)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNoFeed
 	}
+	if err != nil {
+		return false, fmt.Errorf("reading a feed: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE feeds SET primed = true, checked_at = $2, last_error = NULL, last_error_at = NULL,
+		failures = 0 WHERE feed_id = $1`, feed, now); err != nil {
+		return false, fmt.Errorf("marking a feed read: %w", err)
+	}
+	if failures >= FeedFailuresNotified {
+		if err := queueFeedNotice(ctx, tx, "feed_recovered", feed, now); err != nil {
+			return false, err
+		}
+	}
+	return primed, nil
+}
+
+// FeedFailed records that reading feed, of any kind, failed at now with msg, cut to what the database keeps, or
+// returns ErrNoFeed; the FeedFailuresNotified-th failure in a row queues word of it.
+func (a *AdminStore) FeedFailed(ctx context.Context, feed int64, msg string, now time.Time) error {
+	msg = cutRunes(msg, maxFeedError)
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var failures int
 		err := tx.QueryRow(ctx, `UPDATE feeds SET last_error = $2, last_error_at = $3, failures = failures + 1
 			WHERE feed_id = $1 RETURNING failures`, feed, msg, now).Scan(&failures)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNoRedditFeed
+			return ErrNoFeed
 		}
 		if err != nil {
-			return fmt.Errorf("recording a Reddit feed's failure: %w", err)
+			return fmt.Errorf("recording a feed's failure: %w", err)
 		}
 		if failures != FeedFailuresNotified {
 			return nil
 		}
-		return queueFeedNotice(ctx, tx, "reddit_failed", feed, now)
+		return queueFeedNotice(ctx, tx, "feed_failed", feed, now)
 	})
 }
 
-// queueFeedNotice queues word, of kind reddit_failed or reddit_recovered, that feed is failing or reads again.
+// queueFeedNotice queues word, of kind feed_failed or feed_recovered, that feed is failing or reads again.
 func queueFeedNotice(ctx context.Context, tx pgx.Tx, kind string, feed int64, now time.Time) error {
 	if _, err := tx.Exec(ctx, "INSERT INTO notification_outbox (kind, feed_id, created_at, next_at) VALUES ($1, $2, $3, $3)", kind, feed, now); err != nil {
-		return fmt.Errorf("queueing a Reddit feed's notice: %w", err)
+		return fmt.Errorf("queueing a feed's notice: %w", err)
 	}
 	return nil
 }

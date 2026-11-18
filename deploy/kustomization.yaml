@@ -13,7 +13,7 @@ resources:
   - engine.yaml
   - backup.yaml
   - movies.yaml
-  - reddit.yaml
+  - feeds.yaml
   - backup-config-rbac.yaml
   - backup-config.yaml
   - cloudflare-tunnel.yaml

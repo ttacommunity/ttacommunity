@@ -1,4 +1,4 @@
-/** The sheet that adds a feed, a subreddit or a Twitch streamer, by name, or edits a Reddit feed: the kinds of post it sends. */
+/** The sheet that adds a feed, a subreddit or a Twitch streamer by name or an RSS feed by address, or edits a Reddit feed: the kinds of post it sends. */
 import { useRef, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
@@ -11,6 +11,14 @@ import Notice from './Notice';
 
 type Feed = components['schemas']['RedditFeed'];
 type TwitchFeed = components['schemas']['TwitchFeed'];
+type RSSFeed = components['schemas']['RSSFeed'];
+
+/** ADD_FIELDS are what each kind of feed is added by: the field's label and an example. */
+const ADD_FIELDS: Record<Kind, { label: string; example: string }> = {
+  reddit: { label: 'Subreddit', example: 'throughtheages' },
+  twitch: { label: 'Twitch name or channel address', example: 'some_streamer' },
+  rss: { label: 'Feed address (https)', example: 'https://news.example.com/feed.xml' },
+};
 
 interface Props {
   /** The Reddit feed to edit, or null to add a feed of either kind. */
@@ -34,6 +42,10 @@ export default function FeedSheet({ feed, opener, onSaved, onClose }: Props) {
       const r = await req.send<TwitchFeed>(req.addTwitchFeed(typed));
       if (!r.ok) return setOutcome(refused(r.message, id));
       onSaved(`Added ${r.data.login}. Twitch checks the callback first; choose which endpoints take them above.`);
+    } else if (feed === null && kind === 'rss') {
+      const r = await req.send<RSSFeed>(req.addRSSFeed(typed));
+      if (!r.ok) return setOutcome(refused(r.message, id));
+      onSaved(`Added ${r.data.url}. Its first read, within 10 minutes, posts nothing; choose which endpoints take it above.`);
     } else if (feed === null) {
       const r = await req.send<Feed>(req.addFeed(typed));
       if (!r.ok) return setOutcome(refused(r.message, id));
@@ -51,11 +63,11 @@ export default function FeedSheet({ feed, opener, onSaved, onClose }: Props) {
       <form className="sheet-body" onSubmit={(e) => void save(e)}>
         {feed === null ? (
           <>
-            <Segmented<Kind> label="Kind of feed" options={(['reddit', 'twitch'] as const).map((k) => ({ value: k, label: KIND_LABELS[k] }))} value={kind} onChange={setKind} />
+            <Segmented<Kind> label="Kind of feed" options={(['reddit', 'twitch', 'rss'] as const).map((k) => ({ value: k, label: KIND_LABELS[k] }))} value={kind} onChange={setKind} />
             <div className="admin-add">
               <label>
-                {kind === 'twitch' ? 'Twitch name or channel address' : 'Subreddit'}
-                <input className="input-antique" value={typed} placeholder={kind === 'twitch' ? 'some_streamer' : 'throughtheages'}
+                {ADD_FIELDS[kind].label}
+                <input className="input-antique" type={kind === 'rss' ? 'url' : 'text'} value={typed} placeholder={ADD_FIELDS[kind].example}
                   onChange={(e) => setTyped(e.target.value)} required />
               </label>
             </div>

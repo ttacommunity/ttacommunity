@@ -2788,7 +2788,7 @@ export interface paths {
         put?: never;
         /**
          * Add a subreddit to read for new posts (admins only)
-         * @description Audited. The Origin must be the admin site. The Reddit job's first read of it posts nothing, so its older posts are not posted; endpoints take it once it is among their feeds.
+         * @description Audited. The Origin must be the admin site. The feeds job's first read of it posts nothing, so its older posts are not posted; endpoints take it once it is among their feeds.
          */
         post: operations["postAdminRedditFeed"];
         delete?: never;
@@ -2885,6 +2885,51 @@ export interface paths {
          * @description Audited. The Origin must be the admin site.
          */
         delete: operations["deleteAdminTwitchFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rss-feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The RSS and Atom feeds whose new items are posted to Discord (admins only) */
+        get: operations["getAdminRssFeeds"];
+        put?: never;
+        /**
+         * Add an RSS or Atom feed to read for new items, by its https address (admins only)
+         * @description Audited. The Origin must be the admin site. An address that is not https, names a password or names an address that is not public is refused; the feeds job checks every address it connects to as well. Its first read posts nothing, so older items are not posted; endpoints take it once it is among their feeds.
+         */
+        post: operations["postAdminRssFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rss-feeds/{feed}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause or resume an RSS feed (admins only)
+         * @description Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came while it was paused is not posted.
+         */
+        put: operations["putAdminRssFeed"];
+        post?: never;
+        /**
+         * Remove an RSS feed, the items seen and the endpoints' subscriptions to it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminRssFeed"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4045,7 +4090,7 @@ export interface components {
          * @description What a notification tells of, which an endpoint chooses among
          * @enum {string}
          */
-        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "reddit_failing";
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing";
         NotificationEndpoint: {
             /** Format: int64 */
             id: number;
@@ -4070,10 +4115,10 @@ export interface components {
             avatar_url: string;
             /** @description A Discord role pinged with each message; none when empty */
             role_id: string;
-            /** @description A Reddit post's embed colour, #rrggbb */
+            /** @description A Reddit post's or RSS item's embed colour, #rrggbb */
             colour: string;
             text: components["schemas"]["RedditPostText"];
-            /** @description Whether a Reddit post shows its image */
+            /** @description Whether a Reddit post or RSS item shows its image */
             image: boolean;
             /** @description Whether a Reddit post shows its author */
             author: boolean;
@@ -4164,7 +4209,7 @@ export interface components {
             kinds: components["schemas"]["RedditPostKind"][];
             /**
              * Format: date-time
-             * @description When the Reddit job last read it
+             * @description When the feeds job last read it
              */
             checked_at?: string | null;
             /**
@@ -4212,13 +4257,44 @@ export interface components {
         TwitchFeedSetting: {
             paused: boolean;
         };
+        RSSFeed: {
+            /** Format: int64 */
+            id: number;
+            /** @description Its https address */
+            url: string;
+            /** @description The feed's own title, as last read; empty until its first read */
+            title: string;
+            /** @description Not read while paused */
+            paused: boolean;
+            /**
+             * Format: date-time
+             * @description When the feeds job last read it
+             */
+            checked_at?: string | null;
+            /**
+             * Format: date-time
+             * @description When its newest item seen was published
+             */
+            last_item_at?: string | null;
+            /** @description Why its last read failed, until a read succeeds */
+            last_error?: string | null;
+            /** Format: date-time */
+            last_error_at?: string | null;
+        };
+        NewRSSFeed: {
+            /** @description The feed's https address */
+            url: string;
+        };
+        RSSFeedSetting: {
+            paused: boolean;
+        };
         /** @description How an endpoint takes one of its feeds */
         FeedOption: {
             /** Format: int64 */
             feed: number;
             /** @description A Twitch stream is posted only in one of these categories (any when empty) */
             categories: string[];
-            /** @description A Twitch stream is posted only with one of these words in its title, in any letters (any when empty) */
+            /** @description A Twitch stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty) */
             keywords: string[];
             /**
              * @description all, the default, posts a stream that passes both lists; any, one that passes either
@@ -4244,7 +4320,7 @@ export interface components {
             };
         };
         /**
-         * @description How much of a Reddit post's text an endpoint shows
+         * @description How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
          * @enum {string}
          */
         RedditPostText: "full" | "short" | "none";
@@ -7618,6 +7694,7 @@ export interface components {
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
         AdminRedditFeedId: number;
+        AdminRSSFeedId: number;
         AdminTwitchFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -11613,6 +11690,109 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminRssFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feeds, by title, then address */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RSSFeed"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminRssFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewRSSFeed"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RSSFeed"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminRssFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRSSFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RSSFeedSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminRssFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminRSSFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminTitles: {
         parameters: {
             query?: never;
@@ -13092,7 +13272,7 @@ export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeV
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];

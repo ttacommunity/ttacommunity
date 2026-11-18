@@ -191,6 +191,12 @@ export const addTwitchFeed = (login: string) => to('/api/twitch-feeds', 'POST', 
 export const setTwitchFeed = (id: number, paused: boolean) => to(`/api/twitch-feeds/${id}`, 'PUT', { paused });
 /** removeTwitchFeed removes a Twitch streamer, unsubscribing their events at Twitch. */
 export const removeTwitchFeed = (id: number) => to(`/api/twitch-feeds/${id}`, 'DELETE');
+/** addRSSFeed adds an RSS or Atom feed by its https address, as typed. */
+export const addRSSFeed = (url: string) => to('/api/rss-feeds', 'POST', { url: url.trim() });
+/** setRSSFeed pauses or resumes an RSS feed. */
+export const setRSSFeed = (id: number, paused: boolean) => to(`/api/rss-feeds/${id}`, 'PUT', { paused });
+/** removeRSSFeed removes an RSS feed. */
+export const removeRSSFeed = (id: number) => to(`/api/rss-feeds/${id}`, 'DELETE');
 /** setCommand saves a Discord command's settings. */
 export const setCommand = (name: string, setting: Schemas['DiscordCommandSetting']) => to(`/api/discord-bot/commands/${encodeURIComponent(name)}`, 'PUT', setting);
 /** setTitle sets a player's title by hand, with its reason. */

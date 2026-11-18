@@ -79,15 +79,15 @@ func parts(n store.Notification, admin string) (string, string) {
 	case "link_request":
 		return "Link request", fmt.Sprintf("a player who signs in with %s asks to be linked to **%s**. Answer it in admin: <%s/#members>",
 			list(ways), esc(n.Name), admin)
-	case "reddit_failed":
+	case "feed_failed":
 		why := ""
 		if n.FeedError != "" {
 			why = ": " + esc(n.FeedError)
 		}
-		return "Reddit feed failing", fmt.Sprintf("r/%s has failed its last %d reads%s. <%s/#notifications>",
-			esc(n.Reddit.Subreddit), store.FeedFailuresNotified, why, admin)
-	case "reddit_recovered":
-		return "Reddit feed reading again", fmt.Sprintf("r/%s reads again; its new posts are posted. <%s/#notifications>", esc(n.Reddit.Subreddit), admin)
+		return feedKinds[n.FeedKind] + " failing", fmt.Sprintf("%s has failed its last %d reads%s. <%s/#notifications>",
+			feedNamed(n), store.FeedFailuresNotified, why, admin)
+	case "feed_recovered":
+		return feedKinds[n.FeedKind] + " reading again", fmt.Sprintf("%s reads again; its new posts are posted. <%s/#notifications>", feedNamed(n), admin)
 	}
 	where := fmt.Sprintf("%s %s, round %d", esc(n.Series), esc(n.Edition), n.Round)
 	link := fmt.Sprintf("<%s/blitz/?t=%s&e=%s>", admin, url.QueryEscape(n.Slug), url.QueryEscape(n.Edition))
@@ -105,6 +105,17 @@ func parts(n store.Notification, admin string) (string, string) {
 		title = "Blitz result corrected"
 	}
 	return title, fmt.Sprintf("%s: %s, reported by %s. %s", where, how, esc(n.ReportedBy), link)
+}
+
+// feedKinds name each kind of feed that can fail.
+var feedKinds = map[string]string{"reddit": "Reddit feed", "rss": "RSS feed"}
+
+// feedNamed is a failing feed's name as a message shows it: r/subreddit, or an RSS feed's title or address.
+func feedNamed(n store.Notification) string {
+	if n.FeedKind == "reddit" {
+		return "r/" + discordbot.EscapeMarkdown(n.FeedName)
+	}
+	return discordbot.EscapeMarkdown(n.FeedName)
 }
 
 // prefixed puts e's prefix, if any, before text.
@@ -184,6 +195,12 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 		return shaped(e, twitchEmbed(t, e.Look), t.DisplayName+" is live: "+t.Title)
 	case "twitch_ended":
 		return WebhookMessage{Embeds: []Embed{twitchEmbed(n.Twitch, e.Look)}}
+	case "rss_item":
+		thread := n.RSS.Item.Title
+		if strings.TrimSpace(thread) == "" {
+			thread = n.RSS.Feed
+		}
+		return shaped(e, rssEmbed(n.RSS, e.Look), thread)
 	}
 	if n.Kind != "reddit_post" {
 		heading, body := parts(n, admin)
@@ -247,6 +264,29 @@ func redditEmbed(r store.RedditNotice, look store.EmbedLook) Embed {
 		embed.Image = &EmbedImage{URL: p.ImageURL}
 	case p.ImageURL != "":
 		embed.Thumbnail = &EmbedImage{URL: p.ImageURL}
+	}
+	return embed
+}
+
+// rssEmbed is an RSS item as a card in look: headed by its feed, its title linking the item, its summary as much as
+// look shows, and its image when look shows images. Its summary is plain text already escaped.
+func rssEmbed(r store.RSSNotice, look store.EmbedLook) Embed {
+	it := r.Item
+	embed := Embed{
+		Author:    &EmbedName{Name: cut("New on "+r.Feed, maxEmbedTitle)},
+		Title:     cut(discordbot.EscapeMarkdown(it.Title), maxEmbedTitle),
+		URL:       it.URL,
+		Color:     colour(look.Colour),
+		Timestamp: it.PublishedAt.UTC().Format(time.RFC3339),
+	}
+	switch look.Text {
+	case "full":
+		embed.Description = cut(it.Summary, maxEmbedText)
+	case "short":
+		embed.Description = discordbot.CutAtWord(it.Summary, shortText)
+	}
+	if look.Image && it.ImageURL != "" {
+		embed.Image = &EmbedImage{URL: it.ImageURL}
 	}
 	return embed
 }

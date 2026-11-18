@@ -38,6 +38,7 @@ type Admins interface {
 	NostradamusAdmin
 	NotificationAdmin
 	RedditAdmin
+	RSSAdmin
 	BotAdmin
 	MovieAdmin
 	TwitchAdmin
@@ -99,6 +100,14 @@ type RedditAdmin interface {
 	AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error)
 	SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error
 	RemoveRedditFeed(ctx context.Context, id int64) error
+}
+
+// RSSAdmin is the RSS and Atom feeds whose new items are posted to Discord.
+type RSSAdmin interface {
+	RSSFeeds(ctx context.Context) ([]store.RSSFeed, error)
+	AddRSSFeed(ctx context.Context, url string, now time.Time) (int64, error)
+	SetRSSFeed(ctx context.Context, id int64, paused bool) error
+	RemoveRSSFeed(ctx context.Context, id int64) error
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.

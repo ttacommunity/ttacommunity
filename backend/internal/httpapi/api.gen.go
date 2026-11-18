@@ -753,11 +753,11 @@ func (e NostradamusQuestionKind) Valid() bool {
 
 // Defines values for NotificationEvent.
 const (
-	NotificationEventBlitzFlag     NotificationEvent = "blitz_flag"
-	NotificationEventBlitzReport   NotificationEvent = "blitz_report"
-	NotificationEventLinkRequest   NotificationEvent = "link_request"
-	NotificationEventRedditFailing NotificationEvent = "reddit_failing"
-	NotificationEventSignUp        NotificationEvent = "sign_up"
+	NotificationEventBlitzFlag   NotificationEvent = "blitz_flag"
+	NotificationEventBlitzReport NotificationEvent = "blitz_report"
+	NotificationEventFeedFailing NotificationEvent = "feed_failing"
+	NotificationEventLinkRequest NotificationEvent = "link_request"
+	NotificationEventSignUp      NotificationEvent = "sign_up"
 )
 
 // Valid indicates whether the value is a known member of the NotificationEvent enum.
@@ -767,9 +767,9 @@ func (e NotificationEvent) Valid() bool {
 		return true
 	case NotificationEventBlitzReport:
 		return true
-	case NotificationEventLinkRequest:
+	case NotificationEventFeedFailing:
 		return true
-	case NotificationEventRedditFailing:
+	case NotificationEventLinkRequest:
 		return true
 	case NotificationEventSignUp:
 		return true
@@ -3686,7 +3686,7 @@ type FeedOption struct {
 	Categories []string `json:"categories"`
 	Feed       int64    `json:"feed"`
 
-	// Keywords A Twitch stream is posted only with one of these words in its title, in any letters (any when empty)
+	// Keywords A Twitch stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty)
 	Keywords []string `json:"keywords"`
 
 	// Match all, the default, posts a stream that passes both lists; any, one that passes either
@@ -4349,6 +4349,12 @@ type NewMember struct {
 	Zone *string `json:"zone,omitempty"`
 }
 
+// NewRSSFeed defines model for NewRSSFeed.
+type NewRSSFeed struct {
+	// Url The feed's https address
+	Url string `json:"url"`
+}
+
 // NewRedditFeed defines model for NewRedditFeed.
 type NewRedditFeed struct {
 	// Subreddit Its name, without r/
@@ -4554,7 +4560,7 @@ type NotificationEndpoint struct {
 	// AvatarUrl The picture its messages show; the webhook's own when empty
 	AvatarUrl string `json:"avatar_url"`
 
-	// Colour A Reddit post's embed colour, #rrggbb
+	// Colour A Reddit post's or RSS item's embed colour, #rrggbb
 	Colour string              `json:"colour"`
 	Events []NotificationEvent `json:"events"`
 
@@ -4571,7 +4577,7 @@ type NotificationEndpoint struct {
 	Forum bool  `json:"forum"`
 	Id    int64 `json:"id"`
 
-	// Image Whether a Reddit post shows its image
+	// Image Whether a Reddit post or RSS item shows its image
 	Image bool `json:"image"`
 
 	// LastError Why the last notification failed to reach it, until one does
@@ -4591,7 +4597,7 @@ type NotificationEndpoint struct {
 	// RoleId A Discord role pinged with each message; none when empty
 	RoleId string `json:"role_id"`
 
-	// Text How much of a Reddit post's text an endpoint shows
+	// Text How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
 	Text RedditPostText `json:"text"`
 
 	// Username The name its messages show; the webhook's own when empty
@@ -4629,7 +4635,7 @@ type NotificationEndpointSetting struct {
 	// RoleId A Discord role's id
 	RoleId *string `json:"role_id,omitempty"`
 
-	// Text How much of a Reddit post's text an endpoint shows
+	// Text How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
 	Text *RedditPostText `json:"text,omitempty"`
 
 	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
@@ -4928,6 +4934,34 @@ type PreviousRating struct {
 	Rd      float64 `json:"rd"`
 }
 
+// RSSFeed defines model for RSSFeed.
+type RSSFeed struct {
+	// CheckedAt When the feeds job last read it
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+	Id        int64      `json:"id"`
+
+	// LastError Why its last read failed, until a read succeeds
+	LastError   *string    `json:"last_error,omitempty"`
+	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+
+	// LastItemAt When its newest item seen was published
+	LastItemAt *time.Time `json:"last_item_at,omitempty"`
+
+	// Paused Not read while paused
+	Paused bool `json:"paused"`
+
+	// Title The feed's own title, as last read; empty until its first read
+	Title string `json:"title"`
+
+	// Url Its https address
+	Url string `json:"url"`
+}
+
+// RSSFeedSetting defines model for RSSFeedSetting.
+type RSSFeedSetting struct {
+	Paused bool `json:"paused"`
+}
+
 // RankingTrack defines model for RankingTrack.
 type RankingTrack string
 
@@ -4959,7 +4993,7 @@ type RecentPodiums struct {
 
 // RedditFeed defines model for RedditFeed.
 type RedditFeed struct {
-	// CheckedAt When the Reddit job last read it
+	// CheckedAt When the feeds job last read it
 	CheckedAt *time.Time `json:"checked_at,omitempty"`
 	Id        int64      `json:"id"`
 
@@ -4989,7 +5023,7 @@ type RedditFeedSetting struct {
 // RedditPostKind A kind of Reddit post
 type RedditPostKind string
 
-// RedditPostText How much of a Reddit post's text an endpoint shows
+// RedditPostText How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
 type RedditPostText string
 
 // Region A zone a member may have besides an IANA one
@@ -5704,6 +5738,9 @@ type AdminNotificationEndpointId = int64
 // AdminPlayer defines model for AdminPlayer.
 type AdminPlayer = string
 
+// AdminRSSFeedId defines model for AdminRSSFeedId.
+type AdminRSSFeedId = int64
+
 // AdminRedditFeedId defines model for AdminRedditFeedId.
 type AdminRedditFeedId = int64
 
@@ -6241,6 +6278,12 @@ type PostAdminRedditFeedJSONRequestBody = NewRedditFeed
 // PutAdminRedditFeedJSONRequestBody defines body for PutAdminRedditFeed for application/json ContentType.
 type PutAdminRedditFeedJSONRequestBody = RedditFeedSetting
 
+// PostAdminRssFeedJSONRequestBody defines body for PostAdminRssFeed for application/json ContentType.
+type PostAdminRssFeedJSONRequestBody = NewRSSFeed
+
+// PutAdminRssFeedJSONRequestBody defines body for PutAdminRssFeed for application/json ContentType.
+type PutAdminRssFeedJSONRequestBody = RSSFeedSetting
+
 // PostAdminRunJSONRequestBody defines body for PostAdminRun for application/json ContentType.
 type PostAdminRunJSONRequestBody = StartRunRequest
 
@@ -6606,6 +6649,18 @@ type ServerInterface interface {
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)
 	// (GET /v1/admin/regions)
 	GetAdminRegions(w http.ResponseWriter, r *http.Request)
+	// GetAdminRssFeeds The RSS and Atom feeds whose new items are posted to Discord (admins only)
+	// (GET /v1/admin/rss-feeds)
+	GetAdminRssFeeds(w http.ResponseWriter, r *http.Request)
+	// PostAdminRssFeed Add an RSS or Atom feed to read for new items, by its https address (admins only)
+	// (POST /v1/admin/rss-feeds)
+	PostAdminRssFeed(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminRssFeed Remove an RSS feed, the items seen and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/rss-feeds/{feed})
+	DeleteAdminRssFeed(w http.ResponseWriter, r *http.Request, feed AdminRSSFeedId)
+	// PutAdminRssFeed Pause or resume an RSS feed (admins only)
+	// (PUT /v1/admin/rss-feeds/{feed})
+	PutAdminRssFeed(w http.ResponseWriter, r *http.Request, feed AdminRSSFeedId)
 	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
 	// (GET /v1/admin/runs)
 	GetAdminRuns(w http.ResponseWriter, r *http.Request)
@@ -9866,6 +9921,86 @@ func (siw *ServerInterfaceWrapper) GetAdminRegions(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminRegions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminRssFeeds operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminRssFeeds(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminRssFeeds(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminRssFeed operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminRssFeed(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminRssFeed(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminRssFeed operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminRssFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminRSSFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminRssFeed(w, r, feed)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminRssFeed operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminRssFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminRSSFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminRssFeed(w, r, feed)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13476,6 +13611,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/twitch-feeds", wrapper.PostAdminTwitchFeed)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/twitch-feeds/{feed}", wrapper.DeleteAdminTwitchFeed)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/twitch-feeds/{feed}", wrapper.PutAdminTwitchFeed)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/rss-feeds", wrapper.GetAdminRssFeeds)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/rss-feeds", wrapper.PostAdminRssFeed)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/rss-feeds/{feed}", wrapper.DeleteAdminRssFeed)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/rss-feeds/{feed}", wrapper.PutAdminRssFeed)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -21304,6 +21443,293 @@ func (response GetAdminRegions403JSONResponse) VisitGetAdminRegionsResponse(w ht
 	return err
 }
 
+type GetAdminRssFeedsRequestObject struct {
+}
+
+type GetAdminRssFeedsResponseObject interface {
+	VisitGetAdminRssFeedsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminRssFeeds200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminRssFeeds200JSONResponse struct {
+	Body    []RSSFeed
+	Headers GetAdminRssFeeds200ResponseHeaders
+}
+
+func (response GetAdminRssFeeds200JSONResponse) VisitGetAdminRssFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRssFeeds401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminRssFeeds401JSONResponse) VisitGetAdminRssFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminRssFeeds403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminRssFeeds403JSONResponse) VisitGetAdminRssFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRssFeedRequestObject struct {
+	Body *PostAdminRssFeedJSONRequestBody
+}
+
+type PostAdminRssFeedResponseObject interface {
+	VisitPostAdminRssFeedResponse(w http.ResponseWriter) error
+}
+
+type PostAdminRssFeed201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminRssFeed201JSONResponse struct {
+	Body    RSSFeed
+	Headers PostAdminRssFeed201ResponseHeaders
+}
+
+func (response PostAdminRssFeed201JSONResponse) VisitPostAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRssFeed400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminRssFeed400JSONResponse) VisitPostAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRssFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminRssFeed401JSONResponse) VisitPostAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRssFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminRssFeed403JSONResponse) VisitPostAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminRssFeed409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminRssFeed409JSONResponse) VisitPostAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRssFeedRequestObject struct {
+	Feed AdminRSSFeedId `json:"feed"`
+}
+
+type DeleteAdminRssFeedResponseObject interface {
+	VisitDeleteAdminRssFeedResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminRssFeed204Response struct {
+}
+
+func (response DeleteAdminRssFeed204Response) VisitDeleteAdminRssFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminRssFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminRssFeed401JSONResponse) VisitDeleteAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRssFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminRssFeed403JSONResponse) VisitDeleteAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminRssFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminRssFeed404JSONResponse) VisitDeleteAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRssFeedRequestObject struct {
+	Feed AdminRSSFeedId `json:"feed"`
+	Body *PutAdminRssFeedJSONRequestBody
+}
+
+type PutAdminRssFeedResponseObject interface {
+	VisitPutAdminRssFeedResponse(w http.ResponseWriter) error
+}
+
+type PutAdminRssFeed204Response struct {
+}
+
+func (response PutAdminRssFeed204Response) VisitPutAdminRssFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminRssFeed400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminRssFeed400JSONResponse) VisitPutAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRssFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminRssFeed401JSONResponse) VisitPutAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRssFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminRssFeed403JSONResponse) VisitPutAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminRssFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminRssFeed404JSONResponse) VisitPutAdminRssFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminRunsRequestObject struct {
 }
 
@@ -27450,6 +27876,18 @@ type StrictServerInterface interface {
 	// GetAdminRegions The zones a member may have besides an IANA one (admins and organisers)
 	// (GET /v1/admin/regions)
 	GetAdminRegions(ctx context.Context, request GetAdminRegionsRequestObject) (GetAdminRegionsResponseObject, error)
+	// GetAdminRssFeeds The RSS and Atom feeds whose new items are posted to Discord (admins only)
+	// (GET /v1/admin/rss-feeds)
+	GetAdminRssFeeds(ctx context.Context, request GetAdminRssFeedsRequestObject) (GetAdminRssFeedsResponseObject, error)
+	// PostAdminRssFeed Add an RSS or Atom feed to read for new items, by its https address (admins only)
+	// (POST /v1/admin/rss-feeds)
+	PostAdminRssFeed(ctx context.Context, request PostAdminRssFeedRequestObject) (PostAdminRssFeedResponseObject, error)
+	// DeleteAdminRssFeed Remove an RSS feed, the items seen and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/rss-feeds/{feed})
+	DeleteAdminRssFeed(ctx context.Context, request DeleteAdminRssFeedRequestObject) (DeleteAdminRssFeedResponseObject, error)
+	// PutAdminRssFeed Pause or resume an RSS feed (admins only)
+	// (PUT /v1/admin/rss-feeds/{feed})
+	PutAdminRssFeed(ctx context.Context, request PutAdminRssFeedRequestObject) (PutAdminRssFeedResponseObject, error)
 	// GetAdminRuns Rating runs, newest first, with a running one's progress (admins only)
 	// (GET /v1/admin/runs)
 	GetAdminRuns(ctx context.Context, request GetAdminRunsRequestObject) (GetAdminRunsResponseObject, error)
@@ -30731,6 +31169,120 @@ func (sh *strictHandler) GetAdminRegions(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminRegionsResponseObject); ok {
 		if err := validResponse.VisitGetAdminRegionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminRssFeeds operation middleware
+func (sh *strictHandler) GetAdminRssFeeds(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminRssFeedsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminRssFeeds(ctx, request.(GetAdminRssFeedsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminRssFeeds")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminRssFeedsResponseObject); ok {
+		if err := validResponse.VisitGetAdminRssFeedsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminRssFeed operation middleware
+func (sh *strictHandler) PostAdminRssFeed(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminRssFeedRequestObject
+
+	var body PostAdminRssFeedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminRssFeed(ctx, request.(PostAdminRssFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminRssFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminRssFeedResponseObject); ok {
+		if err := validResponse.VisitPostAdminRssFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminRssFeed operation middleware
+func (sh *strictHandler) DeleteAdminRssFeed(w http.ResponseWriter, r *http.Request, feed AdminRSSFeedId) {
+	var request DeleteAdminRssFeedRequestObject
+
+	request.Feed = feed
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminRssFeed(ctx, request.(DeleteAdminRssFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminRssFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminRssFeedResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminRssFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminRssFeed operation middleware
+func (sh *strictHandler) PutAdminRssFeed(w http.ResponseWriter, r *http.Request, feed AdminRSSFeedId) {
+	var request PutAdminRssFeedRequestObject
+
+	request.Feed = feed
+
+	var body PutAdminRssFeedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminRssFeed(ctx, request.(PutAdminRssFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminRssFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminRssFeedResponseObject); ok {
+		if err := validResponse.VisitPutAdminRssFeedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
