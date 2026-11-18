@@ -137,6 +137,8 @@ func main() {
 	}
 	if hub == nil {
 		log.Info("the Movies hub callback is off: MOVIES_HUB_SECRET is not set")
+	} else {
+		go watchYouTubeStreams(ctx, admins.AdminStore, admins.youtube, log)
 	}
 	tw, err := openTwitch(os.Getenv, admins.AdminStore)
 	if err != nil {
