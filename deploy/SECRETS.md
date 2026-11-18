@@ -31,6 +31,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `cloudflare-analytics` | `token`, `account-id` | `api`, `api-dev` | The site's visit count: a Cloudflare API token that can only read the account's analytics (below, "The visit count"), and the account's id. Optional: without it the api counts no visits |
 | `movies` | `hub-secret`, `youtube-api-key` | `api`, `movies` | Movies (below, "Movies"): the secret YouTube's hub signs its pushes to the api with (32 bytes or more), and a Google Cloud API key limited to the YouTube Data API v3. Optional for the api: without it the hub's callback is off; the `movies` job needs it |
 | `movies-dev` | `hub-secret`, `youtube-api-key` | `api-dev`, `movies-dev` | As `movies`, for the dev site, with a hub secret of its own |
+| `twitch` | `client-id`, `client-secret`, `eventsub-secret` | `api` | Twitch (below, "Twitch"): the id and secret of the Twitch app, and the secret EventSub signs its pushes to the api with (10 to 100 characters). Optional: without it Twitch is off; with only some keys the api refuses to start |
+| `twitch-dev` | `client-id`, `client-secret`, `eventsub-secret` | `api-dev` | As `twitch`, from a Twitch app of the dev site's own |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -59,6 +61,7 @@ up nightly"). Reissuing is for when that copy is lost.
 | `backup-r2`, `backup-config-r2` | **Reissued**: a new R2 token for the bucket, then the Secret (below, "Backups"); delete the old token |
 | `cloudflare-readonly` | **Reissued**: a new API token with the permissions below ("Backups"), then the Secret; delete the old token |
 | `cloudflare-analytics` | **Reissued**: a new API token with Account Analytics Read alone (below, "The visit count"), then the Secret; delete the old token |
+| `twitch`, `twitch-dev` | **Reissued**: a new client secret on the app (dev.twitch.tv, Your Console, Applications, Manage, New Secret) and a new EventSub secret, then the Secret (below, "Twitch"), a restart of the api, and each streamer removed and added again in admin, which subscribes them with the new secret |
 | `movies`, `movies-dev` | **New at any time**: a new hub secret (below, "Movies"), and the API key reissued in Google Cloud (Credentials, the key, Regenerate key) or kept; then run the `movies` job by hand, which renews every subscription with the new secret |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
@@ -352,6 +355,30 @@ kubectl -n ttacommunity create job --from=cronjob/movies movies-manual-1
 
 A new hub secret takes effect for a channel when the job next subscribes it,
 so run the job by hand after replacing one.
+
+### Twitch
+
+`twitch` holds the Twitch app's id and secret, and a secret of our own that
+EventSub signs each push to `/v1/twitch/eventsub` with. The app is registered
+at dev.twitch.tv (Your Console, Applications) by an account with two-factor
+sign-in: category Website Integration, client type Confidential, OAuth redirect
+`http://localhost` (nothing signs in with it). The dev site's `twitch-dev` is a
+second app, so its subscriptions never reach production's api. Run the `read`
+lines on their own, then the rest; for dev, name the Secret `twitch-dev` and
+restart `api-dev`:
+
+```sh
+umask 077
+read -rp 'Twitch client id: ' i; printf %s "$i" > /dev/shm/twitch-id; unset i
+read -rsp 'Twitch client secret: ' c; echo; printf %s "$c" > /dev/shm/twitch-secret; unset c
+openssl rand -hex 32 | tr -d '\n' > /dev/shm/twitch-eventsub
+kubectl -n ttacommunity create secret generic twitch --from-file=client-id=/dev/shm/twitch-id \
+  --from-file=client-secret=/dev/shm/twitch-secret --from-file=eventsub-secret=/dev/shm/twitch-eventsub
+rm /dev/shm/twitch-id /dev/shm/twitch-secret /dev/shm/twitch-eventsub
+kubectl -n ttacommunity rollout restart deployment/api
+```
+
+The api logs "Twitch's EventSub callback is on" when it starts with them.
 
 ### The tunnels
 

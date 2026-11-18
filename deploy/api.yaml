@@ -220,6 +220,26 @@ spec:
                   name: movies
                   key: youtube-api-key
                   optional: true
+            # Twitch: the app's id and secret, and the secret EventSub signs pushes with. All three come from the
+            # Secret, so without it Twitch is off; with only some of them the api refuses to start.
+            - name: TWITCH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: client-id
+                  optional: true
+            - name: TWITCH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: client-secret
+                  optional: true
+            - name: TWITCH_EVENTSUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: eventsub-secret
+                  optional: true
           resources:
             requests:
               cpu: 25m

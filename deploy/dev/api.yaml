@@ -195,6 +195,25 @@ spec:
                   name: movies-dev
                   key: youtube-api-key
                   optional: true
+            # Twitch: as deploy/api.yaml, from the dev site's own Twitch app.
+            - name: TWITCH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: client-id
+                  optional: true
+            - name: TWITCH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: client-secret
+                  optional: true
+            - name: TWITCH_EVENTSUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch-dev
+                  key: eventsub-secret
+                  optional: true
           resources:
             requests:
               cpu: 25m
