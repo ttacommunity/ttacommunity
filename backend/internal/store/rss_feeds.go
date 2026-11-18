@@ -26,8 +26,8 @@ type RSSFeed struct {
 	LastErrorAt *time.Time
 }
 
-// RSSItem is an item as its feed shows it: its id (the feed's, or its link), title, link, summary as plain text,
-// image ("" for none) and when it was published.
+// RSSItem is an item as its feed shows it: its id (the feed's, or its link), title, link, summary as plain text
+// escaped for Discord, image ("" for none) and when it was published.
 type RSSItem struct {
 	ItemID, Title, URL, Summary, ImageURL string
 	PublishedAt                           time.Time
