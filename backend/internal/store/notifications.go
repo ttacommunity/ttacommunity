@@ -39,9 +39,11 @@ type Notification struct {
 	RSS                RSSNotice
 	FeedKind, FeedName string
 	FeedError          string
-	// A Twitch stream going live or ending: the stream, the twitch_streams row it is (StreamRef), and FeedID.
+	// A Twitch or YouTube stream going live or ending: the stream, the twitch_streams or youtube_streams row it is
+	// (StreamRef), and FeedID.
 	StreamRef int64
 	Twitch    TwitchNotice
+	YouTube   YouTubeNotice
 }
 
 // NotificationsSent counts what SendNotifications did: sent, failed (to be tried again), and given up on after
@@ -99,8 +101,9 @@ func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) e
 	return nil
 }
 
-// takes says whether e takes n: a Twitch stream or RSS item when e takes its feed and it passes e's options for it, a feed failing or reading again when e takes feed_failing, anything else when e
-// takes its kind.
+// takes says whether e takes n: a Twitch or YouTube stream or an RSS item when e takes its feed and it passes e's
+// options for it, a stream ended when e kept its post, a feed failing or reading again when e takes feed_failing,
+// anything else when e takes its kind.
 func (e NotificationEndpoint) takes(n Notification) bool {
 	switch n.Kind {
 	case "twitch_live":
@@ -111,6 +114,12 @@ func (e NotificationEndpoint) takes(n Notification) bool {
 		return ok && o.matchesItem(n.RSS.Item)
 	case "twitch_ended":
 		_, ok := n.Twitch.Posts[e.ID]
+		return ok
+	case "youtube_live":
+		o, ok := e.options(n.FeedID)
+		return ok && o.matchesTitle(n.YouTube.Title)
+	case "youtube_ended":
+		_, ok := n.YouTube.Posts[e.ID]
 		return ok
 	case "feed_failed", "feed_recovered":
 		return slices.Contains(e.Events, "feed_failing")
@@ -142,8 +151,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id), o.attempts, o.sent_to,
-			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item') THEN true
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id), o.attempts, o.sent_to,
+			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended') THEN true
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
 			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
@@ -155,15 +164,21 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, ''),
-			       coalesce(o.feed_id, ts.feed_id, ri.feed_id, 0), coalesce(ff.last_error, ''),
-			       coalesce(o.twitch_stream_id, 0), coalesce(tf.source, ''), coalesce(tf.display_name, ''), coalesce(ts.title, ''),
+			       coalesce(o.feed_id, ts.feed_id, ri.feed_id, ys.feed_id, 0), coalesce(ff.last_error, ''),
+			       coalesce(o.twitch_stream_id, o.youtube_stream_id, 0), coalesce(tf.source, ''), coalesce(tf.display_name, ''), coalesce(ts.title, ''),
 			       coalesce(ts.category, ''), coalesce(ts.thumbnail_url, ''), coalesce(ts.started_at, o.created_at), ts.ended_at,
 			       coalesce((SELECT json_object_agg(tp.endpoint_id, json_build_object('message_id', tp.message_id, 'channel_id', tp.channel_id))
 			                 FROM twitch_posts tp WHERE tp.twitch_stream_id = o.twitch_stream_id), '{}'),
 			       coalesce(ff.kind, ''), coalesce(nullif(ff.display_name, ''), ff.source, ''),
 			       coalesce(nullif(xf.display_name, ''), xf.source, ''), coalesce(ri.item_id, ''), coalesce(ri.title, ''), coalesce(ri.url, ''),
-			       coalesce(ri.summary, ''), coalesce(ri.image_url, ''), coalesce(ri.published_at, o.created_at)
+			       coalesce(ri.summary, ''), coalesce(ri.image_url, ''), coalesce(ri.published_at, o.created_at),
+			       coalesce(vc.name, ''), coalesce(ys.video_id, ''), coalesce(ys.title, ''), coalesce(yv.thumbnail_url, ''),
+			       coalesce(ys.started_at, o.created_at), ys.ended_at,
+			       coalesce((SELECT json_object_agg(yp.endpoint_id, json_build_object('message_id', yp.message_id, 'channel_id', yp.channel_id))
+			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}')
 			FROM notification_outbox o
+			LEFT JOIN youtube_streams ys ON ys.youtube_stream_id = o.youtube_stream_id LEFT JOIN videos yv ON yv.video_id = ys.video_id
+			LEFT JOIN video_channels vc ON vc.channel_id = yv.channel_id
 			LEFT JOIN rss_items ri ON ri.rss_item_id = o.rss_item_id LEFT JOIN feeds xf ON xf.feed_id = ri.feed_id
 			LEFT JOIN twitch_streams ts ON ts.twitch_stream_id = o.twitch_stream_id LEFT JOIN feeds tf ON tf.feed_id = ts.feed_id
 			LEFT JOIN feeds ff ON ff.feed_id = o.feed_id
@@ -200,7 +215,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				&n.StreamRef, &n.Twitch.Login, &n.Twitch.DisplayName, &n.Twitch.Title, &n.Twitch.Category, &n.Twitch.ThumbnailURL,
 				&n.Twitch.StartedAt, &n.Twitch.EndedAt, &n.Twitch.Posts, &n.FeedKind, &n.FeedName,
 				&n.RSS.Feed, &n.RSS.Item.ItemID, &n.RSS.Item.Title, &n.RSS.Item.URL, &n.RSS.Item.Summary, &n.RSS.Item.ImageURL,
-				&n.RSS.Item.PublishedAt); err != nil {
+				&n.RSS.Item.PublishedAt,
+				&n.YouTube.Channel, &n.YouTube.VideoID, &n.YouTube.Title, &n.YouTube.ThumbnailURL, &n.YouTube.StartedAt, &n.YouTube.EndedAt,
+				&n.YouTube.Posts); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
