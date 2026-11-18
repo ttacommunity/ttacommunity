@@ -32,7 +32,7 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `movies` | `hub-secret`, `youtube-api-key` | `api`, `movies` | Movies (below, "Movies"): the secret YouTube's hub signs its pushes to the api with (32 bytes or more), and a Google Cloud API key limited to the YouTube Data API v3. Optional for the api: without it the hub's callback is off; the `movies` job needs it |
 | `movies-dev` | `hub-secret`, `youtube-api-key` | `api-dev`, `movies-dev` | As `movies`, for the dev site, with a hub secret of its own |
 | `twitch` | `client-id`, `client-secret`, `eventsub-secret` | `api` | Twitch (below, "Twitch"): the id and secret of the Twitch app, and the secret EventSub signs its pushes to the api with (10 to 100 characters). Optional: without it Twitch is off; with only some keys the api refuses to start |
-| `twitch-dev` | `client-id`, `client-secret`, `eventsub-secret` | `api-dev` | As `twitch`, from a Twitch app of the dev site's own |
+| `twitch-dev` | `client-id`, `client-secret`, `eventsub-secret` | `api-dev` | As `twitch`, with an EventSub secret of its own; the app may be the same |
 | `ttac-api-tunnel` | `credentials.json` | `ttac-api-tunnel` | The `ttac-api` tunnel's credentials (below, "The tunnels") |
 | `ttac-api-dev-tunnel` | `credentials.json` | `ttac-api-dev-tunnel` | The `ttac-api-dev` tunnel's credentials (below) |
 | `ttacommunity-github-app`, **in `flux-system`** | `githubAppID`, `githubAppInstallationID`, `githubAppPrivateKey` | Flux | Reads this repo as the GitHub App `ttacommunity-flux` (contents and metadata, read only). The cluster's maintainers hold it |
@@ -362,8 +362,9 @@ so run the job by hand after replacing one.
 EventSub signs each push to `/v1/twitch/eventsub` with. The app is registered
 at dev.twitch.tv (Your Console, Applications) by an account with two-factor
 sign-in: category Website Integration, client type Confidential, OAuth redirect
-`http://localhost` (nothing signs in with it). The dev site's `twitch-dev` is a
-second app, so its subscriptions never reach production's api. Run the `read`
+`http://localhost` (nothing signs in with it). The dev site's `twitch-dev` may
+use the same app: each api subscribes with its own callback and its own
+EventSub secret, so neither takes the other's pushes. Run the `read`
 lines on their own, then the rest; for dev, name the Secret `twitch-dev` and
 restart `api-dev`:
 
