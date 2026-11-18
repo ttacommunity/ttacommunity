@@ -408,7 +408,8 @@ func TestChooseAndPermutationAreSharedUnlessAskedPrivate(t *testing.T) {
 		wantPrivate            bool
 		wantText               string
 	}{
-		{"choose: shared by default, in the order given", "choose", count(2) + "," + items("Alex, Beta"), false, "Alex, Beta"},
+		{"choose: shared by default, in the order given", "choose", count(2) + "," + items("Alex, Beta"), false, "Result:** Alex, Beta"},
+		{"choose: shows what it chose from", "choose", count(1) + "," + items("Alex, Beta"), false, "Original: Alex, Beta"},
 		{"choose: private when asked", "choose", count(1) + "," + items("Alex") + private, true, "Alex"},
 		{"choose: more than given, to the asker alone", "choose", count(3) + "," + items("Alex, Beta"), true, "can't be chosen"},
 		{"choose: no count", "choose", items("Alex, Beta"), true, "can't be chosen"},
@@ -435,7 +436,8 @@ func TestPermutationOrdersEveryEntryWhenNoCountIsGiven(t *testing.T) {
 	r := discordReply(t, discordDo(newDiscordRatings(), &fakeDiscord{}, discordKey,
 		command("permutation", `{"name":"items","type":3,"value":"Alex, Beta, Claus"}`), slog.New(slog.DiscardHandler)))
 	wantMessage(t, r, false, "")
-	got := strings.Split(*r.Data.Content, ", ")
+	result, _, _ := strings.Cut(strings.TrimPrefix(*r.Data.Content, "**Result:** "), "\n")
+	got := strings.Split(result, ", ")
 	slices.Sort(got)
 	if !slices.Equal(got, []string{"Alex", "Beta", "Claus"}) {
 		t.Errorf("content = %q, want Alex, Beta and Claus each once", *r.Data.Content)

@@ -206,37 +206,39 @@ func rollReply(i DiscordInteraction) DiscordReply {
 	return discordText(discordbot.DiceText(d, rolls), private)
 }
 
-// chooseReply picks the count asked for of the entries given, in their order, for everyone to see unless asked
-// private, or tells the asker alone why not.
+// chooseReply picks the count asked for of the entries given, in their order, and shows them above the entries
+// given, for everyone to see unless asked private, or tells the asker alone why not.
 func chooseReply(i DiscordInteraction) DiscordReply {
 	items, err := discordbot.ParseItems(stringOption(i, "items"))
+	var drawn []string
 	if err == nil {
 		count, _ := countOption(i)
-		items, err = discordbot.Choose(items, count, rand.IntN)
+		drawn, err = discordbot.Choose(items, count, rand.IntN)
 	}
 	if err != nil {
 		return discordText("Those can't be chosen from: "+err.Error()+".", true)
 	}
 	private, _ := option(i, "private").(bool)
-	return discordText(discordbot.ItemsText(items), private)
+	return discordText(discordbot.DrawText(drawn, items), private)
 }
 
-// permutationReply puts the entries given, or the count asked for of them, in a random order, for everyone to see
-// unless asked private, or tells the asker alone why not.
+// permutationReply puts the entries given, or the count asked for of them, in a random order and shows them above
+// the entries given, for everyone to see unless asked private, or tells the asker alone why not.
 func permutationReply(i DiscordInteraction) DiscordReply {
 	items, err := discordbot.ParseItems(stringOption(i, "items"))
+	var drawn []string
 	if err == nil {
 		count, given := countOption(i)
 		if !given {
 			count = len(items)
 		}
-		items, err = discordbot.Permute(items, count, rand.IntN)
+		drawn, err = discordbot.Permute(items, count, rand.IntN)
 	}
 	if err != nil {
 		return discordText("Those can't be shuffled: "+err.Error()+".", true)
 	}
 	private, _ := option(i, "private").(bool)
-	return discordText(discordbot.ItemsText(items), private)
+	return discordText(discordbot.DrawText(drawn, items), private)
 }
 
 // versusReply shows two players' record in their rated games together, as the site's head-to-head counts it, or

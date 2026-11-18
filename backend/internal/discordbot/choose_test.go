@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"ttacommunity/backend/internal/discordbot"
 )
@@ -120,8 +121,24 @@ func TestEveryOrderOfFourCanBeDrawn(t *testing.T) {
 	}
 }
 
-func TestItemsTextShowsEachAsWritten(t *testing.T) {
-	if got, want := discordbot.ItemsText([]string{"Beta", "*Dennis*"}), `Beta, \*Dennis\*`; got != want {
-		t.Errorf("ItemsText = %q, want %q", got, want)
+func TestDrawTextShowsTheResultThenWhatWasGiven(t *testing.T) {
+	many := strings.Split(strings.Repeat("********,", 100)[:899], ",")
+	tests := []struct {
+		name, want   string
+		drawn, given []string
+	}{
+		{"a draw", "**Result:** Beta, Dennis\nOriginal: Alex, Beta, Claus, Dennis",
+			[]string{"Beta", "Dennis"}, []string{"Alex", "Beta", "Claus", "Dennis"}},
+		{"escaped as written", `**Result:** \*Dennis\*` + "\nOriginal: Beta, " + `\*Dennis\*`,
+			[]string{"*Dennis*"}, []string{"Beta", "*Dennis*"}},
+		{"too long to repeat the original", "\nOriginal: 100 names, too long to repeat", many, many},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := discordbot.DrawText(tt.drawn, tt.given)
+			if !strings.HasSuffix(got, tt.want) || utf8.RuneCountInString(got) > 2000 {
+				t.Errorf("DrawText = %q, want it to end %q within 2000 characters", got, tt.want)
+			}
+		})
 	}
 }
