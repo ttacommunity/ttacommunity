@@ -34,6 +34,11 @@ func fakeDataAPI(t *testing.T, requests *[]string) *httptest.Server {
 						`"title":"A final","description":"Through the Ages, game 3","tags":["boardgame","strategy"],`+
 						`"publishedAt":"2026-11-14T14:17:33Z"}}`)
 				}
+				if id == "vid00000004" {
+					items = append(items, `{"id":"vid00000004","snippet":{"channelId":"UC0000000000000000000001",`+
+						`"title":"Live final","publishedAt":"2026-11-14T13:00:00Z","liveBroadcastContent":"live"},`+
+						`"liveStreamingDetails":{"scheduledStartTime":"2026-11-14T14:00:00Z","actualStartTime":"2026-11-14T14:03:00Z"}}`)
+				}
 			}
 			_, _ = fmt.Fprintf(w, `{"items":[%s]}`, strings.Join(items, ","))
 		case "/channels":
@@ -85,8 +90,26 @@ func TestYouTubeVideos(t *testing.T) {
 	if _, ok := got["vid00000009"]; ok {
 		t.Errorf("got a video YouTube did not return: %+v", got["vid00000009"])
 	}
-	if want := []string{"/videos?id=vid00000001%2Cvid00000009&part=snippet"}; !slices.Equal(requests, want) {
+	if want := []string{"/videos?id=vid00000001%2Cvid00000009&part=snippet%2CliveStreamingDetails"}; !slices.Equal(requests, want) {
 		t.Errorf("requests = %q, want %q", requests, want)
+	}
+}
+
+func TestYouTubeVideosBroadcast(t *testing.T) {
+	var requests []string
+	y := NewYouTube(nil, fakeDataAPI(t, &requests).URL, inventedKey)
+	got, err := y.Videos(context.Background(), []string{"vid00000001", "vid00000004"})
+	if err != nil {
+		t.Fatalf("Videos: %v", err)
+	}
+	live := got["vid00000004"].Broadcast
+	scheduled, started := time.Date(2026, 11, 14, 14, 0, 0, 0, time.UTC), time.Date(2026, 11, 14, 14, 3, 0, 0, time.UTC)
+	if live.Content != "live" || live.ScheduledAt == nil || !live.ScheduledAt.Equal(scheduled) ||
+		live.StartedAt == nil || !live.StartedAt.Equal(started) || live.EndedAt != nil {
+		t.Errorf("vid00000004's Broadcast = %+v, want live, scheduled %v, started %v, not ended", live, scheduled, started)
+	}
+	if video := got["vid00000001"].Broadcast; video.Content != "" || video.ScheduledAt != nil || video.StartedAt != nil {
+		t.Errorf("vid00000001's Broadcast = %+v, want none", video)
 	}
 }
 
