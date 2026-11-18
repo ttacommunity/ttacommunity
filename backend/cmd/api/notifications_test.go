@@ -23,12 +23,12 @@ func (f *fakePoster) Send(context.Context, string, notify.WebhookMessage) error 
 	return nil
 }
 
-func (f *fakePoster) Post(context.Context, string, notify.WebhookMessage) (store.TwitchPost, error) {
+func (f *fakePoster) Post(context.Context, string, notify.WebhookMessage) (store.DiscordPost, error) {
 	f.calls = append(f.calls, "post")
-	return store.TwitchPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}, nil
+	return store.DiscordPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}, nil
 }
 
-func (f *fakePoster) Edit(_ context.Context, _ store.NotificationEndpoint, p store.TwitchPost, _ notify.WebhookMessage) error {
+func (f *fakePoster) Edit(_ context.Context, _ store.NotificationEndpoint, p store.DiscordPost, _ notify.WebhookMessage) error {
 	f.calls = append(f.calls, "edit "+p.MessageID)
 	return f.editErr
 }
@@ -36,7 +36,7 @@ func (f *fakePoster) Edit(_ context.Context, _ store.NotificationEndpoint, p sto
 // fakeKeeper records the posts kept.
 type fakeKeeper struct{ kept []string }
 
-func (f *fakeKeeper) RecordTwitchPost(_ context.Context, ref, endpoint int64, p store.TwitchPost) error {
+func (f *fakeKeeper) RecordTwitchPost(_ context.Context, ref, endpoint int64, p store.DiscordPost) error {
 	f.kept = append(f.kept, p.MessageID)
 	return nil
 }
@@ -45,7 +45,7 @@ func TestDeliverPostsKeepsAndEditsAsEachNotificationNeeds(t *testing.T) {
 	ended := time.Date(2026, 11, 18, 10, 0, 0, 0, time.UTC)
 	wasLive := store.NotificationEndpoint{ID: 1, Feeds: []int64{7}, FeedOptions: []store.FeedOptions{{Feed: 7, WasLive: true}}}
 	plain := store.NotificationEndpoint{ID: 2, Feeds: []int64{7}}
-	posted := map[int64]store.TwitchPost{1: {MessageID: "100000000000000011"}}
+	posted := map[int64]store.DiscordPost{1: {MessageID: "100000000000000011"}}
 	tests := []struct {
 		name      string
 		n         store.Notification

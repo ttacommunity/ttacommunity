@@ -317,18 +317,18 @@ func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) er
 }
 
 // Post is Send, returning the message Discord made and the channel or forum thread it is in.
-func (d *Discord) Post(ctx context.Context, webhook string, m WebhookMessage) (store.TwitchPost, error) {
+func (d *Discord) Post(ctx context.Context, webhook string, m WebhookMessage) (store.DiscordPost, error) {
 	return d.post(ctx, webhook, m, true)
 }
 
 // post sends m as Send does, waiting for and returning the message made when wait is true.
-func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wait bool) (store.TwitchPost, error) {
+func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wait bool) (store.DiscordPost, error) {
 	if r := []rune(m.Content); len(r) > maxContent {
 		m.Content = string(r[:maxContent])
 	}
 	payload, err := withMentions(m)
 	if err != nil {
-		return store.TwitchPost{}, err
+		return store.DiscordPost{}, err
 	}
 	if wait {
 		webhook += "?wait=true"
@@ -342,14 +342,14 @@ func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wa
 		out = &made
 	}
 	if err := d.do(ctx, http.MethodPost, webhook, bytes.NewReader(payload), "application/json", out); err != nil {
-		return store.TwitchPost{}, err
+		return store.DiscordPost{}, err
 	}
-	return store.TwitchPost{MessageID: made.ID, ChannelID: made.ChannelID}, nil
+	return store.DiscordPost{MessageID: made.ID, ChannelID: made.ChannelID}, nil
 }
 
 // Edit replaces the embeds of message p, posted to endpoint e, with m's, keeping its text and allowing no pings.
 // A forum endpoint's message is found in its thread.
-func (d *Discord) Edit(ctx context.Context, e store.NotificationEndpoint, p store.TwitchPost, m WebhookMessage) error {
+func (d *Discord) Edit(ctx context.Context, e store.NotificationEndpoint, p store.DiscordPost, m WebhookMessage) error {
 	payload, err := withMentions(WebhookMessage{Embeds: m.Embeds})
 	if err != nil {
 		return err

@@ -51,15 +51,15 @@ func sendNotifications(ctx context.Context, a *store.AdminStore, poster discordP
 // discordPoster posts to Discord webhooks, and edits what it posted.
 type discordPoster interface {
 	Send(ctx context.Context, webhook string, m notify.WebhookMessage) error
-	Post(ctx context.Context, webhook string, m notify.WebhookMessage) (store.TwitchPost, error)
-	Edit(ctx context.Context, e store.NotificationEndpoint, p store.TwitchPost, m notify.WebhookMessage) error
+	Post(ctx context.Context, webhook string, m notify.WebhookMessage) (store.DiscordPost, error)
+	Edit(ctx context.Context, e store.NotificationEndpoint, p store.DiscordPost, m notify.WebhookMessage) error
 }
 
 // deliver posts n to e with p, linking to admin at origin admin. A stream going live is posted, and its message
 // kept through keeper when e edits it once the stream ends; a stream ended is that edit, and one whose post was
 // deleted since is done. Keeping a message that was posted only logs a failure, so it is not posted twice.
 func deliver(ctx context.Context, keeper interface {
-	RecordTwitchPost(ctx context.Context, ref, endpoint int64, post store.TwitchPost) error
+	RecordTwitchPost(ctx context.Context, ref, endpoint int64, post store.DiscordPost) error
 }, p discordPoster, n store.Notification, e store.NotificationEndpoint, admin string, log *slog.Logger) error {
 	m := notify.Payload(n, e, admin)
 	switch {

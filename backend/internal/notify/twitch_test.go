@@ -87,7 +87,7 @@ func TestPostReturnsTheMessageAndItsChannel(t *testing.T) {
 	}))
 	t.Cleanup(s.Close)
 	got, err := notify.NewDiscord(s.Client()).Post(context.Background(), s.URL, notify.Payload(live(0), store.NotificationEndpoint{}, admin))
-	if err != nil || got != (store.TwitchPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}) {
+	if err != nil || got != (store.DiscordPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}) {
 		t.Errorf("Post = %+v, %v; want the message and channel", got, err)
 	}
 }
@@ -113,7 +113,7 @@ func TestEditPatchesTheMessageInItsThreadOnlyForAForum(t *testing.T) {
 			}))
 			t.Cleanup(s.Close)
 			e := store.NotificationEndpoint{URL: s.URL, Forum: tt.forum}
-			post := store.TwitchPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}
+			post := store.DiscordPost{MessageID: "100000000000000011", ChannelID: "100000000000000012"}
 			if err := notify.NewDiscord(s.Client()).Edit(context.Background(), e, post, notify.Payload(live(time.Hour), e, admin)); err != nil {
 				t.Fatalf("Edit: %v", err)
 			}
