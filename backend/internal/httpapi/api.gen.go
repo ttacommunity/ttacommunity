@@ -3662,13 +3662,13 @@ type FeedOption struct {
 	Categories []string `json:"categories"`
 	Feed       int64    `json:"feed"`
 
-	// Keywords A Twitch stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty)
+	// Keywords A Twitch or YouTube stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty)
 	Keywords []string `json:"keywords"`
 
 	// Match all, the default, posts a stream that passes both lists; any, one that passes either
 	Match *FeedOptionMatch `json:"match,omitempty"`
 
-	// WasLive Edit the post of a Twitch stream to "was live" when it ends
+	// WasLive Edit the post of a Twitch or YouTube stream to "was live" when it ends
 	WasLive bool `json:"was_live"`
 }
 
@@ -5656,6 +5656,28 @@ type Years struct {
 	Years []YearEntry `json:"years"`
 }
 
+// YouTubeFeed defines model for YouTubeFeed.
+type YouTubeFeed struct {
+	// Channels How many Movies channels it watches
+	Channels  int       `json:"channels"`
+	CreatedAt time.Time `json:"created_at"`
+	Id        int64     `json:"id"`
+
+	// Live How many are live now
+	Live int `json:"live"`
+
+	// Paused Streams are neither checked nor posted while paused
+	Paused bool `json:"paused"`
+
+	// Waiting How many pushed streams are waiting to start
+	Waiting int `json:"waiting"`
+}
+
+// YouTubeFeedSetting defines model for YouTubeFeedSetting.
+type YouTubeFeedSetting struct {
+	Paused bool `json:"paused"`
+}
+
 // AccountId defines model for AccountId.
 type AccountId = int64
 
@@ -5682,6 +5704,9 @@ type AdminTournamentSlug = string
 
 // AdminTwitchFeedId defines model for AdminTwitchFeedId.
 type AdminTwitchFeedId = int64
+
+// AdminYouTubeFeedId defines model for AdminYouTubeFeedId.
+type AdminYouTubeFeedId = int64
 
 // BlitzEditionLabel defines model for BlitzEditionLabel.
 type BlitzEditionLabel = string
@@ -6232,6 +6257,9 @@ type PostAdminTwitchFeedJSONRequestBody = NewTwitchFeed
 // PutAdminTwitchFeedJSONRequestBody defines body for PutAdminTwitchFeed for application/json ContentType.
 type PutAdminTwitchFeedJSONRequestBody = TwitchFeedSetting
 
+// PutAdminYouTubeFeedJSONRequestBody defines body for PutAdminYouTubeFeed for application/json ContentType.
+type PutAdminYouTubeFeedJSONRequestBody = YouTubeFeedSetting
+
 // SendEmailSignInJSONRequestBody defines body for SendEmailSignIn for application/json ContentType.
 type SendEmailSignInJSONRequestBody = EmailSignInAsk
 
@@ -6636,6 +6664,18 @@ type ServerInterface interface {
 	// PutAdminTwitchFeed Pause or resume a Twitch streamer (admins only)
 	// (PUT /v1/admin/twitch-feeds/{feed})
 	PutAdminTwitchFeed(w http.ResponseWriter, r *http.Request, feed AdminTwitchFeedId)
+	// GetAdminYouTubeFeeds The YouTube Live feed, when added, which posts Movies' channels' live streams to Discord (admins only)
+	// (GET /v1/admin/youtube-feeds)
+	GetAdminYouTubeFeeds(w http.ResponseWriter, r *http.Request)
+	// PostAdminYouTubeFeed Add the YouTube Live feed (admins only)
+	// (POST /v1/admin/youtube-feeds)
+	PostAdminYouTubeFeed(w http.ResponseWriter, r *http.Request)
+	// DeleteAdminYouTubeFeed Remove the YouTube Live feed, its streams and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/youtube-feeds/{feed})
+	DeleteAdminYouTubeFeed(w http.ResponseWriter, r *http.Request, feed AdminYouTubeFeedId)
+	// PutAdminYouTubeFeed Pause or resume the YouTube Live feed (admins only)
+	// (PUT /v1/admin/youtube-feeds/{feed})
+	PutAdminYouTubeFeed(w http.ResponseWriter, r *http.Request, feed AdminYouTubeFeedId)
 	// StartDiscordSignIn Start signing in with Discord
 	// (GET /v1/auth/discord)
 	StartDiscordSignIn(w http.ResponseWriter, r *http.Request, params StartDiscordSignInParams)
@@ -10349,6 +10389,86 @@ func (siw *ServerInterfaceWrapper) PutAdminTwitchFeed(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminYouTubeFeeds operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminYouTubeFeeds(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminYouTubeFeeds(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminYouTubeFeed operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminYouTubeFeed(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminYouTubeFeed(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminYouTubeFeed operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminYouTubeFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminYouTubeFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminYouTubeFeed(w, r, feed)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminYouTubeFeed operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminYouTubeFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "feed" -------------
+	var feed AdminYouTubeFeedId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "feed", r.PathValue("feed"), &feed, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "feed", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminYouTubeFeed(w, r, feed)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StartDiscordSignIn operation middleware
 func (siw *ServerInterfaceWrapper) StartDiscordSignIn(w http.ResponseWriter, r *http.Request) {
 
@@ -13440,6 +13560,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/rss-feeds", wrapper.PostAdminRssFeed)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/rss-feeds/{feed}", wrapper.DeleteAdminRssFeed)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/rss-feeds/{feed}", wrapper.PutAdminRssFeed)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/youtube-feeds", wrapper.GetAdminYouTubeFeeds)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/youtube-feeds", wrapper.PostAdminYouTubeFeed)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/youtube-feeds/{feed}", wrapper.DeleteAdminYouTubeFeed)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/youtube-feeds/{feed}", wrapper.PutAdminYouTubeFeed)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -22904,6 +23028,292 @@ func (response PutAdminTwitchFeed404JSONResponse) VisitPutAdminTwitchFeedRespons
 	return err
 }
 
+type GetAdminYouTubeFeedsRequestObject struct {
+}
+
+type GetAdminYouTubeFeedsResponseObject interface {
+	VisitGetAdminYouTubeFeedsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminYouTubeFeeds200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminYouTubeFeeds200JSONResponse struct {
+	Body    []YouTubeFeed
+	Headers GetAdminYouTubeFeeds200ResponseHeaders
+}
+
+func (response GetAdminYouTubeFeeds200JSONResponse) VisitGetAdminYouTubeFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminYouTubeFeeds401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminYouTubeFeeds401JSONResponse) VisitGetAdminYouTubeFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminYouTubeFeeds403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminYouTubeFeeds403JSONResponse) VisitGetAdminYouTubeFeedsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminYouTubeFeedRequestObject struct {
+}
+
+type PostAdminYouTubeFeedResponseObject interface {
+	VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error
+}
+
+type PostAdminYouTubeFeed201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminYouTubeFeed201JSONResponse struct {
+	Body    YouTubeFeed
+	Headers PostAdminYouTubeFeed201ResponseHeaders
+}
+
+func (response PostAdminYouTubeFeed201JSONResponse) VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminYouTubeFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminYouTubeFeed401JSONResponse) VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminYouTubeFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminYouTubeFeed403JSONResponse) VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminYouTubeFeed409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminYouTubeFeed409JSONResponse) VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminYouTubeFeed503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response PostAdminYouTubeFeed503JSONResponse) VisitPostAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminYouTubeFeedRequestObject struct {
+	Feed AdminYouTubeFeedId `json:"feed"`
+}
+
+type DeleteAdminYouTubeFeedResponseObject interface {
+	VisitDeleteAdminYouTubeFeedResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminYouTubeFeed204Response struct {
+}
+
+func (response DeleteAdminYouTubeFeed204Response) VisitDeleteAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminYouTubeFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminYouTubeFeed401JSONResponse) VisitDeleteAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminYouTubeFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminYouTubeFeed403JSONResponse) VisitDeleteAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminYouTubeFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminYouTubeFeed404JSONResponse) VisitDeleteAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminYouTubeFeedRequestObject struct {
+	Feed AdminYouTubeFeedId `json:"feed"`
+	Body *PutAdminYouTubeFeedJSONRequestBody
+}
+
+type PutAdminYouTubeFeedResponseObject interface {
+	VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error
+}
+
+type PutAdminYouTubeFeed204Response struct {
+}
+
+func (response PutAdminYouTubeFeed204Response) VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminYouTubeFeed400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminYouTubeFeed400JSONResponse) VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminYouTubeFeed401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminYouTubeFeed401JSONResponse) VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminYouTubeFeed403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminYouTubeFeed403JSONResponse) VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminYouTubeFeed404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminYouTubeFeed404JSONResponse) VisitPutAdminYouTubeFeedResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartDiscordSignInRequestObject struct {
 	Params StartDiscordSignInParams
 }
@@ -27480,6 +27890,18 @@ type StrictServerInterface interface {
 	// PutAdminTwitchFeed Pause or resume a Twitch streamer (admins only)
 	// (PUT /v1/admin/twitch-feeds/{feed})
 	PutAdminTwitchFeed(ctx context.Context, request PutAdminTwitchFeedRequestObject) (PutAdminTwitchFeedResponseObject, error)
+	// GetAdminYouTubeFeeds The YouTube Live feed, when added, which posts Movies' channels' live streams to Discord (admins only)
+	// (GET /v1/admin/youtube-feeds)
+	GetAdminYouTubeFeeds(ctx context.Context, request GetAdminYouTubeFeedsRequestObject) (GetAdminYouTubeFeedsResponseObject, error)
+	// PostAdminYouTubeFeed Add the YouTube Live feed (admins only)
+	// (POST /v1/admin/youtube-feeds)
+	PostAdminYouTubeFeed(ctx context.Context, request PostAdminYouTubeFeedRequestObject) (PostAdminYouTubeFeedResponseObject, error)
+	// DeleteAdminYouTubeFeed Remove the YouTube Live feed, its streams and the endpoints' subscriptions to it (admins only)
+	// (DELETE /v1/admin/youtube-feeds/{feed})
+	DeleteAdminYouTubeFeed(ctx context.Context, request DeleteAdminYouTubeFeedRequestObject) (DeleteAdminYouTubeFeedResponseObject, error)
+	// PutAdminYouTubeFeed Pause or resume the YouTube Live feed (admins only)
+	// (PUT /v1/admin/youtube-feeds/{feed})
+	PutAdminYouTubeFeed(ctx context.Context, request PutAdminYouTubeFeedRequestObject) (PutAdminYouTubeFeedResponseObject, error)
 	// StartDiscordSignIn Start signing in with Discord
 	// (GET /v1/auth/discord)
 	StartDiscordSignIn(ctx context.Context, request StartDiscordSignInRequestObject) (StartDiscordSignInResponseObject, error)
@@ -31320,6 +31742,113 @@ func (sh *strictHandler) PutAdminTwitchFeed(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminTwitchFeedResponseObject); ok {
 		if err := validResponse.VisitPutAdminTwitchFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminYouTubeFeeds operation middleware
+func (sh *strictHandler) GetAdminYouTubeFeeds(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminYouTubeFeedsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminYouTubeFeeds(ctx, request.(GetAdminYouTubeFeedsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminYouTubeFeeds")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminYouTubeFeedsResponseObject); ok {
+		if err := validResponse.VisitGetAdminYouTubeFeedsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminYouTubeFeed operation middleware
+func (sh *strictHandler) PostAdminYouTubeFeed(w http.ResponseWriter, r *http.Request) {
+	var request PostAdminYouTubeFeedRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminYouTubeFeed(ctx, request.(PostAdminYouTubeFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminYouTubeFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminYouTubeFeedResponseObject); ok {
+		if err := validResponse.VisitPostAdminYouTubeFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminYouTubeFeed operation middleware
+func (sh *strictHandler) DeleteAdminYouTubeFeed(w http.ResponseWriter, r *http.Request, feed AdminYouTubeFeedId) {
+	var request DeleteAdminYouTubeFeedRequestObject
+
+	request.Feed = feed
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminYouTubeFeed(ctx, request.(DeleteAdminYouTubeFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminYouTubeFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminYouTubeFeedResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminYouTubeFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminYouTubeFeed operation middleware
+func (sh *strictHandler) PutAdminYouTubeFeed(w http.ResponseWriter, r *http.Request, feed AdminYouTubeFeedId) {
+	var request PutAdminYouTubeFeedRequestObject
+
+	request.Feed = feed
+
+	var body PutAdminYouTubeFeedJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminYouTubeFeed(ctx, request.(PutAdminYouTubeFeedRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminYouTubeFeed")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminYouTubeFeedResponseObject); ok {
+		if err := validResponse.VisitPutAdminYouTubeFeedResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

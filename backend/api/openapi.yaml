@@ -4186,6 +4186,94 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/youtube-feeds:
+    get:
+      operationId: getAdminYouTubeFeeds
+      tags: [admin]
+      summary: The YouTube Live feed, when added, which posts Movies' channels' live streams to Discord (admins only)
+      responses:
+        "200":
+          description: The feed, or none
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YouTubeFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminYouTubeFeed
+      tags: [admin]
+      summary: Add the YouTube Live feed (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. There is one: a stream of any Movies channel that YouTube's
+        push tells of, live or scheduled, is posted when it starts, if Movies shows its video. 409 when it is there
+        already; 503 when the Movies hub callback is not set up here, as nothing would be pushed.
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YouTubeFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/admin/youtube-feeds/{feed}:
+    put:
+      operationId: putAdminYouTubeFeed
+      tags: [admin]
+      summary: Pause or resume the YouTube Live feed (admins only)
+      description: Audited. The Origin must be the admin site. While paused, streams are neither checked nor posted.
+      parameters:
+        - $ref: "#/components/parameters/AdminYouTubeFeedId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YouTubeFeedSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminYouTubeFeed
+      tags: [admin]
+      summary: Remove the YouTube Live feed, its streams and the endpoints' subscriptions to it (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminYouTubeFeedId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/titles:
     get:
       operationId: getAdminTitles
@@ -5716,6 +5804,14 @@ components:
         type: integer
         format: int64
         minimum: 1
+    AdminYouTubeFeedId:
+      name: feed
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminTwitchFeedId:
       name: feed
       in: path
@@ -6548,6 +6644,35 @@ components:
       properties:
         paused:
           type: boolean
+    YouTubeFeed:
+      type: object
+      required: [id, paused, channels, waiting, live, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        paused:
+          description: Streams are neither checked nor posted while paused
+          type: boolean
+        channels:
+          description: How many Movies channels it watches
+          type: integer
+        waiting:
+          description: How many pushed streams are waiting to start
+          type: integer
+        live:
+          description: How many are live now
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    YouTubeFeedSetting:
+      type: object
+      additionalProperties: false
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
     FeedOption:
       description: How an endpoint takes one of its feeds
       type: object
@@ -6563,8 +6688,8 @@ components:
             type: string
         keywords:
           description: >-
-            A Twitch stream is posted only with one of these words in its title, an RSS item only with one in its
-            title or summary, in any letters (any when empty)
+            A Twitch or YouTube stream is posted only with one of these words in its title, an RSS item only with
+            one in its title or summary, in any letters (any when empty)
           type: array
           items:
             type: string
@@ -6573,7 +6698,7 @@ components:
           type: string
           enum: [all, any]
         was_live:
-          description: Edit the post of a Twitch stream to "was live" when it ends
+          description: Edit the post of a Twitch or YouTube stream to "was live" when it ends
           type: boolean
     TwitchEventSubMessage:
       description: An EventSub message, of which only these parts are read

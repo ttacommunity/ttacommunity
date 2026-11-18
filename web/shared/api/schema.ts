@@ -2890,6 +2890,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/youtube-feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The YouTube Live feed, when added, which posts Movies' channels' live streams to Discord (admins only) */
+        get: operations["getAdminYouTubeFeeds"];
+        put?: never;
+        /**
+         * Add the YouTube Live feed (admins only)
+         * @description Audited. The Origin must be the admin site. There is one: a stream of any Movies channel that YouTube's push tells of, live or scheduled, is posted when it starts, if Movies shows its video. 409 when it is there already; 503 when the Movies hub callback is not set up here, as nothing would be pushed.
+         */
+        post: operations["postAdminYouTubeFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/youtube-feeds/{feed}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause or resume the YouTube Live feed (admins only)
+         * @description Audited. The Origin must be the admin site. While paused, streams are neither checked nor posted.
+         */
+        put: operations["putAdminYouTubeFeed"];
+        post?: never;
+        /**
+         * Remove the YouTube Live feed, its streams and the endpoints' subscriptions to it (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminYouTubeFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -4208,20 +4253,37 @@ export interface components {
         RSSFeedSetting: {
             paused: boolean;
         };
+        YouTubeFeed: {
+            /** Format: int64 */
+            id: number;
+            /** @description Streams are neither checked nor posted while paused */
+            paused: boolean;
+            /** @description How many Movies channels it watches */
+            channels: number;
+            /** @description How many pushed streams are waiting to start */
+            waiting: number;
+            /** @description How many are live now */
+            live: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        YouTubeFeedSetting: {
+            paused: boolean;
+        };
         /** @description How an endpoint takes one of its feeds */
         FeedOption: {
             /** Format: int64 */
             feed: number;
             /** @description A Twitch stream is posted only in one of these categories (any when empty) */
             categories: string[];
-            /** @description A Twitch stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty) */
+            /** @description A Twitch or YouTube stream is posted only with one of these words in its title, an RSS item only with one in its title or summary, in any letters (any when empty) */
             keywords: string[];
             /**
              * @description all, the default, posts a stream that passes both lists; any, one that passes either
              * @enum {string}
              */
             match?: "all" | "any";
-            /** @description Edit the post of a Twitch stream to "was live" when it ends */
+            /** @description Edit the post of a Twitch or YouTube stream to "was live" when it ends */
             was_live: boolean;
         };
         /** @description An EventSub message, of which only these parts are read */
@@ -7609,6 +7671,7 @@ export interface components {
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
         AdminRSSFeedId: number;
+        AdminYouTubeFeedId: number;
         AdminTwitchFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
@@ -11587,6 +11650,105 @@ export interface operations {
             header?: never;
             path: {
                 feed: components["parameters"]["AdminRSSFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminYouTubeFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feed, or none */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YouTubeFeed"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminYouTubeFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YouTubeFeed"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    putAdminYouTubeFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminYouTubeFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YouTubeFeedSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminYouTubeFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminYouTubeFeedId"];
             };
             cookie?: never;
         };

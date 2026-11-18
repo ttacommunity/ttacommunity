@@ -38,6 +38,7 @@ type Admins interface {
 	NostradamusAdmin
 	NotificationAdmin
 	RSSAdmin
+	YouTubeAdmin
 	BotAdmin
 	MovieAdmin
 	TwitchAdmin
@@ -99,6 +100,14 @@ type RSSAdmin interface {
 	AddRSSFeed(ctx context.Context, url string, now time.Time) (int64, error)
 	SetRSSFeed(ctx context.Context, id int64, paused bool) error
 	RemoveRSSFeed(ctx context.Context, id int64) error
+}
+
+// YouTubeAdmin is the YouTube Live feed, which posts Movies' channels' live streams to Discord.
+type YouTubeAdmin interface {
+	YouTubeFeeds(ctx context.Context) ([]store.YouTubeFeed, error)
+	AddYouTubeFeed(ctx context.Context, now time.Time) (int64, error)
+	SetYouTubeFeedPaused(ctx context.Context, id int64, paused bool) error
+	RemoveYouTubeFeed(ctx context.Context, id int64) error
 }
 
 // AdminAccess is what every admin route shares: who is calling, the transaction a change runs in, and its audit.
