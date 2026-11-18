@@ -41,7 +41,7 @@ func (f *fakeAdmins) AddNotificationEndpoint(_ context.Context, e store.Notifica
 	if err != nil {
 		return 0, err
 	}
-	f.notes, f.feeds = append(f.notes, note), e.Feeds
+	f.notes, f.feeds, f.feedOptions = append(f.notes, note), e.Feeds, fmt.Sprintf("%+v", e.FeedOptions)
 	f.options = fmt.Sprintf("paused %t forum %t %s %s %s %+v", e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID, e.Look)
 	return 4, nil
 }

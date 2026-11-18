@@ -1,5 +1,5 @@
 // Package twitch talks to Twitch: an app access token, Helix's users and streams, EventSub subscriptions, and
-// checking and reading the messages EventSub pushes to our callback.
+// checking the messages EventSub pushes to our callback.
 package twitch
 
 import (
@@ -221,7 +221,7 @@ func (c *Client) send(req *http.Request, out any) error {
 		if errors.As(err, &u) {
 			err = u.Err
 		}
-		return fmt.Errorf("Twitch could not be reached: %s", strings.ReplaceAll(err.Error(), req.URL.Host, "Twitch"))
+		return fmt.Errorf("reaching Twitch: %s", strings.ReplaceAll(err.Error(), req.URL.Host, "Twitch"))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {

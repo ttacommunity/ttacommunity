@@ -138,6 +138,19 @@ func main() {
 	if hub == nil {
 		log.Info("the Movies hub callback is off: MOVIES_HUB_SECRET is not set")
 	}
+	tw, err := openTwitch(os.Getenv, admins.AdminStore)
+	if err != nil {
+		log.Error("refusing to start: Twitch is not set up", "err", err)
+		os.Exit(1)
+	}
+	admins.twitch = tw
+	var twitchHub httpapi.TwitchHub
+	if tw.hub != nil {
+		twitchHub = tw.hub
+		log.Info("Twitch's EventSub callback is on")
+	} else {
+		log.Info("Twitch is off: TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET and TWITCH_EVENTSUB_SECRET are not set")
+	}
 	visits, err := openVisits(ctx, os.Getenv, signIns.SiteOrigin(), log)
 	if err != nil {
 		log.Error("refusing to start: counting visits is not set up", "err", err)
@@ -151,7 +164,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, visits, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, twitchHub, visits, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}
@@ -193,6 +206,8 @@ type adminDeps struct {
 	movieStarter *enginejob.Starter
 	// appID is the Discord application's id, DISCORD_APP_ID; "" when none is set up.
 	appID string
+	// twitch is Twitch as set up here; zero when it is not.
+	twitch twitchSetup
 }
 
 // DiscordAppID is the Discord application's id, or "" when none is set up here.
@@ -306,7 +321,7 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter, os.Getenv("DISCORD_APP_ID")}, pool, nil
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter, os.Getenv("DISCORD_APP_ID"), twitchSetup{}}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.

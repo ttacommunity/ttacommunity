@@ -16,6 +16,7 @@ import (
 	"ttacommunity/backend/internal/access"
 	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
+	"ttacommunity/backend/internal/twitch"
 )
 
 // adminPrefix is where the admin routes sit.
@@ -39,6 +40,7 @@ type Admins interface {
 	RedditAdmin
 	BotAdmin
 	MovieAdmin
+	TwitchAdmin
 }
 
 // MovieAdmin manages YouTube creator channels and video visibility, and starts the Movies job.
@@ -55,6 +57,20 @@ type MovieAdmin interface {
 	StartMovieJob(ctx context.Context, channelID string) (string, error)
 	// MovieJobGoing reports whether a Movies Job has not finished: enginejob.ErrNotSetUp as StartMovieJob.
 	MovieJobGoing(ctx context.Context) (bool, error)
+}
+
+// TwitchAdmin is the Twitch streamers whose streams are posted: the feeds, and Twitch's side of them, looking a
+// streamer up and subscribing to their events, which answer ErrTwitchNotSetUp when Twitch is not set up here.
+type TwitchAdmin interface {
+	TwitchFeeds(ctx context.Context) ([]store.TwitchFeed, error)
+	TwitchFeed(ctx context.Context, id int64) (store.TwitchFeed, error)
+	AddTwitchFeed(ctx context.Context, login, userID, displayName string, now time.Time) (int64, error)
+	SetTwitchFeedPaused(ctx context.Context, id int64, paused bool) error
+	RemoveTwitchFeed(ctx context.Context, id int64) error
+	SetTwitchSubscription(ctx context.Context, feed int64, typ, id, status string, now time.Time) error
+	TwitchUser(ctx context.Context, login string) (twitch.User, error)
+	SubscribeTwitch(ctx context.Context, typ, userID string) (twitch.Subscription, error)
+	UnsubscribeTwitch(ctx context.Context, id string) error
 }
 
 // NotificationAdmin is the webhooks notifications are posted to, and a test post to one.
@@ -398,6 +414,10 @@ func badRequest400(msg string) BadRequestJSONResponse {
 
 func notFound404(msg string) NotFoundJSONResponse {
 	return NotFoundJSONResponse{Body: Error{Error: msg}, Headers: NotFoundResponseHeaders{CacheControl: cacheNone}}
+}
+
+func unavailable503(msg string) UnavailableJSONResponse {
+	return UnavailableJSONResponse{Body: Error{Error: msg}, Headers: UnavailableResponseHeaders{CacheControl: cacheNone}}
 }
 
 func conflict409(msg string) ConflictJSONResponse {

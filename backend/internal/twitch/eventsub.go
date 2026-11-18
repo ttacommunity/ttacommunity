@@ -1,13 +1,10 @@
-// Checking and reading the messages EventSub pushes to our callback.
+// Checking the messages EventSub pushes to our callback.
 package twitch
 
 import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"time"
 )
 
@@ -44,45 +41,4 @@ func Verify(secret []byte, id, timestamp, signature string, body []byte, now tim
 	mac.Write(body)
 	want := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(signature), []byte(want))
-}
-
-// Message is what an EventSub message tells: its type (notification, webhook_callback_verification or revocation),
-// the challenge to echo for a verification, its subscription's id, type and status, and for a stream event, the
-// stream's id, the streamer's user id and when it started.
-type Message struct {
-	Type                                     string
-	Challenge                                string
-	SubscriptionID, SubscriptionType, Status string
-	StreamID, UserID                         string
-	StartedAt                                time.Time
-}
-
-// Parse reads body, a message of type kind (the Twitch-Eventsub-Message-Type header).
-func Parse(kind string, body []byte) (Message, error) {
-	var raw struct {
-		Challenge    string `json:"challenge"`
-		Subscription *struct {
-			ID     string `json:"id"`
-			Type   string `json:"type"`
-			Status string `json:"status"`
-		} `json:"subscription"`
-		Event struct {
-			ID        string    `json:"id"`
-			UserID    string    `json:"broadcaster_user_id"`
-			StartedAt time.Time `json:"started_at"`
-		} `json:"event"`
-	}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return Message{}, fmt.Errorf("reading an EventSub message: %w", err)
-	}
-	switch {
-	case kind != "notification" && kind != "webhook_callback_verification" && kind != "revocation":
-		return Message{}, fmt.Errorf("an EventSub message of unknown type %q", kind)
-	case raw.Subscription == nil || raw.Subscription.ID == "":
-		return Message{}, errors.New("an EventSub message without its subscription")
-	case kind == "webhook_callback_verification" && raw.Challenge == "":
-		return Message{}, errors.New("an EventSub verification without its challenge")
-	}
-	return Message{Type: kind, Challenge: raw.Challenge, SubscriptionID: raw.Subscription.ID, SubscriptionType: raw.Subscription.Type,
-		Status: raw.Subscription.Status, StreamID: raw.Event.ID, UserID: raw.Event.UserID, StartedAt: raw.Event.StartedAt}, nil
 }
