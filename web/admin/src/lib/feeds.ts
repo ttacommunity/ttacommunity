@@ -1,19 +1,22 @@
-/** The Notifications tab's feeds of every kind: one list of rows, a Twitch streamer's and an RSS feed's status, the feeds an endpoint may take by kind, and each one's options. */
+/** The Notifications tab's feeds of every kind: one list of rows, a Twitch streamer's, an RSS feed's and YouTube Live's status, the feeds an endpoint may take by kind, and each one's options. */
 import type { components } from '@ttac/shared/api';
 import * as req from './admin-requests';
 
 type TwitchFeed = Pick<components['schemas']['TwitchFeed'], 'id' | 'login' | 'paused' | 'subscriptions'>;
 type RSSFeed = Pick<components['schemas']['RSSFeed'], 'id' | 'url' | 'title' | 'paused' | 'checked_at' | 'last_item_at' | 'last_error' | 'last_error_at'>;
+type YouTubeFeed = Pick<components['schemas']['YouTubeFeed'], 'id' | 'paused' | 'channels' | 'waiting' | 'live'>;
 
 /** Feeds are the feeds of each kind, as the API lists them. */
 export interface Feeds {
   twitch: readonly TwitchFeed[];
   rss: readonly RSSFeed[];
+  /** The YouTube Live feed, when it has been added: there is one at most. */
+  youtube: readonly YouTubeFeed[];
 }
 type FeedOption = components['schemas']['FeedOption'];
 
 /** Kind is a feed's source. */
-export type Kind = 'twitch' | 'rss';
+export type Kind = 'twitch' | 'rss' | 'youtube';
 
 /** FeedRow is a feed as the Feeds card lists it. */
 export interface FeedRow {
@@ -35,7 +38,23 @@ export interface FeedChoice {
 }
 
 /** KIND_LABELS name each kind of feed. */
-export const KIND_LABELS: Record<Kind, string> = { twitch: 'Twitch', rss: 'RSS' };
+export const KIND_LABELS: Record<Kind, string> = { twitch: 'Twitch', rss: 'RSS', youtube: 'YouTube Live' };
+
+/** addableKinds are the kinds of feed the Add sheet offers, in its order: YouTube Live only while it is not there, as there is one. */
+export function addableKinds(hasYouTube: boolean): Kind[] {
+  return hasYouTube ? ['rss', 'twitch'] : ['rss', 'twitch', 'youtube'];
+}
+
+/** YOUTUBE_NAME names the YouTube Live feed, which takes every Movies channel. */
+export const YOUTUBE_NAME = "Movies' channels";
+
+/** youtubeStatus says how the YouTube Live feed is doing: paused, or how many channels it watches and their streams live and to come. */
+export function youtubeStatus(f: YouTubeFeed): string {
+  if (f.paused) return 'Paused: streams neither checked nor posted';
+  const watching = `Watching ${f.channels} Movies channel${f.channels === 1 ? '' : 's'}`;
+  const streams = [f.live > 0 ? `${f.live} live` : '', f.waiting > 0 ? `${f.waiting} waiting to start` : ''].filter((p) => p !== '');
+  return streams.length === 0 ? watching : `${watching}; ${streams.join(', ')}`;
+}
 
 /** rssName is an RSS feed's name: its own title, or until its first read its address's host. */
 export function rssName(f: Pick<RSSFeed, 'title' | 'url'>): string {
@@ -66,8 +85,8 @@ export function rssStatus(f: Pick<RSSFeed, 'paused' | 'checked_at' | 'last_item_
   return `Read ${when(f.checked_at)}${newest}`;
 }
 
-/** feedRows is every feed as the Feeds card lists it: Twitch's then RSS's, each by name, times written with when. */
-export function feedRows({ twitch, rss }: Feeds, when: (iso: string) => string): FeedRow[] {
+/** feedRows is every feed as the Feeds card lists it: Twitch's then RSS's, each by name, then YouTube Live, times written with when. */
+export function feedRows({ twitch, rss, youtube }: Feeds, when: (iso: string) => string): FeedRow[] {
   const byName = (a: FeedRow, b: FeedRow) => a.name.localeCompare(b.name);
   return [
     ...twitch.map((f): FeedRow => ({
@@ -78,14 +97,18 @@ export function feedRows({ twitch, rss }: Feeds, when: (iso: string) => string):
       kind: 'rss', id: f.id, name: rssName(f), href: f.url, sends: 'new items',
       status: rssStatus(f, when), paused: f.paused,
     })).sort(byName),
+    ...youtube.map((f): FeedRow => ({
+      kind: 'youtube', id: f.id, name: YOUTUBE_NAME, href: '#movies', sends: 'live streams starting', status: youtubeStatus(f), paused: f.paused,
+    })),
   ];
 }
 
 /** feedGroups is the feeds an endpoint may take, by kind, each by name; a kind with no feed is left out. */
-export function feedGroups({ twitch, rss }: Feeds): { kind: Kind; label: string; feeds: FeedChoice[] }[] {
+export function feedGroups({ twitch, rss, youtube }: Feeds): { kind: Kind; label: string; feeds: FeedChoice[] }[] {
   const groups: { kind: Kind; label: string; feeds: FeedChoice[] }[] = [
     { kind: 'twitch', label: KIND_LABELS.twitch, feeds: twitch.map((f) => ({ kind: 'twitch' as const, id: f.id, name: f.login, paused: f.paused })) },
     { kind: 'rss', label: KIND_LABELS.rss, feeds: rss.map((f) => ({ kind: 'rss' as const, id: f.id, name: rssName(f), paused: f.paused })) },
+    { kind: 'youtube', label: KIND_LABELS.youtube, feeds: youtube.map((f) => ({ kind: 'youtube' as const, id: f.id, name: YOUTUBE_NAME, paused: f.paused })) },
   ];
   return groups.filter((g) => g.feeds.length > 0).map((g) => ({ ...g, feeds: g.feeds.sort((a, b) => a.name.localeCompare(b.name)) }));
 }
@@ -113,15 +136,19 @@ export function withOptions(opts: readonly FeedOption[], feed: number, change: P
 
 /** pauseRequest is the request that pauses row's feed, or resumes it when paused. */
 export function pauseRequest(row: Pick<FeedRow, 'kind' | 'id' | 'paused'>) {
-  return row.kind === 'twitch' ? req.setTwitchFeed(row.id, !row.paused) : req.setRSSFeed(row.id, !row.paused);
+  const set = { twitch: req.setTwitchFeed, rss: req.setRSSFeed, youtube: req.setYouTubeFeed }[row.kind];
+  return set(row.id, !row.paused);
 }
 
 /** removeRequest is the request that removes row's feed. */
 export function removeRequest(row: Pick<FeedRow, 'kind' | 'id'>) {
-  return row.kind === 'twitch' ? req.removeTwitchFeed(row.id) : req.removeRSSFeed(row.id);
+  const remove = { twitch: req.removeTwitchFeed, rss: req.removeRSSFeed, youtube: req.removeYouTubeFeed }[row.kind];
+  return remove(row.id);
 }
 
-/** resumedText says what resuming row's feed does: a streamer's next stream is posted, a feed's items from its next read on. */
+/** resumedText says what resuming row's feed does: a streamer's next stream is posted, a feed's items from its next read on, YouTube's streams pushed from now on. */
 export function resumedText(row: Pick<FeedRow, 'kind' | 'name'>): string {
-  return row.kind === 'twitch' ? `Resumed ${row.name}: their next stream is posted.` : `Resumed ${row.name}: posts from its next read on are posted.`;
+  if (row.kind === 'twitch') return `Resumed ${row.name}: their next stream is posted.`;
+  if (row.kind === 'youtube') return `Resumed ${row.name}: streams YouTube tells of from now on are posted.`;
+  return `Resumed ${row.name}: posts from its next read on are posted.`;
 }

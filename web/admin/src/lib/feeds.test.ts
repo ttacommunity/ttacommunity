@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { feedGroups, feedRows, optionsFor, pauseRequest, removeRequest, rssName, rssStatus, twitchStatus, withOptions, words } from './feeds';
+import { addableKinds, feedGroups, feedRows, optionsFor, pauseRequest, removeRequest, rssName, rssStatus, twitchStatus, withOptions, words, youtubeStatus } from './feeds';
 
 const when = (iso: string) => `at ${iso}`;
 const twitch = (id: number, login: string, statuses: string[], paused = false) => ({
@@ -10,16 +10,22 @@ const rss = (id: number, title: string, url = 'https://news.example.com/feed.xml
   id, url, title, paused, checked_at: '2026-11-18T08:00:00Z', last_item_at: '2026-11-18T07:00:00Z',
 });
 
+const youtube = (id: number, counts: Partial<{ channels: number; waiting: number; live: number; paused: boolean }> = {}) => ({
+  id, channels: 3, waiting: 0, live: 0, paused: false, created_at: '2026-11-18T08:00:00Z', ...counts,
+});
+
 describe('feeds', () => {
-  it('lists Twitch streamers then RSS feeds, each by name', () => {
+  it('lists Twitch streamers, RSS feeds, each by name, then YouTube Live', () => {
     const rows = feedRows({
       twitch: [twitch(3, 'some_streamer', ['enabled', 'enabled'])],
       rss: [rss(5, 'Zebra news'), rss(4, 'Example news', 'https://blog.example.com/atom.xml')],
+      youtube: [youtube(8)],
     }, when);
     expect(rows.map((r) => `${r.kind} ${r.name} ${r.href}`)).toEqual([
       'twitch some_streamer https://www.twitch.tv/some_streamer',
       'rss Example news https://blog.example.com/atom.xml',
       'rss Zebra news https://news.example.com/feed.xml',
+      "youtube Movies' channels #movies",
     ]);
   });
 
@@ -44,6 +50,7 @@ describe('feeds', () => {
   it.each([
     ['a Twitch streamer', 'twitch' as const, false, '/api/twitch-feeds/7', { paused: true }],
     ['an RSS feed, resumed', 'rss' as const, true, '/api/rss-feeds/7', { paused: false }],
+    ['the YouTube Live feed', 'youtube' as const, false, '/api/youtube-feeds/7', { paused: true }],
   ])('pauses or resumes %s', (_, kind, paused, path, json) => {
     expect(pauseRequest({ kind, id: 7, paused })).toEqual({ path, init: { method: 'PUT', json } });
   });
@@ -51,6 +58,7 @@ describe('feeds', () => {
   it.each([
     ['twitch' as const, '/api/twitch-feeds/7'],
     ['rss' as const, '/api/rss-feeds/7'],
+    ['youtube' as const, '/api/youtube-feeds/7'],
   ])('removes a %s feed', (kind, path) => {
     expect(removeRequest({ kind, id: 7 })).toEqual({ path, init: { method: 'DELETE', json: undefined } });
   });
@@ -65,13 +73,30 @@ describe('feeds', () => {
     expect(twitchStatus(twitch(3, 'some_streamer', statuses, paused))).toBe(want);
   });
 
+  it.each([
+    ['not there yet', false, ['rss', 'twitch', 'youtube']],
+    ['there already', true, ['rss', 'twitch']],
+  ])('offers YouTube Live to add only when it is %s', (_, there, want) => {
+    expect(addableKinds(there)).toEqual(want);
+  });
+
+  it.each([
+    ['watching, nothing to come', {}, 'Watching 3 Movies channels'],
+    ['one channel', { channels: 1 }, 'Watching 1 Movies channel'],
+    ['streams waiting and live', { waiting: 2, live: 1 }, 'Watching 3 Movies channels; 1 live, 2 waiting to start'],
+    ['paused', { paused: true, live: 1 }, 'Paused: streams neither checked nor posted'],
+  ])('says how the YouTube Live feed is doing when %s', (_, counts, want) => {
+    expect(youtubeStatus(youtube(8, counts))).toBe(want);
+  });
+
   it('groups the feeds an endpoint may take by kind, leaving out a kind with none', () => {
-    const groups = feedGroups({ twitch: [twitch(3, 'some_streamer', [], true)], rss: [rss(4, '')] });
+    const groups = feedGroups({ twitch: [twitch(3, 'some_streamer', [], true)], rss: [rss(4, '')], youtube: [youtube(8)] });
     expect(groups.map((g) => `${g.label}: ${g.feeds.map((f) => `${f.name}${f.paused ? ' (paused)' : ''}`).join(', ')}`)).toEqual([
       'Twitch: some_streamer (paused)',
       'RSS: news.example.com',
+      "YouTube Live: Movies' channels",
     ]);
-    expect(feedGroups({ twitch: [twitch(3, 'some_streamer', [])], rss: [] }).map((g) => g.kind)).toEqual(['twitch']);
+    expect(feedGroups({ twitch: [twitch(3, 'some_streamer', [])], rss: [], youtube: [] }).map((g) => g.kind)).toEqual(['twitch']);
   });
 
   it.each([

@@ -1,4 +1,4 @@
-/** Notifications, for admins: the Discord webhooks the api posts site events and feeds to, each tested here, and the feeds: Twitch streamers and RSS feeds. */
+/** Notifications, for admins: the Discord webhooks the api posts site events and feeds to, each tested here, and the feeds: Twitch streamers, RSS feeds and YouTube Live. */
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
@@ -17,9 +17,10 @@ import FeedSheet from './FeedSheet';
 type Endpoint = components['schemas']['NotificationEndpoint'];
 type TwitchFeed = components['schemas']['TwitchFeed'];
 type RSSFeed = components['schemas']['RSSFeed'];
+type YouTubeFeed = components['schemas']['YouTubeFeed'];
 type NotificationTest = components['schemas']['NotificationTest'];
 
-/** FeedsCard lists every feed, Twitch's and RSS's, to pause, resume or remove, and adds new ones. */
+/** FeedsCard lists every feed, Twitch's, RSS's and YouTube Live, to pause, resume or remove, and adds new ones. */
 function FeedsCard({ feeds, onReload }: { feeds: Feeds; onReload: () => Promise<void> }) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [adding, setAdding] = useState<HTMLElement | null>(null);
@@ -51,7 +52,8 @@ function FeedsCard({ feeds, onReload }: { feeds: Feeds; onReload: () => Promise<
       {dialog.element}
       <p className="muted">
         Every source the endpoints above can take. RSS and Atom feeds are read every 10 minutes, and a feed's first read, and its first
-        after resuming, posts nothing. A Twitch streamer is posted when they go live, through Twitch's push. A feed that fails 3 reads in a row, and reads
+        after resuming, posts nothing. A Twitch streamer is posted when they go live, through Twitch's push. YouTube Live posts the live streams of
+        the Movies tab's channels when they start. A feed that fails 3 reads in a row, and reads
         again after, is posted to the endpoints taking feeds failing.
       </p>
       <Notice outcome={shownAt(outcome, 'feeds')} onClose={() => setOutcome(null)} />
@@ -95,6 +97,7 @@ function FeedsCard({ feeds, onReload }: { feeds: Feeds; onReload: () => Promise<
       {adding !== null && (
         <FeedSheet
           opener={adding}
+          hasYouTube={feeds.youtube.length > 0}
           onSaved={(message) => {
             setOutcome(succeeded(message, 'feeds'));
             void onReload();
@@ -111,19 +114,21 @@ export default function NotificationsPanel() {
   const [list, setList] = useState<Endpoint[] | null>(null);
   const [streamers, setStreamers] = useState<TwitchFeed[]>([]);
   const [rssFeeds, setRSSFeeds] = useState<RSSFeed[]>([]);
+  const [youtubeFeeds, setYouTubeFeeds] = useState<YouTubeFeed[]>([]);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [editing, setEditing] = useState<{ endpoint: Endpoint | null; opener: HTMLElement } | null>(null);
   const dialog = useDialog();
   const zone = viewerZone();
   const when = (iso: string) => formatInstant(iso, zone);
-  const all = { twitch: streamers, rss: rssFeeds };
+  const all = { twitch: streamers, rss: rssFeeds, youtube: youtubeFeeds };
   const groups = feedGroups(all);
 
   const load = async () => {
-    const [endpoints, twitch, rss] = await Promise.all([
+    const [endpoints, twitch, rss, youtube] = await Promise.all([
       adminRequest<Endpoint[]>('/api/notification-endpoints', {}),
       adminRequest<TwitchFeed[]>('/api/twitch-feeds', {}),
       adminRequest<RSSFeed[]>('/api/rss-feeds', {}),
+      adminRequest<YouTubeFeed[]>('/api/youtube-feeds', {}),
     ]);
     if (endpoints.ok) setList(endpoints.data);
     else setOutcome(loadFailure(endpoints.message, 'endpoints'));
@@ -131,6 +136,8 @@ export default function NotificationsPanel() {
     else setOutcome(loadFailure(twitch.message, 'endpoints'));
     if (rss.ok) setRSSFeeds(rss.data);
     else setOutcome(loadFailure(rss.message, 'endpoints'));
+    if (youtube.ok) setYouTubeFeeds(youtube.data);
+    else setOutcome(loadFailure(youtube.message, 'endpoints'));
   };
   useEffect(() => {
     void load();
@@ -163,7 +170,7 @@ export default function NotificationsPanel() {
         {dialog.element}
         <p className="muted">
           Discord channels the site posts to: when a new player signs up, a player asks to be linked, one reports, corrects or flags a blitz result, a
-          RSS feed has a new item, or a Twitch streamer goes live. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
+          RSS feed has a new item, or a Twitch streamer or a Movies channel on YouTube goes live. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
         </p>
         <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />
         {list !== null && list.length === 0 && <p className="muted">No endpoints yet: nothing is posted.</p>}
