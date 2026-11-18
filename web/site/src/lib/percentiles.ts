@@ -3,6 +3,7 @@ import type { PercentileQuery, PlayerPercentile, RatingBasis, RatingPercentiles 
 import { ordinal } from '@ttac/shared/numbers';
 import { DEFAULT_VIEW, modelOf, parseView, viewParams, type Remembered, type View } from './leaderboard-view';
 import { RATING_TIERS, type RatingTier } from './player-view';
+import type { Me } from './account';
 
 /** The page's view: the leaderboard's model, format and filters it shares, the rating counted, the bins' width, and a player's name or ''. */
 export interface PercentileView {
@@ -113,4 +114,10 @@ export function tierSpans(r: Pick<RatingPercentiles, 'bins' | 'bin_width'>): Tie
     const to = Math.min(next === undefined ? Infinity : next.min, hi);
     return from < to ? [{ tier, start: at(from), end: at(to) }] : [];
   });
+}
+
+/** withMe shows the signed-in player's own standing when the view names no player and they are linked to a rated one. */
+export function withMe(view: PercentileView, me: Pick<Me, 'member'> | null): PercentileView {
+  const mine = me?.member?.player ?? '';
+  return view.player === '' && mine !== '' ? { ...view, player: mine } : view;
 }

@@ -18,9 +18,11 @@ import {
   tierOf,
   tierSpans,
   topShare,
+  withMe,
   type PercentileView,
   type TierSpan,
 } from '../lib/percentiles';
+import { seemsSignedIn, sharedMe } from '../lib/account';
 import { profileHref } from '../lib/player-view';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
@@ -57,13 +59,27 @@ const RATING_OPTIONS: { value: RatingBasis; label: string; tooltip: string }[] =
 
 const statusWord: Record<Status, string> = { active: 'active ', all: '', inactive: 'inactive ' };
 
-/** PercentilesPage loads the spread for the view in the address, and the rated players' names once the search box is used. */
+/**
+ * PercentilesPage loads the spread for the view in the address, and the rated players' names once the search box is
+ * used. With no player in the address, a signed-in player sees their own standing: the spread waits for who they are.
+ */
 export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
-  const { view, go, linkTo } = useAddressView(ADDRESS);
+  const { view, go, replace, linkTo } = useAddressView(ADDRESS);
+  const [knowWho, setKnowWho] = useState(() => view.player !== '' || !seemsSignedIn(browserStorage()));
+  useEffect(() => {
+    if (knowWho) return;
+    sharedMe(apiUrl)
+      .then((me) => {
+        const mine = withMe(view, me);
+        if (mine !== view) replace(mine);
+      })
+      .catch(() => undefined)
+      .finally(() => setKnowWho(true));
+  }, [knowWho, apiUrl, view, replace]);
   const run = useLoad('run', () => currentRun(apiUrl).then((r) => r.run_id));
   const runId = run.kind === 'ready' ? run.data : null;
   const q = percentileQuery(view);
-  const spread = useKeptFound(`${runId}|${percentileParams(view)}`, runId === null ? null : () => ratingPercentiles(apiUrl, runId, q));
+  const spread = useKeptFound(`${runId}|${percentileParams(view)}`, runId === null || !knowWho ? null : () => ratingPercentiles(apiUrl, runId, q));
 
   const [used, setUsed] = useState(false);
   const names = useLoad(
