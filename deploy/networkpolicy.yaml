@@ -131,7 +131,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api, engine, backup, movies, reddit]
+                values: [api, engine, backup, movies, feeds]
       ports:
         - protocol: TCP
           port: 5432
@@ -146,7 +146,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api, engine, backup, movies, reddit]
+        values: [api, engine, backup, movies, feeds]
   policyTypes: [Egress]
   egress:
     - to:
@@ -287,13 +287,14 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: reddit-egress
+  name: feeds-egress
   namespace: ttacommunity
 spec:
-  # The Reddit job reads www.reddit.com, which has no fixed addresses: any public address on 443, RFC1918 excluded.
+  # The feeds job reads www.reddit.com and the RSS feeds admins add, which have no fixed addresses: any public
+  # address on 443, RFC1918 excluded. The job itself refuses every address that is not public.
   podSelector:
     matchLabels:
-      app: reddit
+      app: feeds
   policyTypes: [Egress]
   egress:
     - to:

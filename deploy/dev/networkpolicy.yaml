@@ -97,7 +97,7 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [api-dev, engine-dev, movies-dev, reddit-dev]
+                values: [api-dev, engine-dev, movies-dev, feeds-dev]
       ports:
         - protocol: TCP
           port: 5432
@@ -112,7 +112,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [api-dev, engine-dev, movies-dev, reddit-dev]
+        values: [api-dev, engine-dev, movies-dev, feeds-dev]
   policyTypes: [Egress]
   egress:
     - to:
@@ -197,13 +197,13 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: reddit-dev-egress
+  name: feeds-dev-egress
   namespace: ttacommunity
 spec:
-  # As reddit-egress: any public address on 443, RFC1918 excluded.
+  # As feeds-egress: any public address on 443, RFC1918 excluded.
   podSelector:
     matchLabels:
-      app: reddit-dev
+      app: feeds-dev
   policyTypes: [Egress]
   egress:
     - to:
