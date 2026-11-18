@@ -29,11 +29,11 @@ export function toggledKind(kinds: readonly Kind[], kind: Kind, on: boolean): Ki
   return KINDS.map((k) => k.key).filter((k) => (k === kind ? on : kinds.includes(k)));
 }
 
-/** feedStatus says how a feed is doing, its times written with when: paused, failing and why, read, or new. */
-export function feedStatus(f: Feed, when: (iso: string) => string): string {
+/** feedStatus says how a feed is doing, its times written with when: paused, failing and why, read (with its newest item, a post unless named), or new. */
+export function feedStatus(f: Feed, when: (iso: string) => string, item = 'post'): string {
   if (f.paused) return 'Paused: not read';
   if (f.last_error && f.last_error_at) return `Failed ${when(f.last_error_at)}: ${f.last_error}`;
   if (!f.checked_at) return 'Not read yet: its first read posts nothing';
-  const newest = f.last_post_at ? `; newest post ${when(f.last_post_at)}` : '';
+  const newest = f.last_post_at ? `; newest ${item} ${when(f.last_post_at)}` : '';
   return `Read ${when(f.checked_at)}${newest}`;
 }
