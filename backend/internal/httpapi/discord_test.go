@@ -399,6 +399,49 @@ func TestRollIsSharedUnlessAskedPrivate(t *testing.T) {
 	}
 }
 
+func TestChooseAndPermutationAreSharedUnlessAskedPrivate(t *testing.T) {
+	items := func(v string) string { return `{"name":"items","type":3,"value":"` + v + `"}` }
+	count := func(n int) string { return fmt.Sprintf(`{"name":"count","type":4,"value":%d}`, n) }
+	const private = `,{"name":"private","type":5,"value":true}`
+	tests := []struct {
+		name, command, options string
+		wantPrivate            bool
+		wantText               string
+	}{
+		{"choose: shared by default, in the order given", "choose", count(2) + "," + items("Alex, Beta"), false, "Alex, Beta"},
+		{"choose: private when asked", "choose", count(1) + "," + items("Alex") + private, true, "Alex"},
+		{"choose: more than given, to the asker alone", "choose", count(3) + "," + items("Alex, Beta"), true, "can't be chosen"},
+		{"choose: no count", "choose", items("Alex, Beta"), true, "can't be chosen"},
+		{"choose: no entries", "choose", count(1) + "," + items(" , "), true, "can't be chosen"},
+		{"choose: over 100 entries", "choose", count(1) + "," + items(strings.Repeat("a,", 101)), true, "can't be chosen"},
+		{"permutation: shared by default", "permutation", items("Alex"), false, "Alex"},
+		{"permutation: private when asked", "permutation", items("Alex, Beta") + "," + count(1) + private, true, ""},
+		{"permutation: a count of none", "permutation", items("Alex, Beta") + "," + count(0), true, "can't be shuffled"},
+		{"permutation: no entries", "permutation", ``, true, "can't be shuffled"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ratings := newDiscordRatings()
+			r := discordReply(t, discordDo(ratings, &fakeDiscord{}, discordKey, command(tt.command, tt.options), slog.New(slog.DiscardHandler)))
+			wantMessage(t, r, tt.wantPrivate, tt.wantText)
+			if ratings.calls != 0 {
+				t.Errorf("/%s read the ratings %d times, want none", tt.command, ratings.calls)
+			}
+		})
+	}
+}
+
+func TestPermutationOrdersEveryEntryWhenNoCountIsGiven(t *testing.T) {
+	r := discordReply(t, discordDo(newDiscordRatings(), &fakeDiscord{}, discordKey,
+		command("permutation", `{"name":"items","type":3,"value":"Alex, Beta, Claus"}`), slog.New(slog.DiscardHandler)))
+	wantMessage(t, r, false, "")
+	got := strings.Split(*r.Data.Content, ", ")
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"Alex", "Beta", "Claus"}) {
+		t.Errorf("content = %q, want Alex, Beta and Claus each once", *r.Data.Content)
+	}
+}
+
 func TestVersus(t *testing.T) {
 	two := func(a, b string) string {
 		return `{"name":"player","type":3,"value":"` + a + `"},{"name":"other","type":3,"value":"` + b + `"}`
@@ -632,6 +675,8 @@ func TestATurnedOffCommandSaysSoToTheAskerAlone(t *testing.T) {
 	for _, tt := range []struct{ name, body string }{
 		{"rating", rating(`{"name":"player","type":3,"value":"Quill"},{"name":"share","type":5,"value":true}`)},
 		{"roll", command("roll", `{"name":"dice","type":3,"value":"2d6"}`)},
+		{"choose", command("choose", `{"name":"count","type":4,"value":1},{"name":"items","type":3,"value":"Alex"}`)},
+		{"permutation", command("permutation", `{"name":"items","type":3,"value":"Alex"}`)},
 		{"upsets", command("upsets", `{"name":"share","type":5,"value":true}`)},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
