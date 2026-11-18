@@ -33,11 +33,16 @@ func (f *fakePoster) Edit(_ context.Context, _ store.NotificationEndpoint, p sto
 	return f.editErr
 }
 
-// fakeKeeper records the posts kept.
+// fakeKeeper records the posts kept, as "kind message".
 type fakeKeeper struct{ kept []string }
 
 func (f *fakeKeeper) RecordTwitchPost(_ context.Context, ref, endpoint int64, p store.DiscordPost) error {
-	f.kept = append(f.kept, p.MessageID)
+	f.kept = append(f.kept, "twitch "+p.MessageID)
+	return nil
+}
+
+func (f *fakeKeeper) RecordYouTubePost(_ context.Context, ref, endpoint int64, p store.DiscordPost) error {
+	f.kept = append(f.kept, "youtube "+p.MessageID)
 	return nil
 }
 
@@ -56,7 +61,7 @@ func TestDeliverPostsKeepsAndEditsAsEachNotificationNeeds(t *testing.T) {
 		wantErr   bool
 	}{
 		{"a stream going live, edited when it ends", store.Notification{Kind: "twitch_live", FeedID: 7, StreamRef: 3}, wasLive,
-			nil, []string{"post"}, []string{"100000000000000011"}, false},
+			nil, []string{"post"}, []string{"twitch 100000000000000011"}, false},
 		{"a stream going live, left as posted", store.Notification{Kind: "twitch_live", FeedID: 7, StreamRef: 3}, plain,
 			nil, []string{"send"}, nil, false},
 		{"a stream ended", store.Notification{Kind: "twitch_ended", FeedID: 7, Twitch: store.TwitchNotice{EndedAt: &ended, Posts: posted}}, wasLive,
@@ -65,6 +70,14 @@ func TestDeliverPostsKeepsAndEditsAsEachNotificationNeeds(t *testing.T) {
 			&notify.RefusedError{Status: 404}, []string{"edit 100000000000000011"}, nil, false},
 		{"a stream ended, Discord failing", store.Notification{Kind: "twitch_ended", FeedID: 7, Twitch: store.TwitchNotice{EndedAt: &ended, Posts: posted}}, wasLive,
 			errors.New("down"), []string{"edit 100000000000000011"}, nil, true},
+		{"a YouTube stream going live, edited when it ends", store.Notification{Kind: "youtube_live", FeedID: 7, StreamRef: 3}, wasLive,
+			nil, []string{"post"}, []string{"youtube 100000000000000011"}, false},
+		{"a YouTube stream going live, left as posted", store.Notification{Kind: "youtube_live", FeedID: 7, StreamRef: 3}, plain,
+			nil, []string{"send"}, nil, false},
+		{"a YouTube stream ended", store.Notification{Kind: "youtube_ended", FeedID: 7, YouTube: store.YouTubeNotice{EndedAt: &ended, Posts: posted}}, wasLive,
+			nil, []string{"edit 100000000000000011"}, nil, false},
+		{"a YouTube stream ended whose post was deleted", store.Notification{Kind: "youtube_ended", FeedID: 7, YouTube: store.YouTubeNotice{EndedAt: &ended, Posts: posted}}, wasLive,
+			&notify.RefusedError{Status: 404}, []string{"edit 100000000000000011"}, nil, false},
 		{"anything else", store.Notification{Kind: "sign_up"}, plain, nil, []string{"send"}, nil, false},
 	}
 	for _, tt := range tests {

@@ -173,7 +173,7 @@ const shortText = 300
 // testHeading heads admin's test message, and names the thread it opens in a forum channel.
 const testHeading = "Test from ttacommunity admin"
 
-// Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a Twitch stream's linking it
+// Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a Twitch or YouTube stream's linking it
 // (a stream ended is the edit of its post, its embed only) and any other headed by what it is; under e's prefix
 // and role, shown with e's name and picture, and opening a thread when e is a forum channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
@@ -183,6 +183,11 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 		return shaped(e, twitchEmbed(t, e.Look), t.DisplayName+" is live: "+t.Title)
 	case "twitch_ended":
 		return WebhookMessage{Embeds: []Embed{twitchEmbed(n.Twitch, e.Look)}}
+	case "youtube_live":
+		y := n.YouTube
+		return shaped(e, youtubeEmbed(y, e.Look), y.Channel+" is live: "+y.Title)
+	case "youtube_ended":
+		return WebhookMessage{Embeds: []Embed{youtubeEmbed(n.YouTube, e.Look)}}
 	case "rss_item":
 		thread := n.RSS.Item.Title
 		if strings.TrimSpace(thread) == "" {
@@ -263,6 +268,28 @@ func twitchEmbed(t store.TwitchNotice, look store.EmbedLook) Embed {
 	// Discord keeps a picture it has fetched: a new address per stream shows this stream's preview.
 	if t.ThumbnailURL != "" {
 		embed.Image = &EmbedImage{URL: t.ThumbnailURL + "?t=" + strconv.FormatInt(t.StartedAt.Unix(), 10)}
+	}
+	return embed
+}
+
+// youtubeEmbed is YouTube stream y as a live stream's card, in look's colour: the channel live, the title linking
+// the video, and its picture; once ended, the channel was live, for how long, without the picture.
+func youtubeEmbed(y store.YouTubeNotice, look store.EmbedLook) Embed {
+	embed := Embed{
+		Author:    &EmbedName{Name: cut(y.Channel+" is live on YouTube", maxEmbedTitle)},
+		Title:     cut(discordbot.EscapeMarkdown(y.Title), maxEmbedTitle),
+		URL:       "https://www.youtube.com/watch?v=" + url.QueryEscape(y.VideoID),
+		Color:     colour(look.Colour),
+		Timestamp: y.StartedAt.UTC().Format(time.RFC3339),
+	}
+	if y.EndedAt != nil {
+		embed.Author.Name = cut(y.Channel+" was live on YouTube", maxEmbedTitle)
+		embed.Description = "Streamed for " + ran(y.EndedAt.Sub(y.StartedAt))
+		return embed
+	}
+	// Discord keeps a picture it has fetched: a new address per stream shows the picture as it is now.
+	if y.ThumbnailURL != "" {
+		embed.Image = &EmbedImage{URL: y.ThumbnailURL + "?t=" + strconv.FormatInt(y.StartedAt.Unix(), 10)}
 	}
 	return embed
 }
