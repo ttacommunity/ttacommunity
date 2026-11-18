@@ -2705,7 +2705,7 @@ export interface paths {
         get?: never;
         /**
          * Change a notification webhook (admins only)
-         * @description Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
+         * @description Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its default (no events or feeds, not paused, the webhook's own name and picture, the default look).
          */
         put: operations["putAdminNotificationEndpoint"];
         post?: never;
@@ -2771,51 +2771,6 @@ export interface paths {
         put: operations["putAdminDiscordCommand"];
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/reddit-feeds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The subreddits whose new posts are posted to Discord (admins only) */
-        get: operations["getAdminRedditFeeds"];
-        put?: never;
-        /**
-         * Add a subreddit to read for new posts (admins only)
-         * @description Audited. The Origin must be the admin site. The feeds job's first read of it posts nothing, so its older posts are not posted; endpoints take it once it is among their feeds.
-         */
-        post: operations["postAdminRedditFeed"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/admin/reddit-feeds/{feed}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
-         * @description Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came while it was paused is not posted.
-         */
-        put: operations["putAdminRedditFeed"];
-        post?: never;
-        /**
-         * Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
-         * @description Audited. The Origin must be the admin site.
-         */
-        delete: operations["deleteAdminRedditFeed"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4115,13 +4070,11 @@ export interface components {
             avatar_url: string;
             /** @description A Discord role pinged with each message; none when empty */
             role_id: string;
-            /** @description A Reddit post's or RSS item's embed colour, #rrggbb */
+            /** @description A feed item's embed colour, #rrggbb */
             colour: string;
-            text: components["schemas"]["RedditPostText"];
-            /** @description Whether a Reddit post or RSS item shows its image */
+            text: components["schemas"]["FeedItemText"];
+            /** @description Whether a feed item shows its image */
             image: boolean;
-            /** @description Whether a Reddit post shows its author */
-            author: boolean;
             /**
              * Format: date-time
              * @description When a notification last reached it
@@ -4155,11 +4108,10 @@ export interface components {
             avatar_url?: string;
             /** @description A Discord role's id */
             role_id?: string;
-            /** @description #rrggbb, in lower case; Reddit's orange when not given */
+            /** @description #rrggbb, in lower case; orange when not given */
             colour?: string;
-            text?: components["schemas"]["RedditPostText"];
+            text?: components["schemas"]["FeedItemText"];
             image?: boolean;
-            author?: boolean;
         };
         DiscordBot: {
             /** @description Every command the bot has, in the order Discord lists them, with its settings */
@@ -4198,38 +4150,6 @@ export interface components {
          * @enum {string}
          */
         DiscordReplyVisibility: "private" | "shared" | "always_private" | "always_shared";
-        RedditFeed: {
-            /** Format: int64 */
-            id: number;
-            /** @description Its name, without r/ */
-            subreddit: string;
-            /** @description Not read while paused */
-            paused: boolean;
-            /** @description The kinds of post it sends */
-            kinds: components["schemas"]["RedditPostKind"][];
-            /**
-             * Format: date-time
-             * @description When the feeds job last read it
-             */
-            checked_at?: string | null;
-            /**
-             * Format: date-time
-             * @description When its newest post seen was posted on Reddit
-             */
-            last_post_at?: string | null;
-            /** @description Why its last read failed, until a read succeeds */
-            last_error?: string | null;
-            /** Format: date-time */
-            last_error_at?: string | null;
-        };
-        NewRedditFeed: {
-            /** @description Its name, without r/ */
-            subreddit: string;
-        };
-        RedditFeedSetting: {
-            paused: boolean;
-            kinds: components["schemas"]["RedditPostKind"][];
-        };
         TwitchFeed: {
             /** Format: int64 */
             id: number;
@@ -4320,15 +4240,10 @@ export interface components {
             };
         };
         /**
-         * @description How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
+         * @description How much of a feed item's text an endpoint shows
          * @enum {string}
          */
-        RedditPostText: "full" | "short" | "none";
-        /**
-         * @description A kind of Reddit post
-         * @enum {string}
-         */
-        RedditPostKind: "text" | "image" | "gallery" | "video" | "link";
+        FeedItemText: "full" | "short" | "none";
         NotificationTest: {
             delivered: boolean;
             /** @description What happened, for admin to show */
@@ -7693,7 +7608,6 @@ export interface components {
         MemberId: number;
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
-        AdminRedditFeedId: number;
         AdminRSSFeedId: number;
         AdminTwitchFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
@@ -11443,109 +11357,6 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    getAdminRedditFeeds: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The feeds, by subreddit */
-            200: {
-                headers: {
-                    "Cache-Control": components["headers"]["CacheControl"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedditFeed"][];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    postAdminRedditFeed: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["NewRedditFeed"];
-            };
-        };
-        responses: {
-            /** @description Added */
-            201: {
-                headers: {
-                    "Cache-Control": components["headers"]["CacheControl"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RedditFeed"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            409: components["responses"]["Conflict"];
-        };
-    };
-    putAdminRedditFeed: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                feed: components["parameters"]["AdminRedditFeedId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RedditFeedSetting"];
-            };
-        };
-        responses: {
-            /** @description Saved */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    deleteAdminRedditFeed: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                feed: components["parameters"]["AdminRedditFeedId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removed */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
-    };
     receiveTwitchEvent: {
         parameters: {
             query?: never;
@@ -13276,8 +13087,7 @@ export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<compon
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];
-export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
-export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "gallery", "video", "link"];
+export const feedItemTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedItemText"]> = ["full", "short", "none"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];

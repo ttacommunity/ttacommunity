@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EVENTS, endpointChanged, endpointSetting, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
 
-const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', colour: '#ff4500', text: 'full' as const, image: true, author: true };
+const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', colour: '#ff4500', text: 'full' as const, image: true };
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
@@ -18,14 +18,13 @@ describe('notification endpoints', () => {
     ['taking another feed', { ...SAVED, feeds: [2] }, true],
     ['paused', { ...SAVED, paused: true }, true],
     ['made a forum channel\'s', { ...SAVED, forum: true }, true],
-    ['given a display name', { ...SAVED, username: 'TTA Reddit' }, true],
+    ['given a display name', { ...SAVED, username: 'TTA News' }, true],
     ['given a picture', { ...SAVED, avatar_url: 'https://example.com/a.png' }, true],
     ['given a role to ping', { ...SAVED, role_id: '100000000000000002' }, true],
     ['given only spaces as a display name', { ...SAVED, username: '  ' }, false],
     ['given a colour', { ...SAVED, colour: '#123abc' }, true],
     ['showing less text', { ...SAVED, text: 'short' as const }, true],
     ['hiding the image', { ...SAVED, image: false }, true],
-    ['hiding the author', { ...SAVED, author: false }, true],
     ['taking the same feeds in another order', { ...SAVED, feeds: [5, 2] }, false],
     ['given another keyword', { ...SAVED, feed_options: [{ feed: 5, categories: [], keywords: ['tta', 'tournament'], was_live: true }] }, true],
     ['turning "was live" off', { ...SAVED, feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: false }] }, true],
@@ -67,8 +66,8 @@ describe('notification endpoints', () => {
   });
 
   const FEEDS = [
-    { kind: 'reddit' as const, id: 2, name: 'r/throughtheages' },
-    { kind: 'reddit' as const, id: 5, name: 'r/boardgames' },
+    { kind: 'rss' as const, id: 2, name: 'Example news' },
+    { kind: 'rss' as const, id: 5, name: 'Other news' },
     { kind: 'twitch' as const, id: 7, name: 'some_streamer' },
   ];
 
@@ -76,8 +75,8 @@ describe('notification endpoints', () => {
     ['nothing', [], [], 'Nothing: no posts reach it'],
     ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing'] as const, [], 'every site event'],
     ['some events, in the tab\'s order', ['blitz_flag', 'sign_up'] as const, [], 'New players signing up, Blitz reports flagged'],
-    ['a feed', [], [5], 'r/boardgames'],
-    ['events and feeds', ['link_request'] as const, [2, 5], 'Requests to be linked; r/throughtheages; r/boardgames'],
+    ['an RSS feed', [], [5], 'Other news on RSS'],
+    ['events and feeds', ['link_request'] as const, [2, 5], 'Requests to be linked; Example news on RSS; Other news on RSS'],
     ['a Twitch streamer', [], [7], 'some_streamer on Twitch'],
     ['a feed since removed', [], [9], 'Nothing: no posts reach it'],
   ])('says what an endpoint takes: %s', (_, events, feeds, want) => {

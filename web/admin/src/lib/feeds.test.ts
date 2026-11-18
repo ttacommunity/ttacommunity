@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { feedGroups, feedRows, optionsFor, pauseRequest, removeRequest, rssName, twitchStatus, withOptions, words } from './feeds';
+import { feedGroups, feedRows, optionsFor, pauseRequest, removeRequest, rssName, rssStatus, twitchStatus, withOptions, words } from './feeds';
 
 const when = (iso: string) => `at ${iso}`;
-const reddit = (id: number, subreddit: string, paused = false) => ({
-  id, subreddit, paused, kinds: ['text' as const, 'image' as const, 'gallery' as const, 'video' as const, 'link' as const],
-  checked_at: '2026-11-18T08:00:00Z',
-});
 const twitch = (id: number, login: string, statuses: string[], paused = false) => ({
   id, login, display_name: login, user_id: '100000001', paused, created_at: '2026-11-18T08:00:00Z',
   subscriptions: statuses.map((status, i) => ({ type: i === 0 ? 'stream.online' : 'stream.offline', status })),
@@ -15,24 +11,26 @@ const rss = (id: number, title: string, url = 'https://news.example.com/feed.xml
 });
 
 describe('feeds', () => {
-  it('lists Reddit feeds, Twitch streamers then RSS feeds, each by name', () => {
+  it('lists Twitch streamers then RSS feeds, each by name', () => {
     const rows = feedRows({
-      reddit: [reddit(2, 'throughtheages'), reddit(1, 'boardgames')],
       twitch: [twitch(3, 'some_streamer', ['enabled', 'enabled'])],
       rss: [rss(5, 'Zebra news'), rss(4, 'Example news', 'https://blog.example.com/atom.xml')],
     }, when);
     expect(rows.map((r) => `${r.kind} ${r.name} ${r.href}`)).toEqual([
-      'reddit r/boardgames https://www.reddit.com/r/boardgames/new/',
-      'reddit r/throughtheages https://www.reddit.com/r/throughtheages/new/',
       'twitch some_streamer https://www.twitch.tv/some_streamer',
       'rss Example news https://blog.example.com/atom.xml',
       'rss Zebra news https://news.example.com/feed.xml',
     ]);
   });
 
-  it('says how an RSS feed is doing by its newest item', () => {
-    const [row] = feedRows({ reddit: [], twitch: [], rss: [rss(4, 'Example news')] }, when);
-    expect(row.status).toBe('Read at 2026-11-18T08:00:00Z; newest item at 2026-11-18T07:00:00Z');
+  it.each([
+    ['new', { paused: false }, 'Not read yet: its first read posts nothing'],
+    ['read, no items', { paused: false, checked_at: '2026-11-17T01:00:00Z' }, 'Read at 2026-11-17T01:00:00Z'],
+    ['read, with an item', { paused: false, checked_at: '2026-11-17T01:00:00Z', last_item_at: '2026-11-14T10:00:00Z' }, 'Read at 2026-11-17T01:00:00Z; newest item at 2026-11-14T10:00:00Z'],
+    ['failing', { paused: false, checked_at: '2026-11-17T01:00:00Z', last_error: 'the feed answered 404', last_error_at: '2026-11-17T02:00:00Z' }, 'Failed at 2026-11-17T02:00:00Z: the feed answered 404'],
+    ['paused', { paused: true, checked_at: '2026-11-17T01:00:00Z' }, 'Paused: not read'],
+  ])('says how an RSS feed is doing when %s', (_, feed, want) => {
+    expect(rssStatus(feed, when)).toBe(want);
   });
 
   it.each([
@@ -44,15 +42,13 @@ describe('feeds', () => {
   });
 
   it.each([
-    ['a Reddit feed, keeping its kinds', 'reddit' as const, false, '/api/reddit-feeds/7', { kinds: ['text'], paused: true }],
     ['a Twitch streamer', 'twitch' as const, false, '/api/twitch-feeds/7', { paused: true }],
     ['an RSS feed, resumed', 'rss' as const, true, '/api/rss-feeds/7', { paused: false }],
   ])('pauses or resumes %s', (_, kind, paused, path, json) => {
-    expect(pauseRequest({ kind, id: 7, paused }, ['text'])).toEqual({ path, init: { method: 'PUT', json } });
+    expect(pauseRequest({ kind, id: 7, paused })).toEqual({ path, init: { method: 'PUT', json } });
   });
 
   it.each([
-    ['reddit' as const, '/api/reddit-feeds/7'],
     ['twitch' as const, '/api/twitch-feeds/7'],
     ['rss' as const, '/api/rss-feeds/7'],
   ])('removes a %s feed', (kind, path) => {
@@ -70,13 +66,12 @@ describe('feeds', () => {
   });
 
   it('groups the feeds an endpoint may take by kind, leaving out a kind with none', () => {
-    const groups = feedGroups({ reddit: [reddit(2, 'throughtheages', true)], twitch: [twitch(3, 'some_streamer', [])], rss: [rss(4, '')] });
+    const groups = feedGroups({ twitch: [twitch(3, 'some_streamer', [], true)], rss: [rss(4, '')] });
     expect(groups.map((g) => `${g.label}: ${g.feeds.map((f) => `${f.name}${f.paused ? ' (paused)' : ''}`).join(', ')}`)).toEqual([
-      'Reddit: r/throughtheages (paused)',
-      'Twitch: some_streamer',
+      'Twitch: some_streamer (paused)',
       'RSS: news.example.com',
     ]);
-    expect(feedGroups({ reddit: [], twitch: [twitch(3, 'some_streamer', [])], rss: [] }).map((g) => g.kind)).toEqual(['twitch']);
+    expect(feedGroups({ twitch: [twitch(3, 'some_streamer', [])], rss: [] }).map((g) => g.kind)).toEqual(['twitch']);
   });
 
   it.each([
