@@ -28,6 +28,7 @@ type Mark struct {
 // rating's to the highest's, and the ratings at MarkedPercentiles.
 type Spread struct {
 	Players int
+	Mean    float64
 	Bins    []Bin
 	Marks   []Mark
 }
@@ -46,9 +47,12 @@ func SpreadOf(ratings []float64, width int) Spread {
 	for from := lo; from <= binOf(sorted[len(sorted)-1]); from += width {
 		s.Bins = append(s.Bins, Bin{From: from})
 	}
+	var sum float64
 	for _, r := range sorted {
+		sum += r
 		s.Bins[(binOf(r)-lo)/width].Count++
 	}
+	s.Mean = round.Tenth(sum / float64(len(sorted)))
 	for _, p := range MarkedPercentiles {
 		i := max(0, int(math.Ceil(float64(p)*float64(len(sorted))/100))-1)
 		s.Marks = append(s.Marks, Mark{Percentile: p, Value: sorted[i]})

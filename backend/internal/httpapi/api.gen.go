@@ -5043,8 +5043,11 @@ type RatingPercentiles struct {
 	Format Format `json:"format"`
 
 	// Marks The counted rating at the 10th, 25th, 50th, 75th, 90th and 99th percentiles; empty without players
-	Marks   []PercentileMark `json:"marks"`
-	MinOpps int              `json:"min_opps"`
+	Marks []PercentileMark `json:"marks"`
+
+	// Mean Arithmetic mean of the counted players' ratings; 0 without players
+	Mean    float64 `json:"mean"`
+	MinOpps int     `json:"min_opps"`
 
 	// Model The rating model: Glicko-D, continuous (`glicko2_daneo`) or reset
 	// gently each season (`glicko2_daneo_softer`), or standard Glicko-2

@@ -47,6 +47,9 @@ func TestPercentilesCountTheLeaderboardsDefaultPlayers(t *testing.T) {
 	if f.gotRun != 7 || f.gotMod != "glicko2_std" || f.gotFmt != 2 {
 		t.Errorf("read run %d %s format %d, want 7 glicko2_std 2", f.gotRun, f.gotMod, f.gotFmt)
 	}
+	if got.Mean != 1580.1 {
+		t.Errorf("mean = %v, want 1580.1", got.Mean)
+	}
 	if got.Players != 2 || got.Status != PercentileStatusActive || got.MinOpps != 30 || got.BinWidth != 50 || got.Rating != RatingBasisCRating || got.Title != nil {
 		t.Errorf("players %d, status %q, min_opps %d, bin_width %d, rating %q, title %v; want 2 active 30 50 c_rating nil",
 			got.Players, got.Status, got.MinOpps, got.BinWidth, got.Rating, got.Title)

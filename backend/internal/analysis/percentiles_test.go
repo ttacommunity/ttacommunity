@@ -73,3 +73,12 @@ func TestPlaceCountsWhoIsRatedLowerAndHigher(t *testing.T) {
 		})
 	}
 }
+
+func TestSpreadOfComputesArithmeticMean(t *testing.T) {
+	if got := SpreadOf(nil, 50).Mean; got != 0 {
+		t.Errorf("SpreadOf(nil).Mean = %v, want 0", got)
+	}
+	if got := SpreadOf([]float64{1500, 1600.25}, 50).Mean; got != 1550.1 {
+		t.Errorf("SpreadOf([1500, 1600.25]).Mean = %v, want 1550.1", got)
+	}
+}

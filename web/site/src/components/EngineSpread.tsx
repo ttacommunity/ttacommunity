@@ -34,12 +34,19 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const distData = load.kind === 'ready' ? load.data : null;
   const canvas = useRef<HTMLCanvasElement>(null);
   const chart = useRef<Chart<'bar'> | null>(null);
+  const distRef = useRef<Distribution | null>(null);
+  distRef.current = distData;
 
   useEffect(() => onFormat(window, setFormat), []);
+  useEffect(() => () => {
+    chart.current?.destroy();
+    chart.current = null;
+  }, []);
 
-  // Create chart instance once when canvas is mounted
+  // Create chart instance once canvas and data are both present, then update datasets on change
   useIsomorphicLayoutEffect(() => {
-    if (canvas.current === null) return;
+    if (canvas.current === null || distData === null) return;
+    if (chart.current === null) {
     const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
     const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
     const grid = { color: 'rgba(74, 53, 37, 0.3)' };
@@ -68,7 +75,7 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
             borderWidth: 1,
             padding: 10,
             callbacks: {
-              title: (items) => (items[0] && distData ? `Rating Bracket: ${distData.labels[items[0].dataIndex] ?? ''}` : ''),
+              title: (items) => (items[0] && distRef.current ? `Rating Bracket: ${distRef.current.labels[items[0].dataIndex] ?? ''}` : ''),
               label: (ctx) => {
                 const counts = ctx.dataset.data as number[];
                 const val = ctx.parsed.y ?? 0;
@@ -80,8 +87,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
                 return ` ${ctx.dataset.label ?? ''}: ${val} (${pct}%) • Percentile: ${cumPct}% (Top ${topPct}%)`;
               },
               footer: () => {
-                if (!distData) return '';
-                const currentBars = means(distData);
+                if (!distRef.current) return '';
+                const currentBars = means(distRef.current);
                 return `\nExact Means (All Players):\n  ${currentBars.map((b) => `${b.short}: ${b.mean}`).join(' | ')}\n\nActive Player Means (>10 games in last yr):\n  ${currentBars.map((b) => `${b.short}: ${b.active}`).join(' | ')}`;
               },
             },
@@ -90,16 +97,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
       },
     });
 
-    return () => {
-      chart.current?.destroy();
-      chart.current = null;
-    };
-  }, []);
-
-  // Update datasets when distData updates
-  useIsomorphicLayoutEffect(() => {
+    }
     const c = chart.current;
-    if (c === null || distData === null) return;
     const currentBars = means(distData);
     c.data.labels = distData.labels;
     c.data.datasets = currentBars.map((b) => ({
