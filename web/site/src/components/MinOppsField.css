@@ -1,0 +1,12 @@
+/* The minimum-opponents box and its Apply button, side by side. */
+.options-min-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.options-min-row .input-antique {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}

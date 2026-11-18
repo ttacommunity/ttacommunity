@@ -36,6 +36,10 @@ export type ComparedPlayer = components['schemas']['ComparedPlayer'];
 export type Activity = components['schemas']['Activity'];
 export type CountryRatings = components['schemas']['CountryRatings'];
 export type SeatAnalysis = components['schemas']['SeatAnalysis'];
+export type RatingPercentiles = components['schemas']['RatingPercentiles'];
+export type PercentileStatus = components['schemas']['PercentileStatus'];
+export type PlayerPercentile = components['schemas']['PlayerPercentile'];
+export type RatingBasis = components['schemas']['RatingBasis'];
 export type SeatStatsGroup = components['schemas']['SeatStatsGroup'];
 export type SeatWinrateRow = components['schemas']['SeatWinrateRow'];
 export type SeatPlaceRate = components['schemas']['SeatPlaceRate'];
@@ -369,6 +373,33 @@ export async function seatAnalysis(
 ): Promise<SeatAnalysis> {
   const query = new URLSearchParams({ tier, format: String(format) });
   return get<SeatAnalysis>(fetchFn, base, `/v1/runs/${run}/analysis/seats?${query}`);
+}
+
+/** The percentiles page's choices: the leaderboard's model, format and filters, the rating counted, the bins' width, and a player's name or ''. */
+export interface PercentileQuery {
+  model: Model;
+  format: Format;
+  status: PercentileStatus;
+  minOpps: number;
+  title: TitleCode | null;
+  rating: RatingBasis;
+  binWidth: number;
+  player: string;
+}
+
+/** Returns how the leaderboard's players spread over conservative ratings for q's filters, and where q's player stands. */
+export async function ratingPercentiles(base: string, run: number, q: PercentileQuery, fetchFn: typeof fetch = fetch): Promise<RatingPercentiles> {
+  const query = new URLSearchParams({
+    model: q.model,
+    format: String(q.format),
+    status: q.status,
+    min_opps: String(q.minOpps),
+    rating: q.rating,
+    bin_width: String(q.binWidth),
+  });
+  if (q.title !== null) query.set('title', q.title);
+  if (q.player !== '') query.set('player', q.player);
+  return get<RatingPercentiles>(fetchFn, base, `/v1/runs/${run}/analysis/percentiles?${query}`);
 }
 
 /** Returns what a tournament series' Hall of Fame page shows: counts, trophyboard, best seasons and games. */

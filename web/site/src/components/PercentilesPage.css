@@ -1,0 +1,21 @@
+/* The rating percentiles page's own layout: the player box, and the chart's height. */
+.percentiles-picker {
+  max-width: 28rem;
+  margin-bottom: 1.5rem;
+}
+
+.percentiles-chart-card {
+  margin-bottom: 2rem;
+}
+
+.percentiles-chart {
+  position: relative;
+  width: 100%;
+  height: 340px;
+}
+
+@media (max-width: 640px) {
+  .percentiles-chart {
+    height: 260px;
+  }
+}
