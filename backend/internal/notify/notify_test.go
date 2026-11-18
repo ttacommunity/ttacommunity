@@ -62,11 +62,15 @@ func TestText(t *testing.T) {
 			"**Blitz report flagged**: US Open 2026, round 2: Ann says Bob's report (Ann and Bob drew) is wrong: I won on culture. <" + admin + "/blitz/?t=us_open&e=2026>"},
 		{"names written as typed, not as markdown or mentions", store.Notification{Kind: "link_request", Name: "@everyone <@100000000000000001> **x**", SignIns: []string{"email"}},
 			`**Link request**: a player who signs in with email asks to be linked to **@everyone \<@100000000000000001\> \*\*x\*\***. Answer it in admin: <` + admin + "/#members>"},
-		{"a Reddit feed failing", store.Notification{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "some_sub"}, FeedError: "reddit answered 403"},
+		{"a Reddit feed failing", store.Notification{Kind: "feed_failed", FeedKind: "reddit", FeedName: "some_sub", FeedError: "reddit answered 403"},
 			`**Reddit feed failing**: r/some\_sub has failed its last 3 reads: reddit answered 403. <` + admin + "/#notifications>"},
-		{"a Reddit feed failing, its reason gone by when it is sent", store.Notification{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "example"}},
+		{"a Reddit feed failing, its reason gone by when it is sent", store.Notification{Kind: "feed_failed", FeedKind: "reddit", FeedName: "example"},
 			"**Reddit feed failing**: r/example has failed its last 3 reads. <" + admin + "/#notifications>"},
-		{"a Reddit feed reading again", store.Notification{Kind: "reddit_recovered", Reddit: store.RedditNotice{Subreddit: "some_sub"}},
+		{"an RSS feed failing", store.Notification{Kind: "feed_failed", FeedKind: "rss", FeedName: "Example *news*", FeedError: "the feed answered 404"},
+			`**RSS feed failing**: Example \*news\* has failed its last 3 reads: the feed answered 404. <` + admin + "/#notifications>"},
+		{"an RSS feed reading again", store.Notification{Kind: "feed_recovered", FeedKind: "rss", FeedName: "https://news.example.com/feed"},
+			`**RSS feed reading again**: https://news.example.com/feed reads again; its new posts are posted. <` + admin + "/#notifications>"},
+		{"a Reddit feed reading again", store.Notification{Kind: "feed_recovered", FeedKind: "reddit", FeedName: "some_sub"},
 			`**Reddit feed reading again**: r/some\_sub reads again; its new posts are posted. <` + admin + "/#notifications>"},
 		{"an edition's address escaped", store.Notification{Kind: "blitz_report", Slug: "us_open", Series: "US Open", Edition: "Season 1 & 2", Round: 1, A: "Ann", B: "Bob", Result: "a", ReportedBy: "Ann"},
 			"**Blitz result reported**: US Open Season 1 & 2, round 1: Ann beat Bob, reported by Ann. <" + admin + "/blitz/?t=us_open&e=Season+1+%26+2>"},
@@ -240,7 +244,7 @@ func TestOtherNotificationsAreEmbedsHeadedByWhatTheyAre(t *testing.T) {
 	e := store.NotificationEndpoint{Look: store.EmbedLook{Colour: "#123abc"}}
 	for _, n := range []store.Notification{
 		{Kind: "link_request", Name: "Eve", SignIns: []string{"discord"}},
-		{Kind: "reddit_failed", Reddit: store.RedditNotice{Subreddit: "example"}, FeedError: "reddit answered 403"},
+		{Kind: "feed_failed", FeedKind: "reddit", FeedName: "example", FeedError: "reddit answered 403"},
 	} {
 		p := notify.Payload(n, e, admin)
 		if len(p.Embeds) != 1 {
@@ -480,5 +484,53 @@ func TestSendDoesNotFollowAnImagesRedirectToAnotherHost(t *testing.T) {
 	embeds, _ := got["embeds"].([]any)
 	if picture, _ := embeds[0].(map[string]any)["thumbnail"].(map[string]any); picture["url"] != m.Upload {
 		t.Errorf("embeds = %v, want the image left as a link, not read from the host it redirected to", got["embeds"])
+	}
+}
+
+func rssItem(title, image string) store.Notification {
+	return store.Notification{Kind: "rss_item", FeedID: 5, RSS: store.RSSNotice{Feed: "Example news", Item: store.RSSItem{
+		ItemID: "item-1", Title: title, URL: "https://news.example.com/1", Summary: `A long summary of the news, \*escaped\* already`,
+		ImageURL: image, PublishedAt: time.Date(2026, 11, 18, 1, 0, 0, 0, time.UTC),
+	}}}
+}
+
+func TestAnRSSItemIsACardHeadedByItsFeedInItsEndpointsLook(t *testing.T) {
+	const image = "https://cdn.example.com/a.jpg"
+	for _, tt := range []struct {
+		name      string
+		look      store.EmbedLook
+		wantText  string
+		wantImage string
+	}{
+		{"all of it", store.EmbedLook{Colour: "#123abc", Text: "full", Image: true}, `A long summary of the news, \*escaped\* already`, image},
+		{"its start", store.EmbedLook{Colour: "#123abc", Text: "short", Image: true}, `A long summary of the news, \*escaped\* already`, image},
+		{"no text or image", store.EmbedLook{Colour: "#123abc", Text: "none"}, "", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			p := notify.Payload(rssItem("A *bold* title", image), store.NotificationEndpoint{Look: tt.look}, admin)
+			if len(p.Embeds) != 1 || p.Upload != "" {
+				t.Fatalf("payload = %+v, want one embed and nothing uploaded", p)
+			}
+			e := p.Embeds[0]
+			if e.Author == nil || e.Author.Name != "New on Example news" || e.Title != `A \*bold\* title` || e.URL != "https://news.example.com/1" || e.Color != 0x123abc {
+				t.Errorf("embed = %+v, want headed New on Example news, the title escaped, linking the item, in the endpoint's colour", e)
+			}
+			if e.Description != tt.wantText || urlOf(e.Image) != tt.wantImage {
+				t.Errorf("text, image = %q, %q; want %q, %q", e.Description, urlOf(e.Image), tt.wantText, tt.wantImage)
+			}
+		})
+	}
+}
+
+func TestAnRSSItemInAForumOpensAThreadByItsTitleOrElseItsFeed(t *testing.T) {
+	forum := store.NotificationEndpoint{Forum: true, Look: store.DefaultLook}
+	for _, tt := range []struct{ title, want string }{
+		{"A title", "A title"},
+		{"", "Example news"},
+	} {
+		p := notify.Payload(rssItem(tt.title, "https://cdn.example.com/a.jpg"), forum, admin)
+		if p.ThreadName != tt.want || p.Upload != "" || urlOf(p.Embeds[0].Image) != "https://cdn.example.com/a.jpg" {
+			t.Errorf("title %q: thread %q, upload %q, image %v; want thread %q and the image in the embed, not uploaded", tt.title, p.ThreadName, p.Upload, p.Embeds[0].Image, tt.want)
+		}
 	}
 }

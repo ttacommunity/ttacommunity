@@ -131,19 +131,19 @@ func (c *Client) Read(ctx context.Context, address string, now time.Time) (Feed,
 		return Feed{}, fmt.Errorf("the feed answered %d", resp.StatusCode)
 	}
 	if resp.ContentLength > MaxFeed {
-		return Feed{}, tooLarge
+		return Feed{}, errTooLarge
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxFeed+1))
 	if err != nil {
 		return Feed{}, fmt.Errorf("reading the feed: %w", err)
 	}
 	if len(body) > MaxFeed {
-		return Feed{}, tooLarge
+		return Feed{}, errTooLarge
 	}
 	return Parse(strings.NewReader(string(body)), now)
 }
 
-var tooLarge = fmt.Errorf("the feed is larger than %d MB", MaxFeed>>20)
+var errTooLarge = fmt.Errorf("the feed is larger than %d MB", MaxFeed>>20)
 
 // node is an element of an item: its text (with Atom's type: text, html or xhtml, whose markup is Inner), or the
 // address it points at (a link's href, or a picture's or enclosure's url, with its type and medium).
