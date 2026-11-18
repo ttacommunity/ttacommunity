@@ -465,7 +465,7 @@ func openSignIns(ctx context.Context, getenv func(string) string) (signInDeps, *
 	}
 	pool, err := store.OpenPool(ctx, dbURL)
 	if err != nil {
-		return signInDeps{}, nil, errors.New("opening the player pool failed")
+		return signInDeps{}, nil, errors.New("the player login could not reach the database")
 	}
 	p := store.NewPlayerStore(pool)
 	if err := p.CheckLimits(ctx); err != nil {
