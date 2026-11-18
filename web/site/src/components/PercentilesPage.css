@@ -1,11 +1,9 @@
-/* The rating percentiles page's own layout: the toolbar with player search and options button, and the chart's height. */
+/* The rating percentiles page's own layout: the bar with player search and options button, and the chart's height. */
 .percentiles-toolbar {
-  display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem 1.25rem;
   margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
 }
 
 .percentiles-picker {

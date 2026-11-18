@@ -74,11 +74,8 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         </div>
       </div>
 
-      <div className="seat-filter-head">
-        <PanelHeader title="Filter by Player Strength & Match Format" />
-      </div>
-
       <div className="rating-card panel-card eval-table-card seat-filter-card">
+        <PanelHeader title="Filter by Player Strength & Match Format" />
         <div className="seat-filter-stack">
           <div>
             <div className="seat-filter-label">Skill Tier (Glicko-D Table Average):</div>

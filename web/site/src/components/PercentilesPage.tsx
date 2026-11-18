@@ -74,7 +74,7 @@ export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="percentiles-toolbar">
+      <div className="view-bar view-bar-row percentiles-toolbar">
         <div className="percentiles-picker">
           <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} />
         </div>
