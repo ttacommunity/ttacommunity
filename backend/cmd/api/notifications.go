@@ -23,12 +23,22 @@ func (d adminDeps) PostTestNotification(ctx context.Context, e store.Notificatio
 	return d.poster.Send(ctx, e.URL, notify.TestPayload(e))
 }
 
-// sendNotifications sends the outbox through a to its endpoints with poster, linking to admin at origin admin, every
-// notifyEvery until ctx ends. Logs name a notification's kind and an endpoint's id, never a name or a URL.
-func sendNotifications(ctx context.Context, a *store.AdminStore, poster discordPoster, admin string, log *slog.Logger) {
+// sendNotifications sends the outbox through a to its endpoints with poster, linking to admin at origin admin and
+// to the site at site, with a run's news read from boards, every notifyEvery until ctx ends. Run news with nothing
+// to post is done unsent. Logs name a notification's kind and an endpoint's id, never a name or a URL.
+func sendNotifications(ctx context.Context, a *store.AdminStore, boards runBoards, poster discordPoster, admin, site string, log *slog.Logger) {
 	for {
+		news := newRunNews(boards, site)
 		done, err := a.SendNotifications(ctx, time.Now(), notifyBatch, func(ctx context.Context, n store.Notification, e store.NotificationEndpoint) error {
-			err := deliver(ctx, a, poster, n, e, admin, log)
+			n, post, err := news.fill(ctx, n)
+			if err != nil {
+				log.Warn("reading a run's news failed", "kind", n.Kind, "err", err)
+				return err
+			}
+			if !post {
+				return nil
+			}
+			err = deliver(ctx, a, poster, n, e, admin, log)
 			if err != nil {
 				log.Warn("posting a notification failed", "kind", n.Kind, "endpoint", e.ID, "err", err)
 			}

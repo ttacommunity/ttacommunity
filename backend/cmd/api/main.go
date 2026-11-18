@@ -93,7 +93,6 @@ func main() {
 	}
 	defer adminPool.Close()
 	reg.AddPool("ratings_admin", adminPool)
-	go sendNotifications(ctx, admins.AdminStore, admins.poster, admins.origin, log)
 	if os.Getenv("ADMIN_DEV_USER") != "" {
 		log.Warn("admin sign-in is bypassed for local development (ADMIN_DEV_USER)")
 	}
@@ -105,6 +104,7 @@ func main() {
 	}
 	defer playerPool.Close()
 	reg.AddPool("ratings_player", playerPool)
+	go sendNotifications(ctx, admins.AdminStore, ratings, admins.poster, admins.origin, signIns.SiteOrigin(), log)
 	if os.Getenv("EMAIL_DEV_MAIL") != "" {
 		log.Warn("email sign-in prints its links for local development (EMAIL_DEV_MAIL)")
 	}

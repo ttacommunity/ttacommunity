@@ -44,7 +44,31 @@ type Notification struct {
 	StreamRef int64
 	Twitch    TwitchNotice
 	YouTube   YouTubeNotice
+	// A community run published (ratings_run) or the changes in its top 10 (ratings_top10): the run, the one
+	// current before it, and the counts. Top10 and Run.Link are filled in by the sender, which reads the boards.
+	Run   RunNotice
+	Top10 TopTenChange
 }
+
+// RunNotice is a published run's news: its id, the run current before it (0 for none), how many games it covers,
+// and how many players have a better title than before (a first one included) and a worse one or none, by
+// TitleOrder; both 0 without a run before. Link is the leaderboard's address.
+type RunNotice struct {
+	ID, BeforeID             int64
+	Games                    int
+	TitlesGained, TitlesLost int
+	Link                     string
+}
+
+// TopTenChange is how a top 10 changed: its new number one ("" when the same) and who came in and went out, in
+// the new and old boards' order.
+type TopTenChange struct {
+	NumberOne string
+	In, Out   []string
+}
+
+// TitleOrder is the titles from best to worst, as the engine ranks them.
+var TitleOrder = []string{"WC", "SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W"}
 
 // NotificationsSent counts what SendNotifications did: sent, failed (to be tried again), and given up on after
 // MaxNotificationAttempts failures (counted as failed too).
@@ -136,7 +160,7 @@ func notificationRetry(attempts int) time.Duration {
 // SendNotifications hands each of up to limit notifications due at now to send, in the order they were queued, once
 // for each endpoint taking its kind, and deletes it once every one has it; one an endpoint failed is tried again
 // later, for the endpoints that failed. One no endpoint takes, whose request was answered, or whose report was
-// removed or its flag resolved, is dropped unsent. Notifications another call is sending are left to it.
+// removed or its flag resolved, or whose run was deleted, is dropped unsent. Notifications another call is sending are left to it.
 func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit int,
 	send func(context.Context, Notification, NotificationEndpoint) error) (NotificationsSent, error) {
 	var done NotificationsSent
@@ -151,8 +175,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id), o.attempts, o.sent_to,
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, 0), o.attempts, o.sent_to,
 			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended') THEN true
+			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
 			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
@@ -175,8 +200,18 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(vc.name, ''), coalesce(ys.video_id, ''), coalesce(ys.title, ''), coalesce(yv.thumbnail_url, ''),
 			       coalesce(ys.started_at, o.created_at), ys.ended_at,
 			       coalesce((SELECT json_object_agg(yp.endpoint_id, json_build_object('message_id', yp.message_id, 'channel_id', yp.channel_id))
-			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}')
+			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}'),
+			       coalesce(o.published_run_id, 0), coalesce(o.before_run_id, 0), coalesce(rr.games, 0), coalesce(tc.gained, 0), coalesce(tc.lost, 0)
 			FROM notification_outbox o
+			LEFT JOIN rating_runs rr ON rr.run_id = o.published_run_id
+			LEFT JOIN LATERAL (
+				SELECT count(*) FILTER (WHERE x.now < x.was) AS gained, count(*) FILTER (WHERE x.now > x.was) AS lost
+				FROM (SELECT coalesce(array_position($3::text[], ta.title), 99) AS now, coalesce(array_position($3::text[], tb.title), 99) AS was, p.player_id
+				      FROM (SELECT player_id, title FROM player_titles WHERE run_id = o.published_run_id) ta
+				      FULL JOIN (SELECT player_id, title FROM player_titles WHERE run_id = o.before_run_id) tb USING (player_id)
+				      JOIN players p USING (player_id)
+				      WHERE `+notHiddenPlayer+`) x
+			) tc ON o.kind = 'ratings_run' AND o.before_run_id IS NOT NULL
 			LEFT JOIN youtube_streams ys ON ys.youtube_stream_id = o.youtube_stream_id LEFT JOIN videos yv ON yv.video_id = ys.video_id
 			LEFT JOIN video_channels vc ON vc.channel_id = yv.channel_id
 			LEFT JOIN rss_items ri ON ri.rss_item_id = o.rss_item_id LEFT JOIN feeds xf ON xf.feed_id = ri.feed_id
@@ -194,7 +229,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			WHERE o.next_at <= $1
 			ORDER BY o.notification_id
 			LIMIT $2
-			FOR UPDATE OF o SKIP LOCKED`, now, limit)
+			FOR UPDATE OF o SKIP LOCKED`, now, limit, TitleOrder)
 		if err != nil {
 			return fmt.Errorf("reading the notifications due: %w", err)
 		}
@@ -217,7 +252,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				&n.RSS.Feed, &n.RSS.Item.ItemID, &n.RSS.Item.Title, &n.RSS.Item.URL, &n.RSS.Item.Summary, &n.RSS.Item.ImageURL,
 				&n.RSS.Item.PublishedAt,
 				&n.YouTube.Channel, &n.YouTube.VideoID, &n.YouTube.Title, &n.YouTube.ThumbnailURL, &n.YouTube.StartedAt, &n.YouTube.EndedAt,
-				&n.YouTube.Posts); err != nil {
+				&n.YouTube.Posts,
+				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}

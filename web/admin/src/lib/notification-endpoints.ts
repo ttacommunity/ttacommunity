@@ -31,6 +31,8 @@ export const EVENTS: { key: Event; label: string }[] = [
   { key: 'blitz_report', label: 'Blitz results reported or corrected' },
   { key: 'blitz_flag', label: 'Blitz reports flagged' },
   { key: 'feed_failing', label: 'Feeds failing or reading again' },
+  { key: 'ratings_run', label: 'New ratings published' },
+  { key: 'ratings_top10', label: 'Top 10 changes in new ratings' },
 ];
 
 /** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved, and differs from what is saved. */

@@ -173,9 +173,10 @@ const shortText = 300
 // testHeading heads admin's test message, and names the thread it opens in a forum channel.
 const testHeading = "Test from ttacommunity admin"
 
-// Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a Twitch or YouTube stream's linking it
-// (a stream ended is the edit of its post, its embed only) and any other headed by what it is; under e's prefix
-// and role, shown with e's name and picture, and opening a thread when e is a forum channel's.
+// Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a run's news linking the
+// leaderboard, a Twitch or YouTube stream's linking it (a stream ended is the edit of its post, its embed only) and
+// any other headed by what it is; under e's prefix and role, shown with e's name and picture, and opening a thread
+// when e is a forum channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
 	switch n.Kind {
 	case "twitch_live":
@@ -188,6 +189,9 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 		return shaped(e, youtubeEmbed(y, e.Look), y.Channel+" is live: "+y.Title)
 	case "youtube_ended":
 		return WebhookMessage{Embeds: []Embed{youtubeEmbed(n.YouTube, e.Look)}}
+	case "ratings_run", "ratings_top10":
+		embed := runEmbed(n, e.Look)
+		return shaped(e, embed, embed.Title)
 	case "rss_item":
 		thread := n.RSS.Item.Title
 		if strings.TrimSpace(thread) == "" {
@@ -270,6 +274,47 @@ func twitchEmbed(t store.TwitchNotice, look store.EmbedLook) Embed {
 		embed.Image = &EmbedImage{URL: t.ThumbnailURL + "?t=" + strconv.FormatInt(t.StartedAt.Unix(), 10)}
 	}
 	return embed
+}
+
+// runEmbed is a published run's news as a card in look's colour, linking the leaderboard: for ratings_run, the
+// games it covers and, with a run before, the titles gained and lost; for ratings_top10, a new number one and who
+// came into and went out of the top 10.
+func runEmbed(n store.Notification, look store.EmbedLook) Embed {
+	r := n.Run
+	if n.Kind == "ratings_run" {
+		text := "Covers " + thousands(r.Games) + " games."
+		if r.BeforeID != 0 {
+			text += fmt.Sprintf(" Titles gained: %d · titles lost: %d", r.TitlesGained, r.TitlesLost)
+		}
+		return Embed{Title: "New ratings are out", URL: r.Link, Description: text, Color: colour(look.Colour)}
+	}
+	names := func(list []string) string {
+		esc := make([]string, len(list))
+		for i, s := range list {
+			esc[i] = discordbot.EscapeMarkdown(s)
+		}
+		return strings.Join(esc, ", ")
+	}
+	var lines []string
+	if c := n.Top10; c.NumberOne != "" {
+		lines = append(lines, "New number one: **"+discordbot.EscapeMarkdown(c.NumberOne)+"**")
+	}
+	if len(n.Top10.In) > 0 {
+		lines = append(lines, "Into the top 10: "+names(n.Top10.In))
+	}
+	if len(n.Top10.Out) > 0 {
+		lines = append(lines, "Out of the top 10: "+names(n.Top10.Out))
+	}
+	return Embed{Title: "Top 10 changes", URL: r.Link, Description: cut(strings.Join(lines, "\n"), maxEmbedText), Color: colour(look.Colour)}
+}
+
+// thousands is n with commas between its thousands: 205,123.
+func thousands(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 // youtubeEmbed is YouTube stream y as a live stream's card, in look's colour: the channel live, the title linking
