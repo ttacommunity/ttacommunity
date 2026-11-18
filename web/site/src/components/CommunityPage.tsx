@@ -26,6 +26,7 @@ import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import MetricCard, { MetricGrid } from './MetricCard';
+import PanelHeader from './PanelHeader';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
@@ -116,10 +117,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <div className="explainer-card">
-        <h3>
-          <span>📜</span> The Best-{count} Point System
-        </h3>
+      <div className="rating-card panel-card explainer-card">
+        <PanelHeader icon="📜" title={`The Best-${count} Point System`} />
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -139,10 +138,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
           </li>
         </ul>
       </div>
-      <div className="explainer-card">
-        <h3>
-          <span>🏆</span> Tracked Event Slots &amp; Point Tiers
-        </h3>
+      <div className="rating-card panel-card explainer-card">
+        <PanelHeader icon="🏆" title="Tracked Event Slots & Point Tiers" />
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (

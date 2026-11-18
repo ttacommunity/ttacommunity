@@ -22,33 +22,18 @@
   margin-left: auto;
   margin-right: auto;
 }
-.explainer-card {
-  background: rgba(22, 14, 10, 0.94);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 4px 16px var(--shadow);
-}
-.explainer-card h3 {
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-  font-size: 1.15rem;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+/* The explainers' text, in shared panels. */
 .explainer-card p {
   font-size: var(--size-body-short);
   line-height: 1.55;
-  color: #dfd0c0;
+  color: var(--text-soft);
   margin-bottom: 0.75rem;
 }
 .explainer-card ul {
   margin: 0.5rem 0 0.75rem 1.25rem;
   padding: 0;
   font-size: 0.9rem;
-  color: #d8c8b6;
+  color: var(--text-soft);
   line-height: 1.5;
 }
 .explainer-card li {
