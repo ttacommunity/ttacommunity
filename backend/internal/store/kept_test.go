@@ -72,7 +72,6 @@ var keptColumns = map[string]string{
 	"notification_outbox.account_id":          "omitted: the new account it tells admins of, theirs",
 	"notification_outbox.request_id":          "omitted: the request it tells admins of, shown above",
 	"notification_outbox.match_id":            "omitted: the blitz match it tells organisers of",
-	"notification_outbox.reddit_post_id":      "omitted: the public Reddit post it tells a Discord channel of",
 	"notification_outbox.feed_id":             "omitted: the feed it tells admins is failing or reading again",
 	"notification_outbox.twitch_stream_id":    "omitted: the public Twitch stream it tells a Discord channel of",
 	"notification_outbox.rss_item_id":         "omitted: the public feed item it tells a Discord channel of",
