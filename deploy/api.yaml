@@ -73,7 +73,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-9932ee8d@sha256:092cb293ab422b0af14b493b24eaf8ba4fc38800fd86096606d2f8ccb741feb7
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-99b79208@sha256:c3d621b7631f8701e03bc14f554f6efba3e14f6dfd91677e8b04d5edede4bef1
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -94,7 +94,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-9932ee8d@sha256:092cb293ab422b0af14b493b24eaf8ba4fc38800fd86096606d2f8ccb741feb7
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-99b79208@sha256:c3d621b7631f8701e03bc14f554f6efba3e14f6dfd91677e8b04d5edede4bef1
           ports:
             - name: http
               containerPort: 8080
@@ -219,6 +219,26 @@ spec:
                 secretKeyRef:
                   name: movies
                   key: youtube-api-key
+                  optional: true
+            # Twitch: the app's id and secret, and the secret EventSub signs pushes with. All three come from the
+            # Secret, so without it Twitch is off; with only some of them the api refuses to start.
+            - name: TWITCH_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: client-id
+                  optional: true
+            - name: TWITCH_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: client-secret
+                  optional: true
+            - name: TWITCH_EVENTSUB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: twitch
+                  key: eventsub-secret
                   optional: true
           resources:
             requests:

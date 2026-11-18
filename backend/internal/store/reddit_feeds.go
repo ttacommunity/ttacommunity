@@ -59,12 +59,12 @@ const maxFeedError = 200
 // stays quiet; they are told again when it reads well.
 const FeedFailuresNotified = 3
 
-const feedColumns = `f.feed_id, f.subreddit, f.paused, f.primed, f.kinds, f.checked_at,
+const feedColumns = `f.feed_id, f.source, f.paused, f.primed, f.post_kinds, f.checked_at,
 	(SELECT max(p.published_at) FROM reddit_posts p WHERE p.feed_id = f.feed_id), coalesce(f.last_error, ''), f.last_error_at`
 
 // RedditFeeds lists the feeds, by subreddit.
 func (a *AdminStore) RedditFeeds(ctx context.Context) ([]RedditFeed, error) {
-	rows, err := a.pool.Query(ctx, "SELECT "+feedColumns+" FROM reddit_feeds f ORDER BY lower(f.subreddit)")
+	rows, err := a.pool.Query(ctx, "SELECT "+feedColumns+" FROM feeds f WHERE f.kind = 'reddit' ORDER BY lower(f.source)")
 	if err != nil {
 		return nil, fmt.Errorf("listing Reddit feeds: %w", err)
 	}
@@ -84,7 +84,7 @@ func (a *AdminStore) RedditFeeds(ctx context.Context) ([]RedditFeed, error) {
 // have, ErrRedditFeedExists for one already there in any letters.
 func (a *AdminStore) AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error) {
 	var id int64
-	err := a.pool.QueryRow(ctx, "INSERT INTO reddit_feeds (subreddit, created_at) VALUES ($1, $2) RETURNING feed_id",
+	err := a.pool.QueryRow(ctx, "INSERT INTO feeds (kind, source, created_at) VALUES ('reddit', $1, $2) RETURNING feed_id",
 		strings.TrimSpace(subreddit), now).Scan(&id)
 	var pg *pgconn.PgError
 	switch {
@@ -101,8 +101,8 @@ func (a *AdminStore) AddRedditFeed(ctx context.Context, subreddit string, now ti
 // SetRedditFeed pauses or resumes a feed and sets the kinds of post it sends, or returns ErrNoRedditFeed or
 // ErrBadRedditKinds. A resumed feed's next read posts nothing, so what came while it was paused is not posted at once.
 func (a *AdminStore) SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error {
-	tag, err := a.pool.Exec(ctx, `UPDATE reddit_feeds SET primed = primed AND NOT (paused AND NOT $2), paused = $2,
-		kinds = ARRAY(SELECT DISTINCT unnest($3::text[]) ORDER BY 1) WHERE feed_id = $1`, id, paused, kinds)
+	tag, err := a.pool.Exec(ctx, `UPDATE feeds SET primed = primed AND NOT (paused AND NOT $2), paused = $2,
+		post_kinds = ARRAY(SELECT DISTINCT unnest($3::text[]) ORDER BY 1) WHERE feed_id = $1 AND kind = 'reddit'`, id, paused, kinds)
 	var pg *pgconn.PgError
 	if errors.As(err, &pg) && (pg.Code == "23514" || pg.Code == "23502") {
 		return ErrBadRedditKinds
@@ -118,7 +118,7 @@ func (a *AdminStore) SetRedditFeed(ctx context.Context, id int64, paused bool, k
 
 // RemoveRedditFeed removes a feed with its posts and subscriptions, or returns ErrNoRedditFeed.
 func (a *AdminStore) RemoveRedditFeed(ctx context.Context, id int64) error {
-	tag, err := a.pool.Exec(ctx, "DELETE FROM reddit_feeds WHERE feed_id = $1", id)
+	tag, err := a.pool.Exec(ctx, "DELETE FROM feeds WHERE feed_id = $1 AND kind = 'reddit'", id)
 	if err != nil {
 		return fmt.Errorf("removing a Reddit feed: %w", err)
 	}
@@ -139,14 +139,14 @@ func (a *AdminStore) RecordRedditPosts(ctx context.Context, feed int64, posts []
 		var primed bool
 		var failures int
 		var kinds []string
-		err := tx.QueryRow(ctx, "SELECT primed, failures, kinds FROM reddit_feeds WHERE feed_id = $1 FOR UPDATE", feed).Scan(&primed, &failures, &kinds)
+		err := tx.QueryRow(ctx, "SELECT primed, failures, post_kinds FROM feeds WHERE feed_id = $1 FOR UPDATE", feed).Scan(&primed, &failures, &kinds)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoRedditFeed
 		}
 		if err != nil {
 			return fmt.Errorf("reading a Reddit feed: %w", err)
 		}
-		if _, err := tx.Exec(ctx, `UPDATE reddit_feeds SET primed = true, checked_at = $2, last_error = NULL, last_error_at = NULL,
+		if _, err := tx.Exec(ctx, `UPDATE feeds SET primed = true, checked_at = $2, last_error = NULL, last_error_at = NULL,
 			failures = 0 WHERE feed_id = $1`, feed, now); err != nil {
 			return fmt.Errorf("marking a Reddit feed read: %w", err)
 		}
@@ -195,7 +195,7 @@ func (a *AdminStore) RedditFeedFailed(ctx context.Context, feed int64, msg strin
 	}
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var failures int
-		err := tx.QueryRow(ctx, `UPDATE reddit_feeds SET last_error = $2, last_error_at = $3, failures = failures + 1
+		err := tx.QueryRow(ctx, `UPDATE feeds SET last_error = $2, last_error_at = $3, failures = failures + 1
 			WHERE feed_id = $1 RETURNING failures`, feed, msg, now).Scan(&failures)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoRedditFeed

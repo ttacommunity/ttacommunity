@@ -108,7 +108,7 @@ func TestBackupHoldsEveryInputTableButSignInSecretsAndTheOutbox(t *testing.T) {
 	inputs := append(slices.Clone(ExportTables), NotExported...)
 	for _, table := range inputs {
 		kept := slices.Contains(tableNames(m), table)
-		if left := table == "player_sessions" || table == "email_links" || table == "notification_outbox"; kept == left {
+		if left := table == "player_sessions" || table == "email_links" || table == "notification_outbox" || table == "twitch_messages"; kept == left {
 			t.Errorf("backup holds %s = %v, want %v", table, kept, !left)
 		}
 	}

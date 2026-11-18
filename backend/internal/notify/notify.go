@@ -174,10 +174,17 @@ const testHeading = "Test from ttacommunity admin"
 // redditKinds name each kind of post in an embed's heading.
 var redditKinds = map[string]string{"text": "post", "image": "image post", "gallery": "gallery post", "video": "video post", "link": "link post"}
 
-// Payload is n as e is sent it: an embed in e's colour, a Reddit post's in e's look and any other headed by what
-// it is; under e's prefix and role, shown with e's name and picture, and opening a thread when e is a forum
+// Payload is n as e is sent it: an embed in e's colour, a Reddit post's in e's look, a Twitch stream's linking it
+// (a stream ended is the edit of its post, its embed only) and any other headed by what it is; under e's prefix and role, shown with e's name and picture, and opening a thread when e is a forum
 // channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
+	switch n.Kind {
+	case "twitch_live":
+		t := n.Twitch
+		return shaped(e, twitchEmbed(t, e.Look), t.DisplayName+" is live: "+t.Title)
+	case "twitch_ended":
+		return WebhookMessage{Embeds: []Embed{twitchEmbed(n.Twitch, e.Look)}}
+	}
 	if n.Kind != "reddit_post" {
 		heading, body := parts(n, admin)
 		return shaped(e, Embed{Title: heading, Description: body, Color: colour(e.Look.Colour)}, heading)
@@ -244,6 +251,43 @@ func redditEmbed(r store.RedditNotice, look store.EmbedLook) Embed {
 	return embed
 }
 
+// twitchEmbed is stream t as a live stream's card, in look's colour: the streamer live, the title linking their
+// channel, the category and the preview; once ended, the streamer was live, for how long, without the preview.
+func twitchEmbed(t store.TwitchNotice, look store.EmbedLook) Embed {
+	embed := Embed{
+		Author:    &EmbedName{Name: t.DisplayName + " is live on Twitch"},
+		Title:     cut(discordbot.EscapeMarkdown(t.Title), maxEmbedTitle),
+		URL:       "https://www.twitch.tv/" + url.PathEscape(t.Login),
+		Color:     colour(look.Colour),
+		Timestamp: t.StartedAt.UTC().Format(time.RFC3339),
+	}
+	if t.Category != "" {
+		embed.Fields = []EmbedField{{Name: "Category", Value: cut(discordbot.EscapeMarkdown(t.Category), maxFieldValue)}}
+	}
+	if t.EndedAt != nil {
+		embed.Author.Name = t.DisplayName + " was live on Twitch"
+		embed.Description = "Streamed for " + ran(t.EndedAt.Sub(t.StartedAt))
+		return embed
+	}
+	// Discord keeps a picture it has fetched: a new address per stream shows this stream's preview.
+	if t.ThumbnailURL != "" {
+		embed.Image = &EmbedImage{URL: t.ThumbnailURL + "?t=" + strconv.FormatInt(t.StartedAt.Unix(), 10)}
+	}
+	return embed
+}
+
+// ran is d as "2 h 5 min", "45 min" or "3 h".
+func ran(d time.Duration) string {
+	h, m := int(d.Hours()), int(d.Minutes())%60
+	switch {
+	case h == 0:
+		return fmt.Sprintf("%d min", m)
+	case m == 0:
+		return fmt.Sprintf("%d h", h)
+	}
+	return fmt.Sprintf("%d h %d min", h, m)
+}
+
 // colour is #rrggbb as Discord takes it, or Reddit's orange when it is not one.
 func colour(hex string) int {
 	if v, err := strconv.ParseUint(strings.TrimPrefix(hex, "#"), 16, 32); err == nil && len(hex) == 7 && hex[0] == '#' {
@@ -287,6 +331,17 @@ var imageTypes = map[string]string{"image/jpeg": "image.jpg", "image/png": "imag
 // full i.redd.it one, else as its thumbnail. It returns a *RefusedError when Discord answers other than success; no
 // error holds the URL, whose path is the webhook's secret.
 func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) error {
+	_, err := d.post(ctx, webhook, m, false)
+	return err
+}
+
+// Post is Send, returning the message Discord made and the channel or forum thread it is in.
+func (d *Discord) Post(ctx context.Context, webhook string, m WebhookMessage) (store.TwitchPost, error) {
+	return d.post(ctx, webhook, m, true)
+}
+
+// post sends m as Send does, waiting for and returning the message made when wait is true.
+func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wait bool) (store.TwitchPost, error) {
 	if r := []rune(m.Content); len(r) > maxContent {
 		m.Content = string(r[:maxContent])
 	}
@@ -302,6 +357,49 @@ func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) er
 			}
 		}
 	}
+	payload, err := withMentions(m)
+	if err != nil {
+		return store.TwitchPost{}, err
+	}
+	body, contentType := bytes.NewReader(payload), "application/json"
+	if file != nil {
+		if body, contentType, err = withFile(payload, name, file); err != nil {
+			return store.TwitchPost{}, err
+		}
+	}
+	if wait {
+		webhook += "?wait=true"
+	}
+	var made struct {
+		ID        string `json:"id"`
+		ChannelID string `json:"channel_id"`
+	}
+	var out any
+	if wait {
+		out = &made
+	}
+	if err := d.do(ctx, http.MethodPost, webhook, body, contentType, out); err != nil {
+		return store.TwitchPost{}, err
+	}
+	return store.TwitchPost{MessageID: made.ID, ChannelID: made.ChannelID}, nil
+}
+
+// Edit replaces the embeds of message p, posted to endpoint e, with m's, keeping its text and allowing no pings.
+// A forum endpoint's message is found in its thread.
+func (d *Discord) Edit(ctx context.Context, e store.NotificationEndpoint, p store.TwitchPost, m WebhookMessage) error {
+	payload, err := withMentions(WebhookMessage{Embeds: m.Embeds})
+	if err != nil {
+		return err
+	}
+	address := e.URL + "/messages/" + url.PathEscape(p.MessageID)
+	if e.Forum {
+		address += "?" + url.Values{"thread_id": {p.ChannelID}}.Encode()
+	}
+	return d.do(ctx, http.MethodPatch, address, bytes.NewReader(payload), "application/json", nil)
+}
+
+// withMentions is m as JSON, allowing only m's roles to be pinged.
+func withMentions(m WebhookMessage) ([]byte, error) {
 	mentions := map[string][]string{"parse": {}}
 	if len(m.Roles) > 0 {
 		mentions["roles"] = m.Roles
@@ -311,15 +409,15 @@ func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) er
 		AllowedMentions map[string][]string `json:"allowed_mentions"`
 	}{m, mentions})
 	if err != nil {
-		return fmt.Errorf("writing a Discord message: %w", err)
+		return nil, fmt.Errorf("writing a Discord message: %w", err)
 	}
-	body, contentType := bytes.NewReader(payload), "application/json"
-	if file != nil {
-		if body, contentType, err = withFile(payload, name, file); err != nil {
-			return err
-		}
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook, body)
+	return payload, nil
+}
+
+// do sends body to address, decoding Discord's answer into out unless it is nil. It returns a *RefusedError when
+// Discord answers other than success; no error holds the address, whose path is the webhook's secret.
+func (d *Discord) do(ctx context.Context, method, address string, body io.Reader, contentType string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, method, address, body)
 	if err != nil {
 		return errors.New("posting to Discord: not a URL")
 	}
@@ -332,9 +430,14 @@ func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) er
 		}
 		return fmt.Errorf("posting to Discord: %s", strings.ReplaceAll(err.Error(), req.URL.Host, "Discord"))
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return &RefusedError{Status: resp.StatusCode}
+	}
+	if out != nil {
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(out); err != nil {
+			return errors.New("posting to Discord: its answer was not a message")
+		}
 	}
 	return nil
 }

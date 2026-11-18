@@ -4,32 +4,34 @@ import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
 import * as req from '../lib/admin-requests';
 import { EVENTS, TEXTS, endpointChanged, endpointSetting, toggled, toggledFeed } from '../lib/notification-endpoints';
+import { optionsFor, withOptions, type FeedChoice, type Kind } from '../lib/feeds';
+import FeedOptions from './FeedOptions';
 import { refused, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 
 type Endpoint = components['schemas']['NotificationEndpoint'];
-type Feed = components['schemas']['RedditFeed'];
 export type Draft = { url: string } & Pick<
   Endpoint,
-  'name' | 'webhook_id' | 'events' | 'feeds' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
+  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image' | 'author'
 >;
 
 export const EMPTY: Draft = {
-  name: '', url: '', webhook_id: '', events: [], feeds: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
+  name: '', url: '', webhook_id: '', events: [], feeds: [], feed_options: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
   colour: '#ff4500', text: 'full', image: true, author: true,
 };
 
 interface Props {
   /** The endpoint to edit, or null to add one. */
   endpoint: Endpoint | null;
-  allFeeds: readonly Feed[];
+  /** The feeds it may take, by kind. */
+  groups: readonly { kind: Kind; label: string; feeds: FeedChoice[] }[];
   opener: HTMLElement;
   /** Runs once the endpoint is saved, with what to say about it. */
   onSaved: (message: string) => void;
   onClose: () => void;
 }
 
-export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onClose }: Props) {
+export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const saved: Draft = endpoint === null ? EMPTY : { ...endpoint, url: '' };
   const [draft, setDraft] = useState<Draft>(saved);
@@ -103,14 +105,25 @@ export default function EndpointSheet({ endpoint, allFeeds, opener, onSaved, onC
           ))}
         </fieldset>
         <fieldset className="check-kinds">
-          <legend>Reddit feeds: each new post</legend>
-          {allFeeds.length === 0 && <p className="muted">No Reddit feeds yet: add one under Reddit feeds.</p>}
-          {allFeeds.map((f) => (
-            <label key={f.id}>
-              <input type="checkbox" checked={draft.feeds.includes(f.id)} onChange={(e) => setDraft({ ...draft, feeds: toggledFeed(draft.feeds, f.id, e.target.checked) })} /> r/
-              {f.subreddit}
-              {f.paused && <span className="muted"> (paused)</span>}
-            </label>
+          <legend>Feeds: what this channel takes</legend>
+          {groups.length === 0 && <p className="muted">No feeds yet: add one under Feeds.</p>}
+          {groups.map((g) => (
+            <div key={g.kind} className="feed-group">
+              <span className="feed-group-label">{g.label}</span>
+              {g.feeds.map((f) => (
+                <div key={f.id}>
+                  <label>
+                    <input type="checkbox" checked={draft.feeds.includes(f.id)} onChange={(e) => setDraft({ ...draft, feeds: toggledFeed(draft.feeds, f.id, e.target.checked) })} />{' '}
+                    {f.name}
+                    {f.paused && <span className="muted"> (paused)</span>}
+                  </label>
+                  {f.kind === 'twitch' && draft.feeds.includes(f.id) && (
+                    <FeedOptions options={optionsFor(draft.feed_options, f.id)}
+                      onChange={(change) => setDraft((d) => ({ ...d, feed_options: withOptions(d.feed_options, f.id, change) }))} />
+                  )}
+                </div>
+              ))}
+            </div>
           ))}
         </fieldset>
         <fieldset className="check-kinds">

@@ -39,20 +39,19 @@ type Requests interface {
 	Observe(route string, status int, took time.Duration)
 }
 
-// NewMux returns the API's handler with every route in the spec registered. Admin routes go through
-// the admin gate, without CORS; with admins nil they refuse every request. Sign-in routes go through
-// their own gate, with CORS for the site alone; with signIns nil they refuse every request. The
-// Discord bot's endpoint takes only requests Discord signed, without CORS; with discord nil it is a 404. YouTube's
-// hub's callback takes only pushes signed with its secret, without CORS; with hub nil it is a 404.
-// With visits nil the visit count is a 404. A panic answers 500. Every response carries an X-Request-Id,
-// which a 500's body and log line repeat. Each request is reported to requests, timed by now, and logged
-// when slower than slowRequest.
-func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, visits Visits, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
+// NewMux returns the API's handler with every route in the spec registered. Admin routes go through the admin gate
+// and sign-in routes through their own (CORS for the site alone); with admins or signIns nil they refuse every
+// request. Discord's endpoint, YouTube's hub's callback and Twitch's EventSub callback take only requests signed
+// with their secrets, without CORS; each is a 404 with discord, hub or twitch nil, as the visit count is with visits
+// nil. A panic answers 500. Every response carries an X-Request-Id, which a 500's body and log line repeat. Each
+// request is reported to requests, timed by now, and logged when slower than slowRequest.
+func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, admins, signIns, discord, hub, visits, log, now)
+	registerRoutes(mux, ratings, admins, signIns, discord, hub, twitch, visits, log, now)
 	// limitBodies needs the server's own writer, so it sits outside observe's.
 	public := routeDiscord(routeSignIns(publicCORS(mux), signInGate(mux, signIns, now, log)), discordGate(mux, discord, log))
 	public = routeMovieHub(public, movieHubGate(mux, hub, log))
+	public = routeTwitch(public, twitchGate(mux, twitch, now, log))
 	routed := recoverPanics(routeAdmin(public, adminGate(mux, admins, log)), mux, log)
 	return withRequestID(withDeadline(limitBodies(observe(routed, mux, requests, now, log)), requestDeadline))
 }
@@ -113,8 +112,8 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, visits Visits, log *slog.Logger, now func() time.Time) {
-	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, movieHub: hub, visits: visits, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, log *slog.Logger, now func() time.Time) {
+	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, movieHub: hub, twitch: twitch, visits: visits, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
 	strict := NewStrictHandlerWithOptions(srv, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
@@ -265,6 +264,7 @@ type server struct {
 	signIns   SignIns
 	discord   DiscordApp
 	movieHub  MovieHub
+	twitch    TwitchHub
 	visits    Visits
 	log       *slog.Logger
 	agreement *runcache.Cache[Format, analysis.Agreement]

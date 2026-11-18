@@ -4042,6 +4042,149 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/twitch/eventsub:
+    post:
+      operationId: receiveTwitchEvent
+      tags: [community]
+      summary: Twitch's EventSub pushes a listed streamer going live or offline, checks our callback, or revokes a subscription
+      description: |
+        Every request must carry `Twitch-Eventsub-Message-Signature`, the
+        HMAC of its id, timestamp and body by `TWITCH_EVENTSUB_SECRET`, and a
+        timestamp within 10 minutes of now; any other is refused with 403 and
+        stores nothing. A message id seen before changes nothing. Without
+        Twitch set up here, it is a 404.
+      parameters:
+        - name: Twitch-Eventsub-Message-Id
+          in: header
+          description: Required; a message without one is refused by its signature
+          schema:
+            type: string
+            maxLength: 100
+        - name: Twitch-Eventsub-Message-Type
+          in: header
+          description: Required; a message without one is a 400
+          schema:
+            type: string
+            enum: [notification, webhook_callback_verification, revocation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwitchEventSubMessage"
+      responses:
+        "200":
+          description: The challenge of a verification, echoed
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            text/plain:
+              schema:
+                type: string
+        "204":
+          description: Taken
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/twitch-feeds:
+    get:
+      operationId: getAdminTwitchFeeds
+      tags: [admin]
+      summary: The Twitch streamers whose streams going live are posted to Discord (admins only)
+      responses:
+        "200":
+          description: The feeds, by login
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TwitchFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminTwitchFeed
+      tags: [admin]
+      summary: Add a Twitch streamer, subscribing to their streams going live and ending (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. The streamer is looked up on Twitch by login; Twitch then
+        checks our callback before it pushes anything. 503 when Twitch is not set up here or cannot be reached.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewTwitchFeed"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwitchFeed"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/admin/twitch-feeds/{feed}:
+    put:
+      operationId: putAdminTwitchFeed
+      tags: [admin]
+      summary: Pause or resume a Twitch streamer (admins only)
+      description: Audited. The Origin must be the admin site. A paused streamer's streams are not posted.
+      parameters:
+        - $ref: "#/components/parameters/AdminTwitchFeedId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwitchFeedSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminTwitchFeed
+      tags: [admin]
+      summary: Remove a Twitch streamer, their subscriptions at Twitch, streams and the endpoints' subscriptions (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTwitchFeedId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/titles:
     get:
       operationId: getAdminTitles
@@ -5572,6 +5715,14 @@ components:
         type: integer
         format: int64
         minimum: 1
+    AdminTwitchFeedId:
+      name: feed
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AdminPlayer:
       name: player
       in: path
@@ -5675,6 +5826,15 @@ components:
       schema:
         type: string
   responses:
+    Unavailable:
+      description: A service this needs is not set up here or cannot be reached
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     SignedOut:
       description: Not signed in, or the session has ended
       headers:
@@ -6105,7 +6265,7 @@ components:
       enum: [sign_up, link_request, blitz_report, blitz_flag, reddit_failing]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
+      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
       properties:
         id:
           type: integer
@@ -6122,11 +6282,16 @@ components:
           items:
             $ref: "#/components/schemas/NotificationEvent"
         feeds:
-          description: The Reddit feeds it takes, by id
+          description: The feeds it takes, by id
           type: array
           items:
             type: integer
             format: int64
+        feed_options:
+          description: How it takes each of its feeds
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedOption"
         prefix:
           description: Text put before each message, such as [dev]
           type: string
@@ -6190,11 +6355,16 @@ components:
           items:
             $ref: "#/components/schemas/NotificationEvent"
         feeds:
-          description: The Reddit feeds it takes, by id; none when not given
+          description: The feeds it takes, by id; none when not given
           type: array
           items:
             type: integer
             format: int64
+        feed_options:
+          description: How it takes each of its feeds; a feed without an entry has no options
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedOption"
         prefix:
           type: string
         paused:
@@ -6338,6 +6508,108 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RedditPostKind"
+    TwitchFeed:
+      type: object
+      required: [id, login, display_name, user_id, paused, subscriptions, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        login:
+          type: string
+        display_name:
+          type: string
+        user_id:
+          description: Their Twitch user id
+          type: string
+        paused:
+          description: Their streams are not posted while paused
+          type: boolean
+        subscriptions:
+          description: The EventSub subscriptions for them, with Twitch's status for each
+          type: array
+          items:
+            $ref: "#/components/schemas/TwitchSubscriptionState"
+        created_at:
+          type: string
+          format: date-time
+    TwitchSubscriptionState:
+      type: object
+      required: [type, status]
+      properties:
+        type:
+          description: stream.online or stream.offline
+          type: string
+        status:
+          description: Twitch's status, such as enabled, webhook_callback_verification_pending or user_removed
+          type: string
+    NewTwitchFeed:
+      type: object
+      additionalProperties: false
+      required: [login]
+      properties:
+        login:
+          description: The streamer's Twitch name, or their channel's address
+          type: string
+    TwitchFeedSetting:
+      type: object
+      additionalProperties: false
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
+    FeedOption:
+      description: How an endpoint takes one of its feeds
+      type: object
+      required: [feed, categories, keywords, was_live]
+      properties:
+        feed:
+          type: integer
+          format: int64
+        categories:
+          description: A Twitch stream is posted only in one of these categories (any when empty)
+          type: array
+          items:
+            type: string
+        keywords:
+          description: A Twitch stream is posted only with one of these words in its title, in any letters (any when empty)
+          type: array
+          items:
+            type: string
+        match:
+          description: all, the default, posts a stream that passes both lists; any, one that passes either
+          type: string
+          enum: [all, any]
+        was_live:
+          description: Edit the post of a Twitch stream to "was live" when it ends
+          type: boolean
+    TwitchEventSubMessage:
+      description: An EventSub message, of which only these parts are read
+      type: object
+      required: [subscription]
+      properties:
+        challenge:
+          type: string
+        subscription:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+            status:
+              type: string
+        event:
+          type: object
+          properties:
+            id:
+              type: string
+            broadcaster_user_id:
+              type: string
+            started_at:
+              type: string
+              format: date-time
     RedditPostText:
       description: How much of a Reddit post's text an endpoint shows
       type: string

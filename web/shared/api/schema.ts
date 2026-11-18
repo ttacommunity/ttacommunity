@@ -2821,6 +2821,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/twitch/eventsub": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Twitch's EventSub pushes a listed streamer going live or offline, checks our callback, or revokes a subscription
+         * @description Every request must carry `Twitch-Eventsub-Message-Signature`, the
+         *     HMAC of its id, timestamp and body by `TWITCH_EVENTSUB_SECRET`, and a
+         *     timestamp within 10 minutes of now; any other is refused with 403 and
+         *     stores nothing. A message id seen before changes nothing. Without
+         *     Twitch set up here, it is a 404.
+         */
+        post: operations["receiveTwitchEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/twitch-feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Twitch streamers whose streams going live are posted to Discord (admins only) */
+        get: operations["getAdminTwitchFeeds"];
+        put?: never;
+        /**
+         * Add a Twitch streamer, subscribing to their streams going live and ending (admins only)
+         * @description Audited. The Origin must be the admin site. The streamer is looked up on Twitch by login; Twitch then checks our callback before it pushes anything. 503 when Twitch is not set up here or cannot be reached.
+         */
+        post: operations["postAdminTwitchFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/twitch-feeds/{feed}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Pause or resume a Twitch streamer (admins only)
+         * @description Audited. The Origin must be the admin site. A paused streamer's streams are not posted.
+         */
+        put: operations["putAdminTwitchFeed"];
+        post?: never;
+        /**
+         * Remove a Twitch streamer, their subscriptions at Twitch, streams and the endpoints' subscriptions (admins only)
+         * @description Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminTwitchFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -3985,8 +4054,10 @@ export interface components {
             webhook_id: string;
             format: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
-            /** @description The Reddit feeds it takes, by id */
+            /** @description The feeds it takes, by id */
             feeds: number[];
+            /** @description How it takes each of its feeds */
+            feed_options: components["schemas"]["FeedOption"][];
             /** @description Text put before each message, such as [dev] */
             prefix: string;
             /** @description Sent nothing while paused */
@@ -4027,8 +4098,10 @@ export interface components {
             url?: string;
             format?: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
-            /** @description The Reddit feeds it takes, by id; none when not given */
+            /** @description The feeds it takes, by id; none when not given */
             feeds?: number[];
+            /** @description How it takes each of its feeds; a feed without an entry has no options */
+            feed_options?: components["schemas"]["FeedOption"][];
             prefix?: string;
             paused?: boolean;
             forum?: boolean;
@@ -4111,6 +4184,64 @@ export interface components {
         RedditFeedSetting: {
             paused: boolean;
             kinds: components["schemas"]["RedditPostKind"][];
+        };
+        TwitchFeed: {
+            /** Format: int64 */
+            id: number;
+            login: string;
+            display_name: string;
+            /** @description Their Twitch user id */
+            user_id: string;
+            /** @description Their streams are not posted while paused */
+            paused: boolean;
+            /** @description The EventSub subscriptions for them, with Twitch's status for each */
+            subscriptions: components["schemas"]["TwitchSubscriptionState"][];
+            /** Format: date-time */
+            created_at: string;
+        };
+        TwitchSubscriptionState: {
+            /** @description stream.online or stream.offline */
+            type: string;
+            /** @description Twitch's status, such as enabled, webhook_callback_verification_pending or user_removed */
+            status: string;
+        };
+        NewTwitchFeed: {
+            /** @description The streamer's Twitch name, or their channel's address */
+            login: string;
+        };
+        TwitchFeedSetting: {
+            paused: boolean;
+        };
+        /** @description How an endpoint takes one of its feeds */
+        FeedOption: {
+            /** Format: int64 */
+            feed: number;
+            /** @description A Twitch stream is posted only in one of these categories (any when empty) */
+            categories: string[];
+            /** @description A Twitch stream is posted only with one of these words in its title, in any letters (any when empty) */
+            keywords: string[];
+            /**
+             * @description all, the default, posts a stream that passes both lists; any, one that passes either
+             * @enum {string}
+             */
+            match?: "all" | "any";
+            /** @description Edit the post of a Twitch stream to "was live" when it ends */
+            was_live: boolean;
+        };
+        /** @description An EventSub message, of which only these parts are read */
+        TwitchEventSubMessage: {
+            challenge?: string;
+            subscription: {
+                id: string;
+                type?: string;
+                status?: string;
+            };
+            event?: {
+                id?: string;
+                broadcaster_user_id?: string;
+                /** Format: date-time */
+                started_at?: string;
+            };
         };
         /**
          * @description How much of a Reddit post's text an endpoint shows
@@ -7334,6 +7465,16 @@ export interface components {
         };
     };
     responses: {
+        /** @description A service this needs is not set up here or cannot be reached */
+        Unavailable: {
+            headers: {
+                "Cache-Control": components["headers"]["CacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Not signed in, or the session has ended */
         SignedOut: {
             headers: {
@@ -7477,6 +7618,7 @@ export interface components {
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
         AdminRedditFeedId: number;
+        AdminTwitchFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
         AdminPlayer: string;
         /** @description Any run's id, published or not */
@@ -11327,6 +11469,150 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    receiveTwitchEvent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required; a message without one is refused by its signature */
+                "Twitch-Eventsub-Message-Id"?: string;
+                /** @description Required; a message without one is a 400 */
+                "Twitch-Eventsub-Message-Type"?: "notification" | "webhook_callback_verification" | "revocation";
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwitchEventSubMessage"];
+            };
+        };
+        responses: {
+            /** @description The challenge of a verification, echoed */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Taken */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminTwitchFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feeds, by login */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwitchFeed"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminTwitchFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTwitchFeed"];
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwitchFeed"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    putAdminTwitchFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminTwitchFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwitchFeedSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteAdminTwitchFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                feed: components["parameters"]["AdminTwitchFeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getAdminTitles: {
         parameters: {
             query?: never;
@@ -12802,12 +13088,14 @@ export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStatusValues: Readonl
 export const pathsV1RunsRunLeaderboardCsvGetParametersQuerySortValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["sort"]> = ["rank", "name", "c_rating", "rating", "opps", "win_rate", "last_played"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryOrderValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["order"]> = ["asc", "desc"];
 export const pathsV1RunsRunLeaderboardCsvGetParametersQueryStats_viewValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/runs/{run}/leaderboard.csv"]["get"]["parameters"]["query"]["stats_view"]> = ["season", "career"];
+export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeValues: ReadonlyArray<FlattenedDeepRequired<paths>["/v1/twitch/eventsub"]["post"]["parameters"]["header"]["Twitch-Eventsub-Message-Type"]> = ["notification", "webhook_callback_verification", "revocation"];
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
 export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
+export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];
 export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
 export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "gallery", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];

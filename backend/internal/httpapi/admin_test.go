@@ -31,6 +31,11 @@ type fakeAdmins struct {
 	// feeds is the Reddit feeds the last endpoint added or changed takes; options its other settings.
 	feeds   []int64
 	options string
+	// twitchErr is what looking a streamer up on Twitch answers, when set; twitchPaused the last pause set.
+	twitchErr error
+	// feedOptions is the feed options the last endpoint added or changed takes.
+	feedOptions  string
+	twitchPaused *bool
 	// details is each audit's detail, as JSON.
 	details  []string
 	startErr error
