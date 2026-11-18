@@ -130,9 +130,6 @@ func (c *Client) Read(ctx context.Context, address string, now time.Time) (Feed,
 	if resp.StatusCode != http.StatusOK {
 		return Feed{}, fmt.Errorf("the feed answered %d", resp.StatusCode)
 	}
-	if resp.ContentLength > MaxFeed {
-		return Feed{}, errTooLarge
-	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxFeed+1))
 	if err != nil {
 		return Feed{}, fmt.Errorf("reading the feed: %w", err)

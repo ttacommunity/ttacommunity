@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -287,6 +288,23 @@ func TestASafeClientRefusesAServerOnLoopbackAndANameResolvingThere(t *testing.T)
 		if _, err := c.Read(context.Background(), address, readAt); !errors.Is(err, ErrNotPublic) {
 			t.Errorf("Read(%s): err = %v, want %v", address, err, ErrNotPublic)
 		}
+	}
+}
+
+func TestASafeClientUsesNoProxy(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(rss2())) }))
+	t.Cleanup(srv.Close)
+	base := srv.Client().Transport.(*http.Transport).Clone()
+	asked := false
+	base.Proxy = func(*http.Request) (*url.URL, error) {
+		asked = true
+		return nil, nil
+	}
+	if _, err := New(SafeClient(base, loopbackOnly)).Read(context.Background(), srv.URL+"/feed", readAt); err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if asked {
+		t.Error("the client asked its base's proxy, want no proxy: a proxy would connect for it, past the address check")
 	}
 }
 
