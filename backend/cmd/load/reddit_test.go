@@ -68,7 +68,7 @@ func TestTheRedditJobReadsEachFeedNotPaused(t *testing.T) {
 	if s.recorded[1] != 1 || s.failed[3] != "Reddit answered 429" || len(s.recorded) != 1 || len(s.failed) != 1 {
 		t.Errorf("recorded %v, failed %v; want feed 1 recorded and feed 3's 429 kept", s.recorded, s.failed)
 	}
-	if want := (redditJobReport{Feeds: 3, Read: 1, Failed: 1, Queued: 1}); report != want {
+	if want := (feedsReport{Feeds: 3, Read: 1, Failed: 1, Queued: 1}); report != want {
 		t.Errorf("report = %+v, want %+v", report, want)
 	}
 }
