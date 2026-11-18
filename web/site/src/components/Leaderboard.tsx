@@ -15,7 +15,7 @@ import Segmented from '@ttac/shared/Segmented';
 import { count } from '@ttac/shared/numbers';
 import SearchBox from './SearchBox';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
-import SideDrawer, { OptionsToggle, narrow } from './SideDrawer';
+import { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
 import { ExtraBadges, Flag, TitleBadge, VideosLink } from './PlayerMarks';
 import * as show from '../lib/leaderboard-display';
@@ -342,7 +342,6 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       </div>
 
       {optionsOpen && (
-        <SideDrawer onClose={() => toggleOptions(false)}>
           <OptionsDrawer
             view={view}
             titles={titleOptions(players)}
@@ -360,7 +359,6 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             go={go}
             onClose={() => toggleOptions(false)}
           />
-        </SideDrawer>
       )}
     </div>
   );

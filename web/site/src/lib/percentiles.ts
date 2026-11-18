@@ -34,6 +34,12 @@ export function parsePercentileView(params: URLSearchParams, remembered: Remembe
 
 const boardOf = (v: PercentileView): View => ({ ...DEFAULT_VIEW, ...v.board });
 
+/** withDefaults is Reset All's view: every option back to its default, keeping the format and the player, as the leaderboard keeps its format. */
+export function withDefaults(v: PercentileView): PercentileView {
+  const { engine, reset, status, minOpps, title } = DEFAULT_VIEW;
+  return { board: { engine, reset, format: v.board.format, status, minOpps, title }, rating: 'c_rating', binWidth: 50, player: v.player };
+}
+
 /** percentileParams writes the view's address, leaving out what equals the leaderboard's defaults. */
 export function percentileParams(v: PercentileView): URLSearchParams {
   const p = viewParams(boardOf(v));

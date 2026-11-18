@@ -4,6 +4,7 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
 import DialogSamples from '../components/DialogSamples';
+import OptionsSample from '../components/OptionsSample';
 import Note from '@ttac/shared/Note';
 import SignInNote from '../components/SignInNote';
 import Message from '../components/Message';
@@ -141,6 +142,9 @@ const rows = [
 
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />
+
+    <h2>Options drawer</h2>
+    <OptionsSample client:only="react" />
 
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />

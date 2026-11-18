@@ -11,12 +11,6 @@
   max-width: 28rem;
 }
 
-.options-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
 .percentiles-chart-card {
   margin-bottom: 2rem;
 }

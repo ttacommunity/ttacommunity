@@ -1,5 +1,5 @@
 /** Top-level player profile options drawer: track, reset mode, engine, and trajectory chart controls. */
-import SideDrawer from './SideDrawer';
+import { OptionsDivider, OptionsPanel, OptionsSection } from './SideDrawer';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
 import type { Engine, ResetMode, Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
@@ -81,118 +81,59 @@ export default function PlayerOptionsDrawer({
   const track = view.ranking ?? 'community';
 
   return (
-    <SideDrawer className="player-sidebar" onClose={onClose}>
-      <div className="leaderboard-options-panel chart-options-panel" role="dialog" aria-label="Profile options and filters">
-        <div className="options-header">
-          <span className="options-header-title">⚙️ Options &amp; Filters</span>
-          <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
-            ✕ Close
+    <OptionsPanel label="Profile options and filters" onClose={onClose} reset={onReset}>
+      <OptionsSection title="Track" tip="Choose which tournament rating pipeline to display across the profile">
+        <Segmented label="Track" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
+      </OptionsSection>
+
+      <OptionsSection title="Reset Mode" tip="Continuous career ratings or gentle annual season resets">
+        <Segmented label="Reset mode" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
+      </OptionsSection>
+
+      <OptionsSection title="Rating Engine" tip="Model used for career summary, format cards, and game deltas">
+        <Segmented label="Engine" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
+      </OptionsSection>
+
+      <OptionsDivider>Trajectory Chart</OptionsDivider>
+
+      <OptionsSection title="Chart Models" tip="Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default.">
+        <div className="format-bar-group" role="group" aria-label="Chart models">
+          <button
+            type="button"
+            className={chart.engines.has('glicko2_daneo') ? 'format-btn active' : 'format-btn'}
+            aria-pressed={chart.engines.has('glicko2_daneo')}
+            title="DANeo's multiplayer-weighted Glicko-2 baseline"
+            onClick={() => toggleEngine('glicko2_daneo')}
+          >
+            👑 GlickoD
+          </button>
+          <button
+            type="button"
+            className={chart.engines.has('glicko2_std') ? 'format-btn active' : 'format-btn'}
+            aria-pressed={chart.engines.has('glicko2_std')}
+            title="Standard Glicko-2 model (unselected by default)"
+            onClick={() => toggleEngine('glicko2_std')}
+          >
+            Glicko-2 Standard
           </button>
         </div>
+      </OptionsSection>
 
-        <div className="chart-options-body">
-          <div className="options-section">
-            <div className="options-group-title" title="Choose which tournament rating pipeline to display across the profile">
-              Track
-            </div>
-            <Segmented label="Track" options={TRACK_OPTIONS} value={track} link={(ranking) => linkTo({ ...view, ranking, matchPage: 1 })} />
-          </div>
+      <OptionsSection title="Time Scale" tip="Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing.">
+        <Segmented label="Scale" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
+      </OptionsSection>
 
-          <div className="options-section">
-            <div className="options-group-title" title="Continuous career ratings or gentle annual season resets">
-              Reset Mode
-            </div>
-            <Segmented label="Reset mode" options={RESET_OPTIONS} value={view.reset} link={(reset) => linkTo({ ...view, reset, matchPage: 1 })} />
-          </div>
+      <OptionsSection title="Competitive Rating Tiers" tip="Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster).">
+        <Segmented label="Tiers" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
+      </OptionsSection>
 
-          <div className="options-section">
-            <div className="options-group-title" title="Model used for career summary, format cards, and game deltas">
-              Rating Engine
-            </div>
-            <Segmented label="Engine" options={ENGINE_OPTIONS} value={view.engine} link={(engine) => linkTo({ ...view, engine, matchPage: 1 })} />
-          </div>
+      <OptionsSection title="Chart Reset Mode" tip="Continuous career trajectory across all seasons, annual season reset rating recalculation, or all modes.">
+        <Segmented label="Mode" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
+      </OptionsSection>
 
-          <div className="options-section-divider">Trajectory Chart</div>
-
-          <div className="options-section">
-            <div
-              className="options-group-title"
-              title="Toggle individual models on the chart. GlickoD is the multiplayer-weighted baseline; Standard is unselected by default."
-            >
-              Chart Models
-            </div>
-            <div className="format-bar-group" role="group" aria-label="Chart models">
-              <button
-                type="button"
-                className={chart.engines.has('glicko2_daneo') ? 'format-btn active' : 'format-btn'}
-                aria-pressed={chart.engines.has('glicko2_daneo')}
-                title="DANeo's multiplayer-weighted Glicko-2 baseline"
-                onClick={() => toggleEngine('glicko2_daneo')}
-              >
-                👑 GlickoD
-              </button>
-              <button
-                type="button"
-                className={chart.engines.has('glicko2_std') ? 'format-btn active' : 'format-btn'}
-                aria-pressed={chart.engines.has('glicko2_std')}
-                title="Standard Glicko-2 model (unselected by default)"
-                onClick={() => toggleEngine('glicko2_std')}
-              >
-                Glicko-2 Standard
-              </button>
-            </div>
-          </div>
-
-          <div className="options-section">
-            <div
-              className="options-group-title"
-              title="Perspective scale expands recent history with power-law recency acceleration, while Linear shows uniform spacing."
-            >
-              Time Scale
-            </div>
-            <Segmented label="Scale" options={SCALE_OPTIONS} value={chart.scale} onChange={setScale} />
-          </div>
-
-          <div className="options-section">
-            <div
-              className="options-group-title"
-              title="Ambient horizontal bands and dashed threshold markers indicating competitive rating tiers (Bronze to Supreme Grandmaster)."
-            >
-              Competitive Rating Tiers
-            </div>
-            <Segmented label="Tiers" options={TIERS_OPTIONS} value={chart.tiers} onChange={setTiers} />
-          </div>
-
-          <div className="options-section">
-            <div
-              className="options-group-title"
-              title="Continuous career trajectory across all seasons, annual season reset rating recalculation, or all modes."
-            >
-              Chart Reset Mode
-            </div>
-            <Segmented label="Mode" options={MODE_OPTIONS} value={chart.mode} onChange={setMode} />
-          </div>
-
-          <div className="options-section">
-            <div
-              className="options-group-title"
-              title="Expected rating mean (E = R), conservative 99.7% lower bound (C = μ − 3σ), or all curves."
-            >
-              Rating Estimate Curves
-            </div>
-            <Segmented label="Curve" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
-          </div>
-        </div>
-
-        <div className="options-footer-actions">
-          <button type="button" className="btn-options-reset" onClick={onReset}>
-            Reset to Defaults
-          </button>
-          <button type="button" className="btn-options-close" onClick={onClose}>
-            Done
-          </button>
-        </div>
-      </div>
-    </SideDrawer>
+      <OptionsSection title="Rating Estimate Curves" tip="Expected rating mean (E = R), conservative 99.7% lower bound (C = μ − 3σ), or all curves.">
+        <Segmented label="Curve" options={CURVE_OPTIONS} value={chart.curve} onChange={setCurve} />
+      </OptionsSection>
+    </OptionsPanel>
   );
 }
