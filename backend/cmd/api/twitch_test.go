@@ -24,7 +24,7 @@ func TestTwitchIsSetUpWholeOrNotAtAll(t *testing.T) {
 		{"no EventSub secret", map[string]string{"TWITCH_EVENTSUB_SECRET": ""}, false, "TWITCH_EVENTSUB_SECRET"},
 		{"an EventSub secret too short", map[string]string{"TWITCH_EVENTSUB_SECRET": "short"}, false, "TWITCH_EVENTSUB_SECRET"},
 		{"an EventSub secret too long", map[string]string{"TWITCH_EVENTSUB_SECRET": strings.Repeat("x", 101)}, false, "TWITCH_EVENTSUB_SECRET"},
-		{"a callback Twitch cannot reach", map[string]string{"API_ORIGIN": "http://127.0.0.1:8080"}, false, "API_ORIGIN"},
+		{"a callback over http, not local", map[string]string{"API_ORIGIN": "http://api.example"}, false, "API_ORIGIN"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

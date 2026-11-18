@@ -33,7 +33,8 @@ func (t twitchSetup) GoString() string { return t.String() }
 
 // openTwitch builds Twitch from TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET, TWITCH_EVENTSUB_SECRET and API_ORIGIN, the
 // callback's host, storing through admins. With none of the three set, Twitch is off; with some but not all, a
-// secret of a length Twitch refuses, or a callback that is not https, it refuses to start.
+// secret of a length Twitch refuses, or a callback neither https nor local, it refuses to start. Twitch itself only
+// pushes to https.
 func openTwitch(getenv func(string) string, admins *store.AdminStore) (twitchSetup, error) {
 	id, secret, events := getenv("TWITCH_CLIENT_ID"), getenv("TWITCH_CLIENT_SECRET"), getenv("TWITCH_EVENTSUB_SECRET")
 	if id == "" && secret == "" && events == "" {
@@ -48,8 +49,8 @@ func openTwitch(getenv func(string) string, admins *store.AdminStore) (twitchSet
 		return twitchSetup{}, fmt.Errorf("TWITCH_EVENTSUB_SECRET must be %d to %d characters", twitch.MinSecret, twitch.MaxSecret)
 	}
 	origin := getenv("API_ORIGIN")
-	if !strings.HasPrefix(origin, "https://") {
-		return twitchSetup{}, fmt.Errorf("API_ORIGIN must be https for Twitch to reach its callback; it is %q", origin)
+	if !strings.HasPrefix(origin, "https://") && !strings.HasPrefix(origin, "http://127.0.0.1:") {
+		return twitchSetup{}, fmt.Errorf("API_ORIGIN must be https, or http://127.0.0.1:port locally, for Twitch's callback; it is %q", origin)
 	}
 	client := twitch.New(&http.Client{Timeout: 10 * time.Second}, twitch.HelixAPI, twitch.AuthAPI, id, secret, time.Now)
 	return twitchSetup{client: client, callback: strings.TrimRight(origin, "/") + twitch.CallbackPath, secret: events,
