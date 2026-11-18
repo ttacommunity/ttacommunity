@@ -5,7 +5,7 @@ const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', event
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
-    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing']);
+    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10']);
   });
 
   it.each([
@@ -73,7 +73,7 @@ describe('notification endpoints', () => {
 
   it.each([
     ['nothing', [], [], 'Nothing: no posts reach it'],
-    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing'] as const, [], 'every site event'],
+    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10'] as const, [], 'every site event'],
     ['some events, in the tab\'s order', ['blitz_flag', 'sign_up'] as const, [], 'New players signing up, Blitz reports flagged'],
     ['an RSS feed', [], [5], 'Other news on RSS'],
     ['events and feeds', ['link_request'] as const, [2, 5], 'Requests to be linked; Example news on RSS; Other news on RSS'],

@@ -774,11 +774,13 @@ func (e NostradamusQuestionKind) Valid() bool {
 
 // Defines values for NotificationEvent.
 const (
-	NotificationEventBlitzFlag   NotificationEvent = "blitz_flag"
-	NotificationEventBlitzReport NotificationEvent = "blitz_report"
-	NotificationEventFeedFailing NotificationEvent = "feed_failing"
-	NotificationEventLinkRequest NotificationEvent = "link_request"
-	NotificationEventSignUp      NotificationEvent = "sign_up"
+	NotificationEventBlitzFlag    NotificationEvent = "blitz_flag"
+	NotificationEventBlitzReport  NotificationEvent = "blitz_report"
+	NotificationEventFeedFailing  NotificationEvent = "feed_failing"
+	NotificationEventLinkRequest  NotificationEvent = "link_request"
+	NotificationEventRatingsRun   NotificationEvent = "ratings_run"
+	NotificationEventRatingsTop10 NotificationEvent = "ratings_top10"
+	NotificationEventSignUp       NotificationEvent = "sign_up"
 )
 
 // Valid indicates whether the value is a known member of the NotificationEvent enum.
@@ -791,6 +793,10 @@ func (e NotificationEvent) Valid() bool {
 	case NotificationEventFeedFailing:
 		return true
 	case NotificationEventLinkRequest:
+		return true
+	case NotificationEventRatingsRun:
+		return true
+	case NotificationEventRatingsTop10:
 		return true
 	case NotificationEventSignUp:
 		return true
