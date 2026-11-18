@@ -1,73 +1,80 @@
-/** The sheet that adds a Reddit feed (its subreddit alone) or edits one: the kinds of post it sends. */
+/** The sheet that adds a feed: a Twitch streamer by name, an RSS or Atom feed by address, or YouTube Live, once. */
 import { useRef, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import Sheet from '@ttac/shared/Sheet';
+import Segmented from '@ttac/shared/Segmented';
 import * as req from '../lib/admin-requests';
-import { KINDS, kindsChanged, toggledKind } from '../lib/reddit-feeds';
+import { addableKinds, KIND_LABELS, type Kind } from '../lib/feeds';
 import { refused, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 
-type Feed = components['schemas']['RedditFeed'];
+type TwitchFeed = components['schemas']['TwitchFeed'];
+type RSSFeed = components['schemas']['RSSFeed'];
+type YouTubeFeed = components['schemas']['YouTubeFeed'];
+
+/** ADD_FIELDS are what a Twitch streamer and an RSS feed are added by: the field's label and an example. YouTube Live takes none. */
+const ADD_FIELDS: Record<Exclude<Kind, 'youtube'>, { label: string; example: string }> = {
+  rss: { label: 'Feed address (https)', example: 'https://news.example.com/feed.xml' },
+  twitch: { label: 'Twitch name or channel address', example: 'some_streamer' },
+};
 
 interface Props {
-  /** The feed to edit, or null to add one. */
-  feed: Feed | null;
   opener: HTMLElement;
-  /** Runs once the feed is saved, with what to say about it. */
+  /** Whether the YouTube Live feed is there already, so it is not offered. */
+  hasYouTube: boolean;
+  /** Runs once the feed is added, with what to say about it. */
   onSaved: (message: string) => void;
   onClose: () => void;
 }
 
-export default function FeedSheet({ feed, opener, onSaved, onClose }: Props) {
+export default function FeedSheet({ opener, hasYouTube, onSaved, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [kind, setKind] = useState<Kind>('rss');
   const [typed, setTyped] = useState('');
-  const [kinds, setKinds] = useState<Feed['kinds']>(feed?.kinds ?? []);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const id = feed === null ? 'feed-new' : `feed-${feed.id}`;
+  const id = 'feed-new';
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    if (feed === null) {
-      const r = await req.send<Feed>(req.addFeed(typed));
+    if (kind === 'youtube') {
+      const r = await req.send<YouTubeFeed>(req.addYouTubeFeed());
       if (!r.ok) return setOutcome(refused(r.message, id));
-      onSaved(`Added r/${r.data.subreddit}. Its first read, within 10 minutes, posts nothing; choose which endpoints take it above.`);
+      onSaved(`Added YouTube Live, watching ${r.data.channels} Movies channels; choose which endpoints take it above.`);
+    } else if (kind === 'twitch') {
+      const r = await req.send<TwitchFeed>(req.addTwitchFeed(typed));
+      if (!r.ok) return setOutcome(refused(r.message, id));
+      onSaved(`Added ${r.data.login}. Twitch checks the callback first; choose which endpoints take them above.`);
     } else {
-      const r = await req.send(req.setFeed(feed.id, { kinds, paused: feed.paused }));
+      const r = await req.send<RSSFeed>(req.addRSSFeed(typed));
       if (!r.ok) return setOutcome(refused(r.message, id));
-      onSaved(`Saved r/${feed.subreddit}.`);
+      onSaved(`Added ${r.data.url}. Its first read, within 10 minutes, posts nothing; choose which endpoints take it above.`);
     }
     dialog.current?.close();
   };
-  const ready = feed === null ? typed.trim() !== '' : kindsChanged(feed.kinds, kinds);
   return (
-    <Sheet dialog={dialog} id={id} title={feed === null ? 'Add a Reddit feed' : `Edit r/${feed.subreddit}`} opener={opener} onClose={onClose}>
+    <Sheet dialog={dialog} id={id} title="Add a feed" opener={opener} onClose={onClose}>
       <form className="sheet-body" onSubmit={(e) => void save(e)}>
-        {feed === null ? (
+        <Segmented<Kind> label="Kind of feed" options={addableKinds(hasYouTube).map((k) => ({ value: k, label: KIND_LABELS[k] }))} value={kind} onChange={setKind} />
+        {kind === 'youtube' ? (
+          <p className="muted">
+            Posts a live stream of any channel on the Movies tab when it starts, if Movies shows its video. YouTube tells of a stream when it is
+            scheduled or goes live; the api then checks it every minute near its start.
+          </p>
+        ) : (
           <div className="admin-add">
             <label>
-              Subreddit
-              <input className="input-antique" value={typed} placeholder="throughtheages" onChange={(e) => setTyped(e.target.value)} required />
+              {ADD_FIELDS[kind].label}
+              <input className="input-antique" type={kind === 'rss' ? 'url' : 'text'} value={typed} placeholder={ADD_FIELDS[kind].example}
+                onChange={(e) => setTyped(e.target.value)} required />
             </label>
           </div>
-        ) : (
-          <>
-            <fieldset className="check-kinds">
-              <legend>Sends these kinds of post</legend>
-              {KINDS.map((k) => (
-                <label key={k.key}>
-                  <input type="checkbox" checked={kinds.includes(k.key)} onChange={(e) => setKinds(toggledKind(kinds, k.key, e.target.checked))} />{' '}
-                  {k.label}
-                </label>
-              ))}
-            </fieldset>
-          </>
         )}
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
         <div className="site-dialog-buttons">
           <button type="button" className="btn-antique" onClick={() => dialog.current?.close()}>
             Cancel
           </button>
-          <button type="submit" className="btn-antique" disabled={!ready}>
-            {feed === null ? 'Add' : 'Save'}
+          <button type="submit" className="btn-antique" disabled={kind !== 'youtube' && typed.trim() === ''}>
+            Add
           </button>
         </div>
       </form>

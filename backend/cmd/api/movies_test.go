@@ -133,6 +133,32 @@ func TestClassifyPushedReadsTheDescriptionAndTags(t *testing.T) {
 	}
 }
 
+func TestClassifyPushedSaysWhetherItIsALiveOrScheduledStream(t *testing.T) {
+	pushed := movies.PushedEntry{VideoID: "vid00000001", ChannelID: "UC0000000000000000000001", Title: "Game 5"}
+	tests := []struct {
+		name   string
+		videos *stubVideos
+		want   bool
+	}{
+		{"live", &stubVideos{details: map[string]movies.VideoDetails{"vid00000001": {Broadcast: movies.Broadcast{Content: "live"}}}}, true},
+		{"scheduled", &stubVideos{details: map[string]movies.VideoDetails{"vid00000001": {Broadcast: movies.Broadcast{Content: "upcoming"}}}}, true},
+		{"a video", &stubVideos{details: map[string]movies.VideoDetails{"vid00000001": {Broadcast: movies.Broadcast{Content: "none"}}}}, false},
+		{"the Data API fails", &stubVideos{err: errors.New("HTTP 403")}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &movieHubDeps{classifying: stubClassifying{}, videos: tt.videos, log: slog.New(slog.DiscardHandler)}
+			v, err := d.ClassifyPushed(context.Background(), pushed, time.Time{})
+			if err != nil {
+				t.Fatalf("ClassifyPushed: %v", err)
+			}
+			if v.Stream != tt.want {
+				t.Errorf("Stream = %v, want %v", v.Stream, tt.want)
+			}
+		})
+	}
+}
+
 func TestClassifyPushedAsksNothingForAnUnlinkedChannel(t *testing.T) {
 	videos := &stubVideos{}
 	d := &movieHubDeps{classifying: stubClassifying{}, videos: videos, log: slog.New(slog.DiscardHandler)}

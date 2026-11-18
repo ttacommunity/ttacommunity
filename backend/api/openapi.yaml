@@ -3909,7 +3909,7 @@ paths:
       summary: Change a notification webhook (admins only)
       description: >-
         Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its
-        default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
+        default (no events or feeds, not paused, the webhook's own name and picture, the default look).
       parameters:
         - $ref: "#/components/parameters/AdminNotificationEndpointId"
       requestBody:
@@ -4019,14 +4019,62 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/reddit-feeds:
-    get:
-      operationId: getAdminRedditFeeds
-      tags: [admin]
-      summary: The subreddits whose new posts are posted to Discord (admins only)
+  /v1/twitch/eventsub:
+    post:
+      operationId: receiveTwitchEvent
+      tags: [community]
+      summary: Twitch's EventSub pushes a listed streamer going live or offline, checks our callback, or revokes a subscription
+      description: |
+        Every request must carry `Twitch-Eventsub-Message-Signature`, the
+        HMAC of its id, timestamp and body by `TWITCH_EVENTSUB_SECRET`, and a
+        timestamp within 10 minutes of now; any other is refused with 403 and
+        stores nothing. A message id seen before changes nothing. Without
+        Twitch set up here, it is a 404.
+      parameters:
+        - name: Twitch-Eventsub-Message-Id
+          in: header
+          description: Required; a message without one is refused by its signature
+          schema:
+            type: string
+            maxLength: 100
+        - name: Twitch-Eventsub-Message-Type
+          in: header
+          description: Required; a message without one is a 400
+          schema:
+            type: string
+            enum: [notification, webhook_callback_verification, revocation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TwitchEventSubMessage"
       responses:
         "200":
-          description: The feeds, by subreddit
+          description: The challenge of a verification, echoed
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            text/plain:
+              schema:
+                type: string
+        "204":
+          description: Taken
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/twitch-feeds:
+    get:
+      operationId: getAdminTwitchFeeds
+      tags: [admin]
+      summary: The Twitch streamers whose streams going live are posted to Discord (admins only)
+      responses:
+        "200":
+          description: The feeds, by login
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -4035,24 +4083,24 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/RedditFeed"
+                  $ref: "#/components/schemas/TwitchFeed"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
     post:
-      operationId: postAdminRedditFeed
+      operationId: postAdminTwitchFeed
       tags: [admin]
-      summary: Add a subreddit to read for new posts (admins only)
+      summary: Add a Twitch streamer, subscribing to their streams going live and ending (admins only)
       description: >-
-        Audited. The Origin must be the admin site. The Reddit job's first read of it posts nothing, so its
-        older posts are not posted; endpoints take it once it is among their feeds.
+        Audited. The Origin must be the admin site. The streamer is looked up on Twitch by login; Twitch then
+        checks our callback before it pushes anything. 503 when Twitch is not set up here or cannot be reached.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/NewRedditFeed"
+              $ref: "#/components/schemas/NewTwitchFeed"
       responses:
         "201":
           description: Added
@@ -4062,7 +4110,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RedditFeed"
+                $ref: "#/components/schemas/TwitchFeed"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4071,22 +4119,22 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/reddit-feeds/{feed}:
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/admin/twitch-feeds/{feed}:
     put:
-      operationId: putAdminRedditFeed
+      operationId: putAdminTwitchFeed
       tags: [admin]
-      summary: Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
-      description: >-
-        Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came
-        while it was paused is not posted.
+      summary: Pause or resume a Twitch streamer (admins only)
+      description: Audited. The Origin must be the admin site. A paused streamer's streams are not posted.
       parameters:
-        - $ref: "#/components/parameters/AdminRedditFeedId"
+        - $ref: "#/components/parameters/AdminTwitchFeedId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RedditFeedSetting"
+              $ref: "#/components/schemas/TwitchFeedSetting"
       responses:
         "204":
           description: Saved
@@ -4099,12 +4147,196 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
     delete:
-      operationId: deleteAdminRedditFeed
+      operationId: deleteAdminTwitchFeed
       tags: [admin]
-      summary: Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
+      summary: Remove a Twitch streamer, their subscriptions at Twitch, streams and the endpoints' subscriptions (admins only)
       description: Audited. The Origin must be the admin site.
       parameters:
-        - $ref: "#/components/parameters/AdminRedditFeedId"
+        - $ref: "#/components/parameters/AdminTwitchFeedId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/rss-feeds:
+    get:
+      operationId: getAdminRssFeeds
+      tags: [admin]
+      summary: The RSS and Atom feeds whose new items are posted to Discord (admins only)
+      responses:
+        "200":
+          description: The feeds, by title, then address
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RSSFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminRssFeed
+      tags: [admin]
+      summary: Add an RSS or Atom feed to read for new items, by its https address (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. An address that is not https, names a password or names an
+        address that is not public is refused; the feeds job checks every address it connects to as well. Its
+        first read posts nothing, so older items are not posted; endpoints take it once it is among their feeds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRSSFeed"
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RSSFeed"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/rss-feeds/{feed}:
+    put:
+      operationId: putAdminRssFeed
+      tags: [admin]
+      summary: Pause or resume an RSS feed (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came
+        while it was paused is not posted.
+      parameters:
+        - $ref: "#/components/parameters/AdminRSSFeedId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RSSFeedSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminRssFeed
+      tags: [admin]
+      summary: Remove an RSS feed, the items seen and the endpoints' subscriptions to it (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminRSSFeedId"
+      responses:
+        "204":
+          description: Removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/youtube-feeds:
+    get:
+      operationId: getAdminYouTubeFeeds
+      tags: [admin]
+      summary: The YouTube Live feed, when added, which posts Movies' channels' live streams to Discord (admins only)
+      responses:
+        "200":
+          description: The feed, or none
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YouTubeFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminYouTubeFeed
+      tags: [admin]
+      summary: Add the YouTube Live feed (admins only)
+      description: >-
+        Audited. The Origin must be the admin site. There is one: a stream of any Movies channel that YouTube's
+        push tells of, live or scheduled, is posted when it starts, if Movies shows its video. 409 when it is there
+        already; 503 when the Movies hub callback is not set up here, as nothing would be pushed.
+      responses:
+        "201":
+          description: Added
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YouTubeFeed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/admin/youtube-feeds/{feed}:
+    put:
+      operationId: putAdminYouTubeFeed
+      tags: [admin]
+      summary: Pause or resume the YouTube Live feed (admins only)
+      description: Audited. The Origin must be the admin site. While paused, streams are neither checked nor posted.
+      parameters:
+        - $ref: "#/components/parameters/AdminYouTubeFeedId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YouTubeFeedSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminYouTubeFeed
+      tags: [admin]
+      summary: Remove the YouTube Live feed, its streams and the endpoints' subscriptions to it (admins only)
+      description: Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminYouTubeFeedId"
       responses:
         "204":
           description: Removed
@@ -5636,7 +5868,23 @@ components:
         type: integer
         format: int64
         minimum: 1
-    AdminRedditFeedId:
+    AdminRSSFeedId:
+      name: feed
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    AdminYouTubeFeedId:
+      name: feed
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    AdminTwitchFeedId:
       name: feed
       in: path
       required: true
@@ -5747,6 +5995,15 @@ components:
       schema:
         type: string
   responses:
+    Unavailable:
+      description: A service this needs is not set up here or cannot be reached
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/CacheControl"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     SignedOut:
       description: Not signed in, or the session has ended
       headers:
@@ -6174,10 +6431,10 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [sign_up, link_request, blitz_report, blitz_flag, reddit_failing]
+      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
+      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, colour, text, image]
       properties:
         id:
           type: integer
@@ -6194,11 +6451,16 @@ components:
           items:
             $ref: "#/components/schemas/NotificationEvent"
         feeds:
-          description: The Reddit feeds it takes, by id
+          description: The feeds it takes, by id
           type: array
           items:
             type: integer
             format: int64
+        feed_options:
+          description: How it takes each of its feeds
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedOption"
         prefix:
           description: Text put before each message, such as [dev]
           type: string
@@ -6218,15 +6480,12 @@ components:
           description: A Discord role pinged with each message; none when empty
           type: string
         colour:
-          description: "A Reddit post's embed colour, #rrggbb"
+          description: "A feed item's embed colour, #rrggbb"
           type: string
         text:
-          $ref: "#/components/schemas/RedditPostText"
+          $ref: "#/components/schemas/FeedItemText"
         image:
-          description: Whether a Reddit post shows its image
-          type: boolean
-        author:
-          description: Whether a Reddit post shows its author
+          description: Whether a feed item shows its image
           type: boolean
         last_sent_at:
           type: string
@@ -6262,11 +6521,16 @@ components:
           items:
             $ref: "#/components/schemas/NotificationEvent"
         feeds:
-          description: The Reddit feeds it takes, by id; none when not given
+          description: The feeds it takes, by id; none when not given
           type: array
           items:
             type: integer
             format: int64
+        feed_options:
+          description: How it takes each of its feeds; a feed without an entry has no options
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedOption"
         prefix:
           type: string
         paused:
@@ -6282,13 +6546,11 @@ components:
           description: A Discord role's id
           type: string
         colour:
-          description: "#rrggbb, in lower case; Reddit's orange when not given"
+          description: "#rrggbb, in lower case; orange when not given"
           type: string
         text:
-          $ref: "#/components/schemas/RedditPostText"
+          $ref: "#/components/schemas/FeedItemText"
         image:
-          type: boolean
-        author:
           type: boolean
     DiscordBot:
       type: object
@@ -6355,34 +6617,82 @@ components:
         or always one or the other
       type: string
       enum: [private, shared, always_private, always_shared]
-    RedditFeed:
+    TwitchFeed:
       type: object
-      required: [id, subreddit, paused, kinds]
+      required: [id, login, display_name, user_id, paused, subscriptions, created_at]
       properties:
         id:
           type: integer
           format: int64
-        subreddit:
-          description: Its name, without r/
+        login:
+          type: string
+        display_name:
+          type: string
+        user_id:
+          description: Their Twitch user id
+          type: string
+        paused:
+          description: Their streams are not posted while paused
+          type: boolean
+        subscriptions:
+          description: The EventSub subscriptions for them, with Twitch's status for each
+          type: array
+          items:
+            $ref: "#/components/schemas/TwitchSubscriptionState"
+        created_at:
+          type: string
+          format: date-time
+    TwitchSubscriptionState:
+      type: object
+      required: [type, status]
+      properties:
+        type:
+          description: stream.online or stream.offline
+          type: string
+        status:
+          description: Twitch's status, such as enabled, webhook_callback_verification_pending or user_removed
+          type: string
+    NewTwitchFeed:
+      type: object
+      additionalProperties: false
+      required: [login]
+      properties:
+        login:
+          description: The streamer's Twitch name, or their channel's address
+          type: string
+    TwitchFeedSetting:
+      type: object
+      additionalProperties: false
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
+    RSSFeed:
+      type: object
+      required: [id, url, title, paused]
+      properties:
+        id:
+          type: integer
+          format: int64
+        url:
+          description: Its https address
+          type: string
+        title:
+          description: The feed's own title, as last read; empty until its first read
           type: string
         paused:
           description: Not read while paused
           type: boolean
-        kinds:
-          description: The kinds of post it sends
-          type: array
-          items:
-            $ref: "#/components/schemas/RedditPostKind"
         checked_at:
           type: string
           format: date-time
           nullable: true
-          description: When the Reddit job last read it
-        last_post_at:
+          description: When the feeds job last read it
+        last_item_at:
           type: string
           format: date-time
           nullable: true
-          description: When its newest post seen was posted on Reddit
+          description: When its newest item seen was published
         last_error:
           type: string
           nullable: true
@@ -6391,33 +6701,108 @@ components:
           type: string
           format: date-time
           nullable: true
-    NewRedditFeed:
+    NewRSSFeed:
       type: object
       additionalProperties: false
-      required: [subreddit]
+      required: [url]
       properties:
-        subreddit:
-          description: Its name, without r/
+        url:
+          description: The feed's https address
           type: string
-    RedditFeedSetting:
+    RSSFeedSetting:
       type: object
       additionalProperties: false
-      required: [paused, kinds]
+      required: [paused]
       properties:
         paused:
           type: boolean
-        kinds:
+    YouTubeFeed:
+      type: object
+      required: [id, paused, channels, waiting, live, created_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        paused:
+          description: Streams are neither checked nor posted while paused
+          type: boolean
+        channels:
+          description: How many Movies channels it watches
+          type: integer
+        waiting:
+          description: How many pushed streams are waiting to start
+          type: integer
+        live:
+          description: How many are live now
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    YouTubeFeedSetting:
+      type: object
+      additionalProperties: false
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
+    FeedOption:
+      description: How an endpoint takes one of its feeds
+      type: object
+      required: [feed, categories, keywords, was_live]
+      properties:
+        feed:
+          type: integer
+          format: int64
+        categories:
+          description: A Twitch stream is posted only in one of these categories (any when empty)
           type: array
           items:
-            $ref: "#/components/schemas/RedditPostKind"
-    RedditPostText:
-      description: How much of a Reddit post's text an endpoint shows
+            type: string
+        keywords:
+          description: >-
+            A Twitch or YouTube stream is posted only with one of these words in its title, an RSS item only with
+            one in its title or summary, in any letters (any when empty)
+          type: array
+          items:
+            type: string
+        match:
+          description: all, the default, posts a stream that passes both lists; any, one that passes either
+          type: string
+          enum: [all, any]
+        was_live:
+          description: Edit the post of a Twitch or YouTube stream to "was live" when it ends
+          type: boolean
+    TwitchEventSubMessage:
+      description: An EventSub message, of which only these parts are read
+      type: object
+      required: [subscription]
+      properties:
+        challenge:
+          type: string
+        subscription:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+            type:
+              type: string
+            status:
+              type: string
+        event:
+          type: object
+          properties:
+            id:
+              type: string
+            broadcaster_user_id:
+              type: string
+            started_at:
+              type: string
+              format: date-time
+    FeedItemText:
+      description: How much of a feed item's text an endpoint shows
       type: string
       enum: [full, short, none]
-    RedditPostKind:
-      description: A kind of Reddit post
-      type: string
-      enum: [text, image, gallery, video, link]
     NotificationTest:
       type: object
       required: [delivered, message]

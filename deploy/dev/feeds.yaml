@@ -1,26 +1,26 @@
-# The Reddit job, every 10 minutes: reads each Reddit feed admin lists and queues its new posts, which the api
-# posts to the Discord webhooks taking that feed. It writes through the api's admin login. A run by hand:
-#   kubectl -n ttacommunity create job --from=cronjob/reddit reddit-manual-1
+# The dev site's feeds job, deploy/feeds.yaml for api-dev and ratings_dev: it posts only once dev's admin has
+# a feed and a webhook taking it. A run by hand:
+#   kubectl -n ttacommunity create job --from=cronjob/feeds-dev feeds-dev-manual-1
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: reddit
+  name: feeds-dev
   namespace: ttacommunity
 spec:
-  schedule: "*/10 * * * *"
+  schedule: "5-55/10 * * * *"
   timeZone: Etc/UTC
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # Two: a new pod's first database connection is refused (below), and its restart must not end the Job.
+      # Two: a new pod's first database connection is refused, and its restart must not end the Job.
       backoffLimit: 2
-      activeDeadlineSeconds: 300
+      activeDeadlineSeconds: 540
       template:
         metadata:
           labels:
-            app: reddit
+            app: feeds-dev
         spec:
           # A new pod's first connection can be refused before the NetworkPolicy admits it; a restart keeps the pod.
           restartPolicy: OnFailure
@@ -47,14 +47,14 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           containers:
-            - name: reddit
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-9932ee8d@sha256:c84689aed6fcb4e9cea3ed35c37cc734b45f018c45bb11571680804935896f36
-              args: [reddit]
+            - name: feeds
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-2fff2664@sha256:ab1bd41e3049849ee4234a6dd03b8f45584add001626e609b555736dfbd7d83b
+              args: [feeds]
               env:
                 - name: RATINGS_ADMIN_DATABASE_URL
                   valueFrom:
                     secretKeyRef:
-                      name: ratings-admin
+                      name: ratings-dev-admin
                       key: database-url
               resources:
                 requests:

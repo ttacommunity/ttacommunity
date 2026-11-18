@@ -44,6 +44,7 @@ type VideoDetails struct {
 	Description string
 	Tags        []string
 	PublishedAt time.Time
+	Broadcast   Broadcast
 }
 
 // YouTube reads the Data API with a key, sent in a header so no address or error carries it.
@@ -68,8 +69,8 @@ func (y *YouTube) String() string { return "YouTube{key: redacted}" }
 // GoString names the type without its key, for %#v.
 func (y *YouTube) GoString() string { return y.String() }
 
-// Videos returns the details of each of ids (at most 50) that YouTube still has and shows: a removed or
-// private video is left out.
+// Videos returns the details of each of ids (at most 50) that YouTube still has and shows, its live stream's
+// included: a removed or private video is left out. One call costs one unit of quota, however many ids.
 func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDetails, error) {
 	if len(ids) > maxVideosPerCall {
 		return nil, fmt.Errorf("asking for %d videos at once, at most %d", len(ids), maxVideosPerCall)
@@ -83,10 +84,17 @@ func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDet
 				Description string    `json:"description"`
 				Tags        []string  `json:"tags"`
 				PublishedAt time.Time `json:"publishedAt"`
+				Live        string    `json:"liveBroadcastContent"`
 			} `json:"snippet"`
+			Streaming struct {
+				ScheduledAt *time.Time `json:"scheduledStartTime"`
+				StartedAt   *time.Time `json:"actualStartTime"`
+				EndedAt     *time.Time `json:"actualEndTime"`
+			} `json:"liveStreamingDetails"`
 		} `json:"items"`
 	}
-	if err := y.get(ctx, "/videos", url.Values{"part": {"snippet"}, "id": {strings.Join(ids, ",")}}, &resp); err != nil {
+	query := url.Values{"part": {"snippet,liveStreamingDetails"}, "id": {strings.Join(ids, ",")}}
+	if err := y.get(ctx, "/videos", query, &resp); err != nil {
 		return nil, fmt.Errorf("reading videos: %w", err)
 	}
 	out := make(map[string]VideoDetails, len(resp.Items))
@@ -94,9 +102,20 @@ func (y *YouTube) Videos(ctx context.Context, ids []string) (map[string]VideoDet
 		out[it.ID] = VideoDetails{
 			VideoID: it.ID, ChannelID: it.Snippet.ChannelID, Title: it.Snippet.Title,
 			Description: it.Snippet.Description, Tags: it.Snippet.Tags, PublishedAt: it.Snippet.PublishedAt.UTC(),
+			Broadcast: Broadcast{Content: it.Snippet.Live, ScheduledAt: utc(it.Streaming.ScheduledAt),
+				StartedAt: utc(it.Streaming.StartedAt), EndedAt: utc(it.Streaming.EndedAt)},
 		}
 	}
 	return out, nil
+}
+
+// utc is t in UTC, or nil.
+func utc(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }
 
 // Uploads returns the ids of every one of channelID's uploads, newest first, from its uploads playlist, 50 a
