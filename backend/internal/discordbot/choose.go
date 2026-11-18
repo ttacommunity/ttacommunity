@@ -78,8 +78,22 @@ func pickedFrom(items []string, indexes []int) []string {
 	return picked
 }
 
-// ItemsText is the reply for items: each as written, separated by commas.
-func ItemsText(items []string) string {
+// maxReplyLength is the most characters Discord shows in a message.
+const maxReplyLength = 2000
+
+// DrawText is the reply for a draw: the entries drawn, then every entry given, so the channel sees what was asked;
+// when both would pass Discord's limit, the given entries are counted instead.
+func DrawText(drawn, given []string) string {
+	result := "**Result:** " + itemsText(drawn)
+	text := result + "\nOriginal: " + itemsText(given)
+	if utf8.RuneCountInString(text) > maxReplyLength {
+		text = result + fmt.Sprintf("\nOriginal: %d names, too long to repeat", len(given))
+	}
+	return text
+}
+
+// itemsText is items as written, separated by commas.
+func itemsText(items []string) string {
 	escaped := make([]string, len(items))
 	for i, item := range items {
 		escaped[i] = EscapeMarkdown(item)
