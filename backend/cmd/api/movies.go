@@ -78,9 +78,9 @@ func (d *movieHubDeps) String() string { return "movieHubDeps{secret: redacted}"
 // GoString names the type without its secret, for %#v.
 func (d *movieHubDeps) GoString() string { return d.String() }
 
-// ClassifyPushed decides whether a pushed video is about TTA from its title, description and tags. When the
-// Data API fails or no longer shows the video, it decides from the title alone and leaves DetailsFetchedAt
-// unset, for the daily job to try again.
+// ClassifyPushed decides whether a pushed video is about TTA from its title, description and tags, and whether it
+// is a live or scheduled stream. When the Data API fails or no longer shows the video, it decides from the title
+// alone and leaves DetailsFetchedAt unset, for the daily job to try again.
 func (d *movieHubDeps) ClassifyPushed(ctx context.Context, e movies.PushedEntry, at time.Time) (store.PushedVideo, error) {
 	v := store.PushedVideo{
 		VideoID: e.VideoID, ChannelID: e.ChannelID, Title: e.Title, PublishedAt: e.PublishedAt,
@@ -101,6 +101,7 @@ func (d *movieHubDeps) ClassifyPushed(ctx context.Context, e movies.PushedEntry,
 	if got, ok := details[e.VideoID]; ok {
 		text.Description, text.Tags = got.Description, got.Tags
 		v.DetailsFetchedAt = &at
+		v.Stream = got.Broadcast.LiveOrUpcoming()
 	}
 	verdict := movies.Classify(text, includeAll, tournaments)
 	v.TTA, v.Reason = verdict.TTA, verdict.Reason

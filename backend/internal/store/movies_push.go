@@ -8,7 +8,8 @@ import (
 	"time"
 )
 
-// PushedVideo is one video the hub pushed, with our verdict on whether it is about TTA.
+// PushedVideo is one video the hub pushed, with our verdict on whether it is about TTA, and whether the Data API
+// says it is a live or scheduled stream.
 type PushedVideo struct {
 	VideoID          string
 	ChannelID        string
@@ -18,6 +19,7 @@ type PushedVideo struct {
 	TTA              bool
 	Reason           string
 	DetailsFetchedAt *time.Time
+	Stream           bool
 }
 
 // ConfirmMovieHub reports whether the hub's check of a request is one we made: a subscribe for a linked channel
