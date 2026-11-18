@@ -11,6 +11,8 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
+var feedsNow = time.Date(2026, 11, 17, 2, 0, 0, 0, time.UTC)
+
 // fakeRSSFeeds holds the job's RSS feeds and records what it writes.
 type fakeRSSFeeds struct {
 	feeds    []store.RSSFeed
@@ -55,7 +57,7 @@ func TestTheRSSJobReadsEachFeedNotPausedAndKeepsEachFailure(t *testing.T) {
 		recorded: map[int64]string{}, failed: map[int64]string{},
 	}
 	r := &fakeRSS{errs: map[string]error{"https://gone.example.com/feed": errors.New("the feed answered 404")}}
-	report, err := rssJob{store: s, rss: r, now: redditNow}.run(context.Background())
+	report, err := rssJob{store: s, rss: r, now: feedsNow}.run(context.Background())
 	if err != nil {
 		t.Fatalf("run: %v, want none: a feed's failure is recorded on it", err)
 	}
@@ -72,7 +74,7 @@ func TestTheRSSJobReadsEachFeedNotPausedAndKeepsEachFailure(t *testing.T) {
 
 func TestTheRSSJobFailsWhenItCannotReadItsFeeds(t *testing.T) {
 	s := &fakeRSSFeeds{listErr: errors.New("database down")}
-	if _, err := (rssJob{store: s, rss: &fakeRSS{}, now: redditNow}).run(context.Background()); err == nil {
+	if _, err := (rssJob{store: s, rss: &fakeRSS{}, now: feedsNow}).run(context.Background()); err == nil {
 		t.Error("run: no error, want the store's")
 	}
 }

@@ -31,7 +31,7 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	}
 	out := NotificationEndpoint{Id: e.ID, Name: e.Name, WebhookId: e.WebhookID(), Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
 		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID,
-		Colour: e.Look.Colour, Text: RedditPostText(e.Look.Text), Image: e.Look.Image, Author: e.Look.Author,
+		Colour: e.Look.Colour, Text: FeedItemText(e.Look.Text), Image: e.Look.Image,
 		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
 	if e.LastError != "" {
 		out.LastError = &e.LastError
@@ -110,9 +110,6 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	if b.Image != nil {
 		e.Look.Image = *b.Image
-	}
-	if b.Author != nil {
-		e.Look.Author = *b.Author
 	}
 	return e, ""
 }

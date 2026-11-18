@@ -167,7 +167,7 @@ var commands = []command{
 		}
 		return runMovies(time.Now(), *only)
 	}},
-	{"feeds", "", "the feeds job: read each Reddit, RSS and Atom feed not paused and queue its new posts for the api to post to Discord; a feed's first read after it is added or resumed posts nothing. Needs RATINGS_ADMIN_DATABASE_URL, and applies no migration", func(fs *flag.FlagSet, args []string) error {
+	{"feeds", "", "the feeds job: read each RSS and Atom feed not paused and queue its new posts for the api to post to Discord; a feed's first read after it is added or resumed posts nothing. Needs RATINGS_ADMIN_DATABASE_URL, and applies no migration", func(fs *flag.FlagSet, args []string) error {
 		if err := parse(fs, args, 0); err != nil {
 			return err
 		}

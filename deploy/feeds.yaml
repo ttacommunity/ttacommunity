@@ -1,5 +1,5 @@
-# The feeds job, every 10 minutes: reads each Reddit, RSS and Atom feed admin lists and queues its new posts, which
-# the api posts to the Discord webhooks taking that feed. It writes through the api's admin login. A run by hand:
+# The feeds job, every 10 minutes: reads each RSS and Atom feed admin lists and queues its new items, which the api
+# posts to the Discord webhooks taking that feed. It writes through the api's admin login. A run by hand:
 #   kubectl -n ttacommunity create job --from=cronjob/feeds feeds-manual-1
 apiVersion: batch/v1
 kind: CronJob

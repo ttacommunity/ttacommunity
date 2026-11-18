@@ -37,7 +37,6 @@ type Admins interface {
 	ChallengeAdmin
 	NostradamusAdmin
 	NotificationAdmin
-	RedditAdmin
 	RSSAdmin
 	BotAdmin
 	MovieAdmin
@@ -92,14 +91,6 @@ type BotAdmin interface {
 	SetDiscordCommand(ctx context.Context, c store.CommandSettings) error
 	BotRegistration(ctx context.Context) (store.BotRegistration, error)
 	DiscordAppID() string
-}
-
-// RedditAdmin is the Reddit feeds whose new posts are posted to Discord.
-type RedditAdmin interface {
-	RedditFeeds(ctx context.Context) ([]store.RedditFeed, error)
-	AddRedditFeed(ctx context.Context, subreddit string, now time.Time) (int64, error)
-	SetRedditFeed(ctx context.Context, id int64, paused bool, kinds []string) error
-	RemoveRedditFeed(ctx context.Context, id int64) error
 }
 
 // RSSAdmin is the RSS and Atom feeds whose new items are posted to Discord.

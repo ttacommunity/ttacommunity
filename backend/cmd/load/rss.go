@@ -1,4 +1,4 @@
-// The feeds job's RSS half: it reads each RSS or Atom feed and queues the items not seen before, for the api to post
+// The feeds job's run: it reads each RSS or Atom feed and queues the items not seen before, for the api to post
 // to the endpoints taking that feed. A feed that cannot be read keeps its failure, shown in admin, and the job
 // carries on.
 package main
@@ -30,8 +30,8 @@ type rssJob struct {
 	now   time.Time
 }
 
-// run reads every feed not paused, and reports as the Reddit job does. Only the database failing is run's error: a
-// feed failing is recorded on it, which tells the admins taking feed_failing after a few in a row.
+// run reads every feed not paused. Only the database failing is run's error: a feed failing is recorded on it,
+// which tells the admins taking feed_failing after a few in a row.
 func (j rssJob) run(ctx context.Context) (feedsReport, error) {
 	var r feedsReport
 	feeds, err := j.store.RSSFeeds(ctx)

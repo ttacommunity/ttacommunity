@@ -3837,7 +3837,7 @@ paths:
       summary: Change a notification webhook (admins only)
       description: >-
         Audited. The Origin must be the admin site. It replaces the endpoint: a setting not given takes its
-        default (no events or feeds, not paused, the webhook's own name and picture, Reddit's look).
+        default (no events or feeds, not paused, the webhook's own name and picture, the default look).
       parameters:
         - $ref: "#/components/parameters/AdminNotificationEndpointId"
       requestBody:
@@ -3941,101 +3941,6 @@ paths:
           description: Saved
         "400":
           $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-  /v1/admin/reddit-feeds:
-    get:
-      operationId: getAdminRedditFeeds
-      tags: [admin]
-      summary: The subreddits whose new posts are posted to Discord (admins only)
-      responses:
-        "200":
-          description: The feeds, by subreddit
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControl"
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RedditFeed"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-    post:
-      operationId: postAdminRedditFeed
-      tags: [admin]
-      summary: Add a subreddit to read for new posts (admins only)
-      description: >-
-        Audited. The Origin must be the admin site. The feeds job's first read of it posts nothing, so its
-        older posts are not posted; endpoints take it once it is among their feeds.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewRedditFeed"
-      responses:
-        "201":
-          description: Added
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/CacheControl"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RedditFeed"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-  /v1/admin/reddit-feeds/{feed}:
-    put:
-      operationId: putAdminRedditFeed
-      tags: [admin]
-      summary: Pause or resume a Reddit feed, and choose the kinds of post it sends (admins only)
-      description: >-
-        Audited. The Origin must be the admin site. A resumed feed's next read posts nothing, so what came
-        while it was paused is not posted.
-      parameters:
-        - $ref: "#/components/parameters/AdminRedditFeedId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RedditFeedSetting"
-      responses:
-        "204":
-          description: Saved
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-    delete:
-      operationId: deleteAdminRedditFeed
-      tags: [admin]
-      summary: Remove a Reddit feed, the posts seen and the endpoints' subscriptions to it (admins only)
-      description: Audited. The Origin must be the admin site.
-      parameters:
-        - $ref: "#/components/parameters/AdminRedditFeedId"
-      responses:
-        "204":
-          description: Removed
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5803,14 +5708,6 @@ components:
         type: integer
         format: int64
         minimum: 1
-    AdminRedditFeedId:
-      name: feed
-      in: path
-      required: true
-      schema:
-        type: integer
-        format: int64
-        minimum: 1
     AdminRSSFeedId:
       name: feed
       in: path
@@ -6369,7 +6266,7 @@ components:
       enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, author]
+      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, colour, text, image]
       properties:
         id:
           type: integer
@@ -6415,15 +6312,12 @@ components:
           description: A Discord role pinged with each message; none when empty
           type: string
         colour:
-          description: "A Reddit post's or RSS item's embed colour, #rrggbb"
+          description: "A feed item's embed colour, #rrggbb"
           type: string
         text:
-          $ref: "#/components/schemas/RedditPostText"
+          $ref: "#/components/schemas/FeedItemText"
         image:
-          description: Whether a Reddit post or RSS item shows its image
-          type: boolean
-        author:
-          description: Whether a Reddit post shows its author
+          description: Whether a feed item shows its image
           type: boolean
         last_sent_at:
           type: string
@@ -6484,13 +6378,11 @@ components:
           description: A Discord role's id
           type: string
         colour:
-          description: "#rrggbb, in lower case; Reddit's orange when not given"
+          description: "#rrggbb, in lower case; orange when not given"
           type: string
         text:
-          $ref: "#/components/schemas/RedditPostText"
+          $ref: "#/components/schemas/FeedItemText"
         image:
-          type: boolean
-        author:
           type: boolean
     DiscordBot:
       type: object
@@ -6557,61 +6449,6 @@ components:
         or always one or the other
       type: string
       enum: [private, shared, always_private, always_shared]
-    RedditFeed:
-      type: object
-      required: [id, subreddit, paused, kinds]
-      properties:
-        id:
-          type: integer
-          format: int64
-        subreddit:
-          description: Its name, without r/
-          type: string
-        paused:
-          description: Not read while paused
-          type: boolean
-        kinds:
-          description: The kinds of post it sends
-          type: array
-          items:
-            $ref: "#/components/schemas/RedditPostKind"
-        checked_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: When the feeds job last read it
-        last_post_at:
-          type: string
-          format: date-time
-          nullable: true
-          description: When its newest post seen was posted on Reddit
-        last_error:
-          type: string
-          nullable: true
-          description: Why its last read failed, until a read succeeds
-        last_error_at:
-          type: string
-          format: date-time
-          nullable: true
-    NewRedditFeed:
-      type: object
-      additionalProperties: false
-      required: [subreddit]
-      properties:
-        subreddit:
-          description: Its name, without r/
-          type: string
-    RedditFeedSetting:
-      type: object
-      additionalProperties: false
-      required: [paused, kinds]
-      properties:
-        paused:
-          type: boolean
-        kinds:
-          type: array
-          items:
-            $ref: "#/components/schemas/RedditPostKind"
     TwitchFeed:
       type: object
       required: [id, login, display_name, user_id, paused, subscriptions, created_at]
@@ -6765,14 +6602,10 @@ components:
             started_at:
               type: string
               format: date-time
-    RedditPostText:
-      description: How much of a Reddit post's text, or an RSS item's summary, an endpoint shows
+    FeedItemText:
+      description: How much of a feed item's text an endpoint shows
       type: string
       enum: [full, short, none]
-    RedditPostKind:
-      description: A kind of Reddit post
-      type: string
-      enum: [text, image, gallery, video, link]
     NotificationTest:
       type: object
       required: [delivered, message]
