@@ -1,9 +1,10 @@
-/** A Twitch feed's options in an endpoint's sheet: categories and keywords to match, as comma-separated lists, and "was live". */
+/** A Twitch feed's options in an endpoint's sheet: categories and keywords to match, as comma-separated lists, whether a stream needs both or either, and "was live". */
 import { useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { words } from '../lib/feeds';
 
 type FeedOption = components['schemas']['FeedOption'];
+type Match = NonNullable<FeedOption['match']>;
 
 interface Props {
   options: FeedOption;
@@ -25,12 +26,19 @@ export default function FeedOptions({ options, onChange }: Props) {
           }} />
       </label>
       <label>
-        Or with words in the title
+        With words in the title
         <input className="input-antique" value={keywords} placeholder="Any; such as TTA, tournament"
           onChange={(e) => {
             setKeywords(e.target.value);
             onChange({ keywords: words(e.target.value) });
           }} />
+      </label>
+      <label>
+        Post a stream that passes{' '}
+        <select className="input-antique" value={options.match ?? 'all'} onChange={(e) => onChange({ match: e.target.value as Match })}>
+          <option value="all">both lists</option>
+          <option value="any">either list</option>
+        </select>
       </label>
       <label>
         <input type="checkbox" checked={options.was_live} onChange={(e) => onChange({ was_live: e.target.checked })} /> Edit to "was live" when the stream ends

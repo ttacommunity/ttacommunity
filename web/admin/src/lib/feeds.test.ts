@@ -50,9 +50,10 @@ describe('feeds', () => {
   });
 
   it('gives a feed no options until some are set, and drops the entry when they are cleared', () => {
-    expect(optionsFor([], 3)).toEqual({ feed: 3, categories: [], keywords: [], was_live: false });
+    expect(optionsFor([], 3)).toEqual({ feed: 3, categories: [], keywords: [], match: 'all', was_live: false });
     const set = withOptions([], 3, { keywords: ['tta'], was_live: true });
-    expect(set).toEqual([{ feed: 3, categories: [], keywords: ['tta'], was_live: true }]);
+    expect(set).toEqual([{ feed: 3, categories: [], keywords: ['tta'], match: 'all', was_live: true }]);
     expect(withOptions(set, 3, { keywords: [], was_live: false })).toEqual([]);
+    expect(withOptions([], 3, { match: 'any' })).toEqual([{ feed: 3, categories: [], keywords: [], match: 'any', was_live: false }]);
   });
 });

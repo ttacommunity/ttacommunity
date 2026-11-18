@@ -26,7 +26,8 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	}
 	opts := make([]FeedOption, len(e.FeedOptions))
 	for i, o := range e.FeedOptions {
-		opts[i] = FeedOption{Feed: o.Feed, Categories: orEmpty(o.Categories), Keywords: orEmpty(o.Keywords), WasLive: o.WasLive}
+		match := FeedOptionMatch(o.Match)
+		opts[i] = FeedOption{Feed: o.Feed, Categories: orEmpty(o.Categories), Keywords: orEmpty(o.Keywords), Match: &match, WasLive: o.WasLive}
 	}
 	out := NotificationEndpoint{Id: e.ID, Name: e.Name, WebhookId: e.WebhookID(), Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
 		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID,
@@ -61,7 +62,15 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	if b.FeedOptions != nil {
 		for _, o := range *b.FeedOptions {
-			e.FeedOptions = append(e.FeedOptions, store.FeedOptions{Feed: o.Feed, Categories: o.Categories, Keywords: o.Keywords, WasLive: o.WasLive})
+			match := FeedOptionMatchAll
+			if o.Match != nil {
+				if !o.Match.Valid() {
+					return store.NotificationEndpoint{}, "a feed's match is all or any"
+				}
+				match = *o.Match
+			}
+			e.FeedOptions = append(e.FeedOptions, store.FeedOptions{Feed: o.Feed, Categories: o.Categories, Keywords: o.Keywords,
+				Match: string(match), WasLive: o.WasLive})
 		}
 	}
 	if b.Format != nil {

@@ -514,6 +514,24 @@ func (e EntrantStatus) Valid() bool {
 	}
 }
 
+// Defines values for FeedOptionMatch.
+const (
+	FeedOptionMatchAll FeedOptionMatch = "all"
+	FeedOptionMatchAny FeedOptionMatch = "any"
+)
+
+// Valid indicates whether the value is a known member of the FeedOptionMatch enum.
+func (e FeedOptionMatch) Valid() bool {
+	switch e {
+	case FeedOptionMatchAll:
+		return true
+	case FeedOptionMatchAny:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Format.
 const (
 	N0 Format = 0
@@ -3664,16 +3682,22 @@ type ExtraBadge struct {
 
 // FeedOption How an endpoint takes one of its feeds
 type FeedOption struct {
-	// Categories A Twitch stream is posted only in one of these categories, or with one of the keywords; both empty, any stream
+	// Categories A Twitch stream is posted only in one of these categories (any when empty)
 	Categories []string `json:"categories"`
 	Feed       int64    `json:"feed"`
 
-	// Keywords Words, any of which in a stream's title posts it, in any letters
+	// Keywords A Twitch stream is posted only with one of these words in its title, in any letters (any when empty)
 	Keywords []string `json:"keywords"`
+
+	// Match all, the default, posts a stream that passes both lists; any, one that passes either
+	Match *FeedOptionMatch `json:"match,omitempty"`
 
 	// WasLive Edit the post of a Twitch stream to "was live" when it ends
 	WasLive bool `json:"was_live"`
 }
+
+// FeedOptionMatch all, the default, posts a stream that passes both lists; any, one that passes either
+type FeedOptionMatch string
 
 // Format Players per game. 0 is every format together
 type Format int

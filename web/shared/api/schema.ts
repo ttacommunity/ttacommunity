@@ -4216,10 +4216,15 @@ export interface components {
         FeedOption: {
             /** Format: int64 */
             feed: number;
-            /** @description A Twitch stream is posted only in one of these categories, or with one of the keywords; both empty, any stream */
+            /** @description A Twitch stream is posted only in one of these categories (any when empty) */
             categories: string[];
-            /** @description Words, any of which in a stream's title posts it, in any letters */
+            /** @description A Twitch stream is posted only with one of these words in its title, in any letters (any when empty) */
             keywords: string[];
+            /**
+             * @description all, the default, posts a stream that passes both lists; any, one that passes either
+             * @enum {string}
+             */
+            match?: "all" | "any";
             /** @description Edit the post of a Twitch stream to "was live" when it ends */
             was_live: boolean;
         };
@@ -13090,6 +13095,7 @@ export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<c
 export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "reddit_failing"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
+export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];
 export const redditPostTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostText"]> = ["full", "short", "none"];
 export const redditPostKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RedditPostKind"]> = ["text", "image", "gallery", "video", "link"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];

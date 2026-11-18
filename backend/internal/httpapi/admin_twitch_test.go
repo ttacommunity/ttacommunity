@@ -153,7 +153,7 @@ func TestAnEndpointsFeedOptionsReachTheStoreAndComeBack(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	f := &fakeAdmins{}
 	body := `{"name": "Twitch", "url": "` + testWebhook + `", "events": [], "feeds": [7],
-		"feed_options": [{"feed": 7, "categories": ["Through the Ages"], "keywords": ["tta"], "was_live": true}]}`
+		"feed_options": [{"feed": 7, "categories": ["Through the Ages"], "keywords": ["tta"], "match": "any", "was_live": true}]}`
 	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site, body)
 	var made NotificationEndpoint
 	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated {
@@ -162,7 +162,29 @@ func TestAnEndpointsFeedOptionsReachTheStoreAndComeBack(t *testing.T) {
 	if len(made.FeedOptions) != 1 || made.FeedOptions[0].Feed != 7 || !made.FeedOptions[0].WasLive || made.FeedOptions[0].Keywords[0] != "tta" {
 		t.Errorf("answered options %+v, want feed 7's", made.FeedOptions)
 	}
-	if got, want := f.feedOptions, "[{Feed:7 Categories:[Through the Ages] Keywords:[tta] WasLive:true}]"; got != want {
+	if got, want := f.feedOptions, "[{Feed:7 Categories:[Through the Ages] Keywords:[tta] Match:any WasLive:true}]"; got != want {
 		t.Errorf("stored options %q, want %q", got, want)
+	}
+}
+
+func TestAFeedsMatchIsAllOrAny(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	tests := []struct {
+		name, match, wantStored string
+		want                    int
+	}{
+		{"left out, so all", ``, "Match:all", http.StatusCreated},
+		{"any", `, "match": "any"`, "Match:any", http.StatusCreated},
+		{"something else", `, "match": "some"`, "", http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			body := `{"name": "Twitch", "url": "` + testWebhook + `", "events": [], "feeds": [7], "feed_options": [{"feed": 7, "categories": [], "keywords": [], "was_live": false` + tt.match + `}]}`
+			rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site, body)
+			if rec.Code != tt.want || !strings.Contains(f.feedOptions, tt.wantStored) {
+				t.Errorf("POST = %d, stored %q; want %d, %q", rec.Code, f.feedOptions, tt.want, tt.wantStored)
+			}
+		})
 	}
 }

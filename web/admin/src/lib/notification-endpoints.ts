@@ -43,9 +43,12 @@ export function endpointChanged(saved: Setting, draft: Setting): boolean {
     JSON.stringify(takenOptions(saved)) !== JSON.stringify(takenOptions(draft));
 }
 
-/** takenOptions is s's feed options for the feeds it takes, by feed. */
+/** takenOptions is s's feed options for the feeds it takes, by feed, each in one shape so two can be compared. */
 function takenOptions(s: Pick<Setting, 'feeds' | 'feed_options'>): FeedOption[] {
-  return s.feed_options.filter((o) => s.feeds.includes(o.feed)).sort((a, b) => a.feed - b.feed);
+  return s.feed_options
+    .filter((o) => s.feeds.includes(o.feed))
+    .map((o) => ({ feed: o.feed, categories: o.categories, keywords: o.keywords, match: o.match ?? 'all', was_live: o.was_live }))
+    .sort((a, b) => a.feed - b.feed);
 }
 
 /** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */

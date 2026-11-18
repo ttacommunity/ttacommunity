@@ -6567,15 +6567,19 @@ components:
           type: integer
           format: int64
         categories:
-          description: A Twitch stream is posted only in one of these categories, or with one of the keywords; both empty, any stream
+          description: A Twitch stream is posted only in one of these categories (any when empty)
           type: array
           items:
             type: string
         keywords:
-          description: Words, any of which in a stream's title posts it, in any letters
+          description: A Twitch stream is posted only with one of these words in its title, in any letters (any when empty)
           type: array
           items:
             type: string
+        match:
+          description: all, the default, posts a stream that passes both lists; any, one that passes either
+          type: string
+          enum: [all, any]
         was_live:
           description: Edit the post of a Twitch stream to "was live" when it ends
           type: boolean

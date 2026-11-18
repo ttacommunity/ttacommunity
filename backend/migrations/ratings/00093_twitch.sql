@@ -1,7 +1,8 @@
 -- Twitch streamers as feeds: a streamer's login is the source, their Twitch user id the remote id. Each has its
 -- EventSub subscriptions (going live, going offline), the streams it went live with, the Discord message each
 -- endpoint was posted (kept to edit it to "was live"), and the push messages already handled (Twitch may send one
--- twice). An endpoint's subscription to a feed gets options: categories and keywords to match, and "was live".
+-- twice). An endpoint's subscription to a feed gets options: categories and keywords to match, all of them or any,
+-- and "was live".
 -- +goose Up
 ALTER TABLE feeds
     DROP CONSTRAINT feeds_kind_check,
@@ -20,6 +21,7 @@ ALTER TABLE notification_feed_subscriptions
         CONSTRAINT notification_feed_subscriptions_categories_check CHECK (cardinality(categories) <= 20 AND array_position(categories, '') IS NULL),
     ADD COLUMN keywords text[] NOT NULL DEFAULT '{}'
         CONSTRAINT notification_feed_subscriptions_keywords_check CHECK (cardinality(keywords) <= 20 AND array_position(keywords, '') IS NULL),
+    ADD COLUMN match text NOT NULL DEFAULT 'all' CONSTRAINT notification_feed_subscriptions_match_check CHECK (match IN ('all', 'any')),
     ADD COLUMN was_live boolean NOT NULL DEFAULT false;
 
 CREATE TABLE twitch_subscriptions (
@@ -78,7 +80,7 @@ ALTER TABLE notification_outbox
     ADD CONSTRAINT notification_outbox_kind_check CHECK (kind IN ('sign_up', 'link_request', 'blitz_report', 'blitz_flag',
         'reddit_post', 'reddit_failed', 'reddit_recovered'));
 DROP TABLE twitch_messages, twitch_posts, twitch_streams, twitch_subscriptions;
-ALTER TABLE notification_feed_subscriptions DROP COLUMN categories, DROP COLUMN keywords, DROP COLUMN was_live;
+ALTER TABLE notification_feed_subscriptions DROP COLUMN categories, DROP COLUMN keywords, DROP COLUMN match, DROP COLUMN was_live;
 DELETE FROM feeds WHERE kind = 'twitch';
 DROP INDEX feeds_kind_remote;
 ALTER TABLE feeds

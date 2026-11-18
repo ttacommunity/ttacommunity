@@ -29,6 +29,7 @@ describe('notification endpoints', () => {
     ['taking the same feeds in another order', { ...SAVED, feeds: [5, 2] }, false],
     ['given another keyword', { ...SAVED, feed_options: [{ feed: 5, categories: [], keywords: ['tta', 'tournament'], was_live: true }] }, true],
     ['turning "was live" off', { ...SAVED, feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: false }] }, true],
+    ['given the same options, written another way', { ...SAVED, feed_options: [{ was_live: true, match: 'all' as const, keywords: ['tta'], categories: [], feed: 5 }] }, false],
     ['given options for a feed it does not take', { ...SAVED, feed_options: [...SAVED.feed_options, { feed: 9, categories: ['Chess'], keywords: [], was_live: false }] }, false],
     ['left without a name', { ...SAVED, name: '  ' }, false],
   ])('can be saved when %s: %s', (_, draft, want) => {
@@ -54,7 +55,7 @@ describe('notification endpoints', () => {
 
   it('sends the options only of the feeds it takes', () => {
     const draft = { ...SAVED, feeds: [2], feed_options: [{ feed: 2, categories: ['Through the Ages'], keywords: [], was_live: false }, ...SAVED.feed_options] };
-    expect(endpointSetting(draft).feed_options).toEqual([{ feed: 2, categories: ['Through the Ages'], keywords: [], was_live: false }]);
+    expect(endpointSetting(draft).feed_options).toEqual([{ feed: 2, categories: ['Through the Ages'], keywords: [], match: 'all', was_live: false }]);
   });
 
   it.each([

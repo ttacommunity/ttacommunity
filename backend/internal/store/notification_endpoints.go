@@ -37,12 +37,14 @@ type NotificationEndpoint struct {
 	LastErrorAt         *time.Time
 }
 
-// FeedOptions is how an endpoint takes a feed: a Twitch stream only in one of Categories or with one of Keywords
-// in its title (any stream when both are empty), and WasLive, its post edited when the stream ends.
+// FeedOptions is how an endpoint takes a feed: a Twitch stream only in one of Categories and with one of Keywords
+// in its title, or either when Match is "any" ("all", the default, else); an empty list does not narrow. WasLive
+// edits its post when the stream ends.
 type FeedOptions struct {
 	Feed       int64    `json:"feed"`
 	Categories []string `json:"categories"`
 	Keywords   []string `json:"keywords"`
+	Match      string   `json:"match"`
 	WasLive    bool     `json:"was_live"`
 }
 
@@ -65,24 +67,19 @@ func (e NotificationEndpoint) TakesWasLive(feed int64) bool {
 	return ok && o.WasLive
 }
 
-// matches says whether stream t passes o: in one of its categories or with one of its keywords in the title, in any
-// letters, or any stream when o has neither.
+// matches says whether stream t passes o, in any letters: in one of its categories and with one of its keywords in
+// the title, or either for Match "any"; a list o leaves empty does not narrow, so o with neither takes any stream.
 func (o FeedOptions) matches(t TwitchNotice) bool {
 	if len(o.Categories) == 0 && len(o.Keywords) == 0 {
 		return true
 	}
-	for _, c := range o.Categories {
-		if strings.EqualFold(c, t.Category) {
-			return true
-		}
-	}
+	inCategory := slices.ContainsFunc(o.Categories, func(c string) bool { return strings.EqualFold(c, t.Category) })
 	title := strings.ToLower(t.Title)
-	for _, k := range o.Keywords {
-		if strings.Contains(title, strings.ToLower(k)) {
-			return true
-		}
+	withKeyword := slices.ContainsFunc(o.Keywords, func(k string) bool { return strings.Contains(title, strings.ToLower(k)) })
+	if o.Match == "any" {
+		return inCategory || withKeyword
 	}
-	return false
+	return (len(o.Categories) == 0 || inCategory) && (len(o.Keywords) == 0 || withKeyword)
 }
 
 // EmbedLook is how a Reddit post looks in an endpoint's channel: the embed's colour (#rrggbb), how much of the
@@ -117,7 +114,7 @@ func badEndpoint(err error) error {
 // endpointColumns are an endpoint's columns as scanEndpoint reads them.
 const endpointColumns = `endpoint_id, name, url, format, events,
 	ARRAY(SELECT s.feed_id FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id ORDER BY s.feed_id),
-	coalesce((SELECT json_agg(json_build_object('feed', s.feed_id, 'categories', s.categories, 'keywords', s.keywords, 'was_live', s.was_live)
+	coalesce((SELECT json_agg(json_build_object('feed', s.feed_id, 'categories', s.categories, 'keywords', s.keywords, 'match', s.match, 'was_live', s.was_live)
 		ORDER BY s.feed_id) FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id), '[]'),
 	prefix, paused, forum, username, avatar_url, role_id, colour, show_text, show_image, show_author, last_sent_at,
 	coalesce(last_error, ''), last_error_at`
@@ -203,8 +200,12 @@ func setFeeds(ctx context.Context, tx pgx.Tx, endpoint int64, feeds []int64, opt
 	e := NotificationEndpoint{Feeds: feeds, FeedOptions: opts}
 	for _, feed := range slices.Compact(slices.Sorted(slices.Values(feeds))) {
 		o, _ := e.options(feed)
-		if _, err := tx.Exec(ctx, `INSERT INTO notification_feed_subscriptions (endpoint_id, feed_id, categories, keywords, was_live)
-			VALUES ($1, $2, $3, $4, $5)`, endpoint, feed, cleanWords(o.Categories), cleanWords(o.Keywords), o.WasLive); err != nil {
+		match := o.Match
+		if match == "" {
+			match = "all"
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO notification_feed_subscriptions (endpoint_id, feed_id, categories, keywords, match, was_live)
+			VALUES ($1, $2, $3, $4, $5, $6)`, endpoint, feed, cleanWords(o.Categories), cleanWords(o.Keywords), match, o.WasLive); err != nil {
 			return err
 		}
 	}

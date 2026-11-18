@@ -74,15 +74,16 @@ export function words(typed: string): string[] {
   return out;
 }
 
-/** optionsFor is feed's options among opts, or none set. */
+/** optionsFor is feed's options among opts, or none set; match is all unless any is set. */
 export function optionsFor(opts: readonly FeedOption[], feed: number): FeedOption {
-  return opts.find((o) => o.feed === feed) ?? { feed, categories: [], keywords: [], was_live: false };
+  const o = opts.find((x) => x.feed === feed) ?? { feed, categories: [], keywords: [], was_live: false };
+  return { ...o, match: o.match ?? 'all' };
 }
 
 /** withOptions returns opts with feed's options changed by change; options with nothing set are left out. */
 export function withOptions(opts: readonly FeedOption[], feed: number, change: Partial<Omit<FeedOption, 'feed'>>): FeedOption[] {
   const next = { ...optionsFor(opts, feed), ...change };
   const rest = opts.filter((o) => o.feed !== feed);
-  const empty = next.categories.length === 0 && next.keywords.length === 0 && !next.was_live;
+  const empty = next.categories.length === 0 && next.keywords.length === 0 && next.match === 'all' && !next.was_live;
   return (empty ? rest : [...rest, next]).sort((a, b) => a.feed - b.feed);
 }

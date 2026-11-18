@@ -112,9 +112,11 @@ func TestAStreamGoingLiveIsPostedToTheEndpointsWhoseOptionsItMatches(t *testing.
 		stream TwitchStream
 		want   []string
 	}{
-		{"in the category", stream("1", "Friday games", "Through the Ages"), []string{"Any", "Category"}},
-		{"in another category, with a keyword", stream("2", "A TTA tournament", "Board Games"), []string{"Any", "Keyword"}},
-		{"keyword in other letters", stream("3", "TOURNAMENT night", "Chess"), []string{"Any", "Keyword"}},
+		{"in the category", stream("1", "Friday games", "Through the Ages"), []string{"Any", "Category", "Either"}},
+		{"in another category, with a keyword", stream("2", "A TTA tournament", "Board Games"), []string{"Any", "Both", "Either", "Keyword"}},
+		{"keyword in other letters", stream("3", "TOURNAMENT night", "Chess"), []string{"Any", "Either", "Keyword"}},
+		{"in both of one endpoint's lists, neither of another's", stream("5", "TTA night", "Board Games"), []string{"Any", "Both"}},
+		{"in one endpoint's category without its keyword", stream("6", "Catan night", "Board Games"), []string{"Any"}},
 		{"matching neither", stream("4", "Just chatting", "Just Chatting"), []string{"Any"}},
 	}
 	for _, tt := range tests {
@@ -124,6 +126,8 @@ func TestAStreamGoingLiveIsPostedToTheEndpointsWhoseOptionsItMatches(t *testing.
 			subscribed(t, a, "Any", 1, FeedOptions{Feed: feed})
 			subscribed(t, a, "Category", 2, FeedOptions{Feed: feed, Categories: []string{"through the ages"}})
 			subscribed(t, a, "Keyword", 3, FeedOptions{Feed: feed, Keywords: []string{"tournament"}})
+			subscribed(t, a, "Both", 5, FeedOptions{Feed: feed, Categories: []string{"Board Games"}, Keywords: []string{"TTA"}})
+			subscribed(t, a, "Either", 6, FeedOptions{Feed: feed, Categories: []string{"Through the Ages"}, Keywords: []string{"tournament"}, Match: "any"})
 			endpoint(t, a, "Not subscribed", 4, "sign_up")
 			if err := a.TwitchStreamOnline(context.Background(), "msg-1", tt.stream, twitchAt); err != nil {
 				t.Fatalf("TwitchStreamOnline: %v", err)
@@ -226,14 +230,29 @@ func TestAnEndpointKeepsItsFeedOptions(t *testing.T) {
 	a := redditStore(t)
 	ctx := context.Background()
 	feed := twitchFeed(t, a, "some_streamer", "100000001")
-	want := FeedOptions{Feed: feed, Categories: []string{"Through the Ages"}, Keywords: []string{"tta", "tournament"}, WasLive: true}
+	want := FeedOptions{Feed: feed, Categories: []string{"Through the Ages"}, Keywords: []string{"tta", "tournament"}, Match: "any", WasLive: true}
 	id := subscribed(t, a, "Twitch", 1, want)
 	e, err := a.NotificationEndpoint(ctx, id)
 	if err != nil {
 		t.Fatalf("NotificationEndpoint: %v", err)
 	}
-	if len(e.FeedOptions) != 1 || !e.FeedOptions[0].WasLive || !slices.Equal(e.FeedOptions[0].Categories, want.Categories) ||
+	if len(e.FeedOptions) != 1 || !e.FeedOptions[0].WasLive || e.FeedOptions[0].Match != "any" || !slices.Equal(e.FeedOptions[0].Categories, want.Categories) ||
 		!slices.Equal(e.FeedOptions[0].Keywords, want.Keywords) || !slices.Equal(e.Feeds, []int64{feed}) {
 		t.Errorf("the endpoint's feeds = %v %+v, want %+v", e.Feeds, e.FeedOptions, want)
+	}
+}
+
+func TestAnEndpointsFeedOptionsMatchAllUnlessTold(t *testing.T) {
+	a := redditStore(t)
+	feed := twitchFeed(t, a, "some_streamer", "100000001")
+	id := subscribed(t, a, "Twitch", 1, FeedOptions{Feed: feed, Keywords: []string{"tta"}})
+	e, err := a.NotificationEndpoint(context.Background(), id)
+	if err != nil || len(e.FeedOptions) != 1 || e.FeedOptions[0].Match != "all" {
+		t.Errorf("options = %+v, %v; want match all", e.FeedOptions, err)
+	}
+	_, err = a.AddNotificationEndpoint(context.Background(), NotificationEndpoint{Name: "Bad", URL: webhook(2), Format: "discord",
+		Feeds: []int64{feed}, FeedOptions: []FeedOptions{{Feed: feed, Match: "some"}}}, twitchAt)
+	if !errors.Is(err, ErrBadNotificationEndpoint) {
+		t.Errorf("AddNotificationEndpoint matching some: %v, want ErrBadNotificationEndpoint", err)
 	}
 }
