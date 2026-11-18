@@ -29,7 +29,7 @@ func (f *fakeFeeds) RecordRedditPosts(_ context.Context, feed int64, posts []sto
 	return len(posts), nil
 }
 
-func (f *fakeFeeds) RedditFeedFailed(_ context.Context, feed int64, msg string, _ time.Time) error {
+func (f *fakeFeeds) FeedFailed(_ context.Context, feed int64, msg string, _ time.Time) error {
 	f.failed[feed] = msg
 	return nil
 }

@@ -160,8 +160,8 @@ func TestRedditFeedsShowTheirState(t *testing.T) {
 	a := redditStore(t)
 	feed := addFeed(t, a, "example")
 	record(t, a, feed, redditAt, post(2), post(1))
-	if err := a.RedditFeedFailed(ctx, feed, "Reddit answered 429", redditAt.Add(time.Hour)); err != nil {
-		t.Fatalf("RedditFeedFailed: %v", err)
+	if err := a.FeedFailed(ctx, feed, "Reddit answered 429", redditAt.Add(time.Hour)); err != nil {
+		t.Fatalf("FeedFailed: %v", err)
 	}
 	list, err := a.RedditFeeds(ctx)
 	if err != nil {
@@ -277,7 +277,7 @@ func TestAFeedFailingThreeReadsInARowIsNotifiedOnceAndSoIsItsRecovery(t *testing
 	ctx := context.Background()
 	a := redditStore(t)
 	feed := addFeed(t, a, "example")
-	for i, e := range []NotificationEndpoint{{Name: "Ops", Events: []string{"reddit_failing"}}, {Name: "Posts", Feeds: []int64{feed}}} {
+	for i, e := range []NotificationEndpoint{{Name: "Ops", Events: []string{"feed_failing"}}, {Name: "Posts", Feeds: []int64{feed}}} {
 		e.URL, e.Format = webhook(i+1), "discord"
 		if _, err := a.AddNotificationEndpoint(ctx, e, redditAt); err != nil {
 			t.Fatalf("AddNotificationEndpoint(%s): %v", e.Name, err)
@@ -286,8 +286,8 @@ func TestAFeedFailingThreeReadsInARowIsNotifiedOnceAndSoIsItsRecovery(t *testing
 	record(t, a, feed, redditAt)
 	fail := func(n int) {
 		for i := range n {
-			if err := a.RedditFeedFailed(ctx, feed, "reddit answered 429", redditAt.Add(time.Duration(i)*time.Minute)); err != nil {
-				t.Fatalf("RedditFeedFailed: %v", err)
+			if err := a.FeedFailed(ctx, feed, "reddit answered 429", redditAt.Add(time.Duration(i)*time.Minute)); err != nil {
+				t.Fatalf("FeedFailed: %v", err)
 			}
 		}
 	}
@@ -298,9 +298,9 @@ func TestAFeedFailingThreeReadsInARowIsNotifiedOnceAndSoIsItsRecovery(t *testing
 	}{
 		{"two failures", func() { fail(2) }, nil},
 		{"a good read after them", func() { record(t, a, feed, redditAt) }, nil},
-		{"three failures", func() { fail(3) }, []string{"Ops:reddit_failed r/example"}},
+		{"three failures", func() { fail(3) }, []string{"Ops:feed_failed r/example"}},
 		{"more failures", func() { fail(4) }, nil},
-		{"a good read", func() { record(t, a, feed, redditAt) }, []string{"Ops:reddit_recovered r/example"}},
+		{"a good read", func() { record(t, a, feed, redditAt) }, []string{"Ops:feed_recovered r/example"}},
 	}
 	for _, s := range steps {
 		s.do()
@@ -314,12 +314,12 @@ func TestAFailingNotificationCarriesTheError(t *testing.T) {
 	ctx := context.Background()
 	a := redditStore(t)
 	feed := addFeed(t, a, "example")
-	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "Ops", URL: webhook(1), Format: "discord", Events: []string{"reddit_failing"}}, redditAt); err != nil {
+	if _, err := a.AddNotificationEndpoint(ctx, NotificationEndpoint{Name: "Ops", URL: webhook(1), Format: "discord", Events: []string{"feed_failing"}}, redditAt); err != nil {
 		t.Fatalf("AddNotificationEndpoint: %v", err)
 	}
 	for range FeedFailuresNotified {
-		if err := a.RedditFeedFailed(ctx, feed, "reddit answered 403", redditAt); err != nil {
-			t.Fatalf("RedditFeedFailed: %v", err)
+		if err := a.FeedFailed(ctx, feed, "reddit answered 403", redditAt); err != nil {
+			t.Fatalf("FeedFailed: %v", err)
 		}
 	}
 	var got Notification
@@ -329,8 +329,8 @@ func TestAFailingNotificationCarriesTheError(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SendNotifications: %v", err)
 	}
-	if got.Kind != "reddit_failed" || got.Reddit.Subreddit != "example" || got.FeedError != "reddit answered 403" {
-		t.Errorf("notification = %s r/%s %q, want reddit_failed r/example with its error", got.Kind, got.Reddit.Subreddit, got.FeedError)
+	if got.Kind != "feed_failed" || got.Reddit.Subreddit != "example" || got.FeedError != "reddit answered 403" {
+		t.Errorf("notification = %s r/%s %q, want feed_failed r/example with its error", got.Kind, got.Reddit.Subreddit, got.FeedError)
 	}
 }
 

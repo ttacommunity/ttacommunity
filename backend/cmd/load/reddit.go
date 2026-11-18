@@ -20,7 +20,7 @@ import (
 type redditJobStore interface {
 	RedditFeeds(ctx context.Context) ([]store.RedditFeed, error)
 	RecordRedditPosts(ctx context.Context, feed int64, posts []store.RedditPost, now time.Time) (int, error)
-	RedditFeedFailed(ctx context.Context, feed int64, msg string, now time.Time) error
+	FeedFailed(ctx context.Context, feed int64, msg string, now time.Time) error
 }
 
 // redditReader reads a subreddit's newest posts.
@@ -41,7 +41,7 @@ type redditJobReport struct {
 }
 
 // run reads every feed not paused. Only the database failing is run's error: Reddit refusing a read is recorded
-// on its feed, which tells the admins taking reddit_failing after a few in a row, so a passing rate limit is quiet.
+// on its feed, which tells the admins taking feed_failing after a few in a row, so a passing rate limit is quiet.
 func (j redditJob) run(ctx context.Context) (redditJobReport, error) {
 	var r redditJobReport
 	feeds, err := j.store.RedditFeeds(ctx)
@@ -56,7 +56,7 @@ func (j redditJob) run(ctx context.Context) (redditJobReport, error) {
 		posts, err := j.reddit.Newest(ctx, f.Subreddit)
 		if err != nil {
 			r.Failed++
-			if err := j.store.RedditFeedFailed(ctx, f.ID, err.Error(), j.now); err != nil {
+			if err := j.store.FeedFailed(ctx, f.ID, err.Error(), j.now); err != nil {
 				return r, err
 			}
 			continue
