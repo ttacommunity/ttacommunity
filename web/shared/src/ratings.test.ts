@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   catalogueGames,
+  revalidating,
   challengeBoard,
   challengeEntries,
   challengeHighscores,
@@ -395,5 +396,17 @@ describe('the challenge routes', () => {
     const f = fakeFetch(200, '{}');
     await call(f.fetch);
     expect(f.calls[0]?.url).toBe(`https://api.example${path}`);
+  });
+});
+
+describe('revalidating', () => {
+  it('asks the server again rather than the browser cache, keeping the other options', async () => {
+    const calls: RequestInit[] = [];
+    const base = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(init ?? {});
+      return new Response('{}');
+    }) as typeof fetch;
+    await revalidating(base)('https://api.example/v1/blitz/us_open/2027', { credentials: 'omit' });
+    expect(calls).toEqual([{ credentials: 'omit', cache: 'no-cache' }]);
   });
 });

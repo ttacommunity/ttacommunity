@@ -1,0 +1,22 @@
+/* The sign-up box: its lines spaced, the username field beside its button. Its width is the page's (className). */
+.sign-up-closes {
+  margin: 0 0 1rem;
+}
+
+.sign-up-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sign-up-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.sign-up-row .input-antique {
+  flex: 1 1 12rem;
+  min-width: 0;
+}

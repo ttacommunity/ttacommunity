@@ -4586,7 +4586,8 @@ paths:
       description: |
         Only blitz editions take sign-ups so far (400 for another). Opening
         needs the tournament shown on the site and no round paired (409),
-        and a closing time, when given, in the future (400). Opening them
+        and a closing time, when given, that can be read and is in the
+        future (400). Opening them
         the first time posts blitz_sign_ups to the endpoints taking it,
         once: closing and opening again posts nothing. Audited. The Origin
         must be the admin site.
@@ -12013,7 +12014,7 @@ components:
         whether they take entries now (open, before the closing time, and
         before a blitz edition's round 1 is paired)
       type: object
-      required: [open, closes_at, taking]
+      required: [open, closes_at, taking, waiting]
       properties:
         open:
           type: boolean
@@ -12024,16 +12025,19 @@ components:
           nullable: true
         taking:
           type: boolean
+        waiting:
+          description: How many sign-ups wait for their account to be linked; who they are is not shown
+          type: integer
     SignUpsSetting:
-      description: Sign-ups opened or closed, with a closing time or none
+      description: Sign-ups opened or closed, with a closing time (a day and a time on a zone's clocks) or none
       type: object
       required: [open]
       properties:
         open:
           type: boolean
-        closes_at:
-          type: string
-          format: date-time
+        closes:
+          allOf:
+            - $ref: "#/components/schemas/BlitzDeadlineSet"
           nullable: true
     SignUpGiven:
       description: A sign-up; an unlinked player gives their TTA username, a linked one nothing
@@ -12045,8 +12049,11 @@ components:
     MySignUp:
       description: Where a player's sign-up for a tournament stands
       type: object
-      required: [status, name]
+      required: [status, name, linked]
       properties:
+        linked:
+          description: Whether the player's account is linked to a member; an unlinked one gives their TTA username to sign up
+          type: boolean
         status:
           type: string
           enum: [none, entered, pending]

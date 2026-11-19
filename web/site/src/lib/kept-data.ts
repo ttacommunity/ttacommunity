@@ -48,6 +48,15 @@ export function keptGroups(data: MyData, zone: string, countryName: (code: strin
       empty: 'None.',
     },
     {
+      id: 'sign-ups',
+      heading: 'Sign-ups waiting for a link',
+      rule: 'Each removed when you are entered, when you withdraw or an organiser removes it, or if you delete your account.',
+      lists: data.sign_ups.map((u, i) =>
+        list(`sign-up-${i}`, u.tournament, '', [fact('name', 'TTA username given', u.name), fact('signed_up', 'Signed up', when(u.signed_up_at))]),
+      ),
+      empty: 'None.',
+    },
+    {
       id: 'sessions',
       heading: 'Sessions',
       rule: 'Each removed when you sign out there, or 30 days after it was last used.',

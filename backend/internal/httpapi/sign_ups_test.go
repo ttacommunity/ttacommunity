@@ -94,10 +94,10 @@ func TestAPlayerReadsWhereTheirSignUpStands(t *testing.T) {
 		pending *store.PendingSignUp
 		want    string
 	}{
-		{"an entrant", member(1007, "Ann"), nil, `{"status": "entered", "name": null}`},
-		{"linked, not entered", member(1050, "Eve"), nil, `{"status": "none", "name": null}`},
-		{"unlinked, waiting", unlinked, &store.PendingSignUp{ID: 3, Account: 1, Name: "Newcomer"}, `{"status": "pending", "name": "Newcomer"}`},
-		{"unlinked, not signed up", unlinked, nil, `{"status": "none", "name": null}`},
+		{"an entrant", member(1007, "Ann"), nil, `{"status": "entered", "name": null, "linked": true}`},
+		{"linked, not entered", member(1050, "Eve"), nil, `{"status": "none", "name": null, "linked": true}`},
+		{"unlinked, waiting", unlinked, &store.PendingSignUp{ID: 3, Account: 1, Name: "Newcomer"}, `{"status": "pending", "name": "Newcomer", "linked": false}`},
+		{"unlinked, not signed up", unlinked, nil, `{"status": "none", "name": null, "linked": false}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -134,9 +134,9 @@ func TestAPlayerSignsUpAndWithdraws(t *testing.T) {
 		wantBody string
 		wantNote string
 	}{
-		{"linked", member(1050, "Eve"), http.MethodPut, `{}`, http.StatusOK, `{"status": "entered", "name": null}`, "sign up us_open 2026 by eve name="},
+		{"linked", member(1050, "Eve"), http.MethodPut, `{}`, http.StatusOK, `{"status": "entered", "name": null, "linked": true}`, "sign up us_open 2026 by eve name="},
 		{"unlinked, with a username", store.Account{ID: 1, Provider: "discord", Username: "newcomer"}, http.MethodPut, `{"tta_name": "Newcomer"}`,
-			http.StatusOK, `{"status": "pending", "name": "Newcomer"}`, "sign up us_open 2026 by newcomer name=Newcomer"},
+			http.StatusOK, `{"status": "pending", "name": "Newcomer", "linked": false}`, "sign up us_open 2026 by newcomer name=Newcomer"},
 		{"withdrawing", member(1050, "Eve"), http.MethodDelete, "", http.StatusNoContent, "", "withdraw us_open 2026 by eve"},
 	}
 	for _, tt := range tests {
@@ -204,24 +204,24 @@ func TestASignUpFromAnotherOriginIsRefused(t *testing.T) {
 func TestTheEditionSaysWhetherItTakesSignUps(t *testing.T) {
 	closes := time.Date(2026, 11, 1, 12, 0, 0, 0, time.FixedZone("AEDT", 11*3600))
 	ed := reportsEdition(func(ed *store.BlitzEdition, _ *store.BlitzMatch) {
-		ed.SignUps = store.SignUps{Open: true, ClosesAt: &closes, Taking: true}
+		ed.SignUps = store.SignUps{Open: true, ClosesAt: &closes, Taking: true, Waiting: 2}
 	})
 	rec, _ := serve(t, &fakeRatings{blitzEdition: ed}, "/v1/blitz/us_open/2026")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "sign_ups", `{"open": true, "closes_at": "2026-11-01T01:00:00Z", "taking": true}`)
+	wantJSON(t, rec.Body.Bytes(), "sign_ups", `{"open": true, "closes_at": "2026-11-01T01:00:00Z", "taking": true, "waiting": 2}`)
 }
 
 func TestAdminReadsASeasonsSignUps(t *testing.T) {
 	at := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
-	f := &fakeAdmins{signUps: store.SignUps{Open: true, Taking: true},
+	f := &fakeAdmins{signUps: store.SignUps{Open: true, Taking: true, Waiting: 2},
 		pending: []store.PendingSignUp{{ID: 3, Account: 41, Name: "Newcomer", SignedUpAt: at, Request: 12}, {ID: 4, Account: 42, Name: "Later", SignedUpAt: at, Linked: "Later"}}}
 	rec := adminDo(t, f, http.MethodGet, signUpsPath, "", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "sign_ups", `{"open": true, "closes_at": null, "taking": true}`)
+	wantJSON(t, rec.Body.Bytes(), "sign_ups", `{"open": true, "closes_at": null, "taking": true, "waiting": 2}`)
 	wantJSON(t, rec.Body.Bytes(), "pending", `[
 		{"id": 3, "account": 41, "name": "Newcomer", "signed_up_at": "2026-10-20T09:00:00Z", "request": 12, "linked": null},
 		{"id": 4, "account": 42, "name": "Later", "signed_up_at": "2026-10-20T09:00:00Z", "request": null, "linked": "Later"}]`)
@@ -235,7 +235,7 @@ func TestAdminChangesSignUpsAndAuditsIt(t *testing.T) {
 		name, method, path, body string
 		wantNote, wantAudit      string
 	}{
-		{"opening", http.MethodPut, signUpsPath, `{"open": true, "closes_at": "2026-11-01T12:00:00+11:00"}`,
+		{"opening", http.MethodPut, signUpsPath, `{"open": true, "closes": {"day": "2026-11-01", "time": "12:00", "zone": "Australia/Sydney"}}`,
 			"sign-ups us_open 2026 open=true closes=2026-11-01T01:00:00Z", "222222222222222222 sign_ups.set us_open/2026"},
 		{"closing", http.MethodPut, signUpsPath, `{"open": false}`, "sign-ups us_open 2026 open=false closes=none", "222222222222222222 sign_ups.set us_open/2026"},
 		{"accepting", http.MethodPost, signUpsPath + "/3/accept", "", "accept us_open 2026 3", "222222222222222222 sign_up.accept 3"},
@@ -286,6 +286,14 @@ func TestAdminSignUpChangesAreRefusedAsTheyShouldBe(t *testing.T) {
 				t.Errorf("audits = %q, want none for a refusal", f.audits)
 			}
 		})
+	}
+}
+
+func TestAdminCannotSetAClosingTimeThatCannotBeRead(t *testing.T) {
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPut, signUpsPath, adminOrigin, `{"open": true, "closes": {"day": "2026-11-01", "time": "12:00", "zone": "Nowhere/Atlantis"}}`)
+	if rec.Code != http.StatusBadRequest || len(f.notes) != 0 {
+		t.Errorf("PUT with an unknown zone = %d %s, notes %q; want 400 and nothing done", rec.Code, rec.Body, f.notes)
 	}
 }
 

@@ -37,6 +37,13 @@ export const setFormatSummary = (slug: string, text: string) => to(tournament(sl
 export const setStories = (slug: string, stories: Schemas['Story'][]) => to(tournament(slug), 'PATCH', { stories });
 /** addSeason adds a season with no games yet, its label trimmed. */
 export const addSeason = (slug: string, label: string) => to(`${tournament(slug)}/seasons`, 'POST', { label: label.trim() });
+/** setSignUps opens or closes a season's sign-ups, closing at a day and a time on a zone's clocks, or with no closing time (null). */
+export const setSignUps = (slug: string, label: string, open: boolean, closes: Schemas['BlitzDeadlineSet'] | null) =>
+  to(`${season(slug, label)}/sign-ups`, 'PUT', { open, closes });
+/** acceptSignUp enters a sign-up waiting for its account to be linked, approving its request to be linked. */
+export const acceptSignUp = (slug: string, label: string, id: number) => to(`${season(slug, label)}/sign-ups/${id}/accept`, 'POST');
+/** removeSignUp removes a sign-up waiting for its account to be linked. */
+export const removeSignUp = (slug: string, label: string, id: number) => to(`${season(slug, label)}/sign-ups/${id}`, 'DELETE');
 /** removeSeason removes a season that has no games. */
 export const removeSeason = (slug: string, label: string) => to(season(slug, label), 'DELETE');
 /** moveSeason moves a season to another tournament, optionally with a new season label. */

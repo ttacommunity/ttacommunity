@@ -12,12 +12,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// SignUps is a tournament's sign-ups: Open is admin's switch and ClosesAt the closing time (nil for none). Taking,
-// read only, is whether they take entries now (sign_ups_taking): open, before ClosesAt, and before round 1.
+// SignUps is a tournament's sign-ups: Open is admin's switch and ClosesAt the closing time (nil for none). Read
+// only: Taking, whether they take entries now (sign_ups_taking: open, before ClosesAt, and before round 1), and
+// Waiting, how many wait for an account to be linked.
 type SignUps struct {
 	Open     bool
 	ClosesAt *time.Time
 	Taking   bool
+	Waiting  int
 }
 
 // PendingSignUp is a sign-up waiting for its account to be linked: the account, the TTA username it gave, when, its
@@ -121,8 +123,8 @@ func (a *AdminStore) SetSignUps(ctx context.Context, slug, edition string, s Sig
 func (a *AdminStore) SignUpsOf(ctx context.Context, slug, edition string) (SignUps, error) {
 	var s SignUps
 	err := a.pool.QueryRow(ctx, `
-		SELECT t.sign_ups_open, t.sign_ups_close_at, coalesce(sign_ups_taking(t.tournament_id, now()), false)
-		FROM tournaments t JOIN series s USING (series_id) WHERE s.slug = $1 AND t.label = $2`, slug, edition).Scan(&s.Open, &s.ClosesAt, &s.Taking)
+		SELECT t.sign_ups_open, t.sign_ups_close_at, coalesce(sign_ups_taking(t.tournament_id, now()), false), sign_ups_waiting(t.tournament_id)
+		FROM tournaments t JOIN series s USING (series_id) WHERE s.slug = $1 AND t.label = $2`, slug, edition).Scan(&s.Open, &s.ClosesAt, &s.Taking, &s.Waiting)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SignUps{}, ErrNoBlitzEdition
 	}

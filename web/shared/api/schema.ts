@@ -3084,7 +3084,8 @@ export interface paths {
          * Open or close a season's sign-ups
          * @description Only blitz editions take sign-ups so far (400 for another). Opening
          *     needs the tournament shown on the site and no round paired (409),
-         *     and a closing time, when given, in the future (400). Opening them
+         *     and a closing time, when given, that can be read and is in the
+         *     future (400). Opening them
          *     the first time posts blitz_sign_ups to the endpoints taking it,
          *     once: closing and opening again posts nothing. Audited. The Origin
          *     must be the admin site.
@@ -7290,12 +7291,13 @@ export interface components {
              */
             closes_at: string | null;
             taking: boolean;
+            /** @description How many sign-ups wait for their account to be linked; who they are is not shown */
+            waiting: number;
         };
-        /** @description Sign-ups opened or closed, with a closing time or none */
+        /** @description Sign-ups opened or closed, with a closing time (a day and a time on a zone's clocks) or none */
         SignUpsSetting: {
             open: boolean;
-            /** Format: date-time */
-            closes_at?: string | null;
+            closes?: components["schemas"]["BlitzDeadlineSet"] | null;
         };
         /** @description A sign-up; an unlinked player gives their TTA username, a linked one nothing */
         SignUpGiven: {
@@ -7303,6 +7305,8 @@ export interface components {
         };
         /** @description Where a player's sign-up for a tournament stands */
         MySignUp: {
+            /** @description Whether the player's account is linked to a member; an unlinked one gives their TTA username to sign up */
+            linked: boolean;
             /** @enum {string} */
             status: "none" | "entered" | "pending";
             /** @description The TTA username a pending sign-up gave; null otherwise */

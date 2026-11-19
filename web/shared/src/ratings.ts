@@ -460,6 +460,11 @@ export async function blitzEditions(base: string, fetchFn: typeof fetch = fetch)
   return get<BlitzEditions>(fetchFn, base, '/v1/blitz');
 }
 
+/** revalidating is fetchFn asking the server again instead of the browser's cached copy, for a page reading what it just changed. */
+export function revalidating(fetchFn: typeof fetch = fetch): typeof fetch {
+  return (input, init) => fetchFn(input, { ...init, cache: 'no-cache' });
+}
+
 /** Returns how many visits the site had in its last days, as Cloudflare Web Analytics counts them. */
 export async function siteVisits(base: string, fetchFn: typeof fetch = fetch): Promise<SiteVisits> {
   return get<SiteVisits>(fetchFn, base, '/v1/site/visits');

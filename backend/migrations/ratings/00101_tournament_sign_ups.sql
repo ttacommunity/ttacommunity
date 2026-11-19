@@ -35,6 +35,17 @@ CREATE FUNCTION sign_ups_taking(t bigint, at timestamptz) RETURNS boolean
 $$;
 -- +goose StatementEnd
 
+-- sign_ups_waiting counts tournament t's sign-ups waiting for an account to be linked; the site shows the count, never
+-- who they are.
+-- +goose StatementBegin
+CREATE FUNCTION sign_ups_waiting(t bigint) RETURNS integer
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO public, pg_temp
+    AS $$
+    SELECT count(*)::integer FROM tournament_sign_ups u WHERE u.tournament_id = t
+$$;
+-- +goose StatementEnd
+
 -- enter_pending_sign_ups enters account's member in each tournament it signed up for, unlinked, that takes entries at
 -- at, and returns how many. Nothing for an unlinked account or a banned member; the other sign-ups stay pending.
 -- +goose StatementBegin
@@ -187,11 +198,11 @@ CREATE FUNCTION my_sign_ups(session bytea, at timestamptz)
 $$;
 -- +goose StatementEnd
 
-REVOKE ALL ON FUNCTION sign_ups_taking(bigint, timestamptz), enter_pending_sign_ups(bigint, timestamptz),
+REVOKE ALL ON FUNCTION sign_ups_taking(bigint, timestamptz), sign_ups_waiting(bigint), enter_pending_sign_ups(bigint, timestamptz),
     enter_own_pending_sign_ups(bytea, timestamptz),
     sign_up_target(bytea, timestamptz, text, text), sign_up(bytea, timestamptz, text, text, text),
     withdraw_sign_up(bytea, timestamptz, text, text), my_sign_ups(bytea, timestamptz) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION sign_ups_taking(bigint, timestamptz) TO ratings_read, ratings_admin, ratings_player;
+GRANT EXECUTE ON FUNCTION sign_ups_taking(bigint, timestamptz), sign_ups_waiting(bigint) TO ratings_read, ratings_admin, ratings_player;
 GRANT EXECUTE ON FUNCTION enter_pending_sign_ups(bigint, timestamptz) TO ratings_admin;
 GRANT EXECUTE ON FUNCTION enter_own_pending_sign_ups(bytea, timestamptz), sign_up(bytea, timestamptz, text, text, text),
     withdraw_sign_up(bytea, timestamptz, text, text), my_sign_ups(bytea, timestamptz) TO ratings_player;
@@ -232,6 +243,7 @@ DROP FUNCTION sign_up(bytea, timestamptz, text, text, text);
 DROP FUNCTION sign_up_target(bytea, timestamptz, text, text);
 DROP FUNCTION enter_own_pending_sign_ups(bytea, timestamptz);
 DROP FUNCTION enter_pending_sign_ups(bigint, timestamptz);
+DROP FUNCTION sign_ups_waiting(bigint);
 DROP FUNCTION sign_ups_taking(bigint, timestamptz);
 DROP TABLE tournament_sign_ups;
 ALTER TABLE tournaments DROP COLUMN sign_ups_posted, DROP COLUMN sign_ups_close_at, DROP COLUMN sign_ups_open;

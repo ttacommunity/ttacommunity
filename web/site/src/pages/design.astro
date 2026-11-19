@@ -11,6 +11,7 @@ import DialogSamples from '../components/DialogSamples';
 import OptionsSample from '../components/OptionsSample';
 import Note from '@ttac/shared/Note';
 import SignInNote from '../components/SignInNote';
+import SignUpSamples from '../components/SignUpSamples';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
@@ -192,6 +193,9 @@ const rows = [
     <h2>Notes</h2>
     <Note>A note in front of the reader, such as what to do before taking part.</Note>
     <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
+
+    <h2>Sign-up box</h2>
+    <SignUpSamples client:only="react" />
 
     <h2>Messages</h2>
     <Message>A message where a page's content would be, such as nothing found.</Message>

@@ -4430,6 +4430,9 @@ type MyNostradamusEntryStatus string
 
 // MySignUp Where a player's sign-up for a tournament stands
 type MySignUp struct {
+	// Linked Whether the player's account is linked to a member; an unlinked one gives their TTA username to sign up
+	Linked bool `json:"linked"`
+
 	// Name The TTA username a pending sign-up gave; null otherwise
 	Name   *string        `json:"name"`
 	Status MySignUpStatus `json:"status"`
@@ -5463,12 +5466,15 @@ type SignUps struct {
 	ClosesAt *time.Time `json:"closes_at"`
 	Open     bool       `json:"open"`
 	Taking   bool       `json:"taking"`
+
+	// Waiting How many sign-ups wait for their account to be linked; who they are is not shown
+	Waiting int `json:"waiting"`
 }
 
-// SignUpsSetting Sign-ups opened or closed, with a closing time or none
+// SignUpsSetting Sign-ups opened or closed, with a closing time (a day and a time on a zone's clocks) or none
 type SignUpsSetting struct {
-	ClosesAt *time.Time `json:"closes_at,omitempty"`
-	Open     bool       `json:"open"`
+	Closes *BlitzDeadlineSet `json:"closes,omitempty"`
+	Open   bool              `json:"open"`
 }
 
 // SiteVisits defines model for SiteVisits.

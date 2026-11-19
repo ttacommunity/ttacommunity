@@ -7,13 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
 // signUpsOf is a tournament's sign-ups as the API sends them.
 func signUpsOf(s store.SignUps) SignUps {
-	return SignUps{Open: s.Open, ClosesAt: inUTC(s.ClosesAt), Taking: s.Taking}
+	return SignUps{Open: s.Open, ClosesAt: inUTC(s.ClosesAt), Taking: s.Taking, Waiting: s.Waiting}
 }
 
 // signUpRefusal is the status and message for a player's refused sign-up or withdrawal; 0 for an error that is not
@@ -49,7 +52,7 @@ func (s *server) GetMySignUp(ctx context.Context, req GetMySignUpRequestObject) 
 	if err != nil {
 		return nil, err
 	}
-	body := MySignUp{Status: "none"}
+	body := MySignUp{Status: "none", Linked: l.Member != nil}
 	if l.Member != nil {
 		for _, e := range ed.Entrants {
 			if e.MemberID == l.Member.ID {
@@ -64,13 +67,17 @@ func (s *server) GetMySignUp(ctx context.Context, req GetMySignUpRequestObject) 
 			return nil, err
 		}
 		if ok {
-			body = MySignUp{Status: "pending", Name: new(p.Name)}
+			body.Status, body.Name = "pending", new(p.Name)
 		}
 	}
 	return GetMySignUp200JSONResponse{Body: body, Headers: GetMySignUp200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) PutMySignUp(ctx context.Context, req PutMySignUpRequestObject) (PutMySignUpResponseObject, error) {
+	l, err := accountFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PutMySignUp400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
@@ -95,7 +102,7 @@ func (s *server) PutMySignUp(ctx context.Context, req PutMySignUpRequestObject) 
 	if err != nil {
 		return nil, err
 	}
-	body := MySignUp{Status: MySignUpStatus(got)}
+	body := MySignUp{Status: MySignUpStatus(got), Linked: l.Member != nil}
 	if got == "pending" {
 		hash, _ := ctx.Value(sessionKey{}).([]byte)
 		p, ok, err := s.signIns.MySignUp(ctx, hash, req.Tournament, req.Season, s.now())
@@ -164,7 +171,15 @@ func (s *server) PutAdminSignUps(ctx context.Context, req PutAdminSignUpsRequest
 	if req.Body == nil {
 		return PutAdminSignUps400JSONResponse{badRequest400("open, and closes_at or none")}, nil
 	}
-	set := store.SignUps{Open: req.Body.Open, ClosesAt: req.Body.ClosesAt}
+	set := store.SignUps{Open: req.Body.Open}
+	if c := req.Body.Closes; c != nil {
+		at, err := blitz.FinishedAt(c.Day.Format(time.DateOnly), c.Time, strings.TrimSpace(c.Zone))
+		if err != nil {
+			return PutAdminSignUps400JSONResponse{badRequest400(err.Error())}, nil
+		}
+		at = at.UTC()
+		set.ClosesAt = &at
+	}
 	err := s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.SetSignUps(ctx, req.Tournament, req.Season, set, s.now()); err != nil {
 			return err

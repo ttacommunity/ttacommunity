@@ -587,3 +587,22 @@ func TestOpenSignUpsAreSentToTheEndpointsTakingThem(t *testing.T) {
 		t.Errorf("sent again = %q, want nothing", got)
 	}
 }
+
+func TestTheSiteCountsSignUpsWaitingForALink(t *testing.T) {
+	a, p, reader, _ := signUpsFixture(t)
+	ctx := context.Background()
+	openSignUps(t, a, nil)
+	if _, err := p.SignUp(ctx, tokenHash("uma"), "us_open", "2026", "Uma", signUpAt); err != nil {
+		t.Fatalf("SignUp: %v", err)
+	}
+	ed, err := reader.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	if ed.SignUps.Waiting != 1 {
+		t.Errorf("the site's waiting sign-ups = %d, want 1", ed.SignUps.Waiting)
+	}
+	if got, err := a.SignUpsOf(ctx, "us_open", "2026"); err != nil || got.Waiting != 1 {
+		t.Errorf("admin's waiting sign-ups = %d, %v, want 1", got.Waiting, err)
+	}
+}
