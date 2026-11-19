@@ -5038,7 +5038,9 @@ paths:
       operationId: postAdminBlitzRoundPublish
       tags: [admin]
       summary: Publish a round, once everyone active is in it exactly once
-      description: Audited. The Origin must be the admin site. Publishing again changes nothing.
+      description: >-
+        Audited. The Origin must be the admin site. Publishing again changes nothing. Refused (409) while the site
+        hides the tournament: a round is published only where players can see it.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
@@ -8565,8 +8567,11 @@ components:
             type: integer
     AdminBlitzEdition:
       type: object
-      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, organisers, thread_text]
+      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, organisers, thread_text, shown]
       properties:
+        shown:
+          description: Whether the site shows the tournament; its rounds are published only then
+          type: boolean
         organisers:
           description: The members the Discord thread messages tell players to ping, in the order added
           type: array

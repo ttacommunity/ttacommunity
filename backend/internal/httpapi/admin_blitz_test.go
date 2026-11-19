@@ -28,7 +28,7 @@ func (f *fakeAdmins) blitzEntrants() []store.BlitzEntrant {
 }
 
 func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
-	row := store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring}
+	row := store.BlitzEditionRow{Slug: "us_open", Name: "US Open", Edition: "2026", Format: store.DefaultBlitzFormat, Points: blitz.FIDEScoring, Shown: !f.blitzHidden}
 	if f.format != (store.BlitzFormat{}) {
 		row.Format = f.format
 	}
@@ -570,5 +570,16 @@ func TestBadPointsAreRefused(t *testing.T) {
 				t.Errorf("refused points still changed something: %q %q", f.notes, f.audits)
 			}
 		})
+	}
+}
+
+func TestAdminSeesWhetherTheSiteShowsABlitzEdition(t *testing.T) {
+	for _, hidden := range []bool{false, true} {
+		f := &fakeAdmins{blitzHidden: hidden}
+		rec := adminDoAs(t, f, "111111111111111111", http.MethodGet, "/v1/admin/blitz/us_open/2026", "https://ttac-admin.example", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET edition = %d %s, want 200", rec.Code, rec.Body)
+		}
+		wantJSON(t, rec.Body.Bytes(), "shown", fmt.Sprint(!hidden))
 	}
 }

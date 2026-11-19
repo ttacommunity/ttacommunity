@@ -3400,7 +3400,7 @@ export interface paths {
         put?: never;
         /**
          * Publish a round, once everyone active is in it exactly once
-         * @description Audited. The Origin must be the admin site. Publishing again changes nothing.
+         * @description Audited. The Origin must be the admin site. Publishing again changes nothing. Refused (409) while the site hides the tournament: a round is published only where players can see it.
          */
         post: operations["postAdminBlitzRoundPublish"];
         delete?: never;
@@ -5325,6 +5325,8 @@ export interface components {
             skips: number[];
         };
         AdminBlitzEdition: {
+            /** @description Whether the site shows the tournament; its rounds are published only then */
+            shown: boolean;
             /** @description The members the Discord thread messages tell players to ping, in the order added */
             organisers: components["schemas"]["AdminBlitzOrganiser"][];
             thread_text: components["schemas"]["AdminBlitzThreadText"];

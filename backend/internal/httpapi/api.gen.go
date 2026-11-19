@@ -1488,6 +1488,9 @@ type AdminBlitzEdition struct {
 	// Rounds Every round, first first, drafts included
 	Rounds []AdminBlitzRound `json:"rounds"`
 
+	// Shown Whether the site shows the tournament; its rounds are published only then
+	Shown bool `json:"shown"`
+
 	// Standings By rank, as the site shows them; dropped players last
 	Standings []BlitzStanding `json:"standings"`
 

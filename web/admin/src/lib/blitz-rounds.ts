@@ -127,6 +127,12 @@ export function reconcilePending(pending: Pending | null, rounds: readonly Admin
   return shown === null ? null : { round: pending.round, matches: shown };
 }
 
+/** hiddenNote says why the open round, a draft, cannot be published while the site hides the tournament named name, or null when it can be (or there is no draft). */
+export function hiddenNote(shown: boolean, name: string, open: AdminBlitzRound | null): string | null {
+  if (shown || open === null || open.published_at !== null) return null;
+  return `${name} is hidden on the site: show it (Tournaments, Shown) to publish this round.`;
+}
+
 /** canDeleteRound says whether a round can still be deleted: nothing in it has a result (it must also be the latest, which editableRound ensures). */
 export function canDeleteRound(round: AdminBlitzRound): boolean {
   return round.matches.every((m) => m.result === null);

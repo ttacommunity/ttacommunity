@@ -100,6 +100,9 @@ func (f *fakeAdmins) PublishBlitzRound(_ context.Context, slug, edition string, 
 	if err != nil {
 		return err
 	}
+	if f.blitzHidden {
+		return store.ErrBlitzHidden
+	}
 	if len(f.rounds[i].Matches) == 0 {
 		return fmt.Errorf("%w: Ann", store.ErrBlitzRoundIncomplete)
 	}
@@ -327,6 +330,8 @@ func TestBlitzRoundChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"a match naming nobody", draft, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches", site, `{"matches": [{"a": 99, "b": 7}]}`, http.StatusBadRequest},
 		{"matches for an unknown round", draft, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/5/matches", site, `{"matches": []}`, http.StatusNotFound},
 		{"publishing an empty round", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/publish", site, "", http.StatusConflict},
+		{"publishing while the tournament is hidden", func(f *fakeAdmins) { roundOnePublished(f); f.rounds[0].PublishedAt = nil; f.blitzHidden = true },
+			http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/publish", site, "", http.StatusConflict},
 		{"publishing an unknown round", draft, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/5/publish", site, "", http.StatusNotFound},
 		{"deleting a round behind a later one", twoRounds, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/101", site, "", http.StatusConflict},
 		{"deleting an unknown round", draft, http.MethodDelete, "/v1/admin/blitz/us_open/2026/rounds/5", site, "", http.StatusNotFound},

@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -252,6 +253,10 @@ func TestMigration98MarksEditionsFinishedBeforeItAsPosted(t *testing.T) {
 	if err := a.SetBlitzFormat(ctx, "us_open", "2026", BlitzFormat{SwissRounds: 1, KnockoutSize: 0}); err != nil {
 		t.Fatalf("SetBlitzFormat: %v", err)
 	}
+	shown := true
+	if err := a.SetTournament(ctx, "us_open", TournamentSettings{Visible: &shown}); err != nil {
+		t.Fatalf("SetTournament(visible): %v", err)
+	}
 	r := publishedRound(t, a, [2]int64{ids[0], ids[1]})
 	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
 	if err != nil {
@@ -264,5 +269,38 @@ func TestMigration98MarksEditionsFinishedBeforeItAsPosted(t *testing.T) {
 	migrateTo(t, pool, 98, false)
 	if n, err := a.QueueFinishedBlitz(ctx, time.Now(), func(BlitzEdition) bool { return true }); err != nil || n != 0 {
 		t.Errorf("an edition finished before the migration = %d queued, %v; want 0: it is not news", n, err)
+	}
+}
+
+func TestARoundIsPublishedOnlyWhileTheSiteShowsItsTournament(t *testing.T) {
+	_, a := blitzFixture(t)
+	ctx := context.Background()
+	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "Bob", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	endpoint(t, a, "Blitz", 1, "blitz_round")
+	r, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r.ID); !errors.Is(err, ErrBlitzHidden) {
+		t.Errorf("publishing while US Open is hidden = %v, want ErrBlitzHidden", err)
+	}
+	if ed, err := a.BlitzEdition(ctx, "us_open", "2026"); err != nil || ed.Rounds[0].PublishedAt != nil || ed.Shown {
+		t.Errorf("round 1 = %+v, shown %v, %v; want a hidden edition's draft", ed.Rounds[0], ed.Shown, err)
+	}
+	if got := blitzSent(t, a); len(got) != 0 {
+		t.Errorf("sent = %q, want nothing", got)
+	}
+	shown := true
+	if err := a.SetTournament(ctx, "us_open", TournamentSettings{Visible: &shown}); err != nil {
+		t.Fatalf("SetTournament(visible): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", r.ID); err != nil {
+		t.Fatalf("publishing once shown: %v", err)
+	}
+	if got, want := blitzSent(t, a), []string{"Blitz blitz_round us_open 2026 1"}; !slices.Equal(got, want) {
+		t.Errorf("sent once shown = %q, want %q", got, want)
 	}
 }

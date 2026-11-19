@@ -73,6 +73,9 @@ var ErrBlitzRepeat = errors.New("they have met before")
 // ErrBlitzRoundIncomplete means an active entrant not skipping the round is in no match of the round being published.
 var ErrBlitzRoundIncomplete = errors.New("not paired")
 
+// ErrBlitzHidden means a round is published only while the site shows its tournament.
+var ErrBlitzHidden = errors.New("the tournament is hidden on the site: show it (Tournaments, Shown) before publishing a round")
+
 // ErrBlitzKnockoutFixed means a knockout round follows the bracket: it is deleted and paired again, never changed
 // by hand.
 var ErrBlitzKnockoutFixed = errors.New("a knockout round follows the bracket: delete it and pair again")
@@ -422,12 +425,20 @@ func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition str
 }
 
 // PublishBlitzRound makes a round public: a Swiss round once every active entrant not skipping it is in it exactly
-// once and no pair is a repeat; a knockout round as the bracket made it. Publishing again changes nothing.
+// once and no pair is a repeat; a knockout round as the bracket made it; either only while the site shows the
+// tournament (ErrBlitzHidden). Publishing again changes nothing.
 func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, number, err := blitzRoundOf(ctx, tx, edID, roundID)
 		if err != nil {
 			return err
+		}
+		var shown bool
+		if err := tx.QueryRow(ctx, "SELECT visible FROM series WHERE slug = $1", slug).Scan(&shown); err != nil {
+			return fmt.Errorf("publishing round %d: %w", roundID, err)
+		}
+		if !shown {
+			return ErrBlitzHidden
 		}
 		rows, err := tx.Query(ctx, "SELECT match_id, entry_a, entry_b, slot, seed_a, seed_b FROM blitz_matches WHERE round_id = $1 ORDER BY match_id", roundID)
 		if err != nil {

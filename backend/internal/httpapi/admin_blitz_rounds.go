@@ -452,7 +452,8 @@ func (s *server) PostAdminBlitzRoundPublish(ctx context.Context, req PostAdminBl
 		return tx.Audit(ctx, me.DiscordID, "blitz.round.publish", fmt.Sprint(req.Round), nil)
 	})
 	switch {
-	case errors.Is(err, store.ErrBlitzRoundIncomplete), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBadBlitzMatch):
+	case errors.Is(err, store.ErrBlitzRoundIncomplete), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBadBlitzMatch),
+		errors.Is(err, store.ErrBlitzHidden):
 		return PostAdminBlitzRoundPublish409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzRoundPublish404JSONResponse{notFound404("no such blitz edition")}, nil
