@@ -142,9 +142,9 @@ func TestOpenSignUpsAreTextOfTheFormatAndTheClosingTime(t *testing.T) {
 	}{
 		{"a closing time and a knockout", store.BlitzFormat{SwissRounds: 5, KnockoutSize: 4}, &closes,
 			"**[US Open 2026 sign-ups are open](<" + edition + ">)**\nFormat: 5 Swiss rounds, then a knockout of the top 4\n" +
-				"Sign-ups close: <t:1772928000:F> (<t:1772928000:R>)\nSign in on the site to enter."},
+				"Sign-ups close: <t:1772928000:F> (<t:1772928000:R>)\n[Sign up on the site](<" + edition + ">) to enter."},
 		{"no closing time, no knockout", store.BlitzFormat{SwissRounds: 1}, nil,
-			"**[US Open 2026 sign-ups are open](<" + edition + ">)**\nFormat: 1 Swiss round\nSign in on the site to enter."},
+			"**[US Open 2026 sign-ups are open](<" + edition + ">)**\nFormat: 1 Swiss round\n[Sign up on the site](<" + edition + ">) to enter."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

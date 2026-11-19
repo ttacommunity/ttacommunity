@@ -420,7 +420,7 @@ func podiumText(n store.Notification) (title, text string, users []string) {
 }
 
 // signUpsText is an edition's open sign-ups as text: its title as a bold link to the edition, its format, its
-// closing time on each reader's clock when it has one, and how to enter. It returns the title and the text; it tags no
+// closing time on each reader's clock when it has one, and a link to sign up. It returns the title and the text; it tags no
 // one.
 func signUpsText(n store.Notification) (title, text string, users []string) {
 	title = n.Series + " " + n.Edition + " sign-ups are open"
@@ -437,7 +437,7 @@ func signUpsText(n store.Notification) (title, text string, users []string) {
 		at := strconv.FormatInt(c.Unix(), 10)
 		lines = append(lines, "Sign-ups close: <t:"+at+":F> (<t:"+at+":R>)")
 	}
-	lines = append(lines, "Sign in on the site to enter.")
+	lines = append(lines, "[Sign up on the site](<"+n.Blitz.Link+">) to enter.")
 	return title, strings.Join(lines, "\n"), nil
 }
 
