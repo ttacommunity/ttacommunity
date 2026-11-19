@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"ttacommunity/backend/internal/blitz"
 )
 
 // MaxNotificationAttempts is how many times a notification is tried before it is dropped.
@@ -53,23 +55,23 @@ type Notification struct {
 	Blitz BlitzNews
 }
 
-// BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes by
-// username, its deadline (nil while unset), whether the round was posted before with other games, the podium of a
-// finished edition, and the link to the edition's page.
+// BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes, each
+// player as Discord can name them, its deadline (nil while unset), whether the round was posted before with other
+// games, the podium of a finished edition, and the link to the edition's page.
 type BlitzNews struct {
 	Title    string
-	Games    [][2]string
-	Byes     []string
+	Games    [][2]blitz.Person
+	Byes     []blitz.Person
 	Deadline *time.Time
 	Again    bool
 	Podium   []BlitzPlace
 	Link     string
 }
 
-// BlitzPlace is a place on a podium, 1 the top, and who shares it, by username.
+// BlitzPlace is a place on a podium, 1 the top, and who shares it, each as Discord can name them.
 type BlitzPlace struct {
-	Place int
-	Names []string
+	Place  int
+	People []blitz.Person
 }
 
 // RunNotice is a published run's news: its id, the run current before it (0 for none), how many games it covers,

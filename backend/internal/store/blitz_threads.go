@@ -10,10 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// BlitzOrganiser is a member who organises an edition: their id, TTA username and Discord name.
+// BlitzOrganiser is a member who organises an edition: their id, TTA username, Discord name and Discord user id
+// (from their Discord sign-in, "" for none).
 type BlitzOrganiser struct {
-	MemberID          int64
-	Name, DiscordName string
+	MemberID                     int64
+	Name, DiscordName, DiscordID string
 }
 
 // BlitzThreadText is an edition's own text for its thread messages, placeholders and all (checked by the caller).
@@ -25,7 +26,7 @@ var ErrNoBlitzOrganiser = errors.New("not an organiser of the edition")
 // blitzOrganisers reads an edition's organisers in the order added; only admin's login may.
 func blitzOrganisers(ctx context.Context, db conn, slug, edition string) ([]BlitzOrganiser, error) {
 	rows, err := db.Query(ctx, `
-		SELECT o.member_id, m.tta_name, m.discord_name
+		SELECT o.member_id, m.tta_name, m.discord_name, `+memberDiscordID+`
 		FROM blitz_organisers o JOIN members m USING (member_id)
 		JOIN tournaments t ON t.tournament_id = o.tournament_id JOIN series s USING (series_id)
 		WHERE s.slug = $1 AND t.label = $2
@@ -35,7 +36,7 @@ func blitzOrganisers(ctx context.Context, db conn, slug, edition string) ([]Blit
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzOrganiser, error) {
 		var o BlitzOrganiser
-		return o, row.Scan(&o.MemberID, &o.Name, &o.DiscordName)
+		return o, row.Scan(&o.MemberID, &o.Name, &o.DiscordName, &o.DiscordID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's organisers: %w", slug, edition, err)

@@ -8,6 +8,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // blitzSent sends what is due and returns each post as "endpoint kind slug edition round", with " again" for a
@@ -125,6 +127,61 @@ func TestAByeIsPartOfARoundsGames(t *testing.T) {
 	if got, want := blitzSent(t, a), []string{"Blitz blitz_round us_open 2026 1 again"}; !slices.Equal(got, want) {
 		t.Errorf("another bye = %q, want %q", got, want)
 	}
+}
+
+// signedInWithDiscord links the member entered as entrant to a new account that signs in with Discord as id, as
+// pool's owner: the admin login cannot.
+func signedInWithDiscord(t *testing.T, pool *pgxpool.Pool, entrant int64, id string) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), `WITH x AS (
+			INSERT INTO accounts (created_at, member_id, linked_how, linked_at)
+			SELECT now(), member_id, 'approved', now() FROM blitz_entries WHERE entry_id = $1 RETURNING account_id)
+		INSERT INTO logins (provider, subject, username, created_at, signed_in_at, account_id)
+		SELECT 'discord', $2, 'player', now(), now(), account_id FROM x`, entrant, id); err != nil {
+		t.Fatalf("signing entrant %d in with Discord: %v", entrant, err)
+	}
+}
+
+func TestAnEntrantsDiscordIDComesFromTheirDiscordSignInForAdminOnly(t *testing.T) {
+	pool, a := blitzFixture(t)
+	ctx := context.Background()
+	ids, err := a.AddBlitzEntrants(ctx, "us_open", "2026", []BlitzEntrant{{Name: "Ann", Zone: "UTC"}, {Name: "Bob", Zone: "UTC"}})
+	if err != nil {
+		t.Fatalf("AddBlitzEntrants: %v", err)
+	}
+	shown := true
+	if err := a.SetTournament(ctx, "us_open", TournamentSettings{Visible: &shown}); err != nil {
+		t.Fatalf("SetTournament(visible): %v", err)
+	}
+	reader := NewRatingsReader(asReader(t, pool))
+	signedInWithDiscord(t, pool, ids[0], "100000000000000041")
+	if err := a.AddBlitzOrganiser(ctx, "us_open", "2026", memberOfEntrant(t, a, ids[0])); err != nil {
+		t.Fatalf("AddBlitzOrganiser: %v", err)
+	}
+	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("BlitzEdition: %v", err)
+	}
+	if got := []string{ed.Entrants[0].DiscordID, ed.Entrants[1].DiscordID}; !slices.Equal(got, []string{"100000000000000041", ""}) {
+		t.Errorf("admin's entrants' Discord ids = %q, want Ann's from her sign-in and none for Bob", got)
+	}
+	if len(ed.Organisers) != 1 || ed.Organisers[0].DiscordID != "100000000000000041" {
+		t.Errorf("organisers = %+v, want Ann with her Discord id", ed.Organisers)
+	}
+	public, err := reader.BlitzEdition(ctx, "us_open", "2026")
+	if err != nil || public.Entrants[0].DiscordID != "" {
+		t.Errorf("the site's Ann = %+v, %v; want no Discord id", public.Entrants[0], err)
+	}
+}
+
+// memberOfEntrant is entrant's member id.
+func memberOfEntrant(t *testing.T, a *AdminStore, entrant int64) int64 {
+	t.Helper()
+	var id int64
+	if err := a.pool.QueryRow(context.Background(), "SELECT member_id FROM blitz_entries WHERE entry_id = $1", entrant).Scan(&id); err != nil {
+		t.Fatalf("reading entrant %d's member: %v", entrant, err)
+	}
+	return id
 }
 
 // finishedIfPublished stands in for the podium's rule: an edition is finished once it has a published round.

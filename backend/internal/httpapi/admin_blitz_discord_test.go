@@ -75,13 +75,13 @@ func (f *fakeAdmins) SetBlitzRoundDeadline(_ context.Context, slug, edition stri
 	return nil
 }
 
-// discordFixture is us_open 2026 with Ann (ann_tta), Cy (a display name), bob (BobPlays), Dee (none) and Eve, round
+// discordFixture is us_open 2026 with Ann (ann_tta, signed in with Discord), Cy (a display name), bob (BobPlays), Dee (none) and Eve, round
 // 1 a draft pairing Ann with Cy, Eve with the bye and bob with Dee, and the member Carol (carol_tta).
 func discordFixture() *fakeAdmins {
 	cy, dee := int64(8), int64(10)
 	return &fakeAdmins{
 		entrants: []store.BlitzEntrant{
-			{ID: 7, Name: "Ann", DiscordName: "ann_tta", Zone: "UTC", Status: "active"},
+			{ID: 7, Name: "Ann", DiscordName: "ann_tta", DiscordID: "100000000000000034", Zone: "UTC", Status: "active"},
 			{ID: 8, Name: "Cy", DiscordName: "Cy Smith", Zone: "UTC", Status: "active"},
 			{ID: 9, Name: "bob", DiscordName: "BobPlays", Zone: "UTC", Status: "active"},
 			{ID: 10, Name: "Dee", Zone: "UTC", Status: "active"},
@@ -119,11 +119,11 @@ func TestAnOrganiserDownloadsADraftRoundsThreadsOnceItHasADeadlineAndOrganisers(
 		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
 	body := rec.Body.String()
-	if want := "@ann_tta vs Cy,\n@bobplays vs Dee\n\n---\n"; !strings.HasPrefix(body, want) {
+	if want := "<@100000000000000034> vs Cy,\n@bobplays vs Dee,\nBye: @eve\n\n---\n"; !strings.HasPrefix(body, want) {
 		t.Errorf("threads =\n%s\nwant them to start with the games, %q", body, want)
 	}
 	for _, want := range []string{
-		"---\nRound 1 · Game 1 · Ann vs Cy\n---\nWelcome @ann_tta, Cy. ",
+		"---\nRound 1 · Game 1 · Ann vs Cy\n---\nWelcome <@100000000000000034>, Cy. ",
 		"---\nRound 1 · Game 3 · bob vs Dee\n---\nWelcome @bobplays, Dee. ",
 		"by <t:1792411200:F>, then",
 		"please ping the moderator Carol (@carol_tta).\nCy is one of the few people that doesn't have access to Discord",
@@ -132,7 +132,7 @@ func TestAnOrganiserDownloadsADraftRoundsThreadsOnceItHasADeadlineAndOrganisers(
 			t.Errorf("threads =\n%s\nwant them to hold %q", body, want)
 		}
 	}
-	if strings.Contains(body, "Eve") {
+	if strings.Contains(body, "Eve") || strings.Contains(body, "Game 2") {
 		t.Errorf("threads =\n%s\nwant no thread for Eve's bye", body)
 	}
 	want := []string{org + " blitz.organiser.add us_open/2026", org + " blitz.round.deadline 101", org + " blitz.round.threads 101"}
@@ -181,7 +181,7 @@ func TestAnOrganiserSetsTheEditionsThreadTextThenResetsIt(t *testing.T) {
 	wantJSON(t, []byte(do(http.MethodGet, "/v1/admin/blitz/us_open/2026", "", http.StatusOK)), "thread_text",
 		threadTextJSON(t, "Hi {players}, by {deadline}.", "Friend {name} in the app.", true))
 	threads := do(http.MethodGet, "/v1/admin/blitz/us_open/2026/rounds/101/threads", "", http.StatusOK)
-	if want := "---\nRound 1 · Game 1 · Ann vs Cy\n---\nHi @ann_tta, Cy, by <t:1792411200:F>. If the game did not finish, or there are any issues " +
+	if want := "---\nRound 1 · Game 1 · Ann vs Cy\n---\nHi <@100000000000000034>, Cy, by <t:1792411200:F>. If the game did not finish, or there are any issues " +
 		"with scheduling or otherwise, please ping the moderator Carol (@carol_tta).\nFriend Cy in the app.\n---\n"; !strings.Contains(threads, want) {
 		t.Errorf("threads =\n%s\nwant them to hold %q", threads, want)
 	}

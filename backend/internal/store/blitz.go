@@ -70,14 +70,14 @@ type BlitzEditionRow struct {
 }
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
-// they do not know), DiscordName, Email, Zone and Country are the member's; DiscordName and Email are "" when
-// read for the site. Status is active (in) or dropped; an entrant is added active. Skips are the rounds they
+// they do not know), DiscordName, DiscordID (their Discord sign-in's user id), Email, Zone and Country are the
+// member's; DiscordName, DiscordID and Email are "" when read for the site. Status is active (in) or dropped; an entrant is added active. Skips are the rounds they
 // skip or skipped, in order (for the site, the published ones). To add one, give MemberID (with any details to
 // save on the member), or a Name with the details a new member needs.
 type BlitzEntrant struct {
-	ID, MemberID                                            int64
-	Name, Player, DiscordName, Email, Zone, Country, Status string
-	Skips                                                   []int
+	ID, MemberID                                                       int64
+	Name, Player, DiscordName, DiscordID, Email, Zone, Country, Status string
+	Skips                                                              []int
 	// StartingRank is the Dutch system's starting rank, fixed when round 1 was paired; 0 before.
 	StartingRank int
 }
@@ -184,7 +184,12 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	return out, nil
 }
 
-// blitzEdition reads one edition and its entrants, with Discord names and emails for admin only.
+// memberDiscordID is member m's Discord user id, from the Discord sign-in of an account linked to them that was used
+// last, or empty for none.
+const memberDiscordID = `coalesce((SELECT l.subject FROM accounts a JOIN logins l USING (account_id)
+	WHERE a.member_id = m.member_id AND l.provider = 'discord' ORDER BY l.signed_in_at DESC NULLS LAST, l.login_id DESC LIMIT 1), '')`
+
+// blitzEdition reads one edition and its entrants, with Discord names, ids and emails for admin only.
 func blitzEdition(ctx context.Context, db conn, public bool, slug, edition string) (BlitzEdition, error) {
 	rows, err := blitzEditionRows(ctx, db, public, slug, edition)
 	if err != nil {
@@ -194,13 +199,13 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 		return BlitzEdition{}, ErrNoBlitzEdition
 	}
 	got := BlitzEdition{BlitzEditionRow: rows[0], Entrants: []BlitzEntrant{}}
-	discord, email := "m.discord_name", "m.email"
+	discord, discordID, email := "m.discord_name", memberDiscordID, "m.email"
 	if public {
-		discord, email = "''", "''"
+		discord, discordID, email = "''", "''", "''"
 	}
-	// The public role may not read a member's Discord name or email, so those columns are named only for admin.
+	// The public role may not read a member's Discord name, id or email, so those columns are named only for admin.
 	entrants, err := db.Query(ctx, `
-		SELECT x.entry_id, x.member_id, m.tta_name, coalesce(p.name, ''), `+discord+`, `+email+`, m.zone, coalesce(m.country_code, ''), x.status,
+		SELECT x.entry_id, x.member_id, m.tta_name, coalesce(p.name, ''), `+discord+`, `+discordID+`, `+email+`, m.zone, coalesce(m.country_code, ''), x.status,
 		       coalesce(x.starting_rank, 0)
 		FROM blitz_entries x JOIN members m USING (member_id) LEFT JOIN players p ON p.player_id = m.player_id
 		JOIN tournaments t ON t.tournament_id = x.tournament_id JOIN series s USING (series_id)
@@ -211,7 +216,7 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 	}
 	got.Entrants, err = pgx.CollectRows(entrants, func(row pgx.CollectableRow) (BlitzEntrant, error) {
 		var e BlitzEntrant
-		return e, row.Scan(&e.ID, &e.MemberID, &e.Name, &e.Player, &e.DiscordName, &e.Email, &e.Zone, &e.Country, &e.Status, &e.StartingRank)
+		return e, row.Scan(&e.ID, &e.MemberID, &e.Name, &e.Player, &e.DiscordName, &e.DiscordID, &e.Email, &e.Zone, &e.Country, &e.Status, &e.StartingRank)
 	})
 	if err != nil {
 		return BlitzEdition{}, fmt.Errorf("reading %s %s's entrants: %w", slug, edition, err)

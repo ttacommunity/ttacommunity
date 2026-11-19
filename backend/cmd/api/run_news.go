@@ -26,10 +26,10 @@ type runBoards interface {
 // runNews fills in run and blitz news for one pass of the outbox, each notification once however many endpoints
 // take it.
 type runNews struct {
-	boards   runBoards
-	editions blitzEditions
-	site     string
-	done     map[int64]filled
+	boards      runBoards
+	shown, full blitzEditions
+	site        string
+	done        map[int64]filled
 }
 
 // filled is a notification as filled in, and whether it is posted.
@@ -38,9 +38,10 @@ type filled struct {
 	post bool
 }
 
-// newRunNews fills in run news from boards and blitz news from editions, linking the site at site, its origin.
-func newRunNews(boards runBoards, editions blitzEditions, site string) *runNews {
-	return &runNews{boards: boards, editions: editions, site: site, done: map[int64]filled{}}
+// newRunNews fills in run news from boards and blitz news from the editions shown on the site, as full reads them,
+// linking the site at site, its origin.
+func newRunNews(boards runBoards, shown, full blitzEditions, site string) *runNews {
+	return &runNews{boards: boards, shown: shown, full: full, site: site, done: map[int64]filled{}}
 }
 
 // fill returns n with its run or blitz news filled in and whether to post it, as withRunNews and withBlitzNews
@@ -51,7 +52,7 @@ func (r *runNews) fill(ctx context.Context, n store.Notification) (store.Notific
 	}
 	got, post, err := withRunNews(ctx, r.boards, r.site, n)
 	if err == nil && post {
-		got, post, err = withBlitzNews(ctx, r.editions, r.site, got)
+		got, post, err = withBlitzNews(ctx, r.shown, r.full, r.site, got)
 	}
 	if err == nil {
 		r.done[n.ID] = filled{got, post}

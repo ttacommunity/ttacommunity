@@ -29,13 +29,14 @@ var DefaultThreadText = ThreadText{
 }
 
 // Threads is what a round's threads say: the round's title (RoundTitle), the deadline to play by, the edition's
-// text, the organisers to ping and the games, byes left out.
+// text, the organisers to ping, the games, and the byes, listed with the games but given no thread.
 type Threads struct {
 	Round      string
 	Deadline   time.Time
 	Text       ThreadText
 	Organisers []Person
 	Games      []ThreadGame
+	Byes       []Person
 }
 
 // Thread texts' longest, in characters, leaving room in Discord's 2,000 for the names and the moderators.
@@ -73,12 +74,13 @@ func RoundTitle(round, swissRounds, knockoutSize int) string {
 	return title + " · " + stage
 }
 
-// organiser writes an organiser as "Carol (@carol)", the placeholder in the brackets without a username.
+// organiser writes an organiser as "Carol (@carol)", by user id when known, the placeholder in the brackets without
+// either.
 func organiser(p Person) string {
-	if u, ok := username(p.Discord); ok {
-		return p.Name + " (@" + u + ")"
+	if !reachable(p) {
+		return p.Name + " (" + missingUsername + ")"
 	}
-	return p.Name + " (" + missingUsername + ")"
+	return p.Name + " (" + mention(p) + ")"
 }
 
 // moderators lists whom to ping: "the moderator Carol (@carol)", "the moderators Carol (@carol) and/or Dave (@dave)", or
@@ -144,7 +146,7 @@ func ThreadsText(t Threads) string {
 		games[i] = [2]Person{g.A, g.B}
 	}
 	var out strings.Builder
-	out.WriteString(DiscordText(games) + "\n")
+	out.WriteString(DiscordText(games, t.Byes) + "\n")
 	for _, g := range t.Games {
 		out.WriteString("\n")
 		fmt.Fprintf(&out, "---\n%s\n---\n", threadTitle(t.Round, g))
@@ -153,7 +155,7 @@ func ThreadsText(t Threads) string {
 		}
 		out.WriteString(ping)
 		for _, p := range []Person{g.A, g.B} {
-			if _, ok := username(p.Discord); !ok && t.Text.NoDiscord != "" {
+			if !reachable(p) && t.Text.NoDiscord != "" {
 				out.WriteString(strings.ReplaceAll(t.Text.NoDiscord, "{name}", p.Name) + "\n")
 			}
 		}

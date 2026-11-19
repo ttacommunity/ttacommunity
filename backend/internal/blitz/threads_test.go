@@ -58,6 +58,15 @@ func TestThreadsTextListsTheGamesThenWritesEachAsABlockOfItsOwn(t *testing.T) {
 	}
 }
 
+func TestThreadsTextListsTheByeWithTheGamesButGivesItNoThread(t *testing.T) {
+	threads := oneGame(blitz.Person{Name: "Ann", Discord: "ann"}, blitz.Person{Name: "Bob", Discord: "bob"}, blitz.DefaultThreadText)
+	threads.Byes = []blitz.Person{{Name: "Cy", Discord: "cy", DiscordID: "100000000000000033"}}
+	got := blitz.ThreadsText(threads)
+	if !strings.HasPrefix(got, "@ann vs @bob,\nBye: <@100000000000000033>\n\n") || strings.Count(got, "---\n") != 3 {
+		t.Errorf("ThreadsText =\n%s\nwant the bye listed after the games, and one thread, the game's", got)
+	}
+}
+
 // blocks is a round's threads text without the list of games at its top.
 func blocks(text string) string {
 	_, after, _ := strings.Cut(text, "\n\n")
@@ -142,6 +151,8 @@ func TestThreadsTextNamesOrganisersWithTheirUsernames(t *testing.T) {
 		{"four", []blitz.Person{{Name: "Dave", Discord: "dave"}, {Name: "Carol", Discord: "carol"}, {Name: "Eve", Discord: "eve"}, {Name: "Fay", Discord: "fay"}},
 			"please ping the moderators Dave (@dave), Carol (@carol), Eve (@eve), and Fay (@fay).\n"},
 		{"one without a username", []blitz.Person{{Name: "Carol", Discord: "Carol Smith"}}, "please ping the moderator Carol (@???).\n"},
+		{"one with a Discord id", []blitz.Person{{Name: "Carol", Discord: "carol", DiscordID: "100000000000000032"}},
+			"please ping the moderator Carol (<@100000000000000032>).\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

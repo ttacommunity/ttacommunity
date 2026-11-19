@@ -74,7 +74,7 @@ func TestWithRunNews(t *testing.T) {
 
 func TestRunNewsIsWorkedOutOncePerNotification(t *testing.T) {
 	boards := &stubBoards{boards: map[int64][]string{6: board("a"), 7: board("b")}}
-	news := newRunNews(boards, stubEditions{}, "https://site.example")
+	news := newRunNews(boards, stubEditions{}, stubEditions{}, "https://site.example")
 	n := store.Notification{ID: 1, Kind: "ratings_top10", Run: store.RunNotice{ID: 7, BeforeID: 6}}
 	for range 3 {
 		if _, post, err := news.fill(context.Background(), n); !post || err != nil {

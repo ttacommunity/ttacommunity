@@ -54,11 +54,12 @@ func SwissStandings(ed store.BlitzEdition) []blitz.Standing {
 	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, ed.Points)
 }
 
-// names maps an edition's entrants to their usernames.
-func names(ed store.BlitzEdition) map[int64]string {
-	out := make(map[int64]string, len(ed.Entrants))
+// people maps an edition's entrants to themselves as Discord can name them: their Discord name and id only when the
+// edition was read for admin.
+func people(ed store.BlitzEdition) map[int64]blitz.Person {
+	out := make(map[int64]blitz.Person, len(ed.Entrants))
 	for _, e := range ed.Entrants {
-		out[e.ID] = e.Name
+		out[e.ID] = blitz.Person{Name: e.Name, Discord: e.DiscordName, DiscordID: e.DiscordID}
 	}
 	return out
 }
@@ -79,14 +80,14 @@ func Round(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 	if !ok {
 		return store.BlitzNews{}, false
 	}
-	who := names(ed)
+	who := people(ed)
 	news := store.BlitzNews{Title: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: r.Deadline}
 	for _, m := range r.Matches {
 		if m.B == nil {
 			news.Byes = append(news.Byes, who[m.A])
 			continue
 		}
-		news.Games = append(news.Games, [2]string{who[m.A], who[*m.B]})
+		news.Games = append(news.Games, [2]blitz.Person{who[m.A], who[*m.B]})
 	}
 	return news, true
 }
@@ -99,7 +100,7 @@ func Podium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 	if ed.Format.KnockoutSize == 0 {
 		return swissPodium(ed)
 	}
-	who := names(ed)
+	who := people(ed)
 	final := ed.Format.SwissRounds + knockoutRounds(ed.Format.KnockoutSize)
 	r, ok := published(ed, final)
 	if !ok || len(r.Matches) != 1 {
@@ -109,16 +110,16 @@ func Podium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 	if !ok {
 		return nil, false
 	}
-	podium := []store.BlitzPlace{{Place: 1, Names: []string{who[winner]}}, {Place: 2, Names: []string{who[loser]}}}
+	podium := []store.BlitzPlace{{Place: 1, People: []blitz.Person{who[winner]}}, {Place: 2, People: []blitz.Person{who[loser]}}}
 	if semis, ok := published(ed, final-1); ok && semis.Kind == "knockout" {
-		var third []string
+		var third []blitz.Person
 		for _, m := range semis.Matches {
 			if _, l, ok := decided(m); ok {
 				third = append(third, who[l])
 			}
 		}
 		if len(third) > 0 {
-			podium = append(podium, store.BlitzPlace{Place: 3, Names: third})
+			podium = append(podium, store.BlitzPlace{Place: 3, People: third})
 		}
 	}
 	return podium, true
@@ -153,17 +154,17 @@ func swissPodium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 	if !ok || slices.ContainsFunc(last.Matches, func(m store.BlitzMatch) bool { return m.B != nil && m.Result == "" }) {
 		return nil, false
 	}
-	who := names(ed)
+	who := people(ed)
 	var podium []store.BlitzPlace
 	for _, s := range SwissStandings(ed) {
 		if s.PlaceFrom > 3 {
 			break
 		}
 		if n := len(podium); n > 0 && podium[n-1].Place == s.PlaceFrom {
-			podium[n-1].Names = append(podium[n-1].Names, who[s.ID])
+			podium[n-1].People = append(podium[n-1].People, who[s.ID])
 			continue
 		}
-		podium = append(podium, store.BlitzPlace{Place: s.PlaceFrom, Names: []string{who[s.ID]}})
+		podium = append(podium, store.BlitzPlace{Place: s.PlaceFrom, People: []blitz.Person{who[s.ID]}})
 	}
 	return podium, true
 }

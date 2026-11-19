@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -36,19 +37,27 @@ func finalWon() store.BlitzEdition {
 	return ed
 }
 
+// signedIn is ed as admin reads it: Ann with the Discord id of her sign-in.
+func signedIn(ed store.BlitzEdition) store.BlitzEdition {
+	ed.Entrants = slices.Clone(ed.Entrants)
+	ed.Entrants[0].DiscordID = "100000000000000052"
+	return ed
+}
+
 func TestWithBlitzNews(t *testing.T) {
-	editions := stubEditions{"us_open 2026": finalWon()}
+	shown := stubEditions{"us_open 2026": finalWon()}
+	full := stubEditions{"us_open 2026": signedIn(finalWon()), "hidden 2026": signedIn(finalWon())}
 	const link = "https://site.example/blitz/?t=us_open&e=2026"
 	tests := []struct {
 		name      string
 		n         store.Notification
 		wantPost  bool
-		wantGames [][2]string
+		wantGames [][2]blitz.Person
 		wantFirst string
 		wantErr   bool
 	}{
 		{name: "a round published", n: store.Notification{Kind: "blitz_round", Slug: "us_open", Edition: "2026", Round: 2},
-			wantPost: true, wantGames: [][2]string{{"Ann", "Bob"}}},
+			wantPost: true, wantGames: [][2]blitz.Person{{{Name: "Ann", DiscordID: "100000000000000052"}, {Name: "Bob"}}}},
 		{name: "a round gone since", n: store.Notification{Kind: "blitz_round", Slug: "us_open", Edition: "2026", Round: 3}},
 		{name: "an edition finished", n: store.Notification{Kind: "blitz_finished", Slug: "us_open", Edition: "2026"}, wantPost: true, wantFirst: "Ann"},
 		{name: "an edition the site does not show", n: store.Notification{Kind: "blitz_round", Slug: "hidden", Edition: "2026", Round: 1}},
@@ -57,7 +66,7 @@ func TestWithBlitzNews(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, post, err := withBlitzNews(context.Background(), editions, "https://site.example", tt.n)
+			got, post, err := withBlitzNews(context.Background(), shown, full, "https://site.example", tt.n)
 			if (err != nil) != tt.wantErr || post != tt.wantPost {
 				t.Fatalf("withBlitzNews = post %v, %v; want post %v, error %v", post, err, tt.wantPost, tt.wantErr)
 			}
@@ -68,9 +77,9 @@ func TestWithBlitzNews(t *testing.T) {
 				t.Errorf("link = %q, want %q", got.Blitz.Link, link)
 			}
 			if tt.wantGames != nil && !slices.Equal(got.Blitz.Games, tt.wantGames) {
-				t.Errorf("games = %q, want %q", got.Blitz.Games, tt.wantGames)
+				t.Errorf("games = %+v, want %+v", got.Blitz.Games, tt.wantGames)
 			}
-			if tt.wantFirst != "" && (len(got.Blitz.Podium) == 0 || !slices.Equal(got.Blitz.Podium[0].Names, []string{tt.wantFirst})) {
+			if tt.wantFirst != "" && (len(got.Blitz.Podium) == 0 || len(got.Blitz.Podium[0].People) != 1 || got.Blitz.Podium[0].People[0].Name != tt.wantFirst) {
 				t.Errorf("podium = %+v, want %s first", got.Blitz.Podium, tt.wantFirst)
 			}
 		})
@@ -79,7 +88,8 @@ func TestWithBlitzNews(t *testing.T) {
 
 func TestARoundPairedAgainKeepsSaying(t *testing.T) {
 	n := store.Notification{Kind: "blitz_round", Slug: "us_open", Edition: "2026", Round: 2, Blitz: store.BlitzNews{Again: true}}
-	got, _, err := withBlitzNews(context.Background(), stubEditions{"us_open 2026": finalWon()}, "https://site.example", n)
+	ed := stubEditions{"us_open 2026": finalWon()}
+	got, _, err := withBlitzNews(context.Background(), ed, ed, "https://site.example", n)
 	if err != nil || !got.Blitz.Again {
 		t.Errorf("again = %v, %v; want it kept from the outbox", got.Blitz.Again, err)
 	}

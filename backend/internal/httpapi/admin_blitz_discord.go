@@ -33,17 +33,19 @@ func roundThreads(ed store.BlitzEdition, r store.BlitzRound) (blitz.Threads, err
 	}
 	people := map[int64]blitz.Person{}
 	for _, e := range ed.Entrants {
-		people[e.ID] = blitz.Person{Name: e.Name, Discord: e.DiscordName}
+		people[e.ID] = blitz.Person{Name: e.Name, Discord: e.DiscordName, DiscordID: e.DiscordID}
 	}
 	text, _ := threadText(ed)
 	t := blitz.Threads{Round: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: *r.Deadline, Text: text}
 	for _, o := range ed.Organisers {
-		t.Organisers = append(t.Organisers, blitz.Person{Name: o.Name, Discord: o.DiscordName})
+		t.Organisers = append(t.Organisers, blitz.Person{Name: o.Name, Discord: o.DiscordName, DiscordID: o.DiscordID})
 	}
 	for i, m := range r.Matches {
-		if m.B != nil {
-			t.Games = append(t.Games, blitz.ThreadGame{Number: i + 1, A: people[m.A], B: people[*m.B]})
+		if m.B == nil {
+			t.Byes = append(t.Byes, people[m.A])
+			continue
 		}
+		t.Games = append(t.Games, blitz.ThreadGame{Number: i + 1, A: people[m.A], B: people[*m.B]})
 	}
 	if len(t.Games) == 0 {
 		return blitz.Threads{}, fmt.Errorf("%w: the round has no game to make a thread for", errNoThreads)
