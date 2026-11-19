@@ -79,6 +79,7 @@ var keptColumns = map[string]string{
 	"notification_outbox.round_id":            "omitted: the published blitz round whose games it tells",
 	"notification_outbox.round_pairs":         "omitted: that round's games, by entrant, to post each once",
 	"notification_outbox.edition_id":          "omitted: the finished blitz edition whose podium it tells",
+	"notification_outbox.endpoint_id":         "omitted: the one admin endpoint a blitz reminder is for",
 	"notification_outbox.before_run_id":       "omitted: the run that news is compared with",
 	"notification_outbox.rss_item_id":         "omitted: the public feed item it tells a Discord channel of",
 	"notification_outbox.created_at":          "omitted: a notification to admins, deleted once posted",

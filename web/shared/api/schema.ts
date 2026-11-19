@@ -4117,7 +4117,7 @@ export interface components {
          * @description What a notification tells of, which an endpoint chooses among
          * @enum {string}
          */
-        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished";
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished" | "blitz_reminder";
         NotificationEndpoint: {
             /** Format: int64 */
             id: number;
@@ -4144,6 +4144,8 @@ export interface components {
             role_id: string;
             /** @description An existing thread of its channel, such as a forum post, that every message goes into; none when empty */
             thread_id: string;
+            /** @description How many hours before a blitz round's deadline it is reminded, when it takes blitz_reminder */
+            blitz_reminder_hours: number;
             /** @description A feed item's embed colour, #rrggbb */
             colour: string;
             text: components["schemas"]["FeedItemText"];
@@ -4184,6 +4186,8 @@ export interface components {
             role_id?: string;
             /** @description The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out */
             thread_id?: string;
+            /** @description How many hours before a blitz round's deadline to remind it, 1 to 168; 24 when left out */
+            blitz_reminder_hours?: number;
             /** @description #rrggbb, in lower case; orange when not given */
             colour?: string;
             text?: components["schemas"]["FeedItemText"];
@@ -13389,7 +13393,7 @@ export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeV
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished", "blitz_reminder"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];

@@ -17,12 +17,12 @@ type blitzEditions interface {
 	BlitzEdition(ctx context.Context, slug, edition string) (store.BlitzEdition, error)
 }
 
-// withBlitzNews returns a blitz_round or blitz_finished n with its round or podium read from full, admin's view of
-// the edition (its players' Discord names and ids), and its link at site, and whether to post it: an edition shown,
-// the site's view, does not show, a round no longer published or an edition no longer finished is not. Any other
-// notification is returned as it is, to post.
+// withBlitzNews returns a blitz_round, blitz_reminder or blitz_finished n with its round, its games still to play or
+// its podium read from full, admin's view of the edition (its players' Discord names and ids), and its link at site,
+// and whether to post it: an edition shown, the site's view, does not show, a round no longer published or with
+// every game played, or an edition no longer finished is not. Any other notification is returned as it is, to post.
 func withBlitzNews(ctx context.Context, shown, full blitzEditions, site string, n store.Notification) (store.Notification, bool, error) {
-	if n.Kind != "blitz_round" && n.Kind != "blitz_finished" {
+	if n.Kind != "blitz_round" && n.Kind != "blitz_reminder" && n.Kind != "blitz_finished" {
 		return n, true, nil
 	}
 	_, err := shown.BlitzEdition(ctx, n.Slug, n.Edition)
@@ -42,7 +42,11 @@ func withBlitzNews(ctx context.Context, shown, full blitzEditions, site string, 
 		n.Blitz = store.BlitzNews{Podium: podium, Link: link}
 		return n, ok, nil
 	}
-	news, ok := blitzview.Round(ed, n.Round)
+	read := blitzview.Round
+	if n.Kind == "blitz_reminder" {
+		read = blitzview.Reminder
+	}
+	news, ok := read(ed, n.Round)
 	news.Again, news.Link = n.Blitz.Again, link
 	n.Blitz = news
 	return n, ok, nil

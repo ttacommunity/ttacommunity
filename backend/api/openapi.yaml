@@ -6433,10 +6433,10 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished]
+      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, colour, text, image]
+      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, blitz_reminder_hours, colour, text, image]
       properties:
         id:
           type: integer
@@ -6484,6 +6484,9 @@ components:
         thread_id:
           description: An existing thread of its channel, such as a forum post, that every message goes into; none when empty
           type: string
+        blitz_reminder_hours:
+          description: How many hours before a blitz round's deadline it is reminded, when it takes blitz_reminder
+          type: integer
         colour:
           description: "A feed item's embed colour, #rrggbb"
           type: string
@@ -6553,6 +6556,11 @@ components:
         thread_id:
           description: The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out
           type: string
+        blitz_reminder_hours:
+          description: How many hours before a blitz round's deadline to remind it, 1 to 168; 24 when left out
+          type: integer
+          minimum: 1
+          maximum: 168
         colour:
           description: "#rrggbb, in lower case; orange when not given"
           type: string

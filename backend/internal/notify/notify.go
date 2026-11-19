@@ -202,7 +202,7 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 	case "ratings_run", "ratings_top10":
 		embed := runEmbed(n, e.Look)
 		return shaped(e, embed, embed.Title)
-	case "blitz_round", "blitz_finished":
+	case "blitz_round", "blitz_reminder", "blitz_finished":
 		text := roundText
 		if n.Kind == "blitz_finished" {
 			text = podiumText
@@ -369,11 +369,15 @@ func heading(title, link string) string {
 
 // roundText is a published round as text, with no card (Discord shows a card below the text): its title, which also
 // names it, as a bold link to the edition, then its deadline on each reader's clock once set, then its games and
-// byes, a line each. It returns the title, the text and whom it tags.
+// byes, a line each; for a reminder (blitz_reminder), the games still to play. It returns the title, the text and
+// whom it tags.
 func roundText(n store.Notification) (title, text string, users []string) {
 	b := n.Blitz
 	title = n.Series + " " + n.Edition + " · " + b.Title
-	if b.Again {
+	switch {
+	case n.Kind == "blitz_reminder":
+		title += " reminder"
+	case b.Again:
 		title += ", paired again"
 	}
 	lines := []string{heading(title, b.Link)}
@@ -381,7 +385,11 @@ func roundText(n store.Notification) (title, text string, users []string) {
 		at := strconv.FormatInt(b.Deadline.Unix(), 10)
 		lines = append(lines, "Deadline: <t:"+at+":F> (<t:"+at+":R>)")
 	}
-	lines = append(lines, "**Pairings**")
+	section := "**Pairings**"
+	if n.Kind == "blitz_reminder" {
+		section = "**Still to play**"
+	}
+	lines = append(lines, section)
 	var t tagger
 	for _, g := range b.Games {
 		lines = append(lines, t.name(g[0], false)+" vs "+t.name(g[1], false))

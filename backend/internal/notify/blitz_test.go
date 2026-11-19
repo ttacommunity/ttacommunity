@@ -119,3 +119,15 @@ func TestSendAllowsOnlyTheUsersARoundTags(t *testing.T) {
 		t.Errorf("allowed_mentions = %s, want only Ann, once", mentions)
 	}
 }
+
+func TestAReminderListsTheGamesStillToPlayUnderItsDeadline(t *testing.T) {
+	deadline := time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC)
+	ann := players.Person{Name: "Ann_1", DiscordID: "100000000000000061"}
+	n := store.Notification{Kind: "blitz_reminder", Series: "US Open", Edition: "2026", Round: 3, Blitz: store.BlitzNews{Title: "Round 3", Link: edition,
+		Deadline: &deadline, Games: [][2]players.Person{game(ann, named("Bob")[0])}}}
+	m := notify.Payload(n, store.NotificationEndpoint{Forum: true}, admin)
+	want := "**[US Open 2026 · Round 3 reminder](<" + edition + ">)**\nDeadline: <t:1772992800:F> (<t:1772992800:R>)\n**Still to play**\nAnn\\_1 (<@100000000000000061>) vs Bob"
+	if m.Content != want || !slices.Equal(m.Users, []string{"100000000000000061"}) || m.ThreadName != "US Open 2026 · Round 3 reminder" {
+		t.Errorf("message = %+v, want %q tagging Ann, in a thread named for it", m, want)
+	}
+}

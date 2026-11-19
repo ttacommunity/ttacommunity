@@ -68,3 +68,29 @@ func keepRoundPost(ctx context.Context, tx pgx.Tx, id int64) error {
 	}
 	return nil
 }
+
+// QueueBlitzReminders queues, due at now, a reminder of each published round of a shown blitz series for each
+// endpoint taking blitz_reminder, not paused, once now is within the endpoint's hours of the round's deadline and
+// before it, while a game of the round has no result: once per round and endpoint. A round published within those
+// hours already had its post, and is not reminded. It returns how many it queued.
+func (a *AdminStore) QueueBlitzReminders(ctx context.Context, now time.Time) (int, error) {
+	tag, err := a.pool.Exec(ctx, `
+		WITH due AS (
+			INSERT INTO blitz_reminders (round_id, endpoint_id, queued_at)
+			SELECT r.round_id, e.endpoint_id, $1
+			FROM blitz_rounds r
+			JOIN tournaments t ON t.tournament_id = r.tournament_id JOIN series s ON s.series_id = t.series_id
+			JOIN notification_endpoints e ON 'blitz_reminder' = ANY (e.events) AND NOT e.paused
+			WHERE s.visible AND r.published_at IS NOT NULL AND r.deadline > $1
+			  AND r.deadline - make_interval(hours => e.blitz_reminder_hours) <= $1
+			  AND r.published_at < r.deadline - make_interval(hours => e.blitz_reminder_hours)
+			  AND EXISTS (SELECT 1 FROM blitz_matches m WHERE m.round_id = r.round_id AND m.entry_b IS NOT NULL AND m.result IS NULL)
+			ON CONFLICT DO NOTHING
+			RETURNING round_id, endpoint_id)
+		INSERT INTO notification_outbox (kind, round_id, endpoint_id, created_at, next_at)
+		SELECT 'blitz_reminder', round_id, endpoint_id, $1, $1 FROM due`, now)
+	if err != nil {
+		return 0, fmt.Errorf("queueing blitz reminders: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}

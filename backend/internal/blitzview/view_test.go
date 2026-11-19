@@ -148,3 +148,28 @@ func TestPodiumSharesAPlaceOnlyTheDrawSeparates(t *testing.T) {
 		t.Errorf("Podium of four draws = %+v, %v, want all four sharing first", got, ok)
 	}
 }
+
+func TestReminder(t *testing.T) {
+	deadline := time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC)
+	open := round(1, "swiss", false, match(1, 2, "a"), match(3, 4, ""), match(2, 0, "a"))
+	open.Deadline = &deadline
+	tests := []struct {
+		name string
+		ed   store.BlitzEdition
+		want store.BlitzNews
+		ok   bool
+	}{
+		{"only the games without a result, no bye", edition(1, 0, open),
+			store.BlitzNews{Title: "Round 1", Games: [][2]blitz.Person{{{Name: "Cid"}, {Name: "Dee"}}}, Deadline: &deadline}, true},
+		{"every game played", edition(1, 0, round(1, "swiss", false, match(1, 2, "a"), match(3, 4, "draw"))), store.BlitzNews{}, false},
+		{"a draft", edition(1, 0, round(1, "swiss", true, match(1, 2, ""))), store.BlitzNews{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := Reminder(tt.ed, 1)
+			if ok != tt.ok || !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Reminder = %+v, %v, want %+v, %v", got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+}

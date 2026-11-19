@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EVENTS, endpointChanged, endpointSetting, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
 
-const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', thread_id: '', colour: '#ff4500', text: 'full' as const, image: true };
+const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', thread_id: '', blitz_reminder_hours: 24, colour: '#ff4500', text: 'full' as const, image: true };
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
-    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10', 'blitz_round', 'blitz_finished']);
+    expect(EVENTS.map((e) => e.key)).toEqual(['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10', 'blitz_round', 'blitz_finished', 'blitz_reminder']);
   });
 
   it.each([
@@ -22,6 +22,7 @@ describe('notification endpoints', () => {
     ['given a picture', { ...SAVED, avatar_url: 'https://example.com/a.png' }, true],
     ['given a role to ping', { ...SAVED, role_id: '100000000000000002' }, true],
     ['given a thread to post into', { ...SAVED, thread_id: '100000000000000021' }, true],
+    ['reminding at other hours', { ...SAVED, blitz_reminder_hours: 6 }, true],
     ['given only spaces as a display name', { ...SAVED, username: '  ' }, false],
     ['given a colour', { ...SAVED, colour: '#123abc' }, true],
     ['showing less text', { ...SAVED, text: 'short' as const }, true],
@@ -53,6 +54,10 @@ describe('notification endpoints', () => {
     expect('webhook_id' in setting).toBe(false);
   });
 
+  it('sends the hours a reminder goes out before a deadline', () => {
+    expect(endpointSetting({ ...SAVED, blitz_reminder_hours: 6 }).blitz_reminder_hours).toBe(6);
+  });
+
   it('sends the thread it posts into, trimmed', () => {
     expect(endpointSetting({ ...SAVED, thread_id: ' 100000000000000021 ' }).thread_id).toBe('100000000000000021');
   });
@@ -78,7 +83,7 @@ describe('notification endpoints', () => {
 
   it.each([
     ['nothing', [], [], 'Nothing: no posts reach it'],
-    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10', 'blitz_round', 'blitz_finished'] as const, [], 'every site event'],
+    ['every event', ['sign_up', 'link_request', 'blitz_report', 'blitz_flag', 'feed_failing', 'ratings_run', 'ratings_top10', 'blitz_round', 'blitz_finished', 'blitz_reminder'] as const, [], 'every site event'],
     ['some events, in the tab\'s order', ['blitz_flag', 'sign_up'] as const, [], 'New players signing up, Blitz reports flagged'],
     ['an RSS feed', [], [5], 'Other news on RSS'],
     ['events and feeds', ['link_request'] as const, [2, 5], 'Requests to be linked; Example news on RSS; Other news on RSS'],

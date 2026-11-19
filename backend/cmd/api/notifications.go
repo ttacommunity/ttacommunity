@@ -29,14 +29,18 @@ type siteReader interface {
 	blitzEditions
 }
 
-// sendNotifications queues the news of blitz editions just finished, then sends the outbox through a to its
-// endpoints with poster, linking to admin at origin admin and to the site at site, with a run's and a blitz
-// edition's news read from shown (and its players' Discord ids through a), every notifyEvery until ctx ends. News with nothing to post is done unsent. Logs
-// name a notification's kind and an endpoint's id, never a name or a URL.
+// sendNotifications queues the news of blitz editions just finished and the blitz reminders due, then sends the
+// outbox through a to its endpoints with poster, linking to admin at origin admin and to the site at site, with a
+// run's and a blitz edition's news read from shown (and its players' Discord ids through a), every notifyEvery
+// until ctx ends. News with nothing to post is done unsent. Logs name a notification's kind and an endpoint's id,
+// never a name or a URL.
 func sendNotifications(ctx context.Context, a *store.AdminStore, shown siteReader, poster discordPoster, admin, site string, log *slog.Logger) {
 	for {
 		if _, err := a.QueueFinishedBlitz(ctx, time.Now(), editionFinished); err != nil && ctx.Err() == nil {
 			log.Warn("checking for finished blitz editions failed", "err", err)
+		}
+		if _, err := a.QueueBlitzReminders(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			log.Warn("queueing blitz reminders failed", "err", err)
 		}
 		news := newRunNews(shown, shown, a, site)
 		done, err := a.SendNotifications(ctx, time.Now(), notifyBatch, func(ctx context.Context, n store.Notification, e store.NotificationEndpoint) error {

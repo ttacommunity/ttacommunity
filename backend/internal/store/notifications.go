@@ -51,8 +51,10 @@ type Notification struct {
 	Run   RunNotice
 	Top10 TopTenChange
 	// A blitz round published (blitz_round) or an edition finished (blitz_finished), in Slug, Series and Edition,
-	// the round's number as Round: Blitz is filled in by the sender, which reads the edition as the site does.
-	Blitz BlitzNews
+	// the round's number as Round: Blitz is filled in by the sender, which reads the edition as the site does. A
+	// round's deadline coming (blitz_reminder) likewise, for the one endpoint ForEndpoint.
+	Blitz       BlitzNews
+	ForEndpoint int64
 }
 
 // BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes, each
@@ -171,6 +173,8 @@ func (e NotificationEndpoint) takes(n Notification) bool {
 		return ok
 	case "feed_failed", "feed_recovered":
 		return slices.Contains(e.Events, "feed_failing")
+	case "blitz_reminder":
+		return e.ID == n.ForEndpoint && slices.Contains(e.Events, n.Kind)
 	}
 	return slices.Contains(e.Events, n.Kind)
 }
@@ -201,7 +205,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		rows, err = tx.Query(ctx, `
 			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, o.round_id, o.edition_id, 0), o.attempts, o.sent_to,
 			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended',
-			                            'blitz_round', 'blitz_finished') THEN true
+			                            'blitz_round', 'blitz_finished', 'blitz_reminder') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
@@ -227,7 +231,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce((SELECT json_object_agg(yp.endpoint_id, json_build_object('message_id', yp.message_id, 'channel_id', yp.channel_id))
 			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}'),
 			       coalesce(o.published_run_id, 0), coalesce(o.before_run_id, 0), coalesce(rr.games, 0), coalesce(tc.gained, 0), coalesce(tc.lost, 0),
-			       EXISTS (SELECT 1 FROM blitz_round_posts bp WHERE bp.tournament_id = nr.tournament_id AND bp.number = nr.number)
+			       o.kind = 'blitz_round' AND EXISTS (SELECT 1 FROM blitz_round_posts bp WHERE bp.tournament_id = nr.tournament_id AND bp.number = nr.number),
+			       coalesce(o.endpoint_id, 0)
 			FROM notification_outbox o
 			LEFT JOIN blitz_rounds nr ON nr.round_id = o.round_id
 			LEFT JOIN tournaments nt ON nt.tournament_id = coalesce(nr.tournament_id, o.edition_id)
@@ -282,7 +287,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				&n.RSS.Item.PublishedAt,
 				&n.YouTube.Channel, &n.YouTube.VideoID, &n.YouTube.Title, &n.YouTube.ThumbnailURL, &n.YouTube.StartedAt, &n.YouTube.EndedAt,
 				&n.YouTube.Posts,
-				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost, &n.Blitz.Again); err != nil {
+				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost, &n.Blitz.Again, &n.ForEndpoint); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -294,7 +299,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		// A repeat of a notification in this batch tells nothing more, being read from the same data.
 		seen := map[string]bool{}
 		for _, d := range all {
-			key := fmt.Sprint(d.n.Kind, d.ref)
+			key := fmt.Sprint(d.n.Kind, d.ref, d.n.ForEndpoint)
 			if seen[key] {
 				if _, err := tx.Exec(ctx, "DELETE FROM notification_outbox WHERE notification_id = $1", d.n.ID); err != nil {
 					return fmt.Errorf("deleting a repeated notification: %w", err)

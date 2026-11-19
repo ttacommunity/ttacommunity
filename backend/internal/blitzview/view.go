@@ -168,3 +168,23 @@ func swissPodium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 	}
 	return podium, true
 }
+
+// Reminder is published round number's games still without a result, with its title and deadline, and false when
+// every game has one or the edition has no such round published. Byes are left out: they play no game.
+func Reminder(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
+	r, ok := published(ed, number)
+	if !ok {
+		return store.BlitzNews{}, false
+	}
+	who := people(ed)
+	news := store.BlitzNews{Title: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: r.Deadline}
+	for _, m := range r.Matches {
+		if m.B != nil && m.Result == "" {
+			news.Games = append(news.Games, [2]blitz.Person{who[m.A], who[*m.B]})
+		}
+	}
+	if len(news.Games) == 0 {
+		return store.BlitzNews{}, false
+	}
+	return news, true
+}

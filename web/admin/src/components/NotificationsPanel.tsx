@@ -170,7 +170,7 @@ export default function NotificationsPanel() {
         {dialog.element}
         <p className="muted">
           Discord channels the site posts to: when a new player signs up, a player asks to be linked, one reports, corrects or flags a blitz result, new
-          ratings are published (and their top 10 changed), a blitz round is published or an edition finishes, a
+          ratings are published (and their top 10 changed), a blitz round is published or its deadline nears, an edition finishes, a
           RSS feed has a new item, or a Twitch streamer or a Movies channel on YouTube goes live. Make a webhook in the channel's settings (Integrations, Webhooks), add it here, and choose what it takes.
         </p>
         <Notice outcome={shownAt(outcome, 'endpoints')} onClose={() => setOutcome(null)} />

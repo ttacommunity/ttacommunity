@@ -776,6 +776,7 @@ func (e NostradamusQuestionKind) Valid() bool {
 const (
 	NotificationEventBlitzFinished NotificationEvent = "blitz_finished"
 	NotificationEventBlitzFlag     NotificationEvent = "blitz_flag"
+	NotificationEventBlitzReminder NotificationEvent = "blitz_reminder"
 	NotificationEventBlitzReport   NotificationEvent = "blitz_report"
 	NotificationEventBlitzRound    NotificationEvent = "blitz_round"
 	NotificationEventFeedFailing   NotificationEvent = "feed_failing"
@@ -791,6 +792,8 @@ func (e NotificationEvent) Valid() bool {
 	case NotificationEventBlitzFinished:
 		return true
 	case NotificationEventBlitzFlag:
+		return true
+	case NotificationEventBlitzReminder:
 		return true
 	case NotificationEventBlitzReport:
 		return true
@@ -4602,6 +4605,9 @@ type NotificationEndpoint struct {
 	// AvatarUrl The picture its messages show; the webhook's own when empty
 	AvatarUrl string `json:"avatar_url"`
 
+	// BlitzReminderHours How many hours before a blitz round's deadline it is reminded, when it takes blitz_reminder
+	BlitzReminderHours int `json:"blitz_reminder_hours"`
+
 	// Colour A feed item's embed colour, #rrggbb
 	Colour string              `json:"colour"`
 	Events []NotificationEvent `json:"events"`
@@ -4656,6 +4662,9 @@ type NotificationEndpoint struct {
 type NotificationEndpointSetting struct {
 	// AvatarUrl An https picture
 	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// BlitzReminderHours How many hours before a blitz round's deadline to remind it, 1 to 168; 24 when left out
+	BlitzReminderHours *int `json:"blitz_reminder_hours,omitempty"`
 
 	// Colour #rrggbb, in lower case; orange when not given
 	Colour *string             `json:"colour,omitempty"`
