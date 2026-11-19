@@ -321,6 +321,10 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 		if err != nil {
 			return err
 		}
+		// Taken as players signing up take it, so no one enters while round 1 is paired.
+		if _, err := tx.Exec(ctx, "SELECT 1 FROM tournaments WHERE tournament_id = $1 FOR UPDATE", edID); err != nil {
+			return fmt.Errorf("adding a round to %s %s: %w", slug, edition, err)
+		}
 		var draft bool
 		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1 AND published_at IS NULL)", edID).Scan(&draft); err != nil {
 			return fmt.Errorf("adding a round to %s %s: %w", slug, edition, err)

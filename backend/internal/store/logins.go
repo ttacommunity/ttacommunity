@@ -164,6 +164,17 @@ func namedMember(ctx context.Context, c conn, name string) (Member, bool, error)
 func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Time) (LinkApproved, error) {
 	var out LinkApproved
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		var err error
+		out, err = approveLink(ctx, tx, request, now)
+		return err
+	})
+	return out, err
+}
+
+// approveLink is ApproveLink in tx; it also enters the account's pending sign-ups that take entries at now.
+func approveLink(ctx context.Context, tx pgx.Tx, request int64, now time.Time) (LinkApproved, error) {
+	var out LinkApproved
+	err := func() error {
 		var account int64
 		var name, discordName, email string
 		var linked bool
@@ -218,9 +229,12 @@ func (a *AdminStore) ApproveLink(ctx context.Context, request int64, now time.Ti
 		if _, err := tx.Exec(ctx, "UPDATE link_requests SET status = 'approved', decided_at = $2 WHERE request_id = $1", request, now); err != nil {
 			return fmt.Errorf("approving a request: %w", err)
 		}
+		if _, err := tx.Exec(ctx, "SELECT enter_pending_sign_ups($1, $2)", account, now); err != nil {
+			return fmt.Errorf("entering a linked account's sign-ups: %w", err)
+		}
 		out.MemberID, out.Member = m.ID, m.Name
 		return nil
-	})
+	}()
 	return out, err
 }
 

@@ -67,7 +67,8 @@ type BlitzEditionRow struct {
 	Champion *string
 	// Knockout is whether the knockout's first round is published; Bracket, whether the tournament is shown as one;
 	// Shown, whether the site shows it at all (its rounds are published only then).
-	Knockout, Bracket, Shown bool
+	Knockout, Bracket, Shown bool // SignUps is whether players may sign up, and until when.
+	SignUps                  SignUps
 }
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
@@ -163,7 +164,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) WHERE r.tournament_id = t.tournament_id AND m.report = 'flagged')::int,
 		       `+blitzChampionOf+`,
 		       EXISTS (SELECT 1 FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL),
-		       s.bracket, s.visible
+		       s.bracket, s.visible, t.sign_ups_open, t.sign_ups_close_at, coalesce(sign_ups_taking(t.tournament_id, now()), false)
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
@@ -177,7 +178,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion, &r.Knockout, &r.Bracket, &r.Shown)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion, &r.Knockout, &r.Bracket, &r.Shown,
+			&r.SignUps.Open, &r.SignUps.ClosesAt, &r.SignUps.Taking)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)

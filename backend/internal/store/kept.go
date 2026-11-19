@@ -1,5 +1,6 @@
 // What we keep about a signed-in player, all of it, for "Data we keep" on the account page: their account, each way
-// in, their member once linked, their requests to be linked, their sessions and their emailed sign-in links.
+// in, their member once linked, their requests to be linked, their sign-ups waiting for a link, their sessions and their
+// emailed sign-in links.
 package store
 
 import (
@@ -19,6 +20,7 @@ type KeptData struct {
 	Member             *Member
 	MemberEmailCleared bool
 	Requests           []KeptRequest
+	SignUps            []KeptSignUp
 	Sessions           []KeptSession
 	EmailLinks         []KeptEmailLink
 }
@@ -46,6 +48,13 @@ type KeptRequest struct {
 	Name, Status, Reason string
 	RequestedAt          time.Time
 	DecidedAt            *time.Time
+}
+
+// KeptSignUp is a sign-up waiting for the account to be linked: the tournament (its series' name and the edition), the
+// TTA username given and when.
+type KeptSignUp struct {
+	Tournament, Name string
+	SignedUpAt       time.Time
 }
 
 // KeptSession is a session: the way in it signed in by, when it started, when it ends and is removed, and whether it
@@ -96,6 +105,9 @@ func (s *PlayerStore) KeptData(ctx context.Context, tokenHash []byte, now time.T
 			return err
 		}
 		if k.Requests, err = keptRequests(ctx, tx, account); err != nil {
+			return err
+		}
+		if k.SignUps, err = keptSignUps(ctx, tx, tokenHash, now); err != nil {
 			return err
 		}
 		if k.Sessions, err = keptSessions(ctx, tx, account, tokenHash); err != nil {
@@ -183,6 +195,19 @@ func keptRequests(ctx context.Context, tx pgx.Tx, account int64) ([]KeptRequest,
 		var q KeptRequest
 		err := r.Scan(&q.Name, &q.Status, &q.Reason, &q.RequestedAt, &q.DecidedAt)
 		return q, err
+	})
+}
+
+// keptSignUps is the pending sign-ups of the session hashing to tokenHash at now, oldest first.
+func keptSignUps(ctx context.Context, tx pgx.Tx, tokenHash []byte, now time.Time) ([]KeptSignUp, error) {
+	rows, err := tx.Query(ctx, "SELECT series || ' ' || label, tta_name, signed_up_at FROM my_sign_ups($1, $2)", tokenHash, now)
+	if err != nil {
+		return nil, fmt.Errorf("reading sign-ups: %w", err)
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (KeptSignUp, error) {
+		var u KeptSignUp
+		err := r.Scan(&u.Tournament, &u.Name, &u.SignedUpAt)
+		return u, err
 	})
 }
 

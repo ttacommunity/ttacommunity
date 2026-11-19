@@ -465,6 +465,7 @@ func TestCheckLimitsRefusesAPlayerLoginGivenMore(t *testing.T) {
 		"GRANT CREATE ON SCHEMA public TO ratings_player",
 		"GRANT EXECUTE ON FUNCTION link_by_email(bigint, timestamptz) TO ratings_player",
 		"GRANT EXECUTE ON FUNCTION fill_member_from_logins(bigint) TO ratings_player",
+		"GRANT EXECUTE ON FUNCTION enter_pending_sign_ups(bigint, timestamptz) TO ratings_player",
 	} {
 		t.Run(grant, func(t *testing.T) {
 			pool := migrated(t)

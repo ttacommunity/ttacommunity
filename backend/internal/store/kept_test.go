@@ -78,7 +78,7 @@ var keptColumns = map[string]string{
 	"notification_outbox.published_run_id":    "omitted: the published run whose news it tells",
 	"notification_outbox.round_id":            "omitted: the published blitz round whose games it tells",
 	"notification_outbox.round_pairs":         "omitted: that round's games, by entrant, to post each once",
-	"notification_outbox.edition_id":          "omitted: the finished blitz edition whose podium it tells",
+	"notification_outbox.edition_id":          "omitted: the blitz edition whose podium or open sign-ups it tells",
 	"notification_outbox.endpoint_id":         "omitted: the one admin endpoint a blitz reminder is for",
 	"notification_outbox.before_run_id":       "omitted: the run that news is compared with",
 	"notification_outbox.rss_item_id":         "omitted: the public feed item it tells a Discord channel of",
@@ -124,6 +124,11 @@ var keptColumns = map[string]string{
 	"nostradamus_participants.bot_rule":       "omitted: how a bot answers, not about a player",
 	"nostradamus_participants.status":         "omitted: an organiser's answer to the request to play",
 	"nostradamus_participants.requested_at":   "omitted: when they asked to play",
+	"tournament_sign_ups.sign_up_id":          "omitted: our own number for the sign-up",
+	"tournament_sign_ups.account_id":          "omitted: the account that signed up, theirs",
+	"tournament_sign_ups.tournament_id":       "shown: as the tournament's name",
+	"tournament_sign_ups.tta_name":            "shown: the TTA username given",
+	"tournament_sign_ups.signed_up_at":        "shown: when they signed up",
 }
 
 func TestEveryColumnAboutAPlayerIsShownOrLeftOut(t *testing.T) {
