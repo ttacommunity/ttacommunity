@@ -23,11 +23,13 @@ type runBoards interface {
 	RunLastGame(ctx context.Context, run int64) (*time.Time, error)
 }
 
-// runNews fills in run news for one pass of the outbox, each notification once however many endpoints take it.
+// runNews fills in run and blitz news for one pass of the outbox, each notification once however many endpoints
+// take it.
 type runNews struct {
-	boards runBoards
-	site   string
-	done   map[int64]filled
+	boards   runBoards
+	editions blitzEditions
+	site     string
+	done     map[int64]filled
 }
 
 // filled is a notification as filled in, and whether it is posted.
@@ -36,18 +38,21 @@ type filled struct {
 	post bool
 }
 
-// newRunNews fills in run news from boards, linking the leaderboard at site, the site's origin.
-func newRunNews(boards runBoards, site string) *runNews {
-	return &runNews{boards: boards, site: site, done: map[int64]filled{}}
+// newRunNews fills in run news from boards and blitz news from editions, linking the site at site, its origin.
+func newRunNews(boards runBoards, editions blitzEditions, site string) *runNews {
+	return &runNews{boards: boards, editions: editions, site: site, done: map[int64]filled{}}
 }
 
-// fill returns n with its run news filled in and whether to post it, as withRunNews does, reading each
-// notification's boards once; a failure is not kept, so the next endpoint tries again.
+// fill returns n with its run or blitz news filled in and whether to post it, as withRunNews and withBlitzNews
+// do, reading each notification's data once; a failure is not kept, so the next endpoint tries again.
 func (r *runNews) fill(ctx context.Context, n store.Notification) (store.Notification, bool, error) {
 	if f, ok := r.done[n.ID]; ok {
 		return f.n, f.post, nil
 	}
 	got, post, err := withRunNews(ctx, r.boards, r.site, n)
+	if err == nil && post {
+		got, post, err = withBlitzNews(ctx, r.editions, r.site, got)
+	}
 	if err == nil {
 		r.done[n.ID] = filled{got, post}
 	}

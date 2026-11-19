@@ -48,6 +48,28 @@ type Notification struct {
 	// current before it, and the counts. Top10 and Run.Link are filled in by the sender, which reads the boards.
 	Run   RunNotice
 	Top10 TopTenChange
+	// A blitz round published (blitz_round) or an edition finished (blitz_finished), in Slug, Series and Edition,
+	// the round's number as Round: Blitz is filled in by the sender, which reads the edition as the site does.
+	Blitz BlitzNews
+}
+
+// BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes by
+// username, its deadline (nil while unset), whether the round was posted before with other games, the podium of a
+// finished edition, and the link to the edition's page.
+type BlitzNews struct {
+	Title    string
+	Games    [][2]string
+	Byes     []string
+	Deadline *time.Time
+	Again    bool
+	Podium   []BlitzPlace
+	Link     string
+}
+
+// BlitzPlace is a place on a podium, 1 the top, and who shares it, by username.
+type BlitzPlace struct {
+	Place int
+	Names []string
 }
 
 // RunNotice is a published run's news: its id, the run current before it (0 for none), how many games it covers,
@@ -175,8 +197,9 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			return fmt.Errorf("reading the notification endpoints: %w", err)
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, 0), o.attempts, o.sent_to,
-			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended') THEN true
+			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, o.round_id, o.edition_id, 0), o.attempts, o.sent_to,
+			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended',
+			                            'blitz_round', 'blitz_finished') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
@@ -185,7 +208,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
 			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
 			       coalesce(ac.linked_how, ''),
-			       coalesce(s.slug, ''), coalesce(s.name, ''), coalesce(t.label, ''), coalesce(r.number, 0),
+			       coalesce(s.slug, ns.slug, ''), coalesce(s.name, ns.name, ''), coalesce(t.label, nt.label, ''), coalesce(r.number, nr.number, 0),
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
 			       coalesce(bm.flag_reason, ''),
@@ -201,8 +224,12 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(ys.started_at, o.created_at), ys.ended_at,
 			       coalesce((SELECT json_object_agg(yp.endpoint_id, json_build_object('message_id', yp.message_id, 'channel_id', yp.channel_id))
 			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}'),
-			       coalesce(o.published_run_id, 0), coalesce(o.before_run_id, 0), coalesce(rr.games, 0), coalesce(tc.gained, 0), coalesce(tc.lost, 0)
+			       coalesce(o.published_run_id, 0), coalesce(o.before_run_id, 0), coalesce(rr.games, 0), coalesce(tc.gained, 0), coalesce(tc.lost, 0),
+			       EXISTS (SELECT 1 FROM blitz_round_posts bp WHERE bp.tournament_id = nr.tournament_id AND bp.number = nr.number)
 			FROM notification_outbox o
+			LEFT JOIN blitz_rounds nr ON nr.round_id = o.round_id
+			LEFT JOIN tournaments nt ON nt.tournament_id = coalesce(nr.tournament_id, o.edition_id)
+			LEFT JOIN series ns ON ns.series_id = nt.series_id
 			LEFT JOIN rating_runs rr ON rr.run_id = o.published_run_id
 			LEFT JOIN LATERAL (
 				SELECT count(*) FILTER (WHERE x.now < x.was) AS gained, count(*) FILTER (WHERE x.now > x.was) AS lost
@@ -253,7 +280,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				&n.RSS.Item.PublishedAt,
 				&n.YouTube.Channel, &n.YouTube.VideoID, &n.YouTube.Title, &n.YouTube.ThumbnailURL, &n.YouTube.StartedAt, &n.YouTube.EndedAt,
 				&n.YouTube.Posts,
-				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost); err != nil {
+				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost, &n.Blitz.Again); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}
@@ -296,6 +323,11 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				done.GaveUp++
 			}
 			if !failed || attempts >= MaxNotificationAttempts {
+				if !failed && d.open && d.n.Kind == "blitz_round" && len(d.sentTo) > 0 {
+					if err := keepRoundPost(ctx, tx, d.n.ID); err != nil {
+						return err
+					}
+				}
 				if _, err := tx.Exec(ctx, "DELETE FROM notification_outbox WHERE notification_id = $1", d.n.ID); err != nil {
 					return fmt.Errorf("deleting a notification: %w", err)
 				}

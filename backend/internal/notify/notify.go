@@ -174,7 +174,7 @@ const shortText = 300
 const testHeading = "Test from ttacommunity admin"
 
 // Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a run's news linking the
-// leaderboard, a Twitch or YouTube stream's linking it (a stream ended is the edit of its post, its embed only) and
+// leaderboard, a blitz round's or podium linking the edition, a Twitch or YouTube stream's linking it (a stream ended is the edit of its post, its embed only) and
 // any other headed by what it is; under e's prefix and role, shown with e's name and picture, and opening a thread
 // when e is a forum channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
@@ -191,6 +191,9 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 		return WebhookMessage{Embeds: []Embed{youtubeEmbed(n.YouTube, e.Look)}}
 	case "ratings_run", "ratings_top10":
 		embed := runEmbed(n, e.Look)
+		return shaped(e, embed, embed.Title)
+	case "blitz_round", "blitz_finished":
+		embed := blitzEmbed(n, e.Look)
 		return shaped(e, embed, embed.Title)
 	case "rss_item":
 		thread := n.RSS.Item.Title
@@ -306,6 +309,49 @@ func runEmbed(n store.Notification, look store.EmbedLook) Embed {
 		lines = append(lines, "Out of the top 10: "+names(n.Top10.Out))
 	}
 	return Embed{Title: "Top 10 changes", URL: r.Link, Description: cut(strings.Join(lines, "\n"), maxEmbedText), Color: colour(look.Colour)}
+}
+
+// places name a podium's places.
+var places = map[int]string{1: "1st", 2: "2nd", 3: "3rd"}
+
+// blitzEmbed is a blitz edition's news as a card in look's colour, linking its page: for blitz_round, the round's
+// games and byes, with its deadline on each reader's clock once set; for blitz_finished, its podium, the winner in
+// bold.
+func blitzEmbed(n store.Notification, look store.EmbedLook) Embed {
+	esc := discordbot.EscapeMarkdown
+	b := n.Blitz
+	name := esc(n.Series) + " " + esc(n.Edition)
+	var lines []string
+	if n.Kind == "blitz_finished" {
+		for _, p := range b.Podium {
+			who := make([]string, len(p.Names))
+			for i, s := range p.Names {
+				who[i] = esc(s)
+			}
+			line := list(who)
+			if p.Place == 1 {
+				line = "**" + line + "**"
+			}
+			lines = append(lines, places[p.Place]+": "+line)
+		}
+		return Embed{Title: cut(name+" is finished", maxEmbedTitle), URL: b.Link, Description: cut(strings.Join(lines, "\n"), maxEmbedText), Color: colour(look.Colour)}
+	}
+	title := name + " · " + b.Title
+	if b.Again {
+		title += ", paired again"
+	}
+	for _, g := range b.Games {
+		lines = append(lines, esc(g[0])+" vs "+esc(g[1]))
+	}
+	for _, s := range b.Byes {
+		lines = append(lines, "Bye: "+esc(s))
+	}
+	embed := Embed{Title: cut(title, maxEmbedTitle), URL: b.Link, Description: cut(strings.Join(lines, "\n"), maxEmbedText), Color: colour(look.Colour)}
+	if b.Deadline != nil {
+		at := strconv.FormatInt(b.Deadline.Unix(), 10)
+		embed.Fields = []EmbedField{{Name: "Deadline", Value: "<t:" + at + ":F> (<t:" + at + ":R>)"}}
+	}
+	return embed
 }
 
 // thousands is n with commas between its thousands: 205,123.

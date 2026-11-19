@@ -15,7 +15,7 @@ import (
 )
 
 // NotificationEndpoint is a webhook notifications are posted to: its URL, its format (discord so far), the events
-// it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10), the feeds it takes, by id, with each
+// it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished), the feeds it takes, by id, with each
 // one's options, and the prefix put before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
 // picture its messages show; Forum posts each as a new thread of a forum channel; RoleID ("" for none) is pinged with
 // each; Look is how a feed's item looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.

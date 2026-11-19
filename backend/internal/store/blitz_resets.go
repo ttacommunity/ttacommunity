@@ -92,7 +92,8 @@ func (a *AdminStore) ResetBlitzRound(ctx context.Context, slug, edition string, 
 }
 
 // ResetBlitzEdition starts an edition again: every round, result and game goes, every dropped entrant is in again,
-// every skip and starting rank goes. Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
+// every skip and starting rank goes, and what was posted to Discord is forgotten, so its news is posted again.
+// Entrants, organisers, format, points and thread text stay. It returns ErrNoBlitzEdition.
 func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		games, err := undecide(ctx, tx, "m.round_id IN (SELECT round_id FROM blitz_rounds WHERE tournament_id = $1)", edID)
@@ -104,6 +105,8 @@ func (a *AdminStore) ResetBlitzEdition(ctx context.Context, slug, edition string
 			"UPDATE blitz_entries SET status = 'active', starting_rank = NULL WHERE tournament_id = $1 AND (status = 'dropped' OR starting_rank IS NOT NULL)",
 			"UPDATE blitz_editions SET ranks_fixed_by = NULL WHERE tournament_id = $1",
 			"DELETE FROM blitz_skips s USING blitz_entries x WHERE s.entry_id = x.entry_id AND x.tournament_id = $1",
+			"DELETE FROM blitz_round_posts WHERE tournament_id = $1",
+			"UPDATE blitz_editions SET finish_posted = false WHERE tournament_id = $1 AND finish_posted",
 		} {
 			if _, err := tx.Exec(ctx, q, edID); err != nil {
 				return fmt.Errorf("resetting %s %s: %w", slug, edition, err)

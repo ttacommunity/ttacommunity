@@ -443,11 +443,42 @@ func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string
 		if err := checkBlitzMatches(ctx, tx, edID, roundID, number, kind, matches, true); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_rounds SET published_at = now() WHERE round_id = $1 AND published_at IS NULL", roundID); err != nil {
+		tag, err := tx.Exec(ctx, "UPDATE blitz_rounds SET published_at = now() WHERE round_id = $1 AND published_at IS NULL", roundID)
+		if err != nil {
 			return fmt.Errorf("publishing round %d: %w", roundID, err)
 		}
-		return nil
+		if tag.RowsAffected() == 0 {
+			return nil
+		}
+		return queueRoundNews(ctx, tx, edID, roundID, number, matches)
 	})
+}
+
+// roundPairs is a round's games and byes in one order, whatever order they were made in: what a round's post is
+// compared by.
+func roundPairs(matches []BlitzMatch) string {
+	pairs := make([]string, len(matches))
+	for i, m := range matches {
+		if m.B == nil {
+			pairs[i] = fmt.Sprintf("bye %d", m.A)
+			continue
+		}
+		pairs[i] = fmt.Sprintf("%d %d", min(m.A, *m.B), max(m.A, *m.B))
+	}
+	slices.Sort(pairs)
+	return strings.Join(pairs, ", ")
+}
+
+// queueRoundNews queues the news of round number of edition edID, just published with matches, unless the round
+// of that number was last posted with the same games.
+func queueRoundNews(ctx context.Context, tx pgx.Tx, edID, roundID int64, number int, matches []BlitzMatch) error {
+	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, round_id, round_pairs, created_at, next_at)
+		SELECT 'blitz_round', $1, $2, now(), now()
+		WHERE NOT EXISTS (SELECT 1 FROM blitz_round_posts WHERE tournament_id = $3 AND number = $4 AND pairs = $2)`,
+		roundID, roundPairs(matches), edID, number); err != nil {
+		return fmt.Errorf("queueing round %d's news: %w", roundID, err)
+	}
+	return nil
 }
 
 // DeleteBlitzRound removes the edition's latest round and its matches, published or not (a wrong pairing is
