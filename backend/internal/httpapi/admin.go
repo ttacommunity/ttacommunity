@@ -201,6 +201,13 @@ type BlitzAdmin interface {
 	People(ctx context.Context, q string, limit int) ([]store.Candidate, error)
 	BlitzCandidates(ctx context.Context, slug, edition, q string, limit int) ([]store.Candidate, error)
 	RemoveBlitzEntrant(ctx context.Context, slug, edition string, id int64) error
+	// SignUpsOf, PendingSignUps, SetSignUps, AcceptSignUp and RemoveSignUp are a tournament's sign-ups: reading them
+	// and those waiting for a link, opening or closing them, and entering or removing one waiting.
+	SignUpsOf(ctx context.Context, slug, edition string) (store.SignUps, error)
+	PendingSignUps(ctx context.Context, slug, edition string) ([]store.PendingSignUp, error)
+	SetSignUps(ctx context.Context, slug, edition string, s store.SignUps, now time.Time) error
+	AcceptSignUp(ctx context.Context, slug, edition string, id int64, now time.Time) error
+	RemoveSignUp(ctx context.Context, slug, edition string, id int64) error
 	// SkipBlitzRound has an entrant sit out the next Swiss round and returns its number; UnskipBlitzRound undoes a
 	// skip of a round not yet published.
 	SkipBlitzRound(ctx context.Context, slug, edition string, id int64) (int, error)

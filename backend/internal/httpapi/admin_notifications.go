@@ -81,7 +81,7 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	for _, ev := range b.Events {
 		if !ev.Valid() {
-			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished and blitz_reminder"
+			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder and blitz_sign_ups"
 		}
 		e.Events = append(e.Events, string(ev))
 	}

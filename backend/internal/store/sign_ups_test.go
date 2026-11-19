@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -551,5 +552,38 @@ func TestMigration101sDownTakesSignUpsAwayAndUpBringsThemBack(t *testing.T) {
 	}
 	if got := present(); len(got) != 7 {
 		t.Errorf("up again: %q, want the table, 3 columns and 3 functions", got)
+	}
+}
+
+func TestAdminReadsATournamentsSignUps(t *testing.T) {
+	a, _, _, _ := signUpsFixture(t)
+	ctx := context.Background()
+	future := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
+	openSignUps(t, a, &future)
+	got, err := a.SignUpsOf(ctx, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("SignUpsOf: %v", err)
+	}
+	if !got.Open || !got.Taking || got.ClosesAt == nil || !got.ClosesAt.Equal(future) {
+		t.Errorf("SignUpsOf = %+v, want open and taking entries until %v", got, future)
+	}
+	if got, err := a.SignUpsOf(ctx, "worlds", "2025"); err != nil || got.Open || got.Taking {
+		t.Errorf("SignUpsOf(worlds 2025) = %+v, %v, want closed", got, err)
+	}
+	if _, err := a.SignUpsOf(ctx, "us_open", "1999"); !errors.Is(err, ErrNoBlitzEdition) {
+		t.Errorf("SignUpsOf(an unknown edition) = %v, want %v", err, ErrNoBlitzEdition)
+	}
+}
+
+func TestOpenSignUpsAreSentToTheEndpointsTakingThem(t *testing.T) {
+	a, _, _, _ := signUpsFixture(t)
+	endpoint(t, a, "Blitz", 1, "blitz_sign_ups")
+	endpoint(t, a, "Rounds", 2, "blitz_round")
+	openSignUps(t, a, nil)
+	if got, want := blitzSent(t, a), []string{"Blitz blitz_sign_ups us_open 2026 0"}; !slices.Equal(got, want) {
+		t.Errorf("sent = %q, want %q", got, want)
+	}
+	if got := blitzSent(t, a); len(got) != 0 {
+		t.Errorf("sent again = %q, want nothing", got)
 	}
 }

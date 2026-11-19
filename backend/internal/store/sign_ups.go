@@ -117,6 +117,21 @@ func (a *AdminStore) SetSignUps(ctx context.Context, slug, edition string, s Sig
 	})
 }
 
+// SignUpsOf reads a tournament's sign-ups, or returns ErrNoBlitzEdition.
+func (a *AdminStore) SignUpsOf(ctx context.Context, slug, edition string) (SignUps, error) {
+	var s SignUps
+	err := a.pool.QueryRow(ctx, `
+		SELECT t.sign_ups_open, t.sign_ups_close_at, coalesce(sign_ups_taking(t.tournament_id, now()), false)
+		FROM tournaments t JOIN series s USING (series_id) WHERE s.slug = $1 AND t.label = $2`, slug, edition).Scan(&s.Open, &s.ClosesAt, &s.Taking)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SignUps{}, ErrNoBlitzEdition
+	}
+	if err != nil {
+		return SignUps{}, fmt.Errorf("reading %s %s's sign-ups: %w", slug, edition, err)
+	}
+	return s, nil
+}
+
 // SignUp signs the player whose session hashes to tokenHash up for the shown edition at now, and returns "entered"
 // for a linked player, now an entrant, or "pending" for an unlinked one: their sign-up waits under name, and asks to
 // link their account to it. Signing up again is the same. It returns ErrNoSession, ErrMemberBanned,

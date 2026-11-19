@@ -2029,7 +2029,8 @@ paths:
         Fetched with credentials from the site, whose origin alone may read
         it. Their account, every way in with its id there, the member they
         are linked to with every field it holds, their requests to be linked,
-        their sessions and their emailed sign-in links. Sessions that have
+        their sign-ups waiting for a link, their sessions and their emailed
+        sign-in links. Sessions that have
         ended and links past the time they are kept are removed first, so
         the answer is exactly what is kept. Never cached.
       responses:
@@ -2186,6 +2187,101 @@ paths:
           $ref: "#/components/responses/SignedOut"
         "403":
           $ref: "#/components/responses/NotLinked"
+  /v1/me/sign-ups/{tournament}/{season}:
+    get:
+      operationId: getMySignUp
+      tags: [players]
+      summary: Whether you are signed up for a tournament
+      description: |
+        For a signed-in player: entered (their member is an entrant),
+        pending (their sign-up waits for their account to be linked, under
+        the TTA username they gave) or none. Only blitz editions take
+        sign-ups so far. Never cached.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      responses:
+        "200":
+          description: Where your sign-up stands
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MySignUp"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putMySignUp
+      tags: [players]
+      summary: Sign up for a tournament
+      description: |
+        The Origin must be the site. While the tournament takes entries
+        (open, before its closing time, and before a blitz edition's round 1
+        is paired): a player linked to a member is entered; an unlinked one
+        gives their TTA username, and their sign-up waits for the account to
+        be linked, asking admins to link it to that name. Signing up again
+        is the same. A banned member is 403, a tournament the site does not
+        show 404, one not taking entries 409.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpGiven"
+      responses:
+        "200":
+          description: Where your sign-up stands now, entered or pending
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MySignUp"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteMySignUp
+      tags: [players]
+      summary: Withdraw from a tournament
+      description: |
+        The Origin must be the site. While the tournament takes entries:
+        takes the player's entry out, and their pending sign-up; a request
+        to be linked it made stays. Withdrawing again is the same. Refused
+        as signing up is.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      responses:
+        "204":
+          description: Withdrawn
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotLinked"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/me/nostradamus/{edition}:
     get:
       operationId: getMyNostradamus
@@ -4460,6 +4556,111 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups:
+    get:
+      operationId: getAdminSignUps
+      tags: [admin]
+      summary: A season's sign-ups, and those waiting for an account to be linked
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      responses:
+        "200":
+          description: The sign-ups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSignUps"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putAdminSignUps
+      tags: [admin]
+      summary: Open or close a season's sign-ups
+      description: |
+        Only blitz editions take sign-ups so far (400 for another). Opening
+        needs the tournament shown on the site and no round paired (409),
+        and a closing time, when given, in the future (400). Opening them
+        the first time posts blitz_sign_ups to the endpoints taking it,
+        once: closing and opening again posts nothing. Audited. The Origin
+        must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpsSetting"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}:
+    delete:
+      operationId: deleteAdminSignUp
+      tags: [admin]
+      summary: Remove a sign-up waiting for its account to be linked
+      description: Its request to be linked stays. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+        - $ref: "#/components/parameters/SignUpId"
+      responses:
+        "204":
+          description: Removed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}/accept:
+    post:
+      operationId: postAdminSignUpAccept
+      tags: [admin]
+      summary: Enter a sign-up waiting for its account to be linked
+      description: |
+        Links an unlinked account by approving its request to be linked, as
+        the Accounts tab does, then enters it, whether or not sign-ups still
+        take entries. 409 for an unlinked account with no request waiting,
+        a banned member, or a member another account is linked to. Audited.
+        The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+        - $ref: "#/components/parameters/SignUpId"
+      responses:
+        "204":
+          description: Entered
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/tournaments/{tournament}/seasons:
     post:
       operationId: postAdminSeason
@@ -5830,6 +6031,14 @@ components:
         type: integer
         format: int64
         minimum: 1
+    SignUpId:
+      name: sign_up
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
     AccountId:
       name: account
       in: path
@@ -6433,7 +6642,7 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder]
+      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder, blitz_sign_ups]
     NotificationEndpoint:
       type: object
       required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, blitz_reminder_hours, colour, text, image]
@@ -8040,8 +8249,10 @@ components:
     BlitzEdition:
       description: A blitz edition for the site, with the entrants still in, the published rounds and the standings
       type: object
-      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, results_updated_at, bracket]
+      required: [tournament, name, edition, format, points, fide_points, pairing, ranks_fixed_by, entrants, rounds, standings, champion, results_updated_at, bracket, sign_ups]
       properties:
+        sign_ups:
+          $ref: "#/components/schemas/SignUps"
         bracket:
           description: Whether the tournament is shown as a bracket (getSeasonBracket)
           type: boolean
@@ -11649,7 +11860,7 @@ components:
     MyData:
       description: Everything we keep about the signed-in player
       type: object
-      required: [account, logins, member, requests, sessions, email_links]
+      required: [account, logins, member, requests, sign_ups, sessions, email_links]
       properties:
         account:
           $ref: "#/components/schemas/MyDataAccount"
@@ -11667,6 +11878,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MyDataRequest"
+        sign_ups:
+          description: Every sign-up waiting for the account to be linked, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/MyDataSignUp"
         sessions:
           description: Every session, oldest first
           type: array
@@ -11791,6 +12007,104 @@ components:
           type: string
           format: date-time
           nullable: true
+    SignUps:
+      description: |
+        A tournament's sign-ups: admin's switch, the closing time, and
+        whether they take entries now (open, before the closing time, and
+        before a blitz edition's round 1 is paired)
+      type: object
+      required: [open, closes_at, taking]
+      properties:
+        open:
+          type: boolean
+        closes_at:
+          description: When they stop taking entries; null for no closing time
+          type: string
+          format: date-time
+          nullable: true
+        taking:
+          type: boolean
+    SignUpsSetting:
+      description: Sign-ups opened or closed, with a closing time or none
+      type: object
+      required: [open]
+      properties:
+        open:
+          type: boolean
+        closes_at:
+          type: string
+          format: date-time
+          nullable: true
+    SignUpGiven:
+      description: A sign-up; an unlinked player gives their TTA username, a linked one nothing
+      type: object
+      properties:
+        tta_name:
+          type: string
+          maxLength: 100
+    MySignUp:
+      description: Where a player's sign-up for a tournament stands
+      type: object
+      required: [status, name]
+      properties:
+        status:
+          type: string
+          enum: [none, entered, pending]
+        name:
+          description: The TTA username a pending sign-up gave; null otherwise
+          type: string
+          nullable: true
+    AdminSignUps:
+      type: object
+      required: [sign_ups, pending]
+      properties:
+        sign_ups:
+          $ref: "#/components/schemas/SignUps"
+        pending:
+          description: The sign-ups waiting for their account to be linked, oldest first
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPendingSignUp"
+    AdminPendingSignUp:
+      type: object
+      required: [id, account, name, signed_up_at, request, linked]
+      properties:
+        id:
+          type: integer
+          format: int64
+        account:
+          description: The account that signed up, as the Accounts tab lists it
+          type: integer
+          format: int64
+        name:
+          description: The TTA username it gave
+          type: string
+        signed_up_at:
+          type: string
+          format: date-time
+        request:
+          description: Its request to be linked waiting for an answer; null for none
+          type: integer
+          format: int64
+          nullable: true
+        linked:
+          description: The member the account is linked to by now (linked after sign-ups closed); null while it is not
+          type: string
+          nullable: true
+    MyDataSignUp:
+      description: A sign-up waiting for the account to be linked
+      type: object
+      required: [tournament, name, signed_up_at]
+      properties:
+        tournament:
+          description: The tournament's name and edition
+          type: string
+        name:
+          description: The TTA username given
+          type: string
+        signed_up_at:
+          type: string
+          format: date-time
     MyDataSession:
       description: A session, which ends and is removed 30 days after its last use
       type: object

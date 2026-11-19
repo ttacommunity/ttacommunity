@@ -31,6 +31,7 @@ const data: MyData = {
   ],
   member,
   requests: [{ name: 'Ann', status: 'approved', reason: '', requested_at: '2026-10-18T12:30:00Z', decided_at: '2026-10-18T13:00:00Z' }],
+  sign_ups: [],
   sessions: [
     { provider: 'discord', created_at: '2026-10-18T12:00:00Z', ends_at: '2026-11-17T12:00:00Z', this_browser: false },
     { provider: 'email', created_at: '2026-10-20T12:00:00Z', ends_at: '2026-11-19T12:00:00Z', this_browser: true },

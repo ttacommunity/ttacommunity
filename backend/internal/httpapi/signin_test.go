@@ -42,6 +42,10 @@ type fakeSignIns struct {
 	nonce                   string
 	// kept is what KeptData answers for any live session.
 	kept store.KeptData
+	// pending is the session's pending sign-up for us_open 2026, nil for none; signUpErr what signing up and
+	// withdrawing answer, when set (sign_ups_test.go).
+	pending   *store.PendingSignUp
+	signUpErr error
 }
 
 func newFakeSignIns() *fakeSignIns {
@@ -504,6 +508,7 @@ func TestMyDataAnswersWithEverythingKept(t *testing.T) {
 			Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Abusive", BannedAt: &later, CreatedAt: at},
 		MemberEmailCleared: true,
 		Requests:           []store.KeptRequest{{Name: "Ann", Status: "approved", RequestedAt: at, DecidedAt: &later}},
+		SignUps:            []store.KeptSignUp{{Tournament: "US Open 2026", Name: "Ann", SignedUpAt: at}},
 		Sessions:           []store.KeptSession{{Provider: "discord", CreatedAt: at, Ends: at.Add(store.SessionLife), ThisBrowser: true}},
 		EmailLinks:         []store.KeptEmailLink{{Address: "ann@example.test", ReturnPath: "/account", CreatedAt: at, ExpiresAt: later, KeptUntil: at.Add(48 * time.Hour)}},
 	}
@@ -525,6 +530,8 @@ func TestMyDataAnswersWithEverythingKept(t *testing.T) {
 		"member.country":           `"NZ"`,
 		"member.banned_at":         `"2026-10-18T13:00:00Z"`,
 		"requests.0.decided_at":    `"2026-10-18T13:00:00Z"`,
+		"sign_ups.0.tournament":    `"US Open 2026"`,
+		"sign_ups.0.signed_up_at":  `"2026-10-18T12:00:00Z"`,
 		"sessions.0.ends_at":       `"2026-11-17T12:00:00Z"`,
 		"sessions.0.this_browser":  `true`,
 		"email_links.0.used_at":    `null`,

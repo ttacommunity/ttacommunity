@@ -50,7 +50,8 @@ type Notification struct {
 	// current before it, and the counts. Top10 and Run.Link are filled in by the sender, which reads the boards.
 	Run   RunNotice
 	Top10 TopTenChange
-	// A blitz round published (blitz_round) or an edition finished (blitz_finished), in Slug, Series and Edition,
+	// A blitz round published (blitz_round), an edition finished (blitz_finished) or its sign-ups open
+	// (blitz_sign_ups), in Slug, Series and Edition,
 	// the round's number as Round: Blitz is filled in by the sender, which reads the edition as the site does. A
 	// round's deadline coming (blitz_reminder) likewise, for the one endpoint ForEndpoint.
 	Blitz       BlitzNews
@@ -59,7 +60,8 @@ type Notification struct {
 
 // BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes, each
 // player as Discord can name them, its deadline (nil while unset), whether the round was posted before with other
-// games, the podium of a finished edition, and the link to the edition's page.
+// games, the podium of a finished edition, the format and closing time (nil for none) of its open sign-ups, and the
+// link to the edition's page.
 type BlitzNews struct {
 	Title    string
 	Games    [][2]blitz.Person
@@ -67,6 +69,8 @@ type BlitzNews struct {
 	Deadline *time.Time
 	Again    bool
 	Podium   []BlitzPlace
+	Format   BlitzFormat
+	Closes   *time.Time
 	Link     string
 }
 
@@ -205,7 +209,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		rows, err = tx.Query(ctx, `
 			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, o.round_id, o.edition_id, 0), o.attempts, o.sent_to,
 			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended',
-			                            'blitz_round', 'blitz_finished', 'blitz_reminder') THEN true
+			                            'blitz_round', 'blitz_finished', 'blitz_reminder', 'blitz_sign_ups') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
