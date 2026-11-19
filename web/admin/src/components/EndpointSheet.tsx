@@ -12,12 +12,12 @@ import Notice from './Notice';
 type Endpoint = components['schemas']['NotificationEndpoint'];
 export type Draft = { url: string } & Pick<
   Endpoint,
-  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image'
+  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'thread_id' | 'colour' | 'text' | 'image'
 >;
 
 export const EMPTY: Draft = {
   name: '', url: '', webhook_id: '', events: [], feeds: [], feed_options: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
-  colour: '#ff4500', text: 'full', image: true,
+  thread_id: '', colour: '#ff4500', text: 'full', image: true,
 };
 
 interface Props {
@@ -90,7 +90,12 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
         <fieldset className="check-kinds">
           <legend>Posting</legend>
           <label>
-            <input type="checkbox" checked={draft.forum} onChange={(e) => setDraft({ ...draft, forum: e.target.checked })} /> A forum channel: each message opens a thread
+            <input type="checkbox" checked={draft.forum} onChange={(e) => setDraft({ ...draft, forum: e.target.checked })} /> A forum channel: each message opens a thread, unless a thread is set below
+          </label>
+          <label>
+            Post into an existing thread or forum post (its id; none if empty)
+            <input className="input-antique" value={draft.thread_id} inputMode="numeric" placeholder="Copy Thread ID in Discord"
+              onChange={(e) => setDraft({ ...draft, thread_id: e.target.value })} />
           </label>
           <label>
             <input type="checkbox" checked={draft.paused} onChange={(e) => setDraft({ ...draft, paused: e.target.checked })} /> Paused: send nothing

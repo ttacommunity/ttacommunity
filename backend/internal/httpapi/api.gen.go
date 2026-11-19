@@ -4639,6 +4639,9 @@ type NotificationEndpoint struct {
 	// Text How much of a feed item's text an endpoint shows
 	Text FeedItemText `json:"text"`
 
+	// ThreadId An existing thread of its channel, such as a forum post, that every message goes into; none when empty
+	ThreadId string `json:"thread_id"`
+
 	// Username The name its messages show; the webhook's own when empty
 	Username string `json:"username"`
 
@@ -4674,6 +4677,9 @@ type NotificationEndpointSetting struct {
 
 	// Text How much of a feed item's text an endpoint shows
 	Text *FeedItemText `json:"text,omitempty"`
+
+	// ThreadId The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out
+	ThreadId *string `json:"thread_id,omitempty"`
 
 	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
 	Url      *string `json:"url,omitempty"`

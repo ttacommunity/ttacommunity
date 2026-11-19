@@ -6434,7 +6434,7 @@ components:
       enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, colour, text, image]
+      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, colour, text, image]
       properties:
         id:
           type: integer
@@ -6478,6 +6478,9 @@ components:
           type: string
         role_id:
           description: A Discord role pinged with each message; none when empty
+          type: string
+        thread_id:
+          description: An existing thread of its channel, such as a forum post, that every message goes into; none when empty
           type: string
         colour:
           description: "A feed item's embed colour, #rrggbb"
@@ -6544,6 +6547,9 @@ components:
           type: string
         role_id:
           description: A Discord role's id
+          type: string
+        thread_id:
+          description: The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out
           type: string
         colour:
           description: "#rrggbb, in lower case; orange when not given"

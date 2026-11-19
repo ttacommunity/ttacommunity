@@ -120,13 +120,15 @@ func prefixed(e store.NotificationEndpoint, text string) string {
 }
 
 // WebhookMessage is what a webhook is sent: text, embeds, or both, with the name and picture it shows (the
-// webhook's own when empty), the thread it opens in a forum channel, and the roles it may ping.
+// webhook's own when empty), the thread it opens in a forum channel or the existing thread it goes into (ThreadID),
+// and the roles it may ping.
 type WebhookMessage struct {
 	Content    string   `json:"content,omitempty"`
 	Embeds     []Embed  `json:"embeds,omitempty"`
 	Username   string   `json:"username,omitempty"`
 	AvatarURL  string   `json:"avatar_url,omitempty"`
 	ThreadName string   `json:"thread_name,omitempty"`
+	ThreadID   string   `json:"-"`
 	Roles      []string `json:"-"`
 }
 
@@ -211,10 +213,11 @@ func TestPayload(e store.NotificationEndpoint) WebhookMessage {
 	return shaped(e, Embed{Title: testHeading, Description: TestText, Color: colour(e.Look.Colour)}, testHeading)
 }
 
-// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture. For a forum
-// channel it opens a thread named thread, and the embed's text moves to the message, which the forum's card shows.
+// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture. Into e's thread
+// when it has one; else, for a forum channel, it opens a thread named thread, and the embed's text moves to the
+// message, which the forum's card shows.
 func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMessage {
-	m := WebhookMessage{Embeds: []Embed{embed}, Username: e.Username, AvatarURL: e.AvatarURL}
+	m := WebhookMessage{Embeds: []Embed{embed}, Username: e.Username, AvatarURL: e.AvatarURL, ThreadID: e.ThreadID}
 	var ping string
 	if e.RoleID != "" {
 		ping = "<@&" + e.RoleID + ">"
@@ -222,7 +225,7 @@ func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMes
 	}
 	head := strings.TrimSpace(prefixed(e, ping))
 	m.Content = head
-	if e.Forum {
+	if e.Forum && e.ThreadID == "" {
 		m.ThreadName = cut(strings.TrimSpace(thread), maxThreadName)
 		room := maxContent - len([]rune(head)) - 1
 		m.Content = strings.TrimSpace(head + " " + discordbot.CutAtWord(m.Embeds[0].Description, room))
@@ -448,8 +451,15 @@ func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wa
 	if err != nil {
 		return store.DiscordPost{}, err
 	}
+	query := url.Values{}
+	if m.ThreadID != "" {
+		query.Set("thread_id", m.ThreadID)
+	}
 	if wait {
-		webhook += "?wait=true"
+		query.Set("wait", "true")
+	}
+	if len(query) > 0 {
+		webhook += "?" + query.Encode()
 	}
 	var made struct {
 		ID        string `json:"id"`
@@ -466,14 +476,14 @@ func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wa
 }
 
 // Edit replaces the embeds of message p, posted to endpoint e, with m's, keeping its text and allowing no pings.
-// A forum endpoint's message is found in its thread.
+// A message of a forum endpoint or one with a thread is found in its thread.
 func (d *Discord) Edit(ctx context.Context, e store.NotificationEndpoint, p store.DiscordPost, m WebhookMessage) error {
 	payload, err := withMentions(WebhookMessage{Embeds: m.Embeds})
 	if err != nil {
 		return err
 	}
 	address := e.URL + "/messages/" + url.PathEscape(p.MessageID)
-	if e.Forum {
+	if e.Forum || e.ThreadID != "" {
 		address += "?" + url.Values{"thread_id": {p.ChannelID}}.Encode()
 	}
 	return d.do(ctx, http.MethodPatch, address, bytes.NewReader(payload), "application/json", nil)

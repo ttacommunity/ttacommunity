@@ -166,13 +166,14 @@ func TestAnEndpointKeepsItsOptionsAndTheDatabaseChecksThem(t *testing.T) {
 	a := feedStore(t)
 	good := NotificationEndpoint{Name: "Posts", URL: webhook(1), Format: "discord", Username: "TTA News",
 		AvatarURL: "https://example.com/news.png", Forum: true, RoleID: "100000000000000002", Paused: true,
-		Look: EmbedLook{Colour: "#123abc", Text: "short"}}
+		ThreadID: "100000000000000021", Look: EmbedLook{Colour: "#123abc", Text: "short"}}
 	id, err := a.AddNotificationEndpoint(ctx, good, rssAt)
 	if err != nil {
 		t.Fatalf("AddNotificationEndpoint: %v", err)
 	}
 	e, _ := a.NotificationEndpoint(ctx, id)
-	if e.Username != good.Username || e.AvatarURL != good.AvatarURL || !e.Forum || e.RoleID != good.RoleID || !e.Paused || e.Look != good.Look {
+	if e.Username != good.Username || e.AvatarURL != good.AvatarURL || !e.Forum || e.RoleID != good.RoleID || !e.Paused || e.Look != good.Look ||
+		e.ThreadID != good.ThreadID {
 		t.Errorf("endpoint = %+v, want its options kept", e)
 	}
 	for _, tt := range []struct {
@@ -182,6 +183,7 @@ func TestAnEndpointKeepsItsOptionsAndTheDatabaseChecksThem(t *testing.T) {
 		{"a name Discord refuses", func(e *NotificationEndpoint) { e.Username = "Discord bot" }},
 		{"an avatar over http", func(e *NotificationEndpoint) { e.AvatarURL = "http://example.com/a.png" }},
 		{"a role that is not an id", func(e *NotificationEndpoint) { e.RoleID = "@mods" }},
+		{"a thread that is not an id", func(e *NotificationEndpoint) { e.ThreadID = "https://discord.com/channels/1/2/3" }},
 		{"a colour without #", func(e *NotificationEndpoint) { e.Look.Colour = "123abc" }},
 		{"a colour name", func(e *NotificationEndpoint) { e.Look.Colour = "orange" }},
 		{"an unknown text choice", func(e *NotificationEndpoint) { e.Look.Text = "some" }},
@@ -195,6 +197,20 @@ func TestAnEndpointKeepsItsOptionsAndTheDatabaseChecksThem(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMigration99KeepsEndpointsGoingDown(t *testing.T) {
+	pool := migrated(t)
+	a := NewAdminStore(asAdminLogin(t, pool))
+	if _, err := a.AddNotificationEndpoint(context.Background(), NotificationEndpoint{Name: "Thread", URL: webhook(1), Format: "discord",
+		ThreadID: "100000000000000021"}, rssAt); err != nil {
+		t.Fatalf("AddNotificationEndpoint: %v", err)
+	}
+	migrateTo(t, pool, 98, true)
+	if got := rowsOf(t, pool, "SELECT name FROM notification_endpoints"); len(got) != 1 {
+		t.Errorf("endpoints at 98 = %q, want the one kept without its thread", got)
+	}
+	migrateTo(t, pool, 99, false)
 }
 
 func TestSendingLocksNoEndpointWhileDiscordAnswers(t *testing.T) {

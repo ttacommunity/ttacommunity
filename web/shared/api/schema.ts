@@ -4142,6 +4142,8 @@ export interface components {
             avatar_url: string;
             /** @description A Discord role pinged with each message; none when empty */
             role_id: string;
+            /** @description An existing thread of its channel, such as a forum post, that every message goes into; none when empty */
+            thread_id: string;
             /** @description A feed item's embed colour, #rrggbb */
             colour: string;
             text: components["schemas"]["FeedItemText"];
@@ -4180,6 +4182,8 @@ export interface components {
             avatar_url?: string;
             /** @description A Discord role's id */
             role_id?: string;
+            /** @description The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out */
+            thread_id?: string;
             /** @description #rrggbb, in lower case; orange when not given */
             colour?: string;
             text?: components["schemas"]["FeedItemText"];

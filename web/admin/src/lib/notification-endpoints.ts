@@ -7,7 +7,7 @@ type Feed = Pick<FeedChoice, 'kind' | 'id' | 'name'>;
 type FeedOption = components['schemas']['FeedOption'];
 type Setting = Pick<
   components['schemas']['NotificationEndpoint'],
-  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image'
+  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'thread_id' | 'colour' | 'text' | 'image'
 > & {
   /** A new webhook URL, or '' to keep the saved one: the API never sends it back. */
   url: string;
@@ -40,7 +40,7 @@ export const EVENTS: { key: Event; label: string }[] = [
 /** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved, and differs from what is saved. */
 export function endpointChanged(saved: Setting, draft: Setting): boolean {
   if (draft.name.trim() === '' || (draft.url.trim() === '' && saved.webhook_id === '')) return false;
-  const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id'] as const;
+  const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id', 'thread_id'] as const;
   const choices = ['paused', 'forum', 'colour', 'text', 'image'] as const;
   return texts.some((k) => draft[k].trim() !== saved[k]) || choices.some((k) => draft[k] !== saved[k]) ||
     !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds) ||
@@ -58,7 +58,7 @@ function takenOptions(s: Pick<Setting, 'feeds' | 'feed_options'>): FeedOption[] 
 /** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */
 export function endpointSetting(draft: Setting): Omit<components['schemas']['NotificationEndpointSetting'], 'format'> {
   const { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image } = draft;
-  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, colour, text, image, events: [...draft.events], feeds: [...draft.feeds],
+  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, thread_id: draft.thread_id.trim(), colour, text, image, events: [...draft.events], feeds: [...draft.feeds],
     feed_options: takenOptions(draft) };
   return draft.url.trim() === '' ? setting : { ...setting, url: draft.url.trim() };
 }
