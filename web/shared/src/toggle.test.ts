@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toggled, toggledSet } from './toggle';
+import { toggled, toggledAll, toggledSet } from './toggle';
 
 describe('toggled', () => {
   it.each([
@@ -23,5 +23,15 @@ describe('toggledSet', () => {
     const items = new Set([1]);
     toggledSet(items, 1);
     expect([...items]).toEqual([1]);
+  });
+});
+
+describe('toggledAll', () => {
+  it.each([
+    ['selects every value when some are chosen', ['a'], ['a', 'b', 'c']],
+    ['selects every value when none are chosen', [], ['a', 'b', 'c']],
+    ['clears the choice when every value is chosen', ['c', 'a', 'b'], []],
+  ])('%s', (_, chosen, want) => {
+    expect([...toggledAll(new Set(chosen), ['a', 'b', 'c'])]).toEqual(want);
   });
 });

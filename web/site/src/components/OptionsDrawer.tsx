@@ -5,6 +5,7 @@ import { DEFAULT_VIEW, ENGINES, defaultMinOpps, resetApplies, withRanking, type 
 import Segmented from '@ttac/shared/Segmented';
 import MinOppsField from './MinOppsField';
 import TitleSelect from './TitleSelect';
+import { OptionsPanel, OptionsSection } from './SideDrawer';
 import type { Link } from '../lib/navigate';
 import { TRACKS } from '@ttac/shared/tracks';
 
@@ -44,18 +45,17 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
   const shownReset = resetName(view.reset);
 
   return (
-    <div className="leaderboard-options-panel" role="dialog" aria-label="Options and filters">
-      <div className="options-header">
-        <span className="options-header-title">⚙️ Options &amp; Filters</span>
-        <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
-          ✕ Close
-        </button>
-      </div>
-
-      <div>
-        <div className="options-group-title">
-          <span>📅 Season Archive</span>
-        </div>
+    <OptionsPanel
+      label="Options and filters"
+      onClose={onClose}
+      reset={linkTo({ ...DEFAULT_VIEW, format: view.format })}
+      summary={
+        <>
+          Active: <strong>{engineName(view.engine)}</strong> &bull; <strong>{shownReset}</strong>
+        </>
+      }
+    >
+      <OptionsSection icon="📅" title="Season Archive">
         <div className="archive-pills">
           <a
             {...linkTo(view.year === null ? { ...view, page: 1 } : archiveView(view, null))}
@@ -80,12 +80,9 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
             </a>
           ))}
         </div>
-      </div>
+      </OptionsSection>
 
-      <div>
-        <div className="options-group-title">
-          <span>🎯 Rating Track</span>
-        </div>
+      <OptionsSection icon="🎯" title="Rating Track">
         <Segmented
           label="Rating track"
           groupClass="format-bar-group stacked"
@@ -102,12 +99,9 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           value={view.ranking}
           link={(ranking) => linkTo(withRanking(view, ranking))}
         />
-      </div>
+      </OptionsSection>
 
-      <div>
-        <div className="options-group-title">
-          <span>⚡ Rating Engine</span>
-        </div>
+      <OptionsSection icon="⚡" title="Rating Engine">
         <Segmented
           label="Rating engine"
           groupClass="format-bar-group stacked"
@@ -124,78 +118,57 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
           value={view.engine}
           link={(engine) => linkTo(at({ engine }))}
         />
-      </div>
+      </OptionsSection>
 
       {resetApplies(view.engine) && (
-        <div>
-          <div className="options-group-title">
-            <span>⚙️ Season Reset Mode</span>
-          </div>
+        <OptionsSection icon="⚙️" title="Season Reset Mode">
           <Segmented
             label="Season reset mode"
             options={RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
             value={view.reset}
             link={(reset) => linkTo(at({ reset }))}
           />
-        </div>
+        </OptionsSection>
       )}
 
-      <div>
-        <div className="options-field">
-          <label className="options-group-title" htmlFor="options-status">
-            <span>👤 Activity Status</span>
-          </label>
-          <select
-            id="options-status"
-            className="input-antique"
-            value={view.status}
-            onChange={(e) => go(at({ status: e.target.value as Status }))}
-          >
-            <option value="active">Active Only (Standard)</option>
-            <option value="all">Include Inactive (All)</option>
-            <option value="inactive">Inactive Only (Retired)</option>
-          </select>
-        </div>
+      <OptionsSection icon="👤" title="Activity Status" htmlFor="options-status">
+        <select
+          id="options-status"
+          className="input-antique"
+          value={view.status}
+          onChange={(e) => go(at({ status: e.target.value as Status }))}
+        >
+          <option value="active">Active Only (Standard)</option>
+          <option value="all">Include Inactive (All)</option>
+          <option value="inactive">Inactive Only (Retired)</option>
+        </select>
+      </OptionsSection>
 
-        <div className="options-field">
-          <label className="options-group-title" htmlFor="options-title">
-            <span>🏅 Titles Filter</span>
-          </label>
-          <TitleSelect id="options-title" titles={titles} value={view.title} onChange={(title) => go(at({ title }))} />
-        </div>
+      <OptionsSection icon="🏅" title="Titles Filter" htmlFor="options-title">
+        <TitleSelect id="options-title" titles={titles} value={view.title} onChange={(title) => go(at({ title }))} />
+      </OptionsSection>
 
-        <div className="options-field">
-          <label className="options-group-title" htmlFor="options-delta">
-            <span>⏱️ Rating Deltas</span>
-          </label>
-          <select
-            id="options-delta"
-            className="input-antique"
-            value={view.delta}
-            onChange={(e) => go(at({ delta: e.target.value as DeltaWindow }))}
-          >
-            <option value="none">Deltas: Off</option>
-            <option value="last_update">&Delta; Last Webmaster Update</option>
-            <option value="month">&Delta; Last Month (30d)</option>
-            <option value="quarter">&Delta; Last Quarter (90d)</option>
-            <option value="year">&Delta; Last Year (365d)</option>
-          </select>
-        </div>
+      <OptionsSection icon="⏱️" title="Rating Deltas" htmlFor="options-delta">
+        <select
+          id="options-delta"
+          className="input-antique"
+          value={view.delta}
+          onChange={(e) => go(at({ delta: e.target.value as DeltaWindow }))}
+        >
+          <option value="none">Deltas: Off</option>
+          <option value="last_update">&Delta; Last Webmaster Update</option>
+          <option value="month">&Delta; Last Month (30d)</option>
+          <option value="quarter">&Delta; Last Quarter (90d)</option>
+          <option value="year">&Delta; Last Year (365d)</option>
+        </select>
+      </OptionsSection>
 
-        <div className="options-field">
-          <label className="options-group-title" htmlFor="options-min">
-            <span>⚔️ Minimum Opponents</span>
-          </label>
-          <MinOppsField id="options-min" value={view.minOpps} onApply={(minOpps) => go(at({ minOpps }))} />
-        </div>
-      </div>
+      <OptionsSection icon="⚔️" title="Minimum Opponents" htmlFor="options-min">
+        <MinOppsField id="options-min" value={view.minOpps} onApply={(minOpps) => go(at({ minOpps }))} />
+      </OptionsSection>
 
       {downloads && (
-        <div className="options-export">
-          <div className="options-group-title options-export-title">
-            <span>📥 Tournament Data Export</span>
-            <span className="options-export-kind">CSV FILE</span>
-          </div>
+        <OptionsSection icon="📥" title="Tournament Data Export" aside="CSV FILE">
           <a href={downloads.shown} className="btn-antique download" download title="Download current filtered rating table as a CSV file">
             <span>📥 Download currently selected ratings</span>
           </a>
@@ -207,22 +180,8 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
               </a>
             )}
           </div>
-        </div>
+        </OptionsSection>
       )}
-
-      <div className="options-footer">
-        <div className="options-footer-active">
-          Active: <strong>{engineName(view.engine)}</strong> &bull; <strong>{shownReset}</strong>
-        </div>
-        <div className="options-footer-actions">
-          <a {...linkTo({ ...DEFAULT_VIEW, format: view.format })} className="btn-reset reset-all">
-            Reset All
-          </a>
-          <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
-            ✕ Close
-          </button>
-        </div>
-      </div>
-    </div>
+    </OptionsPanel>
   );
 }

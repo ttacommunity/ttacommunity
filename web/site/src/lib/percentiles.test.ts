@@ -12,6 +12,7 @@ import {
   tierOf,
   tierSpans,
   topShare,
+  withDefaults,
   withMe,
 } from './percentiles';
 
@@ -187,5 +188,14 @@ describe('withMe', () => {
     ['shows nobody when linked with no rated games', '', linked(''), ''],
   ])('%s', (_name, player, me, want) => {
     expect(withMe({ ...parse(''), player }, me).player).toBe(want);
+  });
+});
+
+describe('withDefaults', () => {
+  it.each([
+    ['every option changed', 'engine=glicko2_std&reset=softer&status=all&min_opps=5&title=GM&rating=rating&bin_width=25&format=3&player=Example'],
+    ['nothing changed', 'format=3&player=Example'],
+  ])('keeps the format and player and resets the rest: %s', (_, query) => {
+    expect(percentileParams(withDefaults(parse(query))).toString()).toBe(percentileParams(parse('format=3&player=Example')).toString());
   });
 });

@@ -28,15 +28,18 @@ declare module 'chart.js' {
     };
   }
 }
+import { chartTheme, documentTokens } from '../lib/chart-theme';
+import { drawTierBands, tierSpans } from '../lib/tier-bands';
 import type { PlayerHistory } from '@ttac/shared/ratings';
 import {
   chartData,
   chartTicks,
+  labelGap,
   chartYScale,
   runYears,
-  RATING_TIERS,
   type ChartData,
   type ChartOptionsState,
+  type ChartScale,
   type ChartTick,
   type ChartYTick,
 } from '../lib/player-view';
@@ -63,41 +66,8 @@ const tierBandsPlugin: Plugin<'line'> = {
     ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
     ctx.clip();
 
-    for (const tier of RATING_TIERS) {
-      const tMin = Math.max(tier.min, axisMin);
-      const tMax = Math.min(tier.max, axisMax);
-      if (tMin >= tMax) continue;
-
-      const yTop = yScale.getPixelForValue(warpY(tMax));
-      const yBottom = yScale.getPixelForValue(warpY(tMin));
-      if (yBottom <= chartArea.top || yTop >= chartArea.bottom) continue;
-
-      const actualTop = Math.max(chartArea.top, yTop);
-      const actualBottom = Math.min(chartArea.bottom, yBottom);
-      const height = actualBottom - actualTop;
-
-      if (height > 0) {
-        ctx.fillStyle = tier.color;
-        ctx.fillRect(chartArea.left, actualTop, chartArea.width, height);
-      }
-
-      if (tier.min > axisMin && tier.min < axisMax) {
-        const lineY = yScale.getPixelForValue(warpY(tier.min));
-        ctx.strokeStyle = tier.borderColor ?? 'rgba(74, 53, 37, 0.35)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(chartArea.left, lineY);
-        ctx.lineTo(chartArea.right, lineY);
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgba(243, 229, 200, 0.35)';
-        ctx.font = '10px serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(`${tier.min} · ${tier.code}`, chartArea.right - 6, lineY - 3);
-      }
-    }
+    const look = { line: documentTokens('--border-faint'), text: documentTokens('--text-soft'), font: documentTokens('--font-heading') };
+    drawTierBands(ctx, chartArea, (v) => yScale.getPixelForValue(v), 'y', tierSpans(axisMin, axisMax, warpY), look);
 
     // Visual compression break markers on the Y-axis border at focal boundaries
     if (hasLowerTail && fMin !== undefined && fMin > axisMin && fMin < axisMax) {
@@ -191,25 +161,22 @@ export default function RatingChart({
   }
   yTickMapRef.current = yTickMap;
 
-  const ticks = useMemo(
-    () => (data && data.minDate && data.maxDate ? chartTicks(data.minDate, data.maxDate, scale) : []),
-    [data, scale],
-  );
-
-  const ticksRef = useRef<ChartTick[]>(ticks);
+  // The x labels are spaced for the axis's drawn width, so they are placed when Chart.js lays the axis out.
+  const spanRef = useRef<{ minDate: string; maxDate: string; scale: ChartScale } | null>(null);
+  spanRef.current = data?.minDate && data.maxDate ? { minDate: data.minDate, maxDate: data.maxDate, scale } : null;
   const tickMapRef = useRef<Map<number, ChartTick>>(new Map());
-  ticksRef.current = ticks;
-  const tickMap = new Map<number, ChartTick>();
-  for (const t of ticks) {
-    tickMap.set(Math.round(t.x * 10) / 10, t);
-  }
-  tickMapRef.current = tickMap;
+  const placeXTicks = (axis: { width: number; ticks: { value: number }[] }) => {
+    const span = spanRef.current;
+    const spaced = span === null ? [] : chartTicks(span.minDate, span.maxDate, span.scale, labelGap(axis.width));
+    tickMapRef.current = new Map(spaced.map((t) => [Math.round(t.x * 10) / 10, t]));
+    axis.ticks = spaced.map((t) => ({ value: t.x }));
+  };
 
   // A layout effect, declared before the fill below, so the chart exists when its lines are filled in.
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null || data === null || empty) return;
-    const font = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-        const border = { color: 'rgba(74, 53, 37, 0.5)' };
+    const theme = chartTheme(documentTokens);
+    const border = { color: theme.grid.color };
     chart.current = new Chart(canvas.current, {
       type: 'line',
       data: { datasets: [] },
@@ -220,12 +187,7 @@ export default function RatingChart({
         interaction: { mode: 'nearest', intersect: false },
         plugins: {
           legend: {
-            labels: {
-              color: '#f3e5c8',
-              font: { family: font, size: 11 },
-              boxWidth: 20,
-              padding: 12,
-            },
+            labels: { ...theme.legend, boxWidth: 20 },
             onClick: (_e, legendItem, legend) => {
               const index = legendItem.datasetIndex;
               if (index === undefined) return;
@@ -255,11 +217,7 @@ export default function RatingChart({
             },
           },
           tooltip: {
-            backgroundColor: 'rgba(28, 19, 13, 0.95)',
-            titleColor: '#e5a93c',
-            bodyColor: '#f3e5c8',
-            borderColor: '#4a3525',
-            borderWidth: 1,
+            ...theme.tooltip,
             callbacks: {
               title: (items) => {
                 const raw = items[0]?.raw as { date?: string } | undefined;
@@ -298,12 +256,12 @@ export default function RatingChart({
               lineWidth: 1,
             },
             border,
-            afterBuildTicks: (axis) => {
-              axis.ticks = ticksRef.current.map((t) => ({ value: t.x }));
-            },
+            afterBuildTicks: placeXTicks,
             ticks: {
+              ...theme.ticks,
               align: 'inner',
-              color: '#a89880',
+              maxRotation: 0,
+              autoSkip: false,
               callback: (value) => {
                 const rounded = Math.round(Number(value) * 10) / 10;
                 const tick = tickMapRef.current.get(rounded);
@@ -330,7 +288,7 @@ export default function RatingChart({
               axis.ticks = yTicksRef.current.map((t) => ({ value: t.y }));
             },
             ticks: {
-              color: '#a89880',
+              ...theme.ticks,
               callback: (value) => {
                 const rounded = Math.round(Number(value) * 10) / 10;
                 const tick = yTickMapRef.current.get(rounded);
@@ -351,9 +309,7 @@ export default function RatingChart({
     const c = chart.current;
     if (c === null || data === null) return;
     if (c.options.scales?.x) {
-      c.options.scales.x.afterBuildTicks = (axis) => {
-        axis.ticks = ticks.map((t) => ({ value: t.x }));
-      };
+      c.options.scales.x.afterBuildTicks = placeXTicks;
     }
     if (c.options.scales?.y) {
       c.options.scales.y.afterBuildTicks = (axis) => {
@@ -393,7 +349,7 @@ export default function RatingChart({
       hidden: hiddenLabels.current.has(line.label),
     }));
     c.update('none');
-  }, [data, scale, yScale, tiers, ticks, engines]);
+  }, [data, scale, yScale, tiers, engines]);
 
   return (
     <div className="chart-container">

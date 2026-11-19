@@ -3,6 +3,7 @@ import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
 import {
   chartData,
   chartTicks,
+  labelGap,
   chartYBounds,
   chartYScale,
   goldenTimeWarp,
@@ -333,13 +334,8 @@ describe('chartTicks', () => {
   it('includes starting year when career begins in January', () => {
     for (const scale of ['perspective', 'linear'] as const) {
       const ticks = chartTicks('2021-01-01', maxDate, scale);
-      const labels = ticks.map((t) => t.label);
-      expect(labels).toContain('2021');
-      expect(labels).toContain('2022');
-      expect(labels).toContain('2023');
-      expect(labels).toContain('2024');
-      expect(labels).toContain('2025');
-      expect(labels).toContain('2026');
+      expect(ticks[0]).toMatchObject({ x: 0, label: '2021', isYear: true });
+      expect(ticks.filter((t) => t.isYear)).toHaveLength(6);
     }
   });
 
@@ -358,6 +354,33 @@ describe('chartTicks', () => {
     const monthTick = ticks.find((t) => t.label.includes(" '26"));
     expect(monthTick).toBeDefined();
     expect(monthTick?.isYear).toBe(false);
+  });
+});
+
+describe('chartTicks spacing', () => {
+  const cases = (['perspective', 'linear'] as const).flatMap((scale) => [2.5, 6, 12].map((gap) => [scale, gap] as const));
+
+  it.each(cases)('%s scale, gap %s: no two labels closer than the gap, and an edge label 1.5 gaps clear', (scale, gap) => {
+    const ticks = chartTicks('2020-01-20', '2025-02-15', scale, gap).filter((t) => t.label !== '');
+    for (let i = 1; i < ticks.length; i++) {
+      const [a, b] = [ticks[i - 1], ticks[i]];
+      const edge = a.x === 0 || b.x === 100;
+      expect(b.x - a.x, `${a.label} to ${b.label}`).toBeGreaterThanOrEqual(edge ? 1.5 * gap : gap);
+    }
+  });
+
+  it.each(cases)('%s scale, gap %s: keeps a tick for every year', (scale, gap) => {
+    const years = chartTicks('2020-01-20', '2025-02-15', scale, gap).filter((t) => t.isYear);
+    expect(years).toHaveLength(5);
+  });
+});
+
+describe('labelGap', () => {
+  it.each([
+    ['a wide chart keeps the smallest gap', 4000, 2.5],
+    ['a narrow chart spaces labels by their width', 600, 10],
+  ])('%s', (_, width, want) => {
+    expect(labelGap(width)).toBe(want);
   });
 });
 

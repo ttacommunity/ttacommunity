@@ -17,16 +17,20 @@ import {
   tierSpans,
   topShare,
   type PercentileView,
-  type TierSpan,
 } from '../lib/percentiles';
+import { drawTierBands, type TierLook, type TierSpan } from '../lib/tier-bands';
 import { profileHref } from '../lib/player-view';
+import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Message from './Message';
+import MeanBadge, { MeanBadges } from './MeanBadge';
+import MetricCard, { MetricGrid } from './MetricCard';
 import { OptionsToggle } from './SideDrawer';
 import PanelHeader from './PanelHeader';
 import PercentilesOptionsDrawer from './PercentilesOptionsDrawer';
 import PlayerPicker from './PlayerPicker';
+import ViewBar, { FormatPick } from './ViewBar';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { useKeptFound, useLoad } from './useLoad';
@@ -74,12 +78,16 @@ export default function PercentilesPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="percentiles-toolbar">
-        <div className="percentiles-picker">
-          <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} />
-        </div>
-        <OptionsToggle title="Format, engine, population, and binning options" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
-      </div>
+      <ViewBar
+        actions={
+          <>
+            <PlayerPicker players={names.kind === 'ready' ? names.data : []} value={view.player} onPick={pick} onFocus={() => setUsed(true)} inline />
+            <OptionsToggle title="Engine, population, and binning options" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+          </>
+        }
+      >
+        <FormatPick value={view.board.format} link={(format) => linkTo({ ...view, board: { ...view.board, format } })} what="the rating spread" />
+      </ViewBar>
       {optionsOpen && <PercentilesOptionsDrawer view={view} titles={titles} linkTo={linkTo} go={go} onClose={() => setOptionsOpen(false)} />}
 
       {run.kind === 'error' ? (
@@ -105,30 +113,20 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
   return (
     <>
       {p !== undefined && (
-        <div className="stats-grid-4">
-          <div className="metric-card">
-            <div className="metric-label">
-              <a href={profileHref(p.name, view.board)}>{p.name}</a>
-            </div>
-            <div className="metric-number metric-matches">{ordinal(Math.floor(p.percentile))}</div>
-            <div className="metric-note">percentile: rated above {p.percentile.toFixed(1)}% of {who}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Standing</div>
-            <div className="metric-number">{topShare(p, data.players)}</div>
-            <div className="metric-note">
-              #{count(p.rank)} of {count(data.players + (p.counted ? 0 : 1))}
-              {p.counted ? '' : ` (${p.name} is outside these filters)`}
-            </div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">{rating}</div>
-            <div className="metric-number">{p.value.toFixed(1)}</div>
-            <div className="metric-note">
-              {show.engineName(percentileQuery(view).model)}, {show.formatName(data.format)}
-            </div>
-          </div>
-        </div>
+        <MetricGrid>
+          <MetricCard
+            label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
+            value={ordinal(Math.floor(p.percentile))}
+            note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
+            tone="gold"
+          />
+          <MetricCard
+            label="Standing"
+            value={topShare(p, data.players)}
+            note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
+          />
+          <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
+        </MetricGrid>
       )}
 
       <div className="rating-card panel-card percentiles-chart-card">
@@ -150,11 +148,9 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
           }
         >
           {data.players > 0 && (
-            <div className="density-means">
-              <span className={`density-mean ${view.board.engine === 'glicko2_std' ? 'mean-std' : 'mean-daneo'}`}>
-                {show.engineName(view.board.engine)} Mean: <strong>{data.mean.toFixed(1)}</strong>
-              </span>
-            </div>
+            <MeanBadges>
+              <MeanBadge engine={view.board.engine} mean={data.mean} />
+            </MeanBadges>
           )}
         </PanelHeader>
         {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
@@ -190,36 +186,13 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
   );
 }
 
-/** tierBands shades each rating tier behind the bars, as the player's rating chart does, with its name at the top. */
-function tierBands(spans: TierSpan[], line: string, text: string, font: string): Plugin<'bar'> {
+/** tierBands shades each rating tier behind the bars, as the player's rating chart does. */
+function tierBands(spans: TierSpan[], look: TierLook): Plugin<'bar'> {
   return {
     id: 'percentileTiers',
     beforeDatasetsDraw({ ctx, chartArea, scales }) {
       const x = scales.x;
-      if (x === undefined) return;
-      ctx.save();
-      ctx.font = `11px ${font}`;
-      ctx.textBaseline = 'top';
-      for (const [i, s] of spans.entries()) {
-        const left = x.getPixelForValue(s.start);
-        const right = x.getPixelForValue(s.end);
-        ctx.fillStyle = s.tier.color;
-        ctx.fillRect(left, chartArea.top, right - left, chartArea.height);
-        if (i > 0) {
-          ctx.strokeStyle = s.tier.borderColor ?? line;
-          ctx.setLineDash([4, 4]);
-          ctx.beginPath();
-          ctx.moveTo(left, chartArea.top);
-          ctx.lineTo(left, chartArea.bottom);
-          ctx.stroke();
-        }
-        const name = ctx.measureText(s.tier.name).width + 8 <= right - left ? s.tier.name : s.tier.code;
-        if (ctx.measureText(name).width + 8 <= right - left) {
-          ctx.fillStyle = text;
-          ctx.fillText(name, left + 4, chartArea.top + 4);
-        }
-      }
-      ctx.restore();
+      if (x !== undefined) drawTierBands(ctx, chartArea, (v) => x.getPixelForValue(v), 'x', spans, look);
     },
   };
 }
@@ -235,15 +208,14 @@ function SpreadChart({ data }: { data: RatingPercentiles }) {
 
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null) return;
-    const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    const gold = token('--accent-gold');
-    const grid = { color: token('--border-faint') };
-    const ticks = { color: token('--text-soft'), font: { family: token('--font-stats') } };
-    const title = (text: string) => ({ display: true, text, color: gold, font: { family: token('--font-heading') } });
+    const token = documentTokens;
+    const theme = chartTheme(token);
+    const { gold, grid, ticks } = theme;
+    const title = theme.axisTitle;
     const highlight = (i: number) => i === bins.playerBin;
     const chart = new Chart(canvas.current, {
       type: 'bar',
-      plugins: [tierBands(spans, token('--border-faint'), token('--text-soft'), token('--font-heading'))],
+      plugins: [tierBands(spans, { line: token('--border-faint'), text: token('--text-soft'), font: token('--font-heading') })],
       data: {
         labels: bins.labels,
         datasets: [
@@ -262,9 +234,10 @@ function SpreadChart({ data }: { data: RatingPercentiles }) {
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
-        scales: { x: { title: title(rating), grid, ticks }, y: { title: title('Players'), grid, ticks, beginAtZero: true } },
+        scales: { x: { title: title(rating), grid, ticks }, y: { title: title('Players'), grid, ticks, beginAtZero: true, grace: '15%' } },
         plugins: {
           tooltip: {
+            ...theme.tooltip,
             callbacks: {
               title: (items) => {
                 const i = items[0]?.dataIndex ?? -1;

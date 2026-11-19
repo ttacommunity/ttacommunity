@@ -3,18 +3,14 @@ import { useState } from 'react';
 import { currentRun, seatAnalysis, type Format, type SeatAnalysisTier, type SeatStatsGroup, type SeatWinrateRow, type SeatPlaceRate } from '@ttac/shared/ratings';
 import Segmented, { type Option } from '@ttac/shared/Segmented';
 import { SEAT_TIERS, seatDelta, seatDeltaText, seatSpread } from '../lib/analysis';
+import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
 import { useKeptLoad } from './useLoad';
 import PanelHeader from './PanelHeader';
-
-const FORMAT_OPTIONS: Option<Format>[] = [
-  { value: 0, label: 'All Player Counts', tooltip: 'Show 2-Player, 3-Player, and 4-Player tables' },
-  { value: 2, label: '2-Player (Duels)', tooltip: 'Direct heads-up duels' },
-  { value: 3, label: '3-Player Games', tooltip: 'Most popular tournament format' },
-  { value: 4, label: '4-Player Games', tooltip: 'Full table political strategy' },
-];
+import { OptionsPanel, OptionsSection, OptionsToggle } from './SideDrawer';
+import ViewBar, { FormatPick } from './ViewBar';
 
 const TIER_OPTIONS: Option<SeatAnalysisTier>[] = SEAT_TIERS.map((t) => ({
   value: t.value,
@@ -33,10 +29,33 @@ const SEAT_NAMES: Record<number, string> = {
 export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
   const [tier, setTier] = useState<SeatAnalysisTier>('all');
   const [format, setFormat] = useState<Format>(0);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const load = useKeptLoad(`${tier}/${format}`, () => currentRun(apiUrl).then((r) => seatAnalysis(apiUrl, r.run_id, tier, format)));
 
-  if (load.kind !== 'ready') return <Waiting load={load} what="seat win rates" />;
+  const bar = (
+    <>
+      <ViewBar actions={<OptionsToggle title="Skill tier" active={tier !== 'all'} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />}>
+        <FormatPick value={format} onChange={setFormat} what="seat win rates" />
+      </ViewBar>
+      {optionsOpen && (
+        <OptionsPanel label="Seat analysis options" onClose={() => setOptionsOpen(false)} reset={() => setTier('all')}>
+          <OptionsSection icon="⚔️" title="Skill Tier" tip="Glicko-D average of the table">
+            <Segmented label="Skill tier" options={TIER_OPTIONS} value={tier} onChange={setTier} />
+          </OptionsSection>
+        </OptionsPanel>
+      )}
+    </>
+  );
+
+  if (load.kind !== 'ready') {
+    return (
+      <>
+        {bar}
+        <Waiting load={load} what="seat win rates" />
+      </>
+    );
+  }
 
   const data = load.data;
   const totalGames = data.groups.reduce((acc: number, g: SeatStatsGroup) => acc + g.total_games, 0);
@@ -51,55 +70,13 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <div className="stats-grid-4">
-        <div className="metric-card">
-          <div className="metric-label">Analyzed Matches</div>
-          <div className="metric-number metric-active">{count(totalGames)}</div>
-          <div className="metric-note">Full corpus sample</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">4-Player Seat 1 vs 4</div>
-          <div className="metric-number">{delta4P !== null ? seatDeltaText(delta4P) : '—'}</div>
-          <div className="metric-note">First vs fourth player spread</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">3-Player Seat 1 vs 3</div>
-          <div className="metric-number">{delta3P !== null ? seatDeltaText(delta3P) : '—'}</div>
-          <div className="metric-note">First vs third player spread</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">2-Player Seat 1 vs 2</div>
-          <div className="metric-number">{delta2P !== null ? seatDeltaText(delta2P) : '—'}</div>
-          <div className="metric-note">Starting duel advantage</div>
-        </div>
-      </div>
-
-      <div className="seat-filter-head">
-        <PanelHeader title="Filter by Player Strength & Match Format" />
-      </div>
-
-      <div className="rating-card panel-card eval-table-card seat-filter-card">
-        <div className="seat-filter-stack">
-          <div>
-            <div className="seat-filter-label">Skill Tier (Glicko-D Table Average):</div>
-            <Segmented
-              label="Skill Tier"
-              options={TIER_OPTIONS}
-              value={tier}
-              onChange={(t) => setTier(t)}
-            />
-          </div>
-          <div>
-            <div className="seat-filter-label">Format:</div>
-            <Segmented
-              label="Player Count"
-              options={FORMAT_OPTIONS}
-              value={format}
-              onChange={(f) => setFormat(f)}
-            />
-          </div>
-        </div>
-      </div>
+      {bar}
+      <MetricGrid>
+        <MetricCard label="Analyzed Matches" value={count(totalGames)} note="Full corpus sample" tone="win" />
+        <MetricCard label="4-Player Seat 1 vs 4" value={delta4P !== null ? seatDeltaText(delta4P) : '—'} note="First vs fourth player spread" />
+        <MetricCard label="3-Player Seat 1 vs 3" value={delta3P !== null ? seatDeltaText(delta3P) : '—'} note="First vs third player spread" />
+        <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
+      </MetricGrid>
 
       <div className="seat-groups-stack">
         {data.groups.map((group: SeatStatsGroup) => {
@@ -110,7 +87,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
                 <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
               </PanelHeader>
-              <ScrollTable hint="Scroll horizontally for all placement columns">
+              <ScrollTable hint="all placement columns">
                 <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution

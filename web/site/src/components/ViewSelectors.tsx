@@ -3,8 +3,9 @@ import type { ReactNode } from 'react';
 import type { Format } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
 import * as show from '../lib/leaderboard-display';
-import { FORMATS, type ResetMode, type Track } from '../lib/leaderboard-view';
+import type { ResetMode, Track } from '../lib/leaderboard-view';
 import type { Link } from '../lib/navigate';
+import ViewBar, { FormatPick } from './ViewBar';
 import { TRACKS } from '@ttac/shared/tracks';
 
 /**
@@ -30,15 +31,8 @@ export default function ViewSelectors({
 }) {
   return (
     <div className="view-selectors">
-      <div className="view-bar view-bar-row">
-        <Segmented
-          label="Format"
-          groupClass="view-group view-group-format"
-          prefix={<span className="view-bar-label">Format:</span>}
-          options={FORMATS.map((f) => ({ value: f, label: show.formatName(f), tooltip: `View rating and history for ${show.formatName(f)}` }))}
-          value={format}
-          link={linkFormat}
-        />
+      <ViewBar>
+        <FormatPick value={format} link={linkFormat} what="rating and history" />
         <Segmented
           label="Reset mode"
           groupClass="view-group view-group-reset"
@@ -47,9 +41,9 @@ export default function ViewSelectors({
           value={reset}
           link={linkReset}
         />
-      </div>
+      </ViewBar>
       {ranking !== undefined && linkRanking !== undefined && (
-        <div className="view-bar view-bar-row">
+        <ViewBar>
           <Segmented
             label="Rating track"
             groupClass="view-group"
@@ -58,7 +52,7 @@ export default function ViewSelectors({
             value={ranking}
             link={linkRanking}
           />
-        </div>
+        </ViewBar>
       )}
       {children}
     </div>

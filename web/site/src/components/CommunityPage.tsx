@@ -25,6 +25,8 @@ import {
 import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
+import MetricCard, { MetricGrid } from './MetricCard';
+import PanelHeader from './PanelHeader';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
@@ -88,34 +90,23 @@ function Hero({
             link={(edition) => ({ href: href(view, { edition }) })}
           />
         </div>
-        <div className="comm-stats-grid">
-          <div className="stat-tile">
-            <div className="stat-tile-num">{count(data.rows.length)}</div>
-            <div className="stat-tile-label">Ranked Competitors</div>
-          </div>
-          <div className="stat-tile">
-            <div className="stat-tile-num">{events}</div>
-            <div className="stat-tile-label">Tracked Events ({data.categories.length} Tiers)</div>
-          </div>
-          <div className="stat-tile">
-            <div className="stat-tile-num">
-              <PlayerLink name={top?.name ?? '—'} className="comm-top-link" />
-            </div>
-            <div className="stat-tile-label">#1 Rank ({whole(top?.points ?? 0)} pts)</div>
-          </div>
-          <div className="stat-tile">
-            <div className="stat-tile-num">
-              {info.wc ? (
+        <MetricGrid>
+          <MetricCard label="Ranked Competitors" value={count(data.rows.length)} tone="gold" />
+          <MetricCard label={`Tracked Events (${data.categories.length} Tiers)`} value={events} tone="gold" />
+          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} className="comm-top-link" />} />
+          <MetricCard
+            label={info.wc_desc || 'Reigning World Champion'}
+            value={
+              info.wc ? (
                 <PlayerLink name={info.wc} className="comm-wc-link">
                   <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
                 </PlayerLink>
               ) : (
                 <span className="comm-muted">—</span>
-              )}
-            </div>
-            <div className="stat-tile-label">{info.wc_desc || 'Reigning World Champion'}</div>
-          </div>
-        </div>
+              )
+            }
+          />
+        </MetricGrid>
       </div>
     </>
   );
@@ -126,10 +117,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <div className="explainer-card">
-        <h3>
-          <span>📜</span> The Best-{count} Point System
-        </h3>
+      <div className="rating-card panel-card explainer-card">
+        <PanelHeader icon="📜" title={`The Best-${count} Point System`} />
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -149,10 +138,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
           </li>
         </ul>
       </div>
-      <div className="explainer-card">
-        <h3>
-          <span>🏆</span> Tracked Event Slots &amp; Point Tiers
-        </h3>
+      <div className="rating-card panel-card explainer-card">
+        <PanelHeader icon="🏆" title="Tracked Event Slots & Point Tiers" />
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (

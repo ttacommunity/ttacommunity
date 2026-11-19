@@ -11,3 +11,8 @@ export function toggledSet<T>(items: ReadonlySet<T>, item: T): Set<T> {
   if (!next.delete(item)) next.add(item);
   return next;
 }
+
+/** toggledAll is an "All" button's choice: every value of every, or none when every one is already chosen. */
+export function toggledAll<T>(chosen: ReadonlySet<T>, every: readonly T[]): Set<T> {
+  return every.every((v) => chosen.has(v)) ? new Set() : new Set(every);
+}

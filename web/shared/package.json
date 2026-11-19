@@ -20,6 +20,7 @@
     "./styles/*": "./styles/*",
     "./Segmented": "./src/Segmented.tsx",
     "./SubTabs": "./src/SubTabs.tsx",
+    "./ToggleGroup": "./src/ToggleGroup.tsx",
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
     "./Sheet": "./src/Sheet.tsx",

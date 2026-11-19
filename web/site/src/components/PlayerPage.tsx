@@ -22,7 +22,6 @@ import CareerBox from './CareerBox';
 import RatingChart from './RatingChart';
 import VersusDialog from './VersusDialog';
 import { formatTournamentDisplay } from '../lib/achievements';
-import Segmented from '@ttac/shared/Segmented';
 import PlayerOptionsDrawer from './PlayerOptionsDrawer';
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
@@ -71,6 +70,7 @@ import { SortButton } from '@ttac/shared/SortHeader';
 import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
+import ViewBar, { FormatPick } from './ViewBar';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -89,17 +89,10 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
   const [curve, setCurve] = useState<ChartCurve>('expected');
   const [engines, setEngines] = useState<Set<string>>(() => new Set(['glicko2_daneo']));
 
-  const toggleEngine = (eng: string) => {
-    setEngines((prev) => {
-      const next = new Set(prev);
-      if (next.has(eng)) {
-        if (next.size > 1) next.delete(eng);
-      } else {
-        next.add(eng);
-      }
-      return next;
-    });
+  const chooseEngines = (next: Set<string>) => {
+    if (next.size > 0) setEngines(next);
   };
+
 
 
   const runId = run.kind === 'ready' && view.name !== '' ? run.data : null;
@@ -178,21 +171,13 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     <div className={optionsOpen ? 'player-layout options-open' : 'player-layout'}>
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
-      <div className="view-bar view-bar-row player-top-bar">
-        <Segmented
-          label="Format"
-          groupClass="view-group view-group-format"
-          prefix={<span className="view-bar-label">Format:</span>}
-          options={([0, 2, 3, 4] as Format[]).map((f) => ({
-            value: f,
-            label: show.formatName(f),
-            tooltip: `View rating and history for ${show.formatName(f)}`,
-          }))}
-          value={view.format}
-          link={(format) => linkTo({ ...view, format, matchPage: 1 })}
-        />
-        <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
-      </div>
+      <ViewBar
+        actions={
+          <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+        }
+      >
+        <FormatPick value={view.format} link={(format) => linkTo({ ...view, format, matchPage: 1 })} what="rating and history" />
+      </ViewBar>
 
       <CareerBox
         player={p}
@@ -238,7 +223,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           setTiers={setTiers}
           setMode={setMode}
           setCurve={setCurve}
-          toggleEngine={toggleEngine}
+          setEngines={chooseEngines}
           onReset={resetOptions}
           onClose={() => setOptionsOpen(false)}
         />

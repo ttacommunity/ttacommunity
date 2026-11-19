@@ -3,6 +3,7 @@ import type { PercentileQuery, PlayerPercentile, RatingBasis, RatingPercentiles 
 import { ordinal } from '@ttac/shared/numbers';
 import { DEFAULT_VIEW, modelOf, parseView, viewParams, type Remembered, type View } from './leaderboard-view';
 import { RATING_TIERS, type RatingTier } from './player-view';
+import { tierSpans as spansOf, type TierSpan } from './tier-bands';
 import type { Me } from './account';
 
 /** The page's view: the leaderboard's model, format and filters it shares, the rating counted, the bins' width, and a player's name or ''. */
@@ -33,6 +34,12 @@ export function parsePercentileView(params: URLSearchParams, remembered: Remembe
 }
 
 const boardOf = (v: PercentileView): View => ({ ...DEFAULT_VIEW, ...v.board });
+
+/** withDefaults is Reset All's view: every option back to its default, keeping the format and the player, as the leaderboard keeps its format. */
+export function withDefaults(v: PercentileView): PercentileView {
+  const { engine, reset, status, minOpps, title } = DEFAULT_VIEW;
+  return { board: { engine, reset, format: v.board.format, status, minOpps, title }, rating: 'c_rating', binWidth: 50, player: v.player };
+}
 
 /** percentileParams writes the view's address, leaving out what equals the leaderboard's defaults. */
 export function percentileParams(v: PercentileView): URLSearchParams {
@@ -96,24 +103,11 @@ export function tierOf(rating: number): RatingTier {
 }
 
 /** A tier's stretch of the chart, in bar positions: bar i spans i - 0.5 to i + 0.5. */
-export interface TierSpan {
-  tier: RatingTier;
-  start: number;
-  end: number;
-}
-
-/** tierSpans is each rating tier the bins reach, lowest first; the lowest and highest tiers have no bound. */
+/** tierSpans is each rating tier the bins reach, lowest first, in bar positions; the lowest and highest tiers have no bound. */
 export function tierSpans(r: Pick<RatingPercentiles, 'bins' | 'bin_width'>): TierSpan[] {
   const first = r.bins[0];
   if (first === undefined) return [];
-  const hi = first.from + r.bins.length * r.bin_width;
-  const at = (rating: number) => (rating - first.from) / r.bin_width - 0.5;
-  return RATING_TIERS.flatMap((tier, i) => {
-    const next = RATING_TIERS[i + 1];
-    const from = Math.max(i === 0 ? -Infinity : tier.min, first.from);
-    const to = Math.min(next === undefined ? Infinity : next.min, hi);
-    return from < to ? [{ tier, start: at(from), end: at(to) }] : [];
-  });
+  return spansOf(first.from, first.from + r.bins.length * r.bin_width, (rating) => (rating - first.from) / r.bin_width - 0.5);
 }
 
 /** withMe shows the signed-in player's own standing when the view names no player and they are linked to a rated one. */

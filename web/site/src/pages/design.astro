@@ -3,7 +3,12 @@
 import SiteLayout from '../layouts/SiteLayout.astro';
 import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
+import ToggleGroup from '@ttac/shared/ToggleGroup';
+import MetricCard, { MetricGrid } from '../components/MetricCard';
+import MeanBadge, { MeanBadges } from '../components/MeanBadge';
+import ViewBar, { FormatPick } from '../components/ViewBar';
 import DialogSamples from '../components/DialogSamples';
+import OptionsSample from '../components/OptionsSample';
 import Note from '@ttac/shared/Note';
 import SignInNote from '../components/SignInNote';
 import Message from '../components/Message';
@@ -99,6 +104,28 @@ const rows = [
     <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
     <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
 
+    <h2>Toggle group</h2>
+    <ToggleGroup label="Sample toggles" all="All" options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set(['one'])} onChange={() => {}} />
+
+    <h2>View bar</h2>
+    <ViewBar>
+      <FormatPick value={0} onChange={() => {}} what="the sample" />
+    </ViewBar>
+
+    <h2>Headline figures</h2>
+    <MetricGrid>
+      <MetricCard label="Sample count" value="1,234" note="A note under it" tone="win" />
+      <MetricCard label="Sample share" value="56.7%" note="Muted" tone="muted" />
+      <MetricCard label="Sample total" value="890" tone="gold" />
+      <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
+    </MetricGrid>
+
+    <h2>Mean ratings</h2>
+    <MeanBadges>
+      <MeanBadge engine="glicko2_daneo" mean={1450.25} active={1540} />
+      <MeanBadge engine="glicko2_std" mean={1460} />
+    </MeanBadges>
+
     <h2>Badges</h2>
     <p class="design-row">
       <span class="badge badge-format">All Formats</span>
@@ -141,6 +168,9 @@ const rows = [
 
     <h2>Dialog</h2>
     <DialogSamples client:only="react" />
+
+    <h2>Options drawer</h2>
+    <OptionsSample client:only="react" />
 
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />

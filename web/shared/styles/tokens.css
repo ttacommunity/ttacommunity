@@ -32,6 +32,11 @@
   --draw: #ffa726;
   --medal-silver: #cfd8dc;
   --medal-bronze: #cd7f32;
+  --accent-sky: #4fc3f7;
+  --engine-daneo: #a855f7;
+  --engine-daneo-light: #c084fc;
+  --engine-std: #eab308;
+  --engine-std-light: #fde047;
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;
