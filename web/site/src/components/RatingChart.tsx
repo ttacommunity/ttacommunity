@@ -34,10 +34,12 @@ import type { PlayerHistory } from '@ttac/shared/ratings';
 import {
   chartData,
   chartTicks,
+  labelGap,
   chartYScale,
   runYears,
   type ChartData,
   type ChartOptionsState,
+  type ChartScale,
   type ChartTick,
   type ChartYTick,
 } from '../lib/player-view';
@@ -159,19 +161,16 @@ export default function RatingChart({
   }
   yTickMapRef.current = yTickMap;
 
-  const ticks = useMemo(
-    () => (data && data.minDate && data.maxDate ? chartTicks(data.minDate, data.maxDate, scale) : []),
-    [data, scale],
-  );
-
-  const ticksRef = useRef<ChartTick[]>(ticks);
+  // The x labels are spaced for the axis's drawn width, so they are placed when Chart.js lays the axis out.
+  const spanRef = useRef<{ minDate: string; maxDate: string; scale: ChartScale } | null>(null);
+  spanRef.current = data?.minDate && data.maxDate ? { minDate: data.minDate, maxDate: data.maxDate, scale } : null;
   const tickMapRef = useRef<Map<number, ChartTick>>(new Map());
-  ticksRef.current = ticks;
-  const tickMap = new Map<number, ChartTick>();
-  for (const t of ticks) {
-    tickMap.set(Math.round(t.x * 10) / 10, t);
-  }
-  tickMapRef.current = tickMap;
+  const placeXTicks = (axis: { width: number; ticks: { value: number }[] }) => {
+    const span = spanRef.current;
+    const spaced = span === null ? [] : chartTicks(span.minDate, span.maxDate, span.scale, labelGap(axis.width));
+    tickMapRef.current = new Map(spaced.map((t) => [Math.round(t.x * 10) / 10, t]));
+    axis.ticks = spaced.map((t) => ({ value: t.x }));
+  };
 
   // A layout effect, declared before the fill below, so the chart exists when its lines are filled in.
   useIsomorphicLayoutEffect(() => {
@@ -257,12 +256,12 @@ export default function RatingChart({
               lineWidth: 1,
             },
             border,
-            afterBuildTicks: (axis) => {
-              axis.ticks = ticksRef.current.map((t) => ({ value: t.x }));
-            },
+            afterBuildTicks: placeXTicks,
             ticks: {
               ...theme.ticks,
               align: 'inner',
+              maxRotation: 0,
+              autoSkip: false,
               callback: (value) => {
                 const rounded = Math.round(Number(value) * 10) / 10;
                 const tick = tickMapRef.current.get(rounded);
@@ -310,9 +309,7 @@ export default function RatingChart({
     const c = chart.current;
     if (c === null || data === null) return;
     if (c.options.scales?.x) {
-      c.options.scales.x.afterBuildTicks = (axis) => {
-        axis.ticks = ticks.map((t) => ({ value: t.x }));
-      };
+      c.options.scales.x.afterBuildTicks = placeXTicks;
     }
     if (c.options.scales?.y) {
       c.options.scales.y.afterBuildTicks = (axis) => {
@@ -352,7 +349,7 @@ export default function RatingChart({
       hidden: hiddenLabels.current.has(line.label),
     }));
     c.update('none');
-  }, [data, scale, yScale, tiers, ticks, engines]);
+  }, [data, scale, yScale, tiers, engines]);
 
   return (
     <div className="chart-container">

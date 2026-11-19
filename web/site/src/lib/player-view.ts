@@ -185,8 +185,8 @@ export interface ChartTick {
   isYear?: boolean;
 }
 
-/** chartTicks produces nicely distributed horizontal ticks for the chosen scale. */
-export function chartTicks(minDate: string, maxDate: string, scale: ChartScale): ChartTick[] {
+/** chartTicks produces horizontal ticks for the chosen scale, labels at least gap percent apart: every year has a tick, labelled where it fits. */
+export function chartTicks(minDate: string, maxDate: string, scale: ChartScale, gap = 2.5): ChartTick[] {
   const tMin = new Date(minDate).getTime();
   const tMax = new Date(maxDate).getTime();
   if (tMax <= tMin) return [{ x: 50, label: maxDate, isYear: true }];
@@ -240,15 +240,28 @@ export function chartTicks(minDate: string, maxDate: string, scale: ChartScale):
 
   // Year ticks are guaranteed and never skipped so the user sees every year on the grid.
   const allTicks: ChartTick[] = [...yearTicks];
+  // An edge label is aligned inwards, so it needs half a label more room than a centred one.
+  const room = (a: ChartTick, b: ChartTick) => (a.x === 0 || a.x === 100 || b.x === 0 || b.x === 100 ? 1.5 * gap : gap);
   for (const candidate of [startTick, ...monthTicks, endTick]) {
-    const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < 2.5);
+    const collides = allTicks.some((t) => Math.abs(t.x - candidate.x) < room(t, candidate));
     if (!collides) {
       allTicks.push(candidate);
     }
   }
 
   allTicks.sort((a, b) => a.x - b.x);
-  return allTicks;
+  // A year too close to the label before it keeps its grid line but shows no label.
+  let shown: ChartTick | undefined;
+  return allTicks.map((t) => {
+    if (shown !== undefined && t.x - shown.x < room(shown, t)) return { ...t, label: '' };
+    shown = t;
+    return t;
+  });
+}
+
+/** labelGap is the room an x-axis label needs on a chart widthPx wide, in percent of the axis, never under 2.5. */
+export function labelGap(widthPx: number): number {
+  return Math.max(2.5, (100 * 60) / widthPx);
 }
 
 export interface ChartYTick {
