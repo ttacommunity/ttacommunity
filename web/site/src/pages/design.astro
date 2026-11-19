@@ -5,6 +5,7 @@ import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
 import ToggleGroup from '@ttac/shared/ToggleGroup';
 import MetricCard, { MetricGrid } from '../components/MetricCard';
+import MeanBadge, { MeanBadges } from '../components/MeanBadge';
 import ViewBar, { FormatPick } from '../components/ViewBar';
 import DialogSamples from '../components/DialogSamples';
 import OptionsSample from '../components/OptionsSample';
@@ -118,6 +119,12 @@ const rows = [
       <MetricCard label="Sample total" value="890" tone="gold" />
       <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
     </MetricGrid>
+
+    <h2>Mean ratings</h2>
+    <MeanBadges>
+      <MeanBadge engine="glicko2_daneo" mean={1450.25} active={1540} />
+      <MeanBadge engine="glicko2_std" mean={1460} />
+    </MeanBadges>
 
     <h2>Badges</h2>
     <p class="design-row">

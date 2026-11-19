@@ -87,7 +87,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
                 <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
               </PanelHeader>
-              <ScrollTable hint="Scroll horizontally for all placement columns">
+              <ScrollTable hint="all placement columns">
                 <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution

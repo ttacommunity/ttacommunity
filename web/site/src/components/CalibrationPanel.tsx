@@ -21,6 +21,7 @@ import { browserStorage } from '@ttac/shared/storage';
 import Tex from './Tex';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
+import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { formatName } from '../lib/leaderboard-display';
 import { useLoad } from './useLoad';
 import PanelHeader from './PanelHeader';
@@ -63,11 +64,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     if (canvas.current === null || !ready) return;
-    const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
-    const axisTitle = { color: gold, font: { family: heading, weight: 600 } };
-    const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
-    const grid = { color: 'rgba(74, 53, 37, 0.3)' };
+    const theme = chartTheme(documentTokens);
+    const { grid, ticks } = theme;
     chart.current = new Chart(canvas.current, {
       type: 'line',
       data: { labels: BIN_LABELS, datasets: [] },
@@ -76,11 +74,11 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
         maintainAspectRatio: false,
         animation: false,
         scales: {
-          x: { title: { display: true, text: 'Model Forecasted Probability Bin', ...axisTitle }, grid, ticks },
+          x: { title: theme.axisTitle('Model Forecasted Probability Bin'), grid, ticks },
           y: {
             min: 0.45,
             max: 1.0,
-            title: { display: true, text: 'Empirical Match Win Rate', ...axisTitle },
+            title: theme.axisTitle('Empirical Match Win Rate'),
             grid,
             ticks: { ...ticks, callback: (v) => `${(Number(v) * 100).toFixed(0)}%` },
           },
@@ -88,9 +86,10 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: '#f5eedb', font: { family: 'Share Tech Mono', size: 11 }, usePointStyle: true, padding: 12 },
+            labels: { ...theme.legend, usePointStyle: true },
           },
           tooltip: {
+            ...theme.tooltip,
             callbacks: { label: (c) => `${c.dataset.label ?? ''}: ${(Number(c.raw) * 100).toFixed(1)}% observed win rate` },
           },
         },
@@ -178,8 +177,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
       <div className="rating-card panel-card graph-main-card">
         <PanelHeader title="Reliability Calibration Diagram" subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins">
           <div className="card-badges">
-            <span className="mode-badge">{MODE_NAMES[mode]}</span>
-            <span className="format-badge">{formatName(format)}</span>
+            <span className="badge badge-format">{formatName(format)}</span>
+            <span className="badge badge-mode">{MODE_NAMES[mode]}</span>
           </div>
         </PanelHeader>
         <div className="hero-chart-container">

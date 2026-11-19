@@ -1,12 +1,15 @@
 /** Upstream's rating distribution chart for the format chosen on the page. */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BarController, BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js';
-import { currentRun, distribution, type Distribution, type Model } from '@ttac/shared/ratings';
+import { currentRun, distribution, type Distribution } from '@ttac/shared/ratings';
 import { onFormat, parseAnalysisParams } from '../lib/analysis';
 import { formatName } from '../lib/leaderboard-display';
+import type { Engine } from '../lib/leaderboard-view';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import Waiting from './Waiting';
+import MeanBadge, { MeanBadges } from './MeanBadge';
+import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { useKeptLoad } from './useLoad';
 import PanelHeader from './PanelHeader';
 
@@ -14,9 +17,9 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, To
 
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
-const BARS: { model: Model; label: string; badge: string; short: string; className: string; fill: string; line: string }[] = [
-  { model: 'glicko2_daneo', label: '👑 GlickoD', badge: '👑 GlickoD', short: 'GlickoD', className: 'mean-daneo', fill: 'rgba(168, 85, 247, 0.65)', line: '#a855f7' },
-  { model: 'glicko2_std', label: 'Glicko-2 Standard', badge: 'G2 Std', short: 'Std', className: 'mean-std', fill: 'rgba(234, 179, 8, 0.55)', line: '#eab308' },
+const BARS: { model: Engine; label: string; short: string; fill: string; line: string }[] = [
+  { model: 'glicko2_daneo', label: '👑 GlickoD', short: 'GlickoD', fill: 'rgba(168, 85, 247, 0.65)', line: '#a855f7' },
+  { model: 'glicko2_std', label: 'Glicko-2 Standard', short: 'Std', fill: 'rgba(234, 179, 8, 0.55)', line: '#eab308' },
 ];
 
 /** means returns each bar's all-player and active-player mean, 1500 for an engine the answer lacks. */
@@ -47,10 +50,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   useIsomorphicLayoutEffect(() => {
     if (canvas.current === null || distData === null) return;
     if (chart.current === null) {
-    const heading = getComputedStyle(document.documentElement).getPropertyValue('--font-heading').trim() || 'serif';
-    const gold = getComputedStyle(document.documentElement).getPropertyValue('--accent-gold').trim();
-    const grid = { color: 'rgba(74, 53, 37, 0.3)' };
-    const ticks = { color: '#e0d5c1', font: { family: 'Share Tech Mono' } };
+    const theme = chartTheme(documentTokens);
+    const { grid, ticks } = theme;
 
     chart.current = new Chart(canvas.current, {
       type: 'bar',
@@ -61,19 +62,13 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
         animation: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: { title: { display: true, text: 'Rating Score Bins (100-pt intervals)', color: gold, font: { family: heading } }, grid, ticks },
-          y: { title: { display: true, text: 'Number of Players', color: gold, font: { family: heading } }, grid, ticks },
+          x: { title: theme.axisTitle('Rating Score Bins (100-pt intervals)'), grid, ticks },
+          y: { title: theme.axisTitle('Number of Players'), grid, ticks },
         },
         plugins: {
-          legend: { position: 'top', labels: { color: '#f5eedb', font: { family: 'Share Tech Mono', size: 12 }, padding: 12 } },
+          legend: { position: 'top', labels: theme.legend },
           tooltip: {
-            backgroundColor: 'rgba(18, 12, 8, 0.95)',
-            titleColor: gold,
-            titleFont: { family: heading, size: 13, weight: 'bold' },
-            bodyFont: { family: 'Share Tech Mono', size: 11 },
-            borderColor: 'rgba(229, 169, 60, 0.4)',
-            borderWidth: 1,
-            padding: 10,
+            ...theme.tooltip,
             callbacks: {
               title: (items) => (items[0] && distRef.current ? `Rating Bracket: ${distRef.current.labels[items[0].dataIndex] ?? ''}` : ''),
               label: (ctx) => {
@@ -124,13 +119,11 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
           </>
         }
       >
-        <div className="density-means">
+        <MeanBadges>
           {bars.map((b) => (
-            <span key={b.model} className={`density-mean ${b.className}`} title={`${b.badge.replace('👑 ', '')} (All Players: ${b.mean} | Active Players >10 games: ${b.active})`}>
-              {b.badge}: <strong>{b.mean}</strong> <small>(Active: {b.active})</small>
-            </span>
+            <MeanBadge key={b.model} engine={b.model} mean={b.mean} active={b.active} />
           ))}
-        </div>
+        </MeanBadges>
       </PanelHeader>
       <div className="density-chart-container">
         {distData === null && load.kind !== 'ready' ? (
