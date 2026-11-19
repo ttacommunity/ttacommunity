@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, nextPairing, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, hiddenNote, nextPairing, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 import { sortRows } from '@ttac/shared/sort';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
@@ -87,6 +87,17 @@ describe('shownAfter', () => {
   ])('shows %s', (_name, changed, want) => {
     const got = shownAfter(saved, changed);
     expect(got === null ? null : got.map((m) => m.id)).toEqual(want);
+  });
+});
+
+describe('hiddenNote', () => {
+  it.each([
+    ['a draft while the tournament is hidden', false, round(1, 1, false, []), 'US Open is hidden on the site: show it (Tournaments, Shown) to publish this round.'],
+    ['a draft once it is shown', true, round(1, 1, false, []), null],
+    ['a published round while hidden: it is updated, not published', false, round(1, 1, true, []), null],
+    ['no open round', false, null, null],
+  ])('says why %s cannot be published', (_name, shown, r, want) => {
+    expect(hiddenNote(shown, 'US Open', r)).toBe(want);
   });
 });
 

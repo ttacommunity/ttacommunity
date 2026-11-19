@@ -15,10 +15,13 @@ import (
 )
 
 // NotificationEndpoint is a webhook notifications are posted to: its URL, its format (discord so far), the events
-// it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10), the feeds it takes, by id, with each
+// it takes (sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished,
+// blitz_reminder), the feeds it takes, by id, with each
 // one's options, and the prefix put before each message. Paused, it is sent nothing. Username and AvatarURL ("" for the webhook's own) are the name and
 // picture its messages show; Forum posts each as a new thread of a forum channel; RoleID ("" for none) is pinged with
-// each; Look is how a feed's item looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
+// each; ThreadID ("" for none) is an existing thread of its channel, such as a forum post, that every message goes
+// into; BlitzReminderHours is how long before a blitz round's deadline it is reminded; Look is how a feed's item
+// looks in it. LastSentAt, LastError and LastErrorAt say how its posts went.
 type NotificationEndpoint struct {
 	ID                  int64
 	Name                string
@@ -31,6 +34,8 @@ type NotificationEndpoint struct {
 	Paused, Forum       bool
 	Username, AvatarURL string
 	RoleID              string
+	ThreadID            string
+	BlitzReminderHours  int
 	Look                EmbedLook
 	LastSentAt          *time.Time
 	LastError           string
@@ -104,6 +109,9 @@ type EmbedLook struct {
 	Image        bool
 }
 
+// DefaultBlitzReminderHours is how long before a round's deadline an endpoint is reminded when none is given.
+const DefaultBlitzReminderHours = 24
+
 // DefaultLook is an endpoint's look when none is given, the database's defaults: orange, all of it.
 var DefaultLook = EmbedLook{Colour: "#ff4500", Text: "full", Image: true}
 
@@ -113,7 +121,7 @@ var (
 	// ErrBadNotificationEndpoint means an endpoint the database refuses.
 	ErrBadNotificationEndpoint = errors.New("an endpoint needs a name of 1 to 100 characters, a Discord webhook URL " +
 		"(https://discord.com/api/webhooks/…), known events and feeds, a prefix of at most 20 characters, a display name of at " +
-		"most 80 without \"discord\" or \"clyde\", an https picture, a role's id of 17 to 20 digits, a colour #rrggbb in lower " +
+		"most 80 without \"discord\" or \"clyde\", an https picture, a role's and a thread's id of 17 to 20 digits, reminders 1 to 168 hours ahead, a colour #rrggbb in lower " +
 		"case, and post text full, short or none")
 )
 
@@ -131,13 +139,13 @@ const endpointColumns = `endpoint_id, name, url, format, events,
 	ARRAY(SELECT s.feed_id FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id ORDER BY s.feed_id),
 	coalesce((SELECT json_agg(json_build_object('feed', s.feed_id, 'categories', s.categories, 'keywords', s.keywords, 'match', s.match, 'was_live', s.was_live)
 		ORDER BY s.feed_id) FROM notification_feed_subscriptions s WHERE s.endpoint_id = notification_endpoints.endpoint_id), '[]'),
-	prefix, paused, forum, username, avatar_url, role_id, colour, show_text, show_image, last_sent_at,
+	prefix, paused, forum, username, avatar_url, role_id, thread_id, blitz_reminder_hours, colour, show_text, show_image, last_sent_at,
 	coalesce(last_error, ''), last_error_at`
 
 func scanEndpoint(row pgx.CollectableRow) (NotificationEndpoint, error) {
 	var e NotificationEndpoint
 	err := row.Scan(&e.ID, &e.Name, &e.URL, &e.Format, &e.Events, &e.Feeds, &e.FeedOptions, &e.Prefix, &e.Paused, &e.Forum, &e.Username, &e.AvatarURL,
-		&e.RoleID, &e.Look.Colour, &e.Look.Text, &e.Look.Image, &e.LastSentAt, &e.LastError, &e.LastErrorAt)
+		&e.RoleID, &e.ThreadID, &e.BlitzReminderHours, &e.Look.Colour, &e.Look.Text, &e.Look.Image, &e.LastSentAt, &e.LastError, &e.LastErrorAt)
 	return e, err
 }
 
@@ -174,6 +182,10 @@ func (a *AdminStore) NotificationEndpoint(ctx context.Context, id int64) (Notifi
 func trimEndpoint(e NotificationEndpoint) NotificationEndpoint {
 	e.Name, e.URL, e.Format, e.Prefix = strings.TrimSpace(e.Name), strings.TrimSpace(e.URL), strings.TrimSpace(e.Format), strings.TrimSpace(e.Prefix)
 	e.Username, e.AvatarURL, e.RoleID = strings.TrimSpace(e.Username), strings.TrimSpace(e.AvatarURL), strings.TrimSpace(e.RoleID)
+	e.ThreadID = strings.TrimSpace(e.ThreadID)
+	if e.BlitzReminderHours == 0 {
+		e.BlitzReminderHours = DefaultBlitzReminderHours
+	}
 	if e.Events == nil {
 		e.Events = []string{}
 	}
@@ -192,11 +204,11 @@ func (a *AdminStore) AddNotificationEndpoint(ctx context.Context, e Notification
 	var id int64
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `INSERT INTO notification_endpoints (name, url, format, events, prefix, created_at,
-				paused, forum, username, avatar_url, role_id, colour, show_text, show_image)
-			VALUES ($1, $2, $3, ARRAY(SELECT DISTINCT unnest($4::text[]) ORDER BY 1), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+				paused, forum, username, avatar_url, role_id, colour, show_text, show_image, thread_id, blitz_reminder_hours)
+			VALUES ($1, $2, $3, ARRAY(SELECT DISTINCT unnest($4::text[]) ORDER BY 1), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 			RETURNING endpoint_id`,
 			e.Name, e.URL, e.Format, e.Events, e.Prefix, now, e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID,
-			e.Look.Colour, e.Look.Text, e.Look.Image).Scan(&id); err != nil {
+			e.Look.Colour, e.Look.Text, e.Look.Image, e.ThreadID, e.BlitzReminderHours).Scan(&id); err != nil {
 			return err
 		}
 		return setFeeds(ctx, tx, id, e.Feeds, e.FeedOptions)
@@ -245,9 +257,10 @@ func (a *AdminStore) SetNotificationEndpoint(ctx context.Context, e Notification
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE notification_endpoints SET name = $2, url = coalesce(nullif($3, ''), url), format = $4,
 			events = ARRAY(SELECT DISTINCT unnest($5::text[]) ORDER BY 1), prefix = $6, paused = $7, forum = $8, username = $9,
-			avatar_url = $10, role_id = $11, colour = $12, show_text = $13, show_image = $14 WHERE endpoint_id = $1`,
+			avatar_url = $10, role_id = $11, colour = $12, show_text = $13, show_image = $14, thread_id = $15,
+			blitz_reminder_hours = $16 WHERE endpoint_id = $1`,
 			e.ID, e.Name, e.URL, e.Format, e.Events, e.Prefix, e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID,
-			e.Look.Colour, e.Look.Text, e.Look.Image)
+			e.Look.Colour, e.Look.Text, e.Look.Image, e.ThreadID, e.BlitzReminderHours)
 		if err != nil {
 			return err
 		}

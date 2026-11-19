@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"ttacommunity/backend/internal/blitz"
+	"ttacommunity/backend/internal/blitzview"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -48,16 +49,6 @@ func turnOf(s store.BlitzSide) *int {
 	return &s.Turn
 }
 
-// played is a match of round as the blitz package sees it; B is 0 for a bye, and a result with no game is a
-// forfeit.
-func played(round int, m store.BlitzMatch) blitz.Played {
-	p := blitz.Played{Round: round, A: m.A, Result: blitz.Result(m.Result), Forfeit: m.Result != "" && m.GameID == nil}
-	if m.B != nil {
-		p.B = *m.B
-	}
-	return p
-}
-
 // skippers are the entrants who skip round number, in sign-up order.
 func skippers(entrants []store.BlitzEntrant, number int) []store.BlitzEntrant {
 	var out []store.BlitzEntrant
@@ -67,41 +58,6 @@ func skippers(entrants []store.BlitzEntrant, number int) []store.BlitzEntrant {
 		}
 	}
 	return out
-}
-
-// swissPlayed is an edition's published Swiss rounds as the blitz package sees them: the entrants with the rounds
-// they skipped, the matches, and the rounds' numbers.
-func swissPlayed(ed store.BlitzEdition) ([]blitz.Entrant, []blitz.Played, []int) {
-	var matches []blitz.Played
-	var numbers []int
-	for _, r := range ed.Rounds {
-		if r.Kind == "knockout" || r.PublishedAt == nil {
-			continue
-		}
-		numbers = append(numbers, r.Number)
-		for _, m := range r.Matches {
-			matches = append(matches, played(r.Number, m))
-		}
-	}
-	var entrants []blitz.Entrant
-	for _, e := range ed.Entrants {
-		var skipped []int
-		for _, n := range e.Skips {
-			if slices.Contains(numbers, n) {
-				skipped = append(skipped, n)
-			}
-		}
-		entrants = append(entrants, blitz.Entrant{ID: e.ID, Dropped: e.Status == "dropped", Skipped: skipped, StartingRank: e.StartingRank})
-	}
-	return entrants, matches, numbers
-}
-
-// swissStandings ranks an edition's entrants by its published Swiss rounds' results and skips, as its points score
-// them, and their starting ranks. The knockout's results never count: the standings after the last Swiss round are
-// its seeds.
-func swissStandings(ed store.BlitzEdition) []blitz.Standing {
-	entrants, matches, _ := swissPlayed(ed)
-	return blitz.Standings(entrants, matches, ed.Format.SwissRounds, ed.Points)
 }
 
 // blitzPairing is an edition's pairing methods as the API sends them.
@@ -133,7 +89,7 @@ func blitzStandings(ed store.BlitzEdition) []BlitzStanding {
 	for _, e := range ed.Entrants {
 		names[e.ID], countries[e.ID], starts[e.ID] = e.Name, e.Country, e.StartingRank
 	}
-	standings := swissStandings(ed)
+	standings := blitzview.SwissStandings(ed)
 	out := make([]BlitzStanding, 0, len(standings))
 	for _, s := range standings {
 		status := "active"

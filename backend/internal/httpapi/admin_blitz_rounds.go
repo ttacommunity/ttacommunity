@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/blitz"
+	"ttacommunity/backend/internal/blitzview"
 	"ttacommunity/backend/internal/pairing"
 	"ttacommunity/backend/internal/store"
 )
@@ -93,7 +94,7 @@ func knockoutReserve(r store.BlitzRound, ed store.BlitzEdition) *int64 {
 	for _, e := range ed.Entrants {
 		active[e.ID] = e.Status == "active"
 	}
-	for _, st := range swissStandings(ed) {
+	for _, st := range blitzview.SwissStandings(ed) {
 		if active[st.ID] && !in[st.ID] {
 			return new(st.ID)
 		}
@@ -134,7 +135,7 @@ func pairingPlayers(ed store.BlitzEdition, rated map[string]store.Rated, now tim
 	for _, s := range blitzStandings(without) {
 		points[s.Name], places[s.Name] = s.Points, s.Rank
 	}
-	entrants, matches, numbers := swissPlayed(without)
+	entrants, matches, numbers := blitzview.SwissPlayed(without)
 	history := blitz.Histories(entrants, matches, numbers, ed.Points)
 	var players []pairing.Player
 	for _, e := range ed.Entrants {
@@ -268,7 +269,7 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 	if last == nil {
 		size := ed.Format.KnockoutSize
 		var seeded []int64
-		for _, s := range swissStandings(ed) {
+		for _, s := range blitzview.SwissStandings(ed) {
 			if !s.Dropped && len(seeded) < size {
 				seeded = append(seeded, s.ID)
 				seedOf[s.ID] = len(seeded)
@@ -287,7 +288,7 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 		var winners []int64
 		var open []string
 		for _, m := range matches {
-			if w, ok := blitz.Winner(played(last.Number, m)); ok {
+			if w, ok := blitz.Winner(blitzview.Played(last.Number, m)); ok {
 				winners = append(winners, w)
 				seedOf[m.A], seedOf[*m.B] = *m.SeedA, *m.SeedB
 			} else {
@@ -451,7 +452,8 @@ func (s *server) PostAdminBlitzRoundPublish(ctx context.Context, req PostAdminBl
 		return tx.Audit(ctx, me.DiscordID, "blitz.round.publish", fmt.Sprint(req.Round), nil)
 	})
 	switch {
-	case errors.Is(err, store.ErrBlitzRoundIncomplete), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBadBlitzMatch):
+	case errors.Is(err, store.ErrBlitzRoundIncomplete), errors.Is(err, store.ErrBlitzRepeat), errors.Is(err, store.ErrBadBlitzMatch),
+		errors.Is(err, store.ErrBlitzHidden):
 		return PostAdminBlitzRoundPublish409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PostAdminBlitzRoundPublish404JSONResponse{notFound404("no such blitz edition")}, nil

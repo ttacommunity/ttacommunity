@@ -107,7 +107,7 @@ func (s *server) GetAdminBlitzEdition(ctx context.Context, req GetAdminBlitzEdit
 	body := AdminBlitzEdition{Tournament: row.Tournament, Name: row.Name, Edition: row.Edition, Format: row.Format, Champion: row.Champion,
 		Points: blitzPoints(ed.Points), FidePoints: ed.Points == blitz.FIDEScoring, Pairing: blitzPairing(ed.Pairing), RanksFixedBy: ranksFixedByOf[RanksFixedBy](ed.RanksFixedBy),
 		Entrants: make([]AdminBlitzEntrant, len(ed.Entrants)), Rounds: make([]AdminBlitzRound, len(ed.Rounds)), Standings: blitzStandings(ed),
-		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers))}
+		Organisers: make([]AdminBlitzOrganiser, len(ed.Organisers)), Shown: ed.Shown}
 	for i, o := range ed.Organisers {
 		body.Organisers[i] = AdminBlitzOrganiser{Member: o.MemberID, Name: o.Name, DiscordName: o.DiscordName}
 	}

@@ -69,12 +69,12 @@ var exportColumns = map[string][]string{
 // NotExported are the input tables an export leaves out: who the admins are
 // and what they did (Discord ids; a new database adds its admins with
 // load add-admin), the rows a load refused (load history, which no view
-// needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds and skips, which reference the
-// members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and admin's notification
-// endpoints, feeds, the posts, streams and items seen and the notifications waiting to be sent, Movies and its live streams, and the Discord bot and its
+// needs), blitz tournaments' editions, entrants, organisers, thread texts, rounds, skips and rounds posted to
+// Discord, which reference the members, players' accounts, sign-ins, sessions, requests to be linked and emailed links, and admin's notification
+// endpoints with the blitz reminders queued for them, feeds, the posts, streams and items seen and the notifications waiting to be sent, Movies and its live streams, and the Discord bot and its
 // commands. A backup restores them in this order, after ExportTables.
 var NotExported = []string{"refused_rows", "admins", "admin_audit", "blitz_editions", "blitz_entries", "blitz_organisers", "blitz_thread_texts", "blitz_rounds", "blitz_matches", "blitz_skips",
-	"accounts", "logins", "link_requests", "player_sessions", "email_links", "notification_endpoints", "feeds", "notification_feed_subscriptions", "twitch_subscriptions", "twitch_streams", "twitch_posts", "twitch_messages", "rss_items", "notification_outbox", "video_channels", "videos", "youtube_streams", "youtube_posts", "discord_bot", "discord_commands"}
+	"blitz_round_posts", "accounts", "logins", "link_requests", "player_sessions", "email_links", "notification_endpoints", "blitz_reminders", "feeds", "notification_feed_subscriptions", "twitch_subscriptions", "twitch_streams", "twitch_posts", "twitch_messages", "rss_items", "notification_outbox", "video_channels", "videos", "youtube_streams", "youtube_posts", "discord_bot", "discord_commands"}
 
 // NotBackedUp are the input tables a backup leaves out: short-lived sign-in secrets, notifications waiting
 // seconds to be sent, and Twitch's push messages, kept a day to spot repeats. Players sign in again after a restore.

@@ -1,5 +1,6 @@
 // Package notify writes notifications as Discord messages and posts them to Discord webhooks. A message names
-// players as typed, never as markdown or mentions, and links to where admin answers it.
+// players as typed, never as markdown, and links to where admin answers it; only a blitz round tags its players, by
+// the Discord ids of their sign-ins.
 package notify
 
 import (
@@ -11,16 +12,22 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"ttacommunity/backend/internal/blitz"
 	"ttacommunity/backend/internal/discordbot"
 	"ttacommunity/backend/internal/store"
 )
 
-// maxContent is the most characters Discord takes in a message.
-const maxContent = 2000
+// maxContent is the most characters Discord takes in a message, and maxMentions the most roles or users it lets
+// one ping.
+const (
+	maxContent  = 2000
+	maxMentions = 100
+)
 
 // TestText is the message admin's Test button posts.
 const TestText = "A test from ttacommunity admin: notifications reach this channel."
@@ -120,14 +127,17 @@ func prefixed(e store.NotificationEndpoint, text string) string {
 }
 
 // WebhookMessage is what a webhook is sent: text, embeds, or both, with the name and picture it shows (the
-// webhook's own when empty), the thread it opens in a forum channel, and the roles it may ping.
+// webhook's own when empty), the thread it opens in a forum channel or the existing thread it goes into (ThreadID),
+// and the roles and users (by Discord id) it may ping.
 type WebhookMessage struct {
 	Content    string   `json:"content,omitempty"`
 	Embeds     []Embed  `json:"embeds,omitempty"`
 	Username   string   `json:"username,omitempty"`
 	AvatarURL  string   `json:"avatar_url,omitempty"`
 	ThreadName string   `json:"thread_name,omitempty"`
+	ThreadID   string   `json:"-"`
 	Roles      []string `json:"-"`
+	Users      []string `json:"-"`
 }
 
 // Embed is a Discord embed: a framed card with a heading (its author), a linked title, text, fields and pictures.
@@ -174,7 +184,7 @@ const shortText = 300
 const testHeading = "Test from ttacommunity admin"
 
 // Payload is n as e is sent it: an embed in e's colour, an RSS item's in e's look, a run's news linking the
-// leaderboard, a Twitch or YouTube stream's linking it (a stream ended is the edit of its post, its embed only) and
+// leaderboard, a blitz round or podium as text tagging its players, a Twitch or YouTube stream's linking it (a stream ended is the edit of its post, its embed only) and
 // any other headed by what it is; under e's prefix and role, shown with e's name and picture, and opening a thread
 // when e is a forum channel's.
 func Payload(n store.Notification, e store.NotificationEndpoint, admin string) WebhookMessage {
@@ -192,6 +202,15 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 	case "ratings_run", "ratings_top10":
 		embed := runEmbed(n, e.Look)
 		return shaped(e, embed, embed.Title)
+	case "blitz_round", "blitz_reminder", "blitz_finished":
+		text := roundText
+		if n.Kind == "blitz_finished" {
+			text = podiumText
+		}
+		title, body, users := text(n)
+		m := texted(e, body, title)
+		m.Users = users
+		return m
 	case "rss_item":
 		thread := n.RSS.Item.Title
 		if strings.TrimSpace(thread) == "" {
@@ -208,22 +227,34 @@ func TestPayload(e store.NotificationEndpoint) WebhookMessage {
 	return shaped(e, Embed{Title: testHeading, Description: TestText, Color: colour(e.Look.Colour)}, testHeading)
 }
 
-// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture. For a forum
-// channel it opens a thread named thread, and the embed's text moves to the message, which the forum's card shows.
+// shaped is embed as e sends it: under e's prefix and its role's ping, with e's name and picture. Into e's thread
+// when it has one; else, for a forum channel, it opens a thread named thread, and the embed's text moves to the
+// message, which the forum's card shows.
 func shaped(e store.NotificationEndpoint, embed Embed, thread string) WebhookMessage {
-	m := WebhookMessage{Embeds: []Embed{embed}, Username: e.Username, AvatarURL: e.AvatarURL}
+	m := texted(e, "", thread)
+	m.Embeds = []Embed{embed}
+	head := m.Content
+	if e.Forum && e.ThreadID == "" {
+		m.ThreadName = cut(strings.TrimSpace(thread), maxThreadName)
+		room := maxContent - len([]rune(head)) - 1
+		m.Content = strings.TrimSpace(head + " " + discordbot.CutAtWord(m.Embeds[0].Description, room))
+		m.Embeds[0].Description = ""
+	}
+	return m
+}
+
+// texted is text as e sends it, with no card: under e's prefix and its role's ping, with e's name and picture, into
+// e's thread when it has one, else opening a thread named thread in a forum channel.
+func texted(e store.NotificationEndpoint, text, thread string) WebhookMessage {
+	m := WebhookMessage{Username: e.Username, AvatarURL: e.AvatarURL, ThreadID: e.ThreadID}
 	var ping string
 	if e.RoleID != "" {
 		ping = "<@&" + e.RoleID + ">"
 		m.Roles = []string{e.RoleID}
 	}
-	head := strings.TrimSpace(prefixed(e, ping))
-	m.Content = head
-	if e.Forum {
+	m.Content = strings.TrimSpace(strings.TrimSpace(prefixed(e, ping)) + "\n" + text)
+	if e.Forum && e.ThreadID == "" {
 		m.ThreadName = cut(strings.TrimSpace(thread), maxThreadName)
-		room := maxContent - len([]rune(head)) - 1
-		m.Content = strings.TrimSpace(head + " " + discordbot.CutAtWord(m.Embeds[0].Description, room))
-		m.Embeds[0].Description = ""
 	}
 	return m
 }
@@ -308,6 +339,83 @@ func runEmbed(n store.Notification, look store.EmbedLook) Embed {
 	return Embed{Title: "Top 10 changes", URL: r.Link, Description: cut(strings.Join(lines, "\n"), maxEmbedText), Color: colour(look.Colour)}
 }
 
+// places name a podium's places.
+var places = map[int]string{1: "1st", 2: "2nd", 3: "3rd"}
+
+// tagger names players as a blitz post shows them, and keeps whom it tagged: each by username, in bold when asked,
+// with their tag after it in brackets when they signed in with Discord (Discord notifies only a tag in a message's
+// text, never in a card).
+type tagger struct{ users []string }
+
+// name is p as a post shows them, bold or not.
+func (t *tagger) name(p blitz.Person, bold bool) string {
+	name := discordbot.EscapeMarkdown(p.Name)
+	if bold {
+		name = "**" + name + "**"
+	}
+	if tag, ok := blitz.TagOf(p); ok {
+		t.users = append(t.users, p.DiscordID)
+		return name + " (" + tag + ")"
+	}
+	return name
+}
+
+// heading is a blitz post's title as a bold link to its edition, without a preview. Discord shows a backslash
+// escape inside a link's text as written, so the title is not escaped; only brackets, which would end it, become
+// round ones.
+func heading(title, link string) string {
+	return "**[" + strings.NewReplacer("[", "(", "]", ")").Replace(title) + "](<" + link + ">)**"
+}
+
+// roundText is a published round as text, with no card (Discord shows a card below the text): its title, which also
+// names it, as a bold link to the edition, then its deadline on each reader's clock once set, then its games and
+// byes, a line each; for a reminder (blitz_reminder), the games still to play. It returns the title, the text and
+// whom it tags.
+func roundText(n store.Notification) (title, text string, users []string) {
+	b := n.Blitz
+	title = n.Series + " " + n.Edition + " · " + b.Title
+	switch {
+	case n.Kind == "blitz_reminder":
+		title += " reminder"
+	case b.Again:
+		title += ", paired again"
+	}
+	lines := []string{heading(title, b.Link)}
+	if b.Deadline != nil {
+		at := strconv.FormatInt(b.Deadline.Unix(), 10)
+		lines = append(lines, "Deadline: <t:"+at+":F> (<t:"+at+":R>)")
+	}
+	section := "**Pairings**"
+	if n.Kind == "blitz_reminder" {
+		section = "**Still to play**"
+	}
+	lines = append(lines, section)
+	var t tagger
+	for _, g := range b.Games {
+		lines = append(lines, t.name(g[0], false)+" vs "+t.name(g[1], false))
+	}
+	for _, p := range b.Byes {
+		lines = append(lines, "Bye: "+t.name(p, false))
+	}
+	return title, strings.Join(lines, "\n"), t.users
+}
+
+// podiumText is a finished edition's final results as text: its title as a bold link to the edition, then a line
+// per place, the winner in bold. It returns the title, the text and whom it tags.
+func podiumText(n store.Notification) (title, text string, users []string) {
+	title = n.Series + " " + n.Edition + " final results"
+	lines := []string{heading(title, n.Blitz.Link)}
+	var t tagger
+	for _, p := range n.Blitz.Podium {
+		who := make([]string, len(p.People))
+		for i, person := range p.People {
+			who[i] = t.name(person, p.Place == 1)
+		}
+		lines = append(lines, places[p.Place]+": "+list(who))
+	}
+	return title, strings.Join(lines, "\n"), t.users
+}
+
 // thousands is n with commas between its thousands: 205,123.
 func thousands(n int) string {
 	s := strconv.Itoa(n)
@@ -380,7 +488,8 @@ func NewDiscord(hc *http.Client) *Discord {
 	return &Discord{hc: hc}
 }
 
-// Send posts m, its text cut to Discord's limit, to the webhook at webhook, allowing only m's roles to be pinged.
+// Send posts m, its text cut to Discord's limit, to the webhook at webhook, allowing only m's roles and users to be
+// pinged.
 // It returns a *RefusedError when Discord answers other than success; no error holds the URL, whose path is the
 // webhook's secret.
 func (d *Discord) Send(ctx context.Context, webhook string, m WebhookMessage) error {
@@ -402,8 +511,15 @@ func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wa
 	if err != nil {
 		return store.DiscordPost{}, err
 	}
+	query := url.Values{}
+	if m.ThreadID != "" {
+		query.Set("thread_id", m.ThreadID)
+	}
 	if wait {
-		webhook += "?wait=true"
+		query.Set("wait", "true")
+	}
+	if len(query) > 0 {
+		webhook += "?" + query.Encode()
 	}
 	var made struct {
 		ID        string `json:"id"`
@@ -420,24 +536,28 @@ func (d *Discord) post(ctx context.Context, webhook string, m WebhookMessage, wa
 }
 
 // Edit replaces the embeds of message p, posted to endpoint e, with m's, keeping its text and allowing no pings.
-// A forum endpoint's message is found in its thread.
+// A message of a forum endpoint or one with a thread is found in its thread.
 func (d *Discord) Edit(ctx context.Context, e store.NotificationEndpoint, p store.DiscordPost, m WebhookMessage) error {
 	payload, err := withMentions(WebhookMessage{Embeds: m.Embeds})
 	if err != nil {
 		return err
 	}
 	address := e.URL + "/messages/" + url.PathEscape(p.MessageID)
-	if e.Forum {
+	if e.Forum || e.ThreadID != "" {
 		address += "?" + url.Values{"thread_id": {p.ChannelID}}.Encode()
 	}
 	return d.do(ctx, http.MethodPatch, address, bytes.NewReader(payload), "application/json", nil)
 }
 
-// withMentions is m as JSON, allowing only m's roles to be pinged.
+// withMentions is m as JSON, allowing only m's roles and users to be pinged, at most Discord's 100 of each.
 func withMentions(m WebhookMessage) ([]byte, error) {
 	mentions := map[string][]string{"parse": {}}
 	if len(m.Roles) > 0 {
-		mentions["roles"] = m.Roles
+		mentions["roles"] = m.Roles[:min(len(m.Roles), maxMentions)]
+	}
+	if len(m.Users) > 0 {
+		users := slices.Compact(slices.Sorted(slices.Values(m.Users)))
+		mentions["users"] = users[:min(len(users), maxMentions)]
 	}
 	payload, err := json.Marshal(struct {
 		WebhookMessage

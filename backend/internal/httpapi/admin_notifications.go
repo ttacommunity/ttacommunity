@@ -30,7 +30,7 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 		opts[i] = FeedOption{Feed: o.Feed, Categories: orEmpty(o.Categories), Keywords: orEmpty(o.Keywords), Match: &match, WasLive: o.WasLive}
 	}
 	out := NotificationEndpoint{Id: e.ID, Name: e.Name, WebhookId: e.WebhookID(), Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
-		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID,
+		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID, ThreadId: e.ThreadID, BlitzReminderHours: e.BlitzReminderHours,
 		Colour: e.Look.Colour, Text: FeedItemText(e.Look.Text), Image: e.Look.Image,
 		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
 	if e.LastError != "" {
@@ -81,7 +81,7 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	for _, ev := range b.Events {
 		if !ev.Valid() {
-			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run and ratings_top10"
+			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished and blitz_reminder"
 		}
 		e.Events = append(e.Events, string(ev))
 	}
@@ -97,6 +97,12 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	if b.RoleId != nil {
 		e.RoleID = *b.RoleId
+	}
+	if b.ThreadId != nil {
+		e.ThreadID = *b.ThreadId
+	}
+	if b.BlitzReminderHours != nil {
+		e.BlitzReminderHours = *b.BlitzReminderHours
 	}
 	e.Look = store.DefaultLook
 	if b.Colour != nil {

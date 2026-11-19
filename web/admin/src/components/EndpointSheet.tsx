@@ -12,12 +12,12 @@ import Notice from './Notice';
 type Endpoint = components['schemas']['NotificationEndpoint'];
 export type Draft = { url: string } & Pick<
   Endpoint,
-  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'colour' | 'text' | 'image'
+  'name' | 'webhook_id' | 'events' | 'feeds' | 'feed_options' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'thread_id' | 'blitz_reminder_hours' | 'colour' | 'text' | 'image'
 >;
 
 export const EMPTY: Draft = {
   name: '', url: '', webhook_id: '', events: [], feeds: [], feed_options: [], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '',
-  colour: '#ff4500', text: 'full', image: true,
+  thread_id: '', blitz_reminder_hours: 24, colour: '#ff4500', text: 'full', image: true,
 };
 
 interface Props {
@@ -90,7 +90,12 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
         <fieldset className="check-kinds">
           <legend>Posting</legend>
           <label>
-            <input type="checkbox" checked={draft.forum} onChange={(e) => setDraft({ ...draft, forum: e.target.checked })} /> A forum channel: each message opens a thread
+            <input type="checkbox" checked={draft.forum} onChange={(e) => setDraft({ ...draft, forum: e.target.checked })} /> A forum channel: each message opens a thread, unless a thread is set below
+          </label>
+          <label>
+            Post into an existing thread or forum post (its id; none if empty)
+            <input className="input-antique" value={draft.thread_id} inputMode="numeric" placeholder="Copy Thread ID in Discord"
+              onChange={(e) => setDraft({ ...draft, thread_id: e.target.value })} />
           </label>
           <label>
             <input type="checkbox" checked={draft.paused} onChange={(e) => setDraft({ ...draft, paused: e.target.checked })} /> Paused: send nothing
@@ -103,6 +108,13 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
               <input type="checkbox" checked={draft.events.includes(key)} onChange={(e) => setDraft({ ...draft, events: toggled(draft.events, key, e.target.checked) })} /> {label}
             </label>
           ))}
+          {draft.events.includes('blitz_reminder') && (
+            <label>
+              Remind this many hours before a round&apos;s deadline (1 to 168)
+              <input className="input-antique" type="number" min={1} max={168} value={draft.blitz_reminder_hours}
+                onChange={(e) => setDraft({ ...draft, blitz_reminder_hours: e.target.valueAsNumber || 0 })} />
+            </label>
+          )}
         </fieldset>
         <fieldset className="check-kinds">
           <legend>Feeds: what this channel takes</legend>

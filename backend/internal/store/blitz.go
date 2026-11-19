@@ -65,19 +65,20 @@ type BlitzEditionRow struct {
 	Round, PairedRound *int
 	// Champion is the winner of the published final, by username: nil until the final has a winner.
 	Champion *string
-	// Knockout is whether the knockout's first round is published; Bracket, whether the tournament is shown as one.
-	Knockout, Bracket bool
+	// Knockout is whether the knockout's first round is published; Bracket, whether the tournament is shown as one;
+	// Shown, whether the site shows it at all (its rounds are published only then).
+	Knockout, Bracket, Shown bool
 }
 
 // BlitzEntrant is one sign-up: a member in an edition. Name, Player (the ratings' spelling, "" for a player
-// they do not know), DiscordName, Email, Zone and Country are the member's; DiscordName and Email are "" when
-// read for the site. Status is active (in) or dropped; an entrant is added active. Skips are the rounds they
+// they do not know), DiscordName, DiscordID (their Discord sign-in's user id), Email, Zone and Country are the
+// member's; DiscordName, DiscordID and Email are "" when read for the site. Status is active (in) or dropped; an entrant is added active. Skips are the rounds they
 // skip or skipped, in order (for the site, the published ones). To add one, give MemberID (with any details to
 // save on the member), or a Name with the details a new member needs.
 type BlitzEntrant struct {
-	ID, MemberID                                            int64
-	Name, Player, DiscordName, Email, Zone, Country, Status string
-	Skips                                                   []int
+	ID, MemberID                                                       int64
+	Name, Player, DiscordName, DiscordID, Email, Zone, Country, Status string
+	Skips                                                              []int
 	// StartingRank is the Dutch system's starting rank, fixed when round 1 was paired; 0 before.
 	StartingRank int
 }
@@ -162,7 +163,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) WHERE r.tournament_id = t.tournament_id AND m.report = 'flagged')::int,
 		       `+blitzChampionOf+`,
 		       EXISTS (SELECT 1 FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL),
-		       s.bracket
+		       s.bracket, s.visible
 		FROM series s JOIN tournaments t USING (series_id)
 		LEFT JOIN blitz_editions e ON e.tournament_id = t.tournament_id
 		WHERE s.blitz AND (s.visible OR NOT $1) AND ($2 = '' OR (s.slug = $2 AND t.label = $3))
@@ -176,7 +177,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		var r BlitzEditionRow
 		p := &r.Points
 		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
-			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion, &r.Knockout, &r.Bracket)
+			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion, &r.Knockout, &r.Bracket, &r.Shown)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("listing blitz editions: %w", err)
@@ -184,7 +185,12 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	return out, nil
 }
 
-// blitzEdition reads one edition and its entrants, with Discord names and emails for admin only.
+// memberDiscordID is member m's Discord user id, from the Discord sign-in of an account linked to them that was used
+// last, or empty for none.
+const memberDiscordID = `coalesce((SELECT l.subject FROM accounts a JOIN logins l USING (account_id)
+	WHERE a.member_id = m.member_id AND l.provider = 'discord' ORDER BY l.signed_in_at DESC NULLS LAST, l.login_id DESC LIMIT 1), '')`
+
+// blitzEdition reads one edition and its entrants, with Discord names, ids and emails for admin only.
 func blitzEdition(ctx context.Context, db conn, public bool, slug, edition string) (BlitzEdition, error) {
 	rows, err := blitzEditionRows(ctx, db, public, slug, edition)
 	if err != nil {
@@ -194,13 +200,13 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 		return BlitzEdition{}, ErrNoBlitzEdition
 	}
 	got := BlitzEdition{BlitzEditionRow: rows[0], Entrants: []BlitzEntrant{}}
-	discord, email := "m.discord_name", "m.email"
+	discord, discordID, email := "m.discord_name", memberDiscordID, "m.email"
 	if public {
-		discord, email = "''", "''"
+		discord, discordID, email = "''", "''", "''"
 	}
-	// The public role may not read a member's Discord name or email, so those columns are named only for admin.
+	// The public role may not read a member's Discord name, id or email, so those columns are named only for admin.
 	entrants, err := db.Query(ctx, `
-		SELECT x.entry_id, x.member_id, m.tta_name, coalesce(p.name, ''), `+discord+`, `+email+`, m.zone, coalesce(m.country_code, ''), x.status,
+		SELECT x.entry_id, x.member_id, m.tta_name, coalesce(p.name, ''), `+discord+`, `+discordID+`, `+email+`, m.zone, coalesce(m.country_code, ''), x.status,
 		       coalesce(x.starting_rank, 0)
 		FROM blitz_entries x JOIN members m USING (member_id) LEFT JOIN players p ON p.player_id = m.player_id
 		JOIN tournaments t ON t.tournament_id = x.tournament_id JOIN series s USING (series_id)
@@ -211,7 +217,7 @@ func blitzEdition(ctx context.Context, db conn, public bool, slug, edition strin
 	}
 	got.Entrants, err = pgx.CollectRows(entrants, func(row pgx.CollectableRow) (BlitzEntrant, error) {
 		var e BlitzEntrant
-		return e, row.Scan(&e.ID, &e.MemberID, &e.Name, &e.Player, &e.DiscordName, &e.Email, &e.Zone, &e.Country, &e.Status, &e.StartingRank)
+		return e, row.Scan(&e.ID, &e.MemberID, &e.Name, &e.Player, &e.DiscordName, &e.DiscordID, &e.Email, &e.Zone, &e.Country, &e.Status, &e.StartingRank)
 	})
 	if err != nil {
 		return BlitzEdition{}, fmt.Errorf("reading %s %s's entrants: %w", slug, edition, err)

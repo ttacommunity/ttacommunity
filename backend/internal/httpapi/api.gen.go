@@ -774,21 +774,30 @@ func (e NostradamusQuestionKind) Valid() bool {
 
 // Defines values for NotificationEvent.
 const (
-	NotificationEventBlitzFlag    NotificationEvent = "blitz_flag"
-	NotificationEventBlitzReport  NotificationEvent = "blitz_report"
-	NotificationEventFeedFailing  NotificationEvent = "feed_failing"
-	NotificationEventLinkRequest  NotificationEvent = "link_request"
-	NotificationEventRatingsRun   NotificationEvent = "ratings_run"
-	NotificationEventRatingsTop10 NotificationEvent = "ratings_top10"
-	NotificationEventSignUp       NotificationEvent = "sign_up"
+	NotificationEventBlitzFinished NotificationEvent = "blitz_finished"
+	NotificationEventBlitzFlag     NotificationEvent = "blitz_flag"
+	NotificationEventBlitzReminder NotificationEvent = "blitz_reminder"
+	NotificationEventBlitzReport   NotificationEvent = "blitz_report"
+	NotificationEventBlitzRound    NotificationEvent = "blitz_round"
+	NotificationEventFeedFailing   NotificationEvent = "feed_failing"
+	NotificationEventLinkRequest   NotificationEvent = "link_request"
+	NotificationEventRatingsRun    NotificationEvent = "ratings_run"
+	NotificationEventRatingsTop10  NotificationEvent = "ratings_top10"
+	NotificationEventSignUp        NotificationEvent = "sign_up"
 )
 
 // Valid indicates whether the value is a known member of the NotificationEvent enum.
 func (e NotificationEvent) Valid() bool {
 	switch e {
+	case NotificationEventBlitzFinished:
+		return true
 	case NotificationEventBlitzFlag:
 		return true
+	case NotificationEventBlitzReminder:
+		return true
 	case NotificationEventBlitzReport:
+		return true
+	case NotificationEventBlitzRound:
 		return true
 	case NotificationEventFeedFailing:
 		return true
@@ -1481,6 +1490,9 @@ type AdminBlitzEdition struct {
 
 	// Rounds Every round, first first, drafts included
 	Rounds []AdminBlitzRound `json:"rounds"`
+
+	// Shown Whether the site shows the tournament; its rounds are published only then
+	Shown bool `json:"shown"`
 
 	// Standings By rank, as the site shows them; dropped players last
 	Standings []BlitzStanding `json:"standings"`
@@ -4593,6 +4605,9 @@ type NotificationEndpoint struct {
 	// AvatarUrl The picture its messages show; the webhook's own when empty
 	AvatarUrl string `json:"avatar_url"`
 
+	// BlitzReminderHours How many hours before a blitz round's deadline it is reminded, when it takes blitz_reminder
+	BlitzReminderHours int `json:"blitz_reminder_hours"`
+
 	// Colour A feed item's embed colour, #rrggbb
 	Colour string              `json:"colour"`
 	Events []NotificationEvent `json:"events"`
@@ -4633,6 +4648,9 @@ type NotificationEndpoint struct {
 	// Text How much of a feed item's text an endpoint shows
 	Text FeedItemText `json:"text"`
 
+	// ThreadId An existing thread of its channel, such as a forum post, that every message goes into; none when empty
+	ThreadId string `json:"thread_id"`
+
 	// Username The name its messages show; the webhook's own when empty
 	Username string `json:"username"`
 
@@ -4644,6 +4662,9 @@ type NotificationEndpoint struct {
 type NotificationEndpointSetting struct {
 	// AvatarUrl An https picture
 	AvatarUrl *string `json:"avatar_url,omitempty"`
+
+	// BlitzReminderHours How many hours before a blitz round's deadline to remind it, 1 to 168; 24 when left out
+	BlitzReminderHours *int `json:"blitz_reminder_hours,omitempty"`
 
 	// Colour #rrggbb, in lower case; orange when not given
 	Colour *string             `json:"colour,omitempty"`
@@ -4668,6 +4689,9 @@ type NotificationEndpointSetting struct {
 
 	// Text How much of a feed item's text an endpoint shows
 	Text *FeedItemText `json:"text,omitempty"`
+
+	// ThreadId The id of a thread of the webhook's channel, such as a forum post, to post every message into; none when empty or left out
+	ThreadId *string `json:"thread_id,omitempty"`
 
 	// Url A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
 	Url      *string `json:"url,omitempty"`

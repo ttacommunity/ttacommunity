@@ -18,7 +18,7 @@ import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } 
 import { countryNames, type Country } from '@ttac/shared/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, hiddenNote, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminPage from './AdminPage';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -276,6 +276,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     return r === null ? '–' : String(Math.round(r));
   };
   const open = openRound(ed.rounds);
+  const hidden = hiddenNote(ed.shown, ed.name, open);
   const [matchSorts, setMatchSorts] = useState<Record<number, Sort<MatchColumn>>>({});
   const matchCols = matchColumns(nameOf, (id) => byId.get(id)?.rating ?? null);
   // A sorted row keeps i, its place in the round, which unpairing by hand goes by.
@@ -413,6 +414,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
       {dialog.element}
       <h3>Rounds</h3>
       <p className="muted">Pair each round, change it by hand, publish it, then record its results.</p>
+      {hidden !== null && <Note>{hidden}</Note>}
       <div className="admin-add">
         <button type="button" className="btn-antique" disabled={action.kind === 'none'} onClick={() => void pair()}>
           {action.kind === 'next' ? `Pair ${roundTitle(action.round.number, ed.format)}` : 'Pair'}
@@ -422,7 +424,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             Unpair all
           </button>
         )}
-        {open !== null && (open.kind === 'swiss' || open.published_at === null) && (
+        {open !== null && hidden === null && (open.kind === 'swiss' || open.published_at === null) && (
           <button type="button" className="btn-antique" disabled={open.published_at !== null && !changed(open)} onClick={() => void save(open)}>
             {open.published_at === null ? 'Publish' : 'Update'}
           </button>
