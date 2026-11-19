@@ -1,4 +1,4 @@
-/* The sign-up box: its lines spaced, the username field beside its button. Its width is the page's (className). */
+/* The sign-up box's layout inside its panel: its lines spaced, the username field beside its button. */
 .sign-up-closes {
   margin: 0 0 1rem;
 }

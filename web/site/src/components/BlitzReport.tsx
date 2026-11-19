@@ -9,6 +9,7 @@ import { seemsSignedIn, sharedMe } from '../lib/account';
 import { browserStorage } from '@ttac/shared/storage';
 import { confirmReport, fetchMyBlitz, flagQuestion, flagReport, formFor, myMatchStatus, reportGame, type MyBlitz, type MyBlitzMatch } from '../lib/blitz-report';
 import OutcomeNotice from '@ttac/shared/OutcomeNotice';
+import Panel from './Panel';
 
 type Props = { apiUrl: string; slug: string; edition: string; onChanged: () => void; onSeen: (mine: MyBlitz | null) => void };
 
@@ -75,10 +76,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
     );
   const order = turnOrder(match);
   return (
-    <section id="your-game" className="rating-card blitz-card your-game" aria-labelledby="blitz-my-game">
-      <h2 id="blitz-my-game" className="rating-card-heading">
-        Your game, round {match.round}
-      </h2>
+    <Panel id="your-game" title={`Your game, round ${match.round}`}>
       <p className="blitz-intro">
         {match.b === null ? `${names[match.me]}: bye` : `${match.a} v ${match.b}`}. {myMatchStatus(match)}
         {order !== '' && ` ${order}.`}
@@ -132,6 +130,6 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
       )}
       {said !== null && <OutcomeNotice kind={said.ok ? 'done' : 'refused'} text={said.text} onClose={() => setSaid(null)} />}
       {dialog.element}
-    </section>
+    </Panel>
   );
 }

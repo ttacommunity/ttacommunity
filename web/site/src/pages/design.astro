@@ -18,6 +18,7 @@ import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
+import Panel from '../components/Panel';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
 import TitleSelect from '../components/TitleSelect';
@@ -175,6 +176,11 @@ const rows = [
 
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
+
+    <h2>Panel</h2>
+    <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
+      <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
+    </Panel>
 
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">

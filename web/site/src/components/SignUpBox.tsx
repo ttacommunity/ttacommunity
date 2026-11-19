@@ -6,7 +6,7 @@ import Note from '@ttac/shared/Note';
 import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { seemsSignedIn, type Done } from '../lib/account';
 import { closesLine, countLine, fetchMySignUp, signUp, signUpBox, withdraw, type MySignUp, type SignUpBox as Box, type SignUps } from '../lib/sign-up';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 import SignInNote from './SignInNote';
 import './SignUpBox.css';
 
@@ -20,12 +20,10 @@ type Props = {
   entered: number;
   /** Called after the player signs up or withdraws, so the page reads the tournament again. */
   onChanged: () => void;
-  /** The page's own class for its cards, setting the box's width and spacing as its other panels have. */
-  className?: string;
 };
 
 /** SignUpBox reads the viewer's sign-up for the tournament and shows the box for it. */
-export default function SignUpBox({ apiUrl, tournament, season, signUps, entered, onChanged, className }: Props) {
+export default function SignUpBox({ apiUrl, tournament, season, signUps, entered, onChanged }: Props) {
   const [mine, setMine] = useState<MySignUp | null | undefined>(undefined);
   const load = useCallback(async () => {
     setMine(seemsSignedIn(browserStorage()) ? await fetchMySignUp(apiUrl, tournament, season) : null);
@@ -47,7 +45,6 @@ export default function SignUpBox({ apiUrl, tournament, season, signUps, entered
       onEnter={async () => after(await signUp(apiUrl, tournament, season, null))}
       onGiveName={async (name) => after(await signUp(apiUrl, tournament, season, name))}
       onWithdraw={async () => after(await withdraw(apiUrl, tournament, season))}
-      className={className}
     />
   );
 }
@@ -60,11 +57,10 @@ type PanelProps = {
   onEnter: () => Promise<string | null>;
   onGiveName: (name: string) => Promise<string | null>;
   onWithdraw: () => Promise<string | null>;
-  className?: string;
 };
 
 /** SignUpPanel is the box as box says, with what to do in it; the page's SignUpBox gives it the viewer's sign-up. */
-export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdraw, className = '' }: PanelProps) {
+export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdraw }: PanelProps) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -79,8 +75,7 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
     void act(() => onGiveName(name));
   };
   return (
-    <section className={`rating-card panel-card sign-up-box ${className}`.trim()} aria-labelledby="sign-up-heading">
-      <PanelHeader id="sign-up-heading" icon="✍️" title="Sign up" subtitle={count} />
+    <Panel id="sign-up-heading" icon="✍️" title="Sign up" subtitle={count} className="sign-up-box">
       {closes !== null && <p className="sign-up-closes">{closes}</p>}
       {box.kind === 'sign-in' && <SignInNote lead="Want to play?" to="sign up." />}
       {box.kind === 'enter' && (
@@ -123,6 +118,6 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
         </p>
       )}
       {refused !== null && <OutcomeNotice kind="refused" text={refused} onClose={() => setRefused(null)} />}
-    </section>
+    </Panel>
   );
 }
