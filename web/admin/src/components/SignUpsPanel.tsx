@@ -55,7 +55,7 @@ export default function SignUpsPanel({ slug, season, shown, rounds, regions, onE
   };
   const close = async (opener: HTMLElement) => {
     const sure = await dialog.confirm(
-      { heading: 'Close sign-ups?', text: 'Players can no longer sign up or withdraw on the site. You can open them again; that posts nothing to Discord.', action: 'Close sign-ups' },
+      { heading: 'Close sign-ups?', text: 'Players can no longer sign up or withdraw on the site. You can open them again; that posts to Discord again.', action: 'Close sign-ups' },
       opener,
     );
     if (sure) await run(req.setSignUps(slug, season, false, null), 'Sign-ups closed.');
@@ -114,7 +114,7 @@ export default function SignUpsPanel({ slug, season, shown, rounds, regions, onE
               <button type="button" className="btn-antique" onClick={() => setCloses(null)}>
                 Cancel
               </button>
-              <span className="row-detail muted">Leave the day empty for no closing time: sign-ups then close at round 1, or when you close them.{data.sign_ups.open ? '' : ' Opening them the first time posts to the Discord channels taking Blitz sign-ups.'}</span>
+              <span className="row-detail muted">Leave the day empty for no closing time: sign-ups then close at round 1, or when you close them.{data.sign_ups.open ? '' : ' Opening them posts to the Discord channels taking Blitz sign-ups.'}</span>
             </form>
           )}
           {data.pending.length > 0 && (

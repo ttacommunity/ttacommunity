@@ -71,19 +71,19 @@ func signUpError(refusal string) error {
 	return nil
 }
 
-// SetSignUps opens or closes an edition's sign-ups at now, with s's closing time. Opening them the first time queues
-// their news (blitz_sign_ups), once. Opening returns ErrSignUpsHidden, ErrSignUpsStarted or ErrBadSignUps; either
+// SetSignUps opens or closes an edition's sign-ups at now, with s's closing time. Opening closed sign-ups queues their
+// news (blitz_sign_ups); a new closing time for open ones does not. Opening returns ErrSignUpsHidden, ErrSignUpsStarted or ErrBadSignUps; either
 // returns ErrNoBlitzEdition or ErrSignUpsNotOffered.
 func (a *AdminStore) SetSignUps(ctx context.Context, slug, edition string, s SignUps, now time.Time) error {
 	return pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var id int64
-		var blitz, shown, posted, started bool
+		var blitz, shown, wasOpen, started bool
 		err := tx.QueryRow(ctx, `
-			SELECT t.tournament_id, s.blitz, s.visible, t.sign_ups_posted,
+			SELECT t.tournament_id, s.blitz, s.visible, t.sign_ups_open,
 			       EXISTS (SELECT 1 FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id)
 			FROM tournaments t JOIN series s USING (series_id)
 			WHERE s.slug = $1 AND t.label = $2
-			FOR UPDATE OF t`, slug, edition).Scan(&id, &blitz, &shown, &posted, &started)
+			FOR UPDATE OF t`, slug, edition).Scan(&id, &blitz, &shown, &wasOpen, &started)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
 			return ErrNoBlitzEdition
@@ -105,11 +105,8 @@ func (a *AdminStore) SetSignUps(ctx context.Context, slug, edition string, s Sig
 			id, s.Open, s.ClosesAt); err != nil {
 			return fmt.Errorf("setting %s %s's sign-ups: %w", slug, edition, err)
 		}
-		if !s.Open || posted {
+		if !s.Open || wasOpen {
 			return nil
-		}
-		if _, err := tx.Exec(ctx, "UPDATE tournaments SET sign_ups_posted = true WHERE tournament_id = $1", id); err != nil {
-			return fmt.Errorf("marking %s %s's sign-ups posted: %w", slug, edition, err)
 		}
 		if _, err := tx.Exec(ctx, "INSERT INTO notification_outbox (kind, edition_id, created_at, next_at) VALUES ('blitz_sign_ups', $1, $2, $2)",
 			id, now); err != nil {

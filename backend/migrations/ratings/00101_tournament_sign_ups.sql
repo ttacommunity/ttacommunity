@@ -1,13 +1,12 @@
 -- Tournament sign-ups: admin opens a tournament's sign-ups, with a closing time or none, and a player with an account
 -- signs up while they take entries. A linked player is entered at once; an unlinked one's sign-up waits, with the TTA
 -- username they gave, until their account is linked while sign-ups still take entries. Only blitz editions offer them
--- so far, and stop taking entries once round 1 is paired. Opening them is a site event, posted once per tournament.
+-- so far, and stop taking entries once round 1 is paired. Opening them is a site event, posted each time they open.
 -- +goose Up
 ALTER TABLE tournaments
     ADD COLUMN sign_ups_open boolean NOT NULL DEFAULT false,
-    ADD COLUMN sign_ups_close_at timestamptz,
-    ADD COLUMN sign_ups_posted boolean NOT NULL DEFAULT false;
-GRANT UPDATE (sign_ups_open, sign_ups_close_at, sign_ups_posted) ON tournaments TO ratings_admin;
+    ADD COLUMN sign_ups_close_at timestamptz;
+GRANT UPDATE (sign_ups_open, sign_ups_close_at) ON tournaments TO ratings_admin;
 
 CREATE TABLE tournament_sign_ups (
     sign_up_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -246,4 +245,4 @@ DROP FUNCTION enter_pending_sign_ups(bigint, timestamptz);
 DROP FUNCTION sign_ups_waiting(bigint);
 DROP FUNCTION sign_ups_taking(bigint, timestamptz);
 DROP TABLE tournament_sign_ups;
-ALTER TABLE tournaments DROP COLUMN sign_ups_posted, DROP COLUMN sign_ups_close_at, DROP COLUMN sign_ups_open;
+ALTER TABLE tournaments DROP COLUMN sign_ups_close_at, DROP COLUMN sign_ups_open;

@@ -454,7 +454,7 @@ func TestClosingSignUpsIsNeverRefused(t *testing.T) {
 	}
 }
 
-func TestSignUpsArePostedOnceWhenFirstOpened(t *testing.T) {
+func TestSignUpsArePostedEachTimeTheyOpen(t *testing.T) {
 	a, _, _, _ := signUpsFixture(t)
 	ctx := context.Background()
 	later := signInAt.Add(48 * time.Hour)
@@ -466,7 +466,9 @@ func TestSignUpsArePostedOnceWhenFirstOpened(t *testing.T) {
 		{"opening", SignUps{Open: true}, 1},
 		{"moving the closing time", SignUps{Open: true, ClosesAt: &later}, 1},
 		{"closing", SignUps{}, 1},
-		{"opening again", SignUps{Open: true, ClosesAt: &later}, 1},
+		{"closing again", SignUps{}, 1},
+		{"opening again", SignUps{Open: true, ClosesAt: &later}, 2},
+		{"moving the closing time again", SignUps{Open: true}, 2},
 	}
 	for _, s := range steps {
 		if err := a.SetSignUps(ctx, "us_open", "2026", s.s, signInAt); err != nil {
@@ -538,8 +540,8 @@ func TestMigration101sDownTakesSignUpsAwayAndUpBringsThemBack(t *testing.T) {
 			UNION ALL SELECT column_name::text FROM information_schema.columns WHERE table_name = 'tournaments' AND column_name LIKE 'sign_ups_%'
 			UNION ALL SELECT proname::text FROM pg_proc WHERE proname IN ('sign_up', 'withdraw_sign_up', 'sign_ups_taking')`)
 	}
-	if got := present(); len(got) != 7 {
-		t.Fatalf("migrated: %q, want the table, 3 columns and 3 functions", got)
+	if got := present(); len(got) != 6 {
+		t.Fatalf("migrated: %q, want the table, 2 columns and 3 functions", got)
 	}
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 100); return err }); err != nil {
 		t.Fatalf("migrating down to 100: %v", err)
@@ -550,8 +552,8 @@ func TestMigration101sDownTakesSignUpsAwayAndUpBringsThemBack(t *testing.T) {
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.Up(ctx); return err }); err != nil {
 		t.Fatalf("migrating up again: %v", err)
 	}
-	if got := present(); len(got) != 7 {
-		t.Errorf("up again: %q, want the table, 3 columns and 3 functions", got)
+	if got := present(); len(got) != 6 {
+		t.Errorf("up again: %q, want the table, 2 columns and 3 functions", got)
 	}
 }
 

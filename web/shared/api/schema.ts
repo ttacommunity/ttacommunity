@@ -3085,10 +3085,9 @@ export interface paths {
          * @description Only blitz editions take sign-ups so far (400 for another). Opening
          *     needs the tournament shown on the site and no round paired (409),
          *     and a closing time, when given, that can be read and is in the
-         *     future (400). Opening them
-         *     the first time posts blitz_sign_ups to the endpoints taking it,
-         *     once: closing and opening again posts nothing. Audited. The Origin
-         *     must be the admin site.
+         *     future (400). Opening closed sign-ups posts blitz_sign_ups to the
+         *     endpoints taking it, each time; a new closing time for open ones
+         *     posts nothing. Audited. The Origin must be the admin site.
          */
         put: operations["putAdminSignUps"];
         post?: never;
