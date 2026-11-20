@@ -3,10 +3,12 @@ import { useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
 import { downloadUrls } from '../lib/challenge-download';
-import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
+import { challengeHref, challengePicture, challengeSets, formatMeasure, groupPicture, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import Panel from './Panel';
+import Panels from './Panels';
 import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -83,7 +85,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
   const totals = [...SETS.map((s) => ({ label: s.label, scope: scopeOf(s.value) })), { label: 'Everything', scope: scopeOf('all') }];
 
   return (
-    <>
+    <Panels>
       {setScope && (
         <p className="challenges-set-totals">
           <TotalsLine scope={setScope} measure={measure} />
@@ -91,7 +93,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
       )}
 
       {view === 'compact' ? (
-        <section className="rating-card challenges-card">
+        <Panel label="Challenges by group" className="challenges-card">
           <SetGrid
             groups={groups}
             label={(_cs, group) => {
@@ -119,18 +121,19 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
               </>
             )}
           />
-        </section>
+        </Panel>
       ) : (
         groups.map((g) => {
           const scope = scopeOf(set, g.id);
           return (
-            <section key={g.id} className="rating-card challenges-group" data-group={g.id} aria-labelledby={`group-${g.id}`}>
-              <div className="challenges-group-head">
-                <h2 id={`group-${g.id}`} className="rating-card-heading">
-                  {g.label}
-                </h2>
-                {scope && <TotalsLine scope={scope} measure={measure} />}
-              </div>
+            <Panel
+              key={g.id}
+              id={`group-${g.id}`}
+              title={g.label}
+              aside={scope && <TotalsLine scope={scope} measure={measure} />}
+              art={groupPicture(g.id)}
+              className="challenges-group"
+            >
               <div className="challenges-cards">
                 {g.challenges.map((c) => (
                   <div key={c.id} className="challenges-tile">
@@ -151,15 +154,12 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
                   </div>
                 ))}
               </div>
-            </section>
+            </Panel>
           );
         })
       )}
 
-      <section className="rating-card challenges-card" aria-labelledby="challenges-totals">
-        <h2 id="challenges-totals" className="rating-card-heading">
-          Totals
-        </h2>
+      <Panel id="challenges-totals" title="Totals" className="challenges-card">
         <p className="challenges-lead">
           <strong>Pooled</strong> adds up the record of every challenge, as if all players formed one team. <strong>Best single player</strong> ranks players
           by{' '}
@@ -211,12 +211,9 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
 
-      <section className="rating-card challenges-card" aria-labelledby="challenges-holders">
-        <h2 id="challenges-holders" className="rating-card-heading">
-          Most records held
-        </h2>
+      <Panel id="challenges-holders" title="Most records held" className="challenges-card">
         {holders.length === 0 ? (
           <p className="muted">No records yet.</p>
         ) : (
@@ -228,8 +225,8 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
             ))}
           </ol>
         )}
-      </section>
-    </>
+      </Panel>
+    </Panels>
   );
 }
 

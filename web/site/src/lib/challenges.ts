@@ -57,6 +57,13 @@ export function challengePicture(id: string): string {
   return `/img/challenges/${id}.jpg`;
 }
 
+const GROUP_PICTURES = new Set(['cheap', 'classic', 'epic', 'fate', 'immortals', 'impacts', 'kidnappers', 'mix', 'time_travellers', 'wonders']);
+
+/** groupPicture is the art behind a challenge group's panel, or undefined for a group with none. */
+export function groupPicture(group: string): string | undefined {
+  return GROUP_PICTURES.has(group) ? `/img/groups/${group}.jpg` : undefined;
+}
+
 /** challengeHref is the address of a challenge's page. */
 export function challengeHref(id: string): string {
   return `/challenges/${id}/`;

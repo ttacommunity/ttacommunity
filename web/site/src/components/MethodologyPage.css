@@ -6,11 +6,6 @@
 }
 
 .methodology-body {
-  padding: 1.75rem;
-  background: var(--surface-card);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow);
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: 1.05rem;
@@ -129,10 +124,6 @@
 }
 
 @media (max-width: 768px) {
-  .methodology-body {
-    padding: 1.15rem 1rem;
-  }
-
   .methodology-body h2 {
     font-size: 1.15rem;
   }

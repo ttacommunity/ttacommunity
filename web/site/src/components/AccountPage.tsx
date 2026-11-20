@@ -17,6 +17,8 @@ import Waiting from './Waiting';
 import './Account.css';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
@@ -66,10 +68,11 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   return (
     <>
       <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
+      <Panels>
       {notice !== null && (
-        <div className="rating-card account-card">
+        <Panel label="Sign-in result" className="account-card">
           <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
-        </div>
+        </Panel>
       )}
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="your account" />
@@ -84,6 +87,7 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
           refresh={refresh}
         />
       )}
+      </Panels>
     </>
   );
 }
@@ -94,17 +98,14 @@ function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: 
   if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
   const who = signedInAs(me);
   return (
-    <section className="rating-card account-card" aria-labelledby="account-who">
-      <h2 id="account-who" className="rating-card-heading">
-        {first ? `Welcome, ${me.display_name || me.username}` : who.heading}
-      </h2>
+    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} className="account-card">
       {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
       {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
       <Details apiUrl={apiUrl} me={me} state={state} back={back} refresh={refresh} />
       <WaysIn apiUrl={apiUrl} me={me} refresh={refresh} />
       <SignOut apiUrl={apiUrl} state={state} zone={me.zone} />
-    </section>
+    </Panel>
   );
 }
 
@@ -122,10 +123,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
   const returnTo = back ?? window.location.pathname;
   const [emailOpen, setEmailOpen] = useState(false);
   return (
-    <section className="rating-card account-card" aria-labelledby="account-sign-in">
-      <h2 id="account-sign-in" className="rating-card-heading">
-        Sign in or create an account
-      </h2>
+    <Panel id="account-sign-in" title="Sign in or create an account" className="account-card">
       <ul className="account-ways">
         <li>
           <SignerLink signer="discord" href={signInHref(apiUrl, 'discord', returnTo)}>
@@ -169,7 +167,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
         We only keep the minimal information needed for signing in and linking your account. For more about what we keep, see our{' '}
         <a href="/privacy/">privacy page</a>.
       </p>
-    </section>
+    </Panel>
   );
 }
 

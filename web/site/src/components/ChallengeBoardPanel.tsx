@@ -6,6 +6,8 @@ import { CHART, notCounted, recordChart } from '../lib/record-chart';
 import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import Panel from './Panel';
+import Panels from './Panels';
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
 export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id: string }) {
@@ -32,8 +34,8 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
 function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOnly: boolean; day: (instant: string) => string }) {
   const bugged = notCounted(board.entries, verifiedOnly);
   return (
-    <>
-      <section className="rating-card challenges-card" aria-label="Ranking">
+    <Panels>
+      <Panel label="Ranking" className="challenges-card">
         {board.ranking.length === 0 ? (
           <p className="muted">No {verifiedOnly ? 'verified ' : ''}entries yet.</p>
         ) : (
@@ -70,15 +72,12 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
             </table>
           </div>
         )}
-      </section>
+      </Panel>
 
       {board.history.length > 0 && <RecordHistory steps={board.history} day={day} />}
 
       {bugged.length > 0 && (
-        <section className="rating-card challenges-card" aria-labelledby="not-counted">
-          <h3 id="not-counted" className="rating-card-heading">
-            Not counted
-          </h3>
+        <Panel id="not-counted" title="Not counted" className="challenges-card">
           <p className="challenges-lead">
             These were made through a game bug that has since been fixed. They stay listed, but don&apos;t count for records, ranks, ratings or totals.
           </p>
@@ -112,11 +111,12 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
               </tbody>
             </table>
           </div>
-        </section>
+        </Panel>
       )}
 
       {board.entries.length > 0 && (
-        <details className="rating-card challenges-card challenges-all">
+        <Panel label="All submissions" className="challenges-card">
+        <details className="challenges-all">
           <summary>All {board.entries.length} submissions</summary>
           <div className="table-responsive">
             <table className="leaderboard-table">
@@ -149,8 +149,9 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
             </table>
           </div>
         </details>
+        </Panel>
       )}
-    </>
+    </Panels>
   );
 }
 
@@ -162,10 +163,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
   const tipLeft = active !== null && active.at.x > CHART.width - 200;
 
   return (
-    <section className="rating-card challenges-card" aria-labelledby="record-history">
-      <h3 id="record-history" className="rating-card-heading">
-        Record history
-      </h3>
+    <Panel id="record-history" title="Record history" className="challenges-card">
       {steps.length > 1 && (
         <svg className="challenges-chart" viewBox={`0 0 ${CHART.width} ${CHART.height}`} role="img" aria-label="The record over time; the table below lists each rise" onMouseLeave={() => setHover(null)}>
           {chart.yTicks.map((t) => (
@@ -234,6 +232,6 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
           </tbody>
         </table>
       </div>
-    </section>
+    </Panel>
   );
 }

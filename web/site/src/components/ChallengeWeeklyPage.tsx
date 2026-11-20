@@ -7,6 +7,7 @@ import { ChallengePlayerLink } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
 
 /** ChallengeWeeklyPage loads the weeks and lists them. */
 export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; list: ChallengeTile[] }) {
@@ -33,7 +34,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
               </span>
             ))}
           </p>
-          <section className="rating-card challenges-card" aria-label="Weeks">
+          <Panel label="Weeks" className="challenges-card">
             <div className="table-responsive">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">Each week of the weekly challenge, its challenge and who won</caption>
@@ -70,7 +71,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
                 </tbody>
               </table>
             </div>
-          </section>
+          </Panel>
         </>
       )}
     </>

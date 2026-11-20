@@ -24,6 +24,7 @@ import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
 import CopyCode from './CopyCode';
 import Message from './Message';
+import Panel from './Panel';
 
 interface HomeData {
   run: Run;
@@ -110,13 +111,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <section className="rating-card home-feed-section" aria-label="Community Pulse Feed">
-        <div className="home-feed-header-bar">
-          <h2 className="home-feed-heading">
-            <span>📡</span> Community Pulse &amp; Highlights
-          </h2>
-          <span className="home-feed-badge">Live Updates</span>
-        </div>
+      <Panel id="home-feed" icon="📡" title="Community Pulse & Highlights" aside={<span className="home-feed-badge">Live Updates</span>} className="home-feed-section">
 
         {data === null ? (
           <Message form="inline">{waiting ?? 'Loading the latest highlights…'}</Message>
@@ -418,7 +413,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
             </div>
           </div>
         )}
-      </section>
+      </Panel>
 
       {optionsOpener !== null && data && (
         <FeedOptionsModal

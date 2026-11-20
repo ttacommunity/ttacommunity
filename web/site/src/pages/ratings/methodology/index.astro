@@ -3,6 +3,7 @@ import { getEntry, render } from 'astro:content';
 import SiteLayout from '../../../layouts/SiteLayout.astro';
 import '../../../components/MethodologyPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from '../../../components/Panel';
 
 const page = await getEntry('pages', 'methodology');
 if (page === undefined) throw new Error('src/content/methodology.mdx is missing');
@@ -15,8 +16,8 @@ const { Content } = await render(page);
       subtitle={`The formal derivations behind the rating engines, written by DANeo for the original ratings site. Last edited: ${page.data.updated}.`}
     />
 
-    <article class="methodology-body">
+    <Panel label={page.data.title} className="methodology-body">
       <Content />
-    </article>
+    </Panel>
   </div>
 </SiteLayout>

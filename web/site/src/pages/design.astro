@@ -193,6 +193,24 @@ const rows = [
       </Panel>
     </Panels>
 
+    <h2>Panel stripe: commentary</h2>
+    <Panels>
+      <Panel id="design-stripe-gold" icon="📜" title="A summary or guide" stripe="gold">
+        <p>A stripe marks a panel of commentary about the data: what a table means, a player's career in words. Data panels (tables, charts, lists) have none.</p>
+      </Panel>
+      <Panel id="design-stripe-green" title="A finding" stripe="green">
+        <p>Green for a finding the data shows.</p>
+      </Panel>
+      <Panel id="design-stripe-bronze" title="A deep dive" stripe="bronze">
+        <p>Bronze for a deep dive, as the FAQ's.</p>
+      </Panel>
+    </Panels>
+
+    <h2>Panel picture</h2>
+    <Panel id="design-art" title="A panel with a picture" art="/img/groups/classic.jpg">
+      <p>A picture shown faintly behind the panel, such as a challenge group's art.</p>
+    </Panel>
+
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">
       <span class="panel-tag">12 rows</span>
@@ -271,12 +289,6 @@ const rows = [
     </div>
 
     <NewerOlder page={2} pages={5} onPage={() => {}} />
-
-    <section class="rating-card rating-card-note" aria-labelledby="note-heading">
-      <h2 id="note-heading">Note card</h2>
-      <p>A secondary panel inside a card, for guidance text under a table.</p>
-      <p>Its last paragraph is smaller and muted.</p>
-    </section>
   </div>
 </SiteLayout>
 

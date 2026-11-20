@@ -7,9 +7,9 @@ order: 5
 {/* Written by DANeo for the original ratings site. */}
 
 import FaqFigure from '../../components/FaqFigure.astro';
+import Panel from '../../components/Panel';
 
-<div class="faq-card">
-  <h3>Glicko-2 MP-Weighted: Multiplayer Weighting &amp; Fractional Game Variance</h3>
+<Panel title="Glicko-2 MP-Weighted: Multiplayer Weighting & Fractional Game Variance" className="faq-card">
   <div>
 
       <p>
@@ -47,10 +47,9 @@ $$
 </div>
           </div>
 
-</div>
+</Panel>
 
-        <div class="faq-card faq-card-edge">
-  <h3 class="c-yellow" >Does fractional weighting effectively devalue multiplayer matches in the leaderboard?</h3>
+<Panel title="Does fractional weighting effectively devalue multiplayer matches in the leaderboard?" stripe="gold" className="faq-card">
   <div>
 
       <p>
@@ -158,4 +157,4 @@ $$
   </p>
           </div>
 
-</div>
+</Panel>

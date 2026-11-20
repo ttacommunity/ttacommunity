@@ -117,7 +117,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} className="explainer-card">
+      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} stripe="gold" className="explainer-card">
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -137,7 +137,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
           </li>
         </ul>
       </Panel>
-      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" className="explainer-card">
+      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" stripe="gold" className="explainer-card">
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (
@@ -198,7 +198,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
   const [scrolled, setScrolled] = useState(false);
 
   return (
-    <div className={`rating-card table-wrapper${standard ? '' : ' expanded-view'}`}>
+    <Panel label="Community leaderboard" className={standard ? 'table-wrapper' : 'table-wrapper expanded-view'}>
       <div
         className={scrolled ? 'table-responsive scrolled-x' : 'table-responsive'}
         onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
@@ -298,7 +298,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 

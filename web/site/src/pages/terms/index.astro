@@ -4,6 +4,7 @@ import { getEntry, render } from 'astro:content';
 import SiteLayout from '../../layouts/SiteLayout.astro';
 import '../../components/TextPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from '../../components/Panel';
 
 const page = await getEntry('pages', 'terms');
 if (page === undefined) throw new Error('src/content/terms.mdx is missing');
@@ -11,7 +12,7 @@ const { Content } = await render(page);
 ---
 <SiteLayout title="Terms of use | Through the Ages community" description="The terms of using the Through the Ages community site: what it is, what it expects of players, and what it does not promise.">
   <PageHeader title={page.data.title} subtitle={`Last changed ${page.data.updated}.`} />
-  <article class="rating-card text-page-body">
+  <Panel label={page.data.title} className="text-page-body">
     <Content />
-  </article>
+  </Panel>
 </SiteLayout>

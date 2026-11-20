@@ -53,6 +53,8 @@ import './PlayerPage.css';
 import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
+import Panel from './Panel';
+import Panels from './Panels';
 import Waiting from './Waiting';
 import UnratedToggle from './UnratedToggle';
 import RatedFilter from './RatedFilter';
@@ -171,6 +173,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     <div className={optionsOpen ? 'player-layout options-open' : 'player-layout'}>
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
+      <Panels>
       <ViewBar
         actions={
           <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
@@ -190,7 +193,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
 
       <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
 
-      <div className="tables-grid">
         <Games
           state={games}
           view={view}
@@ -205,7 +207,6 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
           }}
         />
         <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
-      </div>
 
       <PositionSeatStats
         state={seats}
@@ -213,6 +214,7 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
         includeUnrated={includeUnrated}
         onToggleUnrated={setIncludeUnrated}
       />
+      </Panels>
 
       {optionsOpen && (
         <PlayerOptionsDrawer
@@ -342,21 +344,27 @@ function Games({
   const data = state.kind === 'ready' ? state.data : null;
   const total = data?.total ?? gamesInFormat;
   return (
-    <div className="rating-card">
-      <div className="panel-head">
-        <h3>
+    <Panel
+      id="game-history"
+      title={
+        <>
           Game History <span className="panel-head-count">(Recent Matches: {total})</span>
-        </h3>
-        {provisional && (
-          <span
-            className="badge badge-calibration"
-            title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
-          >
-            ⏳ Prior Calibration ({gamesInFormat}/15)
-          </span>
-        )}
-        <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
-      </div>
+        </>
+      }
+      aside={
+        <>
+          {provisional && (
+            <span
+              className="badge badge-calibration"
+              title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
+            >
+              ⏳ Prior Calibration ({gamesInFormat}/15)
+            </span>
+          )}
+          <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
+        </>
+      }
+    >
       <ScrollTable hint="full match details">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">
@@ -431,7 +439,7 @@ function Games({
           go={(matchPage) => go({ ...view, matchPage })}
         />
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -477,9 +485,10 @@ function Rivals({
   const way = (col: RivalKey) => (rv.sort?.col === col ? (rv.sort.desc ? 'descending' : 'ascending') : undefined);
 
   return (
-    <div className="rating-card">
-      <div className="panel-head">
-        <h3>Head-to-Head vs Rivals ({filtering ? rows.length : all.length})</h3>
+    <Panel
+      id="rivals"
+      title={`Head-to-Head vs Rivals (${filtering ? rows.length : all.length})`}
+      aside={
         <div className="rivals-controls">
           <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
           <select
@@ -501,7 +510,8 @@ function Rivals({
             onChange={(filter) => setRv({ ...rv, filter })}
           />
         </div>
-      </div>
+      }
+    >
       <ScrollTable hint="full opponent stats">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
@@ -575,7 +585,7 @@ function Rivals({
           </button>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -595,20 +605,13 @@ function PositionSeatStats({
   const overall = data?.overall;
 
   return (
-    <div className="rating-card position-seat-card">
-      <div className="position-seat-head">
-        <div className="position-head-title">
-          <h3>
-            <span aria-hidden="true">🎲</span> Position &amp; Turn Order Performance
-          </h3>
-          <span className="position-head-subtitle">
-            Win rates, average culture scores, and finishing placement distributions by starting seat.
-          </span>
-        </div>
-        <div className="position-filter-toggle">
-          <UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />
-        </div>
-      </div>
+    <Panel
+      id="position-seat"
+      icon="🎲"
+      title="Position & Turn Order Performance"
+      subtitle="Win rates, average culture scores, and finishing placement distributions by starting seat."
+      aside={<UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />}
+    >
 
       {overall && overall.total_games > 0 && (
         <div className="position-delta-banner">
@@ -735,7 +738,7 @@ function PositionSeatStats({
           </tbody>
         </table>
       </ScrollTable>
-    </div>
+    </Panel>
   );
 }
 

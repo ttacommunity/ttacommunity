@@ -30,28 +30,6 @@
   }
 }
 
-.faq-card {
-  position: relative;
-  margin-bottom: 1.5rem;
-  padding: 1.75rem;
-  background: var(--surface-card);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow);
-  backdrop-filter: blur(8px);
-}
-
-.faq-card h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.85rem;
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-subheading);
-  text-shadow: 0 2px 4px var(--shadow-deep);
-}
-
 .faq-card p {
   margin-bottom: 0.75rem;
   color: var(--text-main);
@@ -131,23 +109,6 @@
   padding-bottom: 0.35rem;
 }
 
-.faq-container .faq-section .faq-card-bronze {
-  border-left: 4px solid var(--medal-bronze);
-  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95), var(--surface-well));
-}
-
-.faq-container .faq-section .faq-card-gold {
-  border-left: 4px solid var(--accent-gold);
-  background: linear-gradient(135deg, rgba(35, 20, 10, 0.95), rgba(20, 12, 6, 0.95));
-}
-
-.faq-container .faq-section .faq-card-edge {
-  border-left: 4px solid var(--accent-gold);
-}
-
-.faq-container .faq-section .faq-card-green {
-  border-left: 4px solid var(--win-edge);
-}
 
 .faq-container .faq-section .faq-box {
   background: rgba(14, 9, 6, 0.85);
@@ -391,15 +352,6 @@
   margin-bottom: 1.5rem;
 }
 
-.faq-container .faq-section .faq-eyebrow {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent-gold);
-  margin-bottom: 0.5rem;
-  font-weight: 700;
-}
-
 .faq-container .faq-section .faq-inline {
   display: inline-flex;
   align-items: center;
@@ -495,10 +447,6 @@
 
 .faq-container .faq-section .my-75 {
   margin: 0.75rem 0;
-}
-
-.faq-container .faq-section .m-0 {
-  margin: 0;
 }
 
 .faq-container .faq-section .mt-85 {
@@ -647,15 +595,6 @@
 @media (max-width: 768px) {
   .faq-nav {
     margin-bottom: 1.25rem;
-  }
-
-  .faq-card {
-    margin-bottom: 1.15rem;
-    padding: 1.15rem 1rem;
-  }
-
-  .faq-card h3 {
-    font-size: 1.15rem;
   }
 
   .faq-formula {

@@ -2,8 +2,7 @@
 
 .text-page-body {
   max-width: 44rem;
-  margin: 0 auto 1.5rem;
-  padding: 1.5rem 1.75rem;
+  margin-inline: auto;
   color: var(--text-main);
   line-height: 1.65;
 }

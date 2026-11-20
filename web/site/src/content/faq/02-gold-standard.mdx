@@ -6,11 +6,9 @@ order: 2
 
 {/* Written by DANeo for the original ratings site. */}
 
-<div class="faq-card faq-card-bronze">
-  <div class="faq-eyebrow">GlickoD Engine</div>
-  <h3 class="c-amber">
-    <span>👑</span> The Full-Circle Journey: From Naive Glicko to WHR to GlickoD
-  </h3>
+import Panel from '../../components/Panel';
+
+<Panel icon="👑" title="The Full-Circle Journey: From Naive Glicko to WHR to GlickoD" subtitle="GlickoD Engine" stripe="bronze" className="faq-card">
   <p>
     The journey to the current GlickoD rating engine iteration involved several discoveries: Our starting observation was that standard Glicko-2, while effective overall, showed a <strong>steady overconfidence in high-probability predictions</strong>: when predicting a win chance of $X \ge 90\%$, the actual observed win rate in tournament play was closer to $\approx 89\%$.
   </p>
@@ -48,12 +46,9 @@ order: 2
   <p>
     Additionally, applying a <strong>gentle annual soft season reset</strong> (expanding RD by $\alpha \approx 1.45$ and regressing ratings toward tier anchors by $\lambda \approx 0.12$) improves forward predictive accuracy, counteracting inactive rating inflation and ensuring recent form is balanced with career skill.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>📐</span> Golden Ratio Multiplayer Information Decomposition
-  </h3>
+<Panel icon="📐" title="Golden Ratio Multiplayer Information Decomposition" stripe="bronze" className="faq-card">
   <p>
     In board games with $N \in \{2, 3, 4\}$ players, a single table is conventionally decomposed into $\binom{N}{2}$ pairwise matchups:
   </p>
@@ -173,12 +168,9 @@ $$
   <p>
     Because Through the Ages (and modern competitive board games) caps multiplayer formats strictly at 3-player and 4-player ($N \in \{3, 4\}$), the information discarded due to transitive table overlap is <em>perfectly invariant</em> across every multiplayer format in the game.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🔬</span> Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)
-  </h3>
+<Panel icon="🔬" title="Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)" stripe="bronze" className="faq-card">
   <p>
     When players enter the tournament pool, they begin with a nominal 1500 rating and high uncertainty ($\mathrm{RD} = 350$). Because active veterans average $\approx 1521$ while the overall pool mean is $\approx 1471$, games involving uncalibrated newcomers generate severe network noise, false upsets, and the notorious "50% underconfidence droop" in standard Glicko.
   </p>
@@ -190,12 +182,9 @@ $$
       <span>🔬</span> View Dedicated 15-Game Recalibration Tab &amp; Mathematical Derivation &raquo;
     </a>
   </div>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🎯</span> The Temperature Scaling Journey: Why GlickoD Retired Logit Compression
-  </h3>
+<Panel icon="🎯" title="The Temperature Scaling Journey: Why GlickoD Retired Logit Compression" stripe="bronze" className="faq-card">
   <p>
     One of the most instructive chapters in the development of GlickoD was the rise and subsequent retirement of <strong>Adaptive Temperature Scaling</strong> $T(P, N)$.
   </p>
@@ -293,12 +282,9 @@ $$
   <p>
     <strong>GlickoD operates with $T \equiv 1.0$ across all formats.</strong> Its calibration is anchored by its two core enhancements: Golden Ratio ($\phi$) multiplayer weighting and 15-game emergent prior recalibration.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🏆</span> Empirical Benchmark Scoreboard Across Formats
-  </h3>
+<Panel icon="🏆" title="Empirical Benchmark Scoreboard Across Formats" stripe="bronze" className="faq-card">
   <p>
     The table below documents the final match-time calibration metrics for <strong>GlickoD</strong> (<em>Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo</em>) across all season reset modes on the full historical dataset (388,493 pairwise encounters):
   </p>
@@ -350,4 +336,4 @@ $$
       </tbody>
     </table>
   </div>
-</div>
+</Panel>

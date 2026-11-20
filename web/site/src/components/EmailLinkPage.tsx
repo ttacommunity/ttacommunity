@@ -5,6 +5,7 @@ import { browserStorage } from '@ttac/shared/storage';
 import { emailFinishTarget, finishEmailLink, tokenFromHash } from '../lib/email-sign-in';
 import './Account.css';
 import OutcomeNotice from '@ttac/shared/OutcomeNotice';
+import Panel from './Panel';
 
 type Shown = { kind: 'ready' } | { kind: 'busy' } | { kind: 'expired' | 'refused'; text: string };
 
@@ -24,10 +25,7 @@ export default function EmailLinkPage({ apiUrl }: { apiUrl: string }) {
     window.location.replace(emailFinishTarget(got.outcome, got.back));
   };
   return (
-    <section className="rating-card account-card" aria-labelledby="email-finish">
-      <h2 id="email-finish" className="rating-card-heading">
-        Finish signing in
-      </h2>
+    <Panel id="email-finish" title="Finish signing in" className="account-card">
       {token === null ? (
         <p>
           This page opens from the link in a sign-in email. <a href="/account/">Ask for a link on your account page</a>.
@@ -54,6 +52,6 @@ export default function EmailLinkPage({ apiUrl }: { apiUrl: string }) {
           onClose={() => setShown({ kind: 'ready' })}
         />
       )}
-    </section>
+    </Panel>
   );
 }

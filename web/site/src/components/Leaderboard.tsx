@@ -14,6 +14,8 @@ import {
 import Segmented from '@ttac/shared/Segmented';
 import { count } from '@ttac/shared/numbers';
 import SearchBox from './SearchBox';
+import Panel from './Panel';
+import Panels from './Panels';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
@@ -134,7 +136,8 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className={optionsOpen ? 'leaderboard-layout options-open' : 'leaderboard-layout'}>
-      <div className="rating-card leaderboard">
+      <Panels>
+      <Panel label="Leaderboard" className="leaderboard">
         <div className="format-bar">
           <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
           <div className="format-bar-actions">
@@ -328,18 +331,18 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </>
         )}
 
-        <section className="rating-card rating-card-note" aria-labelledby="leaderboard-guide">
-          <h2 id="leaderboard-guide">Leaderboard Mechanics &amp; Rating Principles</h2>
-          <p>
-            Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
-            sorting metric is the{' '}
-            <strong>
-              Conservative Rating <i>C</i> = <i>μ</i> − 3<i>σ</i>
-            </strong>
-            , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
-          </p>
-        </section>
-      </div>
+      </Panel>
+      <Panel id="leaderboard-guide" title="Leaderboard Mechanics & Rating Principles" stripe="gold">
+        <p>
+          Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
+          sorting metric is the{' '}
+          <strong>
+            Conservative Rating <i>C</i> = <i>μ</i> − 3<i>σ</i>
+          </strong>
+          , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
+        </p>
+      </Panel>
+      </Panels>
 
       {optionsOpen && (
           <OptionsDrawer

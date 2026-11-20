@@ -24,7 +24,8 @@ import Message from './Message';
 import PlayerHeader from './PlayerHeader';
 import { TitleBadge, VideosButton } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 const ADDRESS: Address<MatrixView> = {
   parse: parseMatrixView,
@@ -71,6 +72,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
         linkFormat={(f) => linkTo({ ...view, format: f })}
       />
 
+      <Panels>
       {best !== null && (
         <div className="peak-year-card">
           <div className="peak-year-badge" aria-hidden="true">
@@ -103,12 +105,17 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
         </div>
       )}
 
-      <div className="rating-card matrix-card">
-        <PanelHeader icon="📅" title="Year-by-Year Career Breakdown" subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}>
+      <Panel
+        id="matrix-years"
+        icon="📅"
+        title="Year-by-Year Career Breakdown"
+        subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}
+        aside={
           <span className="matrix-card-note">
             Hover on <strong>ℹ️ Score Index</strong> for composite formula details
           </span>
-        </PanelHeader>
+        }
+      >
         <ScrollTable hint="full career history">
           <table className="leaderboard-table career-history-table">
             <caption className="visually-hidden">Career by year, {formatName}</caption>
@@ -176,7 +183,8 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             </tbody>
           </table>
         </ScrollTable>
-      </div>
+      </Panel>
+      </Panels>
     </>
   );
 }

@@ -4,8 +4,9 @@ label: 'Game ΔR vs Batch Ratings'
 order: 14
 ---
 
-<div class="faq-card">
-  <h3>What is the &Delta;R shown next to each game on the player page?</h3>
+import Panel from '../../components/Panel';
+
+<Panel title="What is the ΔR shown next to each game on the player page?" className="faq-card">
   <div>
     <p>
       The &Delta;R (delta rating) shown in a player&rsquo;s game history is an <strong>estimated standalone impact</strong>. It simulates what that single match would be worth in isolation under Glicko-2 with Golden Ratio multiplayer scaling, evaluated against both players&rsquo; historical pre-month ratings entering the month of the match:
@@ -20,10 +21,9 @@ order: 14
       This provides an intuitive, immediate sense of game stakes&mdash;for instance, showing that defeating a 2000-rated Grandmaster yields a larger positive &Delta;R than beating a 1500-rated opponent, and showing the large rating swings characteristic of early provisional games.
     </p>
   </div>
-</div>
+</Panel>
 
-<div class="faq-card">
-  <h3>Why does &Delta;R differ from actual monthly rating changes?</h3>
+<Panel title="Why does ΔR differ from actual monthly rating changes?" className="faq-card">
   <div>
     <p>
       In competitive Through the Ages rating engines (including Glicko-D and Standard Glicko-2), ratings are <strong>never updated game-by-game</strong>. Instead, all games played in a calendar month are processed together in a single <strong>simultaneous batch update</strong>:
@@ -37,10 +37,9 @@ order: 14
       </li>
     </ol>
   </div>
-</div>
+</Panel>
 
-<div class="faq-card">
-  <h3>Illustrative Example: Batch Update vs Sum of Deltas</h3>
+<Panel title="Illustrative Example: Batch Update vs Sum of Deltas" className="faq-card">
   <div>
     <p>
       Suppose an established player ($R = 1800$, $\mathrm{RD} = 40$) plays 5 matches in June:
@@ -83,4 +82,4 @@ $$
       To see your actual official rating trajectory over time, refer to the <strong>Rating History</strong> chart and month-by-month tables on your player profile.
     </p>
   </div>
-</div>
+</Panel>

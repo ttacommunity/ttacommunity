@@ -38,6 +38,8 @@ import Waiting from './Waiting';
 import { counted } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
 import PlayerHeader from './PlayerHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -206,21 +208,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
     : null;
 
   return (
-    <div className="rating-card ach-records">
-      <div className="ach-records-top">
-        <div>
-          <h2 className="ach-records-title">Historical Tournament Records</h2>
-          <Segmented
-            label="Records"
-            look="tabs"
-            options={[
-              { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
-              { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
-            ]}
-            value={tab}
-            onChange={handleTabChange}
-          />
-        </div>
+    <Panel
+      id="ach-records"
+      title="Historical Tournament Records"
+      aside={
         <FilterInput
           label="Filter tournaments, seasons"
           placeholder="🔍 Filter tournaments, seasons..."
@@ -228,7 +219,18 @@ function Records({ records }: { records: TournamentRecord[] }) {
           value={filter}
           onChange={setFilter}
         />
-      </div>
+      }
+    >
+      <Segmented
+        label="Records"
+        look="tabs"
+        options={[
+          { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
+          { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
+        ]}
+        value={tab}
+        onChange={handleTabChange}
+      />
 
       <Segmented
         label="Tournament category"
@@ -590,7 +592,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
           </ScrollTable>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -614,6 +616,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="achievements-page">
       <Header player={player} />
+      <Panels>
       {totalMedals > 0 ? (
         <div className="medals-grid">
           {s?.world_titles && s.world_titles > 0 ? (
@@ -685,20 +688,16 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       {s && (
-        <div className="rating-card ach-card">
-          <h3 className="ach-card-title">
-            <span>🏅 Career Tournament Honor Roll</span>
-          </h3>
+        <Panel id="ach-honor-roll" icon="🏅" title="Career Tournament Honor Roll" stripe="gold">
           <p className="ach-honor-roll">
             {totalMedals > 0
               ? honorRoll(ach.name, s)
               : `${ach.name} has competed in ${ach.records.filter((r) => !r.career).length} tournament seasons with ${best.totalMatches} competitive matches played (${best.winRate.toFixed(1)}% win rate).`}
           </p>
-        </div>
+        </Panel>
       )}
       {s && s.accolades.length > 0 && (
-        <div className="rating-card ach-card">
-          <h3 className="ach-card-title ach-accolades-title">Featured Career Accolades</h3>
+        <Panel id="ach-accolades" title="Featured Career Accolades" stripe="gold">
           <div className="career-honors-grid">
             {s.accolades.map((a) => (
               <div className="career-honor-badge" key={a}>
@@ -707,9 +706,10 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
       )}
       <Records records={ach.records} />
+      </Panels>
     </div>
   );
 }

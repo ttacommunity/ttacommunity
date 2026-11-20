@@ -14,6 +14,7 @@ import {
 } from '../lib/movies';
 import './MoviesPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Message from './Message';
 
 type FeedState =
   | { kind: 'loading' }
@@ -81,7 +82,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
     return (
       <div className="movies-page">
         <MoviesHero />
-        <p className="movies-status rating-card">Loading videos…</p>
+        <Message role="status">Loading videos…</Message>
       </div>
     );
   }
@@ -89,7 +90,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
     return (
       <div className="movies-page">
         <MoviesHero />
-        <p className="movies-status movies-error rating-card">{state.message}</p>
+        <Message role="alert">{state.message}</Message>
       </div>
     );
   }
@@ -131,7 +132,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       {visible.length === 0 ? (
-        <p className="movies-status rating-card">No videos match the selected creators yet.</p>
+        <Message>No videos match the selected creators yet.</Message>
       ) : (
         <div className="movies-grid">
           {visible.map((v) => (
