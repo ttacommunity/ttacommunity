@@ -45,6 +45,22 @@
   flex: 1;
   min-width: 0;
 }
+/* A header's tag (PageHeader's tag), top right with the title beside it: a tournament's tagline. */
+.page-header-tag {
+  position: relative;
+  z-index: 1;
+  float: right;
+  margin: 0 0 0.75rem 1rem;
+  padding: 0.3rem 0.75rem;
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
+  border-radius: 4px;
+  color: var(--accent-gold);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 /* Centred (a player's pages): the title in the heading face, everything under it centred; the back link stays left. */
 .page-header-centred {
   text-align: center;
@@ -80,5 +96,11 @@
 @media (max-width: 600px) {
   .page-header-media {
     flex-direction: column;
+  }
+  /* On a phone the tag sits on its own line above the title. */
+  .page-header-tag {
+    float: none;
+    display: inline-block;
+    margin: 0 0 0.75rem;
   }
 }

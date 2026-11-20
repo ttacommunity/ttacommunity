@@ -1,9 +1,6 @@
 /* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
 
-/* A tournament's page header (TournamentHero): the icon beside the title, the tagline above it, the description, the figures. */
-.tournament-tagline {
-  margin: 0 0 0.5rem;
-}
+/* A tournament's page header (TournamentHero): the space above its description. */
 .tournament-summary {
   margin: 0.75rem 0 0;
 }

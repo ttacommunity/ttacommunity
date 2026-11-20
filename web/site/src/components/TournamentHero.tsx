@@ -1,4 +1,4 @@
-/** The page header of a tournament's page, and of a circuit's: the card's icon beside the title, its tagline above, its short description under the subtitle, then the figures. */
+/** The page header of a tournament's page, and of a circuit's: the card's icon beside the title, its tagline at the top right, its short description under the subtitle, then the figures. */
 import type { ReactNode } from 'react';
 import PageHeader from '@ttac/shared/PageHeader';
 import type { CardView } from '../lib/tournament-card';
@@ -25,13 +25,7 @@ export default function TournamentHero({
           {card.icon}
         </div>
       }
-      above={
-        card.tagline !== null && (
-          <p className="tournament-tagline">
-            <span className="panel-tag">{card.tagline}</span>
-          </p>
-        )
-      }
+      tag={card.tagline ?? undefined}
       title={title}
       subtitle={
         <>
