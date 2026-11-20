@@ -16,6 +16,7 @@ import { count } from '@ttac/shared/numbers';
 import SearchBox from './SearchBox';
 import Panel from './Panel';
 import Panels from './Panels';
+import Tex from './Tex';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
@@ -337,7 +338,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
           sorting metric is the{' '}
           <strong>
-            Conservative Rating <i>C</i> = <i>μ</i> − 3<i>σ</i>
+            Conservative Rating <Tex tex="C = \mu - 3\sigma" />
           </strong>
           , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
         </p>
