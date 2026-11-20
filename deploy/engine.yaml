@@ -22,8 +22,25 @@ spec:
             app: engine
         spec:
           restartPolicy: Never
-          nodeSelector:
-            kubernetes.io/hostname: unstableserver
+          # An amd64 large node (the image is amd64 only), unstableserver when it is up.
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: workload-size
+                        operator: In
+                        values: [large]
+                      - key: kubernetes.io/arch
+                        operator: In
+                        values: [amd64]
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values: [unstableserver]
           tolerations:
             - key: workload-class
               operator: Equal
