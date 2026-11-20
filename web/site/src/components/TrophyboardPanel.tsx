@@ -4,7 +4,7 @@ import { boardCells } from '../lib/tournament-series';
 import type { BoardEntry } from '../lib/trophyboard';
 import PlayerLink from './PlayerLink';
 import Message from './Message';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 
 /** TrophyboardPanel shows the board, or waiting while rows is null; mark adds a player's title, honours their titles column. */
 export default function TrophyboardPanel<R extends BoardEntry & { details?: string | null }>({
@@ -21,10 +21,7 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
   const board = boardCells(rows ?? []);
   const span = 2 + board.headings.length + (honours ? 1 : 0);
   return (
-    <div className="rating-card panel-card">
-      <PanelHeader icon="🏅" title="Official Trophyboard & Hall of Fame">
-        <span className="panel-tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>
-      </PanelHeader>
+    <Panel id="trophyboard" icon="🏅" title="Official Trophyboard & Hall of Fame" aside={<span className="panel-tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>}>
       <div className="trophy-sub">
         <span>Verified podium &amp; title records</span>
         <span className="trophy-sub-hint">Scroll table ↕</span>
@@ -71,6 +68,6 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }

@@ -21,7 +21,8 @@ import { count } from '@ttac/shared/numbers';
 import Message from './Message';
 import { useFound, useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import SeasonPick from './SeasonPick';
 import Note from '@ttac/shared/Note';
 
@@ -77,10 +78,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
 function CgeList({ data }: { data: Catalogue }) {
   const withGames = new Set(data.tournaments.map((t) => t.slug));
   return (
-    <div className="rating-card panel-card">
-      <PanelHeader title="Tournaments on CGE">
-        <span className="panel-tag">{count(data.cge_tournaments.length)} tournaments</span>
-      </PanelHeader>
+    <Panel id="cge-tournaments" title="Tournaments on CGE" aside={<span className="panel-tag">{count(data.cge_tournaments.length)} tournaments</span>}>
       <p className="records-intro">
         The tournaments on CGE&apos;s site that count towards the ratings. One marked (Not Rated) is shown but does not
         count.
@@ -118,7 +116,7 @@ function CgeList({ data }: { data: Catalogue }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -160,6 +158,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
           ...(card.cadence !== null ? [{ label: 'Cadence & Schedule', value: card.cadence, words: true }] : []),
         ]}
       />
+      <Panels>
       <Champions seasons={t.seasons} podium={hasPodiums(t.seasons)} onPick={pickSeason} word={t.season_name} />
       {content !== undefined && (
         <SeriesSections
@@ -188,6 +187,7 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
       )}
       <Stages seasons={staged} seasonWord={t.season_name} stageWord={t.stage_name} />
       <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} seasonWord={t.season_name} stageWord={t.stage_name} />
+      </Panels>
     </>
   );
 }
@@ -217,12 +217,15 @@ function Champions({
     ));
   };
   return (
-    <div className="rating-card panel-card champions-panel">
-      <PanelHeader title={`Champions & ${plural(word)}`}>
+    <Panel
+      id="champions"
+      title={`Champions & ${plural(word)}`}
+      aside={
         <span className="panel-tag">
           {count(seasons.length)} {plural(lower)}
         </span>
-      </PanelHeader>
+      }
+    >
       <div className="trophy-table-container champions-table">
         <table className="leaderboard-table trophy-table">
           <caption className="records-intro">
@@ -283,7 +286,7 @@ function Champions({
       {podium && (
         <p className="records-intro champions-note">A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.</p>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -293,10 +296,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
   const s = seasons.find((x) => x.label === label) ?? seasons[seasons.length - 1];
   if (s === undefined) return null;
   return (
-    <div className="rating-card panel-card stages-panel">
-      <PanelHeader title={plural(stageWord)}>
-        <SeasonPick id="stages-season" seasons={seasons} value={s.label} word={seasonWord} onChange={setLabel} />
-      </PanelHeader>
+    <Panel id="stages" title={plural(stageWord)} aside={<SeasonPick id="stages-season" seasons={seasons} value={s.label} word={seasonWord} onChange={setLabel} />}>
       <p className="records-intro">
         {seasonName(s.label, seasonWord)}: {seasonDates(s)} · {count(s.games)} games · {count(s.players)} players
         {s.organiser !== null && ` · organised by ${s.organiser}`}
@@ -332,6 +332,6 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }

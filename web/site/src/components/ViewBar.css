@@ -12,6 +12,11 @@
   border-radius: 6px;
 }
 
+/* Over a page's panels, the stack's gap spaces it. */
+.panels > .view-bar {
+  margin-bottom: 0;
+}
+
 .view-bar-actions {
   display: flex;
   flex-wrap: wrap;

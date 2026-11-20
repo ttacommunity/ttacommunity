@@ -12,6 +12,17 @@
   padding: 1.5rem;
 }
 
+/* A page's panels (Panels), one under another; the only spacing between them. */
+.panels {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* A wide table scrolls inside its panel rather than widening the page. */
+.panels > * {
+  min-width: 0;
+}
+
 @media (max-width: 768px) {
   .panel-card {
     padding: 1rem;

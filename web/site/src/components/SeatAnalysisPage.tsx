@@ -8,7 +8,8 @@ import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
 import { useKeptLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import { OptionsPanel, OptionsSection, OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
 
@@ -78,15 +79,17 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
         <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
       </MetricGrid>
 
-      <div className="seat-groups-stack">
+      <Panels>
         {data.groups.map((group: SeatStatsGroup) => {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);
           return (
-            <div key={pc} className="rating-card panel-card eval-table-card">
-              <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
-                <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
-              </PanelHeader>
+            <Panel
+              key={pc}
+              id={`seats-${pc}p`}
+              title={`${pc}-Player Matches • ${count(group.total_games)} games`}
+              aside={<span className="seat-parity-note">Expected Parity: {parity}% per seat</span>}
+            >
               <ScrollTable hint="all placement columns">
                 <table className="leaderboard-table">
                   <caption className="visually-hidden">
@@ -141,10 +144,10 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                   </tbody>
                 </table>
               </ScrollTable>
-            </div>
+            </Panel>
           );
         })}
-      </div>
+      </Panels>
     </>
   );
 }

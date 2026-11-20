@@ -1,13 +1,4 @@
-/* The Tournaments page: its games panel's place, champions, stages and seasons. */
-.games-panel {
-  margin-top: 2rem;
-}
-
-.champions-panel,
-.stages-panel {
-  margin-top: 2rem;
-}
-
+/* The Tournaments page: its champions, stages and seasons. */
 .champions-table {
   max-height: 640px;
 }

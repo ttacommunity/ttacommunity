@@ -19,6 +19,7 @@ import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import Panel from '../components/Panel';
+import Panels from '../components/Panels';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
 import TitleSelect from '../components/TitleSelect';
@@ -181,6 +182,16 @@ const rows = [
     <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
       <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
     </Panel>
+
+    <h2>Panels</h2>
+    <Panels>
+      <Panel id="design-panels-1" title="First panel">
+        <p>A page's panels go in Panels, one under another; its gap is the only space between them.</p>
+      </Panel>
+      <Panel id="design-panels-2" title="Second panel">
+        <p>A row of panels side by side sits in it as one item.</p>
+      </Panel>
+    </Panels>
 
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">

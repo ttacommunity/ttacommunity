@@ -208,9 +208,6 @@
 }
 
 /* WCS & Circuit Analytics Section */
-.wcs-analytics-card {
-  margin-bottom: 2.5rem;
-}
 .wcs-grid-two {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -260,12 +257,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2.5rem;
 }
 
-.hof-two-col > .wcs-analytics-card {
+.hof-two-col > .panel-card {
   min-width: 0;
-  margin-bottom: 0;
 }
 
 .wcs-table .col-rank-narrow {
