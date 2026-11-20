@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 )
@@ -606,5 +607,98 @@ func TestTheSiteCountsSignUpsWaitingForALink(t *testing.T) {
 	}
 	if got, err := a.SignUpsOf(ctx, "us_open", "2026"); err != nil || got.Waiting != 1 {
 		t.Errorf("admin's waiting sign-ups = %d, %v, want 1", got.Waiting, err)
+	}
+}
+
+// usOpen2026 is us_open 2026's tournament id.
+func usOpen2026(t *testing.T, a *AdminStore) int64 {
+	t.Helper()
+	var id int64
+	if err := a.pool.QueryRow(context.Background(), `
+		SELECT t.tournament_id FROM tournaments t JOIN series s USING (series_id) WHERE s.slug = 'us_open' AND t.label = '2026'`).Scan(&id); err != nil {
+		t.Fatalf("finding us_open 2026: %v", err)
+	}
+	return id
+}
+
+// holdTournament begins a transaction holding us_open 2026's row lock, as pairing a round and signing up take it.
+func holdTournament(t *testing.T, a *AdminStore) pgx.Tx {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := a.pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("beginning: %v", err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback(ctx) })
+	if _, err := tx.Exec(ctx, "SELECT 1 FROM tournaments WHERE tournament_id = $1 FOR UPDATE", usOpen2026(t, a)); err != nil {
+		t.Fatalf("locking us_open 2026: %v", err)
+	}
+	return tx
+}
+
+// waitsForALock says whether a session of this test's database comes to wait on a lock within five seconds.
+func waitsForALock(t *testing.T, a *AdminStore) bool {
+	t.Helper()
+	for range 100 {
+		var waiting bool
+		if err := a.pool.QueryRow(context.Background(), `
+			SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity s USING (pid)
+			               WHERE NOT l.granted AND s.datname = current_database())`).Scan(&waiting); err != nil {
+			t.Fatalf("reading the locks: %v", err)
+		}
+		if waiting {
+			return true
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return false
+}
+
+func TestASignUpWaitsWhileRoundOneIsPairedAndIsThenRefused(t *testing.T) {
+	a, p, reader, _ := signUpsFixture(t)
+	ctx := context.Background()
+	openSignUps(t, a, nil)
+	tx := holdTournament(t, a)
+	if _, err := tx.Exec(ctx, "INSERT INTO blitz_rounds (tournament_id, number, method, pairing_order, seed) VALUES ($1, 1, 'dutch', 'rating', 7)", usOpen2026(t, a)); err != nil {
+		t.Fatalf("adding round 1: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := p.SignUp(ctx, tokenHash("eve"), "us_open", "2026", "", signUpAt)
+		done <- err
+	}()
+	if !waitsForALock(t, a) {
+		t.Fatalf("signing up did not wait for round 1 being paired")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("committing round 1: %v", err)
+	}
+	if err := <-done; !errors.Is(err, ErrSignUpsClosed) {
+		t.Errorf("SignUp once round 1 is paired = %v, want %v", err, ErrSignUpsClosed)
+	}
+	if entered(t, reader, "Eve") {
+		t.Errorf("Eve is entered after round 1 was paired, want not")
+	}
+}
+
+func TestPairingRoundOneWaitsForASignUp(t *testing.T) {
+	a, _, _, ids := signUpsFixture(t)
+	ctx := context.Background()
+	openSignUps(t, a, nil)
+	tx := holdTournament(t, a)
+	done := make(chan error, 1)
+	go func() {
+		_, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 7,
+			Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}, {A: ids[2], B: &ids[3]}}})
+		done <- err
+	}()
+	if !waitsForALock(t, a) {
+		t.Fatalf("pairing round 1 did not wait for the sign-up holding the tournament")
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatalf("ending the sign-up: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Errorf("AddBlitzRound after the sign-up = %v, want nil", err)
 	}
 }
