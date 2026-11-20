@@ -56,17 +56,17 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
       return;
     }
     setBusy(true);
-    await done(await reportGame(apiUrl, slug, edition, match.id, r.body), 'Reported.');
+    await done(await reportGame(apiUrl, slug, edition, match.id, 1, r.body), 'Reported.');
   };
   const confirm = async () => {
     setBusy(true);
-    await done(await confirmReport(apiUrl, slug, edition, match.id), 'Confirmed.');
+    await done(await confirmReport(apiUrl, slug, edition, match.id, 1), 'Confirmed.');
   };
   const flag = async (opener: HTMLElement) => {
     const reason = await dialog.ask(flagQuestion(match), opener);
     if (reason === null) return;
     setBusy(true);
-    await done(await flagReport(apiUrl, slug, edition, match.id, reason), 'Flagged for the organisers.');
+    await done(await flagReport(apiUrl, slug, edition, match.id, 1, reason), 'Flagged for the organisers.');
   };
   const side = (who: 'a' | 'b') =>
     form !== null && (

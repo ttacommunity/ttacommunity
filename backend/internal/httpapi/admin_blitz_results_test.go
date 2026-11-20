@@ -28,13 +28,45 @@ func (f *fakeAdmins) findMatch(slug, edition string, id int64) (*store.BlitzMatc
 	return nil, store.ErrNoBlitzMatch
 }
 
-func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id int64, g store.BlitzGame) error {
+func (f *fakeAdmins) SetBlitzRoundBestOf(_ context.Context, slug, edition string, id int64, bestOf int) error {
+	i, err := f.findRound(slug, edition, id)
+	if err != nil {
+		return err
+	}
+	if bestOf != 1 && bestOf != 3 {
+		return store.ErrBadBlitzBestOf
+	}
+	if f.rounds[i].Kind != "knockout" {
+		return store.ErrBlitzBestOfNotOffered
+	}
+	f.rounds[i].BestOf = bestOf
+	f.notes = append(f.notes, fmt.Sprintf("round %d best of %d", id, bestOf))
+	return nil
+}
+
+func (f *fakeAdmins) SetBlitzMatchBestOf(_ context.Context, slug, edition string, id int64, games int) error {
+	m, err := f.findMatch(slug, edition, id)
+	if err != nil {
+		return err
+	}
+	if games != 1 && games != 3 {
+		return store.ErrBadBlitzBestOf
+	}
+	m.BestOf = games
+	f.notes = append(f.notes, fmt.Sprintf("match %d best of %d", id, games))
+	return nil
+}
+
+func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id int64, number int, g store.BlitzGame) error {
 	m, err := f.findMatch(slug, edition, id)
 	if err != nil {
 		return err
 	}
 	if m.B == nil {
 		return store.ErrBlitzBye
+	}
+	if number > max(m.BestOf, 1) {
+		return store.ErrNoBlitzGame
 	}
 	if g.ShareCode == "TAKEN" {
 		return &store.BlitzShareCodeError{GameID: 55}
@@ -56,7 +88,7 @@ func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id
 	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
 	gameID := int64(500 + id)
 	m.Result, m.GameID, m.Game, m.Ruling, m.DecidedAt = result, &gameID, &g, "", &at
-	f.notes = append(f.notes, fmt.Sprintf("game on %d: %s %g/%s/turn %d %g/%s/turn %d", id, g.ShareCode, g.A.Culture, g.A.Outcome, g.A.Turn, g.B.Culture, g.B.Outcome, g.B.Turn))
+	f.notes = append(f.notes, fmt.Sprintf("game on %d%s: %s %g/%s/turn %d %g/%s/turn %d", id, gameOf(number), g.ShareCode, g.A.Culture, g.A.Outcome, g.A.Turn, g.B.Culture, g.B.Outcome, g.B.Turn))
 	return nil
 }
 
@@ -91,6 +123,40 @@ func roundOnePublished(f *fakeAdmins) {
 		Matches: []store.BlitzMatch{{ID: 1010, A: 7, B: &cy}, {ID: 1011, A: 9, B: &dee}}}}
 }
 
+// knockoutPublished is roundOnePublished as a knockout round.
+func knockoutPublished(f *fakeAdmins) {
+	roundOnePublished(f)
+	f.rounds[0].Kind = "knockout"
+}
+
+func TestAnOrganiserSetsBestOfThree(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	knockoutPublished(f)
+	ratings := &fakeRatings{run: store.PublishedRun{ID: 7}}
+	game := `{"share_code": "BO3-2", "a": {"culture": 50, "outcome": "finished", "turn": 1}, "b": {"culture": 40, "outcome": "finished", "turn": 2}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "UTC"}`
+	for _, r := range []struct{ path, body string }{
+		{"/v1/admin/blitz/us_open/2026/rounds/101/best-of", `{"best_of": 3}`},
+		{"/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/best-of", `{"best_of": 3}`},
+		{"/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/2", game},
+	} {
+		if rec := adminDoWith(t, ratings, f, org, http.MethodPut, r.path, site, r.body); rec.Code != http.StatusNoContent {
+			t.Fatalf("PUT %s = %d %s, want 204", r.path, rec.Code, rec.Body)
+		}
+	}
+	if want := "round 101 best of 3|match 1010 best of 3|game on 1010 game 2: BO3-2 50/finished/turn 1 40/finished/turn 2"; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+	for i, w := range []string{"blitz.round.best_of 101", "blitz.match.best_of 1010", "blitz.match.game 1010"} {
+		if i >= len(f.audits) || f.audits[i] != org+" "+w {
+			t.Errorf("audit %d = %q, want %q", i, f.audits, org+" "+w)
+		}
+	}
+	rec := adminDoWith(t, ratings, f, org, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.best_of", `3`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.best_of", `3`)
+}
+
 func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	const site, org = "https://ttac-admin.example", "222222222222222222"
 	f := &fakeAdmins{}
@@ -101,7 +167,7 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 		return adminDoWith(t, ratings, f, org, method, path, site, body)
 	}
 
-	rec := do(http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game",
+	rec := do(http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1",
 		`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished", "turn": 2}, "b": {"culture": 200, "outcome": "resigned", "turn": 1}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe Central"}`)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("PUT game = %d %s, want 204", rec.Code, rec.Body)
@@ -160,27 +226,35 @@ func TestBlitzResultsAreRefusedWhenTheyShouldBe(t *testing.T) {
 		want                       int
 		wantSaid                   string
 	}{
-		{"a game from another site", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", "https://evil.example", game, http.StatusForbidden, ""},
-		{"a game on an unknown edition", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2027/rounds/101/matches/1010/game", site, game, http.StatusNotFound, ""},
-		{"a game on an unknown match", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/99/game", site, game, http.StatusNotFound, ""},
-		{"a game on a bye", withBye, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1012/game", site, game, http.StatusBadRequest, "bye"},
-		{"a share code on another game", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"a game from another site", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", "https://evil.example", game, http.StatusForbidden, ""},
+		{"a game on an unknown edition", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2027/rounds/101/matches/1010/games/1", site, game, http.StatusNotFound, ""},
+		{"a game on an unknown match", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/99/games/1", site, game, http.StatusNotFound, ""},
+		{"a game on a bye", withBye, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1012/games/1", site, game, http.StatusBadRequest, "bye"},
+		{"a share code on another game", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "TAKEN", "a": {"culture": 250, "outcome": "finished"}, "b": {"culture": 200, "outcome": "finished"}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe Central"}`, http.StatusConflict, "55"},
-		{"a game nobody finished", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"a game nobody finished", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "ABCD1234", "a": {"culture": 0, "outcome": "resigned"}, "b": {"culture": 0, "outcome": "timed_out"}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe Central"}`, http.StatusBadRequest, ""},
-		{"an outcome that is not finished, resigned or timed_out", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"an outcome that is not finished, resigned or timed_out", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "won"}, "b": {"culture": 200, "outcome": "finished"}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe Central"}`, http.StatusBadRequest, "outcome"},
-		{"a game finishing in a zone that is not one", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"a game finishing in a zone that is not one", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished"}, "b": {"culture": 200, "outcome": "finished"}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Atlantis"}`, http.StatusBadRequest, "Atlantis"},
-		{"a game finishing at a time that is not one", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"a game finishing at a time that is not one", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished"}, "b": {"culture": 200, "outcome": "finished"}, "finished_on": "2026-10-10", "finished_time": "9pm", "zone": "UTC"}`, http.StatusBadRequest, "9pm"},
-		{"a game finishing after now", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site,
+		{"a game finishing after now", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site,
 			`{"share_code": "ABCD1234", "a": {"culture": 250, "outcome": "finished"}, "b": {"culture": 200, "outcome": "finished"}, "finished_on": "2026-10-12", "finished_time": "09:00", "zone": "UTC"}`, http.StatusBadRequest, "after now"},
-		{"a game with no body", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/game", site, "", http.StatusBadRequest, ""},
+		{"a game with no body", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1", site, "", http.StatusBadRequest, ""},
 		{"a ruling with no reason", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/ruling", site, `{"result": "a", "reason": " "}`, http.StatusBadRequest, ""},
 		{"a ruling that is not a, b, draw or double_loss", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/ruling", site, `{"result": "c", "reason": "x"}`, http.StatusBadRequest, ""},
 		{"a ruling on a bye", withBye, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1012/ruling", site, `{"result": "a", "reason": "x"}`, http.StatusBadRequest, "bye"},
 		{"a ruling on an unknown match", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/99/ruling", site, `{"result": "a", "reason": "x"}`, http.StatusNotFound, ""},
+		{"a second game of a one-game match", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/2", site, game, http.StatusNotFound, "no such game"},
+		{"a fourth game", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/4", site, game, http.StatusNotFound, "no such game"},
+		{"best of 3 in a Swiss round", roundOnePublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/best-of", site, `{"best_of": 3}`, http.StatusConflict, "one game"},
+		{"best of 2", knockoutPublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/best-of", site, `{"best_of": 2}`, http.StatusBadRequest, ""},
+		{"best of 3 in an unknown round", knockoutPublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/999/best-of", site, `{"best_of": 3}`, http.StatusNotFound, ""},
+		{"best of 3 from another site", knockoutPublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/best-of", "https://evil.example", `{"best_of": 3}`, http.StatusForbidden, ""},
+		{"a match of 2", knockoutPublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/best-of", site, `{"best_of": 2}`, http.StatusBadRequest, ""},
+		{"an unknown match of 3", knockoutPublished, http.MethodPut, "/v1/admin/blitz/us_open/2026/rounds/101/matches/99/best-of", site, `{"best_of": 3}`, http.StatusNotFound, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -19,15 +19,19 @@ func (s *server) PutAdminBlitzMatchGame(ctx context.Context, req PutAdminBlitzMa
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(msg)}, nil
 	}
 	err := s.admins.Change(ctx, func(tx Admins) error {
-		if err := tx.RecordBlitzGame(ctx, req.Tournament, req.Edition, req.Match, g); err != nil {
+		if err := tx.RecordBlitzGame(ctx, req.Tournament, req.Edition, req.Match, req.Game, g); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "blitz.match.game", fmt.Sprint(req.Match), req.Body)
+		return tx.Audit(ctx, me.DiscordID, "blitz.match.game", fmt.Sprint(req.Match), map[string]any{"game": req.Game, "record": req.Body})
 	})
 	var taken *store.BlitzShareCodeError
 	switch {
 	case errors.As(err, &taken):
 		return PutAdminBlitzMatchGame409JSONResponse{conflict409(taken.Error())}, nil
+	case errors.Is(err, store.ErrBlitzGameNotNeeded):
+		return PutAdminBlitzMatchGame409JSONResponse{conflict409(err.Error())}, nil
+	case errors.Is(err, store.ErrNoBlitzGame):
+		return PutAdminBlitzMatchGame404JSONResponse{notFound404(err.Error())}, nil
 	case errors.Is(err, store.ErrBadBlitzGame), errors.Is(err, store.ErrBlitzBye):
 		return PutAdminBlitzMatchGame400JSONResponse{badRequest400(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):

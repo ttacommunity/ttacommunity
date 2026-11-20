@@ -65,7 +65,7 @@ func reportLine(m BlitzMatch, ids []int64) string {
 func TestAPlayersReportCountsAtOnceAndTheyMayCorrectIt(t *testing.T) {
 	a, p, reader, ids, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	m := matchNow(t, reader, matches[0])
@@ -78,7 +78,7 @@ func TestAPlayersReportCountsAtOnceAndTheyMayCorrectIt(t *testing.T) {
 	first := *m.GameID
 
 	corrected := BlitzGame{ShareCode: "REP-2", A: finished(40, 1), B: finished(55, 2), Finished: finishedAt}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], corrected, reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, corrected, reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame(a correction): %v", err)
 	}
 	m = matchNow(t, reader, matches[0])
@@ -101,16 +101,16 @@ func TestTheOpponentConfirmsOrFlagsAReport(t *testing.T) {
 		want   string
 	}{
 		{"confirmed", func(p *PlayerStore, match int64) error {
-			return p.ConfirmBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", match, reportsAt)
+			return p.ConfirmBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", match, 1, reportsAt)
 		}, "confirmed by=Ann flag="},
 		{"flagged", func(p *PlayerStore, match int64) error {
-			return p.FlagBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", match, "  I won on culture  ", reportsAt)
+			return p.FlagBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", match, 1, "  I won on culture  ", reportsAt)
 		}, "flagged by=Ann flag=I won on culture"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, p, reader, ids, matches := reportsFixture(t)
-			if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+			if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 				t.Fatalf("ReportBlitzGame: %v", err)
 			}
 			if err := tt.answer(p, matches[0]); err != nil {
@@ -125,7 +125,7 @@ func TestTheOpponentConfirmsOrFlagsAReport(t *testing.T) {
 
 func TestReportsAreRefused(t *testing.T) {
 	annReports := func(t *testing.T, a *AdminStore, p *PlayerStore, matches []int64) {
-		if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+		if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 			t.Fatalf("ReportBlitzGame(Ann): %v", err)
 		}
 	}
@@ -166,7 +166,7 @@ func TestReportsAreRefused(t *testing.T) {
 		}, want: ErrBlitzRoundClosed},
 		{name: "the opponent's report", token: "bob", before: annReports, want: ErrBlitzResultLocked},
 		{name: "an organiser's game", before: func(t *testing.T, a *AdminStore, _ *PlayerStore, matches []int64) {
-			if err := a.RecordBlitzGame(context.Background(), "us_open", "2026", matches[0], reported("ORG")); err != nil {
+			if err := a.RecordBlitzGame(context.Background(), "us_open", "2026", matches[0], 1, reported("ORG")); err != nil {
 				t.Fatalf("RecordBlitzGame: %v", err)
 			}
 		}, want: ErrBlitzResultLocked},
@@ -177,13 +177,13 @@ func TestReportsAreRefused(t *testing.T) {
 		}, want: ErrBlitzResultLocked},
 		{name: "confirmed", before: func(t *testing.T, a *AdminStore, p *PlayerStore, matches []int64) {
 			annReports(t, a, p, matches)
-			if err := p.ConfirmBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", matches[0], reportsAt); err != nil {
+			if err := p.ConfirmBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", matches[0], 1, reportsAt); err != nil {
 				t.Fatalf("ConfirmBlitzResult: %v", err)
 			}
 		}, want: ErrBlitzResultLocked},
 		{name: "flagged", before: func(t *testing.T, a *AdminStore, p *PlayerStore, matches []int64) {
 			annReports(t, a, p, matches)
-			if err := p.FlagBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+			if err := p.FlagBlitzResult(context.Background(), tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 				t.Fatalf("FlagBlitzResult: %v", err)
 			}
 		}, want: ErrBlitzResultLocked},
@@ -211,7 +211,7 @@ func TestReportsAreRefused(t *testing.T) {
 			if tt.match >= 0 {
 				before = resultLine(matchNow(t, reader, match))
 			}
-			if err := p.ReportBlitzGame(context.Background(), tokenHash(token), "us_open", edition, match, game, reportsAt); !errors.Is(err, tt.want) {
+			if err := p.ReportBlitzGame(context.Background(), tokenHash(token), "us_open", edition, match, 1, game, reportsAt); !errors.Is(err, tt.want) {
 				t.Errorf("ReportBlitzGame = %v, want %v", err, tt.want)
 			}
 			if tt.match >= 0 {
@@ -223,11 +223,11 @@ func TestReportsAreRefused(t *testing.T) {
 	}
 	t.Run("a share code on another game", func(t *testing.T) {
 		a, p, _, _, matches := reportsFixture(t)
-		if err := a.RecordBlitzGame(context.Background(), "us_open", "2026", matches[1], reported("TAKEN")); err != nil {
+		if err := a.RecordBlitzGame(context.Background(), "us_open", "2026", matches[1], 1, reported("TAKEN")); err != nil {
 			t.Fatalf("RecordBlitzGame(Cy v Dee): %v", err)
 		}
 		var taken *BlitzShareCodeError
-		if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], reported("TAKEN"), reportsAt); !errors.As(err, &taken) {
+		if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("TAKEN"), reportsAt); !errors.As(err, &taken) {
 			t.Errorf("ReportBlitzGame = %v, want a *BlitzShareCodeError", err)
 		}
 	})
@@ -236,7 +236,7 @@ func TestReportsAreRefused(t *testing.T) {
 func TestAPlayerMayReportAGameFinishedThisMinute(t *testing.T) {
 	_, p, _, _, matches := reportsFixture(t)
 	game := BlitzGame{ShareCode: "NOW", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Truncate(time.Minute)}
-	if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt.Add(59*time.Second)); err != nil {
+	if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, game, reportsAt.Add(59*time.Second)); err != nil {
 		t.Errorf("ReportBlitzGame finished this minute = %v, want nil", err)
 	}
 }
@@ -261,15 +261,15 @@ func TestAnswersAreRefused(t *testing.T) {
 			_, p, reader, _, matches := reportsFixture(t)
 			ctx := context.Background()
 			if tt.report {
-				if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+				if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 					t.Fatalf("ReportBlitzGame: %v", err)
 				}
 			}
 			var err error
 			if tt.reason == "" {
-				err = p.ConfirmBlitzResult(ctx, tokenHash(tt.token), "us_open", "2026", matches[0], reportsAt)
+				err = p.ConfirmBlitzResult(ctx, tokenHash(tt.token), "us_open", "2026", matches[0], 1, reportsAt)
 			} else {
-				err = p.FlagBlitzResult(ctx, tokenHash(tt.token), "us_open", "2026", matches[0], tt.reason, reportsAt)
+				err = p.FlagBlitzResult(ctx, tokenHash(tt.token), "us_open", "2026", matches[0], 1, tt.reason, reportsAt)
 			}
 			if !errors.Is(err, tt.want) {
 				t.Errorf("answering = %v, want %v", err, tt.want)
@@ -288,23 +288,23 @@ func TestAnOrganiserResolvesAFlagAndItStaysLocked(t *testing.T) {
 		result  string
 	}{
 		{"corrected", func(a *AdminStore, match int64) error {
-			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, BlitzGame{ShareCode: "REP-1", A: finished(30, 1), B: finished(60, 2), Finished: finishedAt})
+			return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, 1, BlitzGame{ShareCode: "REP-1", A: finished(30, 1), B: finished(60, 2), Finished: finishedAt})
 		}, "b"},
 		{"ruled", func(a *AdminStore, match int64) error {
 			return a.RecordBlitzRuling(context.Background(), "us_open", "2026", match, "draw", "both right")
 		}, "draw"},
 		{"kept as reported", func(a *AdminStore, match int64) error {
-			return a.KeepBlitzReport(context.Background(), "us_open", "2026", match)
+			return a.KeepBlitzReport(context.Background(), "us_open", "2026", match, 1)
 		}, "a"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a, p, reader, _, matches := reportsFixture(t)
 			ctx := context.Background()
-			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 				t.Fatalf("ReportBlitzGame: %v", err)
 			}
-			if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+			if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 				t.Fatalf("FlagBlitzResult: %v", err)
 			}
 			if err := tt.resolve(a, matches[0]); err != nil {
@@ -314,7 +314,7 @@ func TestAnOrganiserResolvesAFlagAndItStaysLocked(t *testing.T) {
 			if m.Result != tt.result || m.Report != "resolved" || m.FlagReason != "wrong" {
 				t.Errorf("after resolving = %s %q flag=%q, want %s resolved flag=wrong", m.Result, m.Report, m.FlagReason, tt.result)
 			}
-			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); !errors.Is(err, ErrBlitzResultLocked) {
+			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); !errors.Is(err, ErrBlitzResultLocked) {
 				t.Errorf("reporting a resolved result = %v, want ErrBlitzResultLocked", err)
 			}
 		})
@@ -324,10 +324,10 @@ func TestAnOrganiserResolvesAFlagAndItStaysLocked(t *testing.T) {
 func TestAnOrganisersGameOverAReportResolvesIt(t *testing.T) {
 	a, p, reader, _, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], reported("REP-1")); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], 1, reported("REP-1")); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if m := matchNow(t, reader, matches[0]); m.Report != "resolved" || m.FlagReason != "" {
@@ -338,13 +338,13 @@ func TestAnOrganisersGameOverAReportResolvesIt(t *testing.T) {
 func TestOnlyAFlaggedReportIsKept(t *testing.T) {
 	a, p, _, _, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0]); !errors.Is(err, ErrBlitzNotFlagged) {
+	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0], 1); !errors.Is(err, ErrBlitzNotFlagged) {
 		t.Errorf("keeping an unreported match = %v, want ErrBlitzNotFlagged", err)
 	}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0]); !errors.Is(err, ErrBlitzNotFlagged) {
+	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0], 1); !errors.Is(err, ErrBlitzNotFlagged) {
 		t.Errorf("keeping an unflagged report = %v, want ErrBlitzNotFlagged", err)
 	}
 }
@@ -352,13 +352,13 @@ func TestOnlyAFlaggedReportIsKept(t *testing.T) {
 func TestResettingAMatchOpensItToPlayersAgain(t *testing.T) {
 	a, p, reader, ids, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 		t.Fatalf("FlagBlitzResult: %v", err)
 	}
-	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0]); err != nil {
+	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0], 1); err != nil {
 		t.Fatalf("KeepBlitzReport: %v", err)
 	}
 	if err := a.ResetBlitzResult(ctx, "us_open", "2026", matches[0]); err != nil {
@@ -371,7 +371,7 @@ func TestResettingAMatchOpensItToPlayersAgain(t *testing.T) {
 	if err := a.pool.QueryRow(ctx, "SELECT count(*) FROM games WHERE share_code = 'REP-1'").Scan(&games); err != nil || games != 0 {
 		t.Errorf("games with the reset report's code = %d, %v; want 0", games, err)
 	}
-	if err := p.ReportBlitzGame(ctx, tokenHash("bob"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Errorf("reporting after a reset = %v, want nil", err)
 	}
 }
@@ -396,7 +396,7 @@ func TestADrawnKnockoutReportSendsTheHigherSeedThrough(t *testing.T) {
 		t.Fatalf("PublishBlitzRound(final): %v", err)
 	}
 	drawn := BlitzGame{ShareCode: "KO-1", A: finished(90, 1), B: finished(90, 2), Finished: finishedAt}
-	if err := p.ReportBlitzGame(ctx, tokenHash("bob"), "us_open", "2026", final.Matches[0].ID, drawn, reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("bob"), "us_open", "2026", final.Matches[0].ID, 1, drawn, reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame(final): %v", err)
 	}
 	if got := matchNow(t, reader, final.Matches[0].ID).Result; got != "b" {
@@ -407,10 +407,10 @@ func TestADrawnKnockoutReportSendsTheHigherSeedThrough(t *testing.T) {
 func TestPlayersReportsAreAudited(t *testing.T) {
 	a, p, _, _, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 		t.Fatalf("FlagBlitzResult: %v", err)
 	}
 	rows, err := a.pool.Query(ctx, "SELECT action || ' ' || target || ' ' || (detail ? 'account')::text FROM admin_audit WHERE action LIKE 'blitz.match.%' ORDER BY audit_id")
@@ -438,13 +438,17 @@ func TestThePlayerLoginWritesGamesOnlyThroughItsFunctions(t *testing.T) {
 		role, function string
 		want           bool
 	}{
-		{"ratings_player", "report_blitz_game(bytea, timestamptz, text, text, bigint, text, timestamptz, text, jsonb)", true},
-		{"ratings_player", "answer_blitz_report(bytea, timestamptz, text, text, bigint, text, text)", true},
+		{"ratings_player", "report_blitz_game(bytea, timestamptz, text, text, bigint, integer, text, timestamptz, text, jsonb)", true},
+		{"ratings_player", "answer_blitz_report(bytea, timestamptz, text, text, bigint, integer, text, text)", true},
+		{"ratings_player", "answer_blitz_best_of(bytea, timestamptz, text, text, bigint, text)", true},
+		{"ratings_player", "blitz_game_open(bigint, integer)", false},
+		{"ratings_player", "blitz_match_result(bigint, timestamptz)", false},
 		{"ratings_player", "write_game(bigint, text, text, timestamptz, text, text, text, jsonb, bigint)", false},
 		{"ratings_player", "blitz_report_target(bytea, timestamptz, text, text, bigint)", false},
 		{"ratings_admin", "write_game(bigint, text, text, timestamptz, text, text, text, jsonb, bigint)", false},
-		{"ratings_read", "report_blitz_game(bytea, timestamptz, text, text, bigint, text, timestamptz, text, jsonb)", false},
-		{"ratings_read", "answer_blitz_report(bytea, timestamptz, text, text, bigint, text, text)", false},
+		{"ratings_read", "report_blitz_game(bytea, timestamptz, text, text, bigint, integer, text, timestamptz, text, jsonb)", false},
+		{"ratings_read", "answer_blitz_report(bytea, timestamptz, text, text, bigint, integer, text, text)", false},
+		{"ratings_read", "answer_blitz_best_of(bytea, timestamptz, text, text, bigint, text)", false},
 	}
 	for _, tt := range tests {
 		var got bool
@@ -478,7 +482,7 @@ func TestTheDatabaseRefusesABrokenTurnOrder(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got string
-			err := player.QueryRow(ctx, "SELECT report_blitz_game($1, $2, 'us_open', '2026', $3, 'BAD-1', $4, 'a', $5)",
+			err := player.QueryRow(ctx, "SELECT report_blitz_game($1, $2, 'us_open', '2026', $3, 1, 'BAD-1', $4, 'a', $5)",
 				tokenHash("ann"), reportsAt, matches[0], finishedAt, tt.sides).Scan(&got)
 			if err == nil || !strings.Contains(err.Error(), "turn order") {
 				t.Errorf("report_blitz_game(%s) = %q, %v; want refused for its turn order", tt.sides, got, err)
@@ -526,16 +530,19 @@ func TestMigration52sDownTakesAReportFinishedAheadAgain(t *testing.T) {
 	if err := withRatingsMigrations(pool, func(p *goose.Provider) error { _, err := p.DownTo(ctx, 51); return err }); err != nil {
 		t.Fatalf("migrating down to 51: %v", err)
 	}
-	game := BlitzGame{ShareCode: "AHEAD", A: finished(50, 1), B: finished(40, 2), Finished: reportsAt.Add(time.Hour)}
-	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], game, reportsAt); err != nil {
-		t.Errorf("reportBlitzGame finished ahead after the Down = %v, want nil", err)
+	// The old schema's report, as the code before migration 102 made it.
+	const sides = `[{"outcome": "finished", "culture": 50, "place": 1, "position": 0}, {"outcome": "finished", "culture": 40, "place": 2, "position": 1}]`
+	var got string
+	if err := p.pool.QueryRow(ctx, "SELECT report_blitz_game($1, $2, 'us_open', '2026', $3, 'AHEAD', $4, 'a', $5)",
+		tokenHash("ann"), reportsAt, matches[0], reportsAt.Add(time.Hour), sides).Scan(&got); err != nil || got != "reported" {
+		t.Errorf("report_blitz_game finished ahead after the Down = %q, %v; want reported", got, err)
 	}
 }
 
 func TestMigration35sDownKeepsAReportedGameAsAdmins(t *testing.T) {
 	a, p, _, _, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	cfg := a.pool.(*pgxpool.Pool).Config().Copy()
@@ -600,19 +607,19 @@ func TestAdminsEditionListCountsTheFlaggedReports(t *testing.T) {
 		t.Fatal("no us_open 2026 in the list")
 		return 0
 	}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	if got := count(); got != 0 {
 		t.Errorf("flagged before a flag = %d, want 0", got)
 	}
-	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 		t.Fatalf("FlagBlitzResult: %v", err)
 	}
 	if got := count(); got != 1 {
 		t.Errorf("flagged = %d, want 1", got)
 	}
-	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0]); err != nil {
+	if err := a.KeepBlitzReport(ctx, "us_open", "2026", matches[0], 1); err != nil {
 		t.Fatalf("KeepBlitzReport: %v", err)
 	}
 	if got := count(); got != 0 {
@@ -648,10 +655,10 @@ var blitzRecordings = []struct {
 	record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
 }{
 	{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
-		return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, g)
+		return a.RecordBlitzGame(context.Background(), "us_open", "2026", match, 1, g)
 	}},
 	{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
-		return p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
+		return p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", match, 1, g, reportsAt)
 	}},
 }
 
@@ -736,7 +743,7 @@ func TestMigration63GivesTheBlitzSeatsAlreadyRecordedTheirCGEAccounts(t *testing
 	}
 	t.Cleanup(pool.Close)
 	// Reported while Ann is not linked, and read, before the Down: today's reads need today's schema.
-	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], reported("OLD-1"), reportsAt); err != nil {
+	if err := reportBlitzGame(ctx, p.pool, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("OLD-1"), reportsAt); err != nil {
 		t.Fatalf("reportBlitzGame: %v", err)
 	}
 	game := matchNow(t, reader, matches[0]).GameID

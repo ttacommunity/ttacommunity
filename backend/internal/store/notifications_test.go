@@ -75,7 +75,7 @@ func TestPlayersRequestsAndReportsAreNotified(t *testing.T) {
 	report := func(code string, g BlitzGame) func(t *testing.T, p *PlayerStore, matches []int64) {
 		return func(t *testing.T, p *PlayerStore, matches []int64) {
 			g.ShareCode = code
-			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], g, reportsAt); err != nil {
+			if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, g, reportsAt); err != nil {
 				t.Fatalf("ReportBlitzGame(%s): %v", code, err)
 			}
 		}
@@ -91,7 +91,7 @@ func TestPlayersRequestsAndReportsAreNotified(t *testing.T) {
 		{"a report corrected before it is sent", []func(*testing.T, *PlayerStore, []int64){annWins, bobWins},
 			[]string{`blitz_report us_open/2026 "US Open" round=1 Ann v Bob result=b by=Ann corrected=true flag=`}},
 		{"a flagged report", []func(*testing.T, *PlayerStore, []int64){annWins, func(t *testing.T, p *PlayerStore, matches []int64) {
-			if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "I won on culture", reportsAt); err != nil {
+			if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "I won on culture", reportsAt); err != nil {
 				t.Fatalf("FlagBlitzResult: %v", err)
 			}
 		}}, []string{
@@ -99,7 +99,7 @@ func TestPlayersRequestsAndReportsAreNotified(t *testing.T) {
 			`blitz_flag us_open/2026 "US Open" round=1 Ann v Bob result=a by=Ann corrected=false flag=I won on culture`,
 		}},
 		{"a confirmed report, the confirmation not", []func(*testing.T, *PlayerStore, []int64){annWins, func(t *testing.T, p *PlayerStore, matches []int64) {
-			if err := p.ConfirmBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], reportsAt); err != nil {
+			if err := p.ConfirmBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, reportsAt); err != nil {
 				t.Fatalf("ConfirmBlitzResult: %v", err)
 			}
 		}}, []string{`blitz_report us_open/2026 "US Open" round=1 Ann v Bob result=a by=Ann corrected=false flag=`}},
@@ -136,13 +136,13 @@ func TestRefusedRequestsAndReportsAreNotNotified(t *testing.T) {
 		refused func(p *PlayerStore, matches []int64) error
 	}{
 		{"a report of someone else's match", func(p *PlayerStore, matches []int64) error {
-			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[1], reported("REP-1"), reportsAt)
+			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[1], 1, reported("REP-1"), reportsAt)
 		}},
 		{"a report without a share code", func(p *PlayerStore, matches []int64) error {
-			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported(""), reportsAt)
+			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported(""), reportsAt)
 		}},
 		{"a flag of a match not reported", func(p *PlayerStore, matches []int64) error {
-			return p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt)
+			return p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt)
 		}},
 		{"a linked player asking to be linked", func(p *PlayerStore, _ []int64) error {
 			l, err := p.Session(ctx, tokenHash("ann"), reportsAt)
@@ -183,7 +183,7 @@ func TestANotificationAnsweredBeforeItIsSentIsDropped(t *testing.T) {
 func TestAFailedNotificationIsTriedAgainLaterThenDropped(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	failing := func(context.Context, Notification, NotificationEndpoint) error { return errors.New("Discord is down") }
@@ -212,7 +212,7 @@ func TestAFailedNotificationIsTriedAgainLaterThenDropped(t *testing.T) {
 func TestAFailedNotificationIsSentOnTheNextTry(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	got, err := a.SendNotifications(ctx, sendsAt, 10, func(context.Context, Notification, NotificationEndpoint) error { return errors.New("Discord is down") })
@@ -227,7 +227,7 @@ func TestAFailedNotificationIsSentOnTheNextTry(t *testing.T) {
 func TestANotificationBeingSentIsNotSentTwice(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	var meanwhile []string
@@ -256,10 +256,10 @@ func TestEachEndpointGetsTheEventsItTakes(t *testing.T) {
 	if err := p.RequestLink(ctx, l.ID, "Eve", reportsAt); err != nil {
 		t.Fatalf("RequestLink: %v", err)
 	}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "wrong", reportsAt); err != nil {
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "wrong", reportsAt); err != nil {
 		t.Fatalf("FlagBlitzResult: %v", err)
 	}
 	var got []string
@@ -280,7 +280,7 @@ func TestANotificationNoEndpointTakesIsDropped(t *testing.T) {
 	if err := a.RemoveNotificationEndpoint(ctx, mustEndpointID(t, a, "Everything")); err != nil {
 		t.Fatalf("RemoveNotificationEndpoint: %v", err)
 	}
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	if got := sent(t, a, sendsAt); len(got) != 0 {
@@ -296,7 +296,7 @@ func TestARetryPostsOnlyToTheEndpointsThatFailed(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
 	endpoint(t, a, "Down", 2, "blitz_report")
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	var got []string
@@ -419,14 +419,14 @@ func TestTheDatabaseRefusesABadNotificationEndpoint(t *testing.T) {
 func TestACorrectionMadeWhileTheReportIsSentIsSentNext(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
 	var first []string
 	if _, err := a.SendNotifications(ctx, sendsAt, 10, func(_ context.Context, n Notification, _ NotificationEndpoint) error {
 		first = append(first, notificationLine(n))
 		corrected := BlitzGame{ShareCode: "REP-2", A: finished(40, 1), B: finished(55, 2), Finished: finishedAt}
-		if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], corrected, reportsAt); err != nil {
+		if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, corrected, reportsAt); err != nil {
 			t.Errorf("ReportBlitzGame(the correction): %v", err)
 		}
 		return nil

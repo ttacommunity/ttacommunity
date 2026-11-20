@@ -95,6 +95,9 @@ func parts(n store.Notification, admin string) (string, string) {
 		return feedKinds[n.FeedKind] + " reading again", fmt.Sprintf("%s reads again; its new posts are posted. <%s/#notifications>", feedNamed(n), admin)
 	}
 	where := fmt.Sprintf("%s %s, round %d", esc(n.Series), esc(n.Edition), n.Round)
+	if n.Game > 0 {
+		where += fmt.Sprintf(", game %d", n.Game)
+	}
 	link := fmt.Sprintf("<%s/blitz/?t=%s&e=%s>", admin, url.QueryEscape(n.Slug), url.QueryEscape(n.Edition))
 	how := outcome(n.Result, esc(n.A), esc(n.B))
 	if n.Kind == "blitz_flag" {

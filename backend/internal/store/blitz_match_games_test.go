@@ -24,13 +24,13 @@ const oldMatchGameLines = `
 func TestMigration102MovesMatchesGamesToTheirOwnTableAndBack(t *testing.T) {
 	a, p, reader, ids, matches := reportsFixture(t)
 	ctx := context.Background()
-	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], reported("REP-1"), reportsAt); err != nil {
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
 		t.Fatalf("ReportBlitzGame: %v", err)
 	}
-	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], "I won", reportsAt); err != nil {
+	if err := p.FlagBlitzResult(ctx, tokenHash("bob"), "us_open", "2026", matches[0], 1, "I won", reportsAt); err != nil {
 		t.Fatalf("FlagBlitzResult: %v", err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[1], BlitzGame{ShareCode: "ADM-1", A: finished(30, 1), B: finished(60, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[1], 1, BlitzGame{ShareCode: "ADM-1", A: finished(30, 1), B: finished(60, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", matches[1], "a", "Dee left early"); err != nil {

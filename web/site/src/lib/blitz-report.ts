@@ -26,19 +26,19 @@ export async function fetchMyBlitz(base: string, slug: string, edition: string, 
   return (await res.json()) as MyBlitz;
 }
 
-/** reportGame reports the match's game, or corrects the player's own report. */
-export function reportGame(base: string, slug: string, edition: string, id: number, game: BlitzGameRecord, fetchFn: typeof fetch = fetch): Promise<Done> {
-  return change(fetchFn, base, 'PUT', matchPath(slug, edition, id, 'game'), game);
+/** reportGame reports game number of the match, or corrects the player's own report of it. */
+export function reportGame(base: string, slug: string, edition: string, id: number, number: number, game: BlitzGameRecord, fetchFn: typeof fetch = fetch): Promise<Done> {
+  return change(fetchFn, base, 'PUT', matchPath(slug, edition, id, `games/${number}`), game);
 }
 
-/** confirmReport confirms the opponent's report. */
-export function confirmReport(base: string, slug: string, edition: string, id: number, fetchFn: typeof fetch = fetch): Promise<Done> {
-  return change(fetchFn, base, 'POST', matchPath(slug, edition, id, 'confirm'));
+/** confirmReport confirms the opponent's report of game number. */
+export function confirmReport(base: string, slug: string, edition: string, id: number, number: number, fetchFn: typeof fetch = fetch): Promise<Done> {
+  return change(fetchFn, base, 'POST', matchPath(slug, edition, id, `games/${number}/confirm`));
 }
 
-/** flagReport flags the opponent's report as wrong, saying why. */
-export function flagReport(base: string, slug: string, edition: string, id: number, reason: string, fetchFn: typeof fetch = fetch): Promise<Done> {
-  return change(fetchFn, base, 'POST', matchPath(slug, edition, id, 'flag'), { reason: reason.trim() });
+/** flagReport flags the opponent's report of game number as wrong, saying why. */
+export function flagReport(base: string, slug: string, edition: string, id: number, number: number, reason: string, fetchFn: typeof fetch = fetch): Promise<Done> {
+  return change(fetchFn, base, 'POST', matchPath(slug, edition, id, `games/${number}/flag`), { reason: reason.trim() });
 }
 
 /** sides names the player and their opponent. */

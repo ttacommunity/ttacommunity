@@ -1743,7 +1743,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/game": {
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1752,13 +1752,16 @@ export interface paths {
         };
         get?: never;
         /**
-         * Report your match's game, or correct your report
+         * Report a game of your match, or correct your report
          * @description Audited. The Origin must be the site. For a player of the match in
          *     the latest round: it counts at once. The share code and each
          *     player's turn are required.
          *     Reporting again corrects it, until the opponent confirms or flags
-         *     it. Refused once an organiser has entered or ruled the match, when
-         *     the opponent reported it, and once the next round is paired.
+         *     it. Refused once an organiser has entered the game or ruled the
+         *     match, when the opponent reported it, and once the next round is
+         *     paired. A best-of-3 match takes its games in order, and no more once
+         *     they decide it; a one-game match takes game 1 only. Reporting game 1
+         *     lapses a proposal of best of 3 not yet accepted.
          */
         put: operations["putMyBlitzGame"];
         post?: never;
@@ -1768,7 +1771,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/confirm": {
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}/confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -1778,9 +1781,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Confirm your opponent's report
+         * Confirm your opponent's report of a game
          * @description Audited. The Origin must be the site. Players can no longer change
-         *     the result; a mistake found later goes to the organisers.
+         *     the game; a mistake found later goes to the organisers.
          */
         post: operations["postMyBlitzConfirm"];
         delete?: never;
@@ -1789,7 +1792,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/flag": {
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}/flag": {
         parameters: {
             query?: never;
             header?: never;
@@ -1799,12 +1802,38 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Flag your opponent's report as wrong
+         * Flag your opponent's report of a game as wrong
          * @description Audited. The Origin must be the site. Players can no longer change
-         *     the result; admin shows the flag and its reason until an organiser
+         *     the game; admin shows the flag and its reason until an organiser
          *     resolves it.
          */
         post: operations["postMyBlitzFlag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/blitz/{tournament}/{edition}/matches/{match}/best-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Propose best of 3, answer your opponent's proposal, or withdraw your own
+         * @description Audited. The Origin must be the site. For a player of a match in a
+         *     knockout round offering best of 3, before game 1 is reported: a
+         *     proposal waits for the opponent, who accepts or declines it; the
+         *     proposer may withdraw it. A proposal answered by one of the
+         *     opponent's is agreed. Once agreed, the match is best of 3: a win is
+         *     1 and a draw ½, the first to 2 goes through, and the higher seed
+         *     takes a match level after three games.
+         */
+        post: operations["postMyBlitzBestOf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3520,7 +3549,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game": {
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/games/{game}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3529,7 +3558,7 @@ export interface paths {
         };
         get?: never;
         /**
-         * Record the game a match was played as, or correct it
+         * Record a game of a match, or correct it
          * @description Audited. The Origin must be the admin site. The game is written under
          *     the edition's "Round N" stage with a seat for each player, so the
          *     tournament's page shows it at once; recording the match again changes
@@ -3540,8 +3569,10 @@ export interface paths {
          *     game stays a draw as a game and sends the higher seed through. The
          *     share code may be empty, for a game without one; one already on
          *     another game is refused, naming it. The match's ruling, if any, is
-         *     cleared. A player's report it replaces is resolved: players can no
-         *     longer change it.
+         *     cleared, and the match's result worked out again from its games. A
+         *     player's report it replaces is resolved: players can no longer
+         *     change it. A best-of-3 match takes its games in order, and no more
+         *     once they decide it; a one-game match takes game 1 only.
          */
         put: operations["putAdminBlitzMatchGame"];
         post?: never;
@@ -3671,7 +3702,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/keep": {
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/games/{game}/keep": {
         parameters: {
             query?: never;
             header?: never;
@@ -3681,8 +3712,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Resolve a flagged report by keeping its result
-         * @description Audited. The Origin must be the admin site. The result stays as the
+         * Resolve a game's flagged report by keeping its result
+         * @description Audited. The Origin must be the admin site. The game stays as the
          *     player reported it, and players still cannot change it; resetting
          *     the match opens it to them again.
          */
@@ -3864,6 +3895,52 @@ export interface paths {
          *     order may only be what fixed them or random (409).
          */
         put: operations["putAdminBlitzPairing"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/best-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set whether a knockout round's matches may be best of 3
+         * @description Audited. The Origin must be the admin site. 3 lets each match's
+         *     players agree to best of 3 before game 1; 1 keeps every match to one
+         *     game, refused while a match of the round is agreed or proposed as
+         *     best of 3. A Swiss round is always one game.
+         */
+        put: operations["putAdminBlitzRoundBestOf"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/best-of": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a match to one game or best of 3, as an organiser decides
+         * @description Audited. The Origin must be the admin site. Only in a round offering
+         *     best of 3. Any proposal is dropped, and the match's result is worked
+         *     out again from its games. Back to one game is refused once the match
+         *     has a second game.
+         */
+        put: operations["putAdminBlitzMatchBestOf"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5129,6 +5206,8 @@ export interface components {
         };
         /** @description A published round as the site shows it */
         BlitzRound: {
+            /** @description 3 when the knockout round's matches may be best of 3, as their players agree; else 1 */
+            best_of: number;
             /** @description The method a Swiss round was paired with; null for a knockout round */
             method: components["schemas"]["BlitzPairingMethod"] | null;
             /** @description The order a Swiss round was paired by; null for a knockout round */
@@ -5144,6 +5223,10 @@ export interface components {
         };
         /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
+            /** @description The games the match is played as, 1 or 3 (agreed) */
+            best_of: number;
+            /** @description Its games so far, in order; game is the first of them */
+            games: components["schemas"]["BlitzPublicGame"][];
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
             a_seed: number | null;
             /** @description In a knockout match, b's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
@@ -5161,6 +5244,28 @@ export interface components {
             /** @description Whether the result is the organisers' ruling rather than the game's outcome */
             ruled: boolean;
         };
+        /** @description One game of a match, with its own result */
+        BlitzPublicGame: {
+            number: number;
+            result: components["schemas"]["BlitzGameResult"];
+            game: components["schemas"]["BlitzPlayedGame"];
+        };
+        /**
+         * @description Who won a game, or a draw
+         * @enum {string}
+         */
+        BlitzGameResult: "a" | "b" | "draw";
+        BlitzBestOf: {
+            best_of: number;
+        };
+        BlitzBestOfAnswer: {
+            answer: components["schemas"]["BlitzBestOfAction"];
+        };
+        /**
+         * @description Propose best of 3, accept or decline the opponent's proposal, or withdraw your own
+         * @enum {string}
+         */
+        BlitzBestOfAction: "propose" | "accept" | "decline" | "withdraw";
         /**
          * @description Who won, a draw, or a double loss
          * @enum {string}
@@ -5314,6 +5419,15 @@ export interface components {
         };
         /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
         AdminBlitzMatch: {
+            /** @description The games the match is played as, 1 or 3 (agreed) */
+            best_of: number;
+            /**
+             * Format: int64
+             * @description The entrant proposing best of 3, waiting for the opponent; null for none
+             */
+            proposed_by: number | null;
+            /** @description Its games so far, in order; game, reported_by, report and flag_reason are the first's */
+            games: components["schemas"]["AdminBlitzMatchGame"][];
             /**
              * Format: int64
              * @description The entrant who reported the game; null when no player did
@@ -5352,7 +5466,22 @@ export interface components {
             /** Format: date-time */
             decided_at: string | null;
         };
+        /** @description One game of a match, with its own result and a player's report of it */
+        AdminBlitzMatchGame: {
+            number: number;
+            result: components["schemas"]["BlitzGameResult"];
+            game: components["schemas"]["BlitzPlayedGame"];
+            /**
+             * Format: int64
+             * @description The entrant who reported the game; null when no player did
+             */
+            reported_by: number | null;
+            report: components["schemas"]["BlitzReport"] | null;
+            flag_reason: string;
+        };
         AdminBlitzRound: {
+            /** @description 3 when the knockout round's matches may be best of 3, as their players agree; else 1 */
+            best_of: number;
             /** Format: int64 */
             id: number;
             number: number;
@@ -5647,6 +5776,8 @@ export interface components {
         /** @description Who reported a match's game, the match named by its round and side a */
         BlitzMatchReport: {
             round: number;
+            /** @description The game's number in its match */
+            game: number;
             a: string;
             reported_by: string;
             /** @description Whether the opponent confirmed the report */
@@ -5654,6 +5785,18 @@ export interface components {
         };
         /** @description A signed-in player's match, sides as the match names them, and what they may do with it now */
         MyBlitzMatch: {
+            /** @description The games the match is played as, 1 or 3 (agreed) */
+            best_of: number;
+            /** @description Whether the round lets its matches be best of 3 */
+            best_of_offered: boolean;
+            /** @description Which side proposes best of 3, waiting for the other; null for none */
+            proposed_by: components["schemas"]["MatchSide"] | null;
+            /** @description What the player may do about best of 3 now; empty once it is settled */
+            best_of_actions: components["schemas"]["BlitzBestOfAction"][];
+            /** @description The match's games so far, in order, each with what the player may do with it */
+            games: components["schemas"]["MyBlitzGame"][];
+            /** @description The number of the game the player may report next; null when the match takes no more */
+            next_game: number | null;
             /** Format: int64 */
             id: number;
             round: number;
@@ -5677,6 +5820,17 @@ export interface components {
              *     confirm or flag the opponent's report. Empty once players can no
              *     longer change it
              */
+            actions: ("report" | "confirm" | "flag")[];
+        };
+        /** @description One game of a signed-in player's match, and what they may do with it now */
+        MyBlitzGame: {
+            number: number;
+            result: components["schemas"]["BlitzGameResult"];
+            game: components["schemas"]["BlitzPlayedGame"];
+            report: components["schemas"]["BlitzReport"] | null;
+            reported_by: components["schemas"]["MatchSide"] | null;
+            flag_reason: string;
+            /** @description Correct their own report, or confirm or flag the opponent's; empty once players can no longer change it */
             actions: ("report" | "confirm" | "flag")[];
         };
         BlitzRuling: {
@@ -7954,6 +8108,8 @@ export interface components {
         BlitzEntrantId: number;
         BlitzRoundId: number;
         BlitzMatchId: number;
+        /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+        BlitzGameNumber: number;
         SignUpId: number;
         AccountId: number;
         LinkRequestId: number;
@@ -10137,6 +10293,8 @@ export interface operations {
                 /** @description The edition's label, as admin lists it (a season) */
                 edition: components["parameters"]["BlitzEditionLabel"];
                 match: components["parameters"]["BlitzMatchId"];
+                /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+                game: components["parameters"]["BlitzGameNumber"];
             };
             cookie?: never;
         };
@@ -10170,6 +10328,8 @@ export interface operations {
                 /** @description The edition's label, as admin lists it (a season) */
                 edition: components["parameters"]["BlitzEditionLabel"];
                 match: components["parameters"]["BlitzMatchId"];
+                /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+                game: components["parameters"]["BlitzGameNumber"];
             };
             cookie?: never;
         };
@@ -10198,6 +10358,8 @@ export interface operations {
                 /** @description The edition's label, as admin lists it (a season) */
                 edition: components["parameters"]["BlitzEditionLabel"];
                 match: components["parameters"]["BlitzMatchId"];
+                /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+                game: components["parameters"]["BlitzGameNumber"];
             };
             cookie?: never;
         };
@@ -10208,6 +10370,39 @@ export interface operations {
         };
         responses: {
             /** @description Flagged */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotYourMatch"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    postMyBlitzBestOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzBestOfAnswer"];
+            };
+        };
+        responses: {
+            /** @description Answered */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -13050,6 +13245,8 @@ export interface operations {
                 edition: components["parameters"]["BlitzEditionLabel"];
                 round: components["parameters"]["BlitzRoundId"];
                 match: components["parameters"]["BlitzMatchId"];
+                /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+                game: components["parameters"]["BlitzGameNumber"];
             };
             cookie?: never;
         };
@@ -13235,6 +13432,8 @@ export interface operations {
                 edition: components["parameters"]["BlitzEditionLabel"];
                 round: components["parameters"]["BlitzRoundId"];
                 match: components["parameters"]["BlitzMatchId"];
+                /** @description The game's number in its match, from 1; a match is one game unless its players agree to best of 3 */
+                game: components["parameters"]["BlitzGameNumber"];
             };
             cookie?: never;
         };
@@ -13579,6 +13778,73 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    putAdminBlitzRoundBestOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzBestOf"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    putAdminBlitzMatchBestOf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The edition's label, as admin lists it (a season) */
+                edition: components["parameters"]["BlitzEditionLabel"];
+                round: components["parameters"]["BlitzRoundId"];
+                match: components["parameters"]["BlitzMatchId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlitzBestOf"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     putAdminBlitzRoundDeadline: {
         parameters: {
             query?: never;
@@ -13798,12 +14064,15 @@ export const challengeScopeSetValues: ReadonlyArray<FlattenedDeepRequired<compon
 export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];
 export const adminChallengeViewValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeView"]> = ["all", "unchecked", "checked", "unverified", "flagged", "bugged", "hidden"];
 export const adminChallengeEntrySourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminChallengeEntry"]["source"]> = ["sheet", "web", "site"];
+export const blitzGameResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzGameResult"]> = ["a", "b", "draw"];
+export const blitzBestOfActionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzBestOfAction"]> = ["propose", "accept", "decline", "withdraw"];
 export const blitzResultValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzResult"]> = ["a", "b", "draw", "double_loss"];
 export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatOutcome"]> = ["finished", "resigned", "timed_out"];
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
 export const blitzPairingOrderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingOrder"]> = ["rating", "lot", "random"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];
 export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
+export const myBlitzGameActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzGame"]["actions"]> = ["report", "confirm", "flag"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];
 export const deltaWindowValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DeltaWindow"]> = ["last_update", "month", "quarter", "year"];

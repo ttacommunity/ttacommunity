@@ -130,11 +130,12 @@ export const setBlitzThreadText = (slug: string, edition: string, text: Schemas[
 export const resetBlitzThreadText = (slug: string, edition: string) => to(`${blitz(slug, edition)}/thread-text`, 'DELETE');
 /** deleteBlitzRound removes a draft round. */
 export const deleteBlitzRound = (slug: string, edition: string, round: number) => to(`${blitz(slug, edition)}/rounds/${round}`, 'DELETE');
-/** recordBlitzGame records, or corrects, the game a match was played as. */
-export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, game: Schemas['BlitzGameRecord']) =>
-  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/game`, 'PUT', game);
-/** keepBlitzReport resolves a flagged report by keeping its result. */
-export const keepBlitzReport = (slug: string, edition: string, round: number, match: number) => to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/keep`, 'POST');
+/** recordBlitzGame records, or corrects, game number of a match. */
+export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, number: number, game: Schemas['BlitzGameRecord']) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/games/${number}`, 'PUT', game);
+/** keepBlitzReport resolves a game's flagged report by keeping its result. */
+export const keepBlitzReport = (slug: string, edition: string, round: number, match: number, number: number) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/games/${number}/keep`, 'POST');
 /** recordBlitzRuling decides a match by the organisers' ruling. */
 export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);

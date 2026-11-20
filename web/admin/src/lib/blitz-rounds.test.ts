@@ -12,6 +12,7 @@ const round = (id: number, number: number, published: boolean, matches: AdminBli
   deadline: null,
   matches,
   reserve: null,
+  best_of: 1,
 });
 const knockout = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({ ...round(id, number, published, matches), kind: 'knockout' });
 const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'draw' | 'double_loss' | null = null): AdminBlitzRound['matches'][number] => ({
@@ -31,6 +32,9 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
   reported_by: null,
   report: null,
   flag_reason: '',
+  best_of: 1,
+  proposed_by: null,
+  games: [],
 });
 const entrant = (id: number, status: 'active' | 'dropped' = 'active', skips: number[] = []) => ({
   id,
@@ -63,7 +67,7 @@ describe('canPair', () => {
 
 describe('unsavedMatch and samePairs', () => {
   it('makes a match with no id, no gaps and no result', () => {
-    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '' });
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '', best_of: 1, proposed_by: null, games: [] });
     expect(unsavedMatch(3, null).b).toBe(null);
   });
   it.each([

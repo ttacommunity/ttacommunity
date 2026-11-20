@@ -15,28 +15,44 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-func (f *fakeSignIns) ReportBlitzGame(_ context.Context, hash []byte, slug, edition string, match int64, g store.BlitzGame, _ time.Time) error {
+// gameOf names a game other than the first in a fake's notes, as " game <n>".
+func gameOf(number int) string {
+	if number == 1 {
+		return ""
+	}
+	return fmt.Sprintf(" game %d", number)
+}
+
+func (f *fakeSignIns) ReportBlitzGame(_ context.Context, hash []byte, slug, edition string, match int64, number int, g store.BlitzGame, _ time.Time) error {
 	if f.reportErr != nil {
 		return f.reportErr
 	}
-	f.notes = append(f.notes, fmt.Sprintf("report %s %s %d by %s: %s %g/%s/turn %d %g/%s/turn %d at %s", slug, edition, match, f.sessions[string(hash)].Username,
+	f.notes = append(f.notes, fmt.Sprintf("report %s %s %d%s by %s: %s %g/%s/turn %d %g/%s/turn %d at %s", slug, edition, match, gameOf(number), f.sessions[string(hash)].Username,
 		g.ShareCode, g.A.Culture, g.A.Outcome, g.A.Turn, g.B.Culture, g.B.Outcome, g.B.Turn, g.Finished.UTC().Format(time.RFC3339)))
 	return nil
 }
 
-func (f *fakeSignIns) ConfirmBlitzResult(_ context.Context, hash []byte, slug, edition string, match int64, _ time.Time) error {
+func (f *fakeSignIns) ConfirmBlitzResult(_ context.Context, hash []byte, slug, edition string, match int64, number int, _ time.Time) error {
 	if f.reportErr != nil {
 		return f.reportErr
 	}
-	f.notes = append(f.notes, fmt.Sprintf("confirm %s %s %d by %s", slug, edition, match, f.sessions[string(hash)].Username))
+	f.notes = append(f.notes, fmt.Sprintf("confirm %s %s %d%s by %s", slug, edition, match, gameOf(number), f.sessions[string(hash)].Username))
 	return nil
 }
 
-func (f *fakeSignIns) FlagBlitzResult(_ context.Context, hash []byte, slug, edition string, match int64, reason string, _ time.Time) error {
+func (f *fakeSignIns) FlagBlitzResult(_ context.Context, hash []byte, slug, edition string, match int64, number int, reason string, _ time.Time) error {
 	if f.reportErr != nil {
 		return f.reportErr
 	}
-	f.notes = append(f.notes, fmt.Sprintf("flag %s %s %d by %s: %s", slug, edition, match, f.sessions[string(hash)].Username, reason))
+	f.notes = append(f.notes, fmt.Sprintf("flag %s %s %d%s by %s: %s", slug, edition, match, gameOf(number), f.sessions[string(hash)].Username, reason))
+	return nil
+}
+
+func (f *fakeSignIns) AnswerBlitzBestOf(_ context.Context, hash []byte, slug, edition string, match int64, answer string, _ time.Time) error {
+	if f.reportErr != nil {
+		return f.reportErr
+	}
+	f.notes = append(f.notes, fmt.Sprintf("best of %s %s %d by %s: %s", slug, edition, match, f.sessions[string(hash)].Username, answer))
 	return nil
 }
 
@@ -69,8 +85,8 @@ func reportsEdition(change func(ed *store.BlitzEdition, m *store.BlitzMatch)) *s
 			{ID: 8, MemberID: 1008, Name: "bob", Zone: "UTC", Status: "active"},
 			{ID: 9, MemberID: 1009, Name: "Cy", Zone: "UTC", Status: "active"},
 		},
-		Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at,
-			Matches: []store.BlitzMatch{{ID: 21, A: 7, B: &bob}, {ID: 22, A: 9}}}},
+		Rounds: []store.BlitzRound{{ID: 101, Number: 1, Kind: "swiss", Method: "timezone", PublishedAt: &at, BestOf: 1,
+			Matches: []store.BlitzMatch{{ID: 21, A: 7, B: &bob, BestOf: 1}, {ID: 22, A: 9, BestOf: 1}}}},
 	}
 	if change != nil {
 		change(&ed, &ed.Rounds[0].Matches[0])
@@ -87,6 +103,28 @@ func reportedByAnn(report string) func(*store.BlitzEdition, *store.BlitzMatch) {
 		if report == "flagged" {
 			m.FlagReason = "I won"
 		}
+		*m = withGames(*m, "a")
+	}
+}
+
+// withGames gives a match one game, as the store reads it, its first game as m's with result (none for ""), and makes
+// it one game.
+func withGames(m store.BlitzMatch, result string) store.BlitzMatch {
+	m.BestOf, m.Games = 1, []store.BlitzMatchGame{}
+	if m.Game != nil {
+		m.Games = []store.BlitzMatchGame{{Number: 1, GameID: *m.GameID, Game: *m.Game, Result: result, ReportedBy: m.ReportedBy, Report: m.Report, FlagReason: m.FlagReason}}
+	}
+	return m
+}
+
+// oneEach makes Ann's match a best of 3 at one game each: Ann reported her win in game 1, bob his in game 2.
+func oneEach(ed *store.BlitzEdition, m *store.BlitzMatch) {
+	ed.Rounds[0].BestOf = 3
+	at, ann, bob := time.Date(2026, 10, 13, 20, 0, 0, 0, time.UTC), int64(7), int64(8)
+	game := store.BlitzGame{ShareCode: "BO3-1", A: store.BlitzSide{Culture: 50, Outcome: "finished"}, B: store.BlitzSide{Culture: 40, Outcome: "finished"}, Finished: at}
+	m.BestOf, m.Games = 3, []store.BlitzMatchGame{
+		{Number: 1, GameID: 500, Game: game, Result: "a", ReportedBy: &ann, Report: "reported"},
+		{Number: 2, GameID: 501, Game: game, Result: "b", ReportedBy: &bob, Report: "reported"},
 	}
 }
 
@@ -121,7 +159,21 @@ func TestAPlayerReadsTheirMatchAndWhatTheyMayDo(t *testing.T) {
 		{"the next round paired", member(1008, "bob"), reportsEdition(func(ed *store.BlitzEdition, _ *store.BlitzMatch) {
 			ed.PairedRound = new(2)
 		}), map[string]string{"match.id": `21`, "match.actions": `[]`}},
-		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "match.actions": `[]`, "reports": `[]`}},
+		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "match.actions": `[]`, "reports": `[]`,
+			"match.next_game": `null`}},
+		{"a one-game round", member(1008, "bob"), reportsEdition(nil), map[string]string{
+			"match.best_of": `1`, "match.best_of_offered": `false`, "match.best_of_actions": `[]`, "match.next_game": `1`, "match.games": `[]`}},
+		{"the opponent's proposal", member(1008, "bob"), reportsEdition(func(ed *store.BlitzEdition, m *store.BlitzMatch) {
+			ed.Rounds[0].BestOf, m.ProposedBy = 3, new(int64(7))
+		}), map[string]string{"match.best_of_offered": `true`, "match.proposed_by": `"a"`, "match.best_of_actions": `["accept", "decline"]`}},
+		{"their own proposal", member(1007, "Ann"), reportsEdition(func(ed *store.BlitzEdition, m *store.BlitzMatch) {
+			ed.Rounds[0].BestOf, m.ProposedBy = 3, new(int64(7))
+		}), map[string]string{"match.best_of_actions": `["withdraw"]`}},
+		{"a best of 3 at one game each", member(1008, "bob"), reportsEdition(oneEach), map[string]string{
+			"match.best_of": `3`, "match.best_of_actions": `[]`, "match.next_game": `3`,
+			"match.games.0.number": `1`, "match.games.0.result": `"a"`, "match.games.0.reported_by": `"a"`, "match.games.0.actions": `["confirm", "flag"]`,
+			"match.games.1.number": `2`, "match.games.1.result": `"b"`, "match.games.1.reported_by": `"b"`, "match.games.1.actions": `["report"]`,
+			"reports": `[{"round": 1, "game": 1, "reported_by": "Ann"}, {"round": 1, "game": 2, "reported_by": "bob"}]`}},
 		{"another entrant's report", member(1009, "Cy"), reportsEdition(reportedByAnn("confirmed")), map[string]string{
 			"reports": `[{"round": 1, "a": "Ann", "reported_by": "Ann", "confirmed": true}]`}},
 		{"a dropped entrant", member(1009, "Cy"), reportsEdition(func(ed *store.BlitzEdition, m *store.BlitzMatch) {
@@ -173,19 +225,48 @@ func TestPlayersReportConfirmAndFlag(t *testing.T) {
 	f := newFakeSignIns()
 	cookie := sessionFor(f, "token", member(1008, "bob"))
 	for _, r := range []struct{ method, path, body string }{
-		{http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/game",
+		{http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/games/1",
 			`{"share_code": "REP-1", "a": {"culture": 50, "outcome": "finished", "turn": 2}, "b": {"culture": 40, "outcome": "finished", "turn": 1}, "finished_on": "2026-10-10", "finished_time": "21:30", "zone": "Europe/Berlin"}`},
-		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/confirm", ""},
-		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/flag", `{"reason": "I won on culture"}`},
+		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/games/2/confirm", ""},
+		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/games/3/flag", `{"reason": "I won on culture"}`},
+		{http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/best-of", `{"answer": "propose"}`},
 	} {
 		if rec := playerDo(t, f, r.method, r.path, siteOrigin, r.body, cookie); rec.Code != http.StatusNoContent {
 			t.Errorf("%s %s = %d %s, want 204", r.method, r.path, rec.Code, rec.Body)
 		}
 	}
 	want := "report us_open 2026 21 by bob: REP-1 50/finished/turn 2 40/finished/turn 1 at 2026-10-10T19:30:00Z|" +
-		"confirm us_open 2026 21 by bob|flag us_open 2026 21 by bob: I won on culture"
+		"confirm us_open 2026 21 game 2 by bob|flag us_open 2026 21 game 3 by bob: I won on culture|best of us_open 2026 21 by bob: propose"
 	if got := strings.Join(f.notes, "|"); got != want {
 		t.Errorf("what reached the store = %q, want %q", got, want)
+	}
+}
+
+func TestBestOfAnswersAreRefusedWithTheStatusTheyNeed(t *testing.T) {
+	tests := []struct {
+		name, body string
+		err        error
+		want       int
+	}{
+		{"an answer that does not fit", `{"answer": "accept"}`, store.ErrBadBlitzBestOf, http.StatusBadRequest},
+		{"a round of one-game matches", `{"answer": "propose"}`, store.ErrBlitzBestOfNotOffered, http.StatusConflict},
+		{"settled", `{"answer": "propose"}`, store.ErrBlitzBestOfClosed, http.StatusConflict},
+		{"someone else's match", `{"answer": "propose"}`, store.ErrNotYourMatch, http.StatusForbidden},
+		{"an answer that is none", `{"answer": "maybe"}`, nil, http.StatusBadRequest},
+		{"no answer", ``, nil, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFakeSignIns()
+			f.reportErr = tt.err
+			cookie := sessionFor(f, "token", member(1008, "bob"))
+			if rec := playerDo(t, f, http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/best-of", siteOrigin, tt.body, cookie); rec.Code != tt.want {
+				t.Errorf("POST best-of %s = %d %s, want %d", tt.body, rec.Code, rec.Body, tt.want)
+			}
+			if tt.err == nil && len(f.notes) != 0 {
+				t.Errorf("a refused answer reached the store: %q", f.notes)
+			}
+		})
 	}
 }
 
@@ -209,13 +290,15 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 		{"the next round paired", store.ErrBlitzRoundClosed, http.StatusConflict},
 		{"locked", store.ErrBlitzResultLocked, http.StatusConflict},
 		{"a share code taken", &store.BlitzShareCodeError{GameID: 55}, http.StatusConflict},
+		{"a game the match does not take", store.ErrNoBlitzGame, http.StatusNotFound},
+		{"a game after the match is decided", store.ErrBlitzGameNotNeeded, http.StatusConflict},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFakeSignIns()
 			f.reportErr = tt.err
 			cookie := sessionFor(f, "token", member(1008, "bob"))
-			if rec := playerDo(t, f, http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/game", siteOrigin, game, cookie); rec.Code != tt.want {
+			if rec := playerDo(t, f, http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/games/1", siteOrigin, game, cookie); rec.Code != tt.want {
 				t.Errorf("PUT game = %d %s, want %d", rec.Code, rec.Body, tt.want)
 			}
 		})
@@ -224,7 +307,7 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 		f := newFakeSignIns()
 		cookie := sessionFor(f, "token", member(1008, "bob"))
 		ahead := strings.Replace(game, `"finished_on": "2026-10-10"`, `"finished_on": "2026-10-12"`, 1)
-		rec := playerDo(t, f, http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/game", siteOrigin, ahead, cookie)
+		rec := playerDo(t, f, http.MethodPut, "/v1/me/blitz/us_open/2026/matches/21/games/1", siteOrigin, ahead, cookie)
 		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "after now") {
 			t.Errorf("PUT game finishing after now = %d %s, want 400 saying so", rec.Code, rec.Body)
 		}
@@ -236,14 +319,14 @@ func TestPlayersReportsAreRefusedWithTheStatusTheyNeed(t *testing.T) {
 		f := newFakeSignIns()
 		f.reportErr = store.ErrBadBlitzFlag
 		cookie := sessionFor(f, "token", member(1008, "bob"))
-		if rec := playerDo(t, f, http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/flag", siteOrigin, `{"reason": "x"}`, cookie); rec.Code != http.StatusBadRequest {
+		if rec := playerDo(t, f, http.MethodPost, "/v1/me/blitz/us_open/2026/matches/21/games/1/flag", siteOrigin, `{"reason": "x"}`, cookie); rec.Code != http.StatusBadRequest {
 			t.Errorf("POST flag = %d %s, want 400", rec.Code, rec.Body)
 		}
 	})
 	t.Run("from another site", func(t *testing.T) {
 		f := newFakeSignIns()
 		cookie := sessionFor(f, "token", member(1008, "bob"))
-		for _, path := range []string{"/v1/me/blitz/us_open/2026/matches/21/confirm", "/v1/me/blitz/us_open/2026/matches/21/flag"} {
+		for _, path := range []string{"/v1/me/blitz/us_open/2026/matches/21/games/1/confirm", "/v1/me/blitz/us_open/2026/matches/21/games/1/flag"} {
 			if rec := playerDo(t, f, http.MethodPost, path, "https://evil.example", `{"reason": "x"}`, cookie); rec.Code != http.StatusForbidden {
 				t.Errorf("POST %s from another site = %d, want 403", path, rec.Code)
 			}
@@ -272,7 +355,7 @@ func TestTheSiteShowsWhenResultsChangedButNotWhoReported(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "results_updated_at", `null`)
 }
 
-func (f *fakeAdmins) KeepBlitzReport(_ context.Context, slug, edition string, id int64) error {
+func (f *fakeAdmins) KeepBlitzReport(_ context.Context, slug, edition string, id int64, number int) error {
 	m, err := f.findMatch(slug, edition, id)
 	if err != nil {
 		return err
@@ -281,7 +364,7 @@ func (f *fakeAdmins) KeepBlitzReport(_ context.Context, slug, edition string, id
 		return store.ErrBlitzNotFlagged
 	}
 	m.Report = "resolved"
-	f.notes = append(f.notes, fmt.Sprintf("keep %d", id))
+	f.notes = append(f.notes, fmt.Sprintf("keep %d%s", id, gameOf(number)))
 	return nil
 }
 
@@ -302,7 +385,7 @@ func TestAnOrganiserSeesAFlagAndKeepsTheReport(t *testing.T) {
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.flag_reason", `"I won"`)
 	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.1.report", `null`)
 
-	if rec := adminDo(t, f, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/keep", site, ""); rec.Code != http.StatusNoContent {
+	if rec := adminDo(t, f, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1/keep", site, ""); rec.Code != http.StatusNoContent {
 		t.Fatalf("POST keep = %d %s, want 204", rec.Code, rec.Body)
 	}
 	if len(f.audits) != 1 || f.audits[0] != org+" blitz.match.keep 1010" {
@@ -312,10 +395,10 @@ func TestAnOrganiserSeesAFlagAndKeepsTheReport(t *testing.T) {
 		name, path, origin string
 		want               int
 	}{
-		{"not flagged", "/v1/admin/blitz/us_open/2026/rounds/101/matches/1011/keep", site, http.StatusConflict},
-		{"no such match", "/v1/admin/blitz/us_open/2026/rounds/101/matches/9999/keep", site, http.StatusNotFound},
-		{"no such edition", "/v1/admin/blitz/us_open/2025/rounds/101/matches/1010/keep", site, http.StatusNotFound},
-		{"from another site", "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/keep", "https://evil.example", http.StatusForbidden},
+		{"not flagged", "/v1/admin/blitz/us_open/2026/rounds/101/matches/1011/games/1/keep", site, http.StatusConflict},
+		{"no such match", "/v1/admin/blitz/us_open/2026/rounds/101/matches/9999/games/1/keep", site, http.StatusNotFound},
+		{"no such edition", "/v1/admin/blitz/us_open/2025/rounds/101/matches/1010/games/1/keep", site, http.StatusNotFound},
+		{"from another site", "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1/keep", "https://evil.example", http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

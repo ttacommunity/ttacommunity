@@ -2401,22 +2401,26 @@ paths:
           $ref: "#/components/responses/SignedOut"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/me/blitz/{tournament}/{edition}/matches/{match}/game:
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}:
     put:
       operationId: putMyBlitzGame
       tags: [players]
-      summary: Report your match's game, or correct your report
+      summary: Report a game of your match, or correct your report
       description: |
         Audited. The Origin must be the site. For a player of the match in
         the latest round: it counts at once. The share code and each
         player's turn are required.
         Reporting again corrects it, until the opponent confirms or flags
-        it. Refused once an organiser has entered or ruled the match, when
-        the opponent reported it, and once the next round is paired.
+        it. Refused once an organiser has entered the game or ruled the
+        match, when the opponent reported it, and once the next round is
+        paired. A best-of-3 match takes its games in order, and no more once
+        they decide it; a one-game match takes game 1 only. Reporting game 1
+        lapses a proposal of best of 3 not yet accepted.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzMatchId"
+        - $ref: "#/components/parameters/BlitzGameNumber"
       requestBody:
         required: true
         content:
@@ -2436,18 +2440,19 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/me/blitz/{tournament}/{edition}/matches/{match}/confirm:
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}/confirm:
     post:
       operationId: postMyBlitzConfirm
       tags: [players]
-      summary: Confirm your opponent's report
+      summary: Confirm your opponent's report of a game
       description: |
         Audited. The Origin must be the site. Players can no longer change
-        the result; a mistake found later goes to the organisers.
+        the game; a mistake found later goes to the organisers.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzMatchId"
+        - $ref: "#/components/parameters/BlitzGameNumber"
       responses:
         "204":
           description: Confirmed
@@ -2459,19 +2464,20 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/me/blitz/{tournament}/{edition}/matches/{match}/flag:
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/games/{game}/flag:
     post:
       operationId: postMyBlitzFlag
       tags: [players]
-      summary: Flag your opponent's report as wrong
+      summary: Flag your opponent's report of a game as wrong
       description: |
         Audited. The Origin must be the site. Players can no longer change
-        the result; admin shows the flag and its reason until an organiser
+        the game; admin shows the flag and its reason until an organiser
         resolves it.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzMatchId"
+        - $ref: "#/components/parameters/BlitzGameNumber"
       requestBody:
         required: true
         content:
@@ -2481,6 +2487,42 @@ paths:
       responses:
         "204":
           description: Flagged
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/SignedOut"
+        "403":
+          $ref: "#/components/responses/NotYourMatch"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/me/blitz/{tournament}/{edition}/matches/{match}/best-of:
+    post:
+      operationId: postMyBlitzBestOf
+      tags: [players]
+      summary: Propose best of 3, answer your opponent's proposal, or withdraw your own
+      description: |
+        Audited. The Origin must be the site. For a player of a match in a
+        knockout round offering best of 3, before game 1 is reported: a
+        proposal waits for the opponent, who accepts or declines it; the
+        proposer may withdraw it. A proposal answered by one of the
+        opponent's is agreed. Once agreed, the match is best of 3: a win is
+        1 and a draw ½, the first to 2 goes through, and the higher seed
+        takes a match level after three games.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzBestOfAnswer"
+      responses:
+        "204":
+          description: Answered
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -5257,11 +5299,11 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/game:
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/games/{game}:
     put:
       operationId: putAdminBlitzMatchGame
       tags: [admin]
-      summary: Record the game a match was played as, or correct it
+      summary: Record a game of a match, or correct it
       description: |
         Audited. The Origin must be the admin site. The game is written under
         the edition's "Round N" stage with a seat for each player, so the
@@ -5273,13 +5315,16 @@ paths:
         game stays a draw as a game and sends the higher seed through. The
         share code may be empty, for a game without one; one already on
         another game is refused, naming it. The match's ruling, if any, is
-        cleared. A player's report it replaces is resolved: players can no
-        longer change it.
+        cleared, and the match's result worked out again from its games. A
+        player's report it replaces is resolved: players can no longer
+        change it. A best-of-3 match takes its games in order, and no more
+        once they decide it; a one-game match takes game 1 only.
       parameters:
         - $ref: "#/components/parameters/AdminTournamentSlug"
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzRoundId"
         - $ref: "#/components/parameters/BlitzMatchId"
+        - $ref: "#/components/parameters/BlitzGameNumber"
       requestBody:
         required: true
         content:
@@ -5445,13 +5490,13 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/keep:
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/games/{game}/keep:
     post:
       operationId: postAdminBlitzMatchKeep
       tags: [admin]
-      summary: Resolve a flagged report by keeping its result
+      summary: Resolve a game's flagged report by keeping its result
       description: |
-        Audited. The Origin must be the admin site. The result stays as the
+        Audited. The Origin must be the admin site. The game stays as the
         player reported it, and players still cannot change it; resetting
         the match opens it to them again.
       parameters:
@@ -5459,6 +5504,7 @@ paths:
         - $ref: "#/components/parameters/BlitzEditionLabel"
         - $ref: "#/components/parameters/BlitzRoundId"
         - $ref: "#/components/parameters/BlitzMatchId"
+        - $ref: "#/components/parameters/BlitzGameNumber"
       responses:
         "204":
           description: Kept
@@ -5759,6 +5805,73 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/best-of:
+    put:
+      operationId: putAdminBlitzRoundBestOf
+      tags: [admin]
+      summary: Set whether a knockout round's matches may be best of 3
+      description: |
+        Audited. The Origin must be the admin site. 3 lets each match's
+        players agree to best of 3 before game 1; 1 keeps every match to one
+        game, refused while a match of the round is agreed or proposed as
+        best of 3. A Swiss round is always one game.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzBestOf"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/matches/{match}/best-of:
+    put:
+      operationId: putAdminBlitzMatchBestOf
+      tags: [admin]
+      summary: Set a match to one game or best of 3, as an organiser decides
+      description: |
+        Audited. The Origin must be the admin site. Only in a round offering
+        best of 3. Any proposal is dropped, and the match's result is worked
+        out again from its games. Back to one game is refused once the match
+        has a second game.
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/BlitzEditionLabel"
+        - $ref: "#/components/parameters/BlitzRoundId"
+        - $ref: "#/components/parameters/BlitzMatchId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlitzBestOf"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /v1/admin/blitz/{tournament}/{edition}/rounds/{round}/deadline:
     put:
       operationId: putAdminBlitzRoundDeadline
@@ -6031,6 +6144,15 @@ components:
         type: integer
         format: int64
         minimum: 1
+    BlitzGameNumber:
+      name: game
+      in: path
+      description: The game's number in its match, from 1; a match is one game unless its players agree to best of 3
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 3
     SignUpId:
       name: sign_up
       in: path
@@ -8308,8 +8430,13 @@ components:
     BlitzRound:
       description: A published round as the site shows it
       type: object
-      required: [number, kind, method, pairing_order, published_at, matches, skipped]
+      required: [number, kind, method, pairing_order, published_at, matches, skipped, best_of]
       properties:
+        best_of:
+          description: 3 when the knockout round's matches may be best of 3, as their players agree; else 1
+          type: integer
+          minimum: 1
+          maximum: 3
         method:
           description: The method a Swiss round was paired with; null for a knockout round
           allOf:
@@ -8341,8 +8468,18 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled, best_of, games]
       properties:
+        best_of:
+          description: The games the match is played as, 1 or 3 (agreed)
+          type: integer
+          minimum: 1
+          maximum: 3
+        games:
+          description: Its games so far, in order; game is the first of them
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzPublicGame"
         a_seed:
           description: In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round
           type: integer
@@ -8377,6 +8514,41 @@ components:
         ruled:
           description: Whether the result is the organisers' ruling rather than the game's outcome
           type: boolean
+    BlitzPublicGame:
+      description: One game of a match, with its own result
+      type: object
+      required: [number, result, game]
+      properties:
+        number:
+          type: integer
+        result:
+          $ref: "#/components/schemas/BlitzGameResult"
+        game:
+          $ref: "#/components/schemas/BlitzPlayedGame"
+    BlitzGameResult:
+      description: Who won a game, or a draw
+      type: string
+      enum: [a, b, draw]
+    BlitzBestOf:
+      type: object
+      additionalProperties: false
+      required: [best_of]
+      properties:
+        best_of:
+          type: integer
+          minimum: 1
+          maximum: 3
+    BlitzBestOfAnswer:
+      type: object
+      additionalProperties: false
+      required: [answer]
+      properties:
+        answer:
+          $ref: "#/components/schemas/BlitzBestOfAction"
+    BlitzBestOfAction:
+      description: Propose best of 3, accept or decline the opponent's proposal, or withdraw your own
+      type: string
+      enum: [propose, accept, decline, withdraw]
     BlitzResult:
       description: Who won, a draw, or a double loss
       type: string
@@ -8567,8 +8739,23 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at, reported_by, report, flag_reason]
+      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at, reported_by, report, flag_reason, best_of, proposed_by, games]
       properties:
+        best_of:
+          description: The games the match is played as, 1 or 3 (agreed)
+          type: integer
+          minimum: 1
+          maximum: 3
+        proposed_by:
+          description: The entrant proposing best of 3, waiting for the opponent; null for none
+          type: integer
+          format: int64
+          nullable: true
+        games:
+          description: Its games so far, in order; game, reported_by, report and flag_reason are the first's
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBlitzMatchGame"
         reported_by:
           description: The entrant who reported the game; null when no player did
           type: integer
@@ -8631,10 +8818,37 @@ components:
           type: string
           format: date-time
           nullable: true
+    AdminBlitzMatchGame:
+      description: One game of a match, with its own result and a player's report of it
+      type: object
+      required: [number, result, game, reported_by, report, flag_reason]
+      properties:
+        number:
+          type: integer
+        result:
+          $ref: "#/components/schemas/BlitzGameResult"
+        game:
+          $ref: "#/components/schemas/BlitzPlayedGame"
+        reported_by:
+          description: The entrant who reported the game; null when no player did
+          type: integer
+          format: int64
+          nullable: true
+        report:
+          allOf:
+            - $ref: "#/components/schemas/BlitzReport"
+          nullable: true
+        flag_reason:
+          type: string
     AdminBlitzRound:
       type: object
-      required: [id, number, kind, method, pairing_order, published_at, deadline, matches, reserve]
+      required: [id, number, kind, method, pairing_order, published_at, deadline, matches, reserve, best_of]
       properties:
+        best_of:
+          description: 3 when the knockout round's matches may be best of 3, as their players agree; else 1
+          type: integer
+          minimum: 1
+          maximum: 3
         id:
           type: integer
           format: int64
@@ -9169,9 +9383,12 @@ components:
     BlitzMatchReport:
       description: Who reported a match's game, the match named by its round and side a
       type: object
-      required: [round, a, reported_by, confirmed]
+      required: [round, game, a, reported_by, confirmed]
       properties:
         round:
+          type: integer
+        game:
+          description: The game's number in its match
           type: integer
         a:
           type: string
@@ -9183,8 +9400,35 @@ components:
     MyBlitzMatch:
       description: A signed-in player's match, sides as the match names them, and what they may do with it now
       type: object
-      required: [id, round, a, b, me, result, game, ruled, report, reported_by, flag_reason, actions]
+      required: [id, round, a, b, me, result, game, ruled, report, reported_by, flag_reason, actions, best_of, best_of_offered, proposed_by, best_of_actions, games, next_game]
       properties:
+        best_of:
+          description: The games the match is played as, 1 or 3 (agreed)
+          type: integer
+          minimum: 1
+          maximum: 3
+        best_of_offered:
+          description: Whether the round lets its matches be best of 3
+          type: boolean
+        proposed_by:
+          description: Which side proposes best of 3, waiting for the other; null for none
+          allOf:
+            - $ref: "#/components/schemas/MatchSide"
+          nullable: true
+        best_of_actions:
+          description: What the player may do about best of 3 now; empty once it is settled
+          type: array
+          items:
+            $ref: "#/components/schemas/BlitzBestOfAction"
+        games:
+          description: The match's games so far, in order, each with what the player may do with it
+          type: array
+          items:
+            $ref: "#/components/schemas/MyBlitzGame"
+        next_game:
+          description: The number of the game the player may report next; null when the match takes no more
+          type: integer
+          nullable: true
         id:
           type: integer
           format: int64
@@ -9229,6 +9473,33 @@ components:
             What the player may do now: report (or correct their report),
             confirm or flag the opponent's report. Empty once players can no
             longer change it
+          type: array
+          items:
+            type: string
+            enum: [report, confirm, flag]
+    MyBlitzGame:
+      description: One game of a signed-in player's match, and what they may do with it now
+      type: object
+      required: [number, result, game, report, reported_by, flag_reason, actions]
+      properties:
+        number:
+          type: integer
+        result:
+          $ref: "#/components/schemas/BlitzGameResult"
+        game:
+          $ref: "#/components/schemas/BlitzPlayedGame"
+        report:
+          allOf:
+            - $ref: "#/components/schemas/BlitzReport"
+          nullable: true
+        reported_by:
+          allOf:
+            - $ref: "#/components/schemas/MatchSide"
+          nullable: true
+        flag_reason:
+          type: string
+        actions:
+          description: Correct their own report, or confirm or flag the opponent's; empty once players can no longer change it
           type: array
           items:
             type: string

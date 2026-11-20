@@ -49,13 +49,18 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 	}
 	met := metBefore(swiss, r.ID)
 	out := AdminBlitzRound{Id: r.ID, Number: r.Number, Kind: RoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r),
-		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches))}
+		PublishedAt: r.PublishedAt, Matches: make([]AdminBlitzMatch, len(r.Matches)), BestOf: r.BestOf}
 	if r.Deadline != nil {
 		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}
 	}
 	for i, m := range r.Matches {
 		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, Result: blitzResult(m), Game: playedGame(m),
-			Ruling: m.Ruling, DecidedAt: m.DecidedAt, ReportedBy: m.ReportedBy, Report: blitzReport(m), FlagReason: m.FlagReason}
+			Ruling: m.Ruling, DecidedAt: m.DecidedAt, ReportedBy: m.ReportedBy, Report: blitzReport(m), FlagReason: m.FlagReason,
+			BestOf: m.BestOf, ProposedBy: m.ProposedBy, Games: make([]AdminBlitzMatchGame, len(m.Games))}
+		for j, g := range m.Games {
+			am.Games[j] = AdminBlitzMatchGame{Number: g.Number, Result: BlitzGameResult(g.Result), Game: apiGame(g.Game),
+				ReportedBy: g.ReportedBy, Report: reportOf(g.Report), FlagReason: g.FlagReason}
+		}
 		if m.B != nil {
 			a, b := byID[m.A], byID[*m.B]
 			oa, _ := blitz.OffsetMinutes(a.Zone, now)

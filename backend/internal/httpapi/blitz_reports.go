@@ -14,13 +14,28 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// blitzReport is where a match's report stands as the API sends it, nil when no player reported it.
-func blitzReport(m store.BlitzMatch) *BlitzReport {
-	if m.Report == "" {
+// blitzReport is where a match's first game's report stands as the API sends it, nil when no player reported it.
+func blitzReport(m store.BlitzMatch) *BlitzReport { return reportOf(m.Report) }
+
+// reportOf is where a report stands as the API sends it, nil for none.
+func reportOf(report string) *BlitzReport {
+	if report == "" {
 		return nil
 	}
-	r := BlitzReport(m.Report)
-	return &r
+	return new(BlitzReport(report))
+}
+
+// sideOf is which side of match m an entrant is, "" for neither or none.
+func sideOf(m store.BlitzMatch, entry *int64) string {
+	switch {
+	case entry == nil:
+		return ""
+	case *entry == m.A:
+		return "a"
+	case m.B != nil && *entry == *m.B:
+		return "b"
+	}
+	return ""
 }
 
 // myBlitzMatch finds the match of member in the edition's latest published round, as that player sees it; nil when
@@ -47,15 +62,10 @@ func myBlitzMatch(ed store.BlitzEdition, member int64) *MyBlitzMatch {
 		default:
 			continue
 		}
-		reportedBy := ""
-		if m.ReportedBy != nil {
-			reportedBy = "b"
-			if *m.ReportedBy == m.A {
-				reportedBy = "a"
-			}
-		}
+		reportedBy := sideOf(m, m.ReportedBy)
 		out := &MyBlitzMatch{Id: m.ID, Round: r.Number, A: names[m.A], Me: MatchSide(me), Result: blitzResult(m), Game: playedGame(m),
-			Ruled: m.Ruling != "", Report: blitzReport(m), FlagReason: m.FlagReason, Actions: []MyBlitzMatchActions{}}
+			Ruled: m.Ruling != "", Report: blitzReport(m), FlagReason: m.FlagReason, Actions: []MyBlitzMatchActions{},
+			BestOf: m.BestOf, BestOfOffered: r.BestOf == 3, BestOfActions: []BlitzBestOfAction{}, Games: make([]MyBlitzGame, len(m.Games))}
 		if m.B != nil {
 			out.B = new(names[*m.B])
 		}
@@ -66,6 +76,29 @@ func myBlitzMatch(ed store.BlitzEdition, member int64) *MyBlitzMatch {
 		for _, a := range blitz.PlayerActions(blitz.PlayerMatch{Me: me, ReportedBy: reportedBy, Report: m.Report, Decided: m.Result != "",
 			Bye: m.B == nil, Closed: closed}) {
 			out.Actions = append(out.Actions, MyBlitzMatchActions(a))
+		}
+		for i, g := range m.Games {
+			by := sideOf(m, g.ReportedBy)
+			mg := MyBlitzGame{Number: g.Number, Result: BlitzGameResult(g.Result), Game: apiGame(g.Game), Report: reportOf(g.Report),
+				FlagReason: g.FlagReason, Actions: []MyBlitzGameActions{}}
+			if by != "" {
+				mg.ReportedBy = new(MatchSide(by))
+			}
+			for _, a := range blitz.PlayerActions(blitz.PlayerMatch{Me: me, ReportedBy: by, Report: g.Report, Decided: true, Bye: m.B == nil, Closed: closed}) {
+				mg.Actions = append(mg.Actions, MyBlitzGameActions(a))
+			}
+			out.Games[i] = mg
+		}
+		state := blitz.BestOfMatch{Me: me, ProposedBy: sideOf(m, m.ProposedBy), Offered: r.BestOf == 3, BestOf: m.BestOf, Played: len(m.Games),
+			Decided: m.Result != "", Bye: m.B == nil, Closed: closed}
+		if p := state.ProposedBy; p != "" {
+			out.ProposedBy = new(MatchSide(p))
+		}
+		for _, a := range blitz.BestOfActions(state) {
+			out.BestOfActions = append(out.BestOfActions, BlitzBestOfAction(a))
+		}
+		if n := blitz.NextGame(state); n > 0 {
+			out.NextGame = &n
 		}
 		return out
 	}
@@ -86,8 +119,10 @@ func blitzReports(ed store.BlitzEdition, member int64) []BlitzMatchReport {
 	}
 	for _, r := range ed.Rounds {
 		for _, m := range r.Matches {
-			if m.ReportedBy != nil {
-				out = append(out, BlitzMatchReport{Round: r.Number, A: names[m.A], ReportedBy: names[*m.ReportedBy], Confirmed: m.Report == "confirmed"})
+			for _, g := range m.Games {
+				if g.ReportedBy != nil {
+					out = append(out, BlitzMatchReport{Round: r.Number, Game: g.Number, A: names[m.A], ReportedBy: names[*g.ReportedBy], Confirmed: g.Report == "confirmed"})
+				}
 			}
 		}
 	}
@@ -135,7 +170,12 @@ func reportRefusal(err error) (int, string) {
 		return http.StatusNotFound, "no such blitz edition"
 	case errors.Is(err, store.ErrNoBlitzMatch):
 		return http.StatusNotFound, "no such match"
-	case errors.Is(err, store.ErrBlitzRoundClosed), errors.Is(err, store.ErrBlitzResultLocked):
+	case errors.Is(err, store.ErrNoBlitzGame):
+		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrBadBlitzBestOf):
+		return http.StatusBadRequest, err.Error()
+	case errors.Is(err, store.ErrBlitzRoundClosed), errors.Is(err, store.ErrBlitzResultLocked), errors.Is(err, store.ErrBlitzGameNotNeeded),
+		errors.Is(err, store.ErrBlitzBestOfNotOffered), errors.Is(err, store.ErrBlitzBestOfClosed):
 		return http.StatusConflict, err.Error()
 	}
 	return 0, ""
@@ -172,7 +212,7 @@ func (s *server) PutMyBlitzGame(ctx context.Context, req PutMyBlitzGameRequestOb
 		return PutMyBlitzGame400JSONResponse{badRequest400(msg)}, nil
 	}
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
-	err := s.signIns.ReportBlitzGame(ctx, hash, req.Tournament, req.Edition, req.Match, g, s.now())
+	err := s.signIns.ReportBlitzGame(ctx, hash, req.Tournament, req.Edition, req.Match, req.Game, g, s.now())
 	switch code, msg := reportRefusal(err); code {
 	case 0:
 		if err != nil {
@@ -194,7 +234,7 @@ func (s *server) PutMyBlitzGame(ctx context.Context, req PutMyBlitzGameRequestOb
 
 func (s *server) PostMyBlitzConfirm(ctx context.Context, req PostMyBlitzConfirmRequestObject) (PostMyBlitzConfirmResponseObject, error) {
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
-	err := s.signIns.ConfirmBlitzResult(ctx, hash, req.Tournament, req.Edition, req.Match, s.now())
+	err := s.signIns.ConfirmBlitzResult(ctx, hash, req.Tournament, req.Edition, req.Match, req.Game, s.now())
 	switch code, msg := reportRefusal(err); code {
 	case 0:
 		if err != nil {
@@ -218,7 +258,7 @@ func (s *server) PostMyBlitzFlag(ctx context.Context, req PostMyBlitzFlagRequest
 		return PostMyBlitzFlag400JSONResponse{badRequest400("what is wrong: reason")}, nil
 	}
 	hash, _ := ctx.Value(sessionKey{}).([]byte)
-	err := s.signIns.FlagBlitzResult(ctx, hash, req.Tournament, req.Edition, req.Match, req.Body.Reason, s.now())
+	err := s.signIns.FlagBlitzResult(ctx, hash, req.Tournament, req.Edition, req.Match, req.Game, req.Body.Reason, s.now())
 	switch code, msg := reportRefusal(err); code {
 	case 0:
 		if err != nil {
@@ -238,16 +278,41 @@ func (s *server) PostMyBlitzFlag(ctx context.Context, req PostMyBlitzFlagRequest
 	}
 }
 
+func (s *server) PostMyBlitzBestOf(ctx context.Context, req PostMyBlitzBestOfRequestObject) (PostMyBlitzBestOfResponseObject, error) {
+	if req.Body == nil || !req.Body.Answer.Valid() {
+		return PostMyBlitzBestOf400JSONResponse{badRequest400("the answer: propose, accept, decline or withdraw")}, nil
+	}
+	hash, _ := ctx.Value(sessionKey{}).([]byte)
+	err := s.signIns.AnswerBlitzBestOf(ctx, hash, req.Tournament, req.Edition, req.Match, string(req.Body.Answer), s.now())
+	switch code, msg := reportRefusal(err); code {
+	case 0:
+		if err != nil {
+			return nil, err
+		}
+		return PostMyBlitzBestOf204Response{}, nil
+	case http.StatusBadRequest:
+		return PostMyBlitzBestOf400JSONResponse{badRequest400(msg)}, nil
+	case http.StatusUnauthorized:
+		return PostMyBlitzBestOf401JSONResponse{signedOut401(msg)}, nil
+	case http.StatusForbidden:
+		return PostMyBlitzBestOf403JSONResponse{NotYourMatchJSONResponse{Error: msg}}, nil
+	case http.StatusNotFound:
+		return PostMyBlitzBestOf404JSONResponse{notFound404(msg)}, nil
+	default:
+		return PostMyBlitzBestOf409JSONResponse{conflict409(msg)}, nil
+	}
+}
+
 func (s *server) PostAdminBlitzMatchKeep(ctx context.Context, req PostAdminBlitzMatchKeepRequestObject) (PostAdminBlitzMatchKeepResponseObject, error) {
 	me, _ := adminFrom(ctx)
 	if !tournamentSlug.MatchString(req.Tournament) {
 		return PostAdminBlitzMatchKeep404JSONResponse{notFound404("no such blitz edition")}, nil
 	}
 	err := s.admins.Change(ctx, func(tx Admins) error {
-		if err := tx.KeepBlitzReport(ctx, req.Tournament, req.Edition, req.Match); err != nil {
+		if err := tx.KeepBlitzReport(ctx, req.Tournament, req.Edition, req.Match, req.Game); err != nil {
 			return err
 		}
-		return tx.Audit(ctx, me.DiscordID, "blitz.match.keep", fmt.Sprint(req.Match), map[string]any{})
+		return tx.Audit(ctx, me.DiscordID, "blitz.match.keep", fmt.Sprint(req.Match), map[string]any{"game": req.Game})
 	})
 	switch {
 	case errors.Is(err, store.ErrBlitzNotFlagged):

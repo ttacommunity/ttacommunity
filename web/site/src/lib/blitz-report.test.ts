@@ -14,6 +14,12 @@ const match = (extra: Partial<MyBlitzMatch> = {}): MyBlitzMatch => ({
   reported_by: null,
   flag_reason: '',
   actions: ['report'],
+  best_of: 1,
+  best_of_offered: false,
+  proposed_by: null,
+  best_of_actions: [],
+  games: [],
+  next_game: 1,
   ...extra,
 });
 const game = { share_code: 'REP-1', a_culture: 50, a_outcome: 'finished', a_turn: 2, b_culture: 40, b_outcome: 'finished', b_turn: 1, finished_at: '2026-10-14T19:30:00Z' } as const;
@@ -79,9 +85,9 @@ describe('the requests', () => {
     expect(await fetchMyBlitz('https://api.example', 'us_open', '2026', answering(401, { error: 'not signed in' }))).toBeNull();
   });
   it.each([
-    ['a report', (f: typeof fetch) => reportGame('https://api.example', 'us_open', '2026', 21, { share_code: 'REP-1', a: { culture: 50, outcome: 'finished', turn: 2 }, b: { culture: 40, outcome: 'finished', turn: 1 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }, f), 'PUT', '/game'],
-    ['a confirmation', (f: typeof fetch) => confirmReport('https://api.example', 'us_open', '2026', 21, f), 'POST', '/confirm'],
-    ['a flag', (f: typeof fetch) => flagReport('https://api.example', 'us_open', '2026', 21, 'I won', f), 'POST', '/flag'],
+    ['a report', (f: typeof fetch) => reportGame('https://api.example', 'us_open', '2026', 21, 1, { share_code: 'REP-1', a: { culture: 50, outcome: 'finished', turn: 2 }, b: { culture: 40, outcome: 'finished', turn: 1 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }, f), 'PUT', '/games/1'],
+    ['a confirmation', (f: typeof fetch) => confirmReport('https://api.example', 'us_open', '2026', 21, 2, f), 'POST', '/games/2/confirm'],
+    ['a flag', (f: typeof fetch) => flagReport('https://api.example', 'us_open', '2026', 21, 3, 'I won', f), 'POST', '/games/3/flag'],
   ])('sends %s with the session and answers a refusal with its message', async (_name, send, method, end) => {
     const ok = answering(204);
     expect(await send(ok as unknown as typeof fetch)).toEqual({ ok: true });

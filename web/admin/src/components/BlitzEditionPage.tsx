@@ -126,7 +126,7 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
       { heading: `Keep the reported result of ${pairOf(m)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
       opener,
     );
-    if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pairOf(m)}: report kept.`);
+    if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id, 1), `${pairOf(m)}: report kept.`);
   };
   const reset = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
     const sure = await dialog.confirm({ heading: `Reset ${pairOf(m)}?`, text: 'Its result and game go, as if never played; the players can report it again.', action: 'Reset game', final: true }, opener);
@@ -363,7 +363,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
       opener,
     );
     if (!sure) return;
-    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pair}: report kept.`, `match ${m.id}`);
+    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id, 1), `${pair}: report kept.`, `match ${m.id}`);
   };
   const resetRound = async (r: AdminBlitzRound, opener: HTMLElement) => {
     const title = roundTitle(r.number, ed.format);
@@ -1350,7 +1350,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
         setRefusal(refused(r.message, ''));
         return;
       }
-      const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, r.body));
+      const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, 1, r.body));
       if (!res.ok) {
         setRefusal(refused(res.message, ''));
         return;

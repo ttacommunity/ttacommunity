@@ -41,9 +41,9 @@ type Round = components['schemas']['BlitzRound'];
 type Match = components['schemas']['BlitzPublicMatch'];
 
 const format = { swiss_rounds: 8, knockout_size: 8 };
-const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, ...extra });
+const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, best_of: 1, games: [], ...extra });
 const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, a_turn: 1, b_culture: 0, b_outcome: 'timed_out' as const, b_turn: 2, finished_at: finishedAt });
-const round = (number: number, matches: Match[], skipped: string[] = []): Round => ({ number, kind: 'swiss', method: 'timezone', pairing_order: 'rating', published_at: '2026-10-12T12:00:00Z', matches, skipped });
+const round = (number: number, matches: Match[], skipped: string[] = []): Round => ({ number, kind: 'swiss', method: 'timezone', pairing_order: 'rating', published_at: '2026-10-12T12:00:00Z', matches, skipped, best_of: 1 });
 const rounds = [
   round(2, [
     match('Ann', 'Cy', { a_rating: 1712.4, result: 'a', game: played('ABCD1234', '2026-10-14T23:30:00Z') }),
@@ -112,11 +112,11 @@ describe('blitzGames', () => {
     expect([row.date, row.tag, row.unplayed, row.code]).toEqual(want);
   });
   it.each([
-    ['reported by a player', [{ round: 1, a: 'Ann', reported_by: 'Ann', confirmed: false }], 'Reported by Ann'],
-    ['reported and confirmed', [{ round: 1, a: 'Ann', reported_by: 'Cy', confirmed: true }], 'Reported by Cy, confirmed'],
+    ['reported by a player', [{ round: 1, game: 1, a: 'Ann', reported_by: 'Ann', confirmed: false }], 'Reported by Ann'],
+    ['reported and confirmed', [{ round: 1, game: 1, a: 'Ann', reported_by: 'Cy', confirmed: true }], 'Reported by Cy, confirmed'],
     ['entered by an organiser', [], ''],
-    ['reported in another round', [{ round: 2, a: 'Ann', reported_by: 'Ann', confirmed: false }], ''],
-    ['another match reported', [{ round: 1, a: 'Dee', reported_by: 'Dee', confirmed: false }], ''],
+    ['reported in another round', [{ round: 2, game: 1, a: 'Ann', reported_by: 'Ann', confirmed: false }], ''],
+    ['another match reported', [{ round: 1, game: 1, a: 'Dee', reported_by: 'Dee', confirmed: false }], ''],
   ] as const)('tags a game %s', (_name, reports, want) => {
     const reported = [round(1, [match('Ann', 'Cy', { result: 'a', game: played('REP-1', '2026-10-14T23:30:00Z') })])];
     expect(blitzGames(reported, format, all, 'UTC', null, null, reports).rows[0].tag).toBe(want);
@@ -141,7 +141,7 @@ describe('blitzGames', () => {
     expect([got.rows.length, got.page, got.pages]).toEqual([10, 2, 2]);
   });
   it('names knockout players with their seeds', () => {
-    const final = { number: 9, kind: 'knockout' as const, method: null, pairing_order: null, published_at: '2026-12-01T12:00:00Z', matches: [match('Ann', 'Cy', { a_seed: 1, b_seed: 2 })], skipped: [] };
+    const final = { number: 9, kind: 'knockout' as const, method: null, pairing_order: null, published_at: '2026-12-01T12:00:00Z', matches: [match('Ann', 'Cy', { a_seed: 1, b_seed: 2 })], skipped: [], best_of: 1 };
     expect(blitzGames([final], { swiss_rounds: 8, knockout_size: 2 }, all, 'UTC').rows[0].seats.map((s) => s.label)).toEqual(['(1) Ann', '(2) Cy']);
   });
 });

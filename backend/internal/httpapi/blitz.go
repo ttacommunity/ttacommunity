@@ -31,14 +31,28 @@ func blitzResult(m store.BlitzMatch) *BlitzResult {
 	return &r
 }
 
-// playedGame is the game a match was played as, nil for none recorded.
+// playedGame is a match's first game, nil for none recorded.
 func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
 	if m.Game == nil {
 		return nil
 	}
-	return &BlitzPlayedGame{ShareCode: m.Game.ShareCode, FinishedAt: m.Game.Finished.UTC(),
-		ACulture: m.Game.A.Culture, AOutcome: SeatOutcome(m.Game.A.Outcome), ATurn: turnOf(m.Game.A),
-		BCulture: m.Game.B.Culture, BOutcome: SeatOutcome(m.Game.B.Outcome), BTurn: turnOf(m.Game.B)}
+	return new(apiGame(*m.Game))
+}
+
+// apiGame is a played game as the API sends it.
+func apiGame(g store.BlitzGame) BlitzPlayedGame {
+	return BlitzPlayedGame{ShareCode: g.ShareCode, FinishedAt: g.Finished.UTC(),
+		ACulture: g.A.Culture, AOutcome: SeatOutcome(g.A.Outcome), ATurn: turnOf(g.A),
+		BCulture: g.B.Culture, BOutcome: SeatOutcome(g.B.Outcome), BTurn: turnOf(g.B)}
+}
+
+// publicGames are a match's games as the site shows them.
+func publicGames(m store.BlitzMatch) []BlitzPublicGame {
+	out := make([]BlitzPublicGame, len(m.Games))
+	for i, g := range m.Games {
+		out[i] = BlitzPublicGame{Number: g.Number, Result: BlitzGameResult(g.Result), Game: apiGame(g.Game)}
+	}
+	return out
 }
 
 // turnOf is a side's turn, nil when it was not recorded.
@@ -166,7 +180,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		return nil
 	}
 	for i, r := range ed.Rounds {
-		pr := BlitzRound{Number: r.Number, Kind: RoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}}
+		pr := BlitzRound{Number: r.Number, Kind: RoundKind(r.Kind), Method: roundMethod(r), PairingOrder: roundOrder(r), Matches: make([]BlitzPublicMatch, len(r.Matches)), Skipped: []string{}, BestOf: r.BestOf}
 		for _, e := range skippers(ed.Entrants, r.Number) {
 			pr.Skipped = append(pr.Skipped, e.Name)
 		}
@@ -175,7 +189,8 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
-			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != ""}
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != "",
+				BestOf: m.BestOf, Games: publicGames(m)}
 			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
 				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())
 			}

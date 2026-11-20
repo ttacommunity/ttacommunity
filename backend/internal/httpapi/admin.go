@@ -219,11 +219,15 @@ type BlitzAdmin interface {
 	DeleteBlitzRound(ctx context.Context, slug, edition string, roundID int64) error
 	// ReplaceBlitzPlayer puts an active entrant not in the knockout round in the place of a player who dropped.
 	ReplaceBlitzPlayer(ctx context.Context, slug, edition string, roundID, matchID, out, in int64) error
-	// RecordBlitzGame records or corrects the game a match was played as; RecordBlitzRuling decides it by ruling.
-	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g store.BlitzGame) error
+	// RecordBlitzGame records or corrects a game of a match; RecordBlitzRuling decides the match by ruling.
+	RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, number int, g store.BlitzGame) error
 	RecordBlitzRuling(ctx context.Context, slug, edition string, matchID int64, result, reason string) error
-	// KeepBlitzReport resolves a flagged report by keeping its result.
-	KeepBlitzReport(ctx context.Context, slug, edition string, matchID int64) error
+	// KeepBlitzReport resolves a game's flagged report by keeping its result.
+	KeepBlitzReport(ctx context.Context, slug, edition string, matchID int64, number int) error
+	// SetBlitzRoundBestOf sets whether a knockout round's matches may be best of 3; SetBlitzMatchBestOf sets one
+	// match's games.
+	SetBlitzRoundBestOf(ctx context.Context, slug, edition string, roundID int64, bestOf int) error
+	SetBlitzMatchBestOf(ctx context.Context, slug, edition string, matchID int64, games int) error
 	// ResetBlitzResult and ResetBlitzRound undo a match's or the latest round's results, games and all;
 	// ResetBlitzEdition starts the edition again from its entrants.
 	ResetBlitzResult(ctx context.Context, slug, edition string, matchID int64) error
