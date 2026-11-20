@@ -215,21 +215,6 @@
   font-size: 0.95rem;
   text-align: center;
 }
-.maintainer-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--accent-gold);
-  color: var(--accent-gold);
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
 .maintainer-desc {
   color: #f5ede0;
   font-family: var(--font-body);

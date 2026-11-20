@@ -116,7 +116,7 @@ export function SeriesSections({
           id="season-records"
           icon="🏆"
           title={`Premier Division All-Time Seasonal Records (${content.name})`}
-          aside={<span className="panel-tag panel-tag-wide">Highest Seasonal League Points</span>}
+          aside={<span className="tag">Highest Seasonal League Points</span>}
         >
           <p className="records-intro">
             All-time highest cumulative league points achieved in a single premier division season (4P: 6/3/1/0 pts; 3P: 5/2/0

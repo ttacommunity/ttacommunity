@@ -46,7 +46,7 @@ export default function TournamentGames({
   const narrow = (next: Partial<GamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
 
   return (
-    <Panel id="games" title="Games" ref={panel} aside={data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}>
+    <Panel id="games" title="Games" ref={panel} aside={data !== null && <span className="tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}>
       <div className="games-filters">
         <label>
           <span>{seasonWord}</span>

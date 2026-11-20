@@ -450,6 +450,9 @@ function GameDelta({ value }: { value: number | null }) {
 
 const MIN_GAMES = [1, 2, 3, 5, 10, 20];
 
+/** A finishing place's pill tone: the medals' gold, silver and bronze for the first three. */
+const PLACE_TONES: Record<number, string> = { 1: 'pill-gold', 2: 'pill-silver', 3: 'pill-bronze' };
+
 type Compare = { apiUrl: string; runId: number; format: Format };
 
 function Rivals({
@@ -626,7 +629,7 @@ function PositionSeatStats({
               <strong className="delta-pos">
                 {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
               </strong>
-              <span className="delta-tag delta-pos">
+              <span className="pill pill-win">
                 {signedDelta(overall.strongest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
@@ -637,7 +640,7 @@ function PositionSeatStats({
               <strong className="delta-neg">
                 {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
               </strong>
-              <span className="delta-tag delta-neg">
+              <span className="pill pill-loss">
                 {signedDelta(overall.weakest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
@@ -713,7 +716,7 @@ function PositionSeatStats({
                           {row.places.map((p) => (
                             <span
                               key={p.place}
-                              className={`place-rate-pill place-pill-${p.place}`}
+                              className={`pill ${PLACE_TONES[p.place] ?? ''}`}
                               title={`${ordinal(p.place)} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
                             >
                               <span className="pill-place">{p.place}:</span> {p.count}{' '}

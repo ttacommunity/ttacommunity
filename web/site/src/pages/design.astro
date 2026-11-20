@@ -13,6 +13,7 @@ import Note from '@ttac/shared/Note';
 import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import Inset from '../components/Inset';
 import Tex from '../components/Tex';
+import { divisionTagClass } from '../lib/divisions';
 import SignInNote from '../components/SignInNote';
 import SignUpSamples from '../components/SignUpSamples';
 import Message from '../components/Message';
@@ -182,6 +183,33 @@ const rows = [
       <button type="button" class="btn-icon btn-compact" aria-label="Copy">📋</button>
     </p>
 
+    <h2>Labels</h2>
+    <p class="design-row design-buttons">
+      <span class="tag">A tag</span>
+      <span class="tag tag-special">Something special</span>
+      {['Grandmaster', 'Master', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze'].map((d) => <span class={divisionTagClass(d)}>{d}</span>)}
+    </p>
+    <p class="design-row design-buttons">
+      <span class="pill">Active Players: <strong>3,695</strong></span>
+      <span class="pill pill-win">77.5%</span>
+      <span class="pill pill-loss">-15.7% vs Format</span>
+      <span class="pill pill-gold">1: 9</span>
+      <span class="pill pill-silver">2: 4</span>
+      <span class="pill pill-bronze">3: 2</span>
+    </p>
+    <p class="design-row design-buttons">
+      <span class="chip">Search: "invented" <a class="chip-remove" href="/design/" aria-label="Clear search terms">✕</a></span>
+      <span class="chip chip-out">Excluded: "sample" <a class="chip-remove" href="/design/" aria-label="Remove exclusion">✕</a></span>
+      <button type="button" class="btn-quiet btn-compact">Clear Filters</button>
+    </p>
+    <p class="design-row design-buttons">
+      <span class="status">Retired</span>
+      <span class="status status-gold">Active</span>
+      <span class="status status-good">First entry</span>
+      <span class="status status-warn">Counts as 0</span>
+      <span class="status status-bad">bug</span>
+    </p>
+
     <h2>A player's game result</h2>
     <div class="report-row">
       <GameSeatFields form={{ ...emptyGameForm('2026-09-01', 'Unknown'), b_outcome: 'resigned' }} who="b" name="Sample Player Two" onChange={() => {}} />
@@ -246,7 +274,7 @@ const rows = [
 
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">
-      <span class="panel-tag">12 rows</span>
+      <span class="tag">12 rows</span>
     </PanelHeader>
     <PanelHeader title="Sample panel with seasons">
       <SeasonPick id="design-season" seasons={[{ label: '2025' }, { label: '2026' }]} value="2026" word="Season" onChange={() => {}} />

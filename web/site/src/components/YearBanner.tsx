@@ -22,7 +22,7 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
     <div className="archive-hero-banner">
       <div>
         <div className="archive-head">
-          <span className="archive-badge">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
+          <span className="tag">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
           <span className="archive-snapshot">
             Snapshot Date: <strong>{board.snapshot}</strong>
           </span>

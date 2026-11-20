@@ -8,6 +8,7 @@ import { score } from '@ttac/shared/numbers';
 import { browserStorage } from '@ttac/shared/storage';
 import { toggledSet } from '@ttac/shared/toggle';
 import { seatRankClass } from '../lib/home-view';
+import { divisionTagClass } from '../lib/divisions';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -144,13 +145,13 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 <div className="filter-active-tags-row">
                   <div className="filter-tags-scroll" aria-label="Active feed filters">
                     {feedSettings.tournaments.map((t, idx) => (
-                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="player-filter-tag tourney-filter-tag">
+                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="chip">
                         <span className="player-tag-name">
                           🏛️ {t.name}{t.division ? ` · ${t.division}` : ''}
                         </span>
                         <button
                           type="button"
-                          className="player-tag-remove"
+                          className="chip-remove"
                           onClick={() => changeSettings(withoutTournament(feedSettings, t.slug, t.division))}
                           title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
                           aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
@@ -160,11 +161,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                       </span>
                     ))}
                     {feedSettings.players.map((name) => (
-                      <span key={name} className="player-filter-tag">
+                      <span key={name} className="chip">
                         <span className="player-tag-name">👤 {name}</span>
                         <button
                           type="button"
-                          className="player-tag-remove"
+                          className="chip-remove"
                           onClick={() => changeSettings(withoutPlayer(feedSettings, name))}
                           title={`Remove ${name} from feed`}
                           aria-label={`Remove ${name}`}
@@ -211,7 +212,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                       <div key={m.matchId} className="feed-match-item">
                         <div className="match-item-meta">
                           <span className="match-tournament">{m.tournament}</span>
-                          {m.division && <span className="badge badge-division">{m.division}</span>}
+                          {m.division && <span className={divisionTagClass(m.division)}>{m.division}</span>}
                           <span className="badge badge-seats">{m.playerCount}P</span>
                           <span className="match-date">{m.date}</span>
                           {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
@@ -281,7 +282,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             <a href={`/ratings/tournaments/?t=${encodeURIComponent(t.slug)}`} className="tourney-link">
                               {t.name}
                             </a>
-                            <span className="tourney-season-badge">
+                            <span className="tag">
                               {seasonName(t.seasonLabel, t.seasonWord)}
                             </span>
                           </div>
@@ -364,7 +365,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 <h3 className="feed-card-title">
                   <span>⚡</span> TTA Pulse Feed
                 </h3>
-                <span className="feed-card-badge pulse-badge">In Development</span>
+                <span className="tag tag-special">In Development</span>
               </div>
               <p className="feed-card-intro">
                 Live blitz games, instant matchmaking queue pairing, and rating velocity updates.

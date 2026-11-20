@@ -49,16 +49,16 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         subtitle="The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards, matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+ competitors."
       >
         <div className="tournaments-stats-bar">
-          <div className="stat-pill">
+          <div className="pill">
             Series Active: <strong>6 Major Circuits</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             Derived Matches: <strong>{data ? derivedMatches(data.series) : '…'}</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             Historical Span: <strong>2016 – Present</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             World Champions: <strong>{new Set(champions.map((c) => c.name)).size} Crowned Titleholders</strong>
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           icon="👑"
           title="All-Time Major Circuits Hall of Fame"
           subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
-          aside={<span className="panel-tag">Major League Titles Only</span>}
+          aside={<span className="tag">Major League Titles Only</span>}
         >
           <ScrollTable hint="full records">
             <table className="leaderboard-table wcs-table">

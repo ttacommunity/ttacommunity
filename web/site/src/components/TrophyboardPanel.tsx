@@ -21,7 +21,7 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
   const board = boardCells(rows ?? []);
   const span = 2 + board.headings.length + (honours ? 1 : 0);
   return (
-    <Panel id="trophyboard" icon="🏅" title="Official Trophyboard & Hall of Fame" aside={<span className="panel-tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>}>
+    <Panel id="trophyboard" icon="🏅" title="Official Trophyboard & Hall of Fame" aside={<span className="tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>}>
       <div className="trophy-sub">
         <span>Verified podium &amp; title records</span>
         <span className="trophy-sub-hint">Scroll table ↕</span>

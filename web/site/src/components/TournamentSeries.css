@@ -152,15 +152,6 @@
 .story-author:hover {
   color: var(--accent-gold);
 }
-.story-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-  font-weight: 600;
-}
 .story-title {
   font-size: 1.05rem;
   font-weight: 700;
@@ -194,7 +185,6 @@
   scrollbar-width: thin;
   scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
-
 
 /* Upstream's inline styles, as classes. */
 .meta-box-val.meta-box-text {

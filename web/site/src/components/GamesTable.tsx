@@ -63,7 +63,7 @@ export default function GamesTable({
               <td className="cell-muted">{r.context}</td>
               <td>
                 {r.where}
-                {r.tag !== '' && <span className="panel-tag game-state">{r.tag}</span>}
+                {r.tag !== '' && <span className="tag game-state">{r.tag}</span>}
                 {r.you !== undefined && (
                   <a className="game-you" href="#your-game">
                     {r.you}

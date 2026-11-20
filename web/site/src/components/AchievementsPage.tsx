@@ -304,7 +304,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                             </div>
                           </td>
                           <td className="ach-seasons-cell">
-                            <span className="seasons-count-badge">
+                            <span className="pill">
                               {counted(t.seasonsCount, 'season')}
                             </span>
                           </td>
@@ -320,7 +320,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                                 {t.wins}W - {t.losses}L{t.draws > 0 ? ` - ${t.draws}D` : ''}
                               </span>
                               {t.totalMatches > 0 && (
-                                <span className="winrate-pill">{t.winRate.toFixed(1)}%</span>
+                                <span className="pill pill-win">{t.winRate.toFixed(1)}%</span>
                               )}
                             </div>
                           </td>
@@ -377,7 +377,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                     )}
                   </div>
                   <div className="ach-drilldown-summary">
-                    <span className="seasons-count-badge">
+                    <span className="pill">
                       {counted(selectedOverview.seasonsCount, 'edition')}
                     </span>
                     <span className="record-stat">

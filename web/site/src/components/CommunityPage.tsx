@@ -72,7 +72,7 @@ function Hero({
       <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
       <div className="comm-hero">
         <div className="maintainer-card">
-          <div className="maintainer-badge">{info.badge || '🛡️ Circuit Maintainer'}</div>
+          <div className="tag">{info.badge || '🛡️ Circuit Maintainer'}</div>
           <div className="maintainer-desc">
             This official leaderboard is curated and maintained by{' '}
             <strong>

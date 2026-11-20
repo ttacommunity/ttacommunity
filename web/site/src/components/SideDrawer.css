@@ -115,18 +115,8 @@
   gap: 0.5rem;
 }
 
-
 .options-toggle-arrow {
   font-size: 0.75rem;
-}
-
-.options-active-badge {
-  padding: 0.1rem 0.35rem;
-  background: var(--accent-gold);
-  border-radius: 10px;
-  color: var(--text-on-gold);
-  font-size: 0.72rem;
-  font-weight: 800;
 }
 
 @keyframes fade-in-options {

@@ -49,14 +49,6 @@
 }
 
 /* Marks the option a page starts with, such as "DEFAULT" beside a rating engine. */
-.default-tag {
-  padding: 1px 4px;
-  background: var(--gold-wash-faint);
-  border-radius: 3px;
-  color: var(--accent-gold);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
 
 .format-bar-actions {
   display: flex;

@@ -371,7 +371,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
   return (
     <section aria-labelledby="blitz-rounds">
       <PanelHeader id="blitz-rounds" title="Pairings and results">
-        <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
+        <span className="tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </PanelHeader>
       {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">

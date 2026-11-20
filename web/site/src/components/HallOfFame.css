@@ -8,17 +8,6 @@
   padding-top: 1.25rem;
   border-top: 1px solid var(--gold-wash-faint);
 }
-.stat-pill {
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--gold-wash);
-  padding: 0.4rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-.stat-pill strong {
-  color: var(--accent-gold);
-  font-size: 1.05rem;
-}
 .series-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -53,17 +42,6 @@
 .series-icon {
   font-size: 2.4rem;
   line-height: 1;
-}
-.series-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  padding: 0.25rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 .series-name {
   font-size: 1.35rem;
@@ -223,10 +201,6 @@
     margin-top: 1rem;
     padding-top: 1rem;
   }
-  .stat-pill {
-    font-size: 0.8rem;
-    padding: 0.35rem 0.65rem;
-  }
   .series-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -246,12 +220,6 @@
   font-size: var(--size-body-short);
   line-height: 1.5;
 }
-
-
-
-
-
-
 
 .hof-two-col {
   display: grid;

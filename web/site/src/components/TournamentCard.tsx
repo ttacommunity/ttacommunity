@@ -20,7 +20,7 @@ export default function TournamentCard({
       <div>
         <div className="series-card-top">
           <div className="series-icon">{card.icon}</div>
-          {card.tagline !== null && <div className="series-badge">{card.tagline}</div>}
+          {card.tagline !== null && <div className="tag">{card.tagline}</div>}
         </div>
         <div className="series-name">{name}</div>
         {card.summary !== null && <div className="series-summary">{card.summary}</div>}

@@ -11,6 +11,23 @@
   --accent-gold-light: #ffde8a;
   --accent-gold-deep: #b87c1c;
   --gold-pale: #ffe6a3;
+  --violet: #c084fc;
+  /* The tiers, top to bottom: the title badges' fills and edges, and a division's colour by its level (Diamond has no title). */
+  --tier-gm: #e5a93c;
+  --tier-gm-edge: #ffcc66;
+  --tier-m: var(--violet);
+  --tier-m-edge: #d8b4fe;
+  --tier-d: #67e8f9;
+  --tier-p: #38bdf8;
+  --tier-p-edge: #7dd3fc;
+  --tier-g: #eab308;
+  --tier-g-edge: #fde047;
+  --tier-s: #94a3b8;
+  --tier-s-edge: #cbd5e1;
+  --tier-b: #b45309;
+  --tier-b-edge: #d97706;
+  --tier-w: #78350f;
+  --tier-w-edge: #92400e;
   --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
   /* The crimson button's gradient stops (top, bottom, top on hover) and its light edge on hover. */
@@ -66,6 +83,40 @@
   --tag-text: var(--accent-gold);
   --tag-surface: var(--gold-wash-faint);
   --tag-edge: var(--gold-wash);
+  /* A tag for something special or different (purple), and a division's tag by level, top first. */
+  --tag-special: var(--violet);
+  --division-1: var(--tier-gm);
+  --division-2: var(--tier-m);
+  --division-3: var(--tier-d);
+  --division-4: var(--tier-p);
+  --division-5: var(--tier-g);
+  --division-6: var(--tier-s);
+  --division-7: var(--tier-b-edge);
+  /* A pill: a figure with its label, green for a win and red for a loss. */
+  --pill-surface: var(--surface-well);
+  --pill-edge: var(--border-subtle);
+  --pill-text: var(--text-soft);
+  --pill-figure: var(--text-main);
+  --pill-win: var(--win);
+  --pill-win-edge: var(--win-edge);
+  --pill-loss: var(--loss);
+  --pill-loss-edge: var(--loss-edge);
+  --pill-gold: var(--accent-gold);
+  --pill-silver: var(--medal-silver);
+  --pill-bronze: var(--medal-bronze);
+  /* A chip: a filter you can remove, in a gentle red when it excludes. */
+  --chip-surface: var(--surface-well);
+  --chip-edge: var(--text-muted);
+  --chip-text: var(--text-soft);
+  --chip-out-text: var(--loss-light);
+  --chip-out-edge: var(--loss-edge);
+  --chip-out-surface: color-mix(in srgb, var(--loss-edge) 14%, var(--surface-well));
+  /* A status: a short state, outlined in its tone. */
+  --status-muted: var(--text-muted);
+  --status-gold: var(--accent-gold);
+  --status-good: var(--win);
+  --status-warn: var(--draw);
+  --status-bad: var(--loss);
   /* A note in front of the reader (Note), and its warning tone. Notes, insets and formula boxes share the well's colour. */
   --note-surface: var(--surface-well);
   --note-edge: var(--accent-gold);

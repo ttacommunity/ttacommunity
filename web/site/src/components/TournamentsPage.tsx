@@ -78,7 +78,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
 function CgeList({ data }: { data: Catalogue }) {
   const withGames = new Set(data.tournaments.map((t) => t.slug));
   return (
-    <Panel id="cge-tournaments" title="Tournaments on CGE" aside={<span className="panel-tag">{count(data.cge_tournaments.length)} tournaments</span>}>
+    <Panel id="cge-tournaments" title="Tournaments on CGE" aside={<span className="tag">{count(data.cge_tournaments.length)} tournaments</span>}>
       <p className="records-intro">
         The tournaments on CGE&apos;s site that count towards the ratings. One marked (Not Rated) is shown but does not
         count.
@@ -221,7 +221,7 @@ function Champions({
       id="champions"
       title={`Champions & ${plural(word)}`}
       aside={
-        <span className="panel-tag">
+        <span className="tag">
           {count(seasons.length)} {plural(lower)}
         </span>
       }
