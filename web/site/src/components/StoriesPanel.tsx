@@ -17,7 +17,7 @@ export default function StoriesPanel({ stories }: { stories: readonly StoryView[
               <PlayerLink name={s.player} className="story-author">
                 <span>👤</span> {s.player}
               </PlayerLink>
-              {s.badge !== '' && <div className="story-badge">{s.badge}</div>}
+              {s.badge !== '' && <div className="tag">{s.badge}</div>}
             </div>
             <div className="story-title">{s.title}</div>
             <div className="story-text">{s.text}</div>

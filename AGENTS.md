@@ -358,7 +358,10 @@ agent runs them itself.
   `.formula` around several), buttons (`.btn-antique` for an action,
   `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
   cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a
-  table row or list), and admin's `AdminPage`, `AdminCard` and
+  table row or list), labels (`.tag` beside a title, `.tag-special` and
+  a division's level colour from `divisionTagClass`; `.pill` for a figure;
+  `.chip` for a removable filter, `.chip-out` when it excludes; `.status`
+  in a tone), and admin's `AdminPage`, `AdminCard` and
   `AdminTable`. `/design` shows them all. Buttons set the heights
   (`--control-height`, `--control-height-compact`) and a field beside a
   button shares its height (`.input-antique`). A page's CSS sets only its own

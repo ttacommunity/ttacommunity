@@ -320,18 +320,6 @@
 .ach-row-clickable:hover .ach-tournament-title {
   color: var(--accent-gold);
 }
-.seasons-count-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-bright);
-  white-space: nowrap;
-}
 .ach-best-tier {
   display: inline-flex;
   align-items: center;
@@ -353,16 +341,6 @@
   font-size: 0.88rem;
   color: var(--text-bright);
   font-weight: 600;
-}
-.winrate-pill {
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--win-edge) 35%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 70%, transparent);
-  color: var(--win-light);
 }
 .ach-action-head {
   text-align: right;

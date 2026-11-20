@@ -22,7 +22,7 @@ export default function GameRecordsPanel({
 }) {
   if (records !== null && records.length === 0) return null;
   return (
-    <Panel id="game-records" icon="📈" title={title} aside={<span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>}>
+    <Panel id="game-records" icon="📈" title={title} aside={<span className="tag">Top Single-Game Scores</span>}>
       <p className="records-intro">{intro}</p>
       <div className="trophy-table-container records-table">
         <table className="leaderboard-table trophy-table">

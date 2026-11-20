@@ -255,11 +255,11 @@ export default function FeedOptionsModal({
               <Inset form="line">No specific players tracked.</Inset>
             ) : (
               staged.players.map((name) => (
-                <span key={name} className="player-filter-tag">
+                <span key={name} className="chip">
                   <span className="player-tag-name">{name}</span>
                   <button
                     type="button"
-                    className="player-tag-remove"
+                    className="chip-remove"
                     onClick={() => removePlayer(name)}
                     title={`Remove ${name}`}
                     aria-label={`Remove ${name}`}

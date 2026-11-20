@@ -26,7 +26,7 @@ interface Props {
 export default function PageHeader({ title, icon, subtitle, back, above, media, tag, id, centred = false, className, children }: Props) {
   const text = (
     <>
-      {tag !== undefined && <div className="page-header-tag">{tag}</div>}
+      {tag !== undefined && <div className="tag page-header-tag">{tag}</div>}
       {back !== undefined && (
         <div className="header-back">
           <BackLink href={back.href}>{back.label}</BackLink>

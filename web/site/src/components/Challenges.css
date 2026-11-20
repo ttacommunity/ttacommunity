@@ -137,15 +137,6 @@
   color: var(--text-muted);
   font-size: var(--size-table-compact);
 }
-.challenge-bug {
-  margin-left: 0.35rem;
-  padding: 0 0.35rem;
-  border: 1px solid var(--loss);
-  border-radius: 4px;
-  color: var(--loss-light);
-  font-size: var(--size-label);
-  text-transform: uppercase;
-}
 
 .challenges-podium {
   max-width: 40rem;
@@ -262,22 +253,6 @@
   color: var(--text-muted);
   font-family: var(--font-stats);
   font-size: var(--size-body-short);
-}
-.challenges-chip {
-  padding: 0.1rem 0.55rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  color: var(--text-main);
-  background: var(--surface-inset);
-}
-.challenges-chip.easy {
-  border-color: var(--win);
-}
-.challenges-chip.medium {
-  border-color: var(--draw);
-}
-.challenges-chip.hard {
-  border-color: var(--loss);
 }
 .challenges-bar-title {
   margin: 0;
@@ -483,22 +458,6 @@
 .challenges-errors {
   margin: 0.25rem 0 0;
   color: var(--loss-light);
-}
-.challenges-note {
-  display: inline-block;
-  margin: 0 0.3rem 0.2rem 0;
-  padding: 0.05rem 0.45rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  font-size: var(--size-label);
-}
-.challenges-note.good {
-  border-color: var(--win);
-  color: var(--win);
-}
-.challenges-note.warn {
-  border-color: var(--draw);
-  color: var(--draw);
 }
 .challenges-examples {
   display: grid;

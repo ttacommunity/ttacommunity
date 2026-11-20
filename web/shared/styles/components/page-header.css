@@ -51,15 +51,6 @@
   z-index: 1;
   float: right;
   margin: 0 0 0.75rem 1rem;
-  padding: 0.3rem 0.75rem;
-  background: var(--tag-surface);
-  border: 1px solid var(--tag-edge);
-  border-radius: 4px;
-  color: var(--tag-text);
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 /* Centred (a player's pages): the title in the heading face, everything under it centred; the back link stays left. */
 .page-header-centred {

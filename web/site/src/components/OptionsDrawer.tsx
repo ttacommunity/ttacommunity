@@ -91,7 +91,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
             label: (
               <>
                 <span>{t.name}</span>
-                {t.value === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
+                {t.value === DEFAULT_VIEW.ranking && <span className="status">Default</span>}
               </>
             ),
             tooltip: defaultMinOpps(null, t.value) === 0 ? `${t.desc} (sets min opponents to 0)` : t.desc,
@@ -110,7 +110,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
             label: (
               <>
                 <span>{engineName(e)}</span>
-                {e === DEFAULT_VIEW.engine && <span className="default-tag">DEFAULT</span>}
+                {e === DEFAULT_VIEW.engine && <span className="status">Default</span>}
               </>
             ),
             tooltip: engineTips[e],

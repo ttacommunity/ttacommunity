@@ -29,16 +29,3 @@
   line-height: 1.5;
 }
 /* A count or a word about the panel, on the right of its title. */
-.panel-tag {
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--tag-edge);
-  border-radius: 4px;
-  background: var(--tag-surface);
-  color: var(--tag-text);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-.panel-tag-wide {
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
-}

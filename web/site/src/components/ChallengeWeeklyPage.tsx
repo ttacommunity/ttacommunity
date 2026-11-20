@@ -29,7 +29,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
         <>
           <p className="challenges-champions">
             {champions(load.data.weeks).map(([name, wins]) => (
-              <span key={name} className="challenges-chip">
+              <span key={name} className="pill">
                 <ChallengePlayerLink name={name} /> × {wins}
               </span>
             ))}

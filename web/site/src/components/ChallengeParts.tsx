@@ -85,7 +85,7 @@ export function ProofMark({ url }: { url: string | null }) {
 /** BugTag marks an entry made through a since-fixed game bug. */
 export function BugTag() {
   return (
-    <span className="challenge-bug" title="Made through a game bug that has since been fixed. Listed, but never counted.">
+    <span className="status status-bad" title="Made through a game bug that has since been fixed. Listed, but never counted.">
       bug
     </span>
   );

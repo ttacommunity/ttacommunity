@@ -262,7 +262,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
                   </td>
                   <td>
                     {notes.map((n) => (
-                      <span key={n.text} className={`challenges-note ${n.kind}`}>
+                      <span key={n.text} className={`status status-${n.kind}`}>
                         {n.text}
                       </span>
                     ))}

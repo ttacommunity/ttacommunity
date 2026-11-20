@@ -186,9 +186,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           <div className="leaderboard-filters">
             <div className="leaderboard-pills">
               {parsedSearch.positive.length > 0 && (
-                <span className="filter-pill">
+                <span className="chip">
                   Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
-                  <a
+                  <a className="chip-remove"
                     {...linkTo({
                       ...view,
                       search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
@@ -201,9 +201,9 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                 </span>
               )}
               {parsedSearch.negative.map((neg) => (
-                <span key={neg} className="filter-pill filter-pill-excluded">
+                <span key={neg} className="chip chip-out">
                   Excluded: &quot;{neg}&quot;{' '}
-                  <a
+                  <a className="chip-remove"
                     {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
                     aria-label={`Remove exclusion for ${neg}`}
                   >
@@ -212,41 +212,41 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                 </span>
               ))}
               {view.title !== null && (
-                <span className="filter-pill">
+                <span className="chip">
                   Title: {view.title}{' '}
-                  <a {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
+                  <a className="chip-remove" {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
                     ✕
                   </a>
                 </span>
               )}
               {view.status !== DEFAULT_VIEW.status && (
-                <span className="filter-pill">
+                <span className="chip">
                   Status: {view.status === 'all' ? 'All' : 'Inactive'}{' '}
-                  <a {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
+                  <a className="chip-remove" {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
                     ✕
                   </a>
                 </span>
               )}
               {view.delta !== DEFAULT_VIEW.delta && (
-                <span className="filter-pill">
+                <span className="chip">
                   &Delta;: {deltaNames[view.delta]}{' '}
-                  <a {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
+                  <a className="chip-remove" {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
                     ✕
                   </a>
                 </span>
               )}
               {view.ranking !== DEFAULT_VIEW.ranking && (
-                <span className="filter-pill">
+                <span className="chip">
                   Track: {trackNames[view.ranking]}{' '}
-                  <a {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
+                  <a className="chip-remove" {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
                     ✕
                   </a>
                 </span>
               )}
               {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
-                <span className="filter-pill">
+                <span className="chip">
                   Min Opponents: &ge;{view.minOpps}{' '}
-                  <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
+                  <a className="chip-remove" {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
                     ✕
                   </a>
                 </span>
@@ -263,7 +263,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                     stats: view.stats,
                     minOpps: defaultMinOpps(view.year, view.ranking),
                   })}
-                  className="btn-quiet"
+                  className="btn-quiet btn-compact"
                 >
                   Clear Filters
                 </a>
@@ -279,11 +279,11 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               <span className="search-matches-label">Matches ({found.rows.length}):</span>
               <div className="search-matches-chips">
                 {found.rows.map((p) => (
-                  <span key={p.name} className="search-match-chip">
+                  <span key={p.name} className="chip">
                     <span className="chip-name">{p.name}</span>
                     <button
                       type="button"
-                      className="chip-dismiss-btn"
+                      className="chip-remove"
                       title={`Exclude ${p.name}`}
                       aria-label={`Exclude ${p.name} from search`}
                       onClick={() => onExclude(p.name)}
@@ -293,11 +293,11 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                   </span>
                 ))}
                 {parsedSearch.negative.map((neg) => (
-                  <span key={neg} className="search-match-chip chip-excluded">
-                    <span className="chip-name">{neg}</span>
+                  <span key={neg} className="chip chip-out">
+                    <span className="chip-name">− {neg}</span>
                     <button
                       type="button"
-                      className="chip-restore-btn"
+                      className="chip-remove"
                       title={`Restore ${neg}`}
                       aria-label={`Restore ${neg} to search`}
                       onClick={() => onInclude(neg)}
@@ -502,7 +502,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
                       </span>
                     )}
                     {!p.active && view.status === 'all' && (
-                      <span className="retired-badge" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
+                      <span className="status" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
                         Retired
                       </span>
                     )}

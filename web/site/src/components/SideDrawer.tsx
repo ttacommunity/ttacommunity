@@ -60,7 +60,7 @@ export function OptionsToggle({ title, active, open, onClick }: { title: string;
   return (
     <button type="button" className="btn-antique options-toggle" title={title} aria-expanded={open} onClick={onClick}>
       <span>⚙️ Options</span>
-      {active && <span className="options-active-badge">Active</span>}
+      {active && <span className="status status-gold">Active</span>}
       <span className="options-toggle-arrow">{open ? '✕' : '▶'}</span>
     </button>
   );
