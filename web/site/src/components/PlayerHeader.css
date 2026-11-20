@@ -1,60 +1,27 @@
-/* A player's header: the full form (centred: back link, title, name, a gold bar with flag and peak, links) and the compact one (a row). */
-.profile-header {
+/* A player's header, inside the centred page header: the badges above the name, the gold bar with flag and peak, the page's line and links. */
+.player-header-badges {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 1.25rem;
-  max-width: 100%;
-  margin: 0.5rem auto 2rem;
-  padding: 1.5rem 2rem;
-  background: var(--surface-card);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px var(--shadow);
-  backdrop-filter: blur(8px);
-  text-align: center;
-}
-.profile-header .header-back {
-  margin-bottom: 0;
-}
-.player-identity,
-.player-identity-name {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-.player-identity {
-  gap: 0.6rem;
-}
-.player-identity-name {
   gap: 0.35rem;
+}
+.player-header-badges:empty {
+  display: none;
 }
 .badge.badge-profile-lg {
   padding: 0.25rem 0.85rem;
   font-size: 0.95rem;
 }
-.player-profile-name {
-  display: inline-block;
-  margin: 0.2rem 0;
-  font-family: var(--font-heading);
-  font-size: var(--size-page-title);
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--accent-gold);
-  letter-spacing: 1px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-shadow:
-    0 2px 4px var(--shadow-deep),
-    0 4px 14px rgba(0, 0, 0, 0.85);
-}
 .profile-calibrating {
   font-size: 1.1rem;
   vertical-align: middle;
   cursor: help;
+}
+.player-header-extras {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
 }
 .player-meta-pill {
   display: inline-flex;
@@ -72,8 +39,16 @@
   font-weight: 700;
 }
 .player-meta-pill .meta-separator {
-  color: #5a3518;
+  color: var(--text-on-gold-soft);
   font-weight: 900;
+}
+.player-header-subtitle {
+  margin-top: -0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.player-header-subtitle strong {
+  color: var(--accent-gold);
 }
 .profile-links {
   display: flex;
@@ -81,19 +56,9 @@
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  margin-top: 0.25rem;
 }
-@media (max-width: 768px) {
-.profile-header {
-    margin-bottom: 1.25rem;
-    padding: 1.25rem 1rem;
-  }
-.player-profile-name {
-    font-size: clamp(1.6rem, 6vw, 2.2rem);
-    word-break: break-word;
-  }
-}
-/* The profile's links to its sub-pages, upstream's .btn-tournament-achievements. */.btn-tournament-achievements {
+/* The profile's links to its sub-pages, upstream's .btn-tournament-achievements. */
+.btn-tournament-achievements {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -119,53 +84,4 @@
 }
 .btn-tournament-achievements.btn-matrix {
   border-color: var(--accent-gold);
-}
-.matrix-header-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-  padding: 1.75rem 2rem;
-  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px var(--shadow-light);
-}
-.matrix-header-card .header-back {
-  margin-bottom: 0;
-}
-.matrix-identity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.4rem;
-}
-.matrix-identity h1 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: var(--size-page-title);
-  color: var(--text-bright);
-}
-.matrix-subtitle {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-.matrix-subtitle strong {
-  color: var(--accent-gold);
-}
-.matrix-header-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-.matrix-header-links .btn-antique {
-  font-size: var(--size-button);
-}
-@media (max-width: 768px) {
-.matrix-header-card {
-    padding: 1.25rem 1rem;
-  }
 }

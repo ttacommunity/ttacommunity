@@ -195,7 +195,6 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
     <PlayerHeader
       player={player}
       back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
-      compact
       subtitle={
         <>
           Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>

@@ -1,11 +1,12 @@
-/** The header of a tournament's page, and of a circuit's: the card's icon, short description and information box, with the figures. */
+/** The page header of a tournament's page, and of a circuit's: the card's icon beside the title, its tagline at the top right, its short description under the subtitle, then the figures. */
 import type { ReactNode } from 'react';
+import PageHeader from '@ttac/shared/PageHeader';
 import type { CardView } from '../lib/tournament-card';
 
 /** A figure in the header: its label, its value, and whether the value is words (set smaller) rather than a number. */
 export type HeroFact = { label: string; value: ReactNode; words?: boolean };
 
-/** TournamentHero shows a page's title and subtitle beside its card's icon and short description, then its information box and figures. */
+/** TournamentHero shows a page's title and subtitle in the page header, with its card's icon, tagline and short description, then its figures. */
 export default function TournamentHero({
   card,
   title,
@@ -18,18 +19,21 @@ export default function TournamentHero({
   facts: HeroFact[];
 }) {
   return (
-    <div className="detail-hero">
-      <div className="detail-hero-top">
-        <div className="detail-hero-left">
-          <div className="detail-hero-icon">{card.icon}</div>
-          <div>
-            <h1 className="detail-hero-title">{title}</h1>
-            <div className="detail-hero-subtitle">{subtitle}</div>
-          </div>
+    <PageHeader
+      media={
+        <div className="detail-hero-icon" aria-hidden="true">
+          {card.icon}
         </div>
-        {card.tagline !== null && <div className="detail-hero-badge">{card.tagline}</div>}
-      </div>
-      {card.summary !== null && <div className="detail-hero-desc">{card.summary}</div>}
+      }
+      tag={card.tagline ?? undefined}
+      title={title}
+      subtitle={
+        <>
+          <div>{subtitle}</div>
+          {card.summary !== null && <p className="tournament-summary">{card.summary}</p>}
+        </>
+      }
+    >
       <div className="detail-meta-grid">
         {facts.map((f) => (
           <div key={f.label} className="meta-box">
@@ -38,6 +42,6 @@ export default function TournamentHero({
           </div>
         ))}
       </div>
-    </div>
+    </PageHeader>
   );
 }

@@ -1,7 +1,5 @@
 /* Movies feed page: uses the shared dark card/hero theme so text and thumbnails stay readable over the parchment background. */
 .movies-page {
-  max-width: 1120px;
-  margin: 0 auto;
   padding: 0 0 3rem;
 }
 

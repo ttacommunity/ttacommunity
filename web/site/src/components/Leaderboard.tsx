@@ -12,6 +12,7 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
+import PageHeader from '@ttac/shared/PageHeader';
 import { count } from '@ttac/shared/numbers';
 import SearchBox from './SearchBox';
 import Panel from './Panel';
@@ -137,6 +138,17 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className={optionsOpen ? 'leaderboard-layout options-open' : 'leaderboard-layout'}>
+      <PageHeader
+        title="Competitive Leaderboard"
+        subtitle={
+          <span className="leaderboard-engine">
+            Engine: <strong>{show.engineName(model)}</strong>
+            <span className="badge badge-format">{show.formatName(view.format)}</span>
+            <span className="badge badge-mode">{show.resetModeName(model)}</span>
+            {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
+          </span>
+        }
+      />
       <Panels>
         <Panel label="Leaderboard" className="leaderboard">
           <div className="format-bar">
@@ -156,31 +168,20 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
             <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
           )}
 
-          <div className="leaderboard-heading">
-            <div>
-              <h1 className="rating-card-heading">Competitive Leaderboard</h1>
-              <p className="leaderboard-engine">
-                Engine: <strong>{show.engineName(model)}</strong>
-                <span className="badge badge-format">{show.formatName(view.format)}</span>
-                <span className="badge badge-mode">{show.resetModeName(model)}</span>
-                {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
-              </p>
-            </div>
-            {state.kind === 'ready' && (
-              <p className="leaderboard-count">
-                Players: <strong>{count(found.rows.length)}</strong>{' '}
-                <span className={`leaderboard-status status-${view.status}`}>
-                  {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
-                </span>
-                {view.minOpps > 0 && (
-                  <>
-                    {' '}
-                    <span className="leaderboard-status status-min">(&ge; {view.minOpps} opponents)</span>
-                  </>
-                )}
-              </p>
-            )}
-          </div>
+          {state.kind === 'ready' && (
+            <p className="leaderboard-count">
+              Players: <strong>{count(found.rows.length)}</strong>{' '}
+              <span className={`leaderboard-status status-${view.status}`}>
+                {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
+              </span>
+              {view.minOpps > 0 && (
+                <>
+                  {' '}
+                  <span className="leaderboard-status status-min">(&ge; {view.minOpps} opponents)</span>
+                </>
+              )}
+            </p>
+          )}
 
           <div className="leaderboard-filters">
             <div className="leaderboard-pills">

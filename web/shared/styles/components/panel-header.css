@@ -7,8 +7,8 @@
   gap: 0.5rem;
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--gold-wash-faint);
-  color: var(--accent-gold);
+  border-bottom: 1px solid var(--panel-rule);
+  color: var(--panel-title);
   font-size: var(--size-card-title);
   font-weight: 700;
 }
@@ -22,7 +22,7 @@
 /* What the panel shows, under its title. */
 .panel-header-sub {
   margin: 0.25rem 0 0;
-  color: var(--text-muted);
+  color: var(--panel-text);
   font-family: var(--font-stats);
   font-size: var(--size-label);
   font-weight: normal;
@@ -31,10 +31,10 @@
 /* A count or a word about the panel, on the right of its title. */
 .panel-tag {
   padding: 0.15rem 0.5rem;
-  border: 1px solid var(--gold-wash);
+  border: 1px solid var(--tag-edge);
   border-radius: 4px;
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
+  background: var(--tag-surface);
+  color: var(--tag-text);
   font-size: 0.78rem;
   font-weight: 600;
 }

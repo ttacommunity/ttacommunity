@@ -23,6 +23,7 @@
   --text-soft: #cfbeab;
   --text-muted: #a89880;
   --text-on-gold: #120904;
+  --text-on-gold-soft: #5a3518;
   --text-bright: #fff;
   --border-subtle: #4a3525;
   /* Win and loss in the game's own colours: text in its lighter shades, edges and fills in its resource bar's. */
@@ -39,6 +40,28 @@
   --engine-daneo-light: #c084fc;
   --engine-std: #eab308;
   --engine-std-light: #fde047;
+
+  /* Roles: what a colour is for, pointing at the colours above. A shared component takes its colours from its roles, so a change of look, or a theme, is a line here. */
+  /* A page's header (PageHeader, HomeHeader). */
+  --page-header-surface: linear-gradient(135deg, var(--surface-warm), var(--surface-well));
+  --page-header-edge: var(--gold-wash);
+  --page-header-title: var(--accent-gold);
+  --page-header-text: var(--text-muted);
+  --page-header-link: var(--accent-gold);
+  /* A panel (Panel, PanelHeader), and its stripe for commentary and its picture's wash. */
+  --panel-surface: var(--surface-panel);
+  --panel-edge: var(--border-subtle);
+  --panel-title: var(--accent-gold);
+  --panel-rule: var(--gold-wash-faint);
+  --panel-text: var(--text-muted);
+  --panel-stripe-gold: var(--accent-gold);
+  --panel-stripe-green: var(--win-edge);
+  --panel-stripe-bronze: var(--medal-bronze);
+  --panel-art-wash: linear-gradient(var(--surface-panel), var(--surface-card));
+  /* A small tag beside a title (a panel's count, a header's tagline). */
+  --tag-text: var(--accent-gold);
+  --tag-surface: var(--gold-wash-faint);
+  --tag-edge: var(--gold-wash);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;
@@ -67,6 +90,7 @@
   --shadow-deep: rgba(0, 0, 0, 0.9);
   --border-faint: rgba(74, 53, 37, 0.3);
   --surface-card: rgba(28, 18, 12, 0.95);
+  --surface-warm: rgba(32, 20, 13, 0.95);
   --surface-well: rgba(20, 13, 9, 0.98);
   --surface-field: rgba(14, 9, 6, 0.95);
   /* The height of a text field, select or button in a row of them, so the row lines up. */

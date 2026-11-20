@@ -20,6 +20,7 @@ import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import Panel from '../components/Panel';
 import Panels from '../components/Panels';
+import HomeHeader from '../components/HomeHeader.astro';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
 import TitleSelect from '../components/TitleSelect';
@@ -70,9 +71,9 @@ const rows = [
 <SiteLayout title="Design system | ttacommunity" description="The ratings site's colours, fonts and components.">
   <meta slot="head" name="robots" content="noindex" />
 
-  <div class="rating-card design">
-    <h1 class="rating-card-heading">Design system</h1>
-    <p class="design-intro">Upstream's look, taken from its CSS. Sample data only.</p>
+  <PageHeader title="Design system" subtitle="Upstream's look, taken from its CSS. Sample data only." />
+
+  <div class="design">
 
     <h2>Colours</h2>
     <ul class="swatches">
@@ -195,6 +196,16 @@ const rows = [
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
 
+    <h2>Page header with a tag</h2>
+    <PageHeader tag="Annual sample" title="Sample tournament" subtitle="A tournament's header carries its tagline at the top right, and its icon as the picture beside the title." />
+
+    <h2>Home header</h2>
+    <p>The home page's own header, the one page header that is not the page header below; the live figures go in its slot.</p>
+    <HomeHeader />
+
+    <h2>Page header: centred</h2>
+    <PageHeader centred title="Sample player" subtitle="A player's pages: centred, the name in the heading face." back={{ href: '/design/', label: 'Back to a list' }} />
+
     <h2>Panel</h2>
     <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
       <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
@@ -315,20 +326,11 @@ const rows = [
 </SiteLayout>
 
 <style>
-  .design {
-    padding: 1.15rem 1.4rem;
-  }
-
   .design > h2 {
     margin: 1.75rem 0 0.6rem;
     color: var(--accent-gold);
     font-family: var(--font-subheading);
     font-size: 1.1rem;
-  }
-
-  .design-intro {
-    margin-top: 0.25rem;
-    color: var(--text-muted);
   }
 
   .design-row {
