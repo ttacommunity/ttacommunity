@@ -25,7 +25,7 @@ export default function EmailLinkPage({ apiUrl }: { apiUrl: string }) {
     window.location.replace(emailFinishTarget(got.outcome, got.back));
   };
   return (
-    <Panel id="email-finish" title="Finish signing in" className="account-card">
+    <Panel id="email-finish" title="Finish signing in" size="reading" className="account-card">
       {token === null ? (
         <p>
           This page opens from the link in a sign-in email. <a href="/account/">Ask for a link on your account page</a>.

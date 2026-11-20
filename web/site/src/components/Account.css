@@ -1,9 +1,6 @@
 /* The account page: one card with the ways to sign in, or the player's link request or details. */
 
 .account-card {
-  width: 100%;
-  max-width: 40rem;
-  margin-inline: auto;
   line-height: 1.6;
 }
 /* An email address is one long word: it breaks anywhere rather than widen the page on a phone. */

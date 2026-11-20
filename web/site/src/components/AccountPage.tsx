@@ -70,7 +70,7 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
       <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
       <Panels>
       {notice !== null && (
-        <Panel label="Sign-in result" className="account-card">
+        <Panel label="Sign-in result" size="reading" className="account-card">
           <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
         </Panel>
       )}
@@ -98,7 +98,7 @@ function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: 
   if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
   const who = signedInAs(me);
   return (
-    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} className="account-card">
+    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} size="reading" className="account-card">
       {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
       {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
@@ -123,7 +123,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
   const returnTo = back ?? window.location.pathname;
   const [emailOpen, setEmailOpen] = useState(false);
   return (
-    <Panel id="account-sign-in" title="Sign in or create an account" className="account-card">
+    <Panel id="account-sign-in" title="Sign in or create an account" size="reading" className="account-card">
       <ul className="account-ways">
         <li>
           <SignerLink signer="discord" href={signInHref(apiUrl, 'discord', returnTo)}>

@@ -12,6 +12,13 @@
   padding: 1.5rem;
 }
 
+/* A panel of a form or prose (Panel's reading size): centred, about 70 characters a line. */
+.panel-reading {
+  width: 100%;
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
 /* A panel of commentary about the data (Panel's stripe): gold for a summary or guide, green for a finding, bronze for a deep dive. */
 .panel-stripe {
   border-left: 4px solid var(--accent-gold);

@@ -1,8 +1,6 @@
 /* A text page, such as privacy or terms: one readable card of text. */
 
 .text-page-body {
-  max-width: 44rem;
-  margin-inline: auto;
   color: var(--text-main);
   line-height: 1.65;
 }

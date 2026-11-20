@@ -12,7 +12,7 @@ const { Content } = await render(page);
 ---
 <SiteLayout title="Privacy | Through the Ages community" description="What the Through the Ages community site keeps about you, who sees it, and how to have it removed.">
   <PageHeader title={page.data.title} subtitle={`Last changed ${page.data.updated}.`} />
-  <Panel label={page.data.title} className="text-page-body">
+  <Panel label={page.data.title} size="reading" className="text-page-body">
     <Content />
   </Panel>
 </SiteLayout>
