@@ -198,11 +198,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               {/* Matches List */}
               <div className="feed-list">
                 {feedMatches.kind !== 'ready' ? (
-                  <div className="feed-sub-loading">{waitingText(feedMatches, 'recent matches')}</div>
+                  <Message form="inline">{waitingText(feedMatches, 'recent matches')}</Message>
                 ) : feedMatches.data.length === 0 ? (
-                  <div className="feed-empty-hint">
+                  <Message form="inline">
                     No recent matches found for the chosen filters. Try adjusting your selections with the Options button above.
-                  </div>
+                  </Message>
                 ) : (
                   feedMatches.data.map((m) => {
                     const isRevealed = globalMatchSpoilers || revealedMatchIds.has(m.matchId);
@@ -267,9 +267,9 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
               <div className="feed-list">
                 {data.recentTournaments.kind !== 'ready' ? (
-                  <div className="feed-sub-loading">{waitingText(data.recentTournaments, 'the recent tournaments')}</div>
+                  <Message form="inline">{waitingText(data.recentTournaments, 'the recent tournaments')}</Message>
                 ) : data.recentTournaments.data.length === 0 ? (
-                  <div className="feed-empty-hint">No recent tournament podiums recorded.</div>
+                  <Message form="inline">No recent tournament podiums recorded.</Message>
                 ) : (
                   data.recentTournaments.data.map((t) => {
                     const key = `${t.slug}-${t.seasonLabel}`;

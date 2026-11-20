@@ -763,14 +763,6 @@
   font-weight: 700;
 }
 
-.feed-sub-loading,
-.feed-empty-hint {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
 .feed-card-footer {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-faint);
