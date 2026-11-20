@@ -3,7 +3,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1.25rem;
-  margin-bottom: 2rem;
 }
 .medal-card {
   background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
@@ -42,42 +41,11 @@
 .bronze-accent { color: var(--medal-bronze); }
 .trophy-accent { color: var(--accent-gold); }
 
-.rating-card.ach-card {
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 2rem;
-  border-left: 4px solid var(--accent-gold);
-}
-.ach-card-title {
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-  font-size: 1.15rem;
-  margin-bottom: 0.4rem;
-}
-.ach-card-title.ach-accolades-title {
-  margin-bottom: 0.75rem;
-}
 .ach-honor-roll {
   font-family: var(--font-body);
   font-size: var(--size-body);
   line-height: 1.6;
   color: var(--text-main);
-}
-.rating-card.ach-records {
-  padding: 1.5rem;
-}
-.ach-records-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-.ach-records-title {
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-  font-size: 1.35rem;
-  margin: 0 0 0.75rem 0;
 }
 .input-antique.ach-filter {
   width: 260px;
@@ -111,7 +79,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.25rem;
-  margin-bottom: 2rem;
 }
 .best-result-card {
   background: linear-gradient(145deg, var(--surface-card), var(--surface-well));

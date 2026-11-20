@@ -5,9 +5,9 @@ order: 13
 ---
 
 import FaqFigure from '../../components/FaqFigure.astro';
+import Panel from '../../components/Panel';
 
-<div class="faq-card">
-  <h3>Why Introduce Season Resets? Career Inertia vs. Seasonal Stakes</h3>
+<Panel title="Why Introduce Season Resets? Career Inertia vs. Seasonal Stakes" className="faq-card">
   <div>
 
       <p>
@@ -22,10 +22,9 @@ import FaqFigure from '../../components/FaqFigure.astro';
   </ul>
           </div>
 
-</div>
+</Panel>
 
-    <div class="faq-card">
-  <h3>Season Reset: Decoupled Parameter Scaling &amp; Dynamic phi-Quantile Division Tiers</h3>
+<Panel title="Season Reset: Decoupled Parameter Scaling & Dynamic phi-Quantile Division Tiers" className="faq-card">
   <div>
 
   <h4 class="faq-subhead">1. Why We Retired Experimental Hard and Soft Resets</h4>
@@ -99,12 +98,9 @@ $$
 
           </div>
 
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze" id="calibration-bins">
-  <h3 class="c-amber">
-    <span>📊</span> Derivation of Calibration Bins: Normal Distribution Density &amp; Probability Reliability Bins
-  </h3>
+<Panel id="calibration-bins" icon="📊" title="Derivation of Calibration Bins: Normal Distribution Density & Probability Reliability Bins" stripe="bronze" className="faq-card">
   <p>
     Calibration in GlickoD operates on two mathematical levels: <strong>Probability Prediction Bins</strong> (verifying that a $70\%$ forecast realizes as a $70\%$ win rate) and <strong>Competitive Tier Bins</strong> (reshaping seasonal resets to respect the natural Gaussian skill distribution).
   </p>
@@ -185,10 +181,9 @@ $$
     <li><strong>Near the Median ($z \approx 0 \implies \mu \approx 1500$):</strong> $\tau(0) = 0 \implies \alpha(0) = 1.0$ and $\lambda(0) = 1.0$. Active players in Gold and Platinum experience minimal artificial dislocation, maintaining flawless day-to-day matchmaking stability.</li>
     <li><strong>In the Elite Tails ($|z| \ge 2.5 \implies \mu \ge 1950$):</strong> $\tau(z) \to 1.0 \implies \alpha$ expands by $(\phi - 1)/2 \approx +30.9\%$ while regression $\lambda$ increases by $\phi^{-1}/2 \approx +30.9\%$. This gently taxes legacy camping, ensuring that active form and current tournament campaigns contest the highest podiums.</li>
   </ul>
-</div>
+</Panel>
 
-        <div class="faq-card">
-  <h3>Empirical Proof: Walk-Forward Validation Across 308,000+ Matches</h3>
+<Panel title="Empirical Proof: Walk-Forward Validation Across 308,000+ Matches" className="faq-card">
   <div>
 
       <p>
@@ -229,4 +224,4 @@ $$
       </div>
           </div>
 
-</div>
+</Panel>

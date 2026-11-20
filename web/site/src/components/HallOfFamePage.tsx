@@ -24,7 +24,8 @@ import { waitingText } from '../lib/waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
@@ -153,14 +154,14 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         />
       </div>
 
-      <div className="rating-card panel-card wcs-analytics-card">
-        <PanelHeader
-          icon="👑"
-          title="All-Time Major Circuits Hall of Fame"
-          subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
-        >
-          <span className="panel-tag">Major League Titles Only</span>
-        </PanelHeader>
+      <Panels>
+      <Panel
+        id="hof-majors"
+        icon="👑"
+        title="All-Time Major Circuits Hall of Fame"
+        subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
+        aside={<span className="panel-tag">Major League Titles Only</span>}
+      >
         <ScrollTable hint="full records">
           <table className="leaderboard-table wcs-table">
             <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
@@ -219,11 +220,10 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
             </tbody>
           </table>
         </ScrollTable>
-      </div>
+      </Panel>
 
       <div className="hof-two-col">
-        <div className="rating-card panel-card wcs-analytics-card">
-          <PanelHeader icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens" />
+        <Panel id="hof-cups" icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens">
           <ScrollTable hint="full records">
             <table className="leaderboard-table wcs-table">
               <caption className="visually-hidden">The cups&apos; leading medallists</caption>
@@ -263,10 +263,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </tbody>
             </table>
           </ScrollTable>
-        </div>
+        </Panel>
 
-        <div className="rating-card panel-card wcs-analytics-card">
-          <PanelHeader icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders" />
+        <Panel id="hof-ladders" icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders">
           <ScrollTable hint="full records">
             <table className="leaderboard-table wcs-table">
               <caption className="visually-hidden">The ladders&apos; most winning players</caption>
@@ -308,8 +307,9 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
               </tbody>
             </table>
           </ScrollTable>
-        </div>
+        </Panel>
       </div>
+      </Panels>
     </>
   );
 }

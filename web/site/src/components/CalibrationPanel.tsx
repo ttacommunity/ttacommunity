@@ -24,7 +24,8 @@ import Waiting from './Waiting';
 import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { formatName } from '../lib/leaderboard-display';
 import { useLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import CalibrationOptionsDrawer from './CalibrationOptionsDrawer';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
@@ -148,7 +149,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
     .join(', ');
 
   return (
-    <div className="analysis-stack">
+    <Panels>
       <ViewBar
         actions={
           <OptionsToggle
@@ -174,13 +175,18 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           onClose={() => setOptionsOpen(false)}
         />
       )}
-      <div className="rating-card panel-card graph-main-card">
-        <PanelHeader title="Reliability Calibration Diagram" subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins">
+      <Panel
+        id="calibration-diagram"
+        title="Reliability Calibration Diagram"
+        subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins"
+        className="graph-main-card"
+        aside={
           <div className="card-badges">
             <span className="badge badge-format">{formatName(format)}</span>
             <span className="badge badge-mode">{MODE_NAMES[mode]}</span>
           </div>
-        </PanelHeader>
+        }
+      >
         <div className="hero-chart-container">
           {load.kind === 'error' ? (
             <Waiting load={load} what="the calibration" form="inline" />
@@ -188,17 +194,17 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
             <canvas ref={canvas} aria-label={`Calibration of each model against the ideal diagonal. Curves: ${curveSummary}. The table below gives the figures.`} />
           )}
         </div>
-      </div>
+      </Panel>
 
-      <div className="rating-card panel-card eval-table-card">
-        <PanelHeader
-          title="Overall Predictive Model Rankings (4-Metric Evaluation)"
-          subtitle={
-            <>
-              Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
-            </>
-          }
-        />
+      <Panel
+        id="calibration-rankings"
+        title="Overall Predictive Model Rankings (4-Metric Evaluation)"
+        subtitle={
+          <>
+            Models ranked from best to worst by Composite Predictive Score (<Tex tex="S \in [0, 100]" />) under active evaluation mode
+          </>
+        }
+      >
         <ScrollTable hint="all 4 metrics">
           <table className="leaderboard-table ranked-table">
             <thead>
@@ -247,7 +253,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           </table>
           {load.kind === 'loading' && <Waiting load={load} what="the calibration" form="inline" />}
         </ScrollTable>
-      </div>
-    </div>
+      </Panel>
+    </Panels>
   );
 }

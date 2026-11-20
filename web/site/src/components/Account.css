@@ -1,17 +1,10 @@
 /* The account page: one card with the ways to sign in, or the player's link request or details. */
 
 .account-card {
-  max-width: 40rem;
-  margin: 0 auto 1.5rem;
-  padding: 1.5rem 1.75rem;
-  color: var(--text-main);
   line-height: 1.6;
 }
-.account-card .rating-card-heading {
-  margin: 0 0 0.75rem;
-}
 /* An email address is one long word: it breaks anywhere rather than widen the page on a phone. */
-.account-card .rating-card-heading,
+.account-card .panel-header-title,
 .account-card strong,
 .account-way {
   overflow-wrap: anywhere;

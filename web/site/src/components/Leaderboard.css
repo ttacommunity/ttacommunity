@@ -1,9 +1,4 @@
 /* The leaderboard card's own layout: the heading row and its engine and player-count lines. */
-.leaderboard {
-  margin-bottom: 1.5rem;
-  padding: 1.15rem 1.4rem;
-}
-
 .leaderboard .model-picker .input-antique {
   padding: 0.4rem 0.65rem;
   font-size: 0.88rem;

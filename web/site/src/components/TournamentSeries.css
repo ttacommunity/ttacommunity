@@ -84,8 +84,7 @@
 .content-two-col {
   display: grid;
   grid-template-columns: 1.1fr 1.9fr;
-  gap: 2rem;
-  margin-bottom: 2.5rem;
+  gap: 1.5rem;
 }
 @media (max-width: 960px) {
   .content-two-col {
@@ -341,14 +340,6 @@
 
 .badge-wc.trophy-mark {
   border-radius: 4px;
-}
-
-.panel-card.panel-stories {
-  margin-bottom: 2.5rem;
-}
-
-.panel-card.panel-records {
-  margin-bottom: 2rem;
 }
 
 .records-intro {

@@ -130,16 +130,6 @@
   text-decoration: underline;
 }
 
-.movies-status {
-  padding: 1.5rem 1.25rem;
-  text-align: center;
-  color: var(--text-soft);
-}
-
-.movies-error {
-  color: var(--loss);
-}
-
 .movie-modal {
   width: min(920px, calc(100vw - 2rem));
   padding: 0;

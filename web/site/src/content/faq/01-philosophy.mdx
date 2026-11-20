@@ -7,9 +7,9 @@ order: 1
 {/* Written by DANeo for the original ratings site. */}
 
 import FaqFigure from '../../components/FaqFigure.astro';
+import Panel from '../../components/Panel';
 
-<div class="faq-card faq-card-gold">
-  <h3 class="c-yellow">What is a Rating Engine and What Does It Try to Achieve?</h3>
+<Panel title="What is a Rating Engine and What Does It Try to Achieve?" stripe="gold" className="faq-card">
   <div>
 
       <p>A rating engines main purpose is to answer one central question: &quot;When two opponents meet in a match, given the results we have seen these opponents achieve in the past, what is the expected outcome of the match?&quot;</p>
@@ -21,10 +21,9 @@ But his place there is also not &quot;unearned&quot; - it is the engines current
 <p>A player&#39;s rating ($\mu$ or $r$) and rating deviation ($\mathrm{RD}$ or $\sigma$) have no independent physical existence outside of this formula. They are latent parameters chosen to maximize the likelihood of observed game outcomes. The number $1850$ is not a &quot;badge of honor&quot;; it is a statistical claim that against a $1750$ opponent, the player has an expected probability of victory of exactly $64.0\%$.</p>
           </div>
 
-</div>
+</Panel>
 
-    <div class="faq-card" id="faq-accuracy-goal">
-  <h3>Attempts at evalution of an engines predictive capabilities (Brier Score &amp; ECE)</h3>
+<Panel id="faq-accuracy-goal" title="Attempts at evalution of an engines predictive capabilities (Brier Score & ECE)" className="faq-card">
   <div>
 
       <p>Since rating systems exist to predict match outcomes, the question <em>&quot;Which rating model is best?&quot;</em> is not a matter of aesthetic taste or community politics. It is a strictly empirical question answered by evaluating how accurately the model predicts unseen future matches:</p>
@@ -40,10 +39,9 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
 </ul>
           </div>
 
-</div>
+</Panel>
 
-    <div class="faq-card">
-  <h3>The Rating Engines Implemented on This Portal</h3>
+<Panel title="The Rating Engines Implemented on This Portal" className="faq-card">
   <div>
 
       <p>
@@ -105,4 +103,4 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
   </div>
           </div>
 
-</div>
+</Panel>

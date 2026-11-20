@@ -30,7 +30,7 @@ import SearchBox from './SearchBox';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 import SeasonPick from './SeasonPick';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
@@ -83,10 +83,7 @@ export default function BracketView({
   const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
   const phone = rounds[view.last];
   return (
-    <div className="rating-card panel-card bracket-panel">
-      <PanelHeader title="Bracket">
-        <SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />
-      </PanelHeader>
+    <Panel id="bracket" title="Bracket" aside={<SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />}>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (
         <Message form="inline">
@@ -159,7 +156,7 @@ export default function BracketView({
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 

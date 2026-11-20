@@ -31,6 +31,7 @@ import { useFound, useKeptFound } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import PanelHeader from './PanelHeader';
+import Panels from './Panels';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -167,7 +168,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </button>
       </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
-      <div className="blitz-panels">
+      <Panels>
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
       <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
       {ed.rounds.length === 0 && !ed.sign_ups.taking && (
@@ -201,7 +202,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         <Panel label="Standings, pairings and players">
           <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
         </Panel>
-      </div>
+      </Panels>
     </>
   );
 }

@@ -11,6 +11,8 @@ import Waiting from './Waiting';
 import Message from './Message';
 import { signed } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -124,7 +126,8 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
         <Stat label="Ties" value={score.ties} />
         <Stat label="Played by both" value={score.both} />
       </div>
-      <section className="rating-card challenges-card" aria-label="Totals">
+      <Panels>
+      <Panel label="Totals" className="challenges-card">
         <div className="table-responsive">
           <table className="leaderboard-table">
             <caption className="visually-hidden">The two players' totals, by set and all together</caption>
@@ -178,11 +181,8 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
             </tbody>
           </table>
         </div>
-      </section>
-      <section className="rating-card challenges-card" aria-labelledby="per-challenge">
-        <h2 id="per-challenge" className="rating-card-heading">
-          Per challenge
-        </h2>
+      </Panel>
+      <Panel id="per-challenge" title="Per challenge" className="challenges-card">
         <SetGrid
           groups={groups}
           cell={(c) => {
@@ -205,7 +205,8 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
             );
           }}
         />
-      </section>
+      </Panel>
+      </Panels>
     </>
   );
 }

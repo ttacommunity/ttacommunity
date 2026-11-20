@@ -4,6 +4,7 @@ import SiteLayout from '../../../layouts/SiteLayout.astro';
 import AnalysisNav from '../../../components/AnalysisNav.astro';
 import CalibrationPanel from '../../../components/CalibrationPanel';
 import EngineSpread from '../../../components/EngineSpread';
+import Panels from '../../../components/Panels';
 import '../../../components/AnalysisPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
 ---
@@ -16,7 +17,8 @@ import PageHeader from '@ttac/shared/PageHeader';
     </Fragment>
   </PageHeader>
 
-  <CalibrationPanel client:only="react" apiUrl={PUBLIC_API_URL} />
-
-  <EngineSpread client:only="react" apiUrl={PUBLIC_API_URL} />
+  <Panels>
+    <CalibrationPanel client:only="react" apiUrl={PUBLIC_API_URL} />
+    <EngineSpread client:only="react" apiUrl={PUBLIC_API_URL} />
+  </Panels>
 </SiteLayout>

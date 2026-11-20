@@ -5,6 +5,7 @@ import * as show from '../lib/leaderboard-display';
 import { careerPeakYear, isPeakHigher } from '../lib/career';
 import { matrixHref, type PlayerView } from '../lib/player-view';
 import { TitleBadge } from './PlayerMarks';
+import Panel from './Panel';
 
 /** CareerBox shows upstream's career box: medal counts, the honour roll (or a summary sentence) and accolades first. */
 export default function CareerBox({
@@ -23,12 +24,13 @@ export default function CareerBox({
   const { title, peak } = player;
 
   return (
-    <div className="rating-card career-box">
-      <div className="career-head">
-        <h3>
-          <span>📜 Career Profile &amp; Tournament Accolades</span>
-        </h3>
-        {summary !== null && (
+    <Panel
+      id="career"
+      icon="📜"
+      title="Career Profile & Tournament Accolades"
+      stripe="gold"
+      aside={
+        summary !== null && (
           <div className="career-medals">
             {totalTitles(summary) > 0 && (
               <span className="career-medal-gold">
@@ -51,8 +53,9 @@ export default function CareerBox({
               </span>
             )}
           </div>
-        )}
-      </div>
+        )
+      }
+    >
       <div className="career-body">
         {summary !== null ? (
           <p className="career-honor-roll">🏅 {honorRoll(player.name, summary)}</p>
@@ -122,6 +125,6 @@ export default function CareerBox({
           </div>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }

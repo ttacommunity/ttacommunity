@@ -15,6 +15,8 @@ import Waiting from './Waiting';
 import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -23,8 +25,11 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
   const me = useLoad('me', () => sharedMe(apiUrl));
   return (
     <>
-      <Examples me={me.kind === 'ready' ? me.data : undefined} />
-      {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
+      <Intro me={me.kind === 'ready' ? me.data : undefined} />
+      <Panels>
+        <Examples />
+        {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
+      </Panels>
     </>
   );
 }
@@ -87,8 +92,8 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
   };
 
   return (
-    <>
-      <div className="rating-card challenges-card">
+    <Panels>
+      <Panel label="Your submission" className="challenges-card">
         <p>
           Submitting as <strong>{name}</strong> · <a href={challengePlayerHref(name)}>your challenges page</a>
         </p>
@@ -96,7 +101,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           Discord link for every entry below without its own (optional, for verification)
           <input className="input-antique" type="url" placeholder="https://discord.com/channels/…" value={shared} onChange={(e) => setShared(e.target.value)} />
         </label>
-      </div>
+      </Panel>
 
       {reviewing ? (
         <Review apiUrl={apiUrl} name={name} list={list} chosen={chosen} mine={mine} entries={entries.data} records={records.data} />
@@ -113,8 +118,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           {challengeSets(list)
             .find((s) => s.id === set)
             ?.groups.map((g) => (
-              <fieldset key={g.id} className="rating-card challenges-card challenges-submit-group">
-                <legend className="rating-card-heading">{g.label}</legend>
+              <Panel key={g.id} id={`submit-${g.id}`} title={g.label} className="challenges-card">
                 {g.challenges.map((c) => {
                   const row = rows[c.id] ?? { domination: '', proof: '' };
                   const best = mine.get(c.id);
@@ -147,7 +151,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
                     </div>
                   );
                 })}
-              </fieldset>
+              </Panel>
             ))}
         </>
       )}
@@ -189,7 +193,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           </button>
         )}
       </div>
-    </>
+    </Panels>
   );
 }
 
@@ -210,10 +214,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
   const record = new Map(records.challenges.flatMap((c) => (c.record === null ? [] : [[c.id, c.record] as const])));
   const newRecords = recordsBeaten(chosen, new Map([...record].map(([id, r]) => [id, r.domination])));
   return (
-    <section className="rating-card challenges-card" aria-labelledby="review">
-      <h2 id="review" className="rating-card-heading">
-        Check your entries
-      </h2>
+    <Panel id="review" title="Check your entries" className="challenges-card">
       <p>
         Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
         {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
@@ -272,15 +273,14 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
           </tbody>
         </table>
       </div>
-    </section>
+    </Panel>
   );
 }
 
-/** Examples introduces the page, with the visitor's first step when they have one, and shows what to post in Discord for a verified entry. */
-function Examples({ me }: { me: Me | null | undefined }) {
+/** Intro introduces the page, with the visitor's first step when they have one. */
+function Intro({ me }: { me: Me | null | undefined }) {
   return (
-    <>
-      <PageHeader
+    <PageHeader
         title="Submit domination"
         subtitle={
           <>
@@ -292,11 +292,14 @@ function Examples({ me }: { me: Me | null | undefined }) {
         }
       >
         <FirstStep me={me} />
-      </PageHeader>
-      <section className="rating-card challenges-card" aria-labelledby="examples">
-        <h2 id="examples" className="rating-card-heading">
-          What to post in Discord
-        </h2>
+    </PageHeader>
+  );
+}
+
+/** Examples shows what to post in Discord for a verified entry. */
+function Examples() {
+  return (
+      <Panel id="examples" title="What to post in Discord" className="challenges-card">
         <div className="challenges-examples">
           <figure>
             <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">
@@ -324,7 +327,6 @@ function Examples({ me }: { me: Me | null | undefined }) {
             </figcaption>
           </figure>
         </div>
-      </section>
-    </>
+      </Panel>
   );
 }

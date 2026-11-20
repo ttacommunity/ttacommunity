@@ -12,6 +12,8 @@ import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -126,7 +128,8 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
           Compare with someone…
         </a>
       </p>
-      <section className="rating-card challenges-card" aria-label="Best on each challenge">
+      <Panels>
+      <Panel label="Best on each challenge" className="challenges-card">
         <SetGrid
           groups={groups}
           cell={(c) => {
@@ -143,12 +146,9 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
             );
           }}
         />
-      </section>
+      </Panel>
       <PlayNext player={p} list={list} measure={measure} />
-      <section className="rating-card challenges-card" aria-labelledby="latest">
-        <h2 id="latest" className="rating-card-heading">
-          Latest submissions
-        </h2>
+      <Panel id="latest" title="Latest submissions" className="challenges-card">
         <ul className="challenges-latest">
           {p.recent.map((e, i) => {
             const c = list.find((x) => x.id === e.challenge);
@@ -161,7 +161,8 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
             );
           })}
         </ul>
-      </section>
+      </Panel>
+      </Panels>
     </>
   );
 }
@@ -189,10 +190,7 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
     );
   };
   return (
-    <section className="rating-card challenges-card" aria-labelledby="play-next">
-      <h2 id="play-next" className="rating-card-heading">
-        What to play next
-      </h2>
+    <Panel id="play-next" title="What to play next" className="challenges-card">
       <div className="challenges-play-next">
         {closest.length > 0 && (
           <div>
@@ -260,6 +258,6 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
           </div>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

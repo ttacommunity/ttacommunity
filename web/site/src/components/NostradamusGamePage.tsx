@@ -35,6 +35,9 @@ import {
   type Draft,
 } from '../lib/nostradamus';
 import { useKeptLoad, useLoad } from './useLoad';
+import Panel from './Panel';
+import PanelHeader from './PanelHeader';
+import Panels from './Panels';
 import SignInNote from './SignInNote';
 import Waiting from './Waiting';
 import './Blitz.css';
@@ -60,17 +63,11 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
       {editions.kind !== 'ready' ? (
         <Waiting load={editions} what="the games" />
       ) : editions.data.editions.length === 0 ? (
-        <section className="rating-card blitz-card" aria-labelledby="nostradamus-soon">
-          <h2 id="nostradamus-soon" className="rating-card-heading">
-            Coming soon
-          </h2>
+        <Panel id="nostradamus-soon" title="Coming soon">
           <p className="muted">The first game opens here with its first round of predictions.</p>
-        </section>
+        </Panel>
       ) : (
-        <section className="rating-card blitz-card" aria-labelledby="nostradamus-games">
-          <h2 id="nostradamus-games" className="rating-card-heading">
-            Games
-          </h2>
+        <Panel id="nostradamus-games" title="Games">
           <div className="blitz-table-bar">
             <span>{past ? 'Every game, newest first.' : 'The games still running, newest first.'}</span>
             <label className="blitz-toggle">
@@ -104,7 +101,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
               </table>
             </div>
           )}
-        </section>
+        </Panel>
       )}
     </>
   );
@@ -148,10 +145,12 @@ function GamePage({ apiUrl, edition }: { apiUrl: string; edition: string }) {
       >
         <div className="page-header-subtitle">{RULES}</div>
       </PageHeader>
-      <JoinBox apiUrl={apiUrl} game={g} place={mine} onChange={reload} onOpen={openRound} />
-      <section className="rating-card blitz-card" aria-label="Standings and rounds">
-        <SubTabs label="Show" tabs={VIEWS.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(VIEWS, hash)} onChoose={setHash} />
-      </section>
+      <Panels>
+        <JoinBox apiUrl={apiUrl} game={g} place={mine} onChange={reload} onOpen={openRound} />
+        <Panel label="Standings and rounds">
+          <SubTabs label="Show" tabs={VIEWS.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(VIEWS, hash)} onChoose={setHash} />
+        </Panel>
+      </Panels>
     </>
   );
 }
@@ -174,10 +173,7 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
     else setMessage(r.message);
   };
   return (
-    <section className="rating-card blitz-card" aria-labelledby="nostradamus-join">
-      <h2 id="nostradamus-join" className="rating-card-heading">
-        Your play
-      </h2>
+    <Panel id="nostradamus-join" title="Your play">
       {state === 'sign-in' && (
         <SignInNote to="ask to play." />
       )}
@@ -213,7 +209,7 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
             );
           })}
       {message !== '' && <p role="alert">{message}</p>}
-    </section>
+    </Panel>
   );
 }
 
@@ -258,9 +254,7 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
   };
   return (
     <section aria-labelledby={`answer-${round.id}`}>
-      <h2 id={`answer-${round.id}`} className="rating-card-heading">
-        {round.name}: your answers
-      </h2>
+      <PanelHeader id={`answer-${round.id}`} title={`${round.name}: your answers`} />
       <p className="muted">
         Closes {round.closes_at ? `${formatInstant(round.closes_at, zone)} (${timeLeft(round.closes_at, new Date())})` : ''}. Answered{' '}
         {givenFrom(round.questions, draft).length} of {round.questions.length}. Tokens staked: {staked(draft)}
@@ -322,9 +316,7 @@ function Standings({ game }: { game: NostradamusGame }) {
   const ranks = places(game.standings.map((s) => s.total));
   return (
     <section aria-labelledby="nostradamus-standings">
-      <h2 id="nostradamus-standings" className="rating-card-heading">
-        Standings
-      </h2>
+      <PanelHeader id="nostradamus-standings" title="Standings" />
       {game.standings.length === 0 ? (
         <p className="muted">No round has its results yet.</p>
       ) : (
@@ -382,9 +374,7 @@ function RoundView({ round, place }: { round: NostradamusRound; place: MyPlace |
   const zone = viewerZone();
   return (
     <section aria-labelledby={`round-${round.id}`}>
-      <h2 id={`round-${round.id}`} className="rating-card-heading">
-        {round.name}
-      </h2>
+      <PanelHeader id={`round-${round.id}`} title={round.name} />
       <p className="muted">
         {stage === 'open' && `Open until ${round.closes_at ? `${formatInstant(round.closes_at, zone)}, ${timeLeft(round.closes_at, new Date())}` : ''}.`}
         {stage === 'awaiting' && 'Closed for answers: results once the organisers publish them.'}

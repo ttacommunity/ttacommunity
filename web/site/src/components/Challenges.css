@@ -1,14 +1,9 @@
-/* The challenge pages: the highscores' tiles and group backgrounds, the compact grid, the boards' tables and marks, in the site's tokens. */
+/* The challenge pages: the highscores' tiles, the compact grid, the boards' tables and marks, in the site's tokens. */
 /* The one action in the tab row, the site's button rather than a tab. */
 .challenges-submit {
   margin-left: auto;
 }
 
-.challenges-card,
-.challenges-group {
-  margin-bottom: 1.25rem;
-  padding: 1.25rem 1.5rem;
-}
 .challenges-lead {
   color: var(--text-soft);
   font-size: var(--size-body-short);
@@ -34,6 +29,10 @@
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
 }
+/* Among a page's panels, the stack's gap spaces it. */
+.panels > .challenges-bar {
+  margin-bottom: 0;
+}
 .challenges-bar-group {
   display: flex;
   flex-wrap: wrap;
@@ -41,7 +40,7 @@
   gap: 0.5rem 1.5rem;
 }
 .challenges-set-totals {
-  margin: 0 0 1rem;
+  margin: 0;
   padding: 0.5rem 0.75rem;
   background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
@@ -64,33 +63,6 @@
 .challenges-totals-line strong,
 .challenges-score {
   color: var(--accent-gold-light);
-}
-
-/* A group's card shows the game's picture for the group behind a dark wash. */
-.challenges-group {
-  background-size: cover;
-  background-position: center;
-}
-.challenges-group[data-group='classic'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/classic.jpg'); }
-.challenges-group[data-group='cheap'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/cheap.jpg'); }
-.challenges-group[data-group='immortals'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/immortals.jpg'); }
-.challenges-group[data-group='epic'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/epic.jpg'); }
-.challenges-group[data-group='impacts'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/impacts.jpg'); }
-.challenges-group[data-group='time_travellers'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/time_travellers.jpg'); }
-.challenges-group[data-group='fate'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/fate.jpg'); }
-.challenges-group[data-group='wonders'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/wonders.jpg'); }
-.challenges-group[data-group='kidnappers'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/kidnappers.jpg'); }
-.challenges-group[data-group='mix'] { background-image: linear-gradient(var(--surface-panel), var(--surface-card)), url('/img/groups/mix.jpg'); }
-.challenges-group-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  margin-bottom: 0.75rem;
-}
-.challenges-group-head .rating-card-heading {
-  margin: 0;
 }
 
 .challenges-cards {
@@ -255,10 +227,6 @@
   }
 }
 @media (max-width: 600px) {
-  .challenges-card,
-  .challenges-group {
-    padding: 1rem;
-  }
   .challenges-podium {
     columns: 1;
   }
@@ -500,19 +468,6 @@
   gap: 0.35rem;
   font-family: var(--font-stats);
   font-size: var(--size-body-short);
-}
-.challenges-submit-group {
-  border: 1px solid var(--border-subtle);
-}
-/* The group's name sits inside the card, as a heading, not on its border as a legend would. */
-.challenges-submit-group legend {
-  float: left;
-  width: 100%;
-  margin-bottom: 0.5rem;
-  padding: 0;
-}
-.challenges-submit-group legend + * {
-  clear: left;
 }
 .challenges-submit-row {
   display: grid;

@@ -3,6 +3,7 @@ import {
   challengeHref,
   champions,
   challengePicture,
+  groupPicture,
   challengePlayerHref,
   challengeSets,
   compareBests,
@@ -58,6 +59,16 @@ describe('groupLabel', () => {
 describe('challengePicture', () => {
   it("is the challenge's picture in the site's images", () => {
     expect(challengePicture('epic1_exp')).toBe('/img/challenges/epic1_exp.jpg');
+  });
+});
+
+describe('groupPicture', () => {
+  it.each([
+    ['a group with a picture', 'time_travellers', '/img/groups/time_travellers.jpg'],
+    ['a group without one', 'gods', undefined],
+    ['a group the site does not know', 'new_group', undefined],
+  ])('is %s', (_name, group, want) => {
+    expect(groupPicture(group)).toBe(want);
   });
 });
 

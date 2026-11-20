@@ -26,7 +26,7 @@ import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import MetricCard, { MetricGrid } from './MetricCard';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
@@ -117,8 +117,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <div className="rating-card panel-card explainer-card">
-        <PanelHeader icon="📜" title={`The Best-${count} Point System`} />
+      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} stripe="gold" className="explainer-card">
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -137,9 +136,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
             <span className="score-counting">gold boxes</span>, while dropped scores are faded.
           </li>
         </ul>
-      </div>
-      <div className="rating-card panel-card explainer-card">
-        <PanelHeader icon="🏆" title="Tracked Event Slots & Point Tiers" />
+      </Panel>
+      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" stripe="gold" className="explainer-card">
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (
@@ -151,7 +149,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
             </li>
           ))}
         </ul>
-      </div>
+      </Panel>
     </div>
   );
 }
@@ -200,7 +198,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
   const [scrolled, setScrolled] = useState(false);
 
   return (
-    <div className={`rating-card table-wrapper${standard ? '' : ' expanded-view'}`}>
+    <Panel label="Community leaderboard" className={standard ? 'table-wrapper' : 'table-wrapper expanded-view'}>
       <div
         className={scrolled ? 'table-responsive scrolled-x' : 'table-responsive'}
         onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
@@ -300,7 +298,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }
 

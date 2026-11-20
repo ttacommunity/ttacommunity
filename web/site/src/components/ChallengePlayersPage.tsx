@@ -10,6 +10,7 @@ import { useKeptLoad } from './useLoad';
 import FilterInput from './FilterInput';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
 
@@ -58,7 +59,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="the players" />
       ) : (
-        <section className="rating-card challenges-card" aria-label="Players">
+        <Panel label="Players" className="challenges-card">
           <div className="table-responsive">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Every player with a challenge entry, with their figures</caption>
@@ -112,7 +113,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
               </tbody>
             </table>
           </div>
-        </section>
+        </Panel>
       )}
     </>
   );

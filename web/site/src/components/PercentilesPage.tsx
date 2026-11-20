@@ -27,7 +27,8 @@ import Message from './Message';
 import MeanBadge, { MeanBadges } from './MeanBadge';
 import MetricCard, { MetricGrid } from './MetricCard';
 import { OptionsToggle } from './SideDrawer';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import PercentilesOptionsDrawer from './PercentilesOptionsDrawer';
 import PlayerPicker from './PlayerPicker';
 import ViewBar, { FormatPick } from './ViewBar';
@@ -129,8 +130,9 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
         </MetricGrid>
       )}
 
-      <div className="rating-card panel-card percentiles-chart-card">
-        <PanelHeader
+      <Panels>
+      <Panel
+          id="percentiles-chart"
           title={data.rating === 'rating' ? 'Rating Distribution' : 'Conservative Rating Distribution'}
           subtitle={
             <>
@@ -146,19 +148,19 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
               )}
             </>
           }
-        >
-          {data.players > 0 && (
-            <MeanBadges>
-              <MeanBadge engine={view.board.engine} mean={data.mean} />
-            </MeanBadges>
-          )}
-        </PanelHeader>
+          aside={
+            data.players > 0 && (
+              <MeanBadges>
+                <MeanBadge engine={view.board.engine} mean={data.mean} />
+              </MeanBadges>
+            )
+          }
+      >
         {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
-      </div>
+      </Panel>
 
       {data.marks.length > 0 && (
-        <div className="rating-card panel-card">
-          <PanelHeader title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`} />
+        <Panel id="percentiles-marks" title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`}>
           <ScrollTable hint="all columns">
             <table className="leaderboard-table">
               <caption className="visually-hidden">{rating} at each marked percentile</caption>
@@ -180,8 +182,9 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
               </tbody>
             </table>
           </ScrollTable>
-        </div>
+        </Panel>
       )}
+      </Panels>
     </>
   );
 }

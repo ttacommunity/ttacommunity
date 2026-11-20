@@ -5,7 +5,8 @@ import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { formatCards, COUNTRY_COLUMNS, titleLabel, type CountryColumn } from '../lib/analysis';
 import { runYears } from '../lib/player-view';
 import { Flag, TitleBadge } from './PlayerMarks';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
@@ -48,9 +49,9 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <MetricCard label="All Recorded Competitors" value={count(total)} note="Unique tournament players" tone="sky" />
       </MetricGrid>
 
+      <Panels>
       <div className="activity-columns">
-        <div className="rating-card panel-card">
-          <PanelHeader title="Matches by Game Format" subtitle="Distribution of competitive tournaments across player counts." />
+        <Panel id="activity-formats" title="Matches by Game Format" subtitle="Distribution of competitive tournaments across player counts.">
           <div className="activity-list">
             {formats.cards.map((f) => (
               <div key={f.format} className="activity-item">
@@ -62,10 +63,9 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
 
-        <div className="rating-card panel-card">
-          <PanelHeader title="Official Tournament Titles" subtitle="Awarded for top finishes in official World Championships & continental championships." />
+        <Panel id="activity-titles" title="Official Tournament Titles" subtitle="Awarded for top finishes in official World Championships & continental championships.">
           <div className="activity-list">
             {a.titles.map((t) => (
               <div key={t.code} className="activity-item">
@@ -77,14 +77,14 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
               </div>
             ))}
           </div>
-        </div>
+        </Panel>
       </div>
 
-      <div className="rating-card panel-card activity-countries">
-        <PanelHeader
-          title="Top 15 Countries by Player Participation & Title Rating Depth"
-          subtitle="Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort."
-        />
+      <Panel
+        id="activity-countries"
+        title="Top 15 Countries by Player Participation & Title Rating Depth"
+        subtitle="Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort."
+      >
         <ScrollTable hint="country demographics">
           <table className="leaderboard-table activity-table">
             <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
@@ -116,7 +116,8 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
             </tbody>
           </table>
         </ScrollTable>
-      </div>
+      </Panel>
+      </Panels>
     </>
   );
 }
