@@ -591,6 +591,10 @@ describe('matrix page address', () => {
     );
   });
 
+  it('links to the matrix by name alone from a page with no choices, so it opens in the remembered ones', () => {
+    expect(matrixHref('Ann B')).toBe('/ratings/player/matrix/?name=Ann+B');
+  });
+
   it("links back to the player page in the matrix's model, reset mode and format", () => {
     expect(profileHref('Ann', { engine: 'glicko2_std', reset: 'softer', format: 2 })).toBe(
       '/ratings/player/?name=Ann&model=glicko2_std&format=2&reset_mode=softer',
