@@ -6,6 +6,8 @@ import type { AdminTournament } from '../lib/admin-api';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
 import AdminCard from './AdminCard';
+import PeoplePick from './PeoplePick';
+import { playerChoices } from '../lib/person-form';
 
 type Story = AdminTournament['stories'][number];
 
@@ -30,10 +32,7 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
         <fieldset key={i} className="story-box">
           <legend>Story {i + 1}</legend>
           <div className="card-fields">
-            <label>
-              Player
-              <input className="input-antique" id={`story-${i}-player`} value={st.player} maxLength={200} onChange={(e) => set(i, 'player', e.target.value)} />
-            </label>
+            <PeoplePick label="Player" value={st.player} onChange={(text) => set(i, 'player', text)} choices={playerChoices} placeholder="" />
             <label>
               Badge
               <input className="input-antique"

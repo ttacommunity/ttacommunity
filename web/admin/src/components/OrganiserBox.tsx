@@ -2,16 +2,15 @@
 import { isRemoval, shownSource, textChanged } from '../lib/admin-edits';
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
-import { fieldId } from '../lib/tournament-page';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import PeoplePick from './PeoplePick';
 
 /** OrganiserBox edits who organised a season; cge is its CGE tournament's organiser, shown while none is set. */
 export default function OrganiserBox({ slug, season, initial, cge }: { slug: string; season: string; initial: string; cge: string }) {
   const [text, setText] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const saving = useSave();
-  const id = fieldId('organiser', slug, season);
   const hint = {
     ours: cge === '' ? 'Set here. Empty it to show none.' : `Set here. Empty it to show CGE's, ${cge}, again.`,
     cge: `The site shows CGE's organiser, ${cge}, until one is set here.`,
@@ -23,10 +22,8 @@ export default function OrganiserBox({ slug, season, initial, cge }: { slug: str
   };
   return (
     <div className="note-box">
-      <label htmlFor={id}>
-        Organiser <span className="muted">· {hint}</span>
-      </label>
-      <input className="input-antique" id={id} value={text} maxLength={100} placeholder={cge} onChange={(e) => setText(e.target.value)} />
+      <PeoplePick label="Organiser" value={text} onChange={setText} placeholder={cge} />
+      <span className="muted">{hint}</span>
       <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={save} disabled={!textChanged(saved, text)}>
           Save organiser
