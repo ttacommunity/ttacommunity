@@ -129,39 +129,39 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
         </a>
       </p>
       <Panels>
-      <Panel label="Best on each challenge" className="challenges-card">
-        <SetGrid
-          groups={groups}
-          cell={(c) => {
-            const b = bests.get(c.id);
-            if (b === undefined) return <span className="muted">—</span>;
-            return (
-              <span className={b.rank === 1 ? 'challenges-record' : undefined} title={measure === 'rating' ? `Domination ${b.domination}` : `${Math.round(b.share)}% of the record`}>
-                <strong>{measure === 'rating' ? `${Math.round(b.share)}%` : b.domination}</strong>{' '}
-                <span className="muted">
-                  #{b.rank}/{b.entrants}
+        <Panel label="Best on each challenge" className="challenges-card">
+          <SetGrid
+            groups={groups}
+            cell={(c) => {
+              const b = bests.get(c.id);
+              if (b === undefined) return <span className="muted">—</span>;
+              return (
+                <span className={b.rank === 1 ? 'challenges-record' : undefined} title={measure === 'rating' ? `Domination ${b.domination}` : `${Math.round(b.share)}% of the record`}>
+                  <strong>{measure === 'rating' ? `${Math.round(b.share)}%` : b.domination}</strong>{' '}
+                  <span className="muted">
+                    #{b.rank}/{b.entrants}
+                  </span>
+                  <ProofMark url={b.proof_url} />
                 </span>
-                <ProofMark url={b.proof_url} />
-              </span>
-            );
-          }}
-        />
-      </Panel>
-      <PlayNext player={p} list={list} measure={measure} />
-      <Panel id="latest" title="Latest submissions" className="challenges-card">
-        <ul className="challenges-latest">
-          {p.recent.map((e, i) => {
-            const c = list.find((x) => x.id === e.challenge);
-            return (
-              <li key={i}>
-                <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
-                {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
-                {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
-              </li>
-            );
-          })}
-        </ul>
-      </Panel>
+              );
+            }}
+          />
+        </Panel>
+        <PlayNext player={p} list={list} measure={measure} />
+        <Panel id="latest" title="Latest submissions" className="challenges-card">
+          <ul className="challenges-latest">
+            {p.recent.map((e, i) => {
+              const c = list.find((x) => x.id === e.challenge);
+              return (
+                <li key={i}>
+                  <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
+                  {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
+                  {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
       </Panels>
     </>
   );

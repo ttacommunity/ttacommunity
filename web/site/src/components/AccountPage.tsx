@@ -69,24 +69,24 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
     <>
       <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
       <Panels>
-      {notice !== null && (
-        <Panel label="Sign-in result" size="reading" className="account-card">
-          <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
-        </Panel>
-      )}
-      {load.kind !== 'ready' ? (
-        <Waiting load={load} what="your account" />
-      ) : (
-        <Account
-          apiUrl={apiUrl}
-          turnstileSitekey={turnstileSitekey}
-          me={load.data}
-          state={accountState(load.data)}
-          first={first}
-          back={back}
-          refresh={refresh}
-        />
-      )}
+        {notice !== null && (
+          <Panel label="Sign-in result" size="reading" className="account-card">
+            <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
+          </Panel>
+        )}
+        {load.kind !== 'ready' ? (
+          <Waiting load={load} what="your account" />
+        ) : (
+          <Account
+            apiUrl={apiUrl}
+            turnstileSitekey={turnstileSitekey}
+            me={load.data}
+            state={accountState(load.data)}
+            first={first}
+            back={back}
+            refresh={refresh}
+          />
+        )}
       </Panels>
     </>
   );

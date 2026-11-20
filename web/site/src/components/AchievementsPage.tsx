@@ -617,98 +617,98 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
     <div className="achievements-page">
       <Header player={player} />
       <Panels>
-      {totalMedals > 0 ? (
-        <div className="medals-grid">
-          {s?.world_titles && s.world_titles > 0 ? (
-            <div className="medal-card" title="World Championship titles in Through the Ages">
+        {totalMedals > 0 ? (
+          <div className="medals-grid">
+            {s?.world_titles && s.world_titles > 0 ? (
+              <div className="medal-card" title="World Championship titles in Through the Ages">
+                <div className="medal-icon" aria-hidden="true">
+                  👑
+                </div>
+                <div className="medal-count trophy-accent">{s.world_titles}</div>
+                <div className="medal-label">World Championships</div>
+              </div>
+            ) : null}
+            <div className="medal-card" title="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
               <div className="medal-icon" aria-hidden="true">
-                👑
+                🥇
               </div>
-              <div className="medal-count trophy-accent">{s.world_titles}</div>
-              <div className="medal-label">World Championships</div>
+              <div className="medal-count gold-accent">{s?.gold ?? 0}</div>
+              <div className="medal-label">Major Gold Medals</div>
             </div>
-          ) : null}
-          <div className="medal-card" title="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥇
+            <div className="medal-card" title="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
+              <div className="medal-icon" aria-hidden="true">
+                🥈
+              </div>
+              <div className="medal-count silver-accent">{s?.silver ?? 0}</div>
+              <div className="medal-label">Major Silver Medals</div>
             </div>
-            <div className="medal-count gold-accent">{s?.gold ?? 0}</div>
-            <div className="medal-label">Major Gold Medals</div>
+            <div className="medal-card" title="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
+              <div className="medal-icon" aria-hidden="true">
+                🥉
+              </div>
+              <div className="medal-count bronze-accent">{s?.bronze ?? 0}</div>
+              <div className="medal-label">Major Bronze Medals</div>
+            </div>
           </div>
-          <div className="medal-card" title="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥈
+        ) : (
+          <div className="best-results-grid">
+            <div className="best-result-card" title="Highest division reached in Royal League">
+              <div className="best-result-icon" aria-hidden="true">
+                🏰
+              </div>
+              <div className="best-result-value">{best.rl ? best.rl.division : '—'}</div>
+              <div className="best-result-sub">{best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}</div>
+              <div className="best-result-label">Royal League Peak</div>
             </div>
-            <div className="medal-count silver-accent">{s?.silver ?? 0}</div>
-            <div className="medal-label">Major Silver Medals</div>
-          </div>
-          <div className="medal-card" title="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥉
+            <div className="best-result-card" title="Highest tier reached in International Championship (4P)">
+              <div className="best-result-icon" aria-hidden="true">
+                🌍
+              </div>
+              <div className="best-result-value">{best.ic ? best.ic.division : '—'}</div>
+              <div className="best-result-sub">{best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}</div>
+              <div className="best-result-label">International Peak</div>
             </div>
-            <div className="medal-count bronze-accent">{s?.bronze ?? 0}</div>
-            <div className="medal-label">Major Bronze Medals</div>
-          </div>
-        </div>
-      ) : (
-        <div className="best-results-grid">
-          <div className="best-result-card" title="Highest division reached in Royal League">
-            <div className="best-result-icon" aria-hidden="true">
-              🏰
+            <div className="best-result-card" title="Highest tier reached in Intermezzo (3P)">
+              <div className="best-result-icon" aria-hidden="true">
+                ⚔️
+              </div>
+              <div className="best-result-value">{best.im ? best.im.division : '—'}</div>
+              <div className="best-result-sub">{best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}</div>
+              <div className="best-result-label">Intermezzo Peak</div>
             </div>
-            <div className="best-result-value">{best.rl ? best.rl.division : '—'}</div>
-            <div className="best-result-sub">{best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">Royal League Peak</div>
-          </div>
-          <div className="best-result-card" title="Highest tier reached in International Championship (4P)">
-            <div className="best-result-icon" aria-hidden="true">
-              🌍
+            <div className="best-result-card" title="Career competitive tournament matches and victory rate">
+              <div className="best-result-icon" aria-hidden="true">
+                📊
+              </div>
+              <div className="best-result-value">{best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}</div>
+              <div className="best-result-sub">{best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}</div>
+              <div className="best-result-label">Tournament Record</div>
             </div>
-            <div className="best-result-value">{best.ic ? best.ic.division : '—'}</div>
-            <div className="best-result-sub">{best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">International Peak</div>
           </div>
-          <div className="best-result-card" title="Highest tier reached in Intermezzo (3P)">
-            <div className="best-result-icon" aria-hidden="true">
-              ⚔️
-            </div>
-            <div className="best-result-value">{best.im ? best.im.division : '—'}</div>
-            <div className="best-result-sub">{best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">Intermezzo Peak</div>
-          </div>
-          <div className="best-result-card" title="Career competitive tournament matches and victory rate">
-            <div className="best-result-icon" aria-hidden="true">
-              📊
-            </div>
-            <div className="best-result-value">{best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}</div>
-            <div className="best-result-sub">{best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}</div>
-            <div className="best-result-label">Tournament Record</div>
-          </div>
-        </div>
-      )}
+        )}
 
-      {s && (
-        <Panel id="ach-honor-roll" icon="🏅" title="Career Tournament Honor Roll" stripe="gold">
-          <p className="ach-honor-roll">
-            {totalMedals > 0
-              ? honorRoll(ach.name, s)
-              : `${ach.name} has competed in ${ach.records.filter((r) => !r.career).length} tournament seasons with ${best.totalMatches} competitive matches played (${best.winRate.toFixed(1)}% win rate).`}
-          </p>
-        </Panel>
-      )}
-      {s && s.accolades.length > 0 && (
-        <Panel id="ach-accolades" title="Featured Career Accolades" stripe="gold">
-          <div className="career-honors-grid">
-            {s.accolades.map((a) => (
-              <div className="career-honor-badge" key={a}>
-                <span className="honor-star">★</span>
-                <span className="honor-text">{a}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-      <Records records={ach.records} />
+        {s && (
+          <Panel id="ach-honor-roll" icon="🏅" title="Career Tournament Honor Roll" stripe="gold">
+            <p className="ach-honor-roll">
+              {totalMedals > 0
+                ? honorRoll(ach.name, s)
+                : `${ach.name} has competed in ${ach.records.filter((r) => !r.career).length} tournament seasons with ${best.totalMatches} competitive matches played (${best.winRate.toFixed(1)}% win rate).`}
+            </p>
+          </Panel>
+        )}
+        {s && s.accolades.length > 0 && (
+          <Panel id="ach-accolades" title="Featured Career Accolades" stripe="gold">
+            <div className="career-honors-grid">
+              {s.accolades.map((a) => (
+                <div className="career-honor-badge" key={a}>
+                  <span className="honor-star">★</span>
+                  <span className="honor-text">{a}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        )}
+        <Records records={ach.records} />
       </Panels>
     </div>
   );

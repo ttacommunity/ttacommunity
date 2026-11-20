@@ -116,39 +116,39 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
 
       {board.entries.length > 0 && (
         <Panel label="All submissions" className="challenges-card">
-        <details className="challenges-all">
-          <summary>All {board.entries.length} submissions</summary>
-          <div className="table-responsive">
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Player</th>
-                  <th scope="col">Domination</th>
-                  <th scope="col">Proof</th>
-                </tr>
-              </thead>
-              <tbody>
-                {board.entries.map((e, i) => (
-                  <tr key={i}>
-                    <td className="muted">{day(e.entered_at)}</td>
-                    <td>
-                      <ChallengePlayerLink name={e.player} />
-                    </td>
-                    <td className="num">
-                      {e.domination}
-                      {e.bugged && <BugTag />}
-                    </td>
-                    <td>
-                      <ProofLink url={e.proof_url} />
-                    </td>
+          <details className="challenges-all">
+            <summary>All {board.entries.length} submissions</summary>
+            <div className="table-responsive">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Player</th>
+                    <th scope="col">Domination</th>
+                    <th scope="col">Proof</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
+                </thead>
+                <tbody>
+                  {board.entries.map((e, i) => (
+                    <tr key={i}>
+                      <td className="muted">{day(e.entered_at)}</td>
+                      <td>
+                        <ChallengePlayerLink name={e.player} />
+                      </td>
+                      <td className="num">
+                        {e.domination}
+                        {e.bugged && <BugTag />}
+                      </td>
+                      <td>
+                        <ProofLink url={e.proof_url} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         </Panel>
       )}
     </Panels>

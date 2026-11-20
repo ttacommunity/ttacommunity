@@ -131,7 +131,7 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
       )}
 
       <Panels>
-      <Panel
+        <Panel
           id="percentiles-chart"
           title={data.rating === 'rating' ? 'Rating Distribution' : 'Conservative Rating Distribution'}
           subtitle={
@@ -155,35 +155,35 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
               </MeanBadges>
             )
           }
-      >
-        {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
-      </Panel>
-
-      {data.marks.length > 0 && (
-        <Panel id="percentiles-marks" title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`}>
-          <ScrollTable hint="all columns">
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">{rating} at each marked percentile</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Percentile</th>
-                  <th scope="col">{rating}</th>
-                  <th scope="col">Players at or above</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.marks.map((m) => (
-                  <tr key={m.percentile}>
-                    <th scope="row">{markLabel(m.percentile)}</th>
-                    <td>{m.value.toFixed(1)}</td>
-                    <td>Top {100 - m.percentile}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ScrollTable>
+        >
+          {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
         </Panel>
-      )}
+
+        {data.marks.length > 0 && (
+          <Panel id="percentiles-marks" title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`}>
+            <ScrollTable hint="all columns">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">{rating} at each marked percentile</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Percentile</th>
+                    <th scope="col">{rating}</th>
+                    <th scope="col">Players at or above</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.marks.map((m) => (
+                    <tr key={m.percentile}>
+                      <th scope="row">{markLabel(m.percentile)}</th>
+                      <td>{m.value.toFixed(1)}</td>
+                      <td>Top {100 - m.percentile}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
+        )}
       </Panels>
     </>
   );
