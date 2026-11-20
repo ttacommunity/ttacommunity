@@ -2,7 +2,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import OutcomeNotice from '@ttac/shared/OutcomeNotice';
-import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { errorText, type Load } from '@ttac/shared/load';
 import { PROVIDER_NAMES } from '@ttac/shared/providers';
 import { knownZones, viewerZone } from '@ttac/shared/time';
@@ -10,11 +9,10 @@ import { countryNames, type Country } from '@ttac/shared/countries';
 import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPath, banNotice, changeMyDetails, deleteAccount, deleteQuestion, draftChanges, fetchCountries, fetchMe, isFirstSignIn, needsContact, rememberSignedIn, removeWayIn, saveOutcome, sharedMe, signedInAs, signInHref, signInNotice, SIGNERS, signOut, suggestedCountry, waysIn, withoutSignInParam, zoneOptions, type AccountState, type Done, type Draft, type Me, type SaveOutcome, type Signer } from '../lib/account';
 import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
-import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import KeptData from './KeptData';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import SearchBox from './SearchBox';
+import usePlayerSearch from './usePlayerSearch';
 import Turnstile from './Turnstile';
-import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import './Account.css';
 import Note from '@ttac/shared/Note';
@@ -334,14 +332,7 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
       .catch(() => setCountries([]));
   }, [apiUrl]);
 
-  // The rated players, for the username search, are asked for once the box is used or already holds a name.
-  const board = useLoad(
-    apiUrl,
-    linked || !searching
-      ? null
-      : () => currentRun(apiUrl).then((run) => leaderboard(apiUrl, run.run_id, modelOf(DEFAULT_VIEW), DEFAULT_VIEW.format)),
-  );
-  const players: SearchPlayer[] = board.kind === 'ready' ? board.data.players : [];
+  const players = usePlayerSearch(apiUrl, !linked && searching);
 
   const save = async (e: FormEvent) => {
     e.preventDefault();

@@ -47,7 +47,7 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 	a := k.Account
 	d := MyData{
 		Account: MyDataAccount{CreatedAt: a.CreatedAt.UTC(), Country: nullableText(a.Country), Zone: nullableText(a.Zone), LinkedAt: inUTC(a.LinkedAt), AutoLink: a.AutoLink},
-		Logins:  make([]MyDataLogin, len(k.Logins)), Requests: make([]MyDataRequest, len(k.Requests)),
+		Logins:  make([]MyDataLogin, len(k.Logins)), Requests: make([]MyDataRequest, len(k.Requests)), SignUps: make([]MyDataSignUp, len(k.SignUps)),
 		Sessions: make([]MyDataSession, len(k.Sessions)), EmailLinks: make([]MyDataEmailLink, len(k.EmailLinks)),
 	}
 	if a.LinkedHow != "" {
@@ -64,6 +64,9 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 	}
 	for i, r := range k.Requests {
 		d.Requests[i] = MyDataRequest{Name: r.Name, Status: RequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt.UTC(), DecidedAt: inUTC(r.DecidedAt)}
+	}
+	for i, u := range k.SignUps {
+		d.SignUps[i] = MyDataSignUp{Tournament: u.Tournament, Name: u.Name, SignedUpAt: u.SignedUpAt.UTC()}
 	}
 	for i, x := range k.Sessions {
 		d.Sessions[i] = MyDataSession{Provider: LoginProvider(x.Provider), CreatedAt: x.CreatedAt.UTC(), EndsAt: x.Ends.UTC(), ThisBrowser: x.ThisBrowser}

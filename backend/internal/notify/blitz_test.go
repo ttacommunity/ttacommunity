@@ -131,3 +131,28 @@ func TestAReminderListsTheGamesStillToPlayUnderItsDeadline(t *testing.T) {
 		t.Errorf("message = %+v, want %q tagging Ann, in a thread named for it", m, want)
 	}
 }
+
+func TestOpenSignUpsAreTextOfTheFormatAndTheClosingTime(t *testing.T) {
+	closes := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		format store.BlitzFormat
+		closes *time.Time
+		want   string
+	}{
+		{"a closing time and a knockout", store.BlitzFormat{SwissRounds: 5, KnockoutSize: 4}, &closes,
+			"**[US Open 2026 sign-ups are open](<" + edition + ">)**\nFormat: 5 Swiss rounds, then a knockout of the top 4\n" +
+				"Sign-ups close: <t:1772928000:F> (<t:1772928000:R>)\n[Sign up on the site](<" + edition + ">) to enter."},
+		{"no closing time, no knockout", store.BlitzFormat{SwissRounds: 1}, nil,
+			"**[US Open 2026 sign-ups are open](<" + edition + ">)**\nFormat: 1 Swiss round\n[Sign up on the site](<" + edition + ">) to enter."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := store.Notification{Kind: "blitz_sign_ups", Series: "US Open", Edition: "2026", Blitz: store.BlitzNews{Link: edition, Format: tt.format, Closes: tt.closes}}
+			m := notify.Payload(n, store.NotificationEndpoint{Forum: true}, admin)
+			if m.Content != tt.want || len(m.Embeds) != 0 || m.ThreadName != "US Open 2026 sign-ups are open" {
+				t.Errorf("message = %+v, want %q in a thread named for it", m, tt.want)
+			}
+		})
+	}
+}

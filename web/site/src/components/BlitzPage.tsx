@@ -1,6 +1,6 @@
-/** The Blitz section: every blitz edition, or one edition (?t=&e=) with the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
+/** The Blitz section: every blitz edition, or one edition (?t=&e=) with its sign-up box while it takes entries, the signed-in player's own game, its knockout and champion, then tabs for its standings, its Swiss games (the games list's table) and the entrants still in. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { blitzEdition, blitzEditions, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
+import { blitzEdition, blitzEditions, revalidating, type BlitzEdition, type BlitzEditions } from '@ttac/shared/ratings';
 import { viewerZone } from '@ttac/shared/time';
 import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
@@ -14,6 +14,7 @@ import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitz } from '../lib/blitz-report';
 import { TTA_DISCORD } from '../lib/links';
 import SignInNote from './SignInNote';
+import SignUpBox from './SignUpBox';
 import type { YourRow } from '../lib/blitz';
 import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable from './GamesTable';
@@ -28,6 +29,7 @@ import './Blitz.css';
 import Message from './Message';
 import { useFound, useKeptFound } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
 import PanelHeader from './PanelHeader';
 
 type BlitzRound = components['schemas']['BlitzRound'];
@@ -57,13 +59,10 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="the blitz tournaments" />
       ) : (
-        <section className="rating-card blitz-card" aria-labelledby="blitz-editions">
-          <h2 id="blitz-editions" className="rating-card-heading">
-            Tournaments
-          </h2>
+        <Panel id="blitz-editions" title="Tournaments">
           {load.data.editions.length === 0 && <p className="muted">No blitz tournament is running yet.</p>}
           {load.data.editions.length > 0 && <EditionsTable editions={load.data.editions} />}
-        </section>
+        </Panel>
       )}
     </>
   );
@@ -121,7 +120,8 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
   const [mine, setMine] = useState<MyBlitz | null | undefined>(undefined);
   // The dialog opens at its top from the header, or at "How ties are broken" from the standings.
   const [howPaired, setHowPaired] = useState<{ opener: HTMLElement; at: 'top' | 'ties' } | null>(null);
-  const load = useKeptFound(JSON.stringify([slug, edition, asked]), () => blitzEdition(apiUrl, slug, edition));
+  // After the player's own change, read past the browser's cached copy, so the page shows it.
+  const load = useKeptFound(JSON.stringify([slug, edition, asked]), () => blitzEdition(apiUrl, slug, edition, asked > 0 ? revalidating() : fetch));
   if (load.kind === 'missing') {
     return (
       <>
@@ -167,20 +167,16 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </button>
       </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
+      <div className="blitz-panels">
       <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
-      {ed.rounds.length === 0 && (
-        <section className="rating-card blitz-card" aria-labelledby="blitz-not-started">
-          <h2 id="blitz-not-started" className="rating-card-heading">
-            Pairing not started
-          </h2>
+      <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
+      {ed.rounds.length === 0 && !ed.sign_ups.taking && (
+        <Panel id="blitz-not-started" title="Pairing not started">
           <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
-        </section>
+        </Panel>
       )}
       {knockout.length > 0 && (
-        <section className="rating-card blitz-card" aria-labelledby="blitz-knockout">
-          <h2 id="blitz-knockout" className="rating-card-heading">
-            Knockout
-          </h2>
+        <Panel id="blitz-knockout" title="Knockout">
           {ed.champion !== null && (
             <p className="blitz-champion">
               Champion:{' '}
@@ -201,11 +197,12 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
             </p>
           )}
           <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
-        </section>
+        </Panel>
       )}
-      <section className="rating-card blitz-card" aria-label="Standings, pairings and players">
-        <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
-      </section>
+        <Panel label="Standings, pairings and players">
+          <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
+        </Panel>
+      </div>
     </>
   );
 }
@@ -256,9 +253,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
   const [tieBreaks, setTieBreaks] = useState(false);
   return (
     <section aria-labelledby="blitz-standings">
-      <h2 id="blitz-standings" className="rating-card-heading">
-        Standings
-      </h2>
+      <PanelHeader id="blitz-standings" title="Standings" />
       <div className="blitz-table-bar">
         <span className="blitz-scoring">{scoring}</span>
         <span className="blitz-table-controls">
@@ -299,9 +294,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
   const [rows, sort, sortBy] = useSort(entrants, ENTRANT_COLUMNS);
   return (
     <section aria-labelledby="blitz-entrants">
-      <h2 id="blitz-entrants" className="rating-card-heading">
-        Players
-      </h2>
+      <PanelHeader id="blitz-entrants" title="Players" />
       <p className="blitz-intro">{entrants.length} in. Ratings are the 2-player community rating of the current run; a dash means not rated yet.</p>
       {entrants.length > 0 && (
         <div className="blitz-table-wrap">

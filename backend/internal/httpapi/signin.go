@@ -48,6 +48,11 @@ type SignIns interface {
 	MyNostradamus(ctx context.Context, tokenHash []byte, slug string, now time.Time) (store.MyNostradamus, error)
 	RequestNostradamusEntry(ctx context.Context, tokenHash []byte, slug string, now time.Time) (string, error)
 	SubmitNostradamusAnswers(ctx context.Context, tokenHash []byte, round int64, answers []store.NostradamusGiven, now time.Time) (int, error)
+	// SignUp, WithdrawSignUp and MySignUp are a player's own sign-up for a tournament, as the session hashing to
+	// tokenHash: signing up ("entered" or "pending"), withdrawing, and the sign-up waiting for their account's link.
+	SignUp(ctx context.Context, tokenHash []byte, slug, edition, name string, now time.Time) (string, error)
+	WithdrawSignUp(ctx context.Context, tokenHash []byte, slug, edition string, now time.Time) error
+	MySignUp(ctx context.Context, tokenHash []byte, slug, edition string, now time.Time) (store.PendingSignUp, bool, error)
 	// SiteOrigin is the site's origin: the only one players' requests may come from, and where sign-in returns.
 	SiteOrigin() string
 	// SupportAddress is where players write with trouble, or "" when none is set.

@@ -36,6 +36,7 @@ import GameSeatFields from '@ttac/shared/GameSeatFields';
 import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import AdminTable from './AdminTable';
 import AdminCard from './AdminCard';
+import SignUpsPanel from './SignUpsPanel';
 import Count from './Count';
 
 const KNOCKOUTS = [0, 2, 4, 8, 16, 32];
@@ -96,6 +97,7 @@ export default function BlitzEditionPage() {
             />
             <Notice outcome={shownAt(outcome, 'page')} />
             <FlaggedResults at={at} ed={ed.data} regions={regions} onReload={load} outcome={outcome} say={setOutcome} />
+            <SignUpsPanel slug={at.slug} season={at.edition} shown={ed.data.shown} rounds={ed.data.rounds.length} regions={regions} onEntered={load} />
             <EditionTabs at={at} ed={ed.data} regions={regions} countries={countries} onReload={load} outcome={outcome} say={setOutcome} />
           </>
         )}

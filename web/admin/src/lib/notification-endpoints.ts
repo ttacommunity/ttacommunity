@@ -36,6 +36,7 @@ export const EVENTS: { key: Event; label: string }[] = [
   { key: 'blitz_round', label: 'Blitz rounds published' },
   { key: 'blitz_finished', label: 'Blitz editions finished, with the podium' },
   { key: 'blitz_reminder', label: 'Blitz deadline reminders' },
+  { key: 'blitz_sign_ups', label: 'Blitz sign-ups opening' },
 ];
 
 /** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved, and differs from what is saved. */

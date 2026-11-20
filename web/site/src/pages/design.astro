@@ -11,12 +11,14 @@ import DialogSamples from '../components/DialogSamples';
 import OptionsSample from '../components/OptionsSample';
 import Note from '@ttac/shared/Note';
 import SignInNote from '../components/SignInNote';
+import SignUpSamples from '../components/SignUpSamples';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
+import Panel from '../components/Panel';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
 import TitleSelect from '../components/TitleSelect';
@@ -175,6 +177,11 @@ const rows = [
     <h2>Page header</h2>
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
 
+    <h2>Panel</h2>
+    <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
+      <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
+    </Panel>
+
     <h2>Panel header</h2>
     <PanelHeader icon="🏅" title="Sample panel">
       <span class="panel-tag">12 rows</span>
@@ -192,6 +199,9 @@ const rows = [
     <h2>Notes</h2>
     <Note>A note in front of the reader, such as what to do before taking part.</Note>
     <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
+
+    <h2>Sign-up box</h2>
+    <SignUpSamples client:only="react" />
 
     <h2>Messages</h2>
     <Message>A message where a page's content would be, such as nothing found.</Message>

@@ -751,6 +751,27 @@ func (e MyNostradamusEntryStatus) Valid() bool {
 	}
 }
 
+// Defines values for MySignUpStatus.
+const (
+	MySignUpStatusEntered MySignUpStatus = "entered"
+	MySignUpStatusNone    MySignUpStatus = "none"
+	MySignUpStatusPending MySignUpStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the MySignUpStatus enum.
+func (e MySignUpStatus) Valid() bool {
+	switch e {
+	case MySignUpStatusEntered:
+		return true
+	case MySignUpStatusNone:
+		return true
+	case MySignUpStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NostradamusQuestionKind.
 const (
 	NostradamusQuestionKindNumber NostradamusQuestionKind = "number"
@@ -779,6 +800,7 @@ const (
 	NotificationEventBlitzReminder NotificationEvent = "blitz_reminder"
 	NotificationEventBlitzReport   NotificationEvent = "blitz_report"
 	NotificationEventBlitzRound    NotificationEvent = "blitz_round"
+	NotificationEventBlitzSignUps  NotificationEvent = "blitz_sign_ups"
 	NotificationEventFeedFailing   NotificationEvent = "feed_failing"
 	NotificationEventLinkRequest   NotificationEvent = "link_request"
 	NotificationEventRatingsRun    NotificationEvent = "ratings_run"
@@ -798,6 +820,8 @@ func (e NotificationEvent) Valid() bool {
 	case NotificationEventBlitzReport:
 		return true
 	case NotificationEventBlitzRound:
+		return true
+	case NotificationEventBlitzSignUps:
 		return true
 	case NotificationEventFeedFailing:
 		return true
@@ -1949,6 +1973,23 @@ type AdminNostradamusStatus struct {
 // AdminNostradamusStatusStatus defines model for AdminNostradamusStatus.Status.
 type AdminNostradamusStatusStatus string
 
+// AdminPendingSignUp defines model for AdminPendingSignUp.
+type AdminPendingSignUp struct {
+	// Account The account that signed up, as the Accounts tab lists it
+	Account int64 `json:"account"`
+	Id      int64 `json:"id"`
+
+	// Linked The member the account is linked to by now (linked after sign-ups closed); null while it is not
+	Linked *string `json:"linked"`
+
+	// Name The TTA username it gave
+	Name string `json:"name"`
+
+	// Request Its request to be linked waiting for an answer; null for none
+	Request    *int64    `json:"request"`
+	SignedUpAt time.Time `json:"signed_up_at"`
+}
+
 // AdminPerson defines model for AdminPerson.
 type AdminPerson struct {
 	DiscordId string `json:"discord_id"`
@@ -2056,6 +2097,17 @@ type AdminSeason struct {
 
 // AdminSeasonSuggestedFrom Where the suggestion comes from; recorded (the organisers' placements), final_stage (its one-group final's games, by game points then culture), or empty for none
 type AdminSeasonSuggestedFrom string
+
+// AdminSignUps defines model for AdminSignUps.
+type AdminSignUps struct {
+	// Pending The sign-ups waiting for their account to be linked, oldest first
+	Pending []AdminPendingSignUp `json:"pending"`
+
+	// SignUps A tournament's sign-ups: admin's switch, the closing time, and
+	// whether they take entries now (open, before the closing time, and
+	// before a blitz edition's round 1 is paired)
+	SignUps SignUps `json:"sign_ups"`
+}
 
 // AdminStage defines model for AdminStage.
 type AdminStage struct {
@@ -2328,6 +2380,11 @@ type BlitzEdition struct {
 
 	// Rounds The published rounds, first first
 	Rounds []BlitzRound `json:"rounds"`
+
+	// SignUps A tournament's sign-ups: admin's switch, the closing time, and
+	// whether they take entries now (open, before the closing time, and
+	// before a blitz edition's round 1 is paired)
+	SignUps SignUps `json:"sign_ups"`
 
 	// Standings By rank: points, then the tie-breaks in order (Direct Encounter,
 	// Buchholz Cut 1, Buchholz, Sonneborn-Berger, the opponents'
@@ -4174,6 +4231,9 @@ type MyData struct {
 
 	// Sessions Every session, oldest first
 	Sessions []MyDataSession `json:"sessions"`
+
+	// SignUps Every sign-up waiting for the account to be linked, oldest first
+	SignUps []MyDataSignUp `json:"sign_ups"`
 }
 
 // MyDataAccount The account itself
@@ -4290,6 +4350,16 @@ type MyDataSession struct {
 	ThisBrowser bool `json:"this_browser"`
 }
 
+// MyDataSignUp A sign-up waiting for the account to be linked
+type MyDataSignUp struct {
+	// Name The TTA username given
+	Name       string    `json:"name"`
+	SignedUpAt time.Time `json:"signed_up_at"`
+
+	// Tournament The tournament's name and edition
+	Tournament string `json:"tournament"`
+}
+
 // MyDetailsChange defines model for MyDetailsChange.
 type MyDetailsChange struct {
 	// Country Two-letter ISO code; empty clears it
@@ -4357,6 +4427,19 @@ type MyNostradamusEntry struct {
 
 // MyNostradamusEntryStatus defines model for MyNostradamusEntry.Status.
 type MyNostradamusEntryStatus string
+
+// MySignUp Where a player's sign-up for a tournament stands
+type MySignUp struct {
+	// Linked Whether the player's account is linked to a member; an unlinked one gives their TTA username to sign up
+	Linked bool `json:"linked"`
+
+	// Name The TTA username a pending sign-up gave; null otherwise
+	Name   *string        `json:"name"`
+	Status MySignUpStatus `json:"status"`
+}
+
+// MySignUpStatus defines model for MySignUp.Status.
+type MySignUpStatus string
 
 // NewBlitzEntrant A member to enter: by id, any details given (not empty) saved on the member, or by TTA username with the
 // details a new member needs when the name is not a member yet
@@ -5370,6 +5453,30 @@ type SeriesMember struct {
 	Slug   string  `json:"slug"`
 }
 
+// SignUpGiven A sign-up; an unlinked player gives their TTA username, a linked one nothing
+type SignUpGiven struct {
+	TtaName *string `json:"tta_name,omitempty"`
+}
+
+// SignUps A tournament's sign-ups: admin's switch, the closing time, and
+// whether they take entries now (open, before the closing time, and
+// before a blitz edition's round 1 is paired)
+type SignUps struct {
+	// ClosesAt When they stop taking entries; null for no closing time
+	ClosesAt *time.Time `json:"closes_at"`
+	Open     bool       `json:"open"`
+	Taking   bool       `json:"taking"`
+
+	// Waiting How many sign-ups wait for their account to be linked; who they are is not shown
+	Waiting int `json:"waiting"`
+}
+
+// SignUpsSetting Sign-ups opened or closed, with a closing time (a day and a time on a zone's clocks) or none
+type SignUpsSetting struct {
+	Closes *BlitzDeadlineSet `json:"closes,omitempty"`
+	Open   bool              `json:"open"`
+}
+
 // SiteVisits defines model for SiteVisits.
 type SiteVisits struct {
 	// AsOf When the visits were counted
@@ -5925,6 +6032,9 @@ type Rated = bool
 // RunId defines model for RunId.
 type RunId = int64
 
+// SignUpId defines model for SignUpId.
+type SignUpId = int64
+
 // Unrated defines model for Unrated.
 type Unrated = bool
 
@@ -6448,6 +6558,9 @@ type PostAdminSeasonJSONRequestBody = NewSeason
 // PatchAdminSeasonJSONRequestBody defines body for PatchAdminSeason for application/json ContentType.
 type PatchAdminSeasonJSONRequestBody = SeasonChange
 
+// PutAdminSignUpsJSONRequestBody defines body for PutAdminSignUps for application/json ContentType.
+type PutAdminSignUpsJSONRequestBody = SignUpsSetting
+
 // PostAdminTwitchFeedJSONRequestBody defines body for PostAdminTwitchFeed for application/json ContentType.
 type PostAdminTwitchFeedJSONRequestBody = NewTwitchFeed
 
@@ -6486,6 +6599,9 @@ type PostMyEmailLoginJSONRequestBody = EmailLoginAsk
 
 // PutMyNostradamusAnswersJSONRequestBody defines body for PutMyNostradamusAnswers for application/json ContentType.
 type PutMyNostradamusAnswersJSONRequestBody = NostradamusAnswersGiven
+
+// PutMySignUpJSONRequestBody defines body for PutMySignUp for application/json ContentType.
+type PutMySignUpJSONRequestBody = SignUpGiven
 
 // ReceiveTwitchEventJSONRequestBody defines body for ReceiveTwitchEvent for application/json ContentType.
 type ReceiveTwitchEventJSONRequestBody = TwitchEventSubMessage
@@ -6849,6 +6965,18 @@ type ServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// GetAdminSignUps A season's sign-ups, and those waiting for an account to be linked
+	// (GET /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups)
+	GetAdminSignUps(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// PutAdminSignUps Open or close a season's sign-ups
+	// (PUT /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups)
+	PutAdminSignUps(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// DeleteAdminSignUp Remove a sign-up waiting for its account to be linked
+	// (DELETE /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up})
+	DeleteAdminSignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel, signUp SignUpId)
+	// PostAdminSignUpAccept Enter a sign-up waiting for its account to be linked
+	// (POST /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}/accept)
+	PostAdminSignUpAccept(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel, signUp SignUpId)
 	// GetAdminTwitchFeeds The Twitch streamers whose streams going live are posted to Discord (admins only)
 	// (GET /v1/admin/twitch-feeds)
 	GetAdminTwitchFeeds(w http.ResponseWriter, r *http.Request)
@@ -6984,6 +7112,15 @@ type ServerInterface interface {
 	// PutMyNostradamusAnswers Answer an open Nostradamus round
 	// (PUT /v1/me/nostradamus/{edition}/rounds/{round}/answers)
 	PutMyNostradamusAnswers(w http.ResponseWriter, r *http.Request, edition NostradamusEditionSlug, round NostradamusRoundId)
+	// DeleteMySignUp Withdraw from a tournament
+	// (DELETE /v1/me/sign-ups/{tournament}/{season})
+	DeleteMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// GetMySignUp Whether you are signed up for a tournament
+	// (GET /v1/me/sign-ups/{tournament}/{season})
+	GetMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
+	// PutMySignUp Sign up for a tournament
+	// (PUT /v1/me/sign-ups/{tournament}/{season})
+	PutMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(w http.ResponseWriter, r *http.Request)
@@ -10509,6 +10646,164 @@ func (siw *ServerInterfaceWrapper) PatchAdminSeason(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminSignUps operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminSignUps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminSignUps(w, r, tournament, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminSignUps operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminSignUps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminSignUps(w, r, tournament, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminSignUp operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminSignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sign_up" -------------
+	var signUp SignUpId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sign_up", r.PathValue("sign_up"), &signUp, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sign_up", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminSignUp(w, r, tournament, season, signUp)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminSignUpAccept operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminSignUpAccept(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sign_up" -------------
+	var signUp SignUpId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sign_up", r.PathValue("sign_up"), &signUp, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sign_up", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminSignUpAccept(w, r, tournament, season, signUp)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAdminTwitchFeeds operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminTwitchFeeds(w http.ResponseWriter, r *http.Request) {
 
@@ -11705,6 +12000,111 @@ func (siw *ServerInterfaceWrapper) PutMyNostradamusAnswers(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutMyNostradamusAnswers(w, r, edition, round)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMySignUp operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMySignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMySignUp(w, r, tournament, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMySignUp operation middleware
+func (siw *ServerInterfaceWrapper) GetMySignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMySignUp(w, r, tournament, season)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMySignUp operation middleware
+func (siw *ServerInterfaceWrapper) PutMySignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tournament" -------------
+	var tournament AdminTournamentSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournament", r.PathValue("tournament"), &tournament, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournament", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "season" -------------
+	var season AdminSeasonLabel
+
+	err = runtime.BindStyledParameterWithOptions("simple", "season", r.PathValue("season"), &season, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "season", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMySignUp(w, r, tournament, season)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -13817,6 +14217,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/logins/email", wrapper.PostMyEmailLogin)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/logins/{provider}", wrapper.DeleteMyLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/challenges/entries", wrapper.PostMyChallengeEntries)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/me/sign-ups/{tournament}/{season}", wrapper.DeleteMySignUp)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/sign-ups/{tournament}/{season}", wrapper.GetMySignUp)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/sign-ups/{tournament}/{season}", wrapper.PutMySignUp)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/me/nostradamus/{edition}", wrapper.GetMyNostradamus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/me/nostradamus/{edition}/entry", wrapper.PostMyNostradamusEntry)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/me/nostradamus/{edition}/rounds/{round}/answers", wrapper.PutMyNostradamusAnswers)
@@ -13903,6 +14306,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}", wrapper.DeleteAdminSeason)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}", wrapper.PatchAdminSeason)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups", wrapper.GetAdminSignUps)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups", wrapper.PutAdminSignUps)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}", wrapper.DeleteAdminSignUp)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}/accept", wrapper.PostAdminSignUpAccept)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/tournaments/{tournament}/seasons", wrapper.PostAdminSeason)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/community/editions", wrapper.GetAdminCommunityEditions)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/community/editions", wrapper.PostAdminCommunityEdition)
@@ -23060,6 +23467,353 @@ func (response PatchAdminSeason404JSONResponse) VisitPatchAdminSeasonResponse(w 
 	return err
 }
 
+type GetAdminSignUpsRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+}
+
+type GetAdminSignUpsResponseObject interface {
+	VisitGetAdminSignUpsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminSignUps200JSONResponse AdminSignUps
+
+func (response GetAdminSignUps200JSONResponse) VisitGetAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSignUps400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetAdminSignUps400JSONResponse) VisitGetAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSignUps401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminSignUps401JSONResponse) VisitGetAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSignUps403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminSignUps403JSONResponse) VisitGetAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminSignUps404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminSignUps404JSONResponse) VisitGetAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSignUpsRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+	Body       *PutAdminSignUpsJSONRequestBody
+}
+
+type PutAdminSignUpsResponseObject interface {
+	VisitPutAdminSignUpsResponse(w http.ResponseWriter) error
+}
+
+type PutAdminSignUps204Response struct {
+}
+
+func (response PutAdminSignUps204Response) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminSignUps400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminSignUps400JSONResponse) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSignUps401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminSignUps401JSONResponse) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSignUps403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminSignUps403JSONResponse) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSignUps404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminSignUps404JSONResponse) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminSignUps409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminSignUps409JSONResponse) VisitPutAdminSignUpsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminSignUpRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+	SignUp     SignUpId            `json:"sign_up"`
+}
+
+type DeleteAdminSignUpResponseObject interface {
+	VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminSignUp204Response struct {
+}
+
+func (response DeleteAdminSignUp204Response) VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminSignUp400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteAdminSignUp400JSONResponse) VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminSignUp401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminSignUp401JSONResponse) VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminSignUp403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminSignUp403JSONResponse) VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminSignUp404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminSignUp404JSONResponse) VisitDeleteAdminSignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminSignUpAcceptRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+	SignUp     SignUpId            `json:"sign_up"`
+}
+
+type PostAdminSignUpAcceptResponseObject interface {
+	VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error
+}
+
+type PostAdminSignUpAccept204Response struct {
+}
+
+func (response PostAdminSignUpAccept204Response) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostAdminSignUpAccept400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminSignUpAccept400JSONResponse) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminSignUpAccept401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminSignUpAccept401JSONResponse) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminSignUpAccept403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminSignUpAccept403JSONResponse) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminSignUpAccept404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminSignUpAccept404JSONResponse) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminSignUpAccept409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminSignUpAccept409JSONResponse) VisitPostAdminSignUpAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminTwitchFeedsRequestObject struct {
 }
 
@@ -25714,6 +26468,279 @@ func (response PutMyNostradamusAnswers409JSONResponse) VisitPutMyNostradamusAnsw
 	return err
 }
 
+type DeleteMySignUpRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+}
+
+type DeleteMySignUpResponseObject interface {
+	VisitDeleteMySignUpResponse(w http.ResponseWriter) error
+}
+
+type DeleteMySignUp204Response struct {
+}
+
+func (response DeleteMySignUp204Response) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMySignUp400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteMySignUp400JSONResponse) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMySignUp401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response DeleteMySignUp401JSONResponse) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMySignUp403JSONResponse struct{ NotLinkedJSONResponse }
+
+func (response DeleteMySignUp403JSONResponse) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMySignUp404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteMySignUp404JSONResponse) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMySignUp409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteMySignUp409JSONResponse) VisitDeleteMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySignUpRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+}
+
+type GetMySignUpResponseObject interface {
+	VisitGetMySignUpResponse(w http.ResponseWriter) error
+}
+
+type GetMySignUp200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetMySignUp200JSONResponse struct {
+	Body    MySignUp
+	Headers GetMySignUp200ResponseHeaders
+}
+
+func (response GetMySignUp200JSONResponse) VisitGetMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySignUp400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetMySignUp400JSONResponse) VisitGetMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySignUp401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response GetMySignUp401JSONResponse) VisitGetMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMySignUp404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetMySignUp404JSONResponse) VisitGetMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUpRequestObject struct {
+	Tournament AdminTournamentSlug `json:"tournament"`
+	Season     AdminSeasonLabel    `json:"season"`
+	Body       *PutMySignUpJSONRequestBody
+}
+
+type PutMySignUpResponseObject interface {
+	VisitPutMySignUpResponse(w http.ResponseWriter) error
+}
+
+type PutMySignUp200ResponseHeaders struct {
+	CacheControl string
+}
+
+type PutMySignUp200JSONResponse struct {
+	Body    MySignUp
+	Headers PutMySignUp200ResponseHeaders
+}
+
+func (response PutMySignUp200JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUp400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutMySignUp400JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUp401JSONResponse struct{ SignedOutJSONResponse }
+
+func (response PutMySignUp401JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUp403JSONResponse struct{ NotLinkedJSONResponse }
+
+func (response PutMySignUp403JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUp404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutMySignUp404JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutMySignUp409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutMySignUp409JSONResponse) VisitPutMySignUpResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMoviesRequestObject struct {
 }
 
@@ -28273,6 +29300,18 @@ type StrictServerInterface interface {
 	// PatchAdminSeason Change a season's settings, notes or podium
 	// (PATCH /v1/admin/tournaments/{tournament}/seasons/{season})
 	PatchAdminSeason(ctx context.Context, request PatchAdminSeasonRequestObject) (PatchAdminSeasonResponseObject, error)
+	// GetAdminSignUps A season's sign-ups, and those waiting for an account to be linked
+	// (GET /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups)
+	GetAdminSignUps(ctx context.Context, request GetAdminSignUpsRequestObject) (GetAdminSignUpsResponseObject, error)
+	// PutAdminSignUps Open or close a season's sign-ups
+	// (PUT /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups)
+	PutAdminSignUps(ctx context.Context, request PutAdminSignUpsRequestObject) (PutAdminSignUpsResponseObject, error)
+	// DeleteAdminSignUp Remove a sign-up waiting for its account to be linked
+	// (DELETE /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up})
+	DeleteAdminSignUp(ctx context.Context, request DeleteAdminSignUpRequestObject) (DeleteAdminSignUpResponseObject, error)
+	// PostAdminSignUpAccept Enter a sign-up waiting for its account to be linked
+	// (POST /v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}/accept)
+	PostAdminSignUpAccept(ctx context.Context, request PostAdminSignUpAcceptRequestObject) (PostAdminSignUpAcceptResponseObject, error)
 	// GetAdminTwitchFeeds The Twitch streamers whose streams going live are posted to Discord (admins only)
 	// (GET /v1/admin/twitch-feeds)
 	GetAdminTwitchFeeds(ctx context.Context, request GetAdminTwitchFeedsRequestObject) (GetAdminTwitchFeedsResponseObject, error)
@@ -28408,6 +29447,15 @@ type StrictServerInterface interface {
 	// PutMyNostradamusAnswers Answer an open Nostradamus round
 	// (PUT /v1/me/nostradamus/{edition}/rounds/{round}/answers)
 	PutMyNostradamusAnswers(ctx context.Context, request PutMyNostradamusAnswersRequestObject) (PutMyNostradamusAnswersResponseObject, error)
+	// DeleteMySignUp Withdraw from a tournament
+	// (DELETE /v1/me/sign-ups/{tournament}/{season})
+	DeleteMySignUp(ctx context.Context, request DeleteMySignUpRequestObject) (DeleteMySignUpResponseObject, error)
+	// GetMySignUp Whether you are signed up for a tournament
+	// (GET /v1/me/sign-ups/{tournament}/{season})
+	GetMySignUp(ctx context.Context, request GetMySignUpRequestObject) (GetMySignUpResponseObject, error)
+	// PutMySignUp Sign up for a tournament
+	// (PUT /v1/me/sign-ups/{tournament}/{season})
+	PutMySignUp(ctx context.Context, request PutMySignUpRequestObject) (PutMySignUpResponseObject, error)
 	// GetMovies Recent TTA community YouTube videos and their creators
 	// (GET /v1/movies)
 	GetMovies(ctx context.Context, request GetMoviesRequestObject) (GetMoviesResponseObject, error)
@@ -32033,6 +33081,123 @@ func (sh *strictHandler) PatchAdminSeason(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetAdminSignUps operation middleware
+func (sh *strictHandler) GetAdminSignUps(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel) {
+	var request GetAdminSignUpsRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminSignUps(ctx, request.(GetAdminSignUpsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminSignUps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminSignUpsResponseObject); ok {
+		if err := validResponse.VisitGetAdminSignUpsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminSignUps operation middleware
+func (sh *strictHandler) PutAdminSignUps(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel) {
+	var request PutAdminSignUpsRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+
+	var body PutAdminSignUpsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminSignUps(ctx, request.(PutAdminSignUpsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminSignUps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminSignUpsResponseObject); ok {
+		if err := validResponse.VisitPutAdminSignUpsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminSignUp operation middleware
+func (sh *strictHandler) DeleteAdminSignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel, signUp SignUpId) {
+	var request DeleteAdminSignUpRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+	request.SignUp = signUp
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminSignUp(ctx, request.(DeleteAdminSignUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminSignUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminSignUpResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminSignUpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminSignUpAccept operation middleware
+func (sh *strictHandler) PostAdminSignUpAccept(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel, signUp SignUpId) {
+	var request PostAdminSignUpAcceptRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+	request.SignUp = signUp
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminSignUpAccept(ctx, request.(PostAdminSignUpAcceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminSignUpAccept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminSignUpAcceptResponseObject); ok {
+		if err := validResponse.VisitPostAdminSignUpAcceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAdminTwitchFeeds operation middleware
 func (sh *strictHandler) GetAdminTwitchFeeds(w http.ResponseWriter, r *http.Request) {
 	var request GetAdminTwitchFeedsRequestObject
@@ -33254,6 +34419,94 @@ func (sh *strictHandler) PutMyNostradamusAnswers(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutMyNostradamusAnswersResponseObject); ok {
 		if err := validResponse.VisitPutMyNostradamusAnswersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMySignUp operation middleware
+func (sh *strictHandler) DeleteMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel) {
+	var request DeleteMySignUpRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMySignUp(ctx, request.(DeleteMySignUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMySignUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMySignUpResponseObject); ok {
+		if err := validResponse.VisitDeleteMySignUpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMySignUp operation middleware
+func (sh *strictHandler) GetMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel) {
+	var request GetMySignUpRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMySignUp(ctx, request.(GetMySignUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMySignUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMySignUpResponseObject); ok {
+		if err := validResponse.VisitGetMySignUpResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutMySignUp operation middleware
+func (sh *strictHandler) PutMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel) {
+	var request PutMySignUpRequestObject
+
+	request.Tournament = tournament
+	request.Season = season
+
+	var body PutMySignUpJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutMySignUp(ctx, request.(PutMySignUpRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutMySignUp")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutMySignUpResponseObject); ok {
+		if err := validResponse.VisitPutMySignUpResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

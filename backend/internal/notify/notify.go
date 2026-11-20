@@ -202,10 +202,13 @@ func Payload(n store.Notification, e store.NotificationEndpoint, admin string) W
 	case "ratings_run", "ratings_top10":
 		embed := runEmbed(n, e.Look)
 		return shaped(e, embed, embed.Title)
-	case "blitz_round", "blitz_reminder", "blitz_finished":
+	case "blitz_round", "blitz_reminder", "blitz_finished", "blitz_sign_ups":
 		text := roundText
-		if n.Kind == "blitz_finished" {
+		switch n.Kind {
+		case "blitz_finished":
 			text = podiumText
+		case "blitz_sign_ups":
+			text = signUpsText
 		}
 		title, body, users := text(n)
 		m := texted(e, body, title)
@@ -414,6 +417,28 @@ func podiumText(n store.Notification) (title, text string, users []string) {
 		lines = append(lines, places[p.Place]+": "+list(who))
 	}
 	return title, strings.Join(lines, "\n"), t.users
+}
+
+// signUpsText is an edition's open sign-ups as text: its title as a bold link to the edition, its format, its
+// closing time on each reader's clock when it has one, and a link to sign up. It returns the title and the text; it tags no
+// one.
+func signUpsText(n store.Notification) (title, text string, users []string) {
+	title = n.Series + " " + n.Edition + " sign-ups are open"
+	f := n.Blitz.Format
+	format := strconv.Itoa(f.SwissRounds) + " Swiss round"
+	if f.SwissRounds != 1 {
+		format += "s"
+	}
+	if f.KnockoutSize > 0 {
+		format += ", then a knockout of the top " + strconv.Itoa(f.KnockoutSize)
+	}
+	lines := []string{heading(title, n.Blitz.Link), "Format: " + format}
+	if c := n.Blitz.Closes; c != nil {
+		at := strconv.FormatInt(c.Unix(), 10)
+		lines = append(lines, "Sign-ups close: <t:"+at+":F> (<t:"+at+":R>)")
+	}
+	lines = append(lines, "[Sign up on the site](<"+n.Blitz.Link+">) to enter.")
+	return title, strings.Join(lines, "\n"), nil
 }
 
 // thousands is n with commas between its thousands: 205,123.

@@ -6,6 +6,8 @@ import { fieldId } from '../lib/tournament-page';
 import { ordinal } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
+import PeoplePick from './PeoplePick';
+import { playerChoices } from '../lib/person-form';
 
 const PLACES = [1, 2, 3].map(ordinal);
 
@@ -57,15 +59,9 @@ export default function PodiumBox({
       </legend>
       <div className="podium-places">
         {PLACES.map((label, i) => (
-          <label key={label}>
-            {label}
-            <input className="input-antique"
-              id={`${id}-${i + 1}`}
-              value={names[i]}
-              maxLength={64}
-              onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
-            />
-          </label>
+          <PeoplePick key={label} label={label} value={names[i]} choices={playerChoices} placeholder=""
+            onChange={(text) => setNames(names.map((n, j) => (j === i ? text : n)))}
+          />
         ))}
         <label className="podium-note">
           Why, or where it comes from

@@ -19,6 +19,8 @@ import { UnlinkedSignIns, WaitingRequests } from './SignIns';
 import ZonePick from './ZonePick';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
+import PeoplePick from './PeoplePick';
+import { playerChoices } from '../lib/person-form';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
 
@@ -211,7 +213,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
                   {editing?.id === m.id ? (
                     <tr>
                       <th scope="row">
-                        <input className="input-antique" aria-label={`Username of ${m.name}`} value={editing.name} maxLength={100} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                        <PeoplePick label={`Username of ${m.name}`} hideLabel value={editing.name} choices={playerChoices} placeholder="" onChange={(text) => setEditing({ ...editing, name: text })} />
                       </th>
                       <td>
                         <input className="input-antique" aria-label={`CGE id of ${m.name}`} inputMode="numeric" value={editing.cge_user} onChange={(e) => setEditing({ ...editing, cge_user: e.target.value })} />

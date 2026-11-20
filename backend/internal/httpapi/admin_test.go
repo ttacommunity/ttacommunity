@@ -68,6 +68,10 @@ type fakeAdmins struct {
 	threadText *store.BlitzThreadText
 	// members are the community's (admin_members_test.go).
 	members []store.Member
+	// signUps and pending are us_open 2026's sign-ups; signUpErr what changing them answers (sign_ups_test.go).
+	signUps   store.SignUps
+	pending   []store.PendingSignUp
+	signUpErr error
 	// postErr is what posting a test notification returns (admin_notifications_test.go).
 	postErr error
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched

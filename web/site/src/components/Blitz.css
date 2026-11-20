@@ -11,6 +11,13 @@
   margin-top: 0.75rem;
 }
 
+/* An edition's panels, one under another. */
+.blitz-panels {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Nostradamus's cards; Blitz's are the site's full-width Panel. */
 .blitz-card {
   max-width: 56rem;
   margin: 0 auto 1.5rem;
@@ -77,10 +84,10 @@
   padding: 0.3rem 0.8rem;
   font-size: 0.85rem;
 }
-/* The player's own game: its card lands below the sticky header when the pairings link to it, its buttons, and the
-   report form a row at a time, wrapping on a phone. */
-.your-game {
-  scroll-margin-top: 5.5rem;
+/* The player's own game: its heading lands below the sticky header when the pairings link to it, its buttons, and
+   the report form a row at a time, wrapping on a phone. */
+#your-game {
+  scroll-margin-top: 7rem;
 }
 .report-form {
   display: grid;

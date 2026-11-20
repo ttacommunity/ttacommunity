@@ -1,0 +1,22 @@
+/* The sign-up box's layout inside its panel: its lines spaced, the username field beside its button. */
+.sign-up-closes {
+  margin: 0 0 1rem;
+}
+
+.sign-up-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sign-up-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.sign-up-row .search-input-wrapper {
+  flex: 1 1 12rem;
+  min-width: 0;
+}

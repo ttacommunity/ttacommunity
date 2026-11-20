@@ -125,7 +125,8 @@ func (s *PlayerStore) CheckLimits(ctx context.Context) error {
 			OR has_table_privilege('logins', 'DELETE, TRUNCATE')
 			OR has_table_privilege('accounts', 'DELETE, TRUNCATE')
 			OR has_function_privilege('link_by_email(bigint, timestamptz)', 'EXECUTE')
-			OR has_function_privilege('fill_member_from_logins(bigint)', 'EXECUTE')`).Scan(&tooStrong)
+			OR has_function_privilege('fill_member_from_logins(bigint)', 'EXECUTE')
+			OR has_function_privilege('enter_pending_sign_ups(bigint, timestamptz)', 'EXECUTE')`).Scan(&tooStrong)
 	if err != nil {
 		return fmt.Errorf("checking the player login's privileges: %w", err)
 	}
@@ -217,6 +218,9 @@ func autoLink(ctx context.Context, tx pgx.Tx, account int64, id Identity, sessio
 	if linked {
 		if err := moveAccountDetails(ctx, tx, account); err != nil {
 			return err
+		}
+		if _, err := tx.Exec(ctx, "SELECT enter_own_pending_sign_ups($1, $2)", session, now); err != nil {
+			return fmt.Errorf("entering a linked account's sign-ups: %w", err)
 		}
 	}
 	if _, err := tx.Exec(ctx, "SELECT fill_own_member($1, $2)", session, now); err != nil {
@@ -481,37 +485,42 @@ func (s *PlayerStore) DeleteAccount(ctx context.Context, tokenHash []byte, now t
 // It returns ErrBadLinkName, ErrAlreadyLinked when the account has a member, or ErrNameLinked when the member the
 // name names is linked to another account.
 func (s *PlayerStore) RequestLink(ctx context.Context, account int64, name string, now time.Time) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		return requestLink(ctx, tx, account, name, now)
+	})
+}
+
+// requestLink is RequestLink in tx.
+func requestLink(ctx context.Context, tx pgx.Tx, account int64, name string, now time.Time) error {
 	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > 100 {
 		return ErrBadLinkName
 	}
-	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		var linked bool
-		if err := tx.QueryRow(ctx, "SELECT member_id IS NOT NULL FROM accounts WHERE account_id = $1 FOR UPDATE", account).Scan(&linked); err != nil {
-			return fmt.Errorf("reading an account: %w", err)
-		}
-		if linked {
-			return ErrAlreadyLinked
-		}
-		var elsewhere bool
-		if err := tx.QueryRow(ctx, "SELECT name_linked_elsewhere($1, $2)", name, account).Scan(&elsewhere); err != nil {
-			return fmt.Errorf("checking who holds a name: %w", err)
-		}
-		if elsewhere {
-			return ErrNameLinked
-		}
-		var request int64
-		err := tx.QueryRow(ctx, "UPDATE link_requests SET tta_name = $2, requested_at = $3 WHERE account_id = $1 AND status = 'pending' RETURNING request_id",
+	var linked bool
+	if err := tx.QueryRow(ctx, "SELECT member_id IS NOT NULL FROM accounts WHERE account_id = $1 FOR UPDATE", account).Scan(&linked); err != nil {
+		return fmt.Errorf("reading an account: %w", err)
+	}
+	if linked {
+		return ErrAlreadyLinked
+	}
+	var elsewhere bool
+	if err := tx.QueryRow(ctx, "SELECT name_linked_elsewhere($1, $2)", name, account).Scan(&elsewhere); err != nil {
+		return fmt.Errorf("checking who holds a name: %w", err)
+	}
+	if elsewhere {
+		return ErrNameLinked
+	}
+	var request int64
+	err := tx.QueryRow(ctx, "UPDATE link_requests SET tta_name = $2, requested_at = $3 WHERE account_id = $1 AND status = 'pending' RETURNING request_id",
+		account, name, now).Scan(&request)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = tx.QueryRow(ctx, "INSERT INTO link_requests (account_id, tta_name, requested_at) VALUES ($1, $2, $3) RETURNING request_id",
 			account, name, now).Scan(&request)
-		if errors.Is(err, pgx.ErrNoRows) {
-			err = tx.QueryRow(ctx, "INSERT INTO link_requests (account_id, tta_name, requested_at) VALUES ($1, $2, $3) RETURNING request_id",
-				account, name, now).Scan(&request)
-		}
-		if err != nil {
-			return fmt.Errorf("asking to be linked: %w", err)
-		}
-		return queueNotification(ctx, tx, "link_request", request, now)
-	})
+	}
+	if err != nil {
+		return fmt.Errorf("asking to be linked: %w", err)
+	}
+	return queueNotification(ctx, tx, "link_request", request, now)
 }
 
 // SetOwnDetails changes a player's own country and zone: their member's once linked, until then the account's,

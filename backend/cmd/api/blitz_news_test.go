@@ -48,15 +48,22 @@ func TestWithBlitzNews(t *testing.T) {
 	unplayed := finalWon()
 	unplayed.Rounds = slices.Clone(unplayed.Rounds)
 	unplayed.Rounds[1].Matches = []store.BlitzMatch{{A: 1, B: unplayed.Rounds[1].Matches[0].B}}
-	shown := stubEditions{"us_open 2026": finalWon(), "open 2026": unplayed}
-	full := stubEditions{"us_open 2026": signedIn(finalWon()), "hidden 2026": signedIn(finalWon()), "open 2026": signedIn(unplayed)}
+	closes := time.Date(2026, 3, 8, 0, 0, 0, 0, time.UTC)
+	taking, shut := store.BlitzEdition{}, store.BlitzEdition{}
+	taking.Format, taking.SignUps = store.BlitzFormat{SwissRounds: 5, KnockoutSize: 4}, store.SignUps{Open: true, ClosesAt: &closes, Taking: true}
+	shut.SignUps = store.SignUps{Open: true, ClosesAt: &closes}
+	shown := stubEditions{"us_open 2026": finalWon(), "open 2026": unplayed, "taking 2026": taking, "shut 2026": shut}
+	full := stubEditions{"us_open 2026": signedIn(finalWon()), "hidden 2026": signedIn(finalWon()), "open 2026": signedIn(unplayed),
+		"taking 2026": taking, "shut 2026": shut}
 	tests := []struct {
 		name      string
 		n         store.Notification
 		wantPost  bool
 		wantGames [][2]blitz.Person
 		wantFirst string
-		wantErr   bool
+		// wantCloses is a sign-up notice's closing time, with its edition's format.
+		wantCloses *time.Time
+		wantErr    bool
 	}{
 		{name: "a round published", n: store.Notification{Kind: "blitz_round", Slug: "us_open", Edition: "2026", Round: 2},
 			wantPost: true, wantGames: [][2]blitz.Person{{{Name: "Ann", DiscordID: "100000000000000052"}, {Name: "Bob"}}}},
@@ -65,6 +72,9 @@ func TestWithBlitzNews(t *testing.T) {
 			wantPost: true, wantGames: [][2]blitz.Person{{{Name: "Ann", DiscordID: "100000000000000052"}, {Name: "Bob"}}}},
 		{name: "a reminder once every game is played", n: store.Notification{Kind: "blitz_reminder", Slug: "us_open", Edition: "2026", Round: 2}},
 		{name: "an edition finished", n: store.Notification{Kind: "blitz_finished", Slug: "us_open", Edition: "2026"}, wantPost: true, wantFirst: "Ann"},
+		{name: "sign-ups taking entries", n: store.Notification{Kind: "blitz_sign_ups", Slug: "taking", Edition: "2026"}, wantPost: true, wantCloses: &closes},
+		{name: "sign-ups no longer taking entries", n: store.Notification{Kind: "blitz_sign_ups", Slug: "shut", Edition: "2026"}},
+		{name: "sign-ups of an edition the site does not show", n: store.Notification{Kind: "blitz_sign_ups", Slug: "hidden", Edition: "2026"}},
 		{name: "an edition the site does not show", n: store.Notification{Kind: "blitz_round", Slug: "hidden", Edition: "2026", Round: 1}},
 		{name: "an edition that cannot be read", n: store.Notification{Kind: "blitz_round", Slug: "broken", Edition: "2026", Round: 1}, wantErr: true},
 		{name: "another kind", n: store.Notification{Kind: "sign_up"}, wantPost: true},
@@ -83,6 +93,9 @@ func TestWithBlitzNews(t *testing.T) {
 			}
 			if tt.wantGames != nil && !slices.Equal(got.Blitz.Games, tt.wantGames) {
 				t.Errorf("games = %+v, want %+v", got.Blitz.Games, tt.wantGames)
+			}
+			if tt.wantCloses != nil && (got.Blitz.Closes == nil || !got.Blitz.Closes.Equal(*tt.wantCloses) || got.Blitz.Format != (store.BlitzFormat{SwissRounds: 5, KnockoutSize: 4})) {
+				t.Errorf("sign-ups = closing %v, format %+v; want closing %v, 5 rounds and a knockout of 4", got.Blitz.Closes, got.Blitz.Format, *tt.wantCloses)
 			}
 			if tt.wantFirst != "" && (len(got.Blitz.Podium) == 0 || len(got.Blitz.Podium[0].People) != 1 || got.Blitz.Podium[0].People[0].Name != tt.wantFirst) {
 				t.Errorf("podium = %+v, want %s first", got.Blitz.Podium, tt.wantFirst)

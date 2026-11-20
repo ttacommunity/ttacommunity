@@ -1476,7 +1476,8 @@ export interface paths {
          * @description Fetched with credentials from the site, whose origin alone may read
          *     it. Their account, every way in with its id there, the member they
          *     are linked to with every field it holds, their requests to be linked,
-         *     their sessions and their emailed sign-in links. Sessions that have
+         *     their sign-ups waiting for a link, their sessions and their emailed
+         *     sign-in links. Sessions that have
          *     ended and links past the time they are kept are removed first, so
          *     the answer is exactly what is kept. Never cached.
          */
@@ -1602,6 +1603,46 @@ export interface paths {
          */
         post: operations["postMyChallengeEntries"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/sign-ups/{tournament}/{season}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether you are signed up for a tournament
+         * @description For a signed-in player: entered (their member is an entrant),
+         *     pending (their sign-up waits for their account to be linked, under
+         *     the TTA username they gave) or none. Only blitz editions take
+         *     sign-ups so far. Never cached.
+         */
+        get: operations["getMySignUp"];
+        /**
+         * Sign up for a tournament
+         * @description The Origin must be the site. While the tournament takes entries
+         *     (open, before its closing time, and before a blitz edition's round 1
+         *     is paired): a player linked to a member is entered; an unlinked one
+         *     gives their TTA username, and their sign-up waits for the account to
+         *     be linked, asking admins to link it to that name. Signing up again
+         *     is the same. A banned member is 403, a tournament the site does not
+         *     show 404, one not taking entries 409.
+         */
+        put: operations["putMySignUp"];
+        post?: never;
+        /**
+         * Withdraw from a tournament
+         * @description The Origin must be the site. While the tournament takes entries:
+         *     takes the player's entry out, and their pending sign-up; a request
+         *     to be linked it made stays. Withdrawing again is the same. Refused
+         *     as signing up is.
+         */
+        delete: operations["deleteMySignUp"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3030,6 +3071,76 @@ export interface paths {
         patch: operations["patchAdminSeason"];
         trace?: never;
     };
+    "/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A season's sign-ups, and those waiting for an account to be linked */
+        get: operations["getAdminSignUps"];
+        /**
+         * Open or close a season's sign-ups
+         * @description Only blitz editions take sign-ups so far (400 for another). Opening
+         *     needs the tournament shown on the site and no round paired (409),
+         *     and a closing time, when given, that can be read and is in the
+         *     future (400). Opening closed sign-ups posts blitz_sign_ups to the
+         *     endpoints taking it, each time; a new closing time for open ones
+         *     posts nothing. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminSignUps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a sign-up waiting for its account to be linked
+         * @description Its request to be linked stays. Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminSignUp"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/seasons/{season}/sign-ups/{sign_up}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter a sign-up waiting for its account to be linked
+         * @description Links an unlinked account by approving its request to be linked, as
+         *     the Accounts tab does, then enters it, whether or not sign-ups still
+         *     take entries. 409 for an unlinked account with no request waiting,
+         *     a banned member, or a member another account is linked to. Audited.
+         *     The Origin must be the admin site.
+         */
+        post: operations["postAdminSignUpAccept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/tournaments/{tournament}/seasons": {
         parameters: {
             query?: never;
@@ -4117,7 +4228,7 @@ export interface components {
          * @description What a notification tells of, which an endpoint chooses among
          * @enum {string}
          */
-        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished" | "blitz_reminder";
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished" | "blitz_reminder" | "blitz_sign_ups";
         NotificationEndpoint: {
             /** Format: int64 */
             id: number;
@@ -4983,6 +5094,7 @@ export interface components {
         };
         /** @description A blitz edition for the site, with the entrants still in, the published rounds and the standings */
         BlitzEdition: {
+            sign_ups: components["schemas"]["SignUps"];
             /** @description Whether the tournament is shown as a bracket (getSeasonBracket) */
             bracket: boolean;
             pairing: components["schemas"]["BlitzPairingMethods"];
@@ -7089,6 +7201,8 @@ export interface components {
             member: components["schemas"]["MyDataMember"] | null;
             /** @description Every request to be linked, latest first */
             requests: components["schemas"]["MyDataRequest"][];
+            /** @description Every sign-up waiting for the account to be linked, oldest first */
+            sign_ups: components["schemas"]["MyDataSignUp"][];
             /** @description Every session, oldest first */
             sessions: components["schemas"]["MyDataSession"][];
             /** @description The sign-in links emailed for the account or to its email address, kept 48 hours, oldest first */
@@ -7162,6 +7276,74 @@ export interface components {
             requested_at: string;
             /** Format: date-time */
             decided_at: string | null;
+        };
+        /**
+         * @description A tournament's sign-ups: admin's switch, the closing time, and
+         *     whether they take entries now (open, before the closing time, and
+         *     before a blitz edition's round 1 is paired)
+         */
+        SignUps: {
+            open: boolean;
+            /**
+             * Format: date-time
+             * @description When they stop taking entries; null for no closing time
+             */
+            closes_at: string | null;
+            taking: boolean;
+            /** @description How many sign-ups wait for their account to be linked; who they are is not shown */
+            waiting: number;
+        };
+        /** @description Sign-ups opened or closed, with a closing time (a day and a time on a zone's clocks) or none */
+        SignUpsSetting: {
+            open: boolean;
+            closes?: components["schemas"]["BlitzDeadlineSet"] | null;
+        };
+        /** @description A sign-up; an unlinked player gives their TTA username, a linked one nothing */
+        SignUpGiven: {
+            tta_name?: string;
+        };
+        /** @description Where a player's sign-up for a tournament stands */
+        MySignUp: {
+            /** @description Whether the player's account is linked to a member; an unlinked one gives their TTA username to sign up */
+            linked: boolean;
+            /** @enum {string} */
+            status: "none" | "entered" | "pending";
+            /** @description The TTA username a pending sign-up gave; null otherwise */
+            name: string | null;
+        };
+        AdminSignUps: {
+            sign_ups: components["schemas"]["SignUps"];
+            /** @description The sign-ups waiting for their account to be linked, oldest first */
+            pending: components["schemas"]["AdminPendingSignUp"][];
+        };
+        AdminPendingSignUp: {
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description The account that signed up, as the Accounts tab lists it
+             */
+            account: number;
+            /** @description The TTA username it gave */
+            name: string;
+            /** Format: date-time */
+            signed_up_at: string;
+            /**
+             * Format: int64
+             * @description Its request to be linked waiting for an answer; null for none
+             */
+            request: number | null;
+            /** @description The member the account is linked to by now (linked after sign-ups closed); null while it is not */
+            linked: string | null;
+        };
+        /** @description A sign-up waiting for the account to be linked */
+        MyDataSignUp: {
+            /** @description The tournament's name and edition */
+            tournament: string;
+            /** @description The TTA username given */
+            name: string;
+            /** Format: date-time */
+            signed_up_at: string;
         };
         /** @description A session, which ends and is removed 30 days after its last use */
         MyDataSession: {
@@ -7772,6 +7954,7 @@ export interface components {
         BlitzEntrantId: number;
         BlitzRoundId: number;
         BlitzMatchId: number;
+        SignUpId: number;
         AccountId: number;
         LinkRequestId: number;
         MemberId: number;
@@ -9739,6 +9922,98 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["SignedOut"];
             403: components["responses"]["NotLinked"];
+        };
+    };
+    getMySignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where your sign-up stands */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySignUp"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putMySignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignUpGiven"];
+            };
+        };
+        responses: {
+            /** @description Where your sign-up stands now, entered or pending */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySignUp"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteMySignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["SignedOut"];
+            403: components["responses"]["NotLinked"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getMyNostradamus: {
@@ -12047,6 +12322,124 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminSignUps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sign-ups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSignUps"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    putAdminSignUps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignUpsSetting"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminSignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+                sign_up: components["parameters"]["SignUpId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    postAdminSignUpAccept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+                sign_up: components["parameters"]["SignUpId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entered */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     postAdminSeason: {
         parameters: {
             query?: never;
@@ -13393,7 +13786,7 @@ export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeV
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished", "blitz_reminder"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished", "blitz_reminder", "blitz_sign_ups"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];
@@ -13433,6 +13826,7 @@ export const seriesValues: ReadonlyArray<FlattenedDeepRequired<components>["sche
 export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TrophyRow"]["title"]> = ["WC", "GM", "M"];
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
+export const mySignUpStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MySignUp"]["status"]> = ["none", "entered", "pending"];
 export const nostradamusQuestionKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NostradamusQuestion"]["kind"]> = ["pick", "set", "number"];
 export const myNostradamusStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamus"]["status"]> = ["none", "requested", "accepted", "refused"];
 export const myNostradamusEntryStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamusEntry"]["status"]> = ["requested", "accepted", "refused"];

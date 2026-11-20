@@ -31,6 +31,7 @@ const data: MyData = {
   ],
   member,
   requests: [{ name: 'Ann', status: 'approved', reason: '', requested_at: '2026-10-18T12:30:00Z', decided_at: '2026-10-18T13:00:00Z' }],
+  sign_ups: [{ tournament: 'US Open 2027', name: 'Ann', signed_up_at: '2026-10-18T12:45:00Z' }],
   sessions: [
     { provider: 'discord', created_at: '2026-10-18T12:00:00Z', ends_at: '2026-11-17T12:00:00Z', this_browser: false },
     { provider: 'email', created_at: '2026-10-20T12:00:00Z', ends_at: '2026-11-19T12:00:00Z', this_browser: true },
@@ -56,13 +57,13 @@ function fact(groups: KeptGroup[], groupId: string, listId: string, key: string)
 
 describe('keptGroups', () => {
   it('lists the player record and its challenge dominations first, as the part a player knows best, and leaves them out before a link', () => {
-    expect(keptGroups(data, ZONE, country).map((g) => g.id)).toEqual(['member', 'challenges', 'account', 'logins', 'requests', 'sessions', 'links']);
-    expect(keptGroups({ ...data, member: null }, ZONE, country).map((g) => g.id)).toEqual(['account', 'logins', 'requests', 'sessions', 'links']);
+    expect(keptGroups(data, ZONE, country).map((g) => g.id)).toEqual(['member', 'challenges', 'account', 'logins', 'requests', 'sign-ups', 'sessions', 'links']);
+    expect(keptGroups({ ...data, member: null }, ZONE, country).map((g) => g.id)).toEqual(['account', 'logins', 'requests', 'sign-ups', 'sessions', 'links']);
   });
 
   it('gives every group a rule saying when what it lists is removed', () => {
     const groups = keptGroups(data, ZONE, country);
-    expect(groups).toHaveLength(7);
+    expect(groups).toHaveLength(8);
     for (const g of groups) {
       const rules = [g.rule, ...g.lists.map((l) => l.rule)].filter((r) => r !== '');
       expect(rules.length, g.id).toBeGreaterThan(0);
@@ -173,6 +174,13 @@ describe('keptGroups', () => {
     expect(sessions[1].facts.find((f) => f.key === 'started')?.value).toBe(at('2026-10-20T12:00:00Z'));
   });
 
+  it('gives each sign-up waiting for a link its tournament, the username given and when', () => {
+    const s = group(keptGroups(data, ZONE, country), 'sign-ups').lists[0];
+    expect(s.title).toBe('US Open 2027');
+    expect(s.facts.find((f) => f.key === 'name')?.value).toBe('Ann');
+    expect(s.facts.find((f) => f.key === 'signed_up')?.value).toBe(at('2026-10-18T12:45:00Z'));
+  });
+
   it('gives each emailed link where it went, where it returns, when it was sent and used, and when it is removed', () => {
     const link = group(keptGroups(data, ZONE, country), 'links').lists[0];
     expect(link.title).toBe('ann@example.test');
@@ -183,6 +191,7 @@ describe('keptGroups', () => {
 
   it.each([
     ['requests', { requests: [] }],
+    ['sign-ups', { sign_ups: [] }],
     ['links', { email_links: [] }],
   ])('says so when there are no %s', (id, change) => {
     const g = group(keptGroups({ ...data, ...change }, ZONE, country), id);

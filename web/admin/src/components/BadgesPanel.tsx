@@ -8,6 +8,8 @@ import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
+import PeoplePick from './PeoplePick';
+import { playerChoices } from '../lib/person-form';
 
 type AdminBadge = components['schemas']['AdminBadge'];
 
@@ -91,10 +93,7 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
         )}
       </p>
       <form className="admin-add" onSubmit={(e) => void give(e)}>
-        <label>
-          Give it to (as the leaderboard spells the name)
-          <input className="input-antique" id={`${id}-player`} value={player} maxLength={200} onChange={(e) => setPlayer(e.target.value)} />
-        </label>
+        <PeoplePick label="Give it to (as the leaderboard spells the name)" value={player} onChange={setPlayer} choices={playerChoices} placeholder="" />
         <button type="submit" className="btn-antique" disabled={player.trim() === ''}>
           Give
         </button>
