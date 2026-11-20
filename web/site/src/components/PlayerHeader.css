@@ -82,6 +82,3 @@
   color: var(--text-bright);
   transform: translateY(-1px);
 }
-.btn-tournament-achievements.btn-matrix {
-  border-color: var(--accent-gold);
-}

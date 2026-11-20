@@ -10,7 +10,7 @@ import {
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears } from '../lib/career';
-import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
+import { matrixHref, matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
@@ -22,7 +22,7 @@ import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
-import { TitleBadge, VideosButton } from './PlayerMarks';
+import { TitleBadge } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
 import Panel from './Panel';
 import Panels from './Panels';
@@ -194,20 +194,14 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
   return (
     <PlayerHeader
       player={player}
-      back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
+      back={{ href: profileHref(player.name, view), label: 'Player Profile' }}
       subtitle={
         <>
           Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>
         </>
       }
-      links={
-        <>
-          <a href={achievementsHref(player.name)} className="btn-antique">
-            🏆 Achievements »
-          </a>
-          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-antique" />
-        </>
-      }
+      page="years"
+      hrefs={{ profile: profileHref(player.name, view), achievements: achievementsHref(player.name), years: matrixHref(player.name, view) }}
     />
   );
 }

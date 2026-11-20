@@ -26,12 +26,13 @@ import {
   tournamentCategory,
   tournamentOverviews,
   CATEGORY_ICON,
+  achievementsHref,
   type Direction,
   type TournamentCategoryFilter,
 } from '../lib/achievements';
 import './PlayerPage.css';
 import './AchievementsPage.css';
-import { playerHref } from '../lib/player-view';
+import { matrixHref, playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
@@ -91,7 +92,14 @@ function TournamentName({ r }: { r: TournamentRecord }) {
 }
 
 function Header({ player }: { player: Player }) {
-  return <PlayerHeader player={player} back={{ href: playerHref(player.name), label: 'Player Profile' }} />;
+  return (
+    <PlayerHeader
+      player={player}
+      back={{ href: playerHref(player.name), label: 'Player Profile' }}
+      page="achievements"
+      hrefs={{ profile: playerHref(player.name), achievements: achievementsHref(player.name), years: matrixHref(player.name) }}
+    />
+  );
 }
 
 type HighlightMode = 'medals' | 'promotions' | 'best' | 'hof';

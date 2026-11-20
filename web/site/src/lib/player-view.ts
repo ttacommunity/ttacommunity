@@ -629,8 +629,9 @@ export function matrixParams(view: MatrixView): URLSearchParams {
   return p;
 }
 
-/** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format. */
-export function matrixHref(name: string, view: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
+/** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format, or by name alone (the remembered choices) from a page with none. */
+export function matrixHref(name: string, view?: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
+  if (view === undefined) return `/ratings/player/matrix/?${new URLSearchParams({ name })}`;
   return `/ratings/player/matrix/?${matrixParams({ name, engine: view.engine, reset: view.reset, format: view.format, year: null })}`;
 }
 
