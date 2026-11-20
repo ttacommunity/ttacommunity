@@ -16,14 +16,6 @@
   margin-bottom: 0;
 }
 
-.chart-toggle-label {
-  margin-right: 0.25rem;
-  font-family: var(--font-heading);
-  font-size: 0.78rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
-}
-
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -158,74 +150,6 @@
 
 .card-daneo .model-card-caption {
   color: var(--text-muted);
-}
-
-.chart-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.chart-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--shadow-light);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.chart-toggle .chart-toggle-label {
-  margin-right: 0.2rem;
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-.chart-toggle-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 0.25rem;
-  font-size: 0.72rem;
-  color: var(--accent-gold);
-  opacity: 0.8;
-  cursor: help;
-  user-select: none;
-}
-
-.chart-toggle-info:hover {
-  opacity: 1;
-}
-
-.chart-toggle .format-btn {
-  min-height: 28px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.chart-toggle .format-btn.active {
-  font-weight: 600;
-}
-
-@media (pointer: coarse), (max-width: 640px) {
-  .chart-toggle .format-btn {
-    min-height: 36px;
-    padding: 0.35rem 0.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  /* The curve switch's long buttons wrap inside it rather than widen the page. */
-  .chart-toggle {
-    flex-wrap: wrap;
-  }
 }
 
 .chart-container-inner {
@@ -607,31 +531,6 @@
 
 .career-notes li {
   margin-bottom: 0.25rem;
-}
-
-/* The Compare button and head-to-head popup. */
-.btn-h2h-compare {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  background: rgba(142, 30, 29, 0.25);
-  border: 1px solid var(--accent-crimson);
-  border-radius: 4px;
-  color: var(--loss-light);
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-h2h-compare:hover {
-  background: var(--accent-crimson);
-  border-color: var(--accent-gold);
-  box-shadow: 0 2px 8px rgba(142, 30, 29, 0.6);
-  color: var(--text-bright);
-  transform: translateY(-1px);
 }
 
 .h2h-modal {

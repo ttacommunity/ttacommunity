@@ -93,56 +93,7 @@
 }
 
 .feed-division-select {
-  padding: 0.3rem 0.6rem;
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-bright);
-  font-family: var(--font-stats);
-  font-size: 0.8rem;
-  cursor: pointer;
   max-width: 170px;
-}
-
-.feed-division-select:focus {
-  outline: none;
-  border-color: var(--accent-gold);
-}
-
-.feed-btn-add-division {
-  padding: 0.28rem 0.55rem;
-  background: transparent;
-  border: 1px dashed var(--border-subtle);
-  border-radius: 4px;
-  color: var(--accent-gold);
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.feed-btn-add-division:hover {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
-}
-
-.feed-row-remove {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-  line-height: 1;
-}
-
-.feed-row-remove:hover {
-  color: var(--loss);
-  background: color-mix(in srgb, var(--loss) 12%, transparent);
 }
 
 .feed-add-tourney-row {
@@ -151,20 +102,6 @@
 
 .feed-add-tourney-select {
   width: 100%;
-  padding: 0.45rem 0.75rem;
-  background: var(--surface-inset);
-  border: 1px dashed var(--border-subtle);
-  border-radius: 6px;
-  color: var(--accent-gold);
-  font-family: var(--font-stats);
-  font-size: 0.84rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.feed-add-tourney-select:hover {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
 }
 
 /* Modal Footer */
@@ -184,45 +121,5 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-}
-
-.feed-btn-reset {
-  padding: 0.4rem 0.75rem;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-soft);
-  font-family: var(--font-stats);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.feed-btn-reset:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-}
-
-.feed-btn-cancel {
-  padding: 0.4rem 0.85rem;
-  background: transparent;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-family: var(--font-stats);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.feed-btn-cancel:hover {
-  color: var(--text-bright);
-  border-color: var(--text-soft);
-}
-
-.feed-btn-apply {
-  padding: 0.4rem 1.1rem;
-  font-size: 0.85rem;
 }
 

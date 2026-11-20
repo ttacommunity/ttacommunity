@@ -327,7 +327,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td className="ach-action-cell">
                             <button
                               type="button"
-                              className="ach-view-btn"
+                              className="btn-antique btn-compact"
                               title="View all seasons of this tournament"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -350,10 +350,10 @@ function Records({ records }: { records: TournamentRecord[] }) {
             <div className="ach-drilldown-header">
               <button
                 type="button"
-                className="ach-back-btn"
+                className="btn-antique"
                 onClick={() => setSelectedTournament(null)}
               >
-                ← Back to all tournaments
+                « Back to all tournaments
               </button>
               {selectedOverview && (
                 <div className="ach-drilldown-info">

@@ -41,7 +41,7 @@ interface Spoiler {
 /** SpoilerButton hides or reveals every item in a list at once. */
 function SpoilerButton({ shown, what, onToggle }: Spoiler) {
   return (
-    <button type="button" className="spoiler-toggle-btn" onClick={onToggle} title={`${shown ? 'Hide' : 'Reveal'} all ${what}`}>
+    <button type="button" className="btn-antique" onClick={onToggle} title={`${shown ? 'Hide' : 'Reveal'} all ${what}`}>
       {shown ? '👁️ Spoilers: Shown' : '🔒 Spoilers: Hidden'}
     </button>
   );
@@ -51,7 +51,7 @@ function SpoilerButton({ shown, what, onToggle }: Spoiler) {
 function RevealButton({ shown, what, onToggle }: Spoiler) {
   const label = `${shown ? 'Hide' : 'Reveal'} ${what}`;
   return (
-    <button type="button" className="spoiler-cell-btn" onClick={onToggle} title={label} aria-label={label}>
+    <button type="button" className="btn-quiet btn-compact" onClick={onToggle} title={label} aria-label={label}>
       {shown ? 'Hide' : 'Reveal'}
     </button>
   );
@@ -126,7 +126,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 <div className="feed-header-actions">
                   <button
                     type="button"
-                    className="feed-options-btn"
+                    className="btn-antique"
                     onClick={openOptions}
                     title="Customize tournaments, divisions, and players in feed"
                     aria-label="Feed filter options"
@@ -178,7 +178,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   <div className="filter-quick-actions">
                     <button
                       type="button"
-                      className="feed-options-btn feed-filter-inline-btn"
+                      className="btn-antique"
                       onClick={openOptions}
                     >
                       <span>⚙️</span> Filter / Add

@@ -1,49 +1,122 @@
-/* Upstream's antique button, used across its pages. */
-.btn-antique {
+/* The site's buttons, one shape at the control height: gold for an action, crimson for one that cannot be undone, quiet for cancel, reset and paging, and a bare icon; compact inside a table row or list. */
+.btn-antique,
+.btn-quiet {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.55rem 1.15rem;
-  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
-  border: 1.5px solid var(--accent-gold);
+  min-height: var(--control-height);
+  padding: 0 1.15rem;
+  box-sizing: border-box;
+  border: 1.5px solid;
   border-radius: 6px;
-  box-shadow:
-    0 3px 8px var(--shadow-deep),
-    inset 0 1px 0 var(--gold-wash-strong);
-  color: var(--text-main);
   font-family: var(--font-subheading);
   font-size: var(--size-button);
   font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.btn-antique {
+  background: var(--button-surface);
+  border-color: var(--button-edge);
+  box-shadow:
+    0 3px 8px var(--shadow-deep),
+    inset 0 1px 0 var(--gold-wash-strong);
+  color: var(--button-text);
+}
+
 .btn-antique:hover {
-  background: linear-gradient(180deg, #422919 0%, #26150d 100%);
-  border-color: var(--accent-gold);
+  background: var(--button-hover-surface);
   box-shadow:
     0 4px 14px var(--gold-wash-strong),
     inset 0 1px 0 rgba(229, 169, 60, 0.5);
-  color: var(--accent-gold);
+  color: var(--button-hover-text);
   transform: translateY(-1px);
 }
 
-/* An action that cannot be undone, such as deleting a run: crimson where the antique button is gold. */
+/* An action that cannot be undone, such as deleting a run: crimson where the gold button is gold. */
 .btn-antique.btn-danger {
-  background: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
-  border-color: var(--loss-edge);
+  background: var(--button-danger-surface);
+  border-color: var(--button-danger-edge);
   box-shadow:
     0 3px 8px var(--shadow-deep),
     inset 0 1px 0 color-mix(in srgb, var(--loss) 35%, transparent);
-  color: var(--text-bright);
+  color: var(--button-danger-text);
 }
 
 .btn-antique.btn-danger:hover {
-  background: linear-gradient(180deg, var(--crimson-hover) 0%, var(--accent-crimson) 100%);
-  border-color: var(--loss-light);
+  background: var(--button-danger-hover-surface);
+  border-color: var(--button-danger-hover-edge);
   box-shadow:
     0 4px 14px color-mix(in srgb, var(--loss) 40%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--loss-light) 50%, transparent);
-  color: var(--text-bright);
+  color: var(--button-danger-text);
+}
+
+/* A quiet action beside the gold one: cancel, reset, clear, close, paging. */
+.btn-quiet {
+  background: var(--button-quiet-surface);
+  border-color: var(--button-quiet-edge);
+  color: var(--button-quiet-text);
+}
+
+.btn-quiet:hover {
+  border-color: var(--button-quiet-hover-edge);
+  color: var(--button-quiet-hover-text);
+}
+
+/* A button that is one icon: no box, but a tap area at the control height. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--button-icon-text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.btn-icon:hover {
+  color: var(--button-icon-hover-text);
+}
+
+/* Inside a table row or list: the compact height, so the row keeps its own. */
+.btn-compact {
+  min-height: var(--control-height-compact);
+  padding-inline: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.btn-icon.btn-compact {
+  min-width: var(--control-height-compact);
+  padding-inline: 0;
+}
+
+/* A button that cannot be used now looks it, and does not light up. */
+.btn-antique:disabled,
+.btn-quiet:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-antique:disabled:hover {
+  background: var(--button-surface);
+  color: var(--button-text);
+}
+
+.btn-quiet:disabled:hover {
+  border-color: var(--button-quiet-edge);
+  color: var(--button-quiet-text);
 }

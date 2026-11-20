@@ -17,6 +17,11 @@
   --crimson-top: #5c1716;
   --crimson-bottom: #2a0908;
   --crimson-hover: #7a1f1e;
+  /* The gold button's gradient stops, and on hover. */
+  --antique-top: #2e1d13;
+  --antique-bottom: #170d08;
+  --antique-hover-top: #422919;
+  --antique-hover-bottom: #26150d;
   --loss-light: #f0907e;
   --text-main: #f3e5c8;
   --text-soft: #cfbeab;
@@ -79,6 +84,24 @@
   --formula-text: var(--gold-pale);
   --quote-edge: var(--accent-gold);
   --quote-text: var(--text-soft);
+  /* Buttons: the gold action, the crimson one that cannot be undone, the quiet one, and a bare icon. */
+  --button-surface: linear-gradient(180deg, var(--antique-top) 0%, var(--antique-bottom) 100%);
+  --button-hover-surface: linear-gradient(180deg, var(--antique-hover-top) 0%, var(--antique-hover-bottom) 100%);
+  --button-edge: var(--accent-gold);
+  --button-text: var(--text-main);
+  --button-hover-text: var(--accent-gold);
+  --button-danger-surface: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
+  --button-danger-hover-surface: linear-gradient(180deg, var(--crimson-hover) 0%, var(--accent-crimson) 100%);
+  --button-danger-edge: var(--loss-edge);
+  --button-danger-hover-edge: var(--loss-light);
+  --button-danger-text: var(--text-bright);
+  --button-quiet-surface: var(--surface-well);
+  --button-quiet-edge: var(--text-muted);
+  --button-quiet-text: var(--text-soft);
+  --button-quiet-hover-edge: var(--accent-gold);
+  --button-quiet-hover-text: var(--accent-gold);
+  --button-icon-text: var(--text-soft);
+  --button-icon-hover-text: var(--accent-gold);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;
@@ -110,13 +133,15 @@
   --surface-warm: rgba(32, 20, 13, 0.95);
   --surface-well: rgba(20, 13, 9, 0.98);
   --surface-field: rgba(14, 9, 6, 0.95);
-  /* The height of a text field, select or button in a row of them, so the row lines up. */
+  /* Buttons set the heights and fields follow: standard for forms and toolbars, compact for a button in a table row or list. */
   --control-height: 2.2rem;
+  --control-height-compact: 1.75rem;
 }
 
-/* Phones get upstream's 40px tap height for fields. */
+/* Phones: 44px, WCAG's enhanced target size; compact stays above its 24px minimum. */
 @media (max-width: 768px) {
   :root {
-    --control-height: 40px;
+    --control-height: 44px;
+    --control-height-compact: 2rem;
   }
 }

@@ -107,7 +107,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
         <div className="movies-filters rating-card" role="group" aria-label="Filter by creator">
           <button
             type="button"
-            className={`movies-filter-btn${selected.size === 0 ? ' active' : ''}`}
+            className={selected.size === 0 ? 'format-btn active' : 'format-btn'}
             aria-pressed={selected.size === 0}
             onClick={() => setSelected(new Set())}
           >
@@ -120,7 +120,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
               <button
                 key={c.channel_id}
                 type="button"
-                className={`movies-filter-btn${on ? ' active' : ''}`}
+                className={on ? 'format-btn active' : 'format-btn'}
                 aria-pressed={on}
                 onClick={() => toggleCreator(c.channel_id)}
               >
@@ -191,7 +191,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
               </div>
               <button
                 type="button"
-                className="movie-modal-close"
+                className="btn-icon"
                 onClick={() => setActive(null)}
                 aria-label="Close video player"
               >

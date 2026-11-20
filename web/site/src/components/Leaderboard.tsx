@@ -263,7 +263,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
                     stats: view.stats,
                     minOpps: defaultMinOpps(view.year, view.ranking),
                   })}
-                  className="btn-reset"
+                  className="btn-quiet"
                 >
                   Clear Filters
                 </a>
@@ -510,7 +510,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
                   {view.search !== '' && onExclude && (
                     <button
                       type="button"
-                      className="btn-exclude-row"
+                      className="btn-icon btn-compact row-exclude"
                       title={`Exclude "${p.name}" from search`}
                       aria-label={`Exclude "${p.name}" from search`}
                       onClick={() => onExclude(p.name)}

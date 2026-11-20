@@ -66,11 +66,11 @@ export default function PlayerHeader({ player, back, page, hrefs, nameExtra, sub
         {subtitle !== undefined && <div className="player-header-subtitle">{subtitle}</div>}
         <div className="profile-links">
           {otherPlayerPages(page).map((p) => (
-            <a key={p} href={hrefs[p]} className="btn-tournament-achievements">
+            <a key={p} href={hrefs[p]} className="btn-antique">
               <span aria-hidden="true">{PAGE_LINKS[p].icon}</span> {PAGE_LINKS[p].label} »
             </a>
           ))}
-          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-tournament-achievements" />
+          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-antique" />
         </div>
       </div>
     </PageHeader>

@@ -161,11 +161,11 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
         <SearchBox players={names} value={view.search} name="q" inputClassName="comm-search-input" placeholder="Search competitor by name..." />
-        <button type="submit" className="btn-search-gold">
+        <button type="submit" className="btn-antique">
           Search
         </button>
         {view.search && (
-          <a href={href(view, { search: '' })} className="btn-clear-muted">
+          <a href={href(view, { search: '' })} className="btn-quiet">
             Clear
           </a>
         )}

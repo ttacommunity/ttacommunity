@@ -29,10 +29,10 @@ export default function Pager({ page, pages, total, link, go }: Props) {
       <div className="pagination-links">
         {page > 1 && (
           <>
-            <a {...link(1)} title="Jump to First Page">
+            <a {...link(1)} title="Jump to First Page" className="btn-quiet">
               &laquo; First
             </a>
-            <a {...link(page - 1)} title="Previous Page">
+            <a {...link(page - 1)} title="Previous Page" className="btn-quiet">
               &lsaquo; Prev
             </a>
           </>
@@ -45,18 +45,18 @@ export default function Pager({ page, pages, total, link, go }: Props) {
           }}
         >
           <span>Page</span>
-          <input type="number" min={1} max={pages} aria-label="Page number" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)} />
+          <input type="number" className="input-antique" min={1} max={pages} aria-label="Page number" enterKeyHint="go" value={typed} onChange={(e) => setTyped(e.target.value)} />
           <span>/ {pages}</span>
-          <button type="submit" title="Go to page">
+          <button type="submit" className="btn-quiet" title="Go to page">
             Go
           </button>
         </form>
         {page < pages && (
           <>
-            <a {...link(page + 1)} title="Next Page">
+            <a {...link(page + 1)} title="Next Page" className="btn-quiet">
               Next &rsaquo;
             </a>
-            <a {...link(pages)} title="Jump to Last Page">
+            <a {...link(pages)} title="Jump to Last Page" className="btn-quiet">
               Last &raquo;
             </a>
           </>
