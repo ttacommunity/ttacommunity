@@ -240,7 +240,8 @@ agent runs them itself.
    explained in **What it does**. A migration, an `openapi.yaml` change
    and a change to what an existing page shows are always named. For each
    field, control or piece of UI you wrote, search `shared/` and the app's
-   `components/` and `lib/` for one that already does it, and use it; the
+   `components/` and `lib/` for one that already does it, by look and
+   purpose rather than name (see Web), and use it; the
    second hand-made copy of anything becomes a component
 5. **Walk the issue's "Done when"** line by line and say how each is met.
    If something is not done, write `Part of #<n>`, not `Closes #<n>`
@@ -341,6 +342,12 @@ agent runs them itself.
   app's `components/` for one that already does it, and use it; when you
   find a page's own copy of one, move it over. Used by one app: its
   `components/`. By both: `shared`
+- **Look for a piece by its look and purpose, never by its name.** A
+  search for one class finds one spelling: the same card is also
+  `rating-card account-card`, or drawn from scratch in a page's CSS. To
+  find every card, search the CSS for what draws one (a background, a
+  border or shadow, and a `border-radius`), then sort what you find by
+  what each is for: a panel, a header, a button, a badge, a bar
 - **Use the shared pieces as they look; never restyle one in a page.**
   The site has one of each: page header (`PageHeader`), panel and its
   header (`.rating-card` `.panel-card`, `PanelHeader`), table
