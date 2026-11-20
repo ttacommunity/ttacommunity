@@ -234,7 +234,7 @@ func TestTheAdminLoginDeletesOnlyBlitzGamesNoMatchHolds(t *testing.T) {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	var held int64
-	if err := pool.QueryRow(ctx, "SELECT game_id FROM blitz_matches WHERE match_id = $1", r.Matches[0].ID).Scan(&held); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT game_id FROM blitz_match_games WHERE match_id = $1", r.Matches[0].ID).Scan(&held); err != nil {
 		t.Fatalf("finding the game: %v", err)
 	}
 	var loaded int64

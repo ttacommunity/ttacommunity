@@ -124,14 +124,15 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		ids[i] = r.ID
 	}
 	matches, err := db.Query(ctx, `
-		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
+		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), bg.game_id, m.ruling, m.decided_at,
 		       coalesce(g.share_code, ''), coalesce(g.finished_at, g.date::timestamp AT TIME ZONE 'UTC'), sa.culture, coalesce(sa.outcome, ''),
 		       coalesce(sa.starting_position + 1, 0), sb.culture, coalesce(sb.outcome, ''), coalesce(sb.starting_position + 1, 0),
-		       m.reported_by, coalesce(m.report, ''), m.flag_reason
+		       bg.reported_by, coalesce(bg.report, ''), coalesce(bg.flag_reason, '')
 		FROM blitz_matches m
-		LEFT JOIN games g ON g.game_id = m.game_id
-		LEFT JOIN seats sa ON sa.game_id = m.game_id AND sa.seat = 1
-		LEFT JOIN seats sb ON sb.game_id = m.game_id AND sb.seat = 2
+		LEFT JOIN blitz_match_games bg ON bg.match_id = m.match_id AND bg.number = 1
+		LEFT JOIN games g ON g.game_id = bg.game_id
+		LEFT JOIN seats sa ON sa.game_id = bg.game_id AND sa.seat = 1
+		LEFT JOIN seats sb ON sb.game_id = bg.game_id AND sb.seat = 2
 		WHERE m.round_id = ANY($1) ORDER BY m.match_id`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's matches: %w", slug, edition, err)

@@ -212,8 +212,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			                            'blitz_round', 'blitz_finished', 'blitz_reminder', 'blitz_sign_ups') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
-			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
-			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
+			            WHEN o.kind = 'blitz_report' THEN bg.report IS NOT NULL
+			            ELSE bg.report IS NOT DISTINCT FROM 'flagged' END,
 			       coalesce(lr.tta_name, am.tta_name, ''),
 			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
 			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
@@ -221,7 +221,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			       coalesce(s.slug, ns.slug, ''), coalesce(s.name, ns.name, ''), coalesce(t.label, nt.label, ''), coalesce(r.number, nr.number, 0),
 			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
 			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
-			       coalesce(bm.flag_reason, ''),
+			       coalesce(bg.flag_reason, ''),
 			       coalesce(o.feed_id, ts.feed_id, ri.feed_id, ys.feed_id, 0), coalesce(ff.last_error, ''),
 			       coalesce(o.twitch_stream_id, o.youtube_stream_id, 0), coalesce(tf.source, ''), coalesce(tf.display_name, ''), coalesce(ts.title, ''),
 			       coalesce(ts.category, ''), coalesce(ts.thumbnail_url, ''), coalesce(ts.started_at, o.created_at), ts.ended_at,
@@ -258,12 +258,13 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
+			LEFT JOIN blitz_match_games bg ON bg.match_id = bm.match_id AND bg.number = 1
 			LEFT JOIN blitz_rounds r ON r.round_id = bm.round_id
 			LEFT JOIN tournaments t ON t.tournament_id = r.tournament_id
 			LEFT JOIN series s ON s.series_id = t.series_id
 			LEFT JOIN blitz_entries xa ON xa.entry_id = bm.entry_a LEFT JOIN members ma ON ma.member_id = xa.member_id
 			LEFT JOIN blitz_entries xb ON xb.entry_id = bm.entry_b LEFT JOIN members mb ON mb.member_id = xb.member_id
-			LEFT JOIN blitz_entries xr ON xr.entry_id = bm.reported_by LEFT JOIN members mr ON mr.member_id = xr.member_id
+			LEFT JOIN blitz_entries xr ON xr.entry_id = bg.reported_by LEFT JOIN members mr ON mr.member_id = xr.member_id
 			WHERE o.next_at <= $1
 			ORDER BY o.notification_id
 			LIMIT $2

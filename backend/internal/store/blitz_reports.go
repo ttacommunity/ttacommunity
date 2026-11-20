@@ -153,7 +153,7 @@ func (a *AdminStore) KeepBlitzReport(ctx context.Context, slug, edition string, 
 		if _, err := blitzMatchOf(ctx, tx, edID, matchID); err != nil {
 			return err
 		}
-		tag, err := tx.Exec(ctx, "UPDATE blitz_matches SET report = 'resolved' WHERE match_id = $1 AND report = 'flagged'", matchID)
+		tag, err := tx.Exec(ctx, "UPDATE blitz_match_games SET report = 'resolved' WHERE match_id = $1 AND report = 'flagged'", matchID)
 		if err != nil {
 			return fmt.Errorf("keeping a report: %w", err)
 		}

@@ -161,7 +161,8 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 		       (SELECT count(*) FROM blitz_entries x WHERE x.tournament_id = t.tournament_id AND x.status = 'dropped')::int,
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.published_at IS NOT NULL),
 		       (SELECT max(r.number) FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id),
-		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) WHERE r.tournament_id = t.tournament_id AND m.report = 'flagged')::int,
+		       (SELECT count(*) FROM blitz_rounds r JOIN blitz_matches m USING (round_id) JOIN blitz_match_games g USING (match_id)
+		        WHERE r.tournament_id = t.tournament_id AND g.report = 'flagged')::int,
 		       `+blitzChampionOf+`,
 		       EXISTS (SELECT 1 FROM blitz_rounds r WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL),
 		       s.bracket, s.visible, t.sign_ups_open, t.sign_ups_close_at, coalesce(sign_ups_taking(t.tournament_id, now()), false),

@@ -456,7 +456,7 @@ func TestThePlayerLoginWritesGamesOnlyThroughItsFunctions(t *testing.T) {
 		}
 	}
 	player := asPlayerLogin(t, pool)
-	for _, q := range []string{"UPDATE blitz_matches SET report = 'confirmed'", "INSERT INTO import_batches (source) VALUES ('player')"} {
+	for _, q := range []string{"UPDATE blitz_match_games SET report = 'confirmed'", "INSERT INTO import_batches (source) VALUES ('player')"} {
 		if _, err := player.Exec(ctx, q); err == nil || !strings.Contains(err.Error(), "permission denied") {
 			t.Errorf("ratings_player ran %q: %v, want permission denied", q, err)
 		}
