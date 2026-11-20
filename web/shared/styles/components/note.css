@@ -1,4 +1,4 @@
-/* A note a page puts in front of the reader (Note): an edge, thicker on the left, on its own panel so it reads on a card or the page; an optional title on its own line; red for a warning. */
+/* A note a page puts in front of the reader (Note): an edge, thicker on the left, on a dark well so it reads on a card or the page; an optional title on its own line; red for a warning. */
 .page-note {
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
