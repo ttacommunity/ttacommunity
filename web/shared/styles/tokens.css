@@ -28,6 +28,9 @@
   --tier-b-edge: #d97706;
   --tier-w: #78350f;
   --tier-w-edge: #92400e;
+  /* Bronze and Wood lightened for text on their tint, so a tag reads at 4.5:1. */
+  --tier-b-text: #f08c2e;
+  --tier-w-text: #cf9d72;
   --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
   /* The crimson button's gradient stops (top, bottom, top on hover) and its light edge on hover. */
@@ -91,7 +94,8 @@
   --division-4: var(--tier-p);
   --division-5: var(--tier-g);
   --division-6: var(--tier-s);
-  --division-7: var(--tier-b-edge);
+  --division-7: var(--tier-b-text);
+  --division-8: var(--tier-w-text);
   /* A pill: a figure with its label, green for a win and red for a loss. */
   --pill-surface: var(--surface-well);
   --pill-edge: var(--border-subtle);

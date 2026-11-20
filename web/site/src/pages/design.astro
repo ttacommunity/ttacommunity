@@ -187,7 +187,10 @@ const rows = [
     <p class="design-row design-buttons">
       <span class="tag">A tag</span>
       <span class="tag tag-special">Something special</span>
-      {['Grandmaster', 'Master', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze'].map((d) => <span class={divisionTagClass(d)}>{d}</span>)}
+      {['Grandmaster', 'Master', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze', 'Wood'].map((d) => <span class={divisionTagClass(d, 'international')}>{d}</span>)}
+    </p>
+    <p class="design-row design-buttons">
+      {['Emperor', 'King', 'Prince', 'Duke', 'Marquess', 'Count', 'Viscount', 'Baron'].map((d) => <span class={divisionTagClass(d, 'royal_league')}>{d}</span>)}
     </p>
     <p class="design-row design-buttons">
       <span class="pill">Active Players: <strong>3,695</strong></span>

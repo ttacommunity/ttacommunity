@@ -212,7 +212,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                       <div key={m.matchId} className="feed-match-item">
                         <div className="match-item-meta">
                           <span className="match-tournament">{m.tournament}</span>
-                          {m.division && <span className={divisionTagClass(m.division)}>{m.division}</span>}
+                          {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
                           <span className="badge badge-seats">{m.playerCount}P</span>
                           <span className="match-date">{m.date}</span>
                           {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}

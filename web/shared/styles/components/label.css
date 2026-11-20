@@ -27,6 +27,7 @@
 .tag-level-5 { --tone: var(--division-5); }
 .tag-level-6 { --tone: var(--division-6); }
 .tag-level-7 { --tone: var(--division-7); }
+.tag-level-8 { --tone: var(--division-8); }
 
 .tag[class*='tag-level-'],
 .tag.tag-special {
