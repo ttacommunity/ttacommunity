@@ -159,34 +159,34 @@ function TournamentDetail({ apiUrl, slug }: { apiUrl: string; slug: string }) {
         ]}
       />
       <Panels>
-      <Champions seasons={t.seasons} podium={hasPodiums(t.seasons)} onPick={pickSeason} word={t.season_name} />
-      {content !== undefined && (
-        <SeriesSections
-          content={content}
-          data={records.kind === 'ready' ? records.data : null}
-          waiting={waitingText(records, 'the records') ?? ''}
-          regulations={regulations}
-          stories={t.stories}
-        />
-      )}
-      {content === undefined && (
-        <div className="content-two-col">
-          {regulations}
-          <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(t.seasons)} waiting="Loading the records…" />
-        </div>
-      )}
-      {content === undefined && <StoriesPanel stories={t.stories} />}
-      {content === undefined && (
-        <GameRecordsPanel
-          records={t.game_records}
-          waiting="Loading the records…"
-          title={`Highest Single-Match Scores (${t.name})`}
-          intro="Historic single-match cultural scoring peaks achieved in this tournament, from its official match logs with full opponent matchups."
-          slug={t.slug}
-        />
-      )}
-      <Stages seasons={staged} seasonWord={t.season_name} stageWord={t.stage_name} />
-      <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} seasonWord={t.season_name} stageWord={t.stage_name} />
+        <Champions seasons={t.seasons} podium={hasPodiums(t.seasons)} onPick={pickSeason} word={t.season_name} />
+        {content !== undefined && (
+          <SeriesSections
+            content={content}
+            data={records.kind === 'ready' ? records.data : null}
+            waiting={waitingText(records, 'the records') ?? ''}
+            regulations={regulations}
+            stories={t.stories}
+          />
+        )}
+        {content === undefined && (
+          <div className="content-two-col">
+            {regulations}
+            <TrophyboardPanel rows={t.ladder ? ladderBoard(t.top_tier_wins) : podiumBoard(t.seasons)} waiting="Loading the records…" />
+          </div>
+        )}
+        {content === undefined && <StoriesPanel stories={t.stories} />}
+        {content === undefined && (
+          <GameRecordsPanel
+            records={t.game_records}
+            waiting="Loading the records…"
+            title={`Highest Single-Match Scores (${t.name})`}
+            intro="Historic single-match cultural scoring peaks achieved in this tournament, from its official match logs with full opponent matchups."
+            slug={t.slug}
+          />
+        )}
+        <Stages seasons={staged} seasonWord={t.season_name} stageWord={t.stage_name} />
+        <TournamentGames apiUrl={apiUrl} run={run} slug={t.slug} seasons={t.seasons} players={t.players} pick={pick} seasonWord={t.season_name} stageWord={t.stage_name} />
       </Panels>
     </>
   );

@@ -127,85 +127,85 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
         <Stat label="Played by both" value={score.both} />
       </div>
       <Panels>
-      <Panel label="Totals" className="challenges-card">
-        <div className="table-responsive">
-          <table className="leaderboard-table">
-            <caption className="visually-hidden">The two players' totals, by set and all together</caption>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="visually-hidden">Player</span>
-                </th>
-                {SETS.map((s) => (
-                  <th key={s.value} scope="col" className="num">
-                    {setLabel(s.value)}
-                  </th>
-                ))}
-                <th scope="col" className="num">
-                  {measure === 'rating' ? 'Rating' : 'Total'}
-                </th>
-                <th scope="col" className="num">
-                  Records
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[a, b].map((p, i) => (
-                <tr key={p.player}>
-                  <th scope="row" className={i === 0 ? 'challenges-side-a' : 'challenges-side-b'}>
-                    <ChallengePlayerLink name={p.player} />
+        <Panel label="Totals" className="challenges-card">
+          <div className="table-responsive">
+            <table className="leaderboard-table">
+              <caption className="visually-hidden">The two players' totals, by set and all together</caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="visually-hidden">Player</span>
                   </th>
                   {SETS.map((s) => (
+                    <th key={s.value} scope="col" className="num">
+                      {setLabel(s.value)}
+                    </th>
+                  ))}
+                  <th scope="col" className="num">
+                    {measure === 'rating' ? 'Rating' : 'Total'}
+                  </th>
+                  <th scope="col" className="num">
+                    Records
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[a, b].map((p, i) => (
+                  <tr key={p.player}>
+                    <th scope="row" className={i === 0 ? 'challenges-side-a' : 'challenges-side-b'}>
+                      <ChallengePlayerLink name={p.player} />
+                    </th>
+                    {SETS.map((s) => (
+                      <td key={s.value} className="num">
+                        {formatMeasure(measureOf(p, measure, s.value), measure)}
+                      </td>
+                    ))}
+                    <td className="num challenges-score">{formatMeasure(measureOf(p, measure), measure)}</td>
+                    <td className="num">{p.records}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <th scope="row">Difference</th>
+                  {SETS.map((s) => (
                     <td key={s.value} className="num">
-                      {formatMeasure(measureOf(p, measure, s.value), measure)}
+                      <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                     </td>
                   ))}
-                  <td className="num challenges-score">{formatMeasure(measureOf(p, measure), measure)}</td>
-                  <td className="num">{p.records}</td>
-                </tr>
-              ))}
-              <tr>
-                <th scope="row">Difference</th>
-                {SETS.map((s) => (
-                  <td key={s.value} className="num">
-                    <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
+                  <td className="num">
+                    <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                   </td>
-                ))}
-                <td className="num">
-                  <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
-                </td>
-                <td className="num">
-                  <Diff value={a.records - b.records} />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-      <Panel id="per-challenge" title="Per challenge" className="challenges-card">
-        <SetGrid
-          groups={groups}
-          cell={(c) => {
-            const x = bestA.get(c.id);
-            const y = bestB.get(c.id);
-            if (x === undefined && y === undefined) return <span className="muted">—</span>;
-            const lead = leader(x, y);
-            return (
-              <span className={lead ? `challenges-lead-${lead}` : undefined}>
-                <span className="challenges-side-a">{x ?? '—'}</span>
-                <span className="muted"> : </span>
-                <span className="challenges-side-b">{y ?? '—'}</span>
-                {x !== undefined && y !== undefined && (
-                  <span>
-                    {' '}
-                    (<Diff value={x - y} />)
-                  </span>
-                )}
-              </span>
-            );
-          }}
-        />
-      </Panel>
+                  <td className="num">
+                    <Diff value={a.records - b.records} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+        <Panel id="per-challenge" title="Per challenge" className="challenges-card">
+          <SetGrid
+            groups={groups}
+            cell={(c) => {
+              const x = bestA.get(c.id);
+              const y = bestB.get(c.id);
+              if (x === undefined && y === undefined) return <span className="muted">—</span>;
+              const lead = leader(x, y);
+              return (
+                <span className={lead ? `challenges-lead-${lead}` : undefined}>
+                  <span className="challenges-side-a">{x ?? '—'}</span>
+                  <span className="muted"> : </span>
+                  <span className="challenges-side-b">{y ?? '—'}</span>
+                  {x !== undefined && y !== undefined && (
+                    <span>
+                      {' '}
+                      (<Diff value={x - y} />)
+                    </span>
+                  )}
+                </span>
+              );
+            }}
+          />
+        </Panel>
       </Panels>
     </>
   );

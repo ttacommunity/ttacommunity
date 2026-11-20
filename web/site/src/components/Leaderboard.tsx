@@ -138,211 +138,211 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
   return (
     <div className={optionsOpen ? 'leaderboard-layout options-open' : 'leaderboard-layout'}>
       <Panels>
-      <Panel label="Leaderboard" className="leaderboard">
-        <div className="format-bar">
-          <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
-          <div className="format-bar-actions">
-            <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
-            <OptionsToggle
-              title="Toggle advanced rating options, season archive, and filters"
-              active={hasOptions(view)}
-              open={optionsOpen}
-              onClick={() => toggleOptions(!optionsOpen)}
-            />
-          </div>
-        </div>
-
-        {yearBoard !== null && (
-          <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
-        )}
-
-        <div className="leaderboard-heading">
-          <div>
-            <h1 className="rating-card-heading">Competitive Leaderboard</h1>
-            <p className="leaderboard-engine">
-              Engine: <strong>{show.engineName(model)}</strong>
-              <span className="badge badge-format">{show.formatName(view.format)}</span>
-              <span className="badge badge-mode">{show.resetModeName(model)}</span>
-              {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
-            </p>
-          </div>
-          {state.kind === 'ready' && (
-            <p className="leaderboard-count">
-              Players: <strong>{count(found.rows.length)}</strong>{' '}
-              <span className={`leaderboard-status status-${view.status}`}>
-                {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
-              </span>
-              {view.minOpps > 0 && (
-                <>
-                  {' '}
-                  <span className="leaderboard-status status-min">(&ge; {view.minOpps} opponents)</span>
-                </>
-              )}
-            </p>
-          )}
-        </div>
-
-        <div className="leaderboard-filters">
-          <div className="leaderboard-pills">
-            {parsedSearch.positive.length > 0 && (
-              <span className="filter-pill">
-                Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
-                <a
-                  {...linkTo({
-                    ...view,
-                    search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
-                    page: 1,
-                  })}
-                  aria-label="Clear search terms"
-                >
-                  ✕
-                </a>
-              </span>
-            )}
-            {parsedSearch.negative.map((neg) => (
-              <span key={neg} className="filter-pill filter-pill-excluded">
-                Excluded: &quot;{neg}&quot;{' '}
-                <a
-                  {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
-                  aria-label={`Remove exclusion for ${neg}`}
-                >
-                  ✕
-                </a>
-              </span>
-            ))}
-            {view.title !== null && (
-              <span className="filter-pill">
-                Title: {view.title}{' '}
-                <a {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.status !== DEFAULT_VIEW.status && (
-              <span className="filter-pill">
-                Status: {view.status === 'all' ? 'All' : 'Inactive'}{' '}
-                <a {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.delta !== DEFAULT_VIEW.delta && (
-              <span className="filter-pill">
-                &Delta;: {deltaNames[view.delta]}{' '}
-                <a {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.ranking !== DEFAULT_VIEW.ranking && (
-              <span className="filter-pill">
-                Track: {trackNames[view.ranking]}{' '}
-                <a {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
-              <span className="filter-pill">
-                Min Opponents: &ge;{view.minOpps}{' '}
-                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
-                  ✕
-                </a>
-              </span>
-            )}
-            {hasFilters(view) && (
-              <a
-                {...linkTo({
-                  ...DEFAULT_VIEW,
-                  ranking: view.ranking,
-                  engine: view.engine,
-                  reset: view.reset,
-                  format: view.format,
-                  year: view.year,
-                  stats: view.stats,
-                  minOpps: defaultMinOpps(view.year, view.ranking),
-                })}
-                className="btn-reset"
-              >
-                Clear Filters
-              </a>
-            )}
-          </div>
-          <div>
-            Sorted by: <strong>{sortNames[view.sort]}</strong> ({view.order.toUpperCase()})
-          </div>
-        </div>
-
-        {showMatchesBar && (
-          <div className="search-matches-bar" aria-label="Search matches filter">
-            <span className="search-matches-label">Matches ({found.rows.length}):</span>
-            <div className="search-matches-chips">
-              {found.rows.map((p) => (
-                <span key={p.name} className="search-match-chip">
-                  <span className="chip-name">{p.name}</span>
-                  <button
-                    type="button"
-                    className="chip-dismiss-btn"
-                    title={`Exclude ${p.name}`}
-                    aria-label={`Exclude ${p.name} from search`}
-                    onClick={() => onExclude(p.name)}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-              {parsedSearch.negative.map((neg) => (
-                <span key={neg} className="search-match-chip chip-excluded">
-                  <span className="chip-name">{neg}</span>
-                  <button
-                    type="button"
-                    className="chip-restore-btn"
-                    title={`Restore ${neg}`}
-                    aria-label={`Restore ${neg} to search`}
-                    onClick={() => onInclude(neg)}
-                  >
-                    +
-                  </button>
-                </span>
-              ))}
+        <Panel label="Leaderboard" className="leaderboard">
+          <div className="format-bar">
+            <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
+            <div className="format-bar-actions">
+              <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
+              <OptionsToggle
+                title="Toggle advanced rating options, season archive, and filters"
+                active={hasOptions(view)}
+                open={optionsOpen}
+                onClick={() => toggleOptions(!optionsOpen)}
+              />
             </div>
           </div>
-        )}
 
-        <Waiting load={state} what="the leaderboard" form="inline" />
-        {state.kind === 'ready' && (
-          <>
-            <Table
-              view={view}
-              rows={shown.rows}
-              jumpTo={found.jumpTo}
-              changes={changes}
-              linkTo={linkTo}
-              caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
-              hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
-              onExclude={onExclude}
-            />
-            <Pager
-              page={shown.page}
-              pages={shown.pages}
-              total={{ count: shown.total, noun: 'players' }}
-              link={(page) => linkTo({ ...view, page })}
-              go={(page) => go({ ...view, page })}
-            />
-          </>
-        )}
+          {yearBoard !== null && (
+            <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
+          )}
 
-      </Panel>
-      <Panel id="leaderboard-guide" title="Leaderboard Mechanics & Rating Principles" stripe="gold">
-        <p>
-          Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
-          sorting metric is the{' '}
-          <strong>
-            Conservative Rating <Tex tex="C = \mu - 3\sigma" />
-          </strong>
-          , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
-        </p>
-      </Panel>
+          <div className="leaderboard-heading">
+            <div>
+              <h1 className="rating-card-heading">Competitive Leaderboard</h1>
+              <p className="leaderboard-engine">
+                Engine: <strong>{show.engineName(model)}</strong>
+                <span className="badge badge-format">{show.formatName(view.format)}</span>
+                <span className="badge badge-mode">{show.resetModeName(model)}</span>
+                {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
+              </p>
+            </div>
+            {state.kind === 'ready' && (
+              <p className="leaderboard-count">
+                Players: <strong>{count(found.rows.length)}</strong>{' '}
+                <span className={`leaderboard-status status-${view.status}`}>
+                  {view.status === 'active' ? '(Active Only)' : view.status === 'inactive' ? '(Inactive Only)' : '(All Recorded)'}
+                </span>
+                {view.minOpps > 0 && (
+                  <>
+                    {' '}
+                    <span className="leaderboard-status status-min">(&ge; {view.minOpps} opponents)</span>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+
+          <div className="leaderboard-filters">
+            <div className="leaderboard-pills">
+              {parsedSearch.positive.length > 0 && (
+                <span className="filter-pill">
+                  Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
+                  <a
+                    {...linkTo({
+                      ...view,
+                      search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
+                      page: 1,
+                    })}
+                    aria-label="Clear search terms"
+                  >
+                    ✕
+                  </a>
+                </span>
+              )}
+              {parsedSearch.negative.map((neg) => (
+                <span key={neg} className="filter-pill filter-pill-excluded">
+                  Excluded: &quot;{neg}&quot;{' '}
+                  <a
+                    {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
+                    aria-label={`Remove exclusion for ${neg}`}
+                  >
+                    ✕
+                  </a>
+                </span>
+              ))}
+              {view.title !== null && (
+                <span className="filter-pill">
+                  Title: {view.title}{' '}
+                  <a {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.status !== DEFAULT_VIEW.status && (
+                <span className="filter-pill">
+                  Status: {view.status === 'all' ? 'All' : 'Inactive'}{' '}
+                  <a {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.delta !== DEFAULT_VIEW.delta && (
+                <span className="filter-pill">
+                  &Delta;: {deltaNames[view.delta]}{' '}
+                  <a {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.ranking !== DEFAULT_VIEW.ranking && (
+                <span className="filter-pill">
+                  Track: {trackNames[view.ranking]}{' '}
+                  <a {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
+                <span className="filter-pill">
+                  Min Opponents: &ge;{view.minOpps}{' '}
+                  <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {hasFilters(view) && (
+                <a
+                  {...linkTo({
+                    ...DEFAULT_VIEW,
+                    ranking: view.ranking,
+                    engine: view.engine,
+                    reset: view.reset,
+                    format: view.format,
+                    year: view.year,
+                    stats: view.stats,
+                    minOpps: defaultMinOpps(view.year, view.ranking),
+                  })}
+                  className="btn-reset"
+                >
+                  Clear Filters
+                </a>
+              )}
+            </div>
+            <div>
+              Sorted by: <strong>{sortNames[view.sort]}</strong> ({view.order.toUpperCase()})
+            </div>
+          </div>
+
+          {showMatchesBar && (
+            <div className="search-matches-bar" aria-label="Search matches filter">
+              <span className="search-matches-label">Matches ({found.rows.length}):</span>
+              <div className="search-matches-chips">
+                {found.rows.map((p) => (
+                  <span key={p.name} className="search-match-chip">
+                    <span className="chip-name">{p.name}</span>
+                    <button
+                      type="button"
+                      className="chip-dismiss-btn"
+                      title={`Exclude ${p.name}`}
+                      aria-label={`Exclude ${p.name} from search`}
+                      onClick={() => onExclude(p.name)}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                {parsedSearch.negative.map((neg) => (
+                  <span key={neg} className="search-match-chip chip-excluded">
+                    <span className="chip-name">{neg}</span>
+                    <button
+                      type="button"
+                      className="chip-restore-btn"
+                      title={`Restore ${neg}`}
+                      aria-label={`Restore ${neg} to search`}
+                      onClick={() => onInclude(neg)}
+                    >
+                      +
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Waiting load={state} what="the leaderboard" form="inline" />
+          {state.kind === 'ready' && (
+            <>
+              <Table
+                view={view}
+                rows={shown.rows}
+                jumpTo={found.jumpTo}
+                changes={changes}
+                linkTo={linkTo}
+                caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
+                hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
+                onExclude={onExclude}
+              />
+              <Pager
+                page={shown.page}
+                pages={shown.pages}
+                total={{ count: shown.total, noun: 'players' }}
+                link={(page) => linkTo({ ...view, page })}
+                go={(page) => go({ ...view, page })}
+              />
+            </>
+          )}
+
+        </Panel>
+        <Panel id="leaderboard-guide" title="Leaderboard Mechanics & Rating Principles" stripe="gold">
+          <p>
+            Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
+            sorting metric is the{' '}
+            <strong>
+              Conservative Rating <Tex tex="C = \mu - 3\sigma" />
+            </strong>
+            , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
+          </p>
+        </Panel>
       </Panels>
 
       {optionsOpen && (

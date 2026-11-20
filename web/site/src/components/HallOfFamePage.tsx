@@ -155,160 +155,160 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
       </div>
 
       <Panels>
-      <Panel
-        id="hof-majors"
-        icon="👑"
-        title="All-Time Major Circuits Hall of Fame"
-        subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
-        aside={<span className="panel-tag">Major League Titles Only</span>}
-      >
-        <ScrollTable hint="full records">
-          <table className="leaderboard-table wcs-table">
-            <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="col-rank-wide">
-                  Rank
-                </th>
-                <th scope="col">Competitor</th>
-                <th scope="col" className="col-center">
-                  Major Titles 🏆
-                </th>
-                <th scope="col" className="col-center">
-                  World (WCS) 👑
-                </th>
-                <th scope="col" className="col-center">
-                  International (4P) 🌐
-                </th>
-                <th scope="col" className="col-center">
-                  Intermezzo (3P) ⚔️
-                </th>
-                <th scope="col" className="col-center">
-                  Royal League (2P) 👑
-                </th>
-                <th scope="col" className="col-right">
-                  Major Medals (🥇 / 🥈 / 🥉)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data === null ? (
-                <Message form="row" colSpan={8}>
-                  {waiting}
-                </Message>
-              ) : (
-                data.legends.map((l, i) => {
-                  const mark = legendMark(l);
-                  return (
-                    <tr key={l.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={l.name} className="legend-player" />{' '}
-                        {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
-                        {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
-                      </td>
-                      <td className="cell-titles">{majorTitles(l)}</td>
-                      <td className="cell-world">{titleCell(l.world_titles, true)}</td>
-                      <td className="cell-international">{titleCell(l.international_titles)}</td>
-                      <td className="cell-intermezzo">{titleCell(l.intermezzo_titles)}</td>
-                      <td className="cell-royal">{titleCell(l.royal_league_titles)}</td>
-                      <td className="cell-medals">{majorMedals(l)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </ScrollTable>
-      </Panel>
-
-      <div className="hof-two-col">
-        <Panel id="hof-cups" icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens">
+        <Panel
+          id="hof-majors"
+          icon="👑"
+          title="All-Time Major Circuits Hall of Fame"
+          subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
+          aside={<span className="panel-tag">Major League Titles Only</span>}
+        >
           <ScrollTable hint="full records">
             <table className="leaderboard-table wcs-table">
-              <caption className="visually-hidden">The cups&apos; leading medallists</caption>
+              <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
               <thead>
                 <tr>
-                  <th scope="col" className="col-rank-narrow">
+                  <th scope="col" className="col-rank-wide">
                     Rank
                   </th>
                   <th scope="col">Competitor</th>
                   <th scope="col" className="col-center">
-                    🥇 Gold
+                    Major Titles 🏆
                   </th>
                   <th scope="col" className="col-center">
-                    🥈 Silver
+                    World (WCS) 👑
                   </th>
-                  <th scope="col">Notable Cup Titles</th>
+                  <th scope="col" className="col-center">
+                    International (4P) 🌐
+                  </th>
+                  <th scope="col" className="col-center">
+                    Intermezzo (3P) ⚔️
+                  </th>
+                  <th scope="col" className="col-center">
+                    Royal League (2P) 👑
+                  </th>
+                  <th scope="col" className="col-right">
+                    Major Medals (🥇 / 🥈 / 🥉)
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data === null ? (
-                  <Message form="row" colSpan={5}>
+                  <Message form="row" colSpan={8}>
                     {waiting}
                   </Message>
                 ) : (
-                  data.grand_slams.map((g, i) => (
-                    <tr key={g.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={g.name} className="board-player" />
-                      </td>
-                      <td className="cell-gold">{g.gold}</td>
-                      <td className="cell-silver">{g.silver}</td>
-                      <td className="cell-cups">{g.details}</td>
-                    </tr>
-                  ))
+                  data.legends.map((l, i) => {
+                    const mark = legendMark(l);
+                    return (
+                      <tr key={l.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={l.name} className="legend-player" />{' '}
+                          {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
+                          {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
+                        </td>
+                        <td className="cell-titles">{majorTitles(l)}</td>
+                        <td className="cell-world">{titleCell(l.world_titles, true)}</td>
+                        <td className="cell-international">{titleCell(l.international_titles)}</td>
+                        <td className="cell-intermezzo">{titleCell(l.intermezzo_titles)}</td>
+                        <td className="cell-royal">{titleCell(l.royal_league_titles)}</td>
+                        <td className="cell-medals">{majorMedals(l)}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </ScrollTable>
         </Panel>
 
-        <Panel id="hof-ladders" icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders">
-          <ScrollTable hint="full records">
-            <table className="leaderboard-table wcs-table">
-              <caption className="visually-hidden">The ladders&apos; most winning players</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="col-rank-narrow">
-                    Rank
-                  </th>
-                  <th scope="col">Competitor</th>
-                  <th scope="col" className="col-right">
-                    Ladder Wins
-                  </th>
-                  <th scope="col" className="col-right">
-                    Matches
-                  </th>
-                  <th scope="col" className="col-center">
-                    Win Rate
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data === null ? (
-                  <Message form="row" colSpan={5}>
-                    {waiting}
-                  </Message>
-                ) : (
-                  data.ladders.map((l, i) => (
-                    <tr key={l.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={l.name} className="board-player" />
-                      </td>
-                      <td className="cell-wins">{l.wins} W</td>
-                      <td className="cell-games">{l.games}</td>
-                      <td className="cell-rate">{l.win_rate?.toFixed(1)}%</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ScrollTable>
-        </Panel>
-      </div>
+        <div className="hof-two-col">
+          <Panel id="hof-cups" icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens">
+            <ScrollTable hint="full records">
+              <table className="leaderboard-table wcs-table">
+                <caption className="visually-hidden">The cups&apos; leading medallists</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="col-rank-narrow">
+                      Rank
+                    </th>
+                    <th scope="col">Competitor</th>
+                    <th scope="col" className="col-center">
+                      🥇 Gold
+                    </th>
+                    <th scope="col" className="col-center">
+                      🥈 Silver
+                    </th>
+                    <th scope="col">Notable Cup Titles</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data === null ? (
+                    <Message form="row" colSpan={5}>
+                      {waiting}
+                    </Message>
+                  ) : (
+                    data.grand_slams.map((g, i) => (
+                      <tr key={g.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={g.name} className="board-player" />
+                        </td>
+                        <td className="cell-gold">{g.gold}</td>
+                        <td className="cell-silver">{g.silver}</td>
+                        <td className="cell-cups">{g.details}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
+
+          <Panel id="hof-ladders" icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders">
+            <ScrollTable hint="full records">
+              <table className="leaderboard-table wcs-table">
+                <caption className="visually-hidden">The ladders&apos; most winning players</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="col-rank-narrow">
+                      Rank
+                    </th>
+                    <th scope="col">Competitor</th>
+                    <th scope="col" className="col-right">
+                      Ladder Wins
+                    </th>
+                    <th scope="col" className="col-right">
+                      Matches
+                    </th>
+                    <th scope="col" className="col-center">
+                      Win Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data === null ? (
+                    <Message form="row" colSpan={5}>
+                      {waiting}
+                    </Message>
+                  ) : (
+                    data.ladders.map((l, i) => (
+                      <tr key={l.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={l.name} className="board-player" />
+                        </td>
+                        <td className="cell-wins">{l.wins} W</td>
+                        <td className="cell-games">{l.games}</td>
+                        <td className="cell-rate">{l.win_rate?.toFixed(1)}%</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
+        </div>
       </Panels>
     </>
   );

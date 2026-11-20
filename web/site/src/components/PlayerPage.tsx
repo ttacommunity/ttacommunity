@@ -174,46 +174,46 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
       <Panels>
-      <ViewBar
-        actions={
-          <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
-        }
-      >
-        <FormatPick value={view.format} link={(format) => linkTo({ ...view, format, matchPage: 1 })} what="rating and history" />
-      </ViewBar>
+        <ViewBar
+          actions={
+            <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+          }
+        >
+          <FormatPick value={view.format} link={(format) => linkTo({ ...view, format, matchPage: 1 })} what="rating and history" />
+        </ViewBar>
 
-      <CareerBox
-        player={p}
-        career={career.kind === 'ready' ? career.data : null}
-        summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        view={view}
-      />
-
-      <FormatCards player={p} view={view} linkTo={linkTo} />
-
-      <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
-
-        <Games
-          state={games}
+        <CareerBox
+          player={p}
+          career={career.kind === 'ready' ? career.data : null}
+          summary={achievements.kind === 'ready' ? achievements.data.summary : null}
           view={view}
-          provisional={provisional}
-          gamesInFormat={gamesInFormat}
-          linkTo={linkTo}
-          go={go}
-          ratingFilter={gamesFilter}
-          onRatingFilter={(next) => {
-            setGamesFilter(next);
-            if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
-          }}
         />
-        <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
 
-      <PositionSeatStats
-        state={seats}
-        format={view.format}
-        includeUnrated={includeUnrated}
-        onToggleUnrated={setIncludeUnrated}
-      />
+        <FormatCards player={p} view={view} linkTo={linkTo} />
+
+        <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
+
+          <Games
+            state={games}
+            view={view}
+            provisional={provisional}
+            gamesInFormat={gamesInFormat}
+            linkTo={linkTo}
+            go={go}
+            ratingFilter={gamesFilter}
+            onRatingFilter={(next) => {
+              setGamesFilter(next);
+              if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
+            }}
+          />
+          <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
+
+        <PositionSeatStats
+          state={seats}
+          format={view.format}
+          includeUnrated={includeUnrated}
+          onToggleUnrated={setIncludeUnrated}
+        />
       </Panels>
 
       {optionsOpen && (

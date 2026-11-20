@@ -169,39 +169,39 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
       </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
       <Panels>
-      <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
-      <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
-      {ed.rounds.length === 0 && !ed.sign_ups.taking && (
-        <Panel id="blitz-not-started" title="Pairing not started">
-          <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
-        </Panel>
-      )}
-      {knockout.length > 0 && (
-        <Panel id="blitz-knockout" title="Knockout">
-          {ed.champion !== null && (
-            <p className="blitz-champion">
-              Champion:{' '}
-              <span className="blitz-flag">
-                <Flag country={countryOf.get(ed.champion) ?? null} />
-              </span>
-              <strong>{ed.champion}</strong>
-            </p>
-          )}
-          <p className="blitz-intro">
-            The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
-            and the winners of neighbouring matches meet next, through to the final. {knockoutRule(knockout)}
-          </p>
-          {ed.bracket && (
+        <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
+        <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
+        {ed.rounds.length === 0 && !ed.sign_ups.taking && (
+          <Panel id="blitz-not-started" title="Pairing not started">
+            <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
+          </Panel>
+        )}
+        {knockout.length > 0 && (
+          <Panel id="blitz-knockout" title="Knockout">
+            {ed.champion !== null && (
+              <p className="blitz-champion">
+                Champion:{' '}
+                <span className="blitz-flag">
+                  <Flag country={countryOf.get(ed.champion) ?? null} />
+                </span>
+                <strong>{ed.champion}</strong>
+              </p>
+            )}
             <p className="blitz-intro">
-              <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
+              The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
+              and the winners of neighbouring matches meet next, through to the final. {knockoutRule(knockout)}
             </p>
-          )}
-          <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
-        </Panel>
-      )}
-        <Panel label="Standings, pairings and players">
-          <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
-        </Panel>
+            {ed.bracket && (
+              <p className="blitz-intro">
+                <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
+              </p>
+            )}
+            <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
+          </Panel>
+        )}
+          <Panel label="Standings, pairings and players">
+            <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
+          </Panel>
       </Panels>
     </>
   );

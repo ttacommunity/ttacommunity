@@ -281,17 +281,17 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
 function Intro({ me }: { me: Me | null | undefined }) {
   return (
     <PageHeader
-        title="Submit domination"
-        subtitle={
-          <>
-            Enter your <strong>domination</strong> for any challenges you like: your final score minus the score of the second-place player. Fill in only the
-            ones you want to add or improve. <strong>To get an entry verified</strong>, post the screenshots below in the TtA Discord&apos;s challenge channel,
-            then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
-            the official highscores.
-          </>
-        }
-      >
-        <FirstStep me={me} />
+      title="Submit domination"
+      subtitle={
+        <>
+          Enter your <strong>domination</strong> for any challenges you like: your final score minus the score of the second-place player. Fill in only the
+          ones you want to add or improve. <strong>To get an entry verified</strong>, post the screenshots below in the TtA Discord&apos;s challenge channel,
+          then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
+          the official highscores.
+        </>
+      }
+    >
+      <FirstStep me={me} />
     </PageHeader>
   );
 }
@@ -299,34 +299,34 @@ function Intro({ me }: { me: Me | null | undefined }) {
 /** Examples shows what to post in Discord for a verified entry. */
 function Examples() {
   return (
-      <Panel id="examples" title="What to post in Discord" className="challenges-card">
-        <div className="challenges-examples">
-          <figure>
-            <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">
-              <img src="/img/challenge-examples/result.jpg" alt="Example: the challenge results screen" width={1375} height={822} />
-            </a>
-            <figcaption>
-              <strong>1. Challenge results</strong>: the final scores, with your civilization behind. Domination here: 374 − 293 = <strong>81</strong>.
-            </figcaption>
-          </figure>
-          <figure>
-            <a href="/img/challenge-examples/stats.jpg" target="_blank" rel="noopener">
-              <img src="/img/challenge-examples/stats.jpg" alt="Example: the culture graph with every player's leaders and wonders" width={1373} height={866} />
-            </a>
-            <figcaption>
-              <strong>2. Statistics</strong>: the culture graph with every player&apos;s leaders and wonders.
-            </figcaption>
-          </figure>
-          <figure>
-            <div className="challenges-example-more" aria-hidden="true">
-              ?
-            </div>
-            <figcaption>
-              <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion! <strong>Setting a record?</strong> Then
-              please post many more, so others can marvel, discuss and learn how you did it.
-            </figcaption>
-          </figure>
-        </div>
-      </Panel>
+    <Panel id="examples" title="What to post in Discord" className="challenges-card">
+      <div className="challenges-examples">
+        <figure>
+          <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">
+            <img src="/img/challenge-examples/result.jpg" alt="Example: the challenge results screen" width={1375} height={822} />
+          </a>
+          <figcaption>
+            <strong>1. Challenge results</strong>: the final scores, with your civilization behind. Domination here: 374 − 293 = <strong>81</strong>.
+          </figcaption>
+        </figure>
+        <figure>
+          <a href="/img/challenge-examples/stats.jpg" target="_blank" rel="noopener">
+            <img src="/img/challenge-examples/stats.jpg" alt="Example: the culture graph with every player's leaders and wonders" width={1373} height={866} />
+          </a>
+          <figcaption>
+            <strong>2. Statistics</strong>: the culture graph with every player&apos;s leaders and wonders.
+          </figcaption>
+        </figure>
+        <figure>
+          <div className="challenges-example-more" aria-hidden="true">
+            ?
+          </div>
+          <figcaption>
+            <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion! <strong>Setting a record?</strong> Then
+            please post many more, so others can marvel, discuss and learn how you did it.
+          </figcaption>
+        </figure>
+      </div>
+    </Panel>
   );
 }
