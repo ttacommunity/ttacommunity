@@ -7,7 +7,9 @@ import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { seemsSignedIn, type Done } from '../lib/account';
 import { closesLine, countLine, fetchMySignUp, signUp, signUpBox, withdraw, type MySignUp, type SignUpBox as Box, type SignUps } from '../lib/sign-up';
 import Panel from './Panel';
+import SearchBox, { type SearchPlayer } from './SearchBox';
 import SignInNote from './SignInNote';
+import usePlayerSearch from './usePlayerSearch';
 import './SignUpBox.css';
 
 type Props = {
@@ -25,6 +27,8 @@ type Props = {
 /** SignUpBox reads the viewer's sign-up for the tournament and shows the box for it. */
 export default function SignUpBox({ apiUrl, tournament, season, signUps, entered, onChanged }: Props) {
   const [mine, setMine] = useState<MySignUp | null | undefined>(undefined);
+  const [searching, setSearching] = useState(false);
+  const players = usePlayerSearch(apiUrl, searching);
   const load = useCallback(async () => {
     setMine(seemsSignedIn(browserStorage()) ? await fetchMySignUp(apiUrl, tournament, season) : null);
   }, [apiUrl, tournament, season]);
@@ -45,6 +49,8 @@ export default function SignUpBox({ apiUrl, tournament, season, signUps, entered
       onEnter={async () => after(await signUp(apiUrl, tournament, season, null))}
       onGiveName={async (name) => after(await signUp(apiUrl, tournament, season, name))}
       onWithdraw={async () => after(await withdraw(apiUrl, tournament, season))}
+      players={players}
+      onSearch={() => setSearching(true)}
     />
   );
 }
@@ -57,10 +63,13 @@ type PanelProps = {
   onEnter: () => Promise<string | null>;
   onGiveName: (name: string) => Promise<string | null>;
   onWithdraw: () => Promise<string | null>;
+  /** The players the username field suggests, and the call asking for them once someone uses it. */
+  players: readonly SearchPlayer[];
+  onSearch: () => void;
 };
 
 /** SignUpPanel is the box as box says, with what to do in it; the page's SignUpBox gives it the viewer's sign-up. */
-export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdraw }: PanelProps) {
+export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdraw, players, onSearch }: PanelProps) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
@@ -87,7 +96,7 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
         <form className="sign-up-form" onSubmit={submit}>
           <label htmlFor="sign-up-name">Your TTA username, as in the app</label>
           <div className="sign-up-row">
-            <input id="sign-up-name" className="input-antique" value={name} maxLength={100} required onChange={(e) => setName(e.target.value)} />
+            <SearchBox id="sign-up-name" players={players} value={name} placeholder="" wide onChange={setName} onFocus={onSearch} />
             <button type="submit" className="btn-antique" disabled={busy}>
               Sign up
             </button>

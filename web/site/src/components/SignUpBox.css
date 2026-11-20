@@ -16,7 +16,7 @@
   margin: 0;
 }
 
-.sign-up-row .input-antique {
+.sign-up-row .search-input-wrapper {
   flex: 1 1 12rem;
   min-width: 0;
 }

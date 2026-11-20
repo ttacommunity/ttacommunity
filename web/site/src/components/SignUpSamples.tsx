@@ -16,7 +16,7 @@ export default function SignUpSamples() {
   return (
     <>
       {SAMPLES.map((s) => (
-        <SignUpPanel key={s.box.kind} box={s.box} count={s.count} closes={s.closes} onEnter={nothing} onGiveName={nothing} onWithdraw={nothing} />
+        <SignUpPanel key={s.box.kind} box={s.box} count={s.count} closes={s.closes} onEnter={nothing} onGiveName={nothing} onWithdraw={nothing} players={[]} onSearch={() => undefined} />
       ))}
     </>
   );
