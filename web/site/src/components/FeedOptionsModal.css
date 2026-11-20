@@ -226,12 +226,3 @@
   font-size: 0.85rem;
 }
 
-.feed-empty-hint-small {
-  padding: 0.6rem 0.8rem;
-  background: var(--surface-inset);
-  border: 1px dashed var(--border-faint);
-  border-radius: 6px;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  text-align: center;
-}

@@ -56,7 +56,7 @@ import Panel from '../../components/Panel';
   <p>
     Division tiers are not arbitrary hardcoded rating numbers. Instead, they are calculated dynamically from the active tournament player pool using powers of the Golden Ratio $\phi = \frac{1+\sqrt{5}}{2} \approx 1.618$ relative to the active population standard deviation ($\sigma \approx 175$ points, mean $\mu_0 \approx 1500$):
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 z = \frac{\mu - \mu_{\text{active}}}{\sigma_{\text{active}}} \in \left\{ 0,\; \pm\phi^{-2},\; \pm\phi^{-1},\; \pm 1.0,\; \pm\phi,\; \pm 2.0,\; \pm\phi^2,\; \pm 3.0 \right\}
@@ -111,7 +111,7 @@ $$
   <p>
     To evaluate whether a rating model is well-calibrated, historical pairwise predictions $P \in [0.50, 1.00]$ are partitioned into $K = 10$ confidence intervals $B_1, \dots, B_{10}$ of width $5\%$:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 B_k = [p_k, \; p_{k+1}) = [0.50 + 0.05(k-1), \; 0.50 + 0.05k), \quad k \in \{1, \dots, 10\}
@@ -126,7 +126,7 @@ $$
     <li><strong>Observed Win Rate (Ist):</strong> The actual empirical fraction of victories $\bar{y}_k = \frac{1}{|B_k|} \sum_{i \in B_k} y_i$.</li>
     <li>
 <span><strong>Expected Calibration Error (ECE):</strong> The match-weighted discrepancy across all bins:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 \mathrm{ECE} = \sum_{k=1}^{10} \frac{|B_k|}{N} \left|\bar{y}_k - \bar{P}_k\right|
@@ -155,7 +155,7 @@ $$
   <p>
     To solve this, GlickoD establishes <strong>Gaussian Tail Scaling with Golden Ratio ($\phi$) Powers</strong>:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 z = \frac{\mu - \mu_0}{\sigma_{\mathrm{pop}}} = \frac{\mu - 1500.0}{175.0}

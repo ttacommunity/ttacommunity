@@ -73,6 +73,7 @@ import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
+import Inset from './Inset';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -605,7 +606,7 @@ function PositionSeatStats({
     >
 
       {overall && overall.total_games > 0 && (
-        <div className="position-delta-banner">
+        <Inset form="figures" className="position-delta-banner">
           <div className="position-banner-metric">
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
@@ -641,7 +642,7 @@ function PositionSeatStats({
               </span>
             </div>
           )}
-        </div>
+        </Inset>
       )}
 
       <ScrollTable hint="seat statistics">

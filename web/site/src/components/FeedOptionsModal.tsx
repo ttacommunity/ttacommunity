@@ -7,6 +7,7 @@ import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '.
 import { waitingText } from '../lib/waiting';
 import SearchBox, { type SearchPlayer } from './SearchBox';
 import Sheet from '@ttac/shared/Sheet';
+import Inset from './Inset';
 import './FeedOptionsModal.css';
 
 export interface AvailableTournament {
@@ -143,7 +144,7 @@ export default function FeedOptionsModal({
 
           <div className="feed-tournaments-list">
             {staged.tournaments.length === 0 ? (
-              <div className="feed-empty-hint-small">No tournaments selected. Add one below or reset to premier.</div>
+              <Inset form="line">No tournaments selected. Add one below or reset to premier.</Inset>
             ) : (
               staged.tournaments.map((t, idx) => {
                 const divisions = divisionsMap[t.slug] || [];
@@ -202,9 +203,9 @@ export default function FeedOptionsModal({
             )}
 
             {tournamentsWaiting !== null && (
-              <p className="feed-empty-hint-small" role="status">
+              <Inset form="line" role="status">
                 {tournamentsWaiting}
-              </p>
+              </Inset>
             )}
             {tournamentList.length > 0 && (
               <div className="feed-add-tourney-row">
@@ -237,9 +238,9 @@ export default function FeedOptionsModal({
           </h4>
 
           {playersWaiting !== null && (
-            <p className="feed-empty-hint-small" role="status">
+            <Inset form="line" role="status">
               {playersWaiting}
-            </p>
+            </Inset>
           )}
           <SearchBox
             players={searchPlayers.kind === 'ready' ? searchPlayers.data : []}
@@ -251,7 +252,7 @@ export default function FeedOptionsModal({
 
           <div className="player-tags-container" aria-label="Selected competitors">
             {staged.players.length === 0 ? (
-              <div className="feed-empty-hint-small">No specific players tracked.</div>
+              <Inset form="line">No specific players tracked.</Inset>
             ) : (
               staged.players.map((name) => (
                 <span key={name} className="player-filter-tag">

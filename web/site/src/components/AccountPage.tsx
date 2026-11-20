@@ -282,11 +282,10 @@ function Banned({ state }: { state: AccountState }) {
   const ban = banNotice(state);
   if (ban === null) return null;
   return (
-    <div className="account-ban">
-      <strong className="account-ban-heading">Banned</strong>
-      <span>You cannot be entered in the events we host. If you think that is a mistake, message the organisers.</span>
-      {ban.reason !== '' && <span>Reason: {ban.reason}</span>}
-    </div>
+    <Note title="Banned" tone="warning">
+      <p>You cannot be entered in the events we host. If you think that is a mistake, message the organisers.</p>
+      {ban.reason !== '' && <p>Reason: {ban.reason}</p>}
+    </Note>
   );
 }
 

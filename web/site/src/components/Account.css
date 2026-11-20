@@ -96,19 +96,6 @@
   color: var(--text-muted);
   transform: none;
 }
-.account-ban {
-  display: flex;
-  flex-direction: column;
-  margin: 0.75rem 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--loss-edge);
-  border-radius: 6px;
-  background: var(--surface-well);
-}
-.account-ban-heading {
-  color: var(--loss);
-}
 .account-sign-out {
   margin-top: 1.5rem;
   padding-top: 1rem;

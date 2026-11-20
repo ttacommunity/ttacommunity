@@ -353,7 +353,9 @@ agent runs them itself.
   header (`.rating-card` `.panel-card`, `PanelHeader`), table
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
   a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
-  drawer (`SideDrawer`), and admin's `AdminPage`, `AdminCard` and
+  drawer (`SideDrawer`), note (`Note`), box inside a panel (`Inset`:
+  content, a row of figures or a short line), formula box (`$$…$$`, or
+  `.formula` around several), and admin's `AdminPage`, `AdminCard` and
   `AdminTable`. `/design` shows them all. A page's CSS sets only its own
   layout (widths, alignment, spacing): it never redefines a shared class
   or puts a shared piece in a box of its own colour. A look a piece

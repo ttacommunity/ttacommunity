@@ -39,13 +39,6 @@
   align-items: center;
   gap: 0.5rem 1.5rem;
 }
-.challenges-set-totals {
-  margin: 0;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
 .challenges-totals-line {
   display: inline-flex;
   flex-wrap: wrap;

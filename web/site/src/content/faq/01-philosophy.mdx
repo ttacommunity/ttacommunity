@@ -13,7 +13,7 @@ import Panel from '../../components/Panel';
   <div>
 
       <p>A rating engines main purpose is to answer one central question: &quot;When two opponents meet in a match, given the results we have seen these opponents achieve in the past, what is the expected outcome of the match?&quot;</p>
-<div class="faq-formula">$P(\text{Player A defeats Player B}) = \frac{1}{1 + 10^{-(r_A - r_B)/400}}$</div>
+<div class="formula">$P(\text{Player A defeats Player B}) = \frac{1}{1 + 10^{-(r_A - r_B)/400}}$</div>
 <p>A rating engine does <strong>not provide information which reflects tournament achievements</strong>. Using it as a community leaderboard is, at least in some sense, missing its point.
 A player going 40 - 2 within his first 42 ranked games will earn a spot in the top 20 (or higher - depending on the engine). In no way has this player already proven that he can, over an extended period of time, consistently beat top lvl opponents.
 But his place there is also not &quot;unearned&quot; - it is the engines current best guess about predicting matches involving that player given the current data. </p>
@@ -31,7 +31,7 @@ But his place there is also not &quot;unearned&quot; - it is the engines current
 <li><strong>Brier Score (Mean Squared Error ↓):</strong>
 Measures the mean squared difference between predicted win probabilities $P_k$ and actual binary match outcomes $s_k \in \{0, 1\}$:</li>
 </ul>
-<div class="faq-formula">$\mathrm{Brier} = \frac{1}{M} \sum_{k=1}^{M} (P_k - s_k)^2$</div>
+<div class="formula">$\mathrm{Brier} = \frac{1}{M} \sum_{k=1}^{M} (P_k - s_k)^2$</div>
 <ul>
 <li><p><strong>What do the numbers actually mean?</strong>: Well, i think it is somewhat impossible to compare the number to out of context brier scores. We can first of all observe: The coin flip engine baseline is $0.2500$; Meaning: If we were to allways just guess the winner by coinflip, it would achieve a score of $0.2500$. Evaluating the quality of our engines should be done in a comperative matter: If model A yields Brier of $0.2138$ and model B $0.2314$, that is one indicator for model A performing better at fulfilling its purpose.</p></li>
 <li><p><strong>Expected Calibration Error (ECE ↓):</strong> Tests whether the model&#39;s confidence corresponds to physical reality. If we aggregate all matches where the model predicted a $75\%$ win chance, did the favorites actually win $75\%$ of those games? If they only won $68\%$, the model is systematically overconfident. ECE integrates this calibration gap across all probability bins.</p></li>
