@@ -5225,7 +5225,7 @@ export interface components {
         BlitzPublicMatch: {
             /** @description The games the match is played as, 1 or 3 (agreed) */
             best_of: number;
-            /** @description Its games so far, in order; game is the first of them */
+            /** @description Its games so far, in order */
             games: components["schemas"]["BlitzPublicGame"][];
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
             a_seed: number | null;
@@ -5239,8 +5239,6 @@ export interface components {
             b_rating: number | null;
             /** @description Null until the match is decided (a bye never is) */
             result: components["schemas"]["BlitzResult"] | null;
-            /** @description The game played, null for none recorded */
-            game: components["schemas"]["BlitzPlayedGame"] | null;
             /** @description Whether the result is the organisers' ruling rather than the game's outcome */
             ruled: boolean;
         };
@@ -5426,17 +5424,8 @@ export interface components {
              * @description The entrant proposing best of 3, waiting for the opponent; null for none
              */
             proposed_by: number | null;
-            /** @description Its games so far, in order; game, reported_by, report and flag_reason are the first's */
+            /** @description Its games so far, in order */
             games: components["schemas"]["AdminBlitzMatchGame"][];
-            /**
-             * Format: int64
-             * @description The entrant who reported the game; null when no player did
-             */
-            reported_by: number | null;
-            /** @description Null when no player reported the game */
-            report: components["schemas"]["BlitzReport"] | null;
-            /** @description The opponent's reason when they flagged the report, kept once resolved; else empty */
-            flag_reason: string;
             /** @description A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round */
             slot: number | null;
             /** @description In a knockout match, a's seed, their place in the Swiss standings when the knockout began; null in a Swiss round */
@@ -5459,8 +5448,6 @@ export interface components {
             repeat: boolean;
             /** @description Null until the match is decided */
             result: components["schemas"]["BlitzResult"] | null;
-            /** @description The game played, null for none recorded */
-            game: components["schemas"]["BlitzPlayedGame"] | null;
             /** @description The organisers' reason when the result is their ruling, else empty */
             ruling: string;
             /** Format: date-time */
@@ -5806,21 +5793,8 @@ export interface components {
             /** @description Which side the player is */
             me: components["schemas"]["MatchSide"];
             result: components["schemas"]["BlitzResult"] | null;
-            game: components["schemas"]["BlitzPlayedGame"] | null;
             /** @description Whether the result is the organisers' ruling */
             ruled: boolean;
-            /** @description Null when no player reported the game */
-            report: components["schemas"]["BlitzReport"] | null;
-            /** @description Which side reported the game; null when no player did */
-            reported_by: components["schemas"]["MatchSide"] | null;
-            /** @description The opponent's reason when the report was flagged, else empty */
-            flag_reason: string;
-            /**
-             * @description What the player may do now: report (or correct their report),
-             *     confirm or flag the opponent's report. Empty once players can no
-             *     longer change it
-             */
-            actions: ("report" | "confirm" | "flag")[];
         };
         /** @description One game of a signed-in player's match, and what they may do with it now */
         MyBlitzGame: {
@@ -14071,7 +14045,6 @@ export const seatOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>[
 export const blitzPairingMethodValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingMethod"]> = ["dutch", "dutch-timezone", "timezone", "rating", "random"];
 export const blitzPairingOrderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzPairingOrder"]> = ["rating", "lot", "random"];
 export const blitzReportValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["BlitzReport"]> = ["reported", "confirmed", "flagged", "resolved"];
-export const myBlitzMatchActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzMatch"]["actions"]> = ["report", "confirm", "flag"];
 export const myBlitzGameActionsValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyBlitzGame"]["actions"]> = ["report", "confirm", "flag"];
 export const modelValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Model"]> = ["glicko2_daneo", "glicko2_daneo_softer", "glicko2_std"];
 export const formatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Format"]> = [0, 2, 3, 4];

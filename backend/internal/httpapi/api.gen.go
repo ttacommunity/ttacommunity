@@ -732,40 +732,19 @@ func (e Model) Valid() bool {
 
 // Defines values for MyBlitzGameActions.
 const (
-	MyBlitzGameActionsConfirm MyBlitzGameActions = "confirm"
-	MyBlitzGameActionsFlag    MyBlitzGameActions = "flag"
-	MyBlitzGameActionsReport  MyBlitzGameActions = "report"
+	Confirm MyBlitzGameActions = "confirm"
+	Flag    MyBlitzGameActions = "flag"
+	Report  MyBlitzGameActions = "report"
 )
 
 // Valid indicates whether the value is a known member of the MyBlitzGameActions enum.
 func (e MyBlitzGameActions) Valid() bool {
 	switch e {
-	case MyBlitzGameActionsConfirm:
+	case Confirm:
 		return true
-	case MyBlitzGameActionsFlag:
+	case Flag:
 		return true
-	case MyBlitzGameActionsReport:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MyBlitzMatchActions.
-const (
-	MyBlitzMatchActionsConfirm MyBlitzMatchActions = "confirm"
-	MyBlitzMatchActionsFlag    MyBlitzMatchActions = "flag"
-	MyBlitzMatchActionsReport  MyBlitzMatchActions = "report"
-)
-
-// Valid indicates whether the value is a known member of the MyBlitzMatchActions enum.
-func (e MyBlitzMatchActions) Valid() bool {
-	switch e {
-	case MyBlitzMatchActionsConfirm:
-		return true
-	case MyBlitzMatchActionsFlag:
-		return true
-	case MyBlitzMatchActionsReport:
+	case Report:
 		return true
 	default:
 		return false
@@ -1660,13 +1639,7 @@ type AdminBlitzMatch struct {
 	BestOf    int        `json:"best_of"`
 	DecidedAt *time.Time `json:"decided_at"`
 
-	// FlagReason The opponent's reason when they flagged the report, kept once resolved; else empty
-	FlagReason string `json:"flag_reason"`
-
-	// Game The game played, null for none recorded
-	Game *BlitzPlayedGame `json:"game"`
-
-	// Games Its games so far, in order; game, reported_by, report and flag_reason are the first's
+	// Games Its games so far, in order
 	Games []AdminBlitzMatchGame `json:"games"`
 	Id    int64                 `json:"id"`
 
@@ -1678,12 +1651,6 @@ type AdminBlitzMatch struct {
 
 	// Repeat Whether the two have met in another round
 	Repeat bool `json:"repeat"`
-
-	// Report Null when no player reported the game
-	Report *BlitzReport `json:"report"`
-
-	// ReportedBy The entrant who reported the game; null when no player did
-	ReportedBy *int64 `json:"reported_by"`
 
 	// Result Null until the match is decided
 	Result *BlitzResult `json:"result"`
@@ -2759,10 +2726,7 @@ type BlitzPublicMatch struct {
 	// BestOf The games the match is played as, 1 or 3 (agreed)
 	BestOf int `json:"best_of"`
 
-	// Game The game played, null for none recorded
-	Game *BlitzPlayedGame `json:"game"`
-
-	// Games Its games so far, in order; game is the first of them
+	// Games Its games so far, in order
 	Games []BlitzPublicGame `json:"games"`
 
 	// Result Null until the match is decided (a bye never is)
@@ -4319,11 +4283,6 @@ type MyBlitzGameActions string
 type MyBlitzMatch struct {
 	A string `json:"a"`
 
-	// Actions What the player may do now: report (or correct their report),
-	// confirm or flag the opponent's report. Empty once players can no
-	// longer change it
-	Actions []MyBlitzMatchActions `json:"actions"`
-
 	// B Null for the bye
 	B *string `json:"b"`
 
@@ -4336,10 +4295,6 @@ type MyBlitzMatch struct {
 	// BestOfOffered Whether the round lets its matches be best of 3
 	BestOfOffered bool `json:"best_of_offered"`
 
-	// FlagReason The opponent's reason when the report was flagged, else empty
-	FlagReason string           `json:"flag_reason"`
-	Game       *BlitzPlayedGame `json:"game"`
-
 	// Games The match's games so far, in order, each with what the player may do with it
 	Games []MyBlitzGame `json:"games"`
 	Id    int64         `json:"id"`
@@ -4351,22 +4306,13 @@ type MyBlitzMatch struct {
 	NextGame *int `json:"next_game"`
 
 	// ProposedBy Which side proposes best of 3, waiting for the other; null for none
-	ProposedBy *MatchSide `json:"proposed_by"`
-
-	// Report Null when no player reported the game
-	Report *BlitzReport `json:"report"`
-
-	// ReportedBy Which side reported the game; null when no player did
-	ReportedBy *MatchSide   `json:"reported_by"`
+	ProposedBy *MatchSide   `json:"proposed_by"`
 	Result     *BlitzResult `json:"result"`
 	Round      int          `json:"round"`
 
 	// Ruled Whether the result is the organisers' ruling
 	Ruled bool `json:"ruled"`
 }
-
-// MyBlitzMatchActions defines model for MyBlitzMatch.Actions.
-type MyBlitzMatchActions string
 
 // MyChallengeEntries The entries a player submits
 type MyChallengeEntries struct {

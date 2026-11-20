@@ -144,22 +144,22 @@ func TestAPlayerReadsTheirMatchAndWhatTheyMayDo(t *testing.T) {
 		{"not entered", member(1050, "Eve"), reportsEdition(reportedByAnn("reported")), map[string]string{"match": `null`, "reports": `[]`}},
 		{"undecided", member(1008, "bob"), reportsEdition(nil), map[string]string{
 			"match.id": `21`, "match.round": `1`, "match.a": `"Ann"`, "match.b": `"bob"`, "match.me": `"b"`, "match.result": `null`,
-			"match.report": `null`, "match.reported_by": `null`, "match.actions": `["report"]`}},
+			"match.games": `[]`, "match.next_game": `1`}},
 		{"their own report", member(1007, "Ann"), reportsEdition(reportedByAnn("reported")), map[string]string{
-			"match.me": `"a"`, "match.result": `"a"`, "match.report": `"reported"`, "match.reported_by": `"a"`, "match.actions": `["report"]`,
-			"match.game.share_code": `"REP-1"`}},
+			"match.me": `"a"`, "match.result": `"a"`, "match.games.0.report": `"reported"`, "match.games.0.reported_by": `"a"`,
+			"match.games.0.actions": `["report"]`, "match.games.0.game.share_code": `"REP-1"`, "match.next_game": `null`}},
 		{"the opponent's report", member(1008, "bob"), reportsEdition(reportedByAnn("reported")), map[string]string{
-			"match.reported_by": `"a"`, "match.actions": `["confirm", "flag"]`}},
+			"match.games.0.reported_by": `"a"`, "match.games.0.actions": `["confirm", "flag"]`}},
 		{"flagged", member(1007, "Ann"), reportsEdition(reportedByAnn("flagged")), map[string]string{
-			"match.report": `"flagged"`, "match.flag_reason": `"I won"`, "match.actions": `[]`}},
+			"match.games.0.report": `"flagged"`, "match.games.0.flag_reason": `"I won"`, "match.games.0.actions": `[]`}},
 		{"an organiser's ruling", member(1008, "bob"), reportsEdition(func(_ *store.BlitzEdition, m *store.BlitzMatch) {
 			at := time.Date(2026, 10, 13, 20, 0, 0, 0, time.UTC)
 			m.Result, m.Ruling, m.DecidedAt = "b", "Ann did not show", &at
-		}), map[string]string{"match.ruled": `true`, "match.actions": `[]`}},
+		}), map[string]string{"match.ruled": `true`, "match.next_game": `null`}},
 		{"the next round paired", member(1008, "bob"), reportsEdition(func(ed *store.BlitzEdition, _ *store.BlitzMatch) {
 			ed.PairedRound = new(2)
-		}), map[string]string{"match.id": `21`, "match.actions": `[]`}},
-		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "match.actions": `[]`, "reports": `[]`,
+		}), map[string]string{"match.id": `21`, "match.next_game": `null`}},
+		{"a bye", member(1009, "Cy"), reportsEdition(nil), map[string]string{"match.id": `22`, "match.b": `null`, "reports": `[]`,
 			"match.next_game": `null`}},
 		{"a one-game round", member(1008, "bob"), reportsEdition(nil), map[string]string{
 			"match.best_of": `1`, "match.best_of_offered": `false`, "match.best_of_actions": `[]`, "match.next_game": `1`, "match.games": `[]`}},
@@ -360,10 +360,10 @@ func (f *fakeAdmins) KeepBlitzReport(_ context.Context, slug, edition string, id
 	if err != nil {
 		return err
 	}
-	if m.Report != "flagged" {
+	if number > len(m.Games) || m.Games[number-1].Report != "flagged" {
 		return store.ErrBlitzNotFlagged
 	}
-	m.Report = "resolved"
+	m.Games[number-1].Report = "resolved"
 	f.notes = append(f.notes, fmt.Sprintf("keep %d%s", id, gameOf(number)))
 	return nil
 }
@@ -377,13 +377,14 @@ func TestAnOrganiserSeesAFlagAndKeepsTheReport(t *testing.T) {
 	m := &f.rounds[0].Matches[0]
 	m.Result, m.GameID, m.DecidedAt, m.ReportedBy, m.Report, m.FlagReason = "a", &game, &at, &ann, "flagged", "I won"
 	m.Game = &store.BlitzGame{ShareCode: "REP-1", A: store.BlitzSide{Culture: 50, Outcome: "finished"}, B: store.BlitzSide{Culture: 40, Outcome: "finished"}, Finished: at}
+	*m = withGames(*m, "a")
 
 	wantJSON(t, adminDo(t, f, http.MethodGet, "/v1/admin/blitz", site, "").Body.Bytes(), "0.flagged", `1`)
 	rec := adminDo(t, f, http.MethodGet, "/v1/admin/blitz/us_open/2026", site, "")
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.reported_by", `7`)
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.report", `"flagged"`)
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.flag_reason", `"I won"`)
-	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.1.report", `null`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.games.0.reported_by", `7`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.games.0.report", `"flagged"`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.0.games.0.flag_reason", `"I won"`)
+	wantJSON(t, rec.Body.Bytes(), "rounds.0.matches.1.games", `[]`)
 
 	if rec := adminDo(t, f, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds/101/matches/1010/games/1/keep", site, ""); rec.Code != http.StatusNoContent {
 		t.Fatalf("POST keep = %d %s, want 204", rec.Code, rec.Body)

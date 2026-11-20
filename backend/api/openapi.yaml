@@ -8468,7 +8468,7 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, game, ruled, best_of, games]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, ruled, best_of, games]
       properties:
         best_of:
           description: The games the match is played as, 1 or 3 (agreed)
@@ -8476,7 +8476,7 @@ components:
           minimum: 1
           maximum: 3
         games:
-          description: Its games so far, in order; game is the first of them
+          description: Its games so far, in order
           type: array
           items:
             $ref: "#/components/schemas/BlitzPublicGame"
@@ -8505,11 +8505,6 @@ components:
           description: Null until the match is decided (a bye never is)
           allOf:
             - $ref: "#/components/schemas/BlitzResult"
-          nullable: true
-        game:
-          description: The game played, null for none recorded
-          allOf:
-            - $ref: "#/components/schemas/BlitzPlayedGame"
           nullable: true
         ruled:
           description: Whether the result is the organisers' ruling rather than the game's outcome
@@ -8739,7 +8734,7 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, game, ruling, decided_at, reported_by, report, flag_reason, best_of, proposed_by, games]
+      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, ruling, decided_at, best_of, proposed_by, games]
       properties:
         best_of:
           description: The games the match is played as, 1 or 3 (agreed)
@@ -8752,23 +8747,10 @@ components:
           format: int64
           nullable: true
         games:
-          description: Its games so far, in order; game, reported_by, report and flag_reason are the first's
+          description: Its games so far, in order
           type: array
           items:
             $ref: "#/components/schemas/AdminBlitzMatchGame"
-        reported_by:
-          description: The entrant who reported the game; null when no player did
-          type: integer
-          format: int64
-          nullable: true
-        report:
-          description: Null when no player reported the game
-          allOf:
-            - $ref: "#/components/schemas/BlitzReport"
-          nullable: true
-        flag_reason:
-          description: The opponent's reason when they flagged the report, kept once resolved; else empty
-          type: string
         slot:
           description: A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
           type: integer
@@ -8805,11 +8787,6 @@ components:
           description: Null until the match is decided
           allOf:
             - $ref: "#/components/schemas/BlitzResult"
-          nullable: true
-        game:
-          description: The game played, null for none recorded
-          allOf:
-            - $ref: "#/components/schemas/BlitzPlayedGame"
           nullable: true
         ruling:
           description: The organisers' reason when the result is their ruling, else empty
@@ -9400,7 +9377,7 @@ components:
     MyBlitzMatch:
       description: A signed-in player's match, sides as the match names them, and what they may do with it now
       type: object
-      required: [id, round, a, b, me, result, game, ruled, report, reported_by, flag_reason, actions, best_of, best_of_offered, proposed_by, best_of_actions, games, next_game]
+      required: [id, round, a, b, me, result, ruled, best_of, best_of_offered, proposed_by, best_of_actions, games, next_game]
       properties:
         best_of:
           description: The games the match is played as, 1 or 3 (agreed)
@@ -9448,35 +9425,9 @@ components:
           allOf:
             - $ref: "#/components/schemas/BlitzResult"
           nullable: true
-        game:
-          allOf:
-            - $ref: "#/components/schemas/BlitzPlayedGame"
-          nullable: true
         ruled:
           description: Whether the result is the organisers' ruling
           type: boolean
-        report:
-          description: Null when no player reported the game
-          allOf:
-            - $ref: "#/components/schemas/BlitzReport"
-          nullable: true
-        reported_by:
-          description: Which side reported the game; null when no player did
-          allOf:
-            - $ref: "#/components/schemas/MatchSide"
-          nullable: true
-        flag_reason:
-          description: The opponent's reason when the report was flagged, else empty
-          type: string
-        actions:
-          description: |
-            What the player may do now: report (or correct their report),
-            confirm or flag the opponent's report. Empty once players can no
-            longer change it
-          type: array
-          items:
-            type: string
-            enum: [report, confirm, flag]
     MyBlitzGame:
       description: One game of a signed-in player's match, and what they may do with it now
       type: object

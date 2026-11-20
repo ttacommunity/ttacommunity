@@ -333,3 +333,53 @@ func TestBlitzEditionsSayWhenTheKnockoutIsDrawn(t *testing.T) {
 		t.Error("Knockout once its first round is published = false, want true")
 	}
 }
+
+func TestSeasonBracketGivesABestOfThreeEachSidesPoints(t *testing.T) {
+	run, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	ann, bob := ids[0], ids[1]
+	final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{{A: ann, B: &bob, Slot: new(0), SeedA: new(1), SeedB: new(2)}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if err := a.SetBlitzRoundBestOf(ctx, "us_open", "2026", final.ID, 3); err != nil {
+		t.Fatalf("SetBlitzRoundBestOf: %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
+		t.Fatalf("PublishBlitzRound: %v", err)
+	}
+	if err := a.SetBlitzMatchBestOf(ctx, "us_open", "2026", final.Matches[0].ID, 3); err != nil {
+		t.Fatalf("SetBlitzMatchBestOf: %v", err)
+	}
+	line := func() string {
+		t.Helper()
+		got, err := r.SeasonBracket(ctx, run, "us_open", "2026")
+		if err != nil {
+			t.Fatalf("SeasonBracket: %v", err)
+		}
+		lines := bracketLines(got)
+		return lines[len(lines)-1]
+	}
+	steps := []struct {
+		by   string
+		want string
+	}{
+		{"a", "Round 2|match 1 1|prepared: 1 Ann#1 0 1 →0; 2 Bob#2 0 0 →0;"},
+		{"draw", "Round 2|match 1 1|prepared: 1 Ann#1 0 1.5 →0; 2 Bob#2 0 0.5 →0;"},
+		{"b", "Round 2|match 1 1|prepared: 1 Ann#1 0 1.5 →0; 2 Bob#2 0 1.5 →0;"},
+	}
+	for i, s := range steps {
+		if err := a.RecordBlitzGame(ctx, "us_open", "2026", final.Matches[0].ID, i+1, won("BRACKET-"+digit(i+1), s.by)); err != nil {
+			t.Fatalf("RecordBlitzGame(game %d): %v", i+1, err)
+		}
+		if i < len(steps)-1 {
+			if got := line(); got != s.want {
+				t.Errorf("after game %d: %q, want %q", i+1, got, s.want)
+			}
+		}
+	}
+	// Level after three: Ann goes through as the higher seed.
+	if got, want := line(), "Round 2|match 1 1|played: 1 Ann#1 1 1.5 →0; 2 Bob#2 2 1.5 →0;"; got != want {
+		t.Errorf("after three games: %q, want %q", got, want)
+	}
+}

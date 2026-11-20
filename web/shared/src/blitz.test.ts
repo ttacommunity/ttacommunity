@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, gamesCount, gamesNote, pointsNote, resultsLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
-import { editionHref, editionParams } from './blitz';
+import { bestOfScore, editionHref, editionParams } from './blitz';
 
 describe('editionParams', () => {
   it.each([
@@ -398,5 +398,16 @@ describe('gamesNote', () => {
     ['both forfeit win and loss', 1, 1, "Includes 1 game won by opponent's forfeit, 1 game lost by forfeit"],
   ] as const)('%s', (_name, forfeit_wins, forfeit_losses, want) => {
     expect(gamesNote({ forfeit_wins, forfeit_losses })).toBe(want);
+  });
+});
+
+describe('bestOfScore', () => {
+  it.each([
+    ['no games yet', [], 'Ann 0, Bob 0'],
+    ['one win each', ['a', 'b'], 'Ann 1, Bob 1'],
+    ['a win and a draw', ['a', 'draw'], 'Ann 1½, Bob ½'],
+    ['two straight wins', ['b', 'b'], 'Ann 0, Bob 2'],
+  ] as const)('scores %s', (_name, results, want) => {
+    expect(bestOfScore({ a: 'Ann', b: 'Bob', games: results.map((result) => ({ result })) })).toBe(want);
   });
 });

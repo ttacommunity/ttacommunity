@@ -88,6 +88,10 @@ func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id
 	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
 	gameID := int64(500 + id)
 	m.Result, m.GameID, m.Game, m.Ruling, m.DecidedAt = result, &gameID, &g, "", &at
+	for len(m.Games) < number {
+		m.Games = append(m.Games, store.BlitzMatchGame{Number: len(m.Games) + 1})
+	}
+	m.Games[number-1] = store.BlitzMatchGame{Number: number, GameID: gameID, Game: g, Result: result}
 	f.notes = append(f.notes, fmt.Sprintf("game on %d%s: %s %g/%s/turn %d %g/%s/turn %d", id, gameOf(number), g.ShareCode, g.A.Culture, g.A.Outcome, g.A.Turn, g.B.Culture, g.B.Outcome, g.B.Turn))
 	return nil
 }
@@ -191,11 +195,11 @@ func TestAnOrganiserRecordsGamesAndRulings(t *testing.T) {
 	}
 	body := rec.Body.Bytes()
 	wantJSON(t, body, "rounds.0.matches.0.result", `"a"`)
-	wantJSON(t, body, "rounds.0.matches.0.game", `{"share_code": "ABCD1234", "a_culture": 250, "a_outcome": "finished", "a_turn": 2, "b_culture": 200, "b_outcome": "resigned", "b_turn": 1, "finished_at": "2026-10-10T19:30:00Z"}`)
+	wantJSON(t, body, "rounds.0.matches.0.games.0.game", `{"share_code": "ABCD1234", "a_culture": 250, "a_outcome": "finished", "a_turn": 2, "b_culture": 200, "b_outcome": "resigned", "b_turn": 1, "finished_at": "2026-10-10T19:30:00Z"}`)
 	wantJSON(t, body, "rounds.0.matches.0.ruling", `""`)
 	wantJSON(t, body, "rounds.0.matches.0.decided_at", `"2026-10-15T09:00:00Z"`)
 	wantJSON(t, body, "rounds.0.matches.1.result", `"draw"`)
-	wantJSON(t, body, "rounds.0.matches.1.game", `null`)
+	wantJSON(t, body, "rounds.0.matches.1.games", `[]`)
 	wantJSON(t, body, "rounds.0.matches.1.ruling", `"Neither could find a time"`)
 	var ed AdminBlitzEdition
 	if err := json.Unmarshal(body, &ed); err != nil {

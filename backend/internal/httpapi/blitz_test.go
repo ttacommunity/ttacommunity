@@ -91,7 +91,7 @@ func TestTheSiteListsBlitzEditionsAndTheirEntrants(t *testing.T) {
 	won := BlitzResult("b")
 	game := &BlitzPlayedGame{ShareCode: "ABCD1234", ACulture: 200, AOutcome: "finished", BCulture: 210, BOutcome: "finished", FinishedAt: time.Date(2026, 10, 14, 19, 30, 0, 0, time.UTC)}
 	wantRounds := []BlitzPublicMatch{
-		{A: "Ann", ARating: &ann, B: &bob, BRating: nil, Result: &won, Game: game, Ruled: true, BestOf: 1, Games: []BlitzPublicGame{{Number: 1, Result: "b", Game: *game}}},
+		{A: "Ann", ARating: &ann, B: &bob, BRating: nil, Result: &won, Ruled: true, BestOf: 1, Games: []BlitzPublicGame{{Number: 1, Result: "b", Game: *game}}},
 		{A: "Ann", ARating: &ann, B: nil, BRating: nil, BestOf: 1, Games: []BlitzPublicGame{}},
 	}
 	if len(ed.Rounds) != 2 || ed.Rounds[0].Number != 1 || ed.Rounds[1].Number != 2 {

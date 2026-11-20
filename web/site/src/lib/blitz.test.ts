@@ -41,7 +41,13 @@ type Round = components['schemas']['BlitzRound'];
 type Match = components['schemas']['BlitzPublicMatch'];
 
 const format = { swiss_rounds: 8, knockout_size: 8 };
-const match = (a: string, b: string | null, extra: Partial<Match> = {}): Match => ({ a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, game: null, ruled: false, best_of: 1, games: [], ...extra });
+type Played = Match['games'][number]['game'];
+/** match is a one-game match; a game given becomes its game 1, its result the match's. */
+const match = (a: string, b: string | null, { game, ...extra }: Partial<Match> & { game?: Played } = {}): Match => ({
+  a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, ruled: false, best_of: 1,
+  games: game === undefined ? [] : [{ number: 1, result: extra.result === 'b' ? 'b' : 'a', game }],
+  ...extra,
+});
 const played = (code: string, finishedAt: string) => ({ share_code: code, a_culture: 250, a_outcome: 'finished' as const, a_turn: 1, b_culture: 0, b_outcome: 'timed_out' as const, b_turn: 2, finished_at: finishedAt });
 const round = (number: number, matches: Match[], skipped: string[] = []): Round => ({ number, kind: 'swiss', method: 'timezone', pairing_order: 'rating', published_at: '2026-10-12T12:00:00Z', matches, skipped, best_of: 1 });
 const rounds = [
@@ -72,6 +78,34 @@ describe('blitzGames sorted', () => {
     const high = { ...played('', at), a_culture: 120, b_culture: 300 };
     const level = [round(1, [match('Ann', 'Cy', { result: 'a', game: low }), match('Bo', 'Di', { result: 'b', game: high })])];
     expect(blitzGames(level, format, all, 'UTC', null, { col: 'players', desc: false }).rows.map((r) => r.key)).toEqual(['1-2', '1-1']);
+  });
+});
+
+describe('blitzGames of a best of 3', () => {
+  const g = (number: number, result: 'a' | 'b' | 'draw') => ({ number, result, game: played(`BO3-${number}`, `2026-10-1${number}T20:00:00Z`) });
+  const bestOf = (games: ReturnType<typeof g>[], result: 'a' | 'b' | null) => [
+    { ...round(4, [match('Ann', 'Cy', { a_seed: 1, b_seed: 8, best_of: 3, result, games })]), kind: 'knockout' as const, best_of: 3 },
+  ];
+  it('gives each game a row, tagged with its game, and the last the score once decided', () => {
+    const rows = blitzGames(bestOf([g(1, 'a'), g(2, 'b'), g(3, 'a')], 'a'), format, all, 'UTC').rows;
+    expect(rows.map((r) => [r.key, r.where, r.tag, r.code])).toEqual([
+      ['4-1-1', 'Game 1', 'Best of 3, game 1', 'BO3-1'],
+      ['4-1-2', 'Game 1', 'Best of 3, game 2', 'BO3-2'],
+      ['4-1-3', 'Game 1', 'Best of 3, game 3: Ann 2, Cy 1', 'BO3-3'],
+    ]);
+  });
+  it('tags an undecided best of 3 with its games so far', () => {
+    expect(blitzGames(bestOf([g(1, 'draw')], null), format, all, 'UTC').rows.map((r) => r.tag)).toEqual(['Best of 3, game 1']);
+  });
+  it('names who reported each game', () => {
+    const reports = [{ round: 4, game: 2, a: 'Ann', reported_by: 'Cy', confirmed: true }];
+    expect(blitzGames(bestOf([g(1, 'a'), g(2, 'b')], null), format, all, 'UTC', null, null, reports).rows.map((r) => r.tag)).toEqual([
+      'Best of 3, game 1',
+      'Best of 3, game 2 · Reported by Cy, confirmed',
+    ]);
+  });
+  it('lists one row for a best of 3 not yet played', () => {
+    expect(blitzGames(bestOf([], null), format, all, 'UTC').rows.map((r) => [r.key, r.tag])).toEqual([['4-1', 'To be played']]);
   });
 });
 

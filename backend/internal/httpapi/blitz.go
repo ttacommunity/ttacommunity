@@ -31,14 +31,6 @@ func blitzResult(m store.BlitzMatch) *BlitzResult {
 	return &r
 }
 
-// playedGame is a match's first game, nil for none recorded.
-func playedGame(m store.BlitzMatch) *BlitzPlayedGame {
-	if m.Game == nil {
-		return nil
-	}
-	return new(apiGame(*m.Game))
-}
-
 // apiGame is a played game as the API sends it.
 func apiGame(g store.BlitzGame) BlitzPlayedGame {
 	return BlitzPlayedGame{ShareCode: g.ShareCode, FinishedAt: g.Finished.UTC(),
@@ -189,7 +181,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 		}
 		for j, m := range r.Matches {
 			a := named[m.A]
-			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Game: playedGame(m), Ruled: m.Ruling != "",
+			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Ruled: m.Ruling != "",
 				BestOf: m.BestOf, Games: publicGames(m)}
 			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
 				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())

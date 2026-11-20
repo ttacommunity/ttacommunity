@@ -14,9 +14,6 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// blitzReport is where a match's first game's report stands as the API sends it, nil when no player reported it.
-func blitzReport(m store.BlitzMatch) *BlitzReport { return reportOf(m.Report) }
-
 // reportOf is where a report stands as the API sends it, nil for none.
 func reportOf(report string) *BlitzReport {
 	if report == "" {
@@ -62,21 +59,12 @@ func myBlitzMatch(ed store.BlitzEdition, member int64) *MyBlitzMatch {
 		default:
 			continue
 		}
-		reportedBy := sideOf(m, m.ReportedBy)
-		out := &MyBlitzMatch{Id: m.ID, Round: r.Number, A: names[m.A], Me: MatchSide(me), Result: blitzResult(m), Game: playedGame(m),
-			Ruled: m.Ruling != "", Report: blitzReport(m), FlagReason: m.FlagReason, Actions: []MyBlitzMatchActions{},
+		out := &MyBlitzMatch{Id: m.ID, Round: r.Number, A: names[m.A], Me: MatchSide(me), Result: blitzResult(m), Ruled: m.Ruling != "",
 			BestOf: m.BestOf, BestOfOffered: r.BestOf == 3, BestOfActions: []BlitzBestOfAction{}, Games: make([]MyBlitzGame, len(m.Games))}
 		if m.B != nil {
 			out.B = new(names[*m.B])
 		}
-		if reportedBy != "" {
-			out.ReportedBy = new(MatchSide(reportedBy))
-		}
 		closed := ed.PairedRound != nil && *ed.PairedRound > r.Number
-		for _, a := range blitz.PlayerActions(blitz.PlayerMatch{Me: me, ReportedBy: reportedBy, Report: m.Report, Decided: m.Result != "",
-			Bye: m.B == nil, Closed: closed}) {
-			out.Actions = append(out.Actions, MyBlitzMatchActions(a))
-		}
 		for i, g := range m.Games {
 			by := sideOf(m, g.ReportedBy)
 			mg := MyBlitzGame{Number: g.Number, Result: BlitzGameResult(g.Result), Game: apiGame(g.Game), Report: reportOf(g.Report),

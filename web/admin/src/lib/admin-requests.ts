@@ -133,6 +133,11 @@ export const deleteBlitzRound = (slug: string, edition: string, round: number) =
 /** recordBlitzGame records, or corrects, game number of a match. */
 export const recordBlitzGame = (slug: string, edition: string, round: number, match: number, number: number, game: Schemas['BlitzGameRecord']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/games/${number}`, 'PUT', game);
+/** setBlitzRoundBestOf sets whether a knockout round's matches may be best of 3 (3) or are one game (1). */
+export const setBlitzRoundBestOf = (slug: string, edition: string, round: number, bestOf: number) => to(`${blitz(slug, edition)}/rounds/${round}/best-of`, 'PUT', { best_of: bestOf });
+/** setBlitzMatchBestOf sets one match to one game or best of 3, as an organiser decides. */
+export const setBlitzMatchBestOf = (slug: string, edition: string, round: number, match: number, bestOf: number) =>
+  to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/best-of`, 'PUT', { best_of: bestOf });
 /** keepBlitzReport resolves a game's flagged report by keeping its result. */
 export const keepBlitzReport = (slug: string, edition: string, round: number, match: number, number: number) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/games/${number}/keep`, 'POST');

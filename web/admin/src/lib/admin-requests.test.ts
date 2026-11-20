@@ -41,6 +41,8 @@ describe('admin requests', () => {
     ['an entrant skipping the next round', req.skipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'POST', undefined],
     ['undoing a skip', req.unskipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'DELETE', undefined],
     ['a game of a match', req.recordBlitzGame('us_open', '2026', 101, 1010, 2, { share_code: 'G-2', a: { culture: 50, outcome: 'finished', turn: 1 }, b: { culture: 40, outcome: 'finished', turn: 2 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }), '/api/blitz/us_open/2026/rounds/101/matches/1010/games/2', 'PUT', { share_code: 'G-2', a: { culture: 50, outcome: 'finished', turn: 1 }, b: { culture: 40, outcome: 'finished', turn: 2 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }],
+    ['a knockout round offering best of 3', req.setBlitzRoundBestOf('us_open', '2026', 102, 3), '/api/blitz/us_open/2026/rounds/102/best-of', 'PUT', { best_of: 3 }],
+    ['a match set to one game', req.setBlitzMatchBestOf('us_open', '2026', 102, 1020, 1), '/api/blitz/us_open/2026/rounds/102/matches/1020/best-of', 'PUT', { best_of: 1 }],
     ["keeping a game's flagged report", req.keepBlitzReport('us_open', '2026', 101, 1010, 3), '/api/blitz/us_open/2026/rounds/101/matches/1010/games/3/keep', 'POST', undefined],
     ["resetting a match's result", req.resetBlitzResult('us_open', '2026', 101, 1010), '/api/blitz/us_open/2026/rounds/101/matches/1010/result', 'DELETE', undefined],
     ["resetting a round's results", req.resetBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101/results', 'DELETE', undefined],
