@@ -363,6 +363,11 @@ agent runs them itself.
   writes no hex or `rgba()` of its own, and a colour the tokens lack is a
   new token. The raw colours older page CSS still has move to tokens
   when that CSS is next changed
+- **A shared piece takes its colours from roles**: tokens named for what
+  they are for (`--panel-title`, `--page-header-edge`, `--tag-text`), in
+  the Roles section of `tokens.css`, each pointing at a palette colour. A
+  new shared piece adds its roles there, so a change of look, or a theme
+  such as a colour-blind mode, changes a role, not every component
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC

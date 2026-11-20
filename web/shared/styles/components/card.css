@@ -1,7 +1,7 @@
 /* A translucent panel on the parchment, upstream's .rating-card. */
 .rating-card {
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
+  background: var(--panel-surface);
+  border: 1px solid var(--panel-edge);
   backdrop-filter: blur(4px);
   border-radius: 6px;
   box-shadow: 0 4px 20px var(--shadow);
@@ -21,13 +21,13 @@
 
 /* A panel of commentary about the data (Panel's stripe): gold for a summary or guide, green for a finding, bronze for a deep dive. */
 .panel-stripe {
-  border-left: 4px solid var(--accent-gold);
+  border-left: 4px solid var(--panel-stripe-gold);
 }
 .panel-stripe-green {
-  border-left-color: var(--win-edge);
+  border-left-color: var(--panel-stripe-green);
 }
 .panel-stripe-bronze {
-  border-left-color: var(--medal-bronze);
+  border-left-color: var(--panel-stripe-bronze);
 }
 
 /* A panel with a picture behind it (Panel's art), washed in the panel's colours. */
@@ -46,7 +46,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(var(--surface-panel), var(--surface-card));
+  background: var(--panel-art-wash);
 }
 .panel-art-body {
   position: relative;
