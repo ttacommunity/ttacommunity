@@ -42,7 +42,26 @@
   align-items: flex-start;
 }
 .page-header-text {
+  flex: 1;
   min-width: 0;
+}
+/* Centred (a player's pages): the title in the heading face, everything under it centred; the back link stays left. */
+.page-header-centred {
+  text-align: center;
+}
+.page-header-centred .page-header-title {
+  justify-content: center;
+  margin: 0.2rem 0 0.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 1px;
+  text-shadow:
+    0 2px 4px var(--shadow-deep),
+    0 4px 14px var(--shadow-deep);
+}
+.page-header-centred .page-header-subtitle {
+  margin-inline: auto;
 }
 
 @media (max-width: 768px) {

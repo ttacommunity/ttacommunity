@@ -14,12 +14,14 @@ interface Props {
   media?: ReactNode;
   /** The title's id, for a section labelled by it. */
   id?: string;
+  /** Centred, the title in the heading face, as a player's pages are. */
+  centred?: boolean;
   className?: string;
   children?: ReactNode;
 }
 
 /** PageHeader draws the title card; children follow the subtitle inside it. */
-export default function PageHeader({ title, icon, subtitle, back, above, media, id, className, children }: Props) {
+export default function PageHeader({ title, icon, subtitle, back, above, media, id, centred = false, className, children }: Props) {
   const text = (
     <>
       {back !== undefined && (
@@ -37,7 +39,7 @@ export default function PageHeader({ title, icon, subtitle, back, above, media, 
     </>
   );
   return (
-    <div className={`page-header${media === undefined ? '' : ' page-header-media'}${className === undefined ? '' : ` ${className}`}`}>
+    <div className={`page-header${media === undefined ? '' : ' page-header-media'}${centred ? ' page-header-centred' : ''}${className === undefined ? '' : ` ${className}`}`}>
       {media === undefined ? (
         text
       ) : (

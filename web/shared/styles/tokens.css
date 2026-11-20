@@ -21,6 +21,7 @@
   --text-soft: #cfbeab;
   --text-muted: #a89880;
   --text-on-gold: #120904;
+  --text-on-gold-soft: #5a3518;
   --text-bright: #fff;
   --border-subtle: #4a3525;
   /* Win and loss in the game's own colours: text in its lighter shades, edges and fills in its resource bar's. */
@@ -57,6 +58,7 @@
   --size-button: 0.9rem;
 
   /* The few strengths of gold wash, shadow and border, and the darker surfaces. */
+  --gold-glow: rgba(212, 175, 55, 0.08);
   --gold-wash-faint: rgba(229, 169, 60, 0.15);
   --gold-wash: rgba(229, 169, 60, 0.25);
   --gold-wash-strong: rgba(229, 169, 60, 0.4);

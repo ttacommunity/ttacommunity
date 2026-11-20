@@ -7,9 +7,11 @@ import SiteHeader from '../components/SiteHeader.astro';
 interface Props {
   title: string;
   description: string;
+  /** The page's width: full (the default), or narrow for a long document such as the FAQ. */
+  width?: 'full' | 'narrow';
 }
 
-const { title, description } = Astro.props;
+const { title, description, width = 'full' } = Astro.props;
 const crumbs = breadcrumb(Astro.url.pathname);
 ---
 <html lang="en">
@@ -25,7 +27,7 @@ const crumbs = breadcrumb(Astro.url.pathname);
   <body>
     <SiteHeader />
 
-    <main>
+    <main class:list={[{ 'main-narrow': width === 'narrow' }]}>
       {crumbs.length > 0 && (
         <nav class="breadcrumb" aria-label="Breadcrumb">
           <ol>
@@ -120,6 +122,11 @@ const crumbs = breadcrumb(Astro.url.pathname);
     max-width: 1400px;
     margin: 2rem auto;
     padding: 0 1.5rem;
+  }
+
+  /* A long document's page: 1120px of content inside main's padding. */
+  main.main-narrow {
+    max-width: calc(1120px + 3rem);
   }
 
   .site-footer {

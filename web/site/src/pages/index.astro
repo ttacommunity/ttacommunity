@@ -4,6 +4,7 @@ import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import HomePage from '../components/HomePage';
 import RunFigures from '../components/RunFigures';
+import HomeHeader from '../components/HomeHeader.astro';
 import '../components/HomePage.css';
 ---
 <SiteLayout
@@ -11,28 +12,9 @@ import '../components/HomePage.css';
   description="The official platform for the Through the Ages board game community: Glicko-D ratings, tournament circuits, Hall of Fame, and blitz matchmaking."
 >
   <div class="home-container">
-    <section class="home-hero">
-      <div class="home-hero-layout">
-        <div class="home-hero-logo-col">
-          <img
-            src="/img/HubLogo.png"
-            alt="Through the Ages Community"
-            class="home-hero-logo"
-            width="537"
-            height="460"
-          />
-        </div>
-        <div class="home-hero-content-col">
-          <h1 class="home-hero-title">Through the Ages Community</h1>
-          <p class="home-hero-subtitle">
-            The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
-            the World Championship Hall of Fame, and automated blitz matchmaking.
-          </p>
-
-          <RunFigures client:only="react" apiUrl={PUBLIC_API_URL} />
-        </div>
-      </div>
-    </section>
+    <HomeHeader>
+      <RunFigures client:only="react" apiUrl={PUBLIC_API_URL} />
+    </HomeHeader>
 
     <section class="home-pillars" aria-label="Core Sections">
       <div class="home-pillar-card">

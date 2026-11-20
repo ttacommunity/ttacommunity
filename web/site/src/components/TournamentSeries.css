@@ -1,25 +1,11 @@
 /* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
 
-.detail-hero {
-  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  position: relative;
-  box-shadow: 0 4px 20px var(--shadow-light);
+/* A tournament's page header (TournamentHero): the icon beside the title, the tagline above it, the description, the figures. */
+.tournament-tagline {
+  margin: 0 0 0.5rem;
 }
-.detail-hero-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.detail-hero-left {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
+.tournament-summary {
+  margin: 0.75rem 0 0;
 }
 .detail-hero-icon {
   font-size: 3.2rem;
@@ -28,31 +14,6 @@
   padding: 0.75rem;
   border-radius: 12px;
   border: 1px solid var(--gold-wash);
-}
-.detail-hero-title {
-  font-size: var(--size-page-title);
-  font-weight: 800;
-  color: var(--text-bright);
-  margin-bottom: 0.3rem;
-}
-.detail-hero-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  padding: 0.3rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  align-self: flex-start;
-}
-.detail-hero-desc {
-  color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1.6;
-  margin-top: 1rem;
-  max-width: 900px;
 }
 .detail-meta-grid {
   display: grid;
@@ -237,36 +198,8 @@
   scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
 
-/* Upstream's phone sizes for the hero name .tournament-hero, which the page does not use; applied to the hero it does, so a long series name fits (changed from upstream). */
-.detail-hero-left {
-  min-width: 0;
-}
-
-.detail-hero-title {
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 768px) {
-  .detail-hero {
-    padding: 1.25rem 1rem;
-  }
-
-  .detail-hero-title {
-    font-size: 1.45rem;
-  }
-}
 
 /* Upstream's inline styles, as classes. */
-.detail-hero-title {
-  margin: 0 0 0.3rem;
-}
-
-.detail-hero-subtitle {
-  color: var(--accent-gold);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
 .meta-box-val.meta-box-text {
   font-size: 0.95rem;
 }
