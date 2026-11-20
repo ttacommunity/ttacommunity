@@ -92,7 +92,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
   };
 
   return (
-    <>
+    <Panels>
       <Panel label="Your submission" className="challenges-card">
         <p>
           Submitting as <strong>{name}</strong> · <a href={challengePlayerHref(name)}>your challenges page</a>
@@ -193,7 +193,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           </button>
         )}
       </div>
-    </>
+    </Panels>
   );
 }
 
