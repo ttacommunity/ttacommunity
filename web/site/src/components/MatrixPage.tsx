@@ -194,7 +194,7 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
   return (
     <PlayerHeader
       player={player}
-      back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
+      back={{ href: profileHref(player.name, view), label: 'Player Profile' }}
       subtitle={
         <>
           Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>
