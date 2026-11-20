@@ -97,7 +97,7 @@ export default function AdminHeader({
         <div id="main-nav" className={open ? 'nav-drawer site-menu open' : 'nav-drawer site-menu'}>
           <div className="nav-mobile-header">
             <span className="nav-mobile-title">Menu</span>
-            <button type="button" className="nav-close-btn" aria-label="Close navigation" onClick={close}>
+            <button type="button" className="btn-icon nav-close-btn" aria-label="Close navigation" onClick={close}>
               ✕
             </button>
           </div>

@@ -39,22 +39,6 @@
   width: 100%;
 }
 
-.btn-reset {
-  padding: 0.2rem 0.5rem;
-  background: rgba(74, 53, 37, 0.6);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-family: var(--font-subheading);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.btn-reset:hover {
-  background: rgba(74, 53, 37, 0.9);
-  color: var(--text-main);
-}
-
 /* The filters line: pills for each active filter, and the sort. */
 .leaderboard-filters {
   display: flex;
@@ -207,37 +191,15 @@
   gap: 0.35rem;
 }
 
-.btn-exclude-row {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  padding: 0;
+/* The exclude button shows faintly on every row while searching, fully on the hovered row. */
+.row-exclude {
   margin-left: auto;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--text-muted);
-  font-size: 0.65rem;
-  cursor: pointer;
   opacity: 0.35;
-  transition: all 0.15s ease;
 }
 
-tr:hover .btn-exclude-row,
-.btn-exclude-row:focus-visible {
+tr:hover .row-exclude,
+.row-exclude:focus-visible {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--loss) 30%, transparent);
-  background: color-mix(in srgb, var(--loss) 10%, transparent);
-  color: var(--loss-light);
-}
-
-.btn-exclude-row:hover {
-  opacity: 1;
-  background: color-mix(in srgb, var(--loss) 30%, transparent);
-  border-color: color-mix(in srgb, var(--loss) 60%, transparent);
-  color: #fff;
 }
 
 /* Sortable headers are links, as upstream's. */
@@ -301,13 +263,9 @@ tr:hover .btn-exclude-row,
   color: var(--loss);
 }
 
-.btn-antique.download {
-  display: flex;
-  justify-content: center;
+/* The drawer's download fills its width. */
+.download {
   width: 100%;
-  padding: 0.6rem 0.5rem;
-  font-size: 0.82rem;
-  text-align: center;
 }
 
 .options-export-note {

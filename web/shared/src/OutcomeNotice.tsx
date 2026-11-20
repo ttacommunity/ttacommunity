@@ -15,7 +15,7 @@ export default function OutcomeNotice({ kind, text, onClose, scroll = true }: { 
         <span className="notice-text">{text}</span>
       </span>
       {onClose !== undefined && (
-        <button type="button" className="notice-close" aria-label="Close" onClick={onClose}>
+        <button type="button" className="btn-icon btn-compact" aria-label="Close" onClick={onClose}>
           ×
         </button>
       )}

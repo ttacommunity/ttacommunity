@@ -165,9 +165,6 @@
   gap: 0.75rem;
   margin-top: 1rem;
 }
-.admin-add > .btn-antique {
-  height: var(--control-height);
-}
 .admin-add h3 {
   width: 100%;
   font-family: var(--font-heading);
@@ -663,20 +660,10 @@
   position: static;
   margin-top: 4px;
 }
-/* A field or button that cannot be used now looks it, and a button does not light up. */
+/* A field that cannot be used now looks it (a button does through the shared button CSS). */
 .admin-main .input-antique:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-.admin-main .btn-antique:disabled,
-.admin-main .btn-antique:disabled:hover {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
-  border-color: var(--accent-gold);
-  box-shadow: none;
-  color: var(--text-main);
-  transform: none;
 }
 /* A note on when to use a control (InfoTip): an "i" beside it, the note opening under the row it is in. */
 .admin-add {

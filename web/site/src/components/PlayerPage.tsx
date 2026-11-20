@@ -549,7 +549,7 @@ function Rivals({
                   <strong className={r.win_rate >= 50 ? 'rival-rate good' : 'rival-rate bad'}>{r.win_rate.toFixed(1)}%</strong>
                 </td>
                 <td>
-                  <button type="button" className="btn-h2h-compare" onClick={(e) => setVersus({ other: r.name, opener: e.currentTarget })}>
+                  <button type="button" className="btn-antique btn-compact" onClick={(e) => setVersus({ other: r.name, opener: e.currentTarget })}>
                     <span aria-hidden="true">⚔️</span> Compare
                   </button>
                 </td>

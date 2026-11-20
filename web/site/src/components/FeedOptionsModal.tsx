@@ -160,7 +160,7 @@ export default function FeedOptionsModal({
 
                     <div className="feed-tourney-controls">
                       <select
-                        className="feed-division-select"
+                        className="input-antique feed-division-select"
                         value={t.division ?? ''}
                         onChange={(e) => changeDivision(idx, e.target.value)}
                         aria-label={`Division for ${t.name}`}
@@ -180,7 +180,7 @@ export default function FeedOptionsModal({
 
                       <button
                         type="button"
-                        className="feed-btn-add-division"
+                        className="btn-antique"
                         onClick={() => addDivision(t.slug)}
                         title={`Add another division for ${t.name}`}
                       >
@@ -189,7 +189,7 @@ export default function FeedOptionsModal({
 
                       <button
                         type="button"
-                        className="feed-row-remove"
+                        className="btn-icon"
                         onClick={() => removeTournament(idx)}
                         title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
                         aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
@@ -210,7 +210,7 @@ export default function FeedOptionsModal({
             {tournamentList.length > 0 && (
               <div className="feed-add-tourney-row">
                 <select
-                  className="feed-add-tourney-select"
+                  className="input-antique feed-add-tourney-select"
                   value=""
                   onChange={(e) => {
                     addTournament(e.target.value);
@@ -277,7 +277,7 @@ export default function FeedOptionsModal({
         <div className="feed-footer-left">
           <button
             type="button"
-            className="feed-btn-reset"
+            className="btn-quiet"
             onClick={resetToPremier}
             title="Preselect top divisions of IM, IC and RL"
           >
@@ -285,7 +285,7 @@ export default function FeedOptionsModal({
           </button>
           <button
             type="button"
-            className="feed-btn-reset"
+            className="btn-quiet"
             onClick={clearAll}
             title="Clear all filters"
           >
@@ -296,14 +296,14 @@ export default function FeedOptionsModal({
         <div className="feed-footer-right">
           <button
             type="button"
-            className="feed-btn-cancel"
+            className="btn-quiet"
             onClick={() => dialogRef.current?.close()}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="btn-antique feed-btn-apply"
+            className="btn-antique"
             onClick={handleApply}
           >
             Apply &amp; Save

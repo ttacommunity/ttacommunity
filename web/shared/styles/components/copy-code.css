@@ -17,15 +17,6 @@
   user-select: all;
 }
 
-.copy-code-btn {
-  padding: 2px 4px;
-  background: transparent;
-  border: none;
-  font-size: 0.85rem;
-  color: var(--accent-gold);
-  cursor: pointer;
-}
-
 .copy-code-note {
   font-size: 0.8rem;
   color: var(--accent-gold);

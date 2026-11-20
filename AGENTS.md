@@ -355,8 +355,13 @@ agent runs them itself.
   a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
   drawer (`SideDrawer`), note (`Note`), box inside a panel (`Inset`:
   content, a row of figures or a short line), formula box (`$$…$$`, or
-  `.formula` around several), and admin's `AdminPage`, `AdminCard` and
-  `AdminTable`. `/design` shows them all. A page's CSS sets only its own
+  `.formula` around several), buttons (`.btn-antique` for an action,
+  `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
+  cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a
+  table row or list), and admin's `AdminPage`, `AdminCard` and
+  `AdminTable`. `/design` shows them all. Buttons set the heights
+  (`--control-height`, `--control-height-compact`) and a field beside a
+  button shares its height (`.input-antique`). A page's CSS sets only its own
   layout (widths, alignment, spacing): it never redefines a shared class
   or puts a shared piece in a box of its own colour. A look a piece
   lacks is a change to that piece, on `/design`, agreed with the

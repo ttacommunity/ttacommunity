@@ -85,17 +85,6 @@
   flex: 1 1 14rem;
   min-width: 0;
 }
-/* A button that cannot be used now looks it, and does not light up, as in admin. */
-.account-form .btn-antique:disabled,
-.account-form .btn-antique:disabled:hover {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
-  border-color: var(--accent-gold);
-  box-shadow: none;
-  color: var(--text-muted);
-  transform: none;
-}
 .account-sign-out {
   margin-top: 1.5rem;
   padding-top: 1rem;

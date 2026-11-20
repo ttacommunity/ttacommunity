@@ -18,22 +18,12 @@
   font-size: 0.88rem;
 }
 
+/* The search icon sits inside the field, at its right. */
 .search-submit {
   position: absolute;
   top: 50%;
   right: 2px;
   transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: var(--accent-gold);
-  font-size: 0.9rem;
-  cursor: pointer;
 }
 
 .search-suggestions {
@@ -113,22 +103,6 @@
   color: var(--text-muted);
   font-size: 0.72rem;
   letter-spacing: 0.5px;
-}
-
-.search-clear {
-  padding: 0.35rem 0.6rem;
-  background: rgba(74, 53, 37, 0.6);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-family: var(--font-subheading);
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.search-clear:hover {
-  background: rgba(74, 53, 37, 0.9);
-  color: var(--text-main);
 }
 
 @media (max-width: 768px) {

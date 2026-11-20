@@ -8,7 +8,7 @@ export default function CopyCode({ code, className, what = 'replay code' }: { co
   return (
     <div className={className === undefined ? 'copy-code' : `copy-code ${className}`}>
       <code>{code}</code>
-      <button type="button" className="copy-code-btn" onClick={() => copy(code)} title={`Copy ${what}`} aria-label={`Copy ${what} ${code}`}>
+      <button type="button" className="btn-icon btn-compact" onClick={() => copy(code)} title={`Copy ${what}`} aria-label={`Copy ${what} ${code}`}>
         {copied === true ? '✓' : '📋'}
       </button>
       <span className="copy-code-note" aria-live="polite">

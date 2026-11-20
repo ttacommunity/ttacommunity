@@ -148,7 +148,7 @@ export default function SearchBox({
         onKeyDown={onKeyDown}
       />
       {!field && !fill && (
-        <button type="submit" className="search-submit" title="Search" aria-label="Search">
+        <button type="submit" className="btn-icon search-submit" title="Search" aria-label="Search">
           🔍
         </button>
       )}
@@ -201,7 +201,7 @@ export default function SearchBox({
     >
       {box}
       {value !== '' && (
-        <button type="button" className="search-clear" title="Clear search" onClick={() => onSearch?.('')}>
+        <button type="button" className="btn-icon" title="Clear search" onClick={() => onSearch?.('')}>
           ✕
         </button>
       )}

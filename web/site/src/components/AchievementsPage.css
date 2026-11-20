@@ -371,25 +371,6 @@
 .ach-action-cell {
   text-align: right;
 }
-.ach-view-btn {
-  background: rgba(30, 20, 14, 0.85);
-  border: 1px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-subheading);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.ach-view-btn:hover {
-  background: var(--surface-card);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  box-shadow: 0 0 6px var(--gold-wash);
-}
 .ach-drilldown-header {
   display: flex;
   align-items: center;
@@ -401,22 +382,6 @@
   background: var(--surface-well);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
-}
-.ach-back-btn {
-  background: rgba(30, 20, 14, 0.9);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-bright);
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.4rem 0.85rem;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.ach-back-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
 }
 .ach-drilldown-info {
   display: flex;
