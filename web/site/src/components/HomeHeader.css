@@ -34,7 +34,7 @@
 
 .home-hero-title {
   margin: 0 0 0.75rem;
-  color: var(--accent-gold);
+  color: var(--text-page-title);
   font-family: var(--font-heading);
   font-size: clamp(1.8rem, 3.2vw, 2.6rem);
   letter-spacing: 1px;

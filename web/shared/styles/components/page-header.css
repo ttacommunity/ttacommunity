@@ -23,7 +23,7 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0 0 0.5rem;
-  color: var(--accent-gold);
+  color: var(--text-page-title);
   font-size: var(--size-page-title);
   font-weight: 800;
 }

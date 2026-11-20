@@ -39,6 +39,9 @@
   --engine-std: #eab308;
   --engine-std-light: #fde047;
 
+  /* Roles: what a colour is for, pointing at the colours above. A component uses a role where one exists, so a change of look is one line here. */
+  --text-page-title: var(--accent-gold);
+
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;
   --font-subheading: 'Marcellus', serif;
