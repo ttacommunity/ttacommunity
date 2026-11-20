@@ -37,20 +37,6 @@
   margin-bottom: 0;
 }
 
-.faq-formula {
-  margin: 1rem 0;
-  padding: 0.95rem 1.35rem;
-  overflow-x: auto;
-  background: rgba(12, 8, 5, 0.92);
-  border: 1px solid var(--gold-wash-strong);
-  border-left: 4px solid var(--accent-gold);
-  border-radius: 4px;
-  box-shadow: inset 0 0 10px var(--shadow-deep);
-  color: #ffe6a3;
-  font-family: var(--font-stats);
-  font-size: 1rem;
-}
-
 .faq-list {
   margin-bottom: 0.75rem;
   margin-left: 1.5rem;
@@ -77,7 +63,6 @@
   text-shadow: 0 0 8px rgba(229, 169, 60, 0.6);
 }
 
-
 /* Upstream's inline styles as classes. Inline styles beat every rule, so these are prefixed to outrank the
    page's own rules above (such as .faq-card p) and keep upstream's result. Boxes, headings and rows by name: */
 
@@ -102,14 +87,6 @@
   margin: 1.5rem 0 0.75rem 0;
   border-bottom: 1px solid var(--gold-wash);
   padding-bottom: 0.35rem;
-}
-
-
-.faq-container .faq-section .faq-box {
-  background: rgba(14, 9, 6, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1rem 1.25rem;
 }
 
 .faq-container .faq-section .faq-box-head {
@@ -232,112 +209,10 @@
   background: rgba(229, 169, 60, 0.10);
 }
 
-.faq-container .faq-section .faq-lead {
-  margin: 0.5rem 0;
-  font-size: 0.98rem;
-  line-height: 1.7;
-  color: var(--text-main);
-}
-
 .faq-container .faq-section .faq-steps {
   margin-left: 1.5rem;
   color: var(--text-main);
   line-height: 1.75;
-}
-
-.faq-container .faq-section .faq-aside {
-  background: rgba(14, 9, 6, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin: 1rem 0;
-  font-size: 0.88rem;
-}
-
-.faq-container .faq-section .faq-aside-green {
-  background: rgba(14, 9, 6, 0.85);
-  border: 1px solid color-mix(in srgb, var(--win-edge) 60%, transparent);
-  border-left: 3px solid var(--win-edge);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin-bottom: 1.25rem;
-}
-
-.faq-container .faq-section .faq-aside-green-title {
-  color: var(--win-light);
-  font-family: var(--font-subheading);
-  font-size: 0.95rem;
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.faq-container .faq-section .faq-aside-text {
-  margin: 0;
-  font-size: 0.94rem;
-  color: var(--text-soft);
-  line-height: 1.65;
-}
-
-.faq-container .faq-section .faq-quote {
-  background: var(--gold-wash-faint);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin: 0.75rem 0;
-  font-style: italic;
-  color: var(--text-main);
-}
-
-.faq-container .faq-section .faq-verdict {
-  background: rgba(14, 9, 6, 0.9);
-  border: 1px solid var(--gold-wash-strong);
-  border-left: 4px solid var(--accent-gold);
-  padding: 1rem 1.25rem;
-  border-radius: 6px;
-  margin: 1rem 0;
-}
-
-.faq-container .faq-section .faq-takeaway {
-  background: rgba(45, 26, 12, 0.45);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.85rem 1.15rem;
-  margin-top: 1rem;
-  border-radius: 4px;
-}
-
-.faq-container .faq-section .faq-takeaway-title {
-  color: var(--accent-gold-light);
-  font-family: var(--font-subheading);
-  font-size: 1.05rem;
-}
-
-.faq-container .faq-section .faq-takeaway-text {
-  margin: 0.4rem 0 0.5rem 0;
-  font-size: 0.95rem;
-  color: var(--text-soft);
-}
-
-.faq-container .faq-section .faq-callout {
-  background: var(--gold-wash-faint);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.85rem 1.15rem;
-  border-radius: 4px;
-  margin: 1rem 0 1.5rem 0;
-}
-
-.faq-container .faq-section .faq-callout-title {
-  color: var(--accent-gold);
-  font-size: 0.95rem;
-  display: block;
-  margin-bottom: 0.35rem;
-}
-
-.faq-container .faq-section .faq-callout-text {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--text-soft);
-  line-height: 1.55;
 }
 
 .faq-container .faq-section .faq-stack {
@@ -356,7 +231,6 @@
 .faq-container .faq-section .mb-175 {
   margin-bottom: 1.75rem;
 }
-
 
 /* Upstream's inline styles: single declarations combined on cells, spans and text. */
 
@@ -438,10 +312,6 @@
 
 .faq-container .faq-section .my-50 {
   margin: 0.5rem 0;
-}
-
-.faq-container .faq-section .my-75 {
-  margin: 0.75rem 0;
 }
 
 .faq-container .faq-section .mt-85 {
@@ -571,10 +441,6 @@
   font-weight: 700;
 }
 
-.faq-container .faq-section .faq-lead-end {
-  margin: 0.5rem 0 0;
-}
-
 .faq-container .faq-section .faq-stack-tight {
   margin-bottom: 0.5rem;
 }
@@ -590,10 +456,5 @@
 @media (max-width: 768px) {
   .faq-nav {
     margin-bottom: 1.25rem;
-  }
-
-  .faq-formula {
-    padding: 0.75rem 0.85rem;
-    font-size: 0.9rem;
   }
 }

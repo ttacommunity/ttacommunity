@@ -10,6 +10,7 @@ import Sheet from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from '@ttac/shared/CopyCode';
+import Inset from './Inset';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
@@ -65,7 +66,7 @@ export default function VersusDialog({
         <Segmented label="Rating track" groupClass="format-bar h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
         <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
       </div>
-      <div className="h2h-stats">
+      <Inset form="figures" className="h2h-stats">
         {tally === null ? (
           <span className="h2h-muted">Fetching exclusive game records...</span>
         ) : (
@@ -88,7 +89,7 @@ export default function VersusDialog({
             </div>
           </>
         )}
-      </div>
+      </Inset>
       <div className="sheet-body">
         <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (

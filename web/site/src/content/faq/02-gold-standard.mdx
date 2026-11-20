@@ -52,7 +52,7 @@ import Panel from '../../components/Panel';
   <p>
     In board games with $N \in \{2, 3, 4\}$ players, a single table is conventionally decomposed into $\binom{N}{2}$ pairwise matchups:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 \binom{2}{2} = 1 \text{ pair (2P)}, \quad \binom{3}{2} = 3 \text{ pairs (3P)}, \quad \binom{4}{2} = 6 \text{ pairs (4P)}
@@ -65,7 +65,7 @@ $$
   <p>
     DANeo establishes that information decomposition across competing entities naturally follows the <strong>Golden Ratio ($\phi \approx 1.61803398875$)</strong>, the fundamental mathematical constant governing self-similar recursive partitioning:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 W(N) = \phi^{N-2} \quad \text{(Total Effective 1v1 Match Equivalents)}
@@ -75,7 +75,7 @@ $$
   <p>
     Dividing the total effective information $W(N)$ equally across the $N - 1$ pairwise comparisons faced by each player yields the exact pairwise weighting factor $w_N$:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 w_N = \frac{\phi^{N-2}}{N - 1} \implies \begin{cases} w_2 = \dfrac{\phi^0}{1} = 1.0000 & \text{(2-Player: Pure Glicko-2)} \\[8pt] w_3 = \dfrac{\phi^1}{2} = \dfrac{\phi}{2} \approx 0.8090 & \text{(3-Player)} \\[8pt] w_4 = \dfrac{\phi^2}{3} = \dfrac{\phi + 1}{3} \approx 0.8727 & \text{(4-Player)} \end{cases}
@@ -94,7 +94,7 @@ $$
     <li><strong>Coulom Fractional Weighting ($w = \frac{1}{N-1}$):</strong> Yields $(N-1) \times \frac{1}{N-1} \equiv 1.0$ match equivalent per player across all formats. While mathematically clean, this under-rewards multiplayer play: dominating three opponents simultaneously in a 4-player game provides strictly richer statistical evidence than winning a 1v1 duel, yet Coulom values them identically.</li>
     <li>
 <span><strong>Golden Ratio Decomposition ($w_N = \frac{\phi^{N-2}}{N-1}$):</strong> Yields $W(N) = \phi^{N-2}$ effective 1v1 match equivalents per player:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 W(2) = 1.000 \text{ eq.}, \quad W(3) = \phi \approx 1.618 \text{ eq.}, \quad W(4) = \phi^2 = \phi + 1 \approx 2.618 \text{ eq.}
@@ -114,7 +114,7 @@ $$
   <p>
     When subtracting effective evidence $W(N) = \phi^{N-2}$ from the nominal pairwise comparisons faced by each player $(N - 1)$, we discover an invariant information-balancing property:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 \Delta(N) = (N - 1) - \phi^{N-2} \equiv \phi^{-2} = 2 - \phi \approx 0.381966 \quad \forall N \in \{3, 4\}
@@ -128,7 +128,7 @@ $$
   <ol class="faq-list ml-125">
     <li>
 <span><strong>The Golden Ratio Identity ($\phi^{-2} = 2 - \phi$):</strong><br /> By definition, $\phi^2 = \phi + 1$. Dividing both sides by $\phi^2$ gives $1 = \phi^{-1} + \phi^{-2}$, which implies $\phi^{-2} = 1 - \phi^{-1}$.<br /> Dividing $\phi^2 = \phi + 1$ by $\phi$ gives $\phi = 1 + \phi^{-1} \implies \phi^{-1} = \phi - 1$.<br /> Substituting $\phi^{-1}$ into $\phi^{-2}$:</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \phi^{-2} = 1 - (\phi - 1) = 2 - \phi \approx 2 - 1.618034 = 0.381966
@@ -138,7 +138,7 @@ $$
 </li>
     <li>
 <span><strong>For 3-Player Games ($N = 3$):</strong><br /> With $N = 3$, nominal faced comparisons are $3 - 1 = 2$, and effective evidence is $\phi^{3-2} = \phi^1 = \phi$.</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \Delta(3) = (3 - 1) - \phi^1 = 2 - \phi = \phi^{-2} \approx 0.381966
@@ -148,7 +148,7 @@ $$
 </li>
     <li>
 <span><strong>For 4-Player Games ($N = 4$):</strong><br /> With $N = 4$, nominal faced comparisons are $4 - 1 = 3$, and effective evidence is $\phi^{4-2} = \phi^2 = \phi + 1$.</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \Delta(4) = (4 - 1) - \phi^2 = 3 - (\phi + 1) = 2 - \phi = \phi^{-2} \approx 0.381966

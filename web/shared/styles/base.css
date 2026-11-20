@@ -34,6 +34,15 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* A quotation in prose (Markdown "> …"): a stripe and italics, no box. */
+blockquote {
+  margin: 1rem 0;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 3px solid var(--quote-edge);
+  color: var(--quote-text);
+  font-style: italic;
+}
+
 /* Secondary text: a hint, a note under a control, an empty list. */
 .muted {
   color: var(--text-muted);

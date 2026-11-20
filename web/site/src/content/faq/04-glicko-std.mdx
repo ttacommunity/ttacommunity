@@ -43,7 +43,7 @@ import Panel from '../../components/Panel';
     In Glicko-2, opponents' uncertainties are factored directly into expected win probability through the shrinkage factor $g(\phi)$:
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 g(\phi_j) = \frac{1}{\sqrt{1 + 3q^2 \phi_j^2 / \pi^2}}, \quad q = \frac{\ln(10)}{400}
@@ -55,7 +55,7 @@ $$
     The variance $v$ and rating adjustment $\Delta \mu$ are then computed from match outcomes $s_j \in \{1.0, 0.5, 0.0\}$:
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 v = \left[ \sum_{j} g(\phi_j)^2 E(\mu, \mu_j, \phi_j) \left(1 - E(\mu, \mu_j, \phi_j)\right) \right]^{-1}

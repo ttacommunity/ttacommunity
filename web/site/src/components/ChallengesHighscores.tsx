@@ -9,6 +9,7 @@ import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
 import Panel from './Panel';
 import Panels from './Panels';
+import Inset from './Inset';
 import PageHeader from '@ttac/shared/PageHeader';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -87,9 +88,9 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
   return (
     <Panels>
       {setScope && (
-        <p className="challenges-set-totals">
+        <Inset form="figures">
           <TotalsLine scope={setScope} measure={measure} />
-        </p>
+        </Inset>
       )}
 
       {view === 'compact' ? (

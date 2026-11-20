@@ -12,6 +12,7 @@
   --accent-gold: #e5a93c;
   --accent-gold-light: #ffde8a;
   --accent-gold-deep: #b87c1c;
+  --gold-pale: #ffe6a3;
   --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
   --accent-crimson: #8e1e1d;
   /* The crimson button's gradient stops (top, bottom, top on hover) and its light edge on hover. */
@@ -62,6 +63,24 @@
   --tag-text: var(--accent-gold);
   --tag-surface: var(--gold-wash-faint);
   --tag-edge: var(--gold-wash);
+  /* A note in front of the reader (Note), and its warning tone. Notes, insets and formula boxes share the well's colour. */
+  --note-surface: var(--surface-well);
+  --note-edge: var(--accent-gold);
+  --note-title: var(--accent-gold);
+  --note-warning-edge: var(--loss-edge);
+  --note-warning-title: var(--loss);
+  /* A box inside a panel or on the page (Inset): a group of content, a row of figures, a short line. */
+  --inset-surface: var(--surface-well);
+  --inset-edge: var(--border-subtle);
+  --inset-text: var(--text-muted);
+  --inset-figure: var(--text-main);
+  /* A formula's box, and a quotation in prose. */
+  --formula-surface: var(--surface-well);
+  --formula-edge: var(--gold-wash-strong);
+  --formula-stripe: var(--accent-gold);
+  --formula-text: var(--gold-pale);
+  --quote-edge: var(--accent-gold);
+  --quote-text: var(--text-soft);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;

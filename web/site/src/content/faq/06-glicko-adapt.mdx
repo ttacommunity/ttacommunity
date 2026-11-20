@@ -7,18 +7,16 @@ order: 6
 {/* Written by DANeo for the original ratings site. */}
 
 import Panel from '../../components/Panel';
+import Note from '@ttac/shared/Note';
 
 <Panel title="Glicko-2 Adaptive-T: Dynamic Probability Temperature Scaling" stripe="green" className="faq-card">
   <div>
 
-      <div class="faq-aside-green">
-    <strong class="faq-aside-green-title">
-      💡 Conceptual Origin &amp; Attribution
-    </strong>
-    <p class="faq-aside-text">
+  <Note title="💡 Conceptual Origin & Attribution">
+    <p>
       The <strong>Adaptive-T</strong> mathematical engine was conceptualized and derived by <strong>DANeo</strong> to solve the systemic overconfidence observed in classical logistic rating curves. It builds directly upon the foundation of our best-performing baseline, the <strong>Glicko-2 MP-Weighted</strong> engine, adding a calibrated temperature scaling layer $T(P, N)$.
     </p>
-  </div>
+  </Note>
 
   <h4 class="faq-subhead">
     1\. How We Arrived at the Model: The Discovery of Tail Overconfidence
@@ -40,9 +38,9 @@ import Panel from '../../components/Panel';
     The core concept behind Adaptive-T came from a simple, geometric question when inspecting our empirical calibration curves:
   </p>
 
-  <div class="faq-quote">
+  <blockquote>
     &ldquo;On a calibration chart, perfect prediction is an exact 45&deg; diagonal line where the slope is always 1.0. When our empirical curve droops in the tails, why not dynamically bend the slope back to 1.0 across the curve, squeezing the area difference between reality and the diagonal to zero?&rdquo;
-  </div>
+  </blockquote>
 
   <p>
     In statistics, that &ldquo;area difference&rdquo; is precisely what <strong>Expected Calibration Error (ECE)</strong> measures. In standard Glicko-2, the curve matches reality very well near 50/50, but as ratings diverge, the slope flattens out (&Delta;Actual / &Delta;Predicted &lt; 1.0). The engine might predict an 88% chance of victory, but the favorite only wins 81% because Through the Ages has unavoidable card-draw and event variance.
@@ -56,7 +54,7 @@ import Panel from '../../components/Panel';
     </li>
     <li>
 <span><strong>Measure the Drift from Parity:</strong> We measure how far a matchup drifts from an even coin flip via normalized deviation:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 \delta = 2 \cdot (P_{\text{fav}} - 0.5) \in [0.0, 1.0]
@@ -66,7 +64,7 @@ $$
 </li>
     <li>
 <span><strong>Dynamically Bend the Tail:</strong> As confidence rises, the model gently scales the match logit by an adaptive thermal factor:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 T(P_{\text{fav}}, N) = 1.0 + \alpha_N \cdot \delta^{\gamma_N}
@@ -74,7 +72,7 @@ $$
 
 </div>
 <span>The calibrated expectation $E^*(x)$ divides the standard Glicko logit $x = g(\mathrm{RD}_j) \cdot (\mu_i - \mu_j)$ by this factor:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 E^*(x) = \frac{1}{1 + \exp\left(-\frac{x}{T(P_{\text{fav}}, N)}\right)}

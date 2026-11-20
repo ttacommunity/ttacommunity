@@ -598,38 +598,6 @@
   color: var(--accent-gold);
 }
 
-.career-peaks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  margin: 0.6rem 0;
-  padding: 0.6rem 0.85rem;
-  background: rgba(18, 12, 8, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-}
-
-.career-peak-label,
-.career-peak-date {
-  color: var(--text-muted);
-}
-
-.career-peak-date {
-  font-size: 0.8rem;
-}
-
-.career-peak-rating {
-  color: var(--accent-gold);
-}
-
-.career-peak-rank {
-  margin-left: 0.2rem;
-  font-weight: 700;
-  color: var(--accent-gold);
-}
-
 .career-notes {
   margin-top: 0.4rem;
   margin-left: 1.25rem;
@@ -694,14 +662,7 @@
 }
 
 .h2h-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(18, 12, 8, 0.7);
-  border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
+  margin: 1rem 1.25rem 0;
 }
 
 .h2h-total {
@@ -763,15 +724,7 @@
 }
 
 .position-delta-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.25rem;
   margin-bottom: 1.25rem;
-  padding: 0.85rem 1.25rem;
-  background: var(--surface-card-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
 
 .position-banner-metric {
