@@ -10,6 +10,7 @@ import Waiting from './Waiting';
 import Panel from './Panel';
 import Panels from './Panels';
 import Inset from './Inset';
+import Tile, { TileLink } from './Tile';
 import PageHeader from '@ttac/shared/PageHeader';
 import ScrollTable from './ScrollTable';
 
@@ -138,14 +139,11 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
             >
               <div className="challenges-cards">
                 {g.challenges.map((c) => (
-                  <div key={c.id} className="challenges-tile">
-                    <a href={challengeHref(c.id)} aria-label={c.name}>
-                      <img className="challenges-tile-img" src={challengePicture(c.id)} alt="" loading="lazy" width={340} height={284} />
-                    </a>
+                  <Tile key={c.id} picture={<img className="challenges-tile-img" src={challengePicture(c.id)} alt="" loading="lazy" width={340} height={284} />}>
                     <div className="challenges-tile-body">
-                      <a className="challenges-tile-title" href={challengeHref(c.id)}>
-                        {c.name}
-                      </a>
+                      <TileLink href={challengeHref(c.id)}>
+                        <span className="challenges-tile-title">{c.name}</span>
+                      </TileLink>
                       <div className="challenges-tile-meta">
                         {c.players}P <Difficulty value={c.difficulty} /> <span className="muted">{c.entrants} players</span>
                       </div>
@@ -153,7 +151,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
                         <Holder challenge={c} />
                       </div>
                     </div>
-                  </div>
+                  </Tile>
                 ))}
               </div>
             </Panel>

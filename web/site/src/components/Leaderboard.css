@@ -173,17 +173,13 @@ tr:hover .row-exclude,
 }
 
 /* The season archive: its banner and the drawer's year pills. */
-.archive-hero-banner {
+.archive-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  padding: 1rem 1.25rem;
-  background: linear-gradient(135deg, rgba(35, 22, 14, 0.95), rgba(20, 13, 9, 0.95));
-  border: 1px solid var(--gold-wash-strong);
-  border-radius: 6px;
 }
 
 .archive-head {
@@ -236,10 +232,6 @@ tr:hover .row-exclude,
 }
 
 .archive-champion {
-  padding: 0.6rem 1rem;
-  background: var(--shadow-light);
-  border-left: 3px solid var(--accent-gold);
-  border-radius: 6px;
   text-align: right;
 }
 

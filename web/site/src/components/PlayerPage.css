@@ -22,28 +22,7 @@
   gap: 1.5rem;
 }
 
-.model-card {
-  padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  backdrop-filter: blur(4px);
-  transition:
-    transform 0.2s,
-    border-color 0.2s;
-}
-
-.model-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-}
-
-.model-card.active-card {
-  border: 1px solid var(--accent-gold);
-  box-shadow: 0 4px 15px var(--gold-wash);
-}
-
-.model-card h3 {
+.format-card-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -87,68 +66,12 @@
 .model-card-caption {
   margin-top: 0.4rem;
   font-size: 0.8rem;
-  color: #887864;
-}
-
-/* A format card is a link to that format. */
-.model-card.format-card {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  color: var(--text-muted);
 }
 
 .format-card-none {
   font-size: 1.05rem;
   font-weight: normal;
-  color: var(--text-muted);
-}
-
-/* GlickoD's card: upstream's gold gradient. */
-.model-card.card-daneo {
-  border: 1.5px solid var(--accent-gold-deep);
-  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95) 0%, var(--surface-well) 100%);
-  box-shadow:
-    0 4px 18px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 var(--gold-wash);
-}
-
-.card-daneo h3 {
-  color: var(--accent-gold);
-}
-
-.card-daneo .badge-rank {
-  background: #332211;
-  color: var(--accent-gold);
-  border: 1.5px solid var(--accent-gold-deep);
-  font-weight: 700;
-}
-
-.card-daneo .rating-number {
-  color: var(--accent-gold-light);
-  font-weight: 800;
-}
-
-.card-daneo .rd-tag {
-  color: #c7a76d;
-}
-
-.card-daneo .c-rating-box {
-  border-top-color: rgba(184, 134, 11, 0.4);
-}
-
-.card-daneo .c-rating-box span {
-  color: #bfaea0;
-}
-
-.card-daneo .c-rating-box strong {
-  color: var(--accent-gold);
-}
-
-.card-daneo .model-card-caption {
   color: var(--text-muted);
 }
 
@@ -414,81 +337,9 @@
   color: #fff3db;
 }
 
-/* Featured accolades, on the career box and the achievements page, as upstream's base.html. */
-.career-honors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0.6rem;
-  margin: 0.8rem 0 1rem 0;
-}
-.career-honor-badge {
-  background: rgba(18, 12, 8, 0.92);
-  border: 1px solid var(--accent-gold-deep);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.45rem 0.85rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  box-shadow: 0 2px 6px var(--shadow);
-}
-.honor-star {
-  color: var(--accent-gold);
-  font-size: 1rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.honor-text {
-  font-family: var(--font-subheading);
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #f7dfa5;
-  white-space: normal;
-}
-
 .career-peak-note {
   font-weight: 600;
   color: var(--accent-gold);
-}
-
-.career-season {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0.8rem 0;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--gold-wash-faint) 0%, rgba(30, 20, 14, 0.8) 100%);
-  border: 1.5px solid var(--accent-gold);
-  border-radius: 6px;
-}
-
-.career-season-main {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.career-season-icon {
-  font-size: 1.8rem;
-}
-
-.career-season-title {
-  font-family: var(--font-heading);
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--accent-gold);
-}
-
-.badge.badge-season {
-  margin-left: 0.4rem;
-}
-
-.career-season-stats {
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-main);
 }
 
 .career-season-peak {

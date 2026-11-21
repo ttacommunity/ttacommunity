@@ -7,6 +7,7 @@ import { runYears } from '../lib/player-view';
 import { Flag, TitleBadge } from './PlayerMarks';
 import Panel from './Panel';
 import Panels from './Panels';
+import Inset from './Inset';
 import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
@@ -41,7 +42,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
   const formats = formatCards(a.formats);
 
   return (
-    <>
+    <Panels>
       <MetricGrid>
         <MetricCard label="Active Players (12m)" value={count(a.active)} note={<>{pct(a.active)}% active retention</>} tone="win" />
         <MetricCard label="Inactive / Retired" value={count(a.inactive)} note={<>{pct(a.inactive)}% inactive (&gt;12m)</>} tone="muted" />
@@ -49,75 +50,73 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <MetricCard label="All Recorded Competitors" value={count(total)} note="Unique tournament players" tone="sky" />
       </MetricGrid>
 
-      <Panels>
-        <div className="activity-columns">
-          <Panel id="activity-formats" title="Matches by Game Format" subtitle="Distribution of competitive tournaments across player counts.">
-            <div className="activity-list">
-              {formats.cards.map((f) => (
-                <div key={f.format} className="activity-item">
-                  <div>
-                    <strong>{f.name}</strong>
-                    <div className="activity-item-note">{f.note}</div>
-                  </div>
-                  <div className="activity-item-value">{count(f.games)}</div>
+      <div className="activity-columns">
+        <Panel id="activity-formats" title="Matches by Game Format" subtitle="Distribution of competitive tournaments across player counts.">
+          <div className="activity-list">
+            {formats.cards.map((f) => (
+              <Inset key={f.format} className="activity-item">
+                <div>
+                  <strong>{f.name}</strong>
+                  <div className="activity-item-note">{f.note}</div>
                 </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel id="activity-titles" title="Official Tournament Titles" subtitle="Awarded for top finishes in official World Championships & continental championships.">
-            <div className="activity-list">
-              {a.titles.map((t) => (
-                <div key={t.code} className="activity-item">
-                  <div className="activity-title">
-                    <TitleBadge title={{ code: t.code }} className="activity-badge" />
-                    <strong>{titleLabel(t.code)}</strong>
-                  </div>
-                  <div className="activity-item-value activity-title-count">{t.players} players</div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
-
-        <Panel
-          id="activity-countries"
-          title="Top 15 Countries by Player Participation & Title Rating Depth"
-          subtitle="Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort."
-        >
-          <ScrollTable label="Countries">
-            <table className="leaderboard-table activity-table">
-              <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
-              <thead>
-                <tr>
-                  {COLUMNS.map((c) => (
-                    <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} align={c.col === 'country' ? 'start' : undefined}>
-                      <span data-tooltip={c.tip}>{c.label}</span>
-                    </SortHeader>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {countries.map((c) => (
-                  <tr key={c.country}>
-                    <td className="country-rank">#{c.rank}</td>
-                    <td className="col-start activity-country">
-                      <span className="country-flag">
-                        <Flag country={c.country} />
-                      </span>
-                    </td>
-                    <td className="country-players">{c.players}</td>
-                    <td className="avg-gm">{avg(c.gm)}</td>
-                    <td className="avg-m">{avg(c.m_plus)}</td>
-                    <td className="avg-p">{avg(c.p_plus)}</td>
-                    <td className="avg-all">{avg(c.all)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ScrollTable>
+                <div className="activity-item-value">{count(f.games)}</div>
+              </Inset>
+            ))}
+          </div>
         </Panel>
-      </Panels>
-    </>
+
+        <Panel id="activity-titles" title="Official Tournament Titles" subtitle="Awarded for top finishes in official World Championships & continental championships.">
+          <div className="activity-list">
+            {a.titles.map((t) => (
+              <Inset key={t.code} className="activity-item">
+                <div className="activity-title">
+                  <TitleBadge title={{ code: t.code }} className="activity-badge" />
+                  <strong>{titleLabel(t.code)}</strong>
+                </div>
+                <div className="activity-item-value activity-title-count">{t.players} players</div>
+              </Inset>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <Panel
+        id="activity-countries"
+        title="Top 15 Countries by Player Participation & Title Rating Depth"
+        subtitle="Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort."
+      >
+        <ScrollTable label="Countries">
+          <table className="leaderboard-table activity-table">
+            <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
+            <thead>
+              <tr>
+                {COLUMNS.map((c) => (
+                  <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} align={c.col === 'country' ? 'start' : undefined}>
+                    <span data-tooltip={c.tip}>{c.label}</span>
+                  </SortHeader>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {countries.map((c) => (
+                <tr key={c.country}>
+                  <td className="country-rank">#{c.rank}</td>
+                  <td className="col-start activity-country">
+                    <span className="country-flag">
+                      <Flag country={c.country} />
+                    </span>
+                  </td>
+                  <td className="country-players">{c.players}</td>
+                  <td className="avg-gm">{avg(c.gm)}</td>
+                  <td className="avg-m">{avg(c.m_plus)}</td>
+                  <td className="avg-p">{avg(c.p_plus)}</td>
+                  <td className="avg-all">{avg(c.all)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollTable>
+      </Panel>
+    </Panels>
   );
 }

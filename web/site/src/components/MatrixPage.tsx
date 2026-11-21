@@ -26,6 +26,7 @@ import { TitleBadge } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
 import Panel from './Panel';
 import Panels from './Panels';
+import PeakSeason from './PeakSeason';
 
 const ADDRESS: Address<MatrixView> = {
   parse: parseMatrixView,
@@ -74,35 +75,23 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
       <Panels>
         {best !== null && (
-          <div className="peak-year-card">
-            <div className="peak-year-badge" aria-hidden="true">
-              👑
-            </div>
-            <div className="peak-year-body">
-              <div className="peak-year-kicker">Career Benchmark Evaluation</div>
-              <div className="peak-year-title">
-                Peak Career Season: <span className="peak-year-year">{best.year}</span>
-                {best.title !== null && <TitleBadge title={{ code: best.title }} long className="badge-small" />}
-              </div>
-              <div className="peak-year-text">
-                In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
-                <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
-                {best.peak_rating ? (
-                  <>
-                    {' '}
-                    with a seasonal peak rating of <strong className="peak-year-rating">{best.peak_rating.toFixed(1)}</strong>
-                  </>
-                ) : null}
-                {best.title !== null && (
-                  <>
-                    {' '}
-                    competing in the <strong>{show.titleName(best.title)}</strong> division
-                  </>
-                )}{' '}
-                (Composite Performance Index: <strong className="peak-year-score">{best.score.toFixed(1)} pts</strong>).
-              </div>
-            </div>
-          </div>
+          <PeakSeason season={best} icon="👑" kicker="Career Benchmark Evaluation">
+            In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
+            <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
+            {best.peak_rating ? (
+              <>
+                {' '}
+                with a seasonal peak rating of <strong className="peak-year-rating">{best.peak_rating.toFixed(1)}</strong>
+              </>
+            ) : null}
+            {best.title !== null && (
+              <>
+                {' '}
+                competing in the <strong>{show.titleName(best.title)}</strong> division
+              </>
+            )}{' '}
+            (Composite Performance Index: <strong className="peak-year-rating">{best.score.toFixed(1)} pts</strong>).
+          </PeakSeason>
         )}
 
         <Panel

@@ -26,6 +26,7 @@ import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import Highlight from './Highlight';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
@@ -64,97 +65,96 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         </div>
       </PageHeader>
 
-      <div className="podium-preview-card">
-        <h2 className="podium-preview-title">
-          <span>👑</span> World Championship Hall of Fame &amp; Annual Podiums
-        </h2>
-        <p className="podium-intro">
-          The official annual World Championship crowns the definitive global Through the Ages champion. Below are the verified
-          podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
-        </p>
-        <div className="champions-highlight-grid">
-          {finals
-            .filter((s) => s.in_champions && s.podium.length > 0)
-            .slice()
-            .reverse()
-            .map((s) => {
-              const gold = s.podium.find((p) => p.place === 1);
-              const silver = s.podium.find((p) => p.place === 2);
-              const bronze = s.podium.find((p) => p.place === 3);
+      <Panels>
+        <Panel id="hof-world-championship" icon="👑" title="World Championship Hall of Fame & Annual Podiums">
+          <p className="podium-intro">
+            The official annual World Championship crowns the definitive global Through the Ages champion. Below are the verified
+            podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
+          </p>
+          <div className="champions-highlight-grid">
+            {finals
+              .filter((s) => s.in_champions && s.podium.length > 0)
+              .slice()
+              .reverse()
+              .map((s) => {
+                const gold = s.podium.find((p) => p.place === 1);
+                const silver = s.podium.find((p) => p.place === 2);
+                const bronze = s.podium.find((p) => p.place === 3);
+                return (
+                  <Highlight key={s.label}>
+                    <div className="wcs-podium-card">
+                      <div className="champ-highlight-avatar">🏆</div>
+                      <div className="champ-highlight-info">
+                        <div className="wcs-edition-title">World Championship {s.label}</div>
+                        <div className="wcs-podium-places">
+                          {gold && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WC' }} />
+                              <PlayerLink name={gold.name} className="champ-highlight-name" />
+                            </div>
+                          )}
+                          {silver && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WCS' }} />
+                              <PlayerLink name={silver.name} className="podium-runner-up" />
+                            </div>
+                          )}
+                          {bronze && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WCB' }} />
+                              <PlayerLink name={bronze.name} className="podium-third" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Highlight>
+                );
+              })}
+          </div>
+        </Panel>
+
+        <div className="series-grid">
+          {MAJORS.map((m) => {
+            const entry = tournaments.find((t) => t.slug === m.slug);
             return (
-              <div key={s.label} className="champ-highlight-box wcs-podium-card">
-                <div className="champ-highlight-avatar">🏆</div>
-                <div className="champ-highlight-info">
-                  <div className="wcs-edition-title">World Championship {s.label}</div>
-                  <div className="wcs-podium-places">
-                    {gold && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WC' }} />
-                        <PlayerLink name={gold.name} className="champ-highlight-name" />
-                      </div>
-                    )}
-                    {silver && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WCS' }} />
-                        <PlayerLink name={silver.name} className="podium-runner-up" />
-                      </div>
-                    )}
-                    {bronze && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WCB' }} />
-                        <PlayerLink name={bronze.name} className="podium-third" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <TournamentCard
+                key={m.slug}
+                href={seriesHref(m.slug)}
+                name={m.name}
+                card={cardView(entry?.card)}
+                rows={entry !== undefined ? entryRows(entry) : [['Recorded Database Matches', '…']]}
+                cta="View Champions, Rules & Games"
+              />
             );
           })}
+          {CIRCUITS.map((slug) => {
+            const c = count(slug);
+            const circuit = data?.circuits.find((x) => x.series === slug);
+            return (
+              <TournamentCard
+                key={slug}
+                href={seriesHref(slug)}
+                name={circuit?.name ?? SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug}
+                card={cardView(circuit?.card)}
+                rows={[
+                  ['Structure & Cadence', circuit ? circuit.card.cadence : '…'],
+                  ['Active History', circuit ? circuitEra(circuit.first_game) : '…'],
+                  ['Recorded Database Matches', c ? seriesGames(c) : '…'],
+                ]}
+                cta="View Board & Tournaments"
+              />
+            );
+          })}
+          <TournamentCard
+            href={catalogueHref()}
+            name="Every Tournament"
+            card={cardView({ icon: '📜', tagline: '', subtitle: '', cadence: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
+            rows={[]}
+            cta="View Every Tournament"
+          />
         </div>
-      </div>
 
-      <div className="series-grid">
-        {MAJORS.map((m) => {
-          const entry = tournaments.find((t) => t.slug === m.slug);
-          return (
-            <TournamentCard
-              key={m.slug}
-              href={seriesHref(m.slug)}
-              name={m.name}
-              card={cardView(entry?.card)}
-              rows={entry !== undefined ? entryRows(entry) : [['Recorded Database Matches', '…']]}
-              cta="View Champions, Rules & Games"
-            />
-          );
-        })}
-        {CIRCUITS.map((slug) => {
-          const c = count(slug);
-          const circuit = data?.circuits.find((x) => x.series === slug);
-          return (
-            <TournamentCard
-              key={slug}
-              href={seriesHref(slug)}
-              name={circuit?.name ?? SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug}
-              card={cardView(circuit?.card)}
-              rows={[
-                ['Structure & Cadence', circuit ? circuit.card.cadence : '…'],
-                ['Active History', circuit ? circuitEra(circuit.first_game) : '…'],
-                ['Recorded Database Matches', c ? seriesGames(c) : '…'],
-              ]}
-              cta="View Board & Tournaments"
-            />
-          );
-        })}
-        <TournamentCard
-          href={catalogueHref()}
-          name="Every Tournament"
-          card={cardView({ icon: '📜', tagline: '', subtitle: '', cadence: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
-          rows={[]}
-          cta="View Every Tournament"
-        />
-      </div>
-
-      <Panels>
         <Panel
           id="hof-majors"
           icon="👑"

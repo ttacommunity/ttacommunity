@@ -56,23 +56,25 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
       {load.kind !== 'ready' ? (
         load.kind === 'missing' ? <Missing /> : <Waiting load={load} what="the tournaments" />
       ) : (
-        <div className="series-grid">
-          {load.data.tournaments.map((t) => {
-            const major = majorName(t.slug);
-            return (
-              <TournamentCard
-                key={t.slug}
-                href={catalogueHref(t.slug)}
-                name={shownName(major ?? t.name, t.rankings.length > 0)}
-                card={cardView(t.card)}
-                rows={entryRows(t)}
-                cta={major !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
-              />
-            );
-          })}
-        </div>
+        <Panels>
+          <div className="series-grid">
+            {load.data.tournaments.map((t) => {
+              const major = majorName(t.slug);
+              return (
+                <TournamentCard
+                  key={t.slug}
+                  href={catalogueHref(t.slug)}
+                  name={shownName(major ?? t.name, t.rankings.length > 0)}
+                  card={cardView(t.card)}
+                  rows={entryRows(t)}
+                  cta={major !== undefined ? 'View Champions, Rules & Games' : 'View Champions & Games'}
+                />
+              );
+            })}
+          </div>
+          <CgeList data={load.data} />
+        </Panels>
       )}
-      {load.kind === 'ready' && <CgeList data={load.data} />}
     </>
   );
 }

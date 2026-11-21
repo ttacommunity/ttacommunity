@@ -72,14 +72,14 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
   return (
     <>
       {bar}
-      <MetricGrid>
-        <MetricCard label="Analyzed Matches" value={count(totalGames)} note="Full corpus sample" tone="win" />
-        <MetricCard label="4-Player Seat 1 vs 4" value={delta4P !== null ? seatDeltaText(delta4P) : '—'} note="First vs fourth player spread" />
-        <MetricCard label="3-Player Seat 1 vs 3" value={delta3P !== null ? seatDeltaText(delta3P) : '—'} note="First vs third player spread" />
-        <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
-      </MetricGrid>
-
       <Panels>
+        <MetricGrid>
+          <MetricCard label="Analyzed Matches" value={count(totalGames)} note="Full corpus sample" tone="win" />
+          <MetricCard label="4-Player Seat 1 vs 4" value={delta4P !== null ? seatDeltaText(delta4P) : '—'} note="First vs fourth player spread" />
+          <MetricCard label="3-Player Seat 1 vs 3" value={delta3P !== null ? seatDeltaText(delta3P) : '—'} note="First vs third player spread" />
+          <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
+        </MetricGrid>
+
         {data.groups.map((group: SeatStatsGroup) => {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);

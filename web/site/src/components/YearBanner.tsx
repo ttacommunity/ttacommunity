@@ -5,6 +5,8 @@ import type { View } from '../lib/leaderboard-view';
 import type { LinkTo } from './OptionsDrawer';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
+import Highlight from './Highlight';
+import Inset from './Inset';
 
 interface Props {
   board: YearLeaderboard;
@@ -14,12 +16,12 @@ interface Props {
   linkTo: LinkTo;
 }
 
-/** YearBanner heads a year's board; the switch shows that year's record or the career up to it. */
+/** YearBanner heads a year's board, a box inside the leaderboard's panel; the switch shows that year's record or the career up to it. */
 export default function YearBanner({ board, latest, ranked, view, linkTo }: Props) {
   const y = board.year;
   const champion = board.champions.find((c) => c.reigning) ?? board.champions[0];
   return (
-    <div className="archive-hero-banner">
+    <Inset className="archive-banner">
       <div>
         <div className="archive-head">
           <span className="tag">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
@@ -59,13 +61,15 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
         </div>
       </div>
       {champion !== undefined && (
-        <div className="archive-champion">
-          <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
-          <div className="archive-champion-name">
-            <PlayerLink name={champion.name} />
+        <Highlight>
+          <div className="archive-champion">
+            <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
+            <div className="archive-champion-name">
+              <PlayerLink name={champion.name} />
+            </div>
           </div>
-        </div>
+        </Highlight>
       )}
-    </div>
+    </Inset>
   );
 }

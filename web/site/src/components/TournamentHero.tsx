@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import PageHeader from '@ttac/shared/PageHeader';
 import type { CardView } from '../lib/tournament-card';
+import MetricCard, { MetricGrid } from './MetricCard';
 
 /** A figure in the header: its label, its value, and whether the value is words (set smaller) rather than a number. */
 export type HeroFact = { label: string; value: ReactNode; words?: boolean };
@@ -35,12 +36,11 @@ export default function TournamentHero({
       }
     >
       <div className="detail-meta-grid">
-        {facts.map((f) => (
-          <div key={f.label} className="meta-box">
-            <div className="meta-box-label">{f.label}</div>
-            <div className={f.words ? 'meta-box-val meta-box-text' : 'meta-box-val'}>{f.value}</div>
-          </div>
-        ))}
+        <MetricGrid compact>
+          {facts.map((f) => (
+            <MetricCard key={f.label} label={f.label} value={f.value} tone="gold" words={f.words} />
+          ))}
+        </MetricGrid>
       </div>
     </PageHeader>
   );

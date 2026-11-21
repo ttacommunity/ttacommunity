@@ -41,6 +41,8 @@ import { useLoad } from './useLoad';
 import PlayerHeader from './PlayerHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
+import Honours from './Honours';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -625,73 +627,53 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
       <Header player={player} />
       <Panels>
         {totalMedals > 0 ? (
-          <div className="medals-grid">
+          <MetricGrid>
             {s?.world_titles && s.world_titles > 0 ? (
-              <div className="medal-card" title="World Championship titles in Through the Ages">
-                <div className="medal-icon" aria-hidden="true">
-                  👑
-                </div>
-                <div className="medal-count trophy-accent">{s.world_titles}</div>
-                <div className="medal-label">World Championships</div>
-              </div>
+              <MetricCard icon="👑" label="World Championships" value={s.world_titles} tone="gold" hint="World Championship titles in Through the Ages" />
             ) : null}
-            <div className="medal-card" title="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-              <div className="medal-icon" aria-hidden="true">
-                🥇
-              </div>
-              <div className="medal-count gold-accent">{s?.gold ?? 0}</div>
-              <div className="medal-label">Major Gold Medals</div>
-            </div>
-            <div className="medal-card" title="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-              <div className="medal-icon" aria-hidden="true">
-                🥈
-              </div>
-              <div className="medal-count silver-accent">{s?.silver ?? 0}</div>
-              <div className="medal-label">Major Silver Medals</div>
-            </div>
-            <div className="medal-card" title="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-              <div className="medal-icon" aria-hidden="true">
-                🥉
-              </div>
-              <div className="medal-count bronze-accent">{s?.bronze ?? 0}</div>
-              <div className="medal-label">Major Bronze Medals</div>
-            </div>
-          </div>
+            <MetricCard icon="🥇" label="Major Gold Medals" value={s?.gold ?? 0} tone="gold" hint="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+            <MetricCard icon="🥈" label="Major Silver Medals" value={s?.silver ?? 0} tone="silver" hint="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+            <MetricCard icon="🥉" label="Major Bronze Medals" value={s?.bronze ?? 0} tone="bronze" hint="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+          </MetricGrid>
         ) : (
-          <div className="best-results-grid">
-            <div className="best-result-card" title="Highest division reached in Royal League">
-              <div className="best-result-icon" aria-hidden="true">
-                🏰
-              </div>
-              <div className="best-result-value">{best.rl ? best.rl.division : '—'}</div>
-              <div className="best-result-sub">{best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}</div>
-              <div className="best-result-label">Royal League Peak</div>
-            </div>
-            <div className="best-result-card" title="Highest tier reached in International Championship (4P)">
-              <div className="best-result-icon" aria-hidden="true">
-                🌍
-              </div>
-              <div className="best-result-value">{best.ic ? best.ic.division : '—'}</div>
-              <div className="best-result-sub">{best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}</div>
-              <div className="best-result-label">International Peak</div>
-            </div>
-            <div className="best-result-card" title="Highest tier reached in Intermezzo (3P)">
-              <div className="best-result-icon" aria-hidden="true">
-                ⚔️
-              </div>
-              <div className="best-result-value">{best.im ? best.im.division : '—'}</div>
-              <div className="best-result-sub">{best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}</div>
-              <div className="best-result-label">Intermezzo Peak</div>
-            </div>
-            <div className="best-result-card" title="Career competitive tournament matches and victory rate">
-              <div className="best-result-icon" aria-hidden="true">
-                📊
-              </div>
-              <div className="best-result-value">{best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}</div>
-              <div className="best-result-sub">{best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}</div>
-              <div className="best-result-label">Tournament Record</div>
-            </div>
-          </div>
+          <MetricGrid>
+            <MetricCard
+              icon="🏰"
+              label="Royal League Peak"
+              value={best.rl ? best.rl.division : '—'}
+              note={best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest division reached in Royal League"
+            />
+            <MetricCard
+              icon="🌍"
+              label="International Peak"
+              value={best.ic ? best.ic.division : '—'}
+              note={best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest tier reached in International Championship (4P)"
+            />
+            <MetricCard
+              icon="⚔️"
+              label="Intermezzo Peak"
+              value={best.im ? best.im.division : '—'}
+              note={best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest tier reached in Intermezzo (3P)"
+            />
+            <MetricCard
+              icon="📊"
+              label="Tournament Record"
+              value={best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}
+              note={best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}
+              tone="gold"
+              words
+              hint="Career competitive tournament matches and victory rate"
+            />
+          </MetricGrid>
         )}
 
         {s && (
@@ -705,14 +687,7 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
         )}
         {s && s.accolades.length > 0 && (
           <Panel id="ach-accolades" title="Featured Career Accolades" stripe="gold">
-            <div className="career-honors-grid">
-              {s.accolades.map((a) => (
-                <div className="career-honor-badge" key={a}>
-                  <span className="honor-star">★</span>
-                  <span className="honor-text">{a}</span>
-                </div>
-              ))}
-            </div>
+            <Honours accolades={s.accolades} />
           </Panel>
         )}
         <Records records={ach.records} />

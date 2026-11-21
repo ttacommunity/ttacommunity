@@ -1,5 +1,5 @@
 /** The community leaderboard page: standings, dynamic best-N highlights, and tournament or event columns. */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   communityEditions,
   communityLeaderboard,
@@ -27,6 +27,8 @@ import Segmented from '@ttac/shared/Segmented';
 import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
 import Panel from './Panel';
+import Inset from './Inset';
+import Note from '@ttac/shared/Note';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
@@ -71,16 +73,20 @@ function Hero({
   return (
     <>
       <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
-      <div className="comm-hero">
-        <div className="maintainer-card">
-          <div className="tag">{info.badge || '🛡️ Circuit Maintainer'}</div>
-          <div className="maintainer-desc">
-            This official leaderboard is curated and maintained by{' '}
-            <strong>
-              <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
-            </strong>{' '}
-            • {info.maintainer_note}
-          </div>
+      <Panel label="Leaderboard edition" className="comm-hero">
+        <div className="comm-maintainer">
+          <Note>
+            <p>
+              <span className="tag">{info.badge || '🛡️ Circuit Maintainer'}</span>
+            </p>
+            <p>
+              This official leaderboard is curated and maintained by{' '}
+              <strong>
+                <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
+              </strong>{' '}
+              • {info.maintainer_note}
+            </p>
+          </Note>
         </div>
         <div className="edition-selector-bar">
           <span className="edition-label">📅 Leaderboard Edition:</span>
@@ -94,21 +100,22 @@ function Hero({
         <MetricGrid>
           <MetricCard label="Ranked Competitors" value={count(data.rows.length)} tone="gold" />
           <MetricCard label={`Tracked Events (${data.categories.length} Tiers)`} value={events} tone="gold" />
-          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} className="comm-top-link" />} />
+          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} />} tone="gold" />
           <MetricCard
             label={info.wc_desc || 'Reigning World Champion'}
             value={
               info.wc ? (
-                <PlayerLink name={info.wc} className="comm-wc-link">
-                  <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
+                <PlayerLink name={info.wc}>
+                  <TitleBadge title={{ code: 'WC' }} /> {info.wc}
                 </PlayerLink>
               ) : (
-                <span className="comm-muted">—</span>
+                '—'
               )
             }
+            tone={info.wc ? 'gold' : 'muted'}
           />
         </MetricGrid>
-      </div>
+      </Panel>
     </>
   );
 }
@@ -181,7 +188,7 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
   );
 }
 
-function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[] }) {
+function Table({ data, view, rows, children }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[]; children?: ReactNode }) {
   const columns = data.categories.flatMap((c) => c.columns);
   const sheetOrder = columns.map((c) => c.id);
   const standard = view.view === 'standard';
@@ -286,6 +293,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
           </tbody>
         </table>
       </ScrollTable>
+      {children}
     </Panel>
   );
 }
@@ -318,7 +326,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         slots={editionFacts(data).slots}
         names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
       />
-      <div className="results-counter-card">
+      <Inset form="figures" className="comm-results">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
           <strong className="comm-count-total">{found.length}</strong> competitors
@@ -332,17 +340,18 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
               : `All ${editionFacts(data).slots} Period Columns`}
           </strong>
         </div>
-      </div>
-      <Table data={data} view={onPage} rows={shown} />
-      {total > 1 && (
-        <Pager
-          page={page}
-          pages={total}
-          total={{ count: found.length, noun: 'competitors' }}
-          link={(p) => ({ href: href(onPage, { page: p }) })}
-          go={(p) => window.location.assign(href(onPage, { page: p }))}
-        />
-      )}
+      </Inset>
+      <Table data={data} view={onPage} rows={shown}>
+        {total > 1 && (
+          <Pager
+            page={page}
+            pages={total}
+            total={{ count: found.length, noun: 'competitors' }}
+            link={(p) => ({ href: href(onPage, { page: p }) })}
+            go={(p) => window.location.assign(href(onPage, { page: p }))}
+          />
+        )}
+      </Table>
     </div>
   );
 }

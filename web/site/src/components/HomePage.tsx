@@ -26,6 +26,7 @@ import { useLoad } from './useLoad';
 import CopyCode from '@ttac/shared/CopyCode';
 import Message from './Message';
 import Panel from './Panel';
+import Inset from './Inset';
 
 interface HomeData {
   run: Run;
@@ -119,7 +120,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
         ) : (
           <div className="home-feed-grid">
             {/* ── Left Column: Recent Matches (Top Contenders & Premier Divisions) ── */}
-            <div className="home-feed-card">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>🎮</span> Recent Matches
@@ -251,11 +252,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   Browse All Matches in Catalogue &rarr;
                 </a>
               </div>
-            </div>
+            </Inset>
 
 
             {/* ── Right Column: Recent Tournaments & Champions ── */}
-            <div className="home-feed-card">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>🏆</span> Recent Tournaments
@@ -357,10 +358,10 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   Explore Full Tournament Registry &rarr;
                 </a>
               </div>
-            </div>
+            </Inset>
 
             {/* ── Third Column: TTA Pulse Blitz Feed (In Development) ── */}
-            <div className="home-feed-card feed-card-pulse">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>⚡</span> TTA Pulse Feed
@@ -411,7 +412,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <div className="feed-card-footer">
                 <span className="feed-footer-tag">Coming Soon in Phase 2</span>
               </div>
-            </div>
+            </Inset>
           </div>
         )}
       </Panel>
