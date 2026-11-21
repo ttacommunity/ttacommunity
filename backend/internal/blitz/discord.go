@@ -18,9 +18,9 @@ var usernameChars = regexp.MustCompile(`^[a-z0-9_.]{2,32}$`)
 // discordID is what a Discord user id is: 17 to 20 digits.
 var discordID = regexp.MustCompile(`^[0-9]{17,20}$`)
 
-// username returns a stored Discord name as a username (lowercase, without a leading @), and false when it
+// Username returns a stored Discord name as a username (lowercase, without a leading @), and false when it
 // cannot be one: a display name, an old name#1234 tag, or nothing.
-func username(discord string) (string, bool) {
+func Username(discord string) (string, bool) {
 	u := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(discord), "@"))
 	return u, usernameChars.MatchString(u) && !strings.Contains(u, "..")
 }
@@ -36,7 +36,7 @@ func TagOf(p Person) (string, bool) {
 // reachable says whether Discord text can mention p: by user id or by username.
 func reachable(p Person) bool {
 	_, tagged := TagOf(p)
-	_, named := username(p.Discord)
+	_, named := Username(p.Discord)
 	return tagged || named
 }
 
@@ -45,7 +45,7 @@ func mention(p Person) string {
 	if tag, ok := TagOf(p); ok {
 		return tag
 	}
-	if u, ok := username(p.Discord); ok {
+	if u, ok := Username(p.Discord); ok {
 		return "@" + u
 	}
 	return p.Name

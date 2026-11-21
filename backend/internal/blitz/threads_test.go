@@ -1,6 +1,7 @@
 package blitz_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -228,5 +229,64 @@ func TestCheckThreadTextRefusesOnlyATextTooLong(t *testing.T) {
 				t.Errorf("CheckThreadText(%q) = %v, want an error naming %q", tt.text, err, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestGameThreadIsTheBlockThreadsTextWritesForIt(t *testing.T) {
+	threads := blitz.Threads{
+		Round: "Round 3", Deadline: deadline, Text: blitz.DefaultThreadText,
+		Organisers: []blitz.Person{{Name: "Carol", DiscordID: "100000000000000003"}},
+		Games: []blitz.ThreadGame{
+			{Number: 1, A: blitz.Person{Name: "Ann", DiscordID: "100000000000000001"}, B: blitz.Person{Name: "Bob"}},
+		},
+	}
+	title, message := blitz.GameThread(threads, threads.Games[0], nil)
+	if title != "Round 3 · Game 1 · Ann vs Bob" {
+		t.Errorf("title = %q, want the round, game and players", title)
+	}
+	if text := blitz.ThreadsText(threads); !strings.Contains(text, "---\n"+title+"\n---\n"+message+"---\n") {
+		t.Errorf("ThreadsText = %q, want the block %q under its title", text, message)
+	}
+}
+
+func TestGameThreadAsksTheOrganisersToAddWhomTheBotCouldNotFind(t *testing.T) {
+	ann := blitz.Person{Name: "Ann", Discord: "ann_plays"}
+	bob := blitz.Person{Name: "Bob", DiscordID: "100000000000000002"}
+	threads := blitz.Threads{Round: "Round 3", Deadline: deadline, Text: blitz.DefaultThreadText, Games: []blitz.ThreadGame{{Number: 1, A: ann, B: bob}}}
+	tests := []struct {
+		name    string
+		missing []blitz.Person
+		want    string
+	}{
+		{"everyone found", nil, ""},
+		{"a player not found", []blitz.Person{ann}, "Organisers: please add Ann (@ann_plays) to this thread; the bot could not find them in this server."},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, message := blitz.GameThread(threads, threads.Games[0], tt.missing)
+			has := strings.Contains(message, "Organisers: please add")
+			if tt.want == "" && has || tt.want != "" && !strings.Contains(message, tt.want) {
+				t.Errorf("message = %q, want %q", message, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeadlineMovedTellsThePlayersTheNewDeadline(t *testing.T) {
+	g := blitz.ThreadGame{Number: 1, A: blitz.Person{Name: "Ann", DiscordID: "100000000000000001"}, B: blitz.Person{Name: "Bob", Discord: "bob_plays"}}
+	got := blitz.DeadlineMoved(blitz.Threads{Deadline: deadline}, g)
+	at := strconv.FormatInt(deadline.Unix(), 10)
+	want := "<@100000000000000001>, @bob_plays: the deadline for this game is now <t:" + at + ":F> (<t:" + at + ":R>)."
+	if got != want {
+		t.Errorf("DeadlineMoved = %q, want %q", got, want)
+	}
+}
+
+func TestThreadReminderPingsThePlayersWithTheDeadline(t *testing.T) {
+	g := blitz.ThreadGame{Number: 1, A: blitz.Person{Name: "Ann", DiscordID: "100000000000000001"}, B: blitz.Person{Name: "Bob", Discord: "bob_plays"}}
+	at := strconv.FormatInt(deadline.Unix(), 10)
+	want := "<@100000000000000001>, @bob_plays: a reminder that this game is due <t:" + at + ":R>, by <t:" + at + ":F>."
+	if got := blitz.ThreadReminder(blitz.Threads{Deadline: deadline}, g); got != want {
+		t.Errorf("ThreadReminder = %q, want %q", got, want)
 	}
 }

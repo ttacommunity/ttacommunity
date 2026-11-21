@@ -34,7 +34,10 @@ func (f *fakePoster) Edit(_ context.Context, _ store.NotificationEndpoint, p sto
 }
 
 // fakeKeeper records the posts kept, as "kind message".
-type fakeKeeper struct{ kept []string }
+type fakeKeeper struct {
+	fakeThreads
+	kept []string
+}
 
 func (f *fakeKeeper) RecordTwitchPost(_ context.Context, ref, endpoint int64, p store.DiscordPost) error {
 	f.kept = append(f.kept, "twitch "+p.MessageID)
@@ -83,7 +86,7 @@ func TestDeliverPostsKeepsAndEditsAsEachNotificationNeeds(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p, k := &fakePoster{editErr: tt.editErr}, &fakeKeeper{}
-			err := deliver(context.Background(), k, p, tt.n, tt.e, "https://admin.example", slog.New(slog.DiscardHandler))
+			err := deliver(context.Background(), k, p, nil, tt.n, tt.e, "https://admin.example", time.Now(), slog.New(slog.DiscardHandler))
 			if (err != nil) != tt.wantErr || !slices.Equal(p.calls, tt.wantCalls) || !slices.Equal(k.kept, tt.wantKept) {
 				t.Errorf("deliver: %v, calls %q, kept %q; want error %t, %q, %q", err, p.calls, k.kept, tt.wantErr, tt.wantCalls, tt.wantKept)
 			}

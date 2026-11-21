@@ -107,7 +107,7 @@ func main() {
 	}
 	defer playerPool.Close()
 	reg.AddPool("ratings_player", playerPool)
-	go sendNotifications(ctx, admins.AdminStore, ratings, admins.poster, admins.origin, signIns.SiteOrigin(), log)
+	go sendNotifications(ctx, admins.AdminStore, ratings, admins.poster, admins.bot, admins.origin, signIns.SiteOrigin(), log)
 	if os.Getenv("EMAIL_DEV_MAIL") != "" {
 		log.Warn("email sign-in prints its links for local development (EMAIL_DEV_MAIL)")
 	}
@@ -206,6 +206,8 @@ type adminDeps struct {
 	origin  string
 	starter *enginejob.Starter
 	poster  *notify.Discord
+	// bot is the Discord bot, which makes blitz games' threads; nil without DISCORD_BOT_TOKEN.
+	bot     threadBot
 	youtube *movies.YouTube
 	// movieStarter starts Movies Jobs; nil without MOVIES_CRONJOB.
 	movieStarter *enginejob.Starter
@@ -326,7 +328,11 @@ func openAdmin(ctx context.Context, addr string) (adminDeps, *pgxpool.Pool, erro
 			return adminDeps{}, nil, err
 		}
 	}
-	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), nil, movieStarter, os.Getenv("DISCORD_APP_ID"), twitchSetup{}}, pool, nil
+	var bot threadBot
+	if token := os.Getenv("DISCORD_BOT_TOKEN"); token != "" {
+		bot = notify.NewBot(&http.Client{Timeout: 10 * time.Second}, notify.DiscordAPI, token)
+	}
+	return adminDeps{v, a, origin, starter, notify.NewDiscord(&http.Client{Timeout: 10 * time.Second}), bot, nil, movieStarter, os.Getenv("DISCORD_APP_ID"), twitchSetup{}}, pool, nil
 }
 
 // discordSignIn starts and finishes sign-ins with Discord, or with devDiscord standing in for it.
