@@ -500,7 +500,7 @@ function Rivals({
           </select>
           <FilterInput
             label="Filter rivals by name"
-            placeholder="🔍 Filter rival by name..."
+            placeholder="Filter rival by name..."
             className="rival-filter"
             value={rv.filter}
             onChange={(filter) => setRv({ ...rv, filter })}

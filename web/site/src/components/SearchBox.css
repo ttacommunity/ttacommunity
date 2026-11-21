@@ -18,12 +18,16 @@
   padding-right: calc(var(--control-height) + 0.25rem);
 }
 
-/* The search icon sits inside the field, at its right. */
+/* The search icon sits inside the field, at its right; a box that filters as you type draws it but it does nothing. */
 .search-submit {
   position: absolute;
   top: 50%;
   right: 2px;
   transform: translateY(-50%);
+}
+
+.search-icon {
+  pointer-events: none;
 }
 
 .search-suggestions {

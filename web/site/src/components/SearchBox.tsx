@@ -147,7 +147,11 @@ export default function SearchBox({
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />
-      {!fill && (
+      {fill ? (
+        <span className="btn-icon search-submit search-icon" aria-hidden="true">
+          🔍
+        </span>
+      ) : (
         <button type="submit" className="btn-icon search-submit" title="Search" aria-label="Search">
           🔍
         </button>

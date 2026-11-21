@@ -50,7 +50,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
         }
       />
       <div className="view-bar challenges-bar">
-        <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="🔍 Filter players by name..." />
+        <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="Filter players by name..." />
         <div className="challenges-bar-group">
           <MeasureSwitch value={measure} onChange={setMeasure} />
           <VerifiedSwitch value={verified} onChange={setVerified} />

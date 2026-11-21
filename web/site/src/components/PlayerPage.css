@@ -332,12 +332,6 @@
   gap: 0.5rem;
 }
 
-.rival-filter {
-  width: 180px;
-  height: var(--control-height);
-  box-sizing: border-box;
-}
-
 .sort-header.win,
 .sort-header.loss,
 .sort-header.draw {

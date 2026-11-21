@@ -129,8 +129,8 @@ export default function BracketView({
               ))}
             </nav>
             <div className="bracket-find">
-              <label htmlFor="bracket-find">Find a player</label>
-              <SearchBox players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" inputClassName="input-antique bracket-find-input" placeholder="Player name" />
+              <label htmlFor="bracket-find" className="visually-hidden">Find a player</label>
+              <SearchBox players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" inputClassName="input-antique bracket-find-input" />
             </div>
           </div>
           {treeable && (
