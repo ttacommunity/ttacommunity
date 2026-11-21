@@ -30,29 +30,6 @@
   }
 }
 
-.home-pillar-card {
-  display: flex;
-  flex-direction: column;
-  padding: 1.75rem 1.5rem;
-  background: linear-gradient(160deg, var(--surface-card) 0%, var(--surface-well) 100%);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px var(--shadow);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.home-pillar-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-gold);
-  box-shadow: 0 10px 28px rgba(212, 175, 55, 0.15);
-}
-
-.pillar-pulse,
-.pillar-upcoming {
-  border-style: dashed;
-  opacity: 0.92;
-}
-
 .pillar-card-header {
   display: flex;
   justify-content: space-between;
@@ -86,7 +63,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex-grow: 1;
 }
 
 .pillar-features li {
@@ -111,26 +87,9 @@
 }
 
 .pillar-btn {
-  display: block;
-  text-align: center;
-  padding: 0.65rem 1rem;
-  font-size: 0.92rem;
-  font-weight: 700;
-  text-decoration: none;
+  display: flex;
 }
 
-.pillar-coming-soon {
-  display: block;
-  text-align: center;
-  padding: 0.65rem 1rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-family: var(--font-stats);
-  font-size: 0.82rem;
-  font-weight: 600;
-}
 
 /* ── Community Pulse Feed ── */
 .home-feed-section {
@@ -162,11 +121,6 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 1.5rem;
-  background: var(--surface-well);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  box-shadow: 0 4px 14px var(--shadow);
 }
 
 .feed-card-header {
@@ -596,12 +550,6 @@
   font-family: var(--font-stats);
   font-size: 0.8rem;
   font-weight: 600;
-}
-
-/* ── TTA Pulse Third Feed Card ── */
-.feed-card-pulse {
-  border-style: dashed;
-  background: linear-gradient(160deg, var(--surface-well) 0%, rgba(147, 51, 234, 0.04) 100%);
 }
 
 .pulse-feed-placeholder {

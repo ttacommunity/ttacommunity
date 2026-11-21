@@ -13,30 +13,9 @@
   border: 1px solid var(--gold-wash);
 }
 .detail-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--gold-wash-faint);
-}
-.meta-box {
-  background: var(--shadow-light);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-}
-.meta-box-label {
-  font-size: var(--size-label);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-}
-.meta-box-val {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent-gold);
 }
 
 .content-two-col {
@@ -106,23 +85,12 @@
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1.25rem;
 }
-.story-card {
-  background: rgba(18, 12, 8, 0.75);
-  border: 1px solid var(--gold-wash);
-  border-radius: 6px;
-  padding: 1.25rem;
-  position: relative;
-  border-left: 4px solid var(--accent-gold);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-.story-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-}
 .story-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 .story-author {
@@ -166,9 +134,6 @@
 }
 
 /* Upstream's inline styles, as classes. */
-.meta-box-val.meta-box-text {
-  font-size: 0.95rem;
-}
 
 .rules-note {
   margin-top: 1.5rem;

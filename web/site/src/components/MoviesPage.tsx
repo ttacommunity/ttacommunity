@@ -15,6 +15,7 @@ import {
 import './MoviesPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
 import Message from './Message';
+import Tile, { TileLink } from './Tile';
 
 type FeedState =
   | { kind: 'loading' }
@@ -136,28 +137,22 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       ) : (
         <div className="movies-grid">
           {visible.map((v) => (
-            <article key={v.video_id} className="movie-card rating-card">
-              <button
-                type="button"
-                className="movie-thumb-btn"
-                onClick={() => setActive(v)}
-                aria-label={`Play ${v.title} by ${v.creator_name}`}
-              >
-                <img
-                  src={v.thumbnail_url}
-                  alt=""
-                  loading="lazy"
-                  width="480"
-                  height="360"
-                  className="movie-thumb-img"
-                />
-                <span className="movie-play-badge" aria-hidden="true">▶</span>
-              </button>
+            <Tile
+              key={v.video_id}
+              picture={
+                <div className="movie-thumb">
+                  <img src={v.thumbnail_url} alt="" loading="lazy" width="480" height="360" className="movie-thumb-img" />
+                  <span className="movie-play-badge" aria-hidden="true">
+                    ▶
+                  </span>
+                </div>
+              }
+            >
               <div className="movie-card-body">
                 <h2 className="movie-title">
-                  <button type="button" className="movie-title-btn" onClick={() => setActive(v)}>
+                  <TileLink onClick={() => setActive(v)} label={`Play ${v.title} by ${v.creator_name}`}>
                     {v.title}
-                  </button>
+                  </TileLink>
                 </h2>
                 <div className="movie-meta">
                   <span className="movie-creator">
@@ -174,7 +169,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
                   </time>
                 </div>
               </div>
-            </article>
+            </Tile>
           ))}
         </div>
       )}

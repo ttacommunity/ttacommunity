@@ -113,24 +113,24 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
   const rating = ratingLabel(data.rating);
   return (
     <>
-      {p !== undefined && (
-        <MetricGrid>
-          <MetricCard
-            label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
-            value={ordinal(Math.floor(p.percentile))}
-            note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
-            tone="gold"
-          />
-          <MetricCard
-            label="Standing"
-            value={topShare(p, data.players)}
-            note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
-          />
-          <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
-        </MetricGrid>
-      )}
-
       <Panels>
+        {p !== undefined && (
+          <MetricGrid>
+            <MetricCard
+              label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
+              value={ordinal(Math.floor(p.percentile))}
+              note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
+              tone="gold"
+            />
+            <MetricCard
+              label="Standing"
+              value={topShare(p, data.players)}
+              note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
+            />
+            <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
+          </MetricGrid>
+        )}
+
         <Panel
           id="percentiles-chart"
           title={data.rating === 'rating' ? 'Rating Distribution' : 'Conservative Rating Distribution'}

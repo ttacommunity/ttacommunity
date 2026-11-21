@@ -13,6 +13,7 @@ import { signed } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -122,10 +123,12 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
   return (
     <>
       <div className="challenges-stats">
-        <Stat label={`${a.player} wins`} value={score.winsA} side="a" />
-        <Stat label={`${b.player} wins`} value={score.winsB} side="b" />
-        <Stat label="Ties" value={score.ties} />
-        <Stat label="Played by both" value={score.both} />
+        <MetricGrid>
+          <MetricCard label={`${a.player} wins`} value={<span className="challenges-side-a">{score.winsA}</span>} />
+          <MetricCard label={`${b.player} wins`} value={<span className="challenges-side-b">{score.winsB}</span>} />
+          <MetricCard label="Ties" value={score.ties} />
+          <MetricCard label="Played by both" value={score.both} />
+        </MetricGrid>
       </div>
       <Panels>
         <Panel label="Totals" className="challenges-card">
@@ -212,14 +215,6 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
   );
 }
 
-function Stat({ label, value, side }: { label: string; value: number; side?: 'a' | 'b' }) {
-  return (
-    <div className="challenges-stat">
-      <div className={side ? `challenges-stat-value challenges-side-${side}` : 'challenges-stat-value'}>{value}</div>
-      <div className="challenges-stat-label">{label}</div>
-    </div>
-  );
-}
 
 /** Diff is a difference to decimals places, in A's colour when A leads and B's when B does, ±0 for none. */
 function Diff({ value, decimals = 0, suffix = '' }: { value: number; decimals?: number; suffix?: string }) {

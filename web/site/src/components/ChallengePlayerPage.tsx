@@ -14,6 +14,7 @@ import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
@@ -119,10 +120,12 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
   return (
     <>
       <div className="challenges-stats">
-        <Stat label={measure === 'rating' ? 'Rating' : 'Total domination'} value={formatMeasure(measureOf(summary, measure), measure)} />
-        <Stat label="Records held" value={summary.records} />
-        <Stat label="Challenges played" value={`${summary.played} / ${list.length}`} />
-        <Stat label="Verified" value={summary.verified} />
+        <MetricGrid>
+          <MetricCard label={measure === 'rating' ? 'Rating' : 'Total domination'} value={formatMeasure(measureOf(summary, measure), measure)} tone="gold" />
+          <MetricCard label="Records held" value={summary.records} tone="gold" />
+          <MetricCard label="Challenges played" value={`${summary.played} / ${list.length}`} tone="gold" />
+          <MetricCard label="Verified" value={summary.verified} tone="gold" />
+        </MetricGrid>
       </div>
       <p>
         <a className="btn-antique" href={compareHref(p.player)}>
@@ -168,14 +171,6 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="challenges-stat">
-      <div className="challenges-stat-value">{value}</div>
-      <div className="challenges-stat-label">{label}</div>
-    </div>
-  );
-}
 
 /** PlayNext suggests records within reach and the lowest results, in the chosen measure. */
 function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list: ChallengeTile[]; measure: Measure }) {

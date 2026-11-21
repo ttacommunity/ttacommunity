@@ -1,46 +1,90 @@
-/* Headline figures: a row of cards, each a label, a big value and a note. */
+/* Figure tiles: a row of cards, each a label, a big figure and a note; a compact row for a page header's facts. */
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.25rem;
-  margin-bottom: 2rem;
 }
 
 .metric-card {
+  min-width: 0;
   padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
+  background: var(--metric-surface);
+  border: 1px solid var(--metric-edge);
   border-radius: 6px;
   text-align: center;
 }
 
+.metric-icon {
+  margin-bottom: 0.35rem;
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+
 .metric-label {
-  color: var(--text-muted);
+  color: var(--metric-label);
   font-size: 0.85rem;
   text-transform: uppercase;
 }
 
 .metric-number {
   margin: 0.4rem 0;
+  color: var(--metric-figure);
   font-family: var(--font-heading);
   font-size: 2.3rem;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 
+/* A figure's own markup (a title badge beside a name) lines up on its middle. */
+.metric-number > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metric-words {
+  font-size: 1.35rem;
+  overflow-wrap: normal;
+}
+
 .metric-win { color: var(--win); }
 .metric-muted { color: var(--text-muted); }
 .metric-gold { color: var(--accent-gold); }
 .metric-sky { color: var(--accent-sky); }
+.metric-silver { color: var(--medal-silver); }
+.metric-bronze { color: var(--medal-bronze); }
 
 .metric-note {
-  color: var(--text-muted);
+  color: var(--metric-note);
   font-size: 0.8rem;
+}
+
+.metric-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.metric-grid-compact .metric-card {
+  padding: 0.75rem 1rem;
+}
+
+.metric-grid-compact .metric-label {
+  font-size: var(--size-label);
+  letter-spacing: 0.5px;
+}
+
+.metric-grid-compact .metric-number {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+}
+
+.metric-grid-compact .metric-words {
+  font-size: 1.05rem;
 }
 
 @media (max-width: 768px) {
   .metric-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
   }
 
@@ -50,5 +94,21 @@
 
   .metric-number {
     font-size: 1.6rem;
+  }
+
+  .metric-words {
+    font-size: 1.15rem;
+  }
+
+  .metric-grid-compact .metric-card {
+    padding: 0.6rem 0.5rem;
+  }
+
+  .metric-grid-compact .metric-number {
+    font-size: 1.15rem;
+  }
+
+  .metric-grid-compact .metric-words {
+    font-size: 0.95rem;
   }
 }

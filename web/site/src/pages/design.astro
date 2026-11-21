@@ -19,6 +19,7 @@ import SignUpSamples from '../components/SignUpSamples';
 import PlayerSearchSamples from '../components/PlayerSearchSamples';
 import ScrollTable from '../components/ScrollTable';
 import ShowAllSample from '../components/ShowAllSample';
+import TileSamples, { FigureSamples, HighlightSamples } from '../components/TileSamples';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
@@ -138,6 +139,20 @@ const rows = [
       <MetricCard label="Sample total" value="890" tone="gold" />
       <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
     </MetricGrid>
+    <FigureSamples />
+
+    <h2>Headline figures: compact, a page header's facts</h2>
+    <MetricGrid compact>
+      <MetricCard label="Active history" value="2021 – 2026" tone="gold" />
+      <MetricCard label="Seasons" value="7" tone="gold" />
+      <MetricCard label="Schedule" value="Annual (Every Year)" tone="gold" words />
+    </MetricGrid>
+
+    <h2>Tiles</h2>
+    <TileSamples />
+
+    <h2>Highlights</h2>
+    <HighlightSamples />
 
     <h2>Mean ratings</h2>
     <MeanBadges>
@@ -415,9 +430,27 @@ const rows = [
     font-family: var(--font-stats);
   }
 
-  .design-stack {
+  .design-stack,
+  .design :global(.design-stack) {
     display: grid;
     gap: 0.75rem;
+  }
+
+  .design :global(.design-tiles) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .design :global(.design-tile-img) {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 340 / 284;
+    object-fit: cover;
+  }
+
+  .design :global(.metric-grid + .metric-grid) {
+    margin-top: 1.25rem;
   }
 
   .design-row.design-buttons,

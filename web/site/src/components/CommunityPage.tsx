@@ -27,6 +27,8 @@ import Segmented from '@ttac/shared/Segmented';
 import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
 import Panel from './Panel';
+import Inset from './Inset';
+import Note from '@ttac/shared/Note';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
@@ -71,16 +73,20 @@ function Hero({
   return (
     <>
       <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
-      <div className="comm-hero">
-        <div className="maintainer-card">
-          <div className="tag">{info.badge || '🛡️ Circuit Maintainer'}</div>
-          <div className="maintainer-desc">
-            This official leaderboard is curated and maintained by{' '}
-            <strong>
-              <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
-            </strong>{' '}
-            • {info.maintainer_note}
-          </div>
+      <Panel label="Leaderboard edition" className="comm-hero">
+        <div className="comm-maintainer">
+          <Note>
+            <p>
+              <span className="tag">{info.badge || '🛡️ Circuit Maintainer'}</span>
+            </p>
+            <p>
+              This official leaderboard is curated and maintained by{' '}
+              <strong>
+                <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
+              </strong>{' '}
+              • {info.maintainer_note}
+            </p>
+          </Note>
         </div>
         <div className="edition-selector-bar">
           <span className="edition-label">📅 Leaderboard Edition:</span>
@@ -108,7 +114,7 @@ function Hero({
             }
           />
         </MetricGrid>
-      </div>
+      </Panel>
     </>
   );
 }
@@ -318,7 +324,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         slots={editionFacts(data).slots}
         names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
       />
-      <div className="results-counter-card">
+      <Inset form="line" className="comm-results">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
           <strong className="comm-count-total">{found.length}</strong> competitors
@@ -332,7 +338,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
               : `All ${editionFacts(data).slots} Period Columns`}
           </strong>
         </div>
-      </div>
+      </Inset>
       <Table data={data} view={onPage} rows={shown} />
       {total > 1 && (
         <Pager

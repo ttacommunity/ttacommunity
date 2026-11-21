@@ -1,0 +1,49 @@
+/* The peak season's layout inside its highlight: the icon, the words, a link at the side. */
+.peak-season {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.peak-season-icon {
+  flex-shrink: 0;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.peak-season-body {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.peak-season-kicker {
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: var(--size-label);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.peak-season-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent-gold);
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.peak-season-text {
+  color: var(--text-muted);
+  font-family: var(--font-stats);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* :where keeps a page's own figure colours ahead of the plain strong colour. */
+:where(.peak-season-text) strong {
+  color: var(--text-main);
+}

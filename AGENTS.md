@@ -360,7 +360,11 @@ agent runs them itself.
   a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
   a group inside a bar has no box of its own), dialog and sheet (`Dialog`, `Sheet`),
   drawer (`SideDrawer`), player search and filter (`PlayerSearch`),
-  note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line), formula box (`$$…$$`, or
+  note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line),
+  tile in a grid (`Tile`; a link tile is all one link, or its title's
+  `TileLink` covers it; only what can be clicked moves under the mouse),
+  headline figure (`MetricCard` in a `MetricGrid`, `compact` for a
+  header's facts), a fact singled out (`Highlight`), formula box (`$$…$$`, or
   `.formula` around several), buttons (`.btn-antique` for an action,
   `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
   cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a

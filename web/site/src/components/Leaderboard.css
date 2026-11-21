@@ -236,10 +236,6 @@ tr:hover .row-exclude,
 }
 
 .archive-champion {
-  padding: 0.6rem 1rem;
-  background: var(--shadow-light);
-  border-left: 3px solid var(--accent-gold);
-  border-radius: 6px;
   text-align: right;
 }
 

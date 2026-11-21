@@ -54,6 +54,7 @@ import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Panel from './Panel';
 import Panels from './Panels';
+import Tile from './Tile';
 import Waiting from './Waiting';
 import UnratedToggle from './UnratedToggle';
 import RatedFilter from './RatedFilter';
@@ -268,17 +269,16 @@ function Header({
   );
 }
 
-/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is gold. */
+/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is the current tile. */
 function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerView; linkTo: LinkTo }) {
   return (
     <div className="cards-grid">
       {formatCards(player, view.reset).map((c) => {
         const active = c.format === view.format;
         const r = c.rating;
-        const classes = ['model-card', 'format-card', active && 'active-card card-daneo'].filter(Boolean).join(' ');
         return (
-          <a key={c.format} className={classes} {...linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })}>
-            <h3>
+          <Tile key={c.format} link={linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })} current={active}>
+            <h3 className="format-card-title">
               <span>
                 {c.icon} {c.label}
               </span>
@@ -305,7 +305,7 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
             <div className="model-card-caption">
               {r && r.opponents > 0 ? `Opponents: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
             </div>
-          </a>
+          </Tile>
         );
       })}
     </div>

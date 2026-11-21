@@ -138,6 +138,21 @@
   --inset-edge: var(--border-subtle);
   --inset-text: var(--text-muted);
   --inset-figure: var(--text-main);
+  /* A tile in a grid (Tile), raised; a link tile takes a gold edge and glow under the mouse. */
+  --tile-surface: linear-gradient(145deg, var(--surface-card), var(--surface-well));
+  --tile-edge: var(--border-subtle);
+  --tile-hover-edge: var(--accent-gold);
+  --tile-hover-glow: var(--gold-wash);
+  /* A figure tile (MetricCard): what it counts, the figure, a note under it. */
+  --metric-surface: var(--surface-panel);
+  --metric-edge: var(--border-subtle);
+  --metric-label: var(--text-muted);
+  --metric-figure: var(--text-main);
+  --metric-note: var(--text-muted);
+  /* A highlight (Highlight): one fact singled out, a gold stripe on the well. */
+  --highlight-surface: var(--surface-well);
+  --highlight-edge: var(--border-subtle);
+  --highlight-stripe: var(--accent-gold);
   /* A formula's box, and a quotation in prose. */
   --formula-surface: var(--surface-well);
   --formula-edge: var(--gold-wash-strong);
