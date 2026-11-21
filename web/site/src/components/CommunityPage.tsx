@@ -160,10 +160,7 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <SearchBox players={names} value={view.search} name="q" inputClassName="input-antique comm-search-input" placeholder="Search competitor by name..." />
-        <button type="submit" className="btn-antique">
-          Search
-        </button>
+        <SearchBox players={names} value={view.search} name="q" inputClassName="input-antique comm-search-input" placeholder="Search competitor by name..." wide />
         {view.search && (
           <a href={href(view, { search: '' })} className="btn-quiet">
             Clear

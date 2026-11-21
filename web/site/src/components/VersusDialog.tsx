@@ -15,6 +15,7 @@ import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
 import { TRACKS } from '@ttac/shared/tracks';
+import './ViewBar.css';
 
 // Head-to-head offers every track but Pulse.
 const TRACK_OPTIONS = TRACKS.filter((t) => t.value !== 'pulse').map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }));
@@ -61,10 +62,12 @@ export default function VersusDialog({
   return (
     <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} className="h2h-modal">
       <div className="view-bar h2h-toolbar">
-        <span className="h2h-toolbar-label">Match Format:</span>
+        <span className="view-bar-label">Match format:</span>
         <Segmented label="Match format" groupClass="format-bar-group h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
+        <span className="view-bar-label">Rating track:</span>
         <Segmented label="Rating track" groupClass="format-bar-group h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
-        <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
+        <span className="view-bar-label">Games:</span>
+        <RatedFilter value={ratingFilter} onChange={setRatingFilter} />
       </div>
       <Inset form="figures" className="h2h-stats">
         {tally === null ? (

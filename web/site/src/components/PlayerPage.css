@@ -526,19 +526,20 @@
   max-width: 900px;
 }
 
+/* Each group's label in one column, so the button groups start in line. */
 .h2h-toolbar {
   margin: 1rem 1.25rem 0;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: max-content 1fr;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.5rem 1rem;
 }
 
-.h2h-toolbar-label {
-  font-family: var(--font-heading);
-  font-size: 0.78rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
+/* On a phone each label sits above its group. */
+@media (max-width: 768px) {
+  .h2h-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .format-bar-group.h2h-formats {
