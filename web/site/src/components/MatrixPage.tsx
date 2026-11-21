@@ -116,7 +116,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
             </span>
           }
         >
-          <ScrollTable hint="full career history">
+          <ScrollTable label="Career by year">
             <table className="leaderboard-table career-history-table">
               <caption className="visually-hidden">Career by year, {formatName}</caption>
               <thead>

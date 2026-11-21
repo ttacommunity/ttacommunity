@@ -8,6 +8,7 @@ import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
 import Panel from './Panel';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
 export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id: string }) {
@@ -39,7 +40,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
         {board.ranking.length === 0 ? (
           <p className="muted">No {verifiedOnly ? 'verified ' : ''}entries yet.</p>
         ) : (
-          <div className="table-responsive">
+          <ScrollTable label="Leaderboard">
             <table className="leaderboard-table">
               <thead>
                 <tr>
@@ -70,7 +71,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         )}
       </Panel>
 
@@ -81,7 +82,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
           <p className="challenges-lead">
             These were made through a game bug that has since been fixed. They stay listed, but don&apos;t count for records, ranks, ratings or totals.
           </p>
-          <div className="table-responsive">
+          <ScrollTable label="Bug entries">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Entries made through a game bug, not counted</caption>
               <thead>
@@ -110,7 +111,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </Panel>
       )}
 
@@ -118,7 +119,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
         <Panel label="All submissions" className="challenges-card">
           <details className="challenges-all">
             <summary>All {board.entries.length} submissions</summary>
-            <div className="table-responsive">
+            <ScrollTable label="Submissions">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
                 <thead>
@@ -147,7 +148,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollTable>
           </details>
         </Panel>
       )}
@@ -200,7 +201,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
           )}
         </svg>
       )}
-      <div className="table-responsive">
+      <ScrollTable label="Entries">
         <table className="leaderboard-table">
           <thead>
             <tr>
@@ -231,7 +232,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </Panel>
   );
 }

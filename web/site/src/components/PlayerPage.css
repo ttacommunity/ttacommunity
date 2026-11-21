@@ -373,16 +373,6 @@
   color: var(--loss);
 }
 
-.rivals-expand {
-  margin-top: 0.85rem;
-  text-align: center;
-}
-
-.rivals-expand .btn-antique {
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
-}
-
 @media (max-width: 768px) {
   .chart-container-inner {
     height: 270px;

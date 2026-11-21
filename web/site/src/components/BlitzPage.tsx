@@ -32,6 +32,7 @@ import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import PanelHeader from './PanelHeader';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -73,7 +74,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
   const [rows, sort, sortBy] = useSort(editions, EDITION_COLUMNS);
   return (
-    <div className="blitz-table-wrap">
+    <ScrollTable label="Blitz tournaments">
       <table className="leaderboard-table blitz-table">
         <caption>Every blitz tournament, newest edition first</caption>
         <thead>
@@ -90,7 +91,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
             <SortHeader col="reached" sort={sort} onSort={sortBy}>
               Reached
             </SortHeader>
-            <SortHeader col="players" sort={sort} onSort={sortBy} className="num">
+            <SortHeader col="players" sort={sort} onSort={sortBy} align="end">
               Players
             </SortHeader>
           </tr>
@@ -109,7 +110,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 
@@ -265,7 +266,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
           </button>
         </span>
       </div>
-      <div className="blitz-table-wrap">
+      <ScrollTable label="Standings">
         <table className="leaderboard-table blitz-table blitz-standings">
           <caption>The standings after the results recorded so far</caption>
           <BlitzStandingsTable
@@ -279,7 +280,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
             )}
           />
         </table>
-      </div>
+      </ScrollTable>
       {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
         <p className="blitz-footnote">
           <span className="blitz-draw">*</span> Equal on every tie-break; ordered by {lastTieBreak(fixedBy)}.
@@ -297,7 +298,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
       <PanelHeader id="blitz-entrants" title="Players" />
       <p className="blitz-intro">{entrants.length} in. Ratings are the 2-player community rating of the current run; a dash means not rated yet.</p>
       {entrants.length > 0 && (
-        <div className="blitz-table-wrap">
+        <ScrollTable label="Players">
           <table className="leaderboard-table blitz-table">
             <caption>The players still in, in sign-up order</caption>
             <thead>
@@ -308,11 +309,11 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
                 <SortHeader col="zone" sort={sort} onSort={sortBy}>
                   Time zone
                 </SortHeader>
-                <SortHeader col="rating" sort={sort} onSort={sortBy} className="num">
+                <SortHeader col="rating" sort={sort} onSort={sortBy} align="end">
                   Rating
                 </SortHeader>
                 {start !== null && (
-                  <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
+                  <SortHeader col="start" sort={sort} onSort={sortBy} align="end">
                     {start}
                   </SortHeader>
                 )}
@@ -334,7 +335,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
     </section>
   );

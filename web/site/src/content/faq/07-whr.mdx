@@ -9,6 +9,7 @@ order: 7
 import FaqFigure from '../../components/FaqFigure.astro';
 import Panel from '../../components/Panel';
 import Note from '@ttac/shared/Note';
+import ScrollTable from '../../components/ScrollTable';
 
 <Panel title="Whole-History Rating (WHR): How Does It Work and How Does It Compare?" className="faq-card">
   <div>
@@ -90,39 +91,39 @@ $$
   <h4 class="faq-subhead">
     Key Differences: WHR vs. Glicko-2
   </h4>
-  <div class="faq-table-wrap">
-    <table class="faq-table">
+  <ScrollTable client:visible label="Glicko-2 and WHR compared">
+    <table class="leaderboard-table">
       <thead>
-        <tr class="faq-thead">
-          <th class="cell-lg">Dimension</th>
-          <th class="cell-lg">Glicko-2 (Standard / MP / Adaptive-T)</th>
-          <th class="cell-lg">Whole-History Rating (WHR)</th>
+        <tr>
+          <th>Dimension</th>
+          <th>Glicko-2 (Standard / MP / Adaptive-T)</th>
+          <th>Whole-History Rating (WHR)</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Information Flow</td>
-          <td class="cell-lg c-sand"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
-          <td class="cell-lg c-leaf"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Historical Corrections</td>
-          <td class="cell-lg c-sand"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
-          <td class="cell-lg c-leaf"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Time Continuity</td>
-          <td class="cell-lg c-sand"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
-          <td class="cell-lg c-leaf"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
+        <tr>
+          <td class="bold c-wheat">Information Flow</td>
+          <td class="c-sand"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
+          <td class="c-leaf"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
         </tr>
         <tr>
-          <td class="cell-lg bold c-wheat">Match Order Invariance</td>
-          <td class="cell-lg c-sand">Order-dependent within periods.</td>
-          <td class="cell-lg c-leaf"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
+          <td class="bold c-wheat">Historical Corrections</td>
+          <td class="c-sand"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
+          <td class="c-leaf"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
+        </tr>
+        <tr>
+          <td class="bold c-wheat">Time Continuity</td>
+          <td class="c-sand"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
+          <td class="c-leaf"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
+        </tr>
+        <tr>
+          <td class="bold c-wheat">Match Order Invariance</td>
+          <td class="c-sand">Order-dependent within periods.</td>
+          <td class="c-leaf"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
   <Note title="Technical Note: Why do some WHR graphs exhibit step-like jumps or “wild swings” after tournament breaks?">
     <p>

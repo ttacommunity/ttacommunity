@@ -34,10 +34,6 @@
   color: var(--text-main);
 }
 
-.trophy-table-container.games-table {
-  max-height: none;
-}
-
 .game-seats {
   display: flex;
   flex-wrap: wrap;

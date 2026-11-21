@@ -57,23 +57,21 @@
   white-space: nowrap;
   text-decoration: none;
 }
-.tournaments-table .col-setting,
-.tournaments-table .col-seasons {
+.admin-table .col-setting,
+.admin-table .col-seasons {
   text-align: center;
 }
-.tournaments-table .yes {
+.admin-table .yes {
   color: var(--win);
 }
-.tournaments-table .no {
+.admin-table .no {
   color: var(--text-muted);
 }
+/* An admin table on a phone: the columns a page marks as wide hidden. */
 @media (max-width: 640px) {
-  .tournaments-table .col-seasons {
+  .admin-table .col-seasons,
+  .admin-table .run-wide {
     display: none;
-  }
-  .tournaments-table th,
-  .tournaments-table td {
-    padding-inline: 0.4rem;
   }
 }
 .settings-list {
@@ -257,15 +255,6 @@
 }
 .run-buttons button {
   white-space: nowrap;
-}
-@media (max-width: 640px) {
-  .runs-table .run-wide {
-    display: none;
-  }
-  .runs-table th,
-  .runs-table td {
-    padding-inline: 0.4rem;
-  }
 }
 .run-block {
   margin-block: 1rem;
@@ -511,7 +500,7 @@
   gap: 0.6rem;
   margin: 0 0 0.6rem;
 }
-.stages-table .stage-note {
+.admin-table .stage-note {
   max-width: 28rem;
   white-space: pre-wrap;
 }

@@ -91,21 +91,6 @@
   top: 0.25rem;
 }
 
-/* Scrollable Trophyboard */
-.trophy-table-container {
-  max-height: 480px;
-  overflow-y: auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-gold) var(--shadow-light);
-}
-.trophy-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  box-shadow: 0 1px 0 var(--gold-wash);
-}
 .medal-count {
   font-weight: 700;
   font-family: var(--font-stats);
@@ -171,12 +156,6 @@
   display: flex;
   flex-direction: column;
 }
-/* The board's table fills its panel (the row is as tall as the longer column), never under its 480px. */
-.content-two-col .trophy-table-container {
-  flex: 1 1 0;
-  min-height: 480px;
-  max-height: none;
-}
 /* A long Format & Regulations (a CGE description) scrolls in its panel, as the board does. */
 .content-two-col .rules-list {
   max-height: 640px;
@@ -212,21 +191,12 @@
   font-size: 0.82rem;
 }
 
-.trophy-sub-hint {
-  color: var(--accent-gold);
-  font-weight: 600;
-}
-
 .trophy-table .col-num {
   width: 40px;
 }
 
 .trophy-table .col-rank {
   width: 45px;
-  text-align: center;
-}
-
-.trophy-table .col-center {
   text-align: center;
 }
 
@@ -267,10 +237,6 @@
   color: var(--text-main);
   font-size: var(--size-body-short);
   line-height: 1.5;
-}
-
-.trophy-table-container.records-table {
-  max-height: 420px;
 }
 
 .trophy-table .cell-points {

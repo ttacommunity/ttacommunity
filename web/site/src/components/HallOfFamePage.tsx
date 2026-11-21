@@ -162,7 +162,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
           aside={<span className="tag">Major League Titles Only</span>}
         >
-          <ScrollTable hint="full records">
+          <ScrollTable label="Titles and medals">
             <table className="leaderboard-table wcs-table">
               <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
               <thead>
@@ -224,7 +224,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
 
         <div className="hof-two-col">
           <Panel id="hof-cups" icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens">
-            <ScrollTable hint="full records">
+            <ScrollTable label="Cup medallists">
               <table className="leaderboard-table wcs-table">
                 <caption className="visually-hidden">The cups&apos; leading medallists</caption>
                 <thead>
@@ -266,7 +266,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
           </Panel>
 
           <Panel id="hof-ladders" icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders">
-            <ScrollTable hint="full records">
+            <ScrollTable label="Ladder winners">
               <table className="leaderboard-table wcs-table">
                 <caption className="visually-hidden">The ladders&apos; most winning players</caption>
                 <thead>

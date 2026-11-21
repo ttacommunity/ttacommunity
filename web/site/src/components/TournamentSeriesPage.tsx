@@ -17,6 +17,7 @@ import Message from './Message';
 import { useLoad } from './useLoad';
 import Panel from './Panel';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 
 function WorldChampion() {
@@ -123,7 +124,7 @@ export function SeriesSections({
             pts; 2P: 2/1/0 pts; ties split points equally). 9 Seasons have been played prior to the CGE official tournament page
             tracking, so to find the coressponding season there you need to subtract 9.
           </p>
-          <div className="trophy-table-container records-table">
+          <ScrollTable label="Season records">
             <table className="leaderboard-table trophy-table">
               <caption className="visually-hidden">The ten highest-scoring top-division seasons</caption>
               <thead>
@@ -169,7 +170,7 @@ export function SeriesSections({
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </Panel>
       )}
 

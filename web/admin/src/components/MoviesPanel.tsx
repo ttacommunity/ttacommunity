@@ -230,7 +230,7 @@ export default function MoviesPanel() {
             {state.data.channels.length === 0 ? (
               <p className="muted">No creators added yet. Add a YouTube channel above to start indexing videos.</p>
             ) : (
-              <AdminTable caption="The YouTube creators indexed, each with its linked player, filter and subscription" className="movies-table">
+              <AdminTable caption="The YouTube creators indexed, each with its linked player, filter and subscription">
                 <thead>
                   <tr>
                     <th>Creator</th>
@@ -347,7 +347,7 @@ export default function MoviesPanel() {
             {state.data.videos.length === 0 ? (
               <p className="muted">No videos yet. The Movies job fills them in when a creator is added, or on Run now.</p>
             ) : (
-              <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why" className="movies-table">
+              <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why">
                 <thead>
                   <tr>
                     <th>Video</th>

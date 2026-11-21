@@ -251,7 +251,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
       {tab === 'seasons' ? (
         selectedTournament === null ? (
           <div>
-            <ScrollTable hint="click any row or button to view seasons">
+            <ScrollTable label="Tournaments">
               <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
@@ -388,7 +388,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
               )}
             </div>
 
-            <ScrollTable hint="full season details">
+            <ScrollTable label="Seasons">
               <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
@@ -444,7 +444,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
             onChange={setHighlightMode}
           />
 
-          <ScrollTable hint="full highlight details">
+          <ScrollTable label="Highlights">
             {highlightMode === 'hof' ? (
               <table className="leaderboard-table records-table">
                 <thead>

@@ -463,7 +463,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
   }, [jumpTo]);
 
   return (
-    <ScrollTable hint="full stats">
+    <ScrollTable label="Leaderboard">
       <table className="leaderboard-table">
         <caption className="visually-hidden">{caption}</caption>
         <thead>

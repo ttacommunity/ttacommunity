@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
+import { ROWS_SHOWN } from './show-all';
 import {
   chartData,
   chartTicks,
@@ -515,8 +516,8 @@ const rival = (name: string, games: number, wins = 0, draws = 0): Rival => ({
 describe('visibleRivals', () => {
   const many = Array.from({ length: 35 }, (_, i) => rival(`p${String(i).padStart(2, '0')}`, 40 - i, i % 3));
 
-  it('shows the first 30 until expanded', () => {
-    expect(visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: null }).map((r) => r.name)).toHaveLength(30);
+  it('shows the first rows a long table shows until expanded', () => {
+    expect(visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: null }).map((r) => r.name)).toHaveLength(ROWS_SHOWN);
     expect(visibleRivals(many, { filter: '', minGames: 1, expanded: true, sort: null })).toHaveLength(35);
   });
 
@@ -531,9 +532,9 @@ describe('visibleRivals', () => {
     expect(visibleRivals(many, { filter: '', minGames: 38, expanded: false, sort: null })).toHaveLength(3);
   });
 
-  it('sorts by a column, the first 30 of the new order shown', () => {
+  it('sorts by a column, the first rows of the new order shown', () => {
     const got = visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: { col: 'games', desc: false } });
-    expect(got).toHaveLength(30);
+    expect(got).toHaveLength(ROWS_SHOWN);
     expect(got[0].name).toBe('p34');
     const byName = visibleRivals([rival('b', 1), rival('a', 1)], {
       filter: '',

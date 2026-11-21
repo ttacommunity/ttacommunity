@@ -41,6 +41,7 @@ import Panels from './Panels';
 import SignInNote from './SignInNote';
 import Waiting from './Waiting';
 import './Blitz.css';
+import ScrollTable from './ScrollTable';
 
 const VIEWS = ['standings', 'rounds'] as const;
 const RULES =
@@ -77,7 +78,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
           {shownGames(editions.data.editions, past).length === 0 ? (
             <p className="muted">{past ? 'No game yet.' : 'No game is running.'}</p>
           ) : (
-            <div className="blitz-table-wrap">
+            <ScrollTable label="Nostradamus games">
               <table className="leaderboard-table blitz-table">
                 <caption className="visually-hidden">Nostradamus games, newest first</caption>
                 <thead>
@@ -99,7 +100,7 @@ function GamesList({ apiUrl }: { apiUrl: string }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollTable>
           )}
         </Panel>
       )}
@@ -320,7 +321,7 @@ function Standings({ game }: { game: NostradamusGame }) {
       {game.standings.length === 0 ? (
         <p className="muted">No round has its results yet.</p>
       ) : (
-        <div className="table-responsive">
+        <ScrollTable label="Points by round">
           <table className="leaderboard-table">
             <caption className="visually-hidden">{game.name}: each participant&apos;s points in each round with results, and their total</caption>
             <thead>
@@ -361,7 +362,7 @@ function Standings({ game }: { game: NostradamusGame }) {
             </tbody>
           </table>
           <p className="muted">A greyed score is a round missed, scored as the lowest of the bots.</p>
-        </div>
+        </ScrollTable>
       )}
     </section>
   );

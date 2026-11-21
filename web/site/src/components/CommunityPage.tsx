@@ -30,6 +30,7 @@ import Panel from './Panel';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import ScrollTable from './ScrollTable';
 import { count } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
@@ -167,12 +168,6 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
           </a>
         )}
       </form>
-      <div
-        className="cmb-hint-box"
-        title="Hold down your Center Mouse Button / Scroll-wheel and drag horizontally, or hold Shift while scrolling"
-      >
-        <span>🖱️</span> Scroll table with <strong>CMB</strong>
-      </div>
       <Segmented
         label="View"
         options={[
@@ -192,14 +187,10 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
   const standard = view.view === 'standard';
   const count = data.counting_events ?? 8;
   const wcName = data.info.wc;
-  const [scrolled, setScrolled] = useState(false);
 
   return (
     <Panel label="Community leaderboard" className={standard ? 'table-wrapper' : 'table-wrapper expanded-view'}>
-      <div
-        className={scrolled ? 'table-responsive scrolled-x' : 'table-responsive'}
-        onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
-      >
+      <ScrollTable label="Community leaderboard">
         <table className="leaderboard-table comm-table">
           <thead>
             <tr className="super-header">
@@ -294,7 +285,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </Panel>
   );
 }
@@ -341,9 +332,6 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
               : `All ${editionFacts(data).slots} Period Columns`}
           </strong>
         </div>
-      </div>
-      <div className="scroll-hint comm-scroll-hint">
-        <span>Swipe table horizontally for full community ranking ➔</span>
       </div>
       <Table data={data} view={onPage} rows={shown} />
       {total > 1 && (

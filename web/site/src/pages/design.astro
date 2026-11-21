@@ -17,6 +17,8 @@ import { divisionTagClass } from '../lib/divisions';
 import SignInNote from '../components/SignInNote';
 import SignUpSamples from '../components/SignUpSamples';
 import PlayerSearchSamples from '../components/PlayerSearchSamples';
+import ScrollTable from '../components/ScrollTable';
+import ShowAllSample from '../components/ShowAllSample';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
@@ -366,7 +368,8 @@ const rows = [
     </p>
 
     <h2>Table</h2>
-    <div class="table-responsive">
+    <p>Every table sits in <code>ScrollTable</code>: wider than its box, it scrolls sideways, shades the side with more, and on a phone says so. Numbers sit at the end (<code>num</code>).</p>
+    <ScrollTable client:visible label="Sample leaderboard">
       <table class="leaderboard-table">
         <caption class="visually-hidden">Sample leaderboard</caption>
         <thead>
@@ -402,7 +405,11 @@ const rows = [
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
+
+    <h2>Long table</h2>
+    <p>A long table shows its first 10 rows and a Show all button (<code>ShowAll</code>, <code>shownRows</code>).</p>
+    <ShowAllSample client:only="react" />
 
     <NewerOlder page={2} pages={5} onPage={() => {}} />
   </div>

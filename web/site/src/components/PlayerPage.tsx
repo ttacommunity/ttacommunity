@@ -40,7 +40,6 @@ import {
   seatName,
   seatDeltaClass,
   visibleRivals,
-  RIVALS_SHOWN,
   type ChartCurve,
   type ChartMode,
   type ChartScale,
@@ -74,6 +73,7 @@ import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
 import Inset from './Inset';
 import PlayerSearch from './PlayerSearch';
+import ShowAll from './ShowAll';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -357,7 +357,7 @@ function Games({
         </>
       }
     >
-      <ScrollTable hint="full match details">
+      <ScrollTable label="Match history">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
@@ -472,8 +472,8 @@ function Rivals({
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
   const sortBy = (col: RivalKey) => setRv({ ...rv, sort: nextSort(rv.sort, col, RIVAL_COLUMNS) });
-  const head = (col: RivalKey, label: string, className?: string) => (
-    <SortButton col={col} sort={rv.sort} onSort={sortBy} className={className}>
+  const head = (col: RivalKey, label: string, tone?: 'win' | 'loss' | 'draw') => (
+    <SortButton col={col} sort={rv.sort} onSort={sortBy} tone={tone}>
       {label}
     </SortButton>
   );
@@ -502,7 +502,7 @@ function Rivals({
         </div>
       }
     >
-      <ScrollTable hint="full opponent stats">
+      <ScrollTable label="Rivals">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
@@ -568,13 +568,7 @@ function Rivals({
           onClose={() => setVersus(null)}
         />
       )}
-      {all.length > RIVALS_SHOWN && !filtering && (
-        <div className="rivals-expand">
-          <button type="button" className="btn-antique" onClick={() => setRv({ ...rv, expanded: !rv.expanded })}>
-            {rv.expanded ? `- Show top ${RIVALS_SHOWN} rivals only` : `+ Show all ${all.length} rivals`}
-          </button>
-        </div>
-      )}
+      {!filtering && <ShowAll total={all.length} expanded={rv.expanded} onToggle={() => setRv({ ...rv, expanded: !rv.expanded })} />}
     </Panel>
   );
 }
@@ -643,7 +637,7 @@ function PositionSeatStats({
         </Inset>
       )}
 
-      <ScrollTable hint="seat statistics">
+      <ScrollTable label="Seats">
         <table className="leaderboard-table data-table position-seat-table">
           <caption className="visually-hidden">
             Position and turn order win rates and placement breakdown for {data?.name ?? 'player'}

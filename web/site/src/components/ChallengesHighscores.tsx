@@ -11,6 +11,7 @@ import Panel from './Panel';
 import Panels from './Panels';
 import Inset from './Inset';
 import PageHeader from '@ttac/shared/PageHeader';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -166,7 +167,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
           by{' '}
           {measure === 'rating' ? 'rating: each best as a percentage of the record, averaged over the challenges in scope.' : 'the sum of their own best dominations.'}
         </p>
-        <div className="table-responsive">
+        <ScrollTable label="Highscores">
           <table className="leaderboard-table">
             <caption className="visually-hidden">The pooled record and the best single player, for each set and all together</caption>
             <thead>
@@ -211,7 +212,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </Panel>
 
       <Panel id="challenges-holders" title="Most records held" className="challenges-card">

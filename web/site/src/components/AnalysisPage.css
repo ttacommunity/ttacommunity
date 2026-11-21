@@ -197,17 +197,13 @@
   text-align: center;
 }
 
-.activity-table .col-country {
-  text-align: left;
+.activity-table .activity-country {
+  font-weight: 600;
 }
 
 .activity-table .country-rank {
   color: var(--text-muted);
   font-weight: 700;
-}
-
-.activity-table .col-country {
-  font-weight: 600;
 }
 
 .country-flag {

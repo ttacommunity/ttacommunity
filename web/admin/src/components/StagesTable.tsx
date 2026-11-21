@@ -11,7 +11,7 @@ const NOTE_BUTTON = { close: 'Close', add: 'Add note', edit: 'Edit note' };
 export default function StagesTable({ slug, season, rows, onReload }: { slug: string; season: string; rows: AdminTournament['seasons'][number]['stages']; onReload: () => Promise<void> }) {
   const [editing, setEditing] = useState('');
   return (
-    <AdminTable caption={`Season ${season}'s stages`} className="stages-table">
+    <AdminTable caption={`Season ${season}'s stages`}>
       <thead>
         <tr>
           <th scope="col">Stage</th>

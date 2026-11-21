@@ -8,11 +8,6 @@
   color: var(--text-soft);
   font-size: var(--size-body-short);
 }
-.challenges-card .num,
-.challenges-group .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 
 /* The switches stay in reach while scrolling, just below the site header. */
 .challenges-bar {

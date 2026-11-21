@@ -13,6 +13,7 @@ import { signed } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -128,7 +129,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
       </div>
       <Panels>
         <Panel label="Totals" className="challenges-card">
-          <div className="table-responsive">
+          <ScrollTable label="Totals">
             <table className="leaderboard-table">
               <caption className="visually-hidden">The two players' totals, by set and all together</caption>
               <thead>
@@ -180,7 +181,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
                 </tr>
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </Panel>
         <Panel id="per-challenge" title="Per challenge" className="challenges-card">
           <SetGrid
