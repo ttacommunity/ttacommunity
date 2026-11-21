@@ -115,10 +115,10 @@
   letter-spacing: 0.5px;
 }
 
-/* Full width at the site's phone layout, the header's drawer included. */
+/* A line of its own at the site's phone layout, the header's drawer included. */
 @media (max-width: 820px) {
   .search-form {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
   }
 

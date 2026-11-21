@@ -90,9 +90,9 @@
   letter-spacing: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 820px) {
   .games-player-inline {
-    flex: 1;
+    flex: 1 1 100%;
   }
 }
 
