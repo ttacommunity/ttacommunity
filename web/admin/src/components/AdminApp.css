@@ -976,3 +976,12 @@ details.admin-subsection > summary {
 details.admin-subsection > summary h3 {
   display: inline;
 }
+
+/* Images: the file to upload beside its button, wrapping on a phone. */
+.images-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}

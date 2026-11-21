@@ -84,6 +84,7 @@ export type RecentPodiums = components['schemas']['RecentPodiums'];
 export type RecentPodium = components['schemas']['RecentPodium'];
 export type CGETournament = components['schemas']['CGETournament'];
 export type SiteVisits = components['schemas']['SiteVisits'];
+export type StoredImage = components['schemas']['StoredImage'];
 export type BlitzEditions = components['schemas']['BlitzEditions'];
 export type BlitzEditionRow = components['schemas']['BlitzEditionRow'];
 export type BlitzEdition = components['schemas']['BlitzEdition'];
@@ -468,6 +469,11 @@ export function revalidating(fetchFn: typeof fetch = fetch): typeof fetch {
 /** Returns how many visits the site had in its last days, as Cloudflare Web Analytics counts them. */
 export async function siteVisits(base: string, fetchFn: typeof fetch = fetch): Promise<SiteVisits> {
   return get<SiteVisits>(fetchFn, base, '/v1/site/visits');
+}
+
+/** Returns the images in the assets bucket, newest first. */
+export async function assets(base: string, fetchFn: typeof fetch = fetch): Promise<StoredImage[]> {
+  return get<StoredImage[]>(fetchFn, base, '/v1/assets');
 }
 
 /** challengeQuery is a challenge route's query: verified only unless told otherwise. */

@@ -67,6 +67,19 @@ describe('adminRequest', () => {
       body: '{"community":true}',
     });
   });
+
+  it('sends a file as its own bytes, not as JSON', async () => {
+    const stored = 'a-0123456789ab.png';
+    const f = answer(201, { key: stored });
+    const file = new File(['x'], 'a.png', { type: 'image/png' });
+    await adminRequest('/api/images/assets?name=a.png', { method: 'POST', file }, f);
+    expect(f).toHaveBeenCalledWith('/api/images/assets?name=a.png', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: file,
+    });
+  });
 });
 
 describe('adminDownload', () => {

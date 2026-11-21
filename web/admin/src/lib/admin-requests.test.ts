@@ -38,6 +38,8 @@ describe('admin requests', () => {
     ['entrants to add, to an edition to escape', req.addBlitzEntrants('us_open', 'Season 1', [{ name: 'a', discord_name: 'b', zone: 'UTC' }]), '/api/blitz/us_open/Season%201/entrants', 'POST', { entrants: [{ name: 'a', discord_name: 'b', zone: 'UTC' }] }],
     ['an entrant dropped', req.setBlitzEntrant('us_open', '2026', 7, { status: 'dropped' }), '/api/blitz/us_open/2026/entrants/7', 'PATCH', { status: 'dropped' }],
     ['removing an entrant', req.removeBlitzEntrant('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7', 'DELETE', undefined],
+    // Images
+    ['deleting an image', req.deleteImage('assets', 'bolts-0123456789ab.png'), '/api/images/assets/bolts-0123456789ab.png', 'DELETE', undefined],
     ['an entrant skipping the next round', req.skipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'POST', undefined],
     ['undoing a skip', req.unskipBlitzRound('us_open', '2026', 7), '/api/blitz/us_open/2026/entrants/7/skip', 'DELETE', undefined],
     ['a game of a match', req.recordBlitzGame('us_open', '2026', 101, 1010, 2, { share_code: 'G-2', a: { culture: 50, outcome: 'finished', turn: 1 }, b: { culture: 40, outcome: 'finished', turn: 2 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }), '/api/blitz/us_open/2026/rounds/101/matches/1010/games/2', 'PUT', { share_code: 'G-2', a: { culture: 50, outcome: 'finished', turn: 1 }, b: { culture: 40, outcome: 'finished', turn: 2 }, finished_on: '2026-10-14', finished_time: '21:30', zone: 'UTC' }],
@@ -126,5 +128,12 @@ describe('admin requests', () => {
 describe('blitzThreadsPath', () => {
   it("is a round's threads, under an edition to escape", () => {
     expect(req.blitzThreadsPath('us_open', 'Season 1', 101)).toBe('/api/blitz/us_open/Season%201/rounds/101/threads');
+  });
+});
+
+describe('uploadImage', () => {
+  it('sends the file itself to the bucket, its name in the address', () => {
+    const file = new File(['x'], 'Blitz Bolts #2.png', { type: 'image/png' });
+    expect(req.uploadImage('assets', file)).toEqual({ path: '/api/images/assets?name=Blitz%20Bolts%20%232.png', init: { method: 'POST', file } });
   });
 });

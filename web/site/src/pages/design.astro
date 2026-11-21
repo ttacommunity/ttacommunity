@@ -25,6 +25,7 @@ import TitleSelect from '../components/TitleSelect';
 import MinOppsField from '../components/MinOppsField';
 import NewerOlder from '@ttac/shared/NewerOlder';
 import CopyCode from '@ttac/shared/CopyCode';
+import ImagesTable from '@ttac/shared/ImagesTable';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { emptyGameForm } from '@ttac/shared/game-form';
 
@@ -163,6 +164,15 @@ const rows = [
     <p>A replay code, or an image's address: the button copies it, and ticks.</p>
     <CopyCode client:only="react" code="ABC123XY" />
     <CopyCode client:only="react" code="https://assets.ttacommunity.org/sample-0123456789ab.png" what="address" />
+
+    <h2>Images</h2>
+    <p>Stored images, each small with its address to copy; admin adds a column of actions.</p>
+    <ImagesTable
+      client:only="react"
+      zone="UTC"
+      caption="Sample images"
+      images={[{ key: 'sample-0123456789ab.png', url: '/favicon.png', size: 12500, uploaded: '2026-11-21T10:30:00Z' }]}
+    />
 
     <h2>Buttons</h2>
     <p class="design-row design-buttons">
