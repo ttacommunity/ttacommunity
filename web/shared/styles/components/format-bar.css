@@ -6,9 +6,14 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-bottom: 0.85rem;
+}
+
+/* Every bar of controls: one look. */
+.format-bar,
+.view-bar {
   padding: 0.5rem 0.75rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
+  background: var(--bar-surface);
+  border: 1px solid var(--bar-edge);
   border-radius: 6px;
 }
 
@@ -22,6 +27,8 @@
 .format-btn {
   display: inline-flex;
   align-items: center;
+  min-height: var(--control-height);
+  box-sizing: border-box;
   padding: 0.4rem 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 4px;

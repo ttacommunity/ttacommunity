@@ -107,7 +107,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
         <Review apiUrl={apiUrl} name={name} list={list} chosen={chosen} mine={mine} entries={entries.data} records={records.data} />
       ) : (
         <>
-          <div className="challenges-bar">
+          <div className="view-bar challenges-bar">
             <Segmented
               label="Set"
               value={set}
@@ -156,7 +156,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
         </>
       )}
 
-      <div className="challenges-bar challenges-submit-bar">
+      <div className="view-bar challenges-bar challenges-submit-bar">
         <div>
           {chosen.length === 0 && errors.length === 0
             ? 'Nothing entered yet.'

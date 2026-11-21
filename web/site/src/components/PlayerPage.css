@@ -325,17 +325,6 @@
   color: inherit;
 }
 
-.rivals-controls select {
-  background: var(--surface-field);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-main);
-  padding: 0.35rem 0.6rem;
-  font-size: 0.85rem;
-  height: var(--control-height);
-  box-sizing: border-box;
-}
-
 .rivals-controls {
   display: flex;
   flex-wrap: wrap;
@@ -537,24 +526,23 @@
   max-width: 900px;
 }
 
+/* Each group's label in one column, so the button groups start in line. */
 .h2h-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  margin: 1rem 1.25rem 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.5rem;
-  background: rgba(22, 14, 10, 0.9);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 0.5rem 1rem;
 }
 
-.h2h-toolbar-label {
-  font-family: var(--font-heading);
-  font-size: 0.78rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
+/* On a phone each label sits above its group. */
+@media (max-width: 768px) {
+  .h2h-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
-.format-bar.h2h-formats {
+.format-bar-group.h2h-formats {
   gap: 0.3rem;
   width: fit-content;
   margin: 0;

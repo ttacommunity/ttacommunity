@@ -275,7 +275,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           </div>
 
           {showMatchesBar && (
-            <div className="search-matches-bar" aria-label="Search matches filter">
+            <div className="view-bar search-matches-bar" aria-label="Search matches filter">
               <span className="search-matches-label">Matches ({found.rows.length}):</span>
               <div className="search-matches-chips">
                 {found.rows.map((p) => (

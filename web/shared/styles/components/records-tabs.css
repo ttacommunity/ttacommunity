@@ -8,6 +8,8 @@
   flex-wrap: wrap;
 }
 .records-tab-btn {
+  min-height: var(--control-height);
+  box-sizing: border-box;
   background: rgba(35, 23, 16, 0.9);
   border: 1px solid rgba(138, 98, 51, 0.6);
   color: #dfcfbc;

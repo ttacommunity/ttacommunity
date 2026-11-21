@@ -352,7 +352,8 @@ agent runs them itself.
   The site has one of each: page header (`PageHeader`), panel and its
   header (`.rating-card` `.panel-card`, `PanelHeader`), table
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
-  a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
+  a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
+  a group inside a bar has no box of its own), dialog and sheet (`Dialog`, `Sheet`),
   drawer (`SideDrawer`), note (`Note`), box inside a panel (`Inset`:
   content, a row of figures or a short line), formula box (`$$…$$`, or
   `.formula` around several), buttons (`.btn-antique` for an action,

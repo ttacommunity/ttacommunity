@@ -487,6 +487,7 @@ function Rivals({
         <div className="rivals-controls">
           <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
           <select
+            className="input-antique"
             aria-label="Minimum matches"
             value={rv.minGames}
             onChange={(e) => setRv({ ...rv, minGames: Number(e.target.value) })}

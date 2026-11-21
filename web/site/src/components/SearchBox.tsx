@@ -48,7 +48,7 @@ function Highlighted({ name, query }: { name: string; query: string }) {
   );
 }
 
-/** SearchBox searches on Enter or 🔍, and fills in a suggestion when one is picked; in field mode, the page's form submits. */
+/** SearchBox searches on Enter or 🔍, and fills in a suggestion when one is picked; in field mode, Enter or 🔍 submits the page's form. */
 export default function SearchBox({
   players,
   value,
@@ -147,7 +147,7 @@ export default function SearchBox({
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />
-      {!field && !fill && (
+      {!fill && (
         <button type="submit" className="btn-icon search-submit" title="Search" aria-label="Search">
           🔍
         </button>

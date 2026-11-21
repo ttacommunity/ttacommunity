@@ -347,7 +347,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
           </div>
         ) : (
           <div className="ach-drilldown-view">
-            <div className="ach-drilldown-header">
+            <div className="view-bar ach-drilldown-header">
               <button
                 type="button"
                 className="btn-antique"
