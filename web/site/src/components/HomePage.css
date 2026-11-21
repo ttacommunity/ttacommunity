@@ -200,10 +200,6 @@
   flex-direction: column;
   gap: 0.65rem;
   margin-bottom: 1.25rem;
-  padding: 0.75rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
 
 .filter-controls-row {
@@ -224,12 +220,6 @@
   gap: 0.5rem;
 }
 
-.reset-top-btn {
-  padding: 0.35rem 0.75rem;
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
 .filter-active-tags-row {
   display: flex;
   flex-direction: column;
@@ -237,20 +227,24 @@
   width: 100%;
 }
 
+/* The tracked tournaments and players, one per line in the narrow column, each as wide as it. */
 .filter-tags-scroll {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.4rem;
-  max-height: 120px;
-  overflow-y: auto;
-  padding: 0.2rem 0;
 }
 
+/* The two buttons share the row, each its words on one line; when both do not fit, the second takes its own row. */
 .filter-quick-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+}
+
+.filter-quick-actions > * {
+  flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 .player-tags-container {

@@ -24,10 +24,6 @@
   justify-content: space-between;
   gap: 0.5rem 1rem;
   margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface-header);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
 /* Among a page's panels, the stack's gap spaces it. */
 .panels > .challenges-bar {
@@ -439,7 +435,7 @@
 }
 .challenges-submit-row {
   display: grid;
-  grid-template-columns: 56px minmax(10rem, 1fr) 8rem minmax(12rem, 1.2fr);
+  grid-template-columns: 56px minmax(10rem, 1fr) 9.5rem minmax(12rem, 1.2fr);
   gap: 0.75rem;
   align-items: center;
   padding: 0.4rem 0;
@@ -488,7 +484,7 @@
 @media (max-width: 700px) {
   /* On a phone: the picture and name, then the domination and proof side by side below them. */
   .challenges-submit-row {
-    grid-template-columns: 56px 3.5rem 1fr;
+    grid-template-columns: 56px 4.5rem 1fr;
     grid-template-areas:
       'picture name name'
       'domination domination proof';

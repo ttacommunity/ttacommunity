@@ -45,15 +45,6 @@
 .bracket-find input {
   width: 240px;
   max-width: 100%;
-  height: var(--control-height);
-  box-sizing: border-box;
-  padding: 0 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-field);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: var(--size-body-short);
 }
 .bracket-key {
   padding: 0 20px;

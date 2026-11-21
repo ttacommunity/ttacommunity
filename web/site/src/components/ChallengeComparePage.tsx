@@ -65,7 +65,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
           </div>
         </div>
       </PageHeader>
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <div className="challenges-bar-group">
           {pa && pb && <Segmented label="Set" value={set} onChange={setSet} options={SETS} />}
           {pa && pb && (

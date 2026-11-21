@@ -141,7 +141,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 Recently finished tournament matches featuring your selected divisions and competitors.
               </p>
               {/* Feed Filter Toolbar */}
-              <div className="player-filter-toolbar">
+              <div className="view-bar player-filter-toolbar">
                 <div className="filter-active-tags-row">
                   <div className="filter-tags-scroll" aria-label="Active feed filters">
                     {feedSettings.tournaments.map((t, idx) => (
@@ -186,7 +186,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                     </button>
                     <button
                       type="button"
-                      className="btn-antique reset-top-btn"
+                      className="btn-quiet"
                       onClick={() => changeSettings(DEFAULT_FEED_SETTINGS)}
                       title="Reset to top divisions of IM, IC, and RL"
                     >

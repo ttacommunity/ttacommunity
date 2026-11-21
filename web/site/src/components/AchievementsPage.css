@@ -356,10 +356,6 @@
   gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 1.25rem;
-  padding: 0.85rem 1.1rem;
-  background: var(--surface-well);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
 .ach-drilldown-info {
   display: flex;

@@ -18,7 +18,7 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
 
   return (
     <>
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <h2 className="rating-card-heading challenges-bar-title">Ranking</h2>
         <VerifiedSwitch value={verified} onChange={setVerified} />
       </div>

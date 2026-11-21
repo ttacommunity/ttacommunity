@@ -156,11 +156,11 @@ function Explainers({ data }: { data: LeaderboardData }) {
 
 function Controls({ view, slots, names }: { view: CommunityView; slots: number; names: SearchPlayer[] }) {
   return (
-    <div className="comm-controls">
+    <div className="view-bar comm-controls">
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <SearchBox players={names} value={view.search} name="q" inputClassName="comm-search-input" placeholder="Search competitor by name..." />
+        <SearchBox players={names} value={view.search} name="q" inputClassName="input-antique comm-search-input" placeholder="Search competitor by name..." />
         <button type="submit" className="btn-antique">
           Search
         </button>

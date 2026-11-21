@@ -1,8 +1,4 @@
 /* The leaderboard card's own layout: the heading row and its engine and player-count lines. */
-.leaderboard .model-picker .input-antique {
-  padding: 0.4rem 0.65rem;
-  font-size: 0.88rem;
-}
 
 .leaderboard-engine strong {
   color: var(--text-main);
@@ -65,11 +61,6 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.65rem;
-  padding: 0.4rem 0.6rem;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  font-size: 0.8rem;
 }
 
 .search-matches-label {

@@ -325,17 +325,6 @@
   color: inherit;
 }
 
-.rivals-controls select {
-  background: var(--surface-field);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-main);
-  padding: 0.35rem 0.6rem;
-  font-size: 0.85rem;
-  height: var(--control-height);
-  box-sizing: border-box;
-}
-
 .rivals-controls {
   display: flex;
   flex-wrap: wrap;
@@ -538,13 +527,11 @@
 }
 
 .h2h-toolbar {
+  margin: 1rem 1.25rem 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 1.5rem;
-  background: rgba(22, 14, 10, 0.9);
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 .h2h-toolbar-label {
@@ -554,7 +541,7 @@
   text-transform: uppercase;
 }
 
-.format-bar.h2h-formats {
+.format-bar-group.h2h-formats {
   gap: 0.3rem;
   width: fit-content;
   margin: 0;

@@ -58,7 +58,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
   return (
     <>
       <PageHeader title={p.player} />
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <div className="challenges-bar-group">
           <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           {p.summary && (
