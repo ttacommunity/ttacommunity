@@ -45,9 +45,3 @@ progress {
 }
 
 /* A box that narrows a table as you type, upstream's filters on the player and achievements pages. */
-.input-antique.filter-input {
-  padding: 0.4rem 0.8rem;
-  background: var(--surface-field);
-  color: var(--text-main);
-  font-size: 0.85rem;
-}

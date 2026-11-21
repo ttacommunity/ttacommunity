@@ -1,5 +1,5 @@
 /** The challenge players: everyone with a counted entry, searchable and sortable, by rating or total. */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import type { SortColumns } from '@ttac/shared/sort';
 import { formatDate, viewerZone } from '@ttac/shared/time';
@@ -7,7 +7,7 @@ import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/rati
 import { byMeasure, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
-import FilterInput from './FilterInput';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
@@ -35,6 +35,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
   const [query, setQuery] = useState('');
   const load = useKeptLoad(`players-${verified}`, () => challengePlayers(apiUrl, verified === 'verified'));
   const players = load.kind === 'ready' ? matchingPlayers(byMeasure(load.data.players, measure), query) : [];
+  const names = useMemo(() => (load.kind === 'ready' ? load.data.players.map((p) => ({ name: p.player })) : []), [load]);
   const [rows, sort, onSort] = useSort(players, columns(measure));
   const zone = viewerZone();
 
@@ -50,7 +51,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
         }
       />
       <div className="view-bar challenges-bar">
-        <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="🔍 Filter players by name..." />
+        <PlayerSearch players={names} value={query} onChange={setQuery} />
         <div className="challenges-bar-group">
           <MeasureSwitch value={measure} onChange={setMeasure} />
           <VerifiedSwitch value={verified} onChange={setVerified} />

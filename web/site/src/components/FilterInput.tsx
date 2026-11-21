@@ -1,27 +1,32 @@
-/** A box that narrows a table as you type, the same on every page. */
+/** A box that narrows a list that is not of players as you type, drawn as the player search is. Player lists use PlayerSearch. */
+import './PlayerSearch.css';
 
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  /** What it filters, for screen readers, such as "Filter rivals by name". */
+  /** What it filters, for screen readers, such as "Filter tournaments". */
   label: string;
+  /** What it filters, shown in the empty box. */
   placeholder: string;
-  /** The page's own width for the box. */
-  className?: string;
 }
 
 /** FilterInput reports each change as the visitor types. */
-export default function FilterInput({ value, onChange, label, placeholder, className }: Props) {
+export default function FilterInput({ value, onChange, label, placeholder }: Props) {
   return (
-    <input
-      type="text"
-      className={className === undefined ? 'input-antique filter-input' : `input-antique filter-input ${className}`}
-      value={value}
-      aria-label={label}
-      placeholder={placeholder}
-      enterKeyHint="search"
-      autoComplete="off"
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <div className="search-input-wrapper">
+      <input
+        type="text"
+        className="input-antique"
+        value={value}
+        aria-label={label}
+        placeholder={placeholder}
+        enterKeyHint="search"
+        autoComplete="off"
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <span className="btn-icon search-submit search-icon" aria-hidden="true">
+        🔍
+      </span>
+    </div>
   );
 }

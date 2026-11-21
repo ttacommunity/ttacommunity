@@ -5,7 +5,7 @@ import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
 import { DEFAULT_FEED_SETTINGS, withPlayer, withoutPlayer } from '../lib/feed-settings';
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
 import { waitingText } from '../lib/waiting';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import Sheet from '@ttac/shared/Sheet';
 import Inset from './Inset';
 import './FeedOptionsModal.css';
@@ -242,10 +242,9 @@ export default function FeedOptionsModal({
               {playersWaiting}
             </Inset>
           )}
-          <SearchBox
+          <PlayerSearch
             players={searchPlayers.kind === 'ready' ? searchPlayers.data : []}
             value=""
-            placeholder="Search and add competitor..."
             onSearch={addPlayer}
             clearOnSearch
           />

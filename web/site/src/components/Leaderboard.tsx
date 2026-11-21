@@ -14,7 +14,7 @@ import {
 import Segmented from '@ttac/shared/Segmented';
 import PageHeader from '@ttac/shared/PageHeader';
 import { count } from '@ttac/shared/numbers';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import Panel from './Panel';
 import Panels from './Panels';
 import Tex from './Tex';
@@ -154,7 +154,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
           <div className="format-bar">
             <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
             <div className="format-bar-actions">
-              <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
+              <PlayerSearch players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
               <OptionsToggle
                 title="Toggle advanced rating options, season archive, and filters"
                 active={hasOptions(view)}

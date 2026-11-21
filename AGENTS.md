@@ -342,6 +342,11 @@ agent runs them itself.
   app's `components/` for one that already does it, and use it; when you
   find a page's own copy of one, move it over. Used by one app: its
   `components/`. By both: `shared`
+- **A shared piece's options say what it does, never how it looks.** No
+  `className`, placeholder or width props: a page that could restyle or
+  reword a piece will, and the copies drift apart. `PlayerSearch` takes
+  search, fill or filter, and the type refuses anything else. A page's
+  CSS places a piece; it never reaches inside one (`.page .piece input`)
 - **Look for a piece by its look and purpose, never by its name.** A
   search for one class finds one spelling: the same card is also
   `rating-card account-card`, or drawn from scratch in a page's CSS. To
@@ -354,8 +359,8 @@ agent runs them itself.
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
   a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
   a group inside a bar has no box of its own), dialog and sheet (`Dialog`, `Sheet`),
-  drawer (`SideDrawer`), note (`Note`), box inside a panel (`Inset`:
-  content, a row of figures or a short line), formula box (`$$…$$`, or
+  drawer (`SideDrawer`), player search and filter (`PlayerSearch`),
+  note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line), formula box (`$$…$$`, or
   `.formula` around several), buttons (`.btn-antique` for an action,
   `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
   cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a

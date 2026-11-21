@@ -47,9 +47,6 @@
   line-height: 1.6;
   color: var(--text-main);
 }
-.input-antique.ach-filter {
-  width: 260px;
-}
 
 .ach-category-filters {
   margin: 0.75rem 0 1rem 0;

@@ -24,7 +24,7 @@ import {
 } from '../lib/community';
 import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
 import Panel from './Panel';
 import PlayerLink from './PlayerLink';
@@ -160,7 +160,7 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <SearchBox players={names} value={view.search} name="q" inputClassName="input-antique comm-search-input" placeholder="Search competitor by name..." wide />
+        <PlayerSearch players={names} value={view.search} name="q" />
         {view.search && (
           <a href={href(view, { search: '' })} className="btn-quiet">
             Clear
