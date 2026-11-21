@@ -1,4 +1,5 @@
 /** How the admin page reads a rating run's progress line from the engine. */
+import { sizeText } from '@ttac/shared/numbers';
 
 /** Progress is one engine step line, "[done/total] label | elapsed 2m00s | eta 1h03m00s". */
 export type Progress = { done: number; total: number; label: string; elapsed: string; eta: string };
@@ -19,16 +20,6 @@ type RunState = { status: string; current: boolean; protected: boolean; deleting
 /** canDelete says whether a run offers Delete: not protected, not on the site, not going, not already being deleted. */
 export function canDelete(run: RunState): boolean {
   return !run.protected && !run.current && !run.deleting && run.status !== 'running';
-}
-
-const UNITS = ['B', 'kB', 'MB', 'GB', 'TB'];
-
-/** sizeText writes bytes in the largest unit under a thousand ("4.0 GB"), '' for a size not known yet. */
-export function sizeText(bytes: number | undefined): string {
-  if (bytes === undefined) return '';
-  if (bytes === 0) return '0 B';
-  const unit = Math.min(Math.floor(Math.log10(bytes) / 3), UNITS.length - 1);
-  return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
 }
 
 /** runSize writes one of a run's sizes (its rows, or what it takes on disk), or '' while it is going, as they

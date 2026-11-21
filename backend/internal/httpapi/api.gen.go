@@ -649,6 +649,21 @@ func (e GameState) Valid() bool {
 	}
 }
 
+// Defines values for ImageBucket.
+const (
+	Assets ImageBucket = "assets"
+)
+
+// Valid indicates whether the value is a known member of the ImageBucket enum.
+func (e ImageBucket) Valid() bool {
+	switch e {
+	case Assets:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LinkedHow.
 const (
 	LinkedHowApproved LinkedHow = "approved"
@@ -4055,6 +4070,9 @@ type HistorySeries struct {
 	Points []HistoryPoint `json:"points"`
 }
 
+// ImageBucket A bucket images are kept in
+type ImageBucket string
+
 // LadderWin defines model for LadderWin.
 type LadderWin struct {
 	Name   string  `json:"name"`
@@ -5715,6 +5733,19 @@ type StartedRun struct {
 	Job string `json:"job"`
 }
 
+// StoredImage defines model for StoredImage.
+type StoredImage struct {
+	// Key Its name in the bucket
+	Key string `json:"key"`
+
+	// Size In bytes
+	Size     int64     `json:"size"`
+	Uploaded time.Time `json:"uploaded"`
+
+	// Url Where it is served from
+	Url string `json:"url"`
+}
+
 // Story One of a tournament's stories, as DANeo's series pages tell them
 type Story struct {
 	// Badge A short line beside the player, such as "Reigning World Champion"; may be empty
@@ -6160,6 +6191,9 @@ type ChallengeVerified = bool
 // DiscordID defines model for DiscordID.
 type DiscordID = string
 
+// ImageBucketName A bucket images are kept in
+type ImageBucketName = ImageBucket
+
 // LinkRequestId defines model for LinkRequestId.
 type LinkRequestId = int64
 
@@ -6257,6 +6291,12 @@ type GetAdminBlitzCandidatesParams struct {
 // GetAdminChallengeEntriesParams defines parameters for GetAdminChallengeEntries.
 type GetAdminChallengeEntriesParams struct {
 	View *AdminChallengeView `form:"view,omitempty" json:"view,omitempty"`
+}
+
+// PostAdminImageParams defines parameters for PostAdminImage.
+type PostAdminImageParams struct {
+	// Name The file's name, which the image's key starts with
+	Name string `form:"name" json:"name"`
 }
 
 // GetAdminPeopleParams defines parameters for GetAdminPeople.
@@ -6943,6 +6983,15 @@ type ServerInterface interface {
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(w http.ResponseWriter, r *http.Request)
+	// GetAdminImages The images in a bucket, newest first
+	// (GET /v1/admin/images/{bucket})
+	GetAdminImages(w http.ResponseWriter, r *http.Request, bucket ImageBucketName)
+	// PostAdminImage Upload an image to a bucket
+	// (POST /v1/admin/images/{bucket})
+	PostAdminImage(w http.ResponseWriter, r *http.Request, bucket ImageBucketName, params PostAdminImageParams)
+	// DeleteAdminImage Delete an image from a bucket
+	// (DELETE /v1/admin/images/{bucket}/{key})
+	DeleteAdminImage(w http.ResponseWriter, r *http.Request, bucket ImageBucketName, key string)
 	// PutAdminLinkApproval Approve a request to be linked (admins and organisers)
 	// (PUT /v1/admin/link-requests/{link_request}/approval)
 	PutAdminLinkApproval(w http.ResponseWriter, r *http.Request, linkRequest LinkRequestId)
@@ -7171,6 +7220,9 @@ type ServerInterface interface {
 	// PutAdminYouTubeFeed Pause or resume the YouTube Live feed (admins only)
 	// (PUT /v1/admin/youtube-feeds/{feed})
 	PutAdminYouTubeFeed(w http.ResponseWriter, r *http.Request, feed AdminYouTubeFeedId)
+	// GetAssets The images in the assets bucket, newest first
+	// (GET /v1/assets)
+	GetAssets(w http.ResponseWriter, r *http.Request)
 	// StartDiscordSignIn Start signing in with Discord
 	// (GET /v1/auth/discord)
 	StartDiscordSignIn(w http.ResponseWriter, r *http.Request, params StartDiscordSignInParams)
@@ -9322,6 +9374,109 @@ func (siw *ServerInterfaceWrapper) GetAdminExport(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminImages operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminImages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket ImageBucketName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", r.PathValue("bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminImages(w, r, bucket)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminImage operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminImage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket ImageBucketName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", r.PathValue("bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminImageParams
+
+	// ------------- Required query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminImage(w, r, bucket, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminImage operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminImage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "bucket" -------------
+	var bucket ImageBucketName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bucket", r.PathValue("bucket"), &bucket, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bucket", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminImage(w, r, bucket, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PutAdminLinkApproval operation middleware
 func (siw *ServerInterfaceWrapper) PutAdminLinkApproval(w http.ResponseWriter, r *http.Request) {
 
@@ -11243,6 +11398,20 @@ func (siw *ServerInterfaceWrapper) PutAdminYouTubeFeed(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutAdminYouTubeFeed(w, r, feed)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAssets operation middleware
+func (siw *ServerInterfaceWrapper) GetAssets(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAssets(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -14553,6 +14722,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz", wrapper.GetBlitzEditions)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/blitz/{tournament}/{edition}", wrapper.GetBlitzEdition)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/countries", wrapper.GetCountries)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/assets", wrapper.GetAssets)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/site/visits", wrapper.GetSiteVisits)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord", wrapper.StartDiscordSignIn)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/auth/discord/callback", wrapper.FinishDiscordSignIn)
@@ -14661,6 +14831,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/youtube-feeds", wrapper.PostAdminYouTubeFeed)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/youtube-feeds/{feed}", wrapper.DeleteAdminYouTubeFeed)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/youtube-feeds/{feed}", wrapper.PutAdminYouTubeFeed)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/images/{bucket}", wrapper.GetAdminImages)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/images/{bucket}", wrapper.PostAdminImage)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/images/{bucket}/{key}", wrapper.DeleteAdminImage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/titles", wrapper.GetAdminTitles)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.DeleteAdminTitle)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/titles/{player}", wrapper.PutAdminTitle)
@@ -19153,6 +19326,332 @@ func (response GetAdminExport403JSONResponse) VisitGetAdminExportResponse(w http
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminImagesRequestObject struct {
+	Bucket ImageBucketName `json:"bucket"`
+}
+
+type GetAdminImagesResponseObject interface {
+	VisitGetAdminImagesResponse(w http.ResponseWriter) error
+}
+
+type GetAdminImages200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAdminImages200JSONResponse struct {
+	Body    []StoredImage
+	Headers GetAdminImages200ResponseHeaders
+}
+
+func (response GetAdminImages200JSONResponse) VisitGetAdminImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminImages401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAdminImages401JSONResponse) VisitGetAdminImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminImages403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetAdminImages403JSONResponse) VisitGetAdminImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminImages404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminImages404JSONResponse) VisitGetAdminImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminImages503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetAdminImages503JSONResponse) VisitGetAdminImagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImageRequestObject struct {
+	Bucket ImageBucketName `json:"bucket"`
+	Params PostAdminImageParams
+	Body   io.Reader
+}
+
+type PostAdminImageResponseObject interface {
+	VisitPostAdminImageResponse(w http.ResponseWriter) error
+}
+
+type PostAdminImage201ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminImage201JSONResponse struct {
+	Body    StoredImage
+	Headers PostAdminImage201ResponseHeaders
+}
+
+func (response PostAdminImage201JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PostAdminImage400JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PostAdminImage401JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PostAdminImage403JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PostAdminImage404JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PostAdminImage409JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage413ResponseHeaders struct {
+	CacheControl string
+}
+
+type PostAdminImage413JSONResponse struct {
+	Body    Error
+	Headers PostAdminImage413ResponseHeaders
+}
+
+func (response PostAdminImage413JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminImage503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response PostAdminImage503JSONResponse) VisitPostAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminImageRequestObject struct {
+	Bucket ImageBucketName `json:"bucket"`
+	Key    string          `json:"key"`
+}
+
+type DeleteAdminImageResponseObject interface {
+	VisitDeleteAdminImageResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminImage204Response struct {
+}
+
+func (response DeleteAdminImage204Response) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAdminImage400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteAdminImage400JSONResponse) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminImage401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAdminImage401JSONResponse) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminImage403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAdminImage403JSONResponse) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminImage404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAdminImage404JSONResponse) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminImage503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DeleteAdminImage503JSONResponse) VisitDeleteAdminImageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -24955,6 +25454,72 @@ func (response PutAdminYouTubeFeed404JSONResponse) VisitPutAdminYouTubeFeedRespo
 	return err
 }
 
+type GetAssetsRequestObject struct {
+}
+
+type GetAssetsResponseObject interface {
+	VisitGetAssetsResponse(w http.ResponseWriter) error
+}
+
+type GetAssets200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAssets200JSONResponse struct {
+	Body    []StoredImage
+	Headers GetAssets200ResponseHeaders
+}
+
+func (response GetAssets200JSONResponse) VisitGetAssetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssets404ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetAssets404JSONResponse struct {
+	Body    Error
+	Headers GetAssets404ResponseHeaders
+}
+
+func (response GetAssets404JSONResponse) VisitGetAssetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAssets503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetAssets503JSONResponse) VisitGetAssetsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StartDiscordSignInRequestObject struct {
 	Params StartDiscordSignInParams
 }
@@ -29763,6 +30328,15 @@ type StrictServerInterface interface {
 	// GetAdminExport Download every input table as a zip (admins and organisers)
 	// (GET /v1/admin/export)
 	GetAdminExport(ctx context.Context, request GetAdminExportRequestObject) (GetAdminExportResponseObject, error)
+	// GetAdminImages The images in a bucket, newest first
+	// (GET /v1/admin/images/{bucket})
+	GetAdminImages(ctx context.Context, request GetAdminImagesRequestObject) (GetAdminImagesResponseObject, error)
+	// PostAdminImage Upload an image to a bucket
+	// (POST /v1/admin/images/{bucket})
+	PostAdminImage(ctx context.Context, request PostAdminImageRequestObject) (PostAdminImageResponseObject, error)
+	// DeleteAdminImage Delete an image from a bucket
+	// (DELETE /v1/admin/images/{bucket}/{key})
+	DeleteAdminImage(ctx context.Context, request DeleteAdminImageRequestObject) (DeleteAdminImageResponseObject, error)
 	// PutAdminLinkApproval Approve a request to be linked (admins and organisers)
 	// (PUT /v1/admin/link-requests/{link_request}/approval)
 	PutAdminLinkApproval(ctx context.Context, request PutAdminLinkApprovalRequestObject) (PutAdminLinkApprovalResponseObject, error)
@@ -29991,6 +30565,9 @@ type StrictServerInterface interface {
 	// PutAdminYouTubeFeed Pause or resume the YouTube Live feed (admins only)
 	// (PUT /v1/admin/youtube-feeds/{feed})
 	PutAdminYouTubeFeed(ctx context.Context, request PutAdminYouTubeFeedRequestObject) (PutAdminYouTubeFeedResponseObject, error)
+	// GetAssets The images in the assets bucket, newest first
+	// (GET /v1/assets)
+	GetAssets(ctx context.Context, request GetAssetsRequestObject) (GetAssetsResponseObject, error)
 	// StartDiscordSignIn Start signing in with Discord
 	// (GET /v1/auth/discord)
 	StartDiscordSignIn(ctx context.Context, request StartDiscordSignInRequestObject) (StartDiscordSignInResponseObject, error)
@@ -31931,6 +32508,88 @@ func (sh *strictHandler) GetAdminExport(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminExportResponseObject); ok {
 		if err := validResponse.VisitGetAdminExportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminImages operation middleware
+func (sh *strictHandler) GetAdminImages(w http.ResponseWriter, r *http.Request, bucket ImageBucketName) {
+	var request GetAdminImagesRequestObject
+
+	request.Bucket = bucket
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminImages(ctx, request.(GetAdminImagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminImages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminImagesResponseObject); ok {
+		if err := validResponse.VisitGetAdminImagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminImage operation middleware
+func (sh *strictHandler) PostAdminImage(w http.ResponseWriter, r *http.Request, bucket ImageBucketName, params PostAdminImageParams) {
+	var request PostAdminImageRequestObject
+
+	request.Bucket = bucket
+	request.Params = params
+
+	request.Body = r.Body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminImage(ctx, request.(PostAdminImageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminImage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminImageResponseObject); ok {
+		if err := validResponse.VisitPostAdminImageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminImage operation middleware
+func (sh *strictHandler) DeleteAdminImage(w http.ResponseWriter, r *http.Request, bucket ImageBucketName, key string) {
+	var request DeleteAdminImageRequestObject
+
+	request.Bucket = bucket
+	request.Key = key
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminImage(ctx, request.(DeleteAdminImageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminImage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminImageResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminImageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -34143,6 +34802,30 @@ func (sh *strictHandler) PutAdminYouTubeFeed(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutAdminYouTubeFeedResponseObject); ok {
 		if err := validResponse.VisitPutAdminYouTubeFeedResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAssets operation middleware
+func (sh *strictHandler) GetAssets(w http.ResponseWriter, r *http.Request) {
+	var request GetAssetsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAssets(ctx, request.(GetAssetsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAssets")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAssetsResponseObject); ok {
+		if err := validResponse.VisitGetAssetsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

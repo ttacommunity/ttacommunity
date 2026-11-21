@@ -56,7 +56,7 @@ func youtubeDo(t *testing.T, f *fakeAdmins, hub bool, who, method, path, origin,
 		h = &fakeHub{}
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, f, nil, nil, h, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+	NewMux(&fakeRatings{}, f, nil, nil, h, nil, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 	return rec
 }
 

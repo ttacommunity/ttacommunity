@@ -26,6 +26,7 @@ import NostradamusPanel from './NostradamusPanel';
 import MembersPanel from './MembersPanel';
 import AuditPanel from './AuditPanel';
 import MoviesPanel from './MoviesPanel';
+import ImagesPanel from './ImagesPanel';
 import './AdminApp.css';
 import AdminCard from './AdminCard';
 
@@ -119,6 +120,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
 
     case 'movies':
       return <MoviesPanel />;
+    case 'images':
+      return <ImagesPanel />;
 
   }
 }

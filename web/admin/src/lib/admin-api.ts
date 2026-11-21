@@ -49,14 +49,17 @@ function refusal(status: number, { error, requestId }: ErrorFields): string {
   return `The API failed (${status}). Try again, or tell an admin.${ref}`;
 }
 
-/** adminRequest calls an admin path on this site, sending json as the body when given, and returns its result. */
+/** adminRequest calls an admin path on this site, sending json as the body when given, or a file as its own bytes, and returns its result. */
 export async function adminRequest<T>(
   path: string,
-  { method = 'GET', json }: { method?: string; json?: unknown },
+  { method = 'GET', json, file }: { method?: string; json?: unknown; file?: Blob },
   fetcher: Fetch = fetch,
 ): Promise<AdminResult<T>> {
   const init: RequestInit = { method, credentials: 'same-origin' };
-  if (json !== undefined) {
+  if (file !== undefined) {
+    init.headers = { 'Content-Type': 'application/octet-stream' };
+    init.body = file;
+  } else if (json !== undefined) {
     init.headers = { 'Content-Type': 'application/json' };
     init.body = JSON.stringify(json);
   }

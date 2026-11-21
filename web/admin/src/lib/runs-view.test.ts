@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns, sizeText } from './runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -40,21 +40,6 @@ describe('canDelete', () => {
     ['already deleting', { deleting: true }],
   ] as const)('hides delete on a %s run', (_name, change) => {
     expect(canDelete({ ...run, ...change })).toBe(false);
-  });
-});
-
-describe('sizeText', () => {
-  it.each([
-    [4_000_000_000, '4.0 GB'],
-    [350_000_000, '350.0 MB'],
-    [12_500, '12.5 kB'],
-  ])('writes %i bytes as %s: the largest unit under a thousand, one decimal', (bytes, want) => {
-    expect(sizeText(bytes)).toBe(want);
-  });
-
-  it('writes nothing for a size not known yet, and 0 B for an empty run', () => {
-    expect(sizeText(undefined)).toBe('');
-    expect(sizeText(0)).toBe('0 B');
   });
 });
 

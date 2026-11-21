@@ -14,11 +14,13 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"ttacommunity/backend/internal/analysis"
+	"ttacommunity/backend/internal/imagestore"
 	"ttacommunity/backend/internal/runcache"
 	"ttacommunity/backend/internal/store"
 )
@@ -43,11 +45,11 @@ type Requests interface {
 // and sign-in routes through their own (CORS for the site alone); with admins or signIns nil they refuse every
 // request. Discord's endpoint, YouTube's hub's callback and Twitch's EventSub callback take only requests signed
 // with their secrets, without CORS; each is a 404 with discord, hub or twitch nil, as the visit count is with visits
-// nil. A panic answers 500. Every response carries an X-Request-Id, which a 500's body and log line repeat. Each
+// nil. images is the image buckets set up here, by name. A panic answers 500. Every response carries an X-Request-Id, which a 500's body and log line repeat. Each
 // request is reported to requests, timed by now, and logged when slower than slowRequest.
-func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
+func NewMux(ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, images map[ImageBucket]ImageStore, log *slog.Logger, requests Requests, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
-	registerRoutes(mux, ratings, admins, signIns, discord, hub, twitch, visits, log, now)
+	registerRoutes(mux, ratings, admins, signIns, discord, hub, twitch, visits, images, log, now)
 	// limitBodies needs the server's own writer, so it sits outside observe's.
 	public := routeDiscord(routeSignIns(publicCORS(mux), signInGate(mux, signIns, now, log)), discordGate(mux, discord, log))
 	public = routeMovieHub(public, movieHubGate(mux, hub, log))
@@ -112,8 +114,8 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, log *slog.Logger, now func() time.Time) {
-	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, movieHub: hub, twitch: twitch, visits: visits, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
+func registerRoutes(router ServeMux, ratings Ratings, admins Admins, signIns SignIns, discord DiscordApp, hub MovieHub, twitch TwitchHub, visits Visits, images map[ImageBucket]ImageStore, log *slog.Logger, now func() time.Time) {
+	srv := &server{ratings: ratings, admins: admins, signIns: signIns, discord: discord, movieHub: hub, twitch: twitch, visits: visits, images: images, log: log, agreement: runcache.New[Format, analysis.Agreement](), now: now}
 	strict := NewStrictHandlerWithOptions(srv, nil, StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: internalError(log),
@@ -197,11 +199,15 @@ func withDeadline(next http.Handler, d time.Duration) http.Handler {
 // takes, a tournament's settings, is tens of kilobytes at most.
 const maxBody = 1 << 20
 
-// limitBodies stops reading a request body past maxBody. GETs carry no body,
-// so they are limited too rather than branched on.
+// limitBodies stops reading a request body past maxBody, or just past an image's largest for an upload. GETs
+// carry no body, so they are limited too rather than branched on.
 func limitBodies(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		limit := int64(maxBody)
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, adminImagesPrefix) {
+			limit = imagestore.MaxSize + 1
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -266,6 +272,7 @@ type server struct {
 	movieHub  MovieHub
 	twitch    TwitchHub
 	visits    Visits
+	images    map[ImageBucket]ImageStore
 	log       *slog.Logger
 	agreement *runcache.Cache[Format, analysis.Agreement]
 	// now is the clock, for what depends on the time of the request (a time zone's offset today).

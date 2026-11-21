@@ -33,3 +33,13 @@ export function ordinal(n: number): string {
   const suffix = teen ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
   return `${n}${suffix}`;
 }
+
+const UNITS = ['B', 'kB', 'MB', 'GB', 'TB'];
+
+/** sizeText writes bytes in the largest unit under a thousand ("4.0 GB"), '' for a size not known yet. */
+export function sizeText(bytes: number | undefined): string {
+  if (bytes === undefined) return '';
+  if (bytes === 0) return '0 B';
+  const unit = Math.min(Math.floor(Math.log10(bytes) / 3), UNITS.length - 1);
+  return unit === 0 ? `${bytes} B` : `${(bytes / 1000 ** unit).toFixed(1)} ${UNITS[unit]}`;
+}

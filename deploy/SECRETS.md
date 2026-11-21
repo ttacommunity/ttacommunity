@@ -29,6 +29,8 @@ Pipe values in; never use `--from-literal`, which leaves them in shell history.
 | `backup-config-r2` | `endpoint`, `access-key-id`, `secret-access-key` | `backup-config`'s `upload` container (rclone) | The R2 bucket `ttacommunity-config-backup` (EU): the EU endpoint and an R2 token that can write objects in that bucket only. The database backup's token cannot reach this bucket, nor this one its |
 | `cloudflare-readonly` | `token` | `backup-config`'s `export` init container | A Cloudflare API token that can only read the settings the configuration backup exports (below, "Backups": its permissions). It can change nothing |
 | `cloudflare-analytics` | `token`, `account-id` | `api`, `api-dev` | The site's visit count: a Cloudflare API token that can only read the account's analytics (below, "The visit count"), and the account's id. Optional: without it the api counts no visits |
+| `images-r2` | `account-id`, `access-key-id`, `secret-access-key`, `bucket`, `public-url` | `api` | Images (below, "Images"): the account's id, an R2 token that can read and write objects in the bucket `ttacommunity-assets` alone, that bucket's name, and the address it is served at (`https://assets.ttacommunity.org`). Optional: without it images are off; with only some keys the api refuses to start |
+| `images-r2-dev` | as `images-r2` | `api-dev` | As `images-r2`, for the dev site: the bucket `ttacommunity-assets-dev` at `https://assets-dev.ttacommunity.org`, with a token for that bucket alone |
 | `movies` | `hub-secret`, `youtube-api-key` | `api`, `movies` | Movies (below, "Movies"): the secret YouTube's hub signs its pushes to the api with (32 bytes or more), and a Google Cloud API key limited to the YouTube Data API v3. Optional for the api: without it the hub's callback is off; the `movies` job needs it |
 | `movies-dev` | `hub-secret`, `youtube-api-key` | `api-dev`, `movies-dev` | As `movies`, for the dev site, with a hub secret of its own |
 | `twitch` | `client-id`, `client-secret`, `eventsub-secret` | `api` | Twitch (below, "Twitch"): the id and secret of the Twitch app, and the secret EventSub signs its pushes to the api with (10 to 100 characters). Optional: without it Twitch is off; with only some keys the api refuses to start |
@@ -62,6 +64,7 @@ up nightly"). Reissuing is for when that copy is lost.
 | `cloudflare-readonly` | **Reissued**: a new API token with the permissions below ("Backups"), then the Secret; delete the old token |
 | `cloudflare-analytics` | **Reissued**: a new API token with Account Analytics Read alone (below, "The visit count"), then the Secret; delete the old token |
 | `twitch`, `twitch-dev` | **Reissued**: a new client secret on the app (dev.twitch.tv, Your Console, Applications, Manage, New Secret) and a new EventSub secret, then the Secret (below, "Twitch"), a restart of the api, and each streamer removed and added again in admin, which subscribes them with the new secret |
+| `images-r2`, `images-r2-dev` | **Reissued**: a new R2 token for the bucket (below, "Images"), then the Secret and a restart of the api; delete the old token. The images stay in the bucket |
 | `movies`, `movies-dev` | **New at any time**: a new hub secret (below, "Movies"), and the API key reissued in Google Cloud (Credentials, the key, Regenerate key) or kept; then run the `movies` job by hand, which renews every subscription with the new secret |
 | `ghcr`, `ttacommunity-github-app` | **Reissued** by the cluster's maintainers, who issued them |
 
@@ -328,6 +331,43 @@ kubectl -n ttacommunity create secret generic cloudflare-analytics \
   --from-file=token=/dev/shm/cf-token --from-file=account-id=/dev/shm/cf-account
 rm /dev/shm/cf-token /dev/shm/cf-account
 kubectl -n ttacommunity rollout restart deployment/api deployment/api-dev
+```
+
+### Images
+
+`images-r2` holds what the api needs to keep images in the R2 bucket
+`ttacommunity-assets`, served at `https://assets.ttacommunity.org` (an R2
+custom domain on the `ttacommunity.org` zone, which the zone's "Only listed
+hostnames" WAF rule must list). The token is an **Account API token** made in
+the dashboard (R2 object storage, Account Details, API Tokens, Manage, Create
+Account API token; `cf` cannot make one) with **Object Read & Write** on that
+bucket alone. The dashboard shows its Access Key ID (32 hex characters) and
+Secret Access Key (64) once. `images-r2-dev` is the same for the bucket
+`ttacommunity-assets-dev` at `https://assets-dev.ttacommunity.org`, with a
+token of its own. Run this in this repo (its `cf` profile is the project's
+account), with the dev values for `images-r2-dev`:
+
+```sh
+umask 077
+read -rp 'Access Key ID: ' id; read -rsp 'Secret Access Key: ' secret; echo
+# A terminal's paste markers would otherwise end up in the keys.
+id=$(printf %s "$id" | sed 's/\x1b\[20[01]~//g' | tr -d '[:space:]')
+secret=$(printf %s "$secret" | sed 's/\x1b\[20[01]~//g' | tr -d '[:space:]')
+if [[ $id =~ ^[0-9a-f]{32}$ && $secret =~ ^[0-9a-f]{64}$ ]]; then
+  printf %s "$id" > /dev/shm/r2-id; printf %s "$secret" > /dev/shm/r2-secret
+  cf auth whoami | jq -r '.accounts[0].id' | tr -d '\n' > /dev/shm/r2-account
+  printf %s ttacommunity-assets > /dev/shm/r2-bucket
+  printf %s https://assets.ttacommunity.org > /dev/shm/r2-url
+  kubectl -n ttacommunity create secret generic images-r2 \
+    --from-file=account-id=/dev/shm/r2-account --from-file=access-key-id=/dev/shm/r2-id \
+    --from-file=secret-access-key=/dev/shm/r2-secret --from-file=bucket=/dev/shm/r2-bucket \
+    --from-file=public-url=/dev/shm/r2-url
+  rm /dev/shm/r2-*
+else
+  echo 'not an R2 key pair: nothing created'
+fi
+unset id secret
+kubectl -n ttacommunity rollout restart deployment/api
 ```
 
 ### Movies

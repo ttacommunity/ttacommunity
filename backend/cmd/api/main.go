@@ -161,6 +161,14 @@ func main() {
 		log.Error("refusing to start: counting visits is not set up", "err", err)
 		os.Exit(1)
 	}
+	images, err := openImages(os.Getenv)
+	if err != nil {
+		log.Error("refusing to start: the image buckets are not set up", "err", err)
+		os.Exit(1)
+	}
+	if len(images) == 0 {
+		log.Info("images are off: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and ASSETS_BUCKET are not set")
+	}
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -169,7 +177,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
-	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, twitchHub, visits, log, reg, time.Now), log); err != nil {
+	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, twitchHub, visits, images, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
 	}

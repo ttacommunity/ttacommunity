@@ -73,7 +73,7 @@ spec:
       # Applies the ratings migrations before the api starts, as the database's owner (goose's lock serialises pods).
       initContainers:
         - name: migrate
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-8253570b@sha256:5873e847a09a00a3e1818aa47d118bb36ff75afe139b71238538307e6a882283
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-eea6717f@sha256:6064b0877f0c88475fee4ca271c310821da5374ea9b2a566e78ed64ec4be420f
           args: [-migrate]
           env:
             - name: RATINGS_DATABASE_URL
@@ -94,7 +94,7 @@ spec:
               drop: [ALL]
       containers:
         - name: api
-          image: ghcr.io/ttacommunity/ttacommunity/api:sha-8253570b@sha256:5873e847a09a00a3e1818aa47d118bb36ff75afe139b71238538307e6a882283
+          image: ghcr.io/ttacommunity/ttacommunity/api:sha-eea6717f@sha256:6064b0877f0c88475fee4ca271c310821da5374ea9b2a566e78ed64ec4be420f
           ports:
             - name: http
               containerPort: 8080
@@ -205,6 +205,38 @@ spec:
                 secretKeyRef:
                   name: cloudflare-analytics
                   key: account-id
+                  optional: true
+            # Images in R2 (admin's Images tab, /v1/assets): the account, a token for the assets bucket, and the
+            # bucket's name and address. Without the Secret images are off; with some keys alone the api refuses to start.
+            - name: R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: account-id
+                  optional: true
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: access-key-id
+                  optional: true
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: secret-access-key
+                  optional: true
+            - name: ASSETS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: bucket
+                  optional: true
+            - name: ASSETS_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: public-url
                   optional: true
             # Movies: the secret YouTube's hub signs pushes with, and the Data API key. Without the Secret the
             # hub's callback is off and admin takes channels only by id.

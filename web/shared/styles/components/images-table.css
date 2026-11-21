@@ -1,0 +1,8 @@
+/* A table of stored images: each shown small, its whole picture in a box of the same size. */
+.images-table-thumb {
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  object-fit: contain;
+  overflow: hidden;
+}

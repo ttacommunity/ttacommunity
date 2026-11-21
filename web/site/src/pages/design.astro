@@ -24,6 +24,8 @@ import SeasonPick from '../components/SeasonPick';
 import TitleSelect from '../components/TitleSelect';
 import MinOppsField from '../components/MinOppsField';
 import NewerOlder from '@ttac/shared/NewerOlder';
+import CopyCode from '@ttac/shared/CopyCode';
+import ImagesTable from '@ttac/shared/ImagesTable';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { emptyGameForm } from '@ttac/shared/game-form';
 
@@ -31,6 +33,7 @@ const colours = [
   'bg-dark',
   'surface-panel',
   'surface-inset',
+  'surface-code',
   'accent-gold',
   'accent-gold-light',
   'accent-crimson',
@@ -156,6 +159,20 @@ const rows = [
     <p class="design-row design-buttons">
       <VideosButton name="Invented Caster" hasVideos className="btn-antique" />
     </p>
+
+    <h2>Text to copy</h2>
+    <p>A replay code, or an image's address: the button copies it, and ticks.</p>
+    <CopyCode client:only="react" code="ABC123XY" />
+    <CopyCode client:only="react" code="https://assets.ttacommunity.org/sample-0123456789ab.png" what="address" />
+
+    <h2>Images</h2>
+    <p>Stored images, each small with its address to copy; admin adds a column of actions.</p>
+    <ImagesTable
+      client:only="react"
+      zone="UTC"
+      caption="Sample images"
+      images={[{ key: 'sample-0123456789ab.png', url: '/favicon.png', size: 12500, uploaded: '2026-11-21T10:30:00Z' }]}
+    />
 
     <h2>Buttons</h2>
     <p class="design-row design-buttons">
@@ -327,6 +344,7 @@ const rows = [
   .swatch-bg-dark { background: var(--bg-dark); }
   .swatch-surface-panel { background: var(--surface-panel); }
   .swatch-surface-inset { background: var(--surface-inset); }
+  .swatch-surface-code { background: var(--surface-code); }
   .swatch-accent-gold { background: var(--accent-gold); }
   .swatch-accent-gold-light { background: var(--accent-gold-light); }
   .swatch-accent-crimson { background: var(--accent-crimson); }

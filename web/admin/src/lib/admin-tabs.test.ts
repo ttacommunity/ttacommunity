@@ -3,8 +3,8 @@ import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } f
 
 describe('admin tabs', () => {
   it.each([
-    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'movies', 'titles', 'admins', 'notifications', 'bot', 'audit']],
-    ['organiser', ['tournaments', 'blitz', 'challenges', 'nostradamus', 'members', 'data']],
+    ['admin', ['tournaments', 'community', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'movies', 'images', 'titles', 'admins', 'notifications', 'bot', 'audit']],
+    ['organiser', ['tournaments', 'blitz', 'challenges', 'nostradamus', 'members', 'data', 'images']],
   ] as const)('shows %s its tabs', (role, want) => {
     expect(tabsFor(role).map((t) => t.key)).toEqual(want);
   });
@@ -30,6 +30,8 @@ describe('admin tabs', () => {
     ['#challenges', 'organiser', 'challenges'],
     ['#nostradamus', 'organiser', 'nostradamus'],
     ['#signins', 'organiser', 'members'],
+    ['#images', 'organiser', 'images'],
+    ['#images', 'admin', 'images'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
   });
@@ -48,6 +50,7 @@ describe('admin tabs', () => {
     ['audit', 'admin', ['audit']],
     ['notifications', 'admin', ['notifications']],
     ['movies', 'admin', ['movies']],
+    ['images', 'organiser', ['images']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);
   });
@@ -73,8 +76,8 @@ describe('admin tabs', () => {
   });
 
   it.each([
-    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'movies', 'admins', 'notifications', 'bot', 'audit']]]],
-    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data']]]],
+    ['admin', 'admin', [['Tournaments', ['tournaments', 'community', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members', 'titles']], ['Site', ['data', 'movies', 'images', 'admins', 'notifications', 'bot', 'audit']]]],
+    ['organiser', 'organiser', [['Tournaments', ['tournaments', 'blitz']], ['Bread & Circuses', ['challenges', 'nostradamus']], ['Players', ['members']], ['Site', ['data', 'images']]]],
   ] as const)('groups the tabs %s sees, leaving out what they cannot', (_name, role, want) => {
     expect(groupsFor(tabsFor(role), {}).map((g) => [g.label, g.tabs.map((t) => t.key)])).toEqual(want);
   });

@@ -7,7 +7,7 @@ type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type SeasonFlag = 'rated' | 'champions' | 'community' | 'here';
 
 /** Request is one change: where it goes, and how. */
-export type Request = { path: string; init: { method: Method; json?: unknown } };
+export type Request = { path: string; init: { method: Method; json?: unknown; file?: Blob } };
 
 const to = (path: string, method: Method, json?: unknown): Request => ({ path, init: { method, json } });
 const tournament = (slug: string) => `/api/tournaments/${slug}`;
@@ -273,3 +273,13 @@ export const setNostradamusStatus = (slug: string, id: number, status: Schemas['
   to(`${nostradamus(slug)}/participants/${id}/status`, 'PUT', { status });
 /** linkNostradamusParticipant links a participant to the member of a TTA username; empty unlinks it. */
 export const linkNostradamusParticipant = (slug: string, id: number, member: string) => to(`${nostradamus(slug)}/participants/${id}/member`, 'PUT', { member: member.trim() });
+
+/** ImageBucket is a bucket images are kept in. */
+export type ImageBucket = Schemas['ImageBucket'];
+/** uploadImage sends file to bucket, named by its file name; the API checks and names it. */
+export const uploadImage = (bucket: ImageBucket, file: File): Request => ({
+  path: `/api/images/${bucket}?name=${encodeURIComponent(file.name)}`,
+  init: { method: 'POST', file },
+});
+/** deleteImage deletes the image stored under key. */
+export const deleteImage = (bucket: ImageBucket, key: string) => to(`/api/images/${bucket}/${encodeURIComponent(key)}`, 'DELETE');

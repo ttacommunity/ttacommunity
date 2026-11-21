@@ -14,6 +14,7 @@ import {
   RatingsApiError,
   seasonBracket,
   siteVisits,
+  assets,
   activity,
   tournamentSeries,
   hallOfFame,
@@ -361,6 +362,18 @@ describe('siteVisits', () => {
 
     expect(visits.visits).toBe(190);
     expect(f.calls[0]?.url).toBe('https://api.example/v1/site/visits');
+    expect(f.calls[0]?.init?.credentials).toBe('omit');
+  });
+});
+
+describe('assets', () => {
+  it('lists the assets bucket without credentials', async () => {
+    const stored = 'bolts-0123456789ab.png';
+    const f = fakeFetch(200, JSON.stringify([{ key: stored, url: `https://assets.example.test/${stored}`, size: 69, uploaded: '2026-11-21T10:31:58Z' }]));
+    const list = await assets('https://api.example', f.fetch);
+
+    expect(list.map((a) => a.key)).toEqual([stored]);
+    expect(f.calls[0]?.url).toBe('https://api.example/v1/assets');
     expect(f.calls[0]?.init?.credentials).toBe('omit');
   });
 });
