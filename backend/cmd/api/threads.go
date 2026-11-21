@@ -1,5 +1,6 @@
 // Blitz games' private threads: each made by the bot in its endpoint's channel, its players and the edition's
-// organisers found and added, and the edition's message posted, each step kept so a retry goes on from it; its
+// organisers found in the server and brought in by the edition's message mentioning them, each step kept so a retry
+// goes on from it; its
 // message edited and its players told when the deadline moves; closed once its round is paired again without it.
 package main
 
@@ -23,7 +24,7 @@ type threadBot interface {
 	GuildOf(ctx context.Context, channel string) (string, error)
 	PrivateThread(ctx context.Context, channel, name string) (string, error)
 	FindMember(ctx context.Context, guild, username string) (string, error)
-	AddToThread(ctx context.Context, thread, user string) error
+	IsMember(ctx context.Context, guild, user string) (bool, error)
 	Say(ctx context.Context, channel, text string, users []string) (string, error)
 	Edit(ctx context.Context, channel, msg, text string) error
 	CloseThread(ctx context.Context, thread string) error
@@ -41,11 +42,12 @@ type threadKeeper interface {
 	MarkBlitzThreadReminded(ctx context.Context, endpoint int64, thread string, now time.Time) error
 }
 
-// errLimited means a bot call left for the next pass, Discord having limited the bot in this one.
-var errLimited = errors.New("the bot is limited by Discord: tried again later")
+// errLimited means a bot call left for the next pass, Discord having limited the bot in this one: put off, not
+// counted as a failed try.
+var errLimited = fmt.Errorf("the bot is limited by Discord: tried again later: %w", store.ErrPutOff)
 
 // paced runs call, a delivery to e, unless e is a bot channel and Discord limited the bot earlier in the pass
-// (limited), then returning errLimited; a bot call Discord limits (429) sets limited.
+// (limited), then returning errLimited; a bot call Discord limits (429) sets limited, and is put off too.
 func paced(limited *bool, e store.NotificationEndpoint, call func() error) error {
 	if e.Kind != "bot_channel" {
 		return call()
@@ -57,6 +59,7 @@ func paced(limited *bool, e store.NotificationEndpoint, call func() error) error
 	var refused *notify.RefusedError
 	if errors.As(err, &refused) && refused.Status == http.StatusTooManyRequests {
 		*limited = true
+		return fmt.Errorf("%w: %w", err, store.ErrPutOff)
 	}
 	return err
 }
@@ -105,7 +108,7 @@ func deliverThread(ctx context.Context, keep threadKeeper, bot threadBot, n stor
 		}
 		made = &store.BlitzDiscordThread{ID: id}
 	}
-	t, g, users, missing, err := reachAll(ctx, bot, e, made.ID, t, g)
+	t, g, users, missing, err := reachAll(ctx, bot, e, t, g)
 	if err != nil {
 		return err
 	}
@@ -117,10 +120,11 @@ func deliverThread(ctx context.Context, keep threadKeeper, bot threadBot, n stor
 	return keep.MarkBlitzThreadPosted(ctx, n.MatchID, e.ID, msg, now)
 }
 
-// reachAll adds game g's players and t's organisers to thread in e's channel, each by the Discord id of their
-// sign-in or else found by their Discord username in the channel's server, and returns t and g with the ids found,
-// everyone added, and the players with a Discord name not found or not in the server.
-func reachAll(ctx context.Context, bot threadBot, e store.NotificationEndpoint, thread string, t blitz.Threads, g blitz.ThreadGame) (blitz.Threads, blitz.ThreadGame, []string, []blitz.Person, error) {
+// reachAll finds game g's players and t's organisers in e's channel's server, each by the Discord id of their
+// sign-in, checked to be a member, or else by their Discord username, and returns t and g with the ids found,
+// everyone found, whom a message mentions into the thread, and the players with a Discord name not found or not in
+// the server.
+func reachAll(ctx context.Context, bot threadBot, e store.NotificationEndpoint, t blitz.Threads, g blitz.ThreadGame) (blitz.Threads, blitz.ThreadGame, []string, []blitz.Person, error) {
 	guild, err := bot.GuildOf(ctx, e.ChannelID)
 	if err != nil {
 		return t, g, nil, nil, fmt.Errorf("reading the channel's server: %w", err)
@@ -139,14 +143,13 @@ func reachAll(ctx context.Context, bot threadBot, e store.NotificationEndpoint, 
 				}
 			}
 		}
-		if id != "" {
-			err := bot.AddToThread(ctx, thread, id)
-			var refused *notify.RefusedError
-			switch {
-			case errors.As(err, &refused) && refused.Status == http.StatusNotFound:
+		if id != "" && discordUserID.MatchString(p.DiscordID) {
+			in, err := bot.IsMember(ctx, guild, id)
+			if err != nil {
+				return fmt.Errorf("checking a member: %w", err)
+			}
+			if !in {
 				id = ""
-			case err != nil:
-				return fmt.Errorf("adding to a thread: %w", err)
 			}
 		}
 		if id == "" {
@@ -180,7 +183,7 @@ func deliverDeadline(ctx context.Context, keep threadKeeper, bot threadBot, n st
 	if err != nil || made == nil || !made.Posted || made.MessageID == "" {
 		return err
 	}
-	t, g, _, missing, err := reachAll(ctx, bot, e, made.ID, n.Thread.Threads, n.Thread.Game)
+	t, g, _, missing, err := reachAll(ctx, bot, e, n.Thread.Threads, n.Thread.Game)
 	if err != nil {
 		return err
 	}
@@ -237,7 +240,7 @@ func remindThreads(ctx context.Context, keep threadKeeper, bot threadBot, n stor
 		if !ok {
 			continue
 		}
-		t, g, users, _, err := reachAll(ctx, bot, e, d.ThreadID, players, g)
+		t, g, users, _, err := reachAll(ctx, bot, e, players, g)
 		if err != nil {
 			return err
 		}

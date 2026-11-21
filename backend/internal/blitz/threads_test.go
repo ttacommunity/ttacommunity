@@ -187,11 +187,11 @@ func TestThreadsTextFillsInOnlyWhatTheTextHolds(t *testing.T) {
 		discordB           string
 		want               string
 	}{
-		{"an empty message", "", "{name}.", "bob", ping},
+		{"an empty message, the players named first", "", "{name}.", "bob", "@ann, @bob: " + ping},
 		{"an empty sentence, for a player without Discord", "Hi {players}.", "", "", "Hi @ann, Bob. " + ping},
-		{"no placeholders", "Hi.", "No Discord here.", "", "Hi. " + ping + "No Discord here.\n"},
-		{"a misspelt placeholder, left as typed", "Hi {player} by {deadine}.", "{nmae}.", "", "Hi {player} by {deadine}. " + ping + "{nmae}.\n"},
-		{"another part's placeholder, left as typed", "Hi {name}.", "{players}.", "", "Hi {name}. " + ping + "{players}.\n"},
+		{"no placeholders, the players named first", "Hi.", "No Discord here.", "", "@ann, Bob: Hi. " + ping + "No Discord here.\n"},
+		{"a misspelt placeholder, left as typed", "Hi {player} by {deadine}.", "{nmae}.", "", "@ann, Bob: Hi {player} by {deadine}. " + ping + "{nmae}.\n"},
+		{"another part's placeholder, left as typed", "Hi {name}.", "{players}.", "", "@ann, Bob: Hi {name}. " + ping + "{players}.\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
