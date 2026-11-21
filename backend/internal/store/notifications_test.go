@@ -209,6 +209,31 @@ func TestAFailedNotificationIsTriedAgainLaterThenDropped(t *testing.T) {
 	}
 }
 
+func TestANotificationPutOffIsTriedAgainSoonAndNeverDropped(t *testing.T) {
+	a, p, matches := outboxFixture(t)
+	ctx := context.Background()
+	if err := p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("REP-1"), reportsAt); err != nil {
+		t.Fatalf("ReportBlitzGame: %v", err)
+	}
+	putOff := func(context.Context, Notification, NotificationEndpoint) error {
+		return fmt.Errorf("the bot is limited by Discord: %w", ErrPutOff)
+	}
+	at := sendsAt
+	for try := 1; try <= 2*MaxNotificationAttempts; try++ {
+		got, err := a.SendNotifications(ctx, at, 10, putOff)
+		if err != nil || got.Failed != 1 {
+			t.Fatalf("try %d: SendNotifications(put off) = %+v, %v; want it tried and put off", try, got, err)
+		}
+		if got := sent(t, a, at.Add(NotificationPutOff-time.Second)); len(got) != 0 {
+			t.Fatalf("try %d: sent before the put-off ended = %q, want nothing", try, got)
+		}
+		at = at.Add(NotificationPutOff)
+	}
+	if got := sent(t, a, at); len(got) != 1 {
+		t.Errorf("sent after %d put-offs = %q, want the report, never dropped", 2*MaxNotificationAttempts, got)
+	}
+}
+
 func TestAFailedNotificationIsSentOnTheNextTry(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()

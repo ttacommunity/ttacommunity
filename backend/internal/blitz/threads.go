@@ -157,9 +157,14 @@ func ThreadsText(t Threads) string {
 // to each reader on their own clock.
 func GameThread(t Threads, g ThreadGame, missing []Person) (title, message string) {
 	deadline := fmt.Sprintf("<t:%d:F>", t.Deadline.Unix())
+	players := mention(g.A) + ", " + mention(g.B)
 	var out strings.Builder
+	// A mention is what brings a player into the thread, so a text without {players} names them first.
+	if !strings.Contains(t.Text.Message, "{players}") {
+		out.WriteString(players + ": ")
+	}
 	if t.Text.Message != "" {
-		out.WriteString(strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message) + " ")
+		out.WriteString(strings.NewReplacer("{players}", players, "{deadline}", deadline).Replace(t.Text.Message) + " ")
 	}
 	out.WriteString("If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n")
 	for _, p := range []Person{g.A, g.B} {

@@ -5,6 +5,7 @@ package store
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -16,6 +17,13 @@ import (
 
 // MaxNotificationAttempts is how many times a notification is tried before it is dropped.
 const MaxNotificationAttempts = 10
+
+// NotificationPutOff is how soon a notification put off is tried again.
+const NotificationPutOff = time.Minute
+
+// ErrPutOff, wrapped in a send's error, means the endpoint could not take the notification yet, such as Discord
+// limiting the bot: it is tried again after NotificationPutOff without counting as a failed try.
+var ErrPutOff = errors.New("put off")
 
 // Notification is a notification as it is sent: its kind (sign_up, link_request, blitz_report or blitz_flag) and
 // what it tells of, read when it is sent.
@@ -345,7 +353,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				continue
 			}
 			seen[key] = true
-			failed := false
+			failed, putOff := false, true
 			for _, e := range endpoints {
 				if !d.open || e.Paused || !e.takes(d.n) || slices.Contains(d.sentTo, e.ID) {
 					continue
@@ -354,11 +362,20 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				deliveries = append(deliveries, delivery{e.ID, sendErr})
 				if sendErr != nil {
 					failed = true
+					putOff = putOff && errors.Is(sendErr, ErrPutOff)
 					continue
 				}
 				d.sentTo = append(d.sentTo, e.ID)
 			}
 			attempts := d.attempts + 1
+			if failed && putOff {
+				done.Failed++
+				if _, err := tx.Exec(ctx, "UPDATE notification_outbox SET next_at = $2, sent_to = $3 WHERE notification_id = $1",
+					d.n.ID, now.Add(NotificationPutOff), d.sentTo); err != nil {
+					return fmt.Errorf("putting a notification off: %w", err)
+				}
+				continue
+			}
 			if failed {
 				done.Failed++
 			} else if d.open && len(d.sentTo) > 0 {

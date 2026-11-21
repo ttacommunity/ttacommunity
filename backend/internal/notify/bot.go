@@ -1,5 +1,5 @@
 // The bot's own calls to Discord's API, with its token: a blitz game's private thread made in a channel, the
-// server's members found by username and added to it, its message posted and edited, and the thread closed.
+// server's members found by username or checked by id, its message posted and edited, and the thread closed.
 package notify
 
 import (
@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // DiscordAPI is Discord's API, which NewBot is given outside tests.
@@ -20,6 +22,13 @@ const DiscordAPI = "https://discord.com/api/v10"
 
 // ErrNoBot means a bot channel to post to without the bot's token.
 var ErrNoBot = errors.New("the bot's token, DISCORD_BOT_TOKEN, is not set")
+
+// maxLimitWait is the longest wait Discord may ask of a limited call that the call waits out, and limitTries how
+// many times it is made before Discord's 429 is returned.
+const (
+	maxLimitWait = 10 * time.Second
+	limitTries   = 4
+)
 
 // privateThread is Discord's type for a private thread, and weekLong the longest it lets one wait before archiving.
 const (
@@ -85,9 +94,15 @@ func (b *Bot) FindMember(ctx context.Context, guild, username string) (string, e
 	return "", nil
 }
 
-// AddToThread adds user to thread; adding a member again changes nothing.
-func (b *Bot) AddToThread(ctx context.Context, thread, user string) error {
-	return b.call(ctx, http.MethodPut, "/channels/"+url.PathEscape(thread)+"/thread-members/"+url.PathEscape(user), nil, nil)
+// IsMember reports whether user is a member of guild. It adds them to nothing: a message mentioning them in a
+// private thread brings them in.
+func (b *Bot) IsMember(ctx context.Context, guild, user string) (bool, error) {
+	err := b.call(ctx, http.MethodGet, "/guilds/"+url.PathEscape(guild)+"/members/"+url.PathEscape(user), nil, nil)
+	var refused *RefusedError
+	if errors.As(err, &refused) && refused.Status == http.StatusNotFound {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // Say posts text, cut to Discord's limit, in channel, letting it ping only users, at most Discord's 100, and returns
@@ -129,22 +144,53 @@ func message(text string, users []string) map[string]any {
 }
 
 // call sends body, as JSON unless nil, to path with the bot's token, decoding Discord's answer into out unless it
-// is nil. It returns a *RefusedError when Discord answers other than success; no error holds the token.
+// is nil. A call Discord limits for at most maxLimitWait is made again once that has passed, up to limitTries
+// times. It returns a *RefusedError when Discord answers other than success; no error holds the token.
 func (b *Bot) call(ctx context.Context, method, path string, body, out any) error {
-	var payload io.Reader
+	var payload []byte
 	if body != nil {
 		j, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("writing a call to Discord: %w", err)
 		}
-		payload = bytes.NewReader(j)
+		payload = j
 	}
-	req, err := http.NewRequestWithContext(ctx, method, b.api+path, payload)
+	for try := 1; ; try++ {
+		resp, err := b.send(ctx, method, path, payload)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			wait := retryAfter(resp)
+			resp.Body.Close()
+			if wait > maxLimitWait || try == limitTries {
+				return &RefusedError{Status: resp.StatusCode}
+			}
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("calling Discord: waiting out its limit: %w", ctx.Err())
+			case <-timer.C:
+			}
+			continue
+		}
+		return answer(resp, out)
+	}
+}
+
+// send makes one call to Discord with the bot's token; no error holds the token.
+func (b *Bot) send(ctx context.Context, method, path string, payload []byte) (*http.Response, error) {
+	var body io.Reader
+	if payload != nil {
+		body = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, b.api+path, body)
 	if err != nil {
-		return errors.New("calling Discord: not a URL")
+		return nil, errors.New("calling Discord: not a URL")
 	}
 	req.Header.Set("Authorization", "Bot "+b.token)
-	if body != nil {
+	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	resp, err := b.hc.Do(req)
@@ -153,8 +199,22 @@ func (b *Bot) call(ctx context.Context, method, path string, body, out any) erro
 		if errors.As(err, &u) {
 			err = u.Err
 		}
-		return fmt.Errorf("calling Discord: %s", strings.ReplaceAll(err.Error(), req.URL.Host, "Discord"))
+		return nil, fmt.Errorf("calling Discord: %s", strings.ReplaceAll(err.Error(), req.URL.Host, "Discord"))
 	}
+	return resp, nil
+}
+
+// retryAfter is how long Discord asks a limited call to wait: its Retry-After, in seconds, else a second.
+func retryAfter(resp *http.Response) time.Duration {
+	if s, err := strconv.ParseFloat(resp.Header.Get("Retry-After"), 64); err == nil && s >= 0 {
+		return time.Duration(s * float64(time.Second))
+	}
+	return time.Second
+}
+
+// answer reads Discord's answer to a call into out, unless it is nil, or returns a *RefusedError for other than
+// success.
+func answer(resp *http.Response, out any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return &RefusedError{Status: resp.StatusCode}

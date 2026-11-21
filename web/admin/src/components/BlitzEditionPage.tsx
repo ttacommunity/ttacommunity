@@ -13,7 +13,7 @@ import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type A
 import * as req from '../lib/admin-requests';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, publishWarning, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
 import { countryNames, type Country } from '@ttac/shared/countries';
 import { clockIn, type Region } from '../lib/zones';
@@ -339,7 +339,9 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   };
   const unpair = (r: AdminBlitzRound, i: number) => setShown(r, shownOf(r).filter((_, j) => j !== i));
   const changed = (r: AdminBlitzRound) => pending !== null && pending.round === r.id && !samePairs(r.matches, pending.matches);
-  const save = async (r: AdminBlitzRound) => {
+  const save = async (r: AdminBlitzRound, opener: HTMLElement) => {
+    const warning = publishWarning(r, roundTitle(r.number, ed.format));
+    if (warning !== null && !(await dialog.confirm({ ...warning, action: 'Publish anyway' }, opener))) return;
     if (changed(r) && !(await run(req.setBlitzRoundMatches(at.slug, at.edition, r.id, asChanges(shownOf(r))), 'Saved.', 'rounds'))) return;
     setPending(null);
     if (r.published_at === null) await run(req.publishBlitzRound(at.slug, at.edition, r.id), `${roundTitle(r.number, ed.format)} published.`, 'rounds');
@@ -434,7 +436,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
           </button>
         )}
         {open !== null && hidden === null && (open.kind === 'swiss' || open.published_at === null) && (
-          <button type="button" className="btn-antique" disabled={open.published_at !== null && !changed(open)} onClick={() => void save(open)}>
+          <button type="button" className="btn-antique" disabled={open.published_at !== null && !changed(open)} onClick={(e) => void save(open, e.currentTarget)}>
             {open.published_at === null ? 'Publish' : 'Update'}
           </button>
         )}

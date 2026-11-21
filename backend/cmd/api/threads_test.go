@@ -14,8 +14,8 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// fakeBot records each call as "what with what", knowing members by username, refusing to add the users in
-// notMember with Discord's 404, and answering every call to step fail with errFailing.
+// fakeBot records each call as "what with what", knowing members by username, answering that the users in notMember
+// are not in the server, and answering every call to step fail with errFailing.
 type fakeBot struct {
 	calls     []string
 	members   map[string]string
@@ -49,14 +49,11 @@ func (f *fakeBot) FindMember(_ context.Context, _, username string) (string, err
 	return f.members[username], f.answer("find " + username)
 }
 
-func (f *fakeBot) AddToThread(_ context.Context, _, user string) error {
-	if err := f.answer("add " + user); err != nil {
-		return err
+func (f *fakeBot) IsMember(_ context.Context, _, user string) (bool, error) {
+	if err := f.answer("member " + user); err != nil {
+		return false, err
 	}
-	if slices.Contains(f.notMember, user) {
-		return &notify.RefusedError{Status: 404}
-	}
-	return nil
+	return !slices.Contains(f.notMember, user), nil
 }
 
 func (f *fakeBot) Say(_ context.Context, channel, text string, users []string) (string, error) {
@@ -134,14 +131,14 @@ func threadOfAnnAndBob() store.Notification {
 
 var threadChannel = store.NotificationEndpoint{ID: 5, Kind: "bot_channel", ChannelID: "200000000000000001"}
 
-func TestAThreadIsMadeTheirPeopleAddedAndItsMessagePosted(t *testing.T) {
+func TestAThreadIsMadeAndItsMessageMentionsEveryoneIntoIt(t *testing.T) {
 	bot := &fakeBot{members: map[string]string{"bob_plays": "100000000000000002"}}
 	keep := &fakeThreads{}
 	if err := deliverThread(context.Background(), keep, bot, threadOfAnnAndBob(), threadChannel, time.Now(), slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatalf("deliverThread: %v", err)
 	}
-	want := []string{"thread Round 1 · Game 1 · Ann vs Bob", "guild of 200000000000000001", "add 100000000000000001",
-		"find bob_plays", "add 100000000000000002", "add 100000000000000003", "say in 300000000000000001"}
+	want := []string{"thread Round 1 · Game 1 · Ann vs Bob", "guild of 200000000000000001", "member 100000000000000001",
+		"find bob_plays", "member 100000000000000003", "say in 300000000000000001"}
 	if !slices.Equal(bot.calls, want) || !slices.Equal(keep.kept, []string{"made 300000000000000001", "posted"}) {
 		t.Errorf("calls %q, kept %q; want %q, the thread kept then posted", bot.calls, keep.kept, want)
 	}
@@ -159,7 +156,6 @@ func TestAPlayerTheBotCannotReachIsLeftToTheOrganisers(t *testing.T) {
 		bot  *fakeBot
 	}{
 		{"not found by username", &fakeBot{}},
-		{"not in the server", &fakeBot{members: map[string]string{"bob_plays": "100000000000000002"}, notMember: []string{"100000000000000002"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -176,6 +172,19 @@ func TestAPlayerTheBotCannotReachIsLeftToTheOrganisers(t *testing.T) {
 	}
 }
 
+func TestASignedInPlayerNotInTheServerIsLeftToTheOrganisers(t *testing.T) {
+	bot := &fakeBot{members: map[string]string{"bob_plays": "100000000000000002"}, notMember: []string{"100000000000000001"}}
+	if err := deliverThread(context.Background(), &fakeThreads{}, bot, threadOfAnnAndBob(), threadChannel, time.Now(), slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatalf("deliverThread: %v", err)
+	}
+	if !strings.Contains(bot.said, "Organisers: please add Ann (<@100000000000000001>)") {
+		t.Errorf("said %q, want the organisers asked to add Ann", bot.said)
+	}
+	if !slices.Equal(bot.pinged, []string{"100000000000000002", "100000000000000003"}) {
+		t.Errorf("pinged %q, want Bob and the organiser, Ann left out", bot.pinged)
+	}
+}
+
 func TestATriedThreadGoesOnFromWhereItStopped(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -183,7 +192,7 @@ func TestATriedThreadGoesOnFromWhereItStopped(t *testing.T) {
 		wantFirst string
 		wantCalls int
 	}{
-		{"made, not posted", &store.BlitzDiscordThread{ID: "300000000000000001"}, "guild of 200000000000000001", 6},
+		{"made, not posted", &store.BlitzDiscordThread{ID: "300000000000000001"}, "guild of 200000000000000001", 5},
 		{"posted", &store.BlitzDiscordThread{ID: "300000000000000001", Posted: true}, "", 0},
 	}
 	for _, tt := range tests {
@@ -207,7 +216,7 @@ func TestAFailingStepLeavesTheThreadToBeTriedAgain(t *testing.T) {
 		{"making the thread", "thread", nil},
 		{"reading the server", "guild", []string{"made 300000000000000001"}},
 		{"finding a player", "find", []string{"made 300000000000000001"}},
-		{"adding someone", "add", []string{"made 300000000000000001"}},
+		{"checking a member", "member", []string{"made 300000000000000001"}},
 		{"posting", "say", []string{"made 300000000000000001"}},
 	}
 	for _, tt := range tests {
@@ -234,7 +243,7 @@ func TestAMovedDeadlineEditsTheMessageAndTellsThePlayers(t *testing.T) {
 		thread    *store.BlitzDiscordThread
 		wantCalls int
 	}{
-		{"a thread posted", &store.BlitzDiscordThread{ID: "300000000000000001", Posted: true, MessageID: "500000000000000001"}, 7},
+		{"a thread posted", &store.BlitzDiscordThread{ID: "300000000000000001", Posted: true, MessageID: "500000000000000001"}, 6},
 		{"a thread not posted yet", &store.BlitzDiscordThread{ID: "300000000000000001"}, 0},
 		{"no thread", nil, 0},
 	}
@@ -300,6 +309,9 @@ func TestDiscordLimitingTheBotStopsItsCallsForThePass(t *testing.T) {
 		}
 		if !s.wantRun && err == nil {
 			t.Errorf("%s: no error, want one so it is tried again", s.name)
+		}
+		if limitedErr := s.answer != nil || !s.wantRun; limitedErr && !errors.Is(err, store.ErrPutOff) {
+			t.Errorf("%s: %v, want it put off, not counted as a failed try", s.name, err)
 		}
 	}
 }

@@ -14,6 +14,15 @@ export function threadsBlocker(round: { deadline: BlitzDeadline | null; matches:
   return '';
 }
 
+/** publishWarning is what to confirm before publishing a draft round with no deadline, named title, or null when there is nothing to warn of: its games' Discord threads wait for a deadline, while its announcement goes out at once. */
+export function publishWarning(round: { published_at: string | null; deadline: unknown }, title: string): { heading: string; text: string } | null {
+  if (round.published_at !== null || round.deadline !== null) return null;
+  return {
+    heading: `Publish ${title} without a deadline?`,
+    text: 'Its announcement goes out now, without a deadline, and its games’ Discord threads are made only once you set one. To have both at once, set the deadline first, under the round.',
+  };
+}
+
 /** threadsFileName names a round's threads download as the API does: us_open-2026-round-3-threads.txt. */
 export function threadsFileName(slug: string, edition: string, round: number): string {
   return `${slug}-${edition.replace(/[^A-Za-z0-9_-]+/g, '-')}-round-${round}-threads.txt`;
