@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName } from './blitz-deadlines';
+import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, organisersSummary, publishWarning, threadTextSavable, threadTextSummary, threadsBlocker, threadsFileName } from './blitz-deadlines';
 import type { Candidate } from './person-form';
 import type { Region } from './zones';
 
@@ -20,6 +20,21 @@ describe('threadsBlocker', () => {
     ['only a bye', { deadline, matches: [bye] }, 1, false, 'No games to make threads for.'],
   ])('%s', (_, round, organisers, unsaved, want) => {
     expect(threadsBlocker(round, organisers, unsaved)).toBe(want);
+  });
+});
+
+describe('publishWarning', () => {
+  const deadline = { at: '2026-11-30T12:00:00Z', zone: 'Australia/Sydney' };
+  it.each([
+    ['a draft without a deadline', { published_at: null, deadline: null }, true],
+    ['a draft with a deadline', { published_at: null, deadline }, false],
+    ['a published round without a deadline', { published_at: '2026-11-21T12:27:31Z', deadline: null }, false],
+  ])('warns before publishing %s: %s', (_name, round, warns) => {
+    expect(publishWarning(round, 'Round 6') !== null).toBe(warns);
+  });
+
+  it('names the round', () => {
+    expect(publishWarning({ published_at: null, deadline: null }, 'Round 6')?.heading).toContain('Round 6');
   });
 });
 

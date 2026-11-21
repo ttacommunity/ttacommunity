@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"ttacommunity/backend/internal/notify"
 )
@@ -88,41 +89,110 @@ func TestTheBotFindsAMemberByTheirExactUsername(t *testing.T) {
 	}
 }
 
-func TestTheBotAddsToAThreadAndPostsInIt(t *testing.T) {
+func TestTheBotChecksWhoIsInTheServerAndPostsInAThread(t *testing.T) {
 	var got []request
 	bot := fakeDiscord(t, map[string]string{
-		"GET /channels/200000000000000001":                                   `{"id":"200000000000000001","guild_id":"400000000000000001"}`,
-		"PUT /channels/300000000000000001/thread-members/100000000000000001": "",
-		"POST /channels/300000000000000001/messages":                         `{"id":"500000000000000001"}`,
+		"GET /channels/200000000000000001":                          `{"id":"200000000000000001","guild_id":"400000000000000001"}`,
+		"GET /guilds/400000000000000001/members/100000000000000001": `{"user":{"id":"100000000000000001"}}`,
+		"POST /channels/300000000000000001/messages":                `{"id":"500000000000000001"}`,
 	}, &got)
 	ctx := context.Background()
 	if guild, err := bot.GuildOf(ctx, "200000000000000001"); err != nil || guild != "400000000000000001" {
 		t.Errorf("GuildOf = %q, %v; want the channel's server", guild, err)
 	}
-	if err := bot.AddToThread(ctx, "300000000000000001", "100000000000000001"); err != nil {
-		t.Errorf("AddToThread: %v", err)
+	for user, want := range map[string]bool{"100000000000000001": true, "100000000000000009": false} {
+		if in, err := bot.IsMember(ctx, "400000000000000001", user); err != nil || in != want {
+			t.Errorf("IsMember(%s) = %t, %v; want %t", user, in, err, want)
+		}
 	}
 	if id, err := bot.Say(ctx, "300000000000000001", "Welcome <@100000000000000001>", []string{"100000000000000001"}); err != nil || id != "500000000000000001" {
 		t.Errorf("Say = %q, %v; want the message's id", id, err)
 	}
 	want := map[string]any{"content": "Welcome <@100000000000000001>",
 		"allowed_mentions": map[string]any{"parse": []any{}, "users": []any{"100000000000000001"}}}
-	if len(got) != 3 || !equalJSON(got[2].Body, want) {
+	if len(got) != 4 || !equalJSON(got[3].Body, want) {
 		t.Errorf("posted %+v, want the text, pinging only its players", got)
+	}
+	for _, r := range got {
+		if r.Method == http.MethodPut {
+			t.Errorf("called %s %s, want no one added: a mention brings them in", r.Method, r.Path)
+		}
 	}
 }
 
 func TestTheBotReportsDiscordsRefusalWithoutItsToken(t *testing.T) {
 	var got []request
 	bot := fakeDiscord(t, map[string]string{}, &got)
-	err := bot.AddToThread(context.Background(), "300000000000000001", "100000000000000009")
+	err := bot.Edit(context.Background(), "300000000000000001", "500000000000000009", "text")
 	var refused *notify.RefusedError
 	if !errors.As(err, &refused) || refused.Status != http.StatusNotFound {
-		t.Errorf("AddToThread of someone not in the server: %v, want Discord's 404", err)
+		t.Errorf("Edit of a message that is not there: %v, want Discord's 404", err)
 	}
 	unauthorised := notify.NewBot(http.DefaultClient, "http://127.0.0.1:1", "secret-token")
 	if _, err := unauthorised.GuildOf(context.Background(), "200000000000000001"); err == nil || strings.Contains(err.Error(), "secret-token") {
 		t.Errorf("GuildOf with Discord down: %v, want an error that holds no token", err)
+	}
+	if _, err := unauthorised.IsMember(context.Background(), "400000000000000001", "100000000000000001"); err == nil {
+		t.Error("IsMember with Discord down: no error, want one rather than a guess")
+	}
+}
+
+// limitedDiscord answers a message post with 429, asking to wait wait (Discord's Retry-After), limits times, then
+// posts it; it counts the calls in calls.
+func limitedDiscord(t *testing.T, limits int, wait string, calls *int) *notify.Bot {
+	t.Helper()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*calls++
+		if *calls <= limits {
+			w.Header().Set("Retry-After", wait)
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"message":"You are being rate limited.","retry_after":`+wait+`,"global":false}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"id":"500000000000000001"}`)
+	}))
+	t.Cleanup(s.Close)
+	return notify.NewBot(s.Client(), s.URL, "test-token")
+}
+
+func TestTheBotWaitsOutAShortLimitAndGivesUpOnALongOne(t *testing.T) {
+	tests := []struct {
+		name      string
+		limits    int
+		wait      string
+		wantCalls int
+		wantPost  bool
+	}{
+		{"not limited", 0, "0", 1, true},
+		{"limited for no time, twice", 2, "0", 3, true},
+		{"limited for a moment", 1, "0.05", 2, true},
+		{"limited for a minute", 1, "60", 1, false},
+		{"limited again and again", 10, "0", 4, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			bot := limitedDiscord(t, tt.limits, tt.wait, &calls)
+			id, err := bot.Say(context.Background(), "300000000000000001", "Welcome", nil)
+			var refused *notify.RefusedError
+			if posted := err == nil && id == "500000000000000001"; posted != tt.wantPost || calls != tt.wantCalls {
+				t.Errorf("Say = %q, %v after %d calls; want posted %t after %d", id, err, calls, tt.wantPost, tt.wantCalls)
+			}
+			if !tt.wantPost && (!errors.As(err, &refused) || refused.Status != http.StatusTooManyRequests) {
+				t.Errorf("Say limited = %v, want Discord's 429", err)
+			}
+		})
+	}
+}
+
+func TestTheBotStopsWaitingWhenItsCallIsCancelled(t *testing.T) {
+	calls := 0
+	bot := limitedDiscord(t, 1, "5", &calls)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	if _, err := bot.Say(ctx, "300000000000000001", "Welcome", nil); err == nil || time.Since(start) > 2*time.Second {
+		t.Errorf("Say cancelled while waiting = %v after %v, want an error at once", err, time.Since(start))
 	}
 }
 

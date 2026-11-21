@@ -358,7 +358,8 @@ be in the server as a bot, not only as commands:
 4. In admin's Notifications tab, add an endpoint of kind **Bot channel**
    with the channel's id (Developer Mode on, right-click the channel,
    Copy Channel ID), and press Test. Publishing a round with a
-   deadline then makes a thread per game; moving the deadline edits
+   deadline then makes a thread per game, whose message mentions its
+   players and the organisers, which brings them in; moving the deadline edits
    each and tells its players. Tick its reminders to remind the players
    of games still to play in their threads, hours before the deadline
 
