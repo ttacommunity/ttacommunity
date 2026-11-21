@@ -228,13 +228,22 @@ func notificationRetry(attempts int) time.Duration {
 
 // SendNotifications hands each of up to limit notifications due at now to send, in the order they were queued, once
 // for each endpoint taking its kind, and deletes it once every one has it; one an endpoint failed is tried again
-// later, for the endpoints that failed. One no endpoint takes, whose request was answered, or whose report was
-// removed or its flag resolved, or whose run was deleted, is dropped unsent. Notifications another call is sending are left to it.
+// later, for the endpoints that failed, or after NotificationPutOff, uncounted, when every failure was ErrPutOff. One
+// no endpoint takes, whose request was answered, or whose report was removed or its flag resolved, or whose run was
+// deleted, is dropped unsent. While another call is sending, it sends nothing, so they go out in turn.
 func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit int,
 	send func(context.Context, Notification, NotificationEndpoint) error) (NotificationsSent, error) {
 	var done NotificationsSent
 	var deliveries []delivery
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
+		// One pass at a time, across the api's pods, so notifications go out in the order they were queued.
+		var mine bool
+		if err := tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock(hashtext('notification_outbox'))").Scan(&mine); err != nil {
+			return fmt.Errorf("taking the notifications' lock: %w", err)
+		}
+		if !mine {
+			return nil
+		}
 		rows, err := tx.Query(ctx, "SELECT "+endpointColumns+" FROM notification_endpoints ORDER BY endpoint_id")
 		if err != nil {
 			return fmt.Errorf("reading the notification endpoints: %w", err)

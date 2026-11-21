@@ -249,6 +249,34 @@ func TestAFailedNotificationIsSentOnTheNextTry(t *testing.T) {
 	}
 }
 
+func TestOnlyOnePassSendsAtATimeSoNotificationsGoInOrder(t *testing.T) {
+	a, p, _ := outboxFixture(t)
+	ctx := context.Background()
+	for _, who := range []struct{ id, user, name string }{{"100000000000000005", "eve", "Eve"}, {"100000000000000006", "fay", "Fay"}} {
+		l := signedIn(t, p, discordID(who.id, who.user, who.name), who.user)
+		if err := p.RequestLink(ctx, l.ID, who.name, reportsAt); err != nil {
+			t.Fatalf("RequestLink(%s): %v", who.name, err)
+		}
+	}
+	var first []string
+	var meanwhile []string
+	// A sign-in's own notification, which this endpoint does not take, comes first: 2 is Eve's sign-in and request.
+	got, err := a.SendNotifications(ctx, sendsAt, 2, func(_ context.Context, n Notification, _ NotificationEndpoint) error {
+		first = append(first, notificationLine(n))
+		meanwhile = sent(t, a, sendsAt)
+		return nil
+	})
+	if err != nil || got != (NotificationsSent{Sent: 1}) {
+		t.Fatalf("SendNotifications(2) = %+v, %v (first %q, meanwhile %q); want Eve's request sent", got, err, first, meanwhile)
+	}
+	if len(meanwhile) != 0 {
+		t.Errorf("a second pass meanwhile sent %q, want nothing: it would go ahead of the first pass's next", meanwhile)
+	}
+	if rest := sent(t, a, sendsAt); len(rest) != 1 || len(first) != 1 || rest[0] == first[0] {
+		t.Errorf("sent %q then %q, want each report once, in turn", first, rest)
+	}
+}
+
 func TestANotificationBeingSentIsNotSentTwice(t *testing.T) {
 	a, p, matches := outboxFixture(t)
 	ctx := context.Background()
