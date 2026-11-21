@@ -8,6 +8,8 @@ import rehypeKatex from 'rehype-katex';
 
 // Stylesheets are files, never inlined, so the CSP needs no 'unsafe-inline'.
 export default defineConfig({
+  // 127.0.0.1, as scripts/dev.sh asks: "localhost" can be IPv6 only.
+  server: { port: 4321, host: '127.0.0.1' },
   integrations: [react(), mdx()],
   // Maths in Markdown is rendered at build, as MathML: no script, no inline styles for the CSP to allow.
   // Straight quotes, as upstream's Markdown renderer leaves them. No code highlighting: it colours with inline styles.
