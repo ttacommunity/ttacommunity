@@ -1633,7 +1633,7 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
       </div>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
-        <AdminTable caption="The standings" className="blitz-standings">
+        <AdminTable caption="The standings">
           <BlitzStandingsTable standings={standings} fixedBy={fixedBy} tieBreaks={tieBreaks} />
         </AdminTable>
       )}

@@ -25,6 +25,9 @@ import Panel from './Panel';
 import Panels from './Panels';
 import SeasonPick from './SeasonPick';
 import Note from '@ttac/shared/Note';
+import ScrollTable from './ScrollTable';
+import ShowAll from './ShowAll';
+import { shownRows } from '../lib/show-all';
 
 /** TournamentsPage shows the tournament the address names (?t=), or the list of every tournament. */
 export default function TournamentsPage({ apiUrl }: { apiUrl: string }) {
@@ -76,6 +79,7 @@ function TournamentList({ apiUrl }: { apiUrl: string }) {
 
 /** CgeList lists every tournament on CGE's site, marking which are ours and rated. */
 function CgeList({ data }: { data: Catalogue }) {
+  const [expanded, setExpanded] = useState(false);
   const withGames = new Set(data.tournaments.map((t) => t.slug));
   return (
     <Panel id="cge-tournaments" title="Tournaments on CGE" aside={<span className="tag">{count(data.cge_tournaments.length)} tournaments</span>}>
@@ -83,7 +87,7 @@ function CgeList({ data }: { data: Catalogue }) {
         The tournaments on CGE&apos;s site that count towards the ratings. One marked (Not Rated) is shown but does not
         count.
       </p>
-      <div className="trophy-table-container">
+      <ScrollTable label="Tournaments">
         <table className="leaderboard-table trophy-table">
           <caption className="records-intro">Tournaments on CGE, newest first</caption>
           <thead>
@@ -95,7 +99,7 @@ function CgeList({ data }: { data: Catalogue }) {
             </tr>
           </thead>
           <tbody>
-            {data.cge_tournaments.map((c) => (
+            {shownRows(data.cge_tournaments, expanded).map((c) => (
               <tr key={c.cge_tournament}>
                 <td>
                   <a href={c.url} rel="noopener noreferrer">
@@ -115,7 +119,8 @@ function CgeList({ data }: { data: Catalogue }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
+      <ShowAll total={data.cge_tournaments.length} expanded={expanded} onToggle={() => setExpanded(!expanded)} />
     </Panel>
   );
 }
@@ -204,6 +209,7 @@ function Champions({
   onPick: (season: string) => void;
   word: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const lower = word.toLowerCase();
   const place = (s: CatalogueSeason, n: number) => {
     const got = placeNames(s.podium, n);
@@ -226,7 +232,7 @@ function Champions({
         </span>
       }
     >
-      <div className="trophy-table-container champions-table">
+      <ScrollTable label="Champions">
         <table className="leaderboard-table trophy-table">
           <caption className="records-intro">
             {podium ? `Each ${lower}'s top three, newest first; choose a ${lower} to see its games` : `Newest first; choose a ${lower} to see its games`}
@@ -248,7 +254,7 @@ function Champions({
             </tr>
           </thead>
           <tbody>
-            {[...seasons].reverse().map((s) => (
+            {shownRows([...seasons].reverse(), expanded).map((s) => (
               <tr key={s.label}>
                 <td>
                   <button type="button" className="season-pick" onClick={() => onPick(s.label)} title={`Show the games of ${seasonName(s.label, word)}`}>
@@ -282,7 +288,8 @@ function Champions({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
+      <ShowAll total={seasons.length} expanded={expanded} onToggle={() => setExpanded(!expanded)} />
       {podium && (
         <p className="records-intro champions-note">A league's podium is its top division; a cup's is its final. A dash means we have not recorded it yet.</p>
       )}
@@ -293,6 +300,7 @@ function Champions({
 /** Stages lists the stages of the seasons played in several, one season at a time, the latest first shown, in the tournament's words. */
 function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]; seasonWord: string; stageWord: string }) {
   const [label, setLabel] = useState(seasons[seasons.length - 1]?.label ?? '');
+  const [expanded, setExpanded] = useState(false);
   const s = seasons.find((x) => x.label === label) ?? seasons[seasons.length - 1];
   if (s === undefined) return null;
   return (
@@ -302,7 +310,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
         {s.organiser !== null && ` · organised by ${s.organiser}`}
       </p>
       {s.note !== null && <Note>{s.note}</Note>}
-      <div className="trophy-table-container">
+      <ScrollTable label="Results">
         <table className="leaderboard-table trophy-table">
           <caption className="records-intro">
             {plural(stageWord)} of {seasonName(s.label, seasonWord)}
@@ -317,7 +325,7 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
             </tr>
           </thead>
           <tbody>
-            {s.stages.map((st) => (
+            {shownRows(s.stages, expanded).map((st) => (
               <tr key={st.label}>
                 <td>
                   {stageName(st.label)}
@@ -331,7 +339,8 @@ function Stages({ seasons, seasonWord, stageWord }: { seasons: CatalogueSeason[]
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
+      <ShowAll total={s.stages.length} expanded={expanded} onToggle={() => setExpanded(!expanded)} />
     </Panel>
   );
 }

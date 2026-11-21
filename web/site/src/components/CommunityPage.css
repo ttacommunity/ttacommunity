@@ -59,23 +59,6 @@
 /* Premium Search & Action Buttons */
 
 /* CMB Scroll Descriptor centered in controls */
-.cmb-hint-box {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  background: var(--surface-field);
-  border: 1px solid var(--gold-wash-strong);
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  color: var(--accent-gold-light);
-  font-family: var(--font-stats);
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-align: center;
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
 
 /* Results Counter Card */
 .results-counter-card {
@@ -101,9 +84,6 @@
   max-width: 1400px;
   margin: 0 auto 2rem auto;
   transition: all 0.3s ease;
-}
-.table-wrapper .table-responsive {
-  margin-bottom: 0;
 }
 /* Expanded view expands to sides for full width visibility */
 .table-wrapper.expanded-view {
@@ -297,23 +277,6 @@
 }
 
 /* styles.css's scroll hint, shown on phones. */
-.scroll-hint.comm-scroll-hint {
-  display: none;
-  max-width: 1400px;
-  margin: 0 auto 0.4rem auto;
-  font-size: 0.76rem;
-  color: var(--accent-gold);
-  opacity: 0.85;
-  font-family: var(--font-stats);
-  letter-spacing: 0.3px;
-}
-@media (max-width: 768px) {
-  .scroll-hint.comm-scroll-hint {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-}
 
 /* The pager sits below the table, not inside a card, so it brings its own panel. */
 .community-page > .pagination {

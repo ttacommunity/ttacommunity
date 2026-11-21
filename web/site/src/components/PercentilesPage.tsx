@@ -161,7 +161,7 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
 
         {data.marks.length > 0 && (
           <Panel id="percentiles-marks" title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`}>
-            <ScrollTable hint="all columns">
+            <ScrollTable label="Percentiles">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">{rating} at each marked percentile</caption>
                 <thead>

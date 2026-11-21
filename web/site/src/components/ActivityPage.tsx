@@ -85,13 +85,13 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
           title="Top 15 Countries by Player Participation & Title Rating Depth"
           subtitle="Comparative average Glicko-2 ratings by official title status across the top 15 participating nations. Click headers to sort."
         >
-          <ScrollTable hint="country demographics">
+          <ScrollTable label="Countries">
             <table className="leaderboard-table activity-table">
               <caption className="visually-hidden">The 15 countries with most rated players, and their average Glicko-2 Standard rating by title</caption>
               <thead>
                 <tr>
                   {COLUMNS.map((c) => (
-                    <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} className={c.col === 'country' ? 'col-country' : undefined}>
+                    <SortHeader key={c.col} col={c.col} sort={sort} onSort={sortBy} align={c.col === 'country' ? 'start' : undefined}>
                       <span data-tooltip={c.tip}>{c.label}</span>
                     </SortHeader>
                   ))}
@@ -101,7 +101,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
                 {countries.map((c) => (
                   <tr key={c.country}>
                     <td className="country-rank">#{c.rank}</td>
-                    <td className="col-country">
+                    <td className="col-start activity-country">
                       <span className="country-flag">
                         <Flag country={c.country} />
                       </span>

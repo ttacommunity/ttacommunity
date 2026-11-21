@@ -90,7 +90,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               title={`${pc}-Player Matches • ${count(group.total_games)} games`}
               aside={<span className="seat-parity-note">Expected Parity: {parity}% per seat</span>}
             >
-              <ScrollTable hint="all placement columns">
+              <ScrollTable label="Placement by seat">
                 <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution

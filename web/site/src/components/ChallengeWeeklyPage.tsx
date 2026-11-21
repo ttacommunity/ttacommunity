@@ -8,6 +8,7 @@ import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 /** ChallengeWeeklyPage loads the weeks and lists them. */
 export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; list: ChallengeTile[] }) {
@@ -35,7 +36,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
             ))}
           </p>
           <Panel label="Weeks" className="challenges-card">
-            <div className="table-responsive">
+            <ScrollTable label="Weekly challenges">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">Each week of the weekly challenge, its challenge and who won</caption>
                 <thead>
@@ -70,7 +71,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
                   ))}
                 </tbody>
               </table>
-            </div>
+            </ScrollTable>
           </Panel>
         </>
       )}

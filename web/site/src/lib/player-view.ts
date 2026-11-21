@@ -3,12 +3,11 @@ import { signed } from '@ttac/shared/numbers';
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
 import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode, type Track } from './leaderboard-view';
 import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
+import { shownRows } from './show-all';
 
 /** Below this many games in a format an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
 
-/** Rivals shown before "Show all". */
-export const RIVALS_SHOWN = 30;
 
 /** What the reader has chosen on a player's page, as upstream's query parameters carry it. */
 export interface PlayerView {
@@ -585,13 +584,13 @@ export interface RivalsView {
 }
 
 /**
- * visibleRivals applies upstream's rivals table: sorted by the chosen column, the first 30 unless expanded; a name
+ * visibleRivals applies upstream's rivals table: sorted by the chosen column, a long table's first rows unless expanded; a name
  * filter or a minimum shows every match.
  */
 export function visibleRivals(rivals: readonly Rival[], view: RivalsView): Rival[] {
   const sorted = sortRows(rivals, RIVAL_COLUMNS, view.sort);
   const filter = view.filter.trim().toLowerCase();
-  if (filter === '' && view.minGames <= 1) return view.expanded ? sorted : sorted.slice(0, RIVALS_SHOWN);
+  if (filter === '' && view.minGames <= 1) return shownRows(sorted, view.expanded);
   return sorted.filter((r) => r.games >= view.minGames && r.name.toLowerCase().includes(filter));
 }
 

@@ -12,15 +12,24 @@ interface Props<C extends string> {
   col: C;
   sort: Sort<C>;
   onSort: (col: C) => void;
-  className?: string;
   children: ReactNode;
 }
 
-/** SortHeader is a column header whose button sorts by its column; the arrow and aria-sort say which way. */
-export default function SortHeader<C extends string>({ col, sort, onSort, className, children }: Props<C>) {
+/** Where a column's header and cells sit: end is for numbers, which also line up their digits. */
+export type Align = 'start' | 'center' | 'end';
+
+const ALIGN_CLASS: Record<Align, string> = { start: 'col-start', center: 'col-center', end: 'num' };
+
+/** alignClass is the class that sits a header or cell where align says, for a table's plain cells beside its SortHeaders. */
+export function alignClass(align: Align | undefined): string | undefined {
+  return align === undefined ? undefined : ALIGN_CLASS[align];
+}
+
+/** SortHeader is a column header whose button sorts by its column; the arrow and aria-sort say which way, align where the column sits. */
+export default function SortHeader<C extends string>({ col, sort, onSort, align, children }: Props<C> & { align?: Align }) {
   const way = sort?.col === col ? (sort.desc ? 'descending' : 'ascending') : undefined;
   return (
-    <th scope="col" className={className} aria-sort={way}>
+    <th scope="col" className={alignClass(align)} aria-sort={way}>
       <SortButton col={col} sort={sort} onSort={onSort}>
         {children}
       </SortButton>
@@ -28,11 +37,11 @@ export default function SortHeader<C extends string>({ col, sort, onSort, classN
   );
 }
 
-/** SortButton sorts by its column, its arrow saying which way: a header's button, or one of several sharing a header (W - L - D). */
-export function SortButton<C extends string>({ col, sort, onSort, className, children }: Props<C>) {
+/** SortButton sorts by its column, its arrow saying which way: a header's button, or one of several sharing a header (W - L - D), each in its result's tone. */
+export function SortButton<C extends string>({ col, sort, onSort, tone, children }: Props<C> & { tone?: 'win' | 'loss' | 'draw' }) {
   const on = sort?.col === col;
   return (
-    <button type="button" className={`sort-header${on ? ' sort-on' : ''}${className === undefined ? '' : ` ${className}`}`} onClick={() => onSort(col)}>
+    <button type="button" className={`sort-header${on ? ' sort-on' : ''}${tone === undefined ? '' : ` ${tone}`}`} onClick={() => onSort(col)}>
       {children}
       <span className="sort-arrow" aria-hidden="true">
         {!on ? '⇅' : sort.desc ? '▼' : '▲'}

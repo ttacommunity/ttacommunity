@@ -16,9 +16,6 @@
   color: var(--text-soft);
   line-height: 1.6;
 }
-.blitz-table-wrap {
-  overflow-x: auto;
-}
 .blitz-table caption {
   caption-side: top;
   padding-bottom: 0.5rem;
@@ -32,10 +29,6 @@
 }
 .blitz-table thead th {
   white-space: nowrap;
-}
-.blitz-table .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .blitz-table a {
   color: var(--accent-gold);

@@ -14,6 +14,7 @@ import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -198,27 +199,29 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
             <p className="muted">
               Where {p.player}&apos;s best is closest to the record{measure === 'rating' ? ' (in % of the record)' : ' (fewest points to beat it)'}.
             </p>
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">The challenges where {p.player}&apos;s best is closest to the record</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Challenge</th>
-                  <th scope="col">{measure === 'rating' ? 'Of the record' : 'Best / record'}</th>
-                  <th scope="col">To beat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {closest.map((b) => (
-                  <tr key={b.challenge}>
-                    <td>{label(b)}</td>
-                    <td className="num">{measure === 'rating' ? `${Math.round(b.share)}%` : `${b.domination}/${b.record}`}</td>
-                    <td className="num muted" title={`Record: ${b.record} by ${b.record_holder}`}>
-                      {b.record - b.domination + 1} to beat
-                    </td>
+            <ScrollTable label="Records within reach">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">The challenges where {p.player}&apos;s best is closest to the record</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Challenge</th>
+                    <th scope="col">{measure === 'rating' ? 'Of the record' : 'Best / record'}</th>
+                    <th scope="col">To beat</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {closest.map((b) => (
+                    <tr key={b.challenge}>
+                      <td>{label(b)}</td>
+                      <td className="num">{measure === 'rating' ? `${Math.round(b.share)}%` : `${b.domination}/${b.record}`}</td>
+                      <td className="num muted" title={`Record: ${b.record} by ${b.record_holder}`}>
+                        {b.record - b.domination + 1} to beat
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollTable>
           </div>
         )}
         {(lowest.length > 0 || unplayed > 0) && (
@@ -228,27 +231,29 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
               {measure === 'rating' ? `Where ${p.player}'s best is the lowest % of the record: the most rating to gain.` : `${p.player}'s lowest best dominations.`}
             </p>
             {lowest.length > 0 && (
-              <table className="leaderboard-table">
-                <caption className="visually-hidden">{p.player}&apos;s lowest results</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Challenge</th>
-                    {measure === 'rating' && <th scope="col">Of the record</th>}
-                    <th scope="col">Best / record</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lowest.map((b) => (
-                    <tr key={b.challenge}>
-                      <td>{label(b)}</td>
-                      {measure === 'rating' && <td className="num">{Math.round(b.share)}%</td>}
-                      <td className={measure === 'rating' ? 'num muted' : 'num'} title={`Record by ${b.record_holder}`}>
-                        {b.domination}/{b.record}
-                      </td>
+              <ScrollTable label="Lowest results">
+                <table className="leaderboard-table">
+                  <caption className="visually-hidden">{p.player}&apos;s lowest results</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Challenge</th>
+                      {measure === 'rating' && <th scope="col">Of the record</th>}
+                      <th scope="col">Best / record</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {lowest.map((b) => (
+                      <tr key={b.challenge}>
+                        <td>{label(b)}</td>
+                        {measure === 'rating' && <td className="num">{Math.round(b.share)}%</td>}
+                        <td className={measure === 'rating' ? 'num muted' : 'num'} title={`Record by ${b.record_holder}`}>
+                          {b.domination}/{b.record}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollTable>
             )}
             {unplayed > 0 && (
               <p className="muted">

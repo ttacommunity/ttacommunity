@@ -5,14 +5,13 @@ interface Props {
   caption: ReactNode;
   /** Shows the caption above the table, where it is the table's only title. */
   captionShown?: boolean;
-  className?: string;
   children: ReactNode;
 }
 
-export default function AdminTable({ caption, captionShown = false, className, children }: Props) {
+export default function AdminTable({ caption, captionShown = false, children }: Props) {
   return (
     <div className="table-responsive">
-      <table className={`leaderboard-table admin-table${className === undefined ? '' : ` ${className}`}`}>
+      <table className="leaderboard-table admin-table">
         <caption className={captionShown ? undefined : 'visually-hidden'}>{caption}</caption>
         {children}
       </table>

@@ -11,6 +11,7 @@ import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
 
@@ -61,7 +62,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
         <Waiting load={load} what="the players" />
       ) : (
         <Panel label="Players" className="challenges-card">
-          <div className="table-responsive">
+          <ScrollTable label="Players">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Every player with a challenge entry, with their figures</caption>
               <thead>
@@ -69,25 +70,25 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                   <SortHeader col="player" sort={sort} onSort={onSort}>
                     Player
                   </SortHeader>
-                  <SortHeader col="overall" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="overall" sort={sort} onSort={onSort} align="end">
                     {measure === 'rating' ? 'Rating' : 'Total'}
                   </SortHeader>
-                  <SortHeader col="records" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="records" sort={sort} onSort={onSort} align="end">
                     Records
                   </SortHeader>
-                  <SortHeader col="played" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="played" sort={sort} onSort={onSort} align="end">
                     Played
                   </SortHeader>
-                  <SortHeader col="verified" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="verified" sort={sort} onSort={onSort} align="end">
                     Verified
                   </SortHeader>
-                  <SortHeader col="original" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="original" sort={sort} onSort={onSort} align="end">
                     Original
                   </SortHeader>
-                  <SortHeader col="expansion" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="expansion" sort={sort} onSort={onSort} align="end">
                     Expansion
                   </SortHeader>
-                  <SortHeader col="mix" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="mix" sort={sort} onSort={onSort} align="end">
                     Mix
                   </SortHeader>
                   <SortHeader col="last" sort={sort} onSort={onSort}>
@@ -113,7 +114,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         </Panel>
       )}
     </>

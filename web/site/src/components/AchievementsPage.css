@@ -117,22 +117,6 @@
   margin-top: 0.35rem;
 }
 
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
-  margin-bottom: 1rem;
-}
-.scroll-hint {
-  display: none;
-  font-size: 0.76rem;
-  color: var(--accent-gold);
-  opacity: 0.85;
-  margin-bottom: 0.35rem;
-  font-family: var(--font-stats);
-  letter-spacing: 0.3px;
-}
 .records-table .ach-date {
   font-family: var(--font-stats);
   color: var(--accent-gold);
@@ -382,10 +366,5 @@
   .medals-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
-  }
-  .scroll-hint {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
   }
 }

@@ -205,7 +205,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
           </>
         }
       >
-        <ScrollTable hint="all 4 metrics">
+        <ScrollTable label="Calibration">
           <table className="leaderboard-table ranked-table">
             <thead>
               <tr>

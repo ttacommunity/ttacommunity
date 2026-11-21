@@ -5,6 +5,7 @@ import PlayerLink from './PlayerLink';
 import { TitleBadge } from './PlayerMarks';
 import Message from './Message';
 import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -24,7 +25,7 @@ export default function GameRecordsPanel({
   return (
     <Panel id="game-records" icon="📈" title={title} aside={<span className="tag">Top Single-Game Scores</span>}>
       <p className="records-intro">{intro}</p>
-      <div className="trophy-table-container records-table">
+      <ScrollTable label="Game records">
         <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">The ten highest winning scores</caption>
           <thead>
@@ -67,7 +68,7 @@ export default function GameRecordsPanel({
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </Panel>
   );
 }

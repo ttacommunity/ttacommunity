@@ -120,6 +120,7 @@
   --bar-edge: var(--border-subtle);
   /* A field's edge: visible, 3:1 or more, as a control's outline. */
   --field-edge: var(--text-muted);
+  --scroll-edge: var(--shadow);
   /* A status: a short state, outlined in its tone. */
   --status-muted: var(--text-muted);
   --status-gold: var(--accent-gold);

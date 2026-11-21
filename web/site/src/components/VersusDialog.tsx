@@ -16,6 +16,7 @@ import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
 import { TRACKS } from '@ttac/shared/tracks';
 import './ViewBar.css';
+import ScrollTable from './ScrollTable';
 
 // Head-to-head offers every track but Pulse.
 const TRACK_OPTIONS = TRACKS.filter((t) => t.value !== 'pulse').map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }));
@@ -99,54 +100,56 @@ export default function VersusDialog({
           <div className="h2h-message">{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see shared matches.' : 'No direct encounters found for this player format and filter.'}</div>
         )}
         {tally !== null && tally.games > 0 && (
-          <table className="leaderboard-table data-table">
-            <caption className="visually-hidden">
-              Games {a} and {b} played together
-            </caption>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Tournament</th>
-                <th>Format</th>
-                <th>{a} Finish</th>
-                <th>{b} Finish</th>
-                <th>Table Scores</th>
-                <th>Replay</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tally.rows.map((m) => (
-                <tr key={m.match_id}>
-                  <td>{m.date}</td>
-                  <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
-                  <td>
-                    {m.player_count}p
-                    {!m.rated && <span className="badge badge-unrated">Unrated</span>}
-                  </td>
-                  <td>
-                    <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>
-                  </td>
-                  <td>
-                    <span className={`placement-badge place-${m.other_place}`}>#{m.other_place}</span>
-                  </td>
-                  <td className="h2h-scores">
-                    {m.seats.map((s, i) => (
-                      <span key={`${s.name}-${i}`}>
-                        <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
-                          <PlayerLink name={s.name} className="player-link" />
-                          : {s.score}
-                        </span>
-                        {i < m.seats.length - 1 ? ', ' : ''}
-                      </span>
-                    ))}
-                  </td>
-                  <td>
-                    <CopyCode code={m.replay_code} />
-                  </td>
+          <ScrollTable label="Matches">
+            <table className="leaderboard-table data-table">
+              <caption className="visually-hidden">
+                Games {a} and {b} played together
+              </caption>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tournament</th>
+                  <th>Format</th>
+                  <th>{a} Finish</th>
+                  <th>{b} Finish</th>
+                  <th>Table Scores</th>
+                  <th>Replay</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tally.rows.map((m) => (
+                  <tr key={m.match_id}>
+                    <td>{m.date}</td>
+                    <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
+                    <td>
+                      {m.player_count}p
+                      {!m.rated && <span className="badge badge-unrated">Unrated</span>}
+                    </td>
+                    <td>
+                      <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>
+                    </td>
+                    <td>
+                      <span className={`placement-badge place-${m.other_place}`}>#{m.other_place}</span>
+                    </td>
+                    <td className="h2h-scores">
+                      {m.seats.map((s, i) => (
+                        <span key={`${s.name}-${i}`}>
+                          <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
+                            <PlayerLink name={s.name} className="player-link" />
+                            : {s.score}
+                          </span>
+                          {i < m.seats.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </td>
+                    <td>
+                      <CopyCode code={m.replay_code} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollTable>
         )}
       </div>
     </Sheet>

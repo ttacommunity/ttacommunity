@@ -17,6 +17,7 @@ import { counted, plural } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -219,7 +220,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
         Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
         {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
       </p>
-      <div className="table-responsive">
+      <ScrollTable label="Your entries">
         <table className="leaderboard-table">
           <thead>
             <tr>
@@ -272,7 +273,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
             })}
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
     </Panel>
   );
 }
