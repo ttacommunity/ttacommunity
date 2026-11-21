@@ -38,6 +38,8 @@ dist/
 coverage/
 .coverage
 coverage.out
+# A local tool built with go build in backend/ (README, "Let someone sign in as a test player").
+/backend/shareproxy
 coverage.html
 __pycache__/
 *.py[cod]
