@@ -4,7 +4,7 @@ import type { components } from '@ttac/shared/api';
 import { count, counted } from '@ttac/shared/numbers';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
 import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
-import { sizeText } from '../lib/runs-view';
+import { sizeText } from '@ttac/shared/numbers';
 import { LoadNotice } from './Notice';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';

@@ -58,7 +58,7 @@ import UnratedToggle from './UnratedToggle';
 import RatedFilter from './RatedFilter';
 import type { GameRatingFilter } from '../lib/career';
 import Pager from './Pager';
-import CopyCode from './CopyCode';
+import CopyCode from '@ttac/shared/CopyCode';
 import { useLoad } from './useLoad';
 import { type Link } from '../lib/navigate';
 import { type Load } from '@ttac/shared/load';

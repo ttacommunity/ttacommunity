@@ -23,6 +23,7 @@
     "./ToggleGroup": "./src/ToggleGroup.tsx",
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
+    "./CopyCode": "./src/CopyCode.tsx",
     "./Sheet": "./src/Sheet.tsx",
     "./InfoDialog": "./src/InfoDialog.tsx",
     "./modal": "./src/modal.ts",

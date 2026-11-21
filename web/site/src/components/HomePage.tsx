@@ -22,7 +22,7 @@ import { fetchFeedMatches } from '../lib/feed-data';
 import FeedOptionsModal from './FeedOptionsModal';
 import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
-import CopyCode from './CopyCode';
+import CopyCode from '@ttac/shared/CopyCode';
 import Message from './Message';
 
 interface HomeData {

@@ -1,13 +1,13 @@
-/* A replay code in a dark box, a copy button beside it that ticks, and a note when copying is refused. */
-.replay {
+/* Text to copy in a dark box, a copy button beside it that ticks, and a note when copying is refused. */
+.copy-code {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
 
-.replay code {
+.copy-code code {
   padding: 0.15rem 0.4rem;
-  background: rgba(18, 12, 8, 0.8);
+  background: var(--surface-code);
   border: 1px solid var(--border-subtle);
   border-radius: 3px;
   font-family: monospace;
@@ -17,7 +17,7 @@
   user-select: all;
 }
 
-.btn-copy-code {
+.copy-code-btn {
   padding: 2px 4px;
   background: transparent;
   border: none;
@@ -26,12 +26,12 @@
   cursor: pointer;
 }
 
-.replay-note {
+.copy-code-note {
   font-size: 0.8rem;
   color: var(--accent-gold);
 }
 
-.replay-none {
+.copy-code-none {
   font-size: 0.8rem;
   color: var(--text-muted);
 }

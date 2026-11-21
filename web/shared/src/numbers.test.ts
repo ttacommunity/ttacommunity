@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { count, score, signed, counted, ordinal, plural } from './numbers';
+import { count, score, signed, counted, ordinal, plural, sizeText } from './numbers';
 
 describe('count', () => {
   it.each([
@@ -89,5 +89,20 @@ describe('ordinal', () => {
     [111, '111th'],
   ])('writes %i as %s', (n, want) => {
     expect(ordinal(n)).toBe(want);
+  });
+});
+
+describe('sizeText', () => {
+  it.each([
+    [4_000_000_000, '4.0 GB'],
+    [350_000_000, '350.0 MB'],
+    [12_500, '12.5 kB'],
+  ])('writes %i bytes as %s: the largest unit under a thousand, one decimal', (bytes, want) => {
+    expect(sizeText(bytes)).toBe(want);
+  });
+
+  it('writes nothing for a size not known yet, and 0 B for an empty run', () => {
+    expect(sizeText(undefined)).toBe('');
+    expect(sizeText(0)).toBe('0 B');
   });
 });

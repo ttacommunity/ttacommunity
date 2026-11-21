@@ -7,7 +7,7 @@ import type { GameRow, GamesColumn } from '../lib/games-table';
 import PlayerLink from './PlayerLink';
 import './TournamentSeries.css';
 import './GamesTable.css';
-import CopyCode from './CopyCode';
+import CopyCode from '@ttac/shared/CopyCode';
 
 /** GamesTable shows rows under a caption, context naming their second column (Season, Round). waiting, when given, stands in for the rows while they load; empty is said when there are none. With onSort, its headers sort by their column (the caller orders the rows by sort). */
 export default function GamesTable({

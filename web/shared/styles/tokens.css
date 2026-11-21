@@ -3,6 +3,8 @@
   --bg-dark: #1c130d;
   --surface-panel: rgba(43, 29, 20, 0.85);
   --surface-inset: rgba(18, 12, 8, 0.85);
+  /* Text to copy, such as a replay code: a little lighter than an inset. */
+  --surface-code: rgba(18, 12, 8, 0.8);
   --surface-header: rgba(28, 19, 13, 0.94);
   --surface-footer: rgba(20, 13, 8, 0.95);
   /* A dialog or sheet: the cards' colour, made solid so the page does not show through. */
