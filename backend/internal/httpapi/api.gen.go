@@ -838,6 +838,24 @@ func (e NostradamusQuestionKind) Valid() bool {
 	}
 }
 
+// Defines values for NotificationEndpointKind.
+const (
+	BotChannel NotificationEndpointKind = "bot_channel"
+	Webhook    NotificationEndpointKind = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the NotificationEndpointKind enum.
+func (e NotificationEndpointKind) Valid() bool {
+	switch e {
+	case BotChannel:
+		return true
+	case Webhook:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotificationEvent.
 const (
 	NotificationEventBlitzFinished NotificationEvent = "blitz_finished"
@@ -846,6 +864,7 @@ const (
 	NotificationEventBlitzReport   NotificationEvent = "blitz_report"
 	NotificationEventBlitzRound    NotificationEvent = "blitz_round"
 	NotificationEventBlitzSignUps  NotificationEvent = "blitz_sign_ups"
+	NotificationEventBlitzThreads  NotificationEvent = "blitz_threads"
 	NotificationEventFeedFailing   NotificationEvent = "feed_failing"
 	NotificationEventLinkRequest   NotificationEvent = "link_request"
 	NotificationEventRatingsRun    NotificationEvent = "ratings_run"
@@ -867,6 +886,8 @@ func (e NotificationEvent) Valid() bool {
 	case NotificationEventBlitzRound:
 		return true
 	case NotificationEventBlitzSignUps:
+		return true
+	case NotificationEventBlitzThreads:
 		return true
 	case NotificationEventFeedFailing:
 		return true
@@ -4807,6 +4828,9 @@ type NotificationEndpoint struct {
 	// BlitzReminderHours How many hours before a blitz round's deadline it is reminded, when it takes blitz_reminder
 	BlitzReminderHours int `json:"blitz_reminder_hours"`
 
+	// ChannelId A bot channel's Discord channel id; empty for a webhook
+	ChannelId string `json:"channel_id"`
+
 	// Colour A feed item's embed colour, #rrggbb
 	Colour string              `json:"colour"`
 	Events []NotificationEvent `json:"events"`
@@ -4826,6 +4850,9 @@ type NotificationEndpoint struct {
 
 	// Image Whether a feed item shows its image
 	Image bool `json:"image"`
+
+	// Kind A Discord webhook, or a channel the bot makes blitz games' private threads in (taking blitz_threads and, in those threads, blitz_reminder); webhook when an endpoint is added without one, and kept on a change
+	Kind NotificationEndpointKind `json:"kind"`
 
 	// LastError Why the last notification failed to reach it, until one does
 	LastError   *string    `json:"last_error,omitempty"`
@@ -4853,9 +4880,12 @@ type NotificationEndpoint struct {
 	// Username The name its messages show; the webhook's own when empty
 	Username string `json:"username"`
 
-	// WebhookId The Discord webhook's id. Its URL holds its secret and is never sent back
+	// WebhookId The Discord webhook's id, empty for a bot channel. Its URL holds its secret and is never sent back
 	WebhookId string `json:"webhook_id"`
 }
+
+// NotificationEndpointKind A Discord webhook, or a channel the bot makes blitz games' private threads in (taking blitz_threads and, in those threads, blitz_reminder); webhook when an endpoint is added without one, and kept on a change
+type NotificationEndpointKind string
 
 // NotificationEndpointSetting defines model for NotificationEndpointSetting.
 type NotificationEndpointSetting struct {
@@ -4864,6 +4894,9 @@ type NotificationEndpointSetting struct {
 
 	// BlitzReminderHours How many hours before a blitz round's deadline to remind it, 1 to 168; 24 when left out
 	BlitzReminderHours *int `json:"blitz_reminder_hours,omitempty"`
+
+	// ChannelId A bot channel's Discord channel id, 17 to 20 digits
+	ChannelId *string `json:"channel_id,omitempty"`
 
 	// Colour #rrggbb, in lower case; orange when not given
 	Colour *string             `json:"colour,omitempty"`
@@ -4879,9 +4912,12 @@ type NotificationEndpointSetting struct {
 	Format *NotificationFormat `json:"format,omitempty"`
 	Forum  *bool               `json:"forum,omitempty"`
 	Image  *bool               `json:"image,omitempty"`
-	Name   string              `json:"name"`
-	Paused *bool               `json:"paused,omitempty"`
-	Prefix *string             `json:"prefix,omitempty"`
+
+	// Kind A Discord webhook, or a channel the bot makes blitz games' private threads in (taking blitz_threads and, in those threads, blitz_reminder); webhook when an endpoint is added without one, and kept on a change
+	Kind   *NotificationEndpointKind `json:"kind,omitempty"`
+	Name   string                    `json:"name"`
+	Paused *bool                     `json:"paused,omitempty"`
+	Prefix *string                   `json:"prefix,omitempty"`
 
 	// RoleId A Discord role's id
 	RoleId *string `json:"role_id,omitempty"`

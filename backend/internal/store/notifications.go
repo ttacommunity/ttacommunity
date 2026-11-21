@@ -33,7 +33,12 @@ type Notification struct {
 	Round                 int
 	A, B, Result          string
 	// Game is the game's number in a best-of-3 match, whose result is then that game's; 0 in a one-game match.
+	// MatchID is the match of a blitz_thread (a game to make a private thread for) or blitz_deadline (one whose
+	// deadline moved); RoundID the round of a blitz_replaced, published again without some games given threads, or of a
+	// blitz_reminder.
 	Game       int
+	MatchID    int64
+	RoundID    int64
 	ReportedBy string
 	Corrected  bool
 	FlagReason string
@@ -58,6 +63,16 @@ type Notification struct {
 	// round's deadline coming (blitz_reminder) likewise, for the one endpoint ForEndpoint.
 	Blitz       BlitzNews
 	ForEndpoint int64
+	// A game's thread (blitz_thread): its round's threads and the game, filled in by the sender likewise.
+	Thread BlitzThreadNews
+}
+
+// BlitzThreadNews is a game's private thread as it is made: its round's threads, read for admin, and the game; for a
+// reminder, the round's games by match instead.
+type BlitzThreadNews struct {
+	Threads blitz.Threads
+	Game    blitz.ThreadGame
+	ByMatch map[int64]blitz.ThreadGame
 }
 
 // BlitzNews is a blitz round's or edition's news as it is posted: the round's title, its games and byes, each
@@ -167,7 +182,7 @@ func forgetPostText(ctx context.Context, tx pgx.Tx, n Notification, ref int64) e
 	return nil
 }
 
-// takes says whether e takes n: a Twitch or YouTube stream or an RSS item when e takes its feed and it passes e's
+// takes says whether e takes n: a game's thread or its notices when e takes blitz_threads, a Twitch or YouTube stream or an RSS item when e takes its feed and it passes e's
 // options for it, a stream ended when e kept its post, a feed failing or reading again when e takes feed_failing,
 // anything else when e takes its kind.
 func (e NotificationEndpoint) takes(n Notification) bool {
@@ -191,6 +206,8 @@ func (e NotificationEndpoint) takes(n Notification) bool {
 		return slices.Contains(e.Events, "feed_failing")
 	case "blitz_reminder":
 		return e.ID == n.ForEndpoint && slices.Contains(e.Events, n.Kind)
+	case "blitz_thread", "blitz_deadline", "blitz_replaced":
+		return slices.Contains(e.Events, "blitz_threads")
 	}
 	return slices.Contains(e.Events, n.Kind)
 }
@@ -221,7 +238,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 		rows, err = tx.Query(ctx, `
 			SELECT o.notification_id, o.kind, coalesce(o.account_id, o.request_id, o.match_id, o.feed_id, o.twitch_stream_id, o.rss_item_id, o.youtube_stream_id, o.published_run_id, o.round_id, o.edition_id, 0), o.attempts, o.sent_to,
 			       CASE WHEN o.kind IN ('sign_up', 'feed_failed', 'feed_recovered', 'twitch_live', 'twitch_ended', 'rss_item', 'youtube_live', 'youtube_ended',
-			                            'blitz_round', 'blitz_finished', 'blitz_reminder', 'blitz_sign_ups') THEN true
+			                            'blitz_round', 'blitz_finished', 'blitz_reminder', 'blitz_sign_ups', 'blitz_thread', 'blitz_deadline', 'blitz_replaced') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
 			            WHEN o.kind = 'blitz_report' THEN bg.report IS NOT NULL
@@ -251,7 +268,8 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			                 FROM youtube_posts yp WHERE yp.youtube_stream_id = o.youtube_stream_id), '{}'),
 			       coalesce(o.published_run_id, 0), coalesce(o.before_run_id, 0), coalesce(rr.games, 0), coalesce(tc.gained, 0), coalesce(tc.lost, 0),
 			       o.kind = 'blitz_round' AND EXISTS (SELECT 1 FROM blitz_round_posts bp WHERE bp.tournament_id = nr.tournament_id AND bp.number = nr.number),
-			       coalesce(o.endpoint_id, 0)
+			       coalesce(o.endpoint_id, 0), CASE WHEN o.kind IN ('blitz_thread', 'blitz_deadline') THEN o.match_id ELSE 0 END,
+			       CASE WHEN o.kind IN ('blitz_replaced', 'blitz_reminder') THEN o.round_id ELSE 0 END
 			FROM notification_outbox o
 			LEFT JOIN blitz_rounds nr ON nr.round_id = o.round_id
 			LEFT JOIN tournaments nt ON nt.tournament_id = coalesce(nr.tournament_id, o.edition_id)
@@ -307,7 +325,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 				&n.RSS.Item.PublishedAt,
 				&n.YouTube.Channel, &n.YouTube.VideoID, &n.YouTube.Title, &n.YouTube.ThumbnailURL, &n.YouTube.StartedAt, &n.YouTube.EndedAt,
 				&n.YouTube.Posts,
-				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost, &n.Blitz.Again, &n.ForEndpoint); err != nil {
+				&n.Run.ID, &n.Run.BeforeID, &n.Run.Games, &n.Run.TitlesGained, &n.Run.TitlesLost, &n.Blitz.Again, &n.ForEndpoint, &n.MatchID, &n.RoundID); err != nil {
 				rows.Close()
 				return fmt.Errorf("reading a notification: %w", err)
 			}

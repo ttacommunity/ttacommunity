@@ -22,10 +22,13 @@ func (*fakeAdmins) NotificationEndpoints(context.Context) ([]store.NotificationE
 }
 
 func (*fakeAdmins) NotificationEndpoint(_ context.Context, id int64) (store.NotificationEndpoint, error) {
-	if id != 3 {
-		return store.NotificationEndpoint{}, store.ErrNoNotificationEndpoint
+	switch id {
+	case 3:
+		return store.NotificationEndpoint{ID: 3, Name: "Admins", Kind: "webhook", URL: testWebhook, Format: "discord"}, nil
+	case 5:
+		return store.NotificationEndpoint{ID: 5, Name: "Threads", Kind: "bot_channel", ChannelID: "200000000000000001", Format: "discord"}, nil
 	}
-	return store.NotificationEndpoint{ID: 3, Name: "Admins", URL: testWebhook, Format: "discord"}, nil
+	return store.NotificationEndpoint{}, store.ErrNoNotificationEndpoint
 }
 
 // endpointNote writes an endpoint as the fake records it, or refuses one named "bad" as the database would.
@@ -41,7 +44,7 @@ func (f *fakeAdmins) AddNotificationEndpoint(_ context.Context, e store.Notifica
 	if err != nil {
 		return 0, err
 	}
-	f.notes, f.feeds, f.feedOptions = append(f.notes, note), e.Feeds, fmt.Sprintf("%+v", e.FeedOptions)
+	f.notes, f.feeds, f.feedOptions, f.kind = append(f.notes, note), e.Feeds, fmt.Sprintf("%+v", e.FeedOptions), e.Kind+" "+e.ChannelID
 	f.options = fmt.Sprintf("paused %t forum %t %s %s %s thread %s reminder %dh %+v", e.Paused, e.Forum, e.Username, e.AvatarURL, e.RoleID, e.ThreadID, e.BlitzReminderHours, e.Look)
 	return 4, nil
 }
@@ -144,6 +147,7 @@ func TestNotificationEndpointChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"an unknown event", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": ["pizza"]}`, http.StatusBadRequest},
 		{"a feed id that is not a number", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": [], "feeds": ["x"]}`, http.StatusBadRequest},
 		{"an unknown text choice", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "events": [], "text": "some"}`, http.StatusBadRequest},
+		{"an unknown kind", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "kind": "email", "events": []}`, http.StatusBadRequest},
 		{"another format", owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "` + testWebhook + `", "format": "slack", "events": []}`, http.StatusBadRequest},
 		{"a change the database refuses", owner, http.MethodPut, "/v1/admin/notification-endpoints/3", site, `{"name": "bad", "url": "x", "events": []}`, http.StatusBadRequest},
 		{"changing one that is not there", owner, http.MethodPut, "/v1/admin/notification-endpoints/9", site, good, http.StatusNotFound},
@@ -167,20 +171,31 @@ func TestTestingANotificationEndpointSaysHowDiscordAnswered(t *testing.T) {
 	const site, owner = "https://ttac-admin.example", "111111111111111111"
 	tests := []struct {
 		name      string
+		endpoint  int
 		postErr   error
 		delivered bool
 		message   string
 	}{
-		{"posted", nil, true, "Posted: look for the test message in the channel"},
-		{"a webhook that is gone", &notify.RefusedError{Status: http.StatusNotFound}, false,
+		{"posted", 3, nil, true, "Posted: look for the test message in the channel"},
+		{"a webhook that is gone", 3, &notify.RefusedError{Status: http.StatusNotFound}, false,
 			"Discord answered 404: the webhook was deleted, or the URL is wrong"},
-		{"refused otherwise", &notify.RefusedError{Status: http.StatusTooManyRequests}, false, "Discord answered 429"},
-		{"Discord unreachable", errors.New("posting to Discord: i/o timeout"), false, "Discord could not be reached"},
+		{"refused otherwise", 3, &notify.RefusedError{Status: http.StatusTooManyRequests}, false, "Discord answered 429"},
+		{"Discord unreachable", 3, errors.New("posting to Discord: i/o timeout"), false, "Discord could not be reached"},
+		{"a bot channel posted", 5, nil, true, "Posted: look for the test message in the channel"},
+		{"a bot channel the bot cannot see", 5, &notify.RefusedError{Status: http.StatusNotFound}, false,
+			"Discord answered 404: the channel was deleted, or the bot cannot see it"},
+		{"a bot channel the bot may not post in", 5, &notify.RefusedError{Status: http.StatusForbidden}, false,
+			"Discord answered 403: the bot lacks a permission in the channel"},
+		{"no bot", 5, notify.ErrNoBot, false, "The api has no bot token (DISCORD_BOT_TOKEN): a bot channel needs one"},
+		{"a bot lacking a permission", 5, &notify.LackingError{Needed: []string{"Create Private Threads"}, Wanted: []string{"Manage Threads"}}, false,
+			"Not posted: the bot lacks Create Private Threads; without Manage Threads it cannot lock the threads of games a round paired again no longer has"},
+		{"a bot lacking only Manage Threads", 5, &notify.LackingError{Wanted: []string{"Manage Threads"}}, true,
+			"Posted: look for the test message in the channel. But without Manage Threads it cannot lock the threads of games a round paired again no longer has"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := &fakeAdmins{postErr: tt.postErr}
-			rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints/3/test", site, "")
+			rec := adminDoAs(t, f, owner, http.MethodPost, fmt.Sprintf("/v1/admin/notification-endpoints/%d/test", tt.endpoint), site, "")
 			var got NotificationTest
 			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK {
 				t.Fatalf("POST test = %d %s, want 200", rec.Code, rec.Body)
@@ -188,8 +203,8 @@ func TestTestingANotificationEndpointSaysHowDiscordAnswered(t *testing.T) {
 			if got.Delivered != tt.delivered || got.Message != tt.message {
 				t.Errorf("test = %+v, want delivered %t, %q", got, tt.delivered, tt.message)
 			}
-			if strings.Join(f.notes, "|") != "test endpoint 3" {
-				t.Errorf("posted = %q, want one test to endpoint 3", f.notes)
+			if want := fmt.Sprintf("test endpoint %d", tt.endpoint); strings.Join(f.notes, "|") != want {
+				t.Errorf("posted = %q, want %q", f.notes, want)
 			}
 		})
 	}
@@ -243,5 +258,23 @@ func TestAnEndpointsOptionsReachTheStoreAndComeBack(t *testing.T) {
 	}
 	if got, want := f.options, "paused true forum true TTA News https://example.com/a.png 100000000000000002 thread 100000000000000021 reminder 6h {Colour:#123abc Text:short Image:false}"; got != want {
 		t.Errorf("stored options %q, want %q", got, want)
+	}
+}
+
+func TestABotChannelReachesTheStoreAndComesBack(t *testing.T) {
+	const site, owner = "https://ttac-admin.example", "111111111111111111"
+	f := &fakeAdmins{}
+	rec := adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site,
+		`{"name": "Threads", "kind": "bot_channel", "channel_id": "200000000000000001", "events": ["blitz_threads"]}`)
+	var made NotificationEndpoint
+	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("POST a bot channel = %d %s, want 201", rec.Code, rec.Body)
+	}
+	if made.Kind != "bot_channel" || made.ChannelId != "200000000000000001" || made.WebhookId != "" || f.kind != "bot_channel 200000000000000001" {
+		t.Errorf("made %+v, stored %q; want a bot channel in channel 200000000000000001, with no webhook", made, f.kind)
+	}
+	rec = adminDoAs(t, f, owner, http.MethodPost, "/v1/admin/notification-endpoints", site, `{"name": "Admins", "url": "`+testWebhook+`", "events": []}`)
+	if err := json.Unmarshal(rec.Body.Bytes(), &made); err != nil || made.Kind != "webhook" || f.kind != "webhook " {
+		t.Errorf("an endpoint without a kind = %+v, stored %q; want a webhook", made, f.kind)
 	}
 }

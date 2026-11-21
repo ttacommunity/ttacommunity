@@ -72,8 +72,10 @@ type fakeAdmins struct {
 	signUps   store.SignUps
 	pending   []store.PendingSignUp
 	signUpErr error
-	// postErr is what posting a test notification returns (admin_notifications_test.go).
+	// postErr is what posting a test notification returns (admin_notifications_test.go); kind the last endpoint
+	// added's kind and channel.
 	postErr error
+	kind    string
 	// added is every entrant AddBlitzEntrants was given; candidates is what BlitzCandidates finds, and searched
 	// what it was asked (admin_blitz_test.go).
 	added      []store.BlitzEntrant

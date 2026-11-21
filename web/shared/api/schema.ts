@@ -4305,13 +4305,21 @@ export interface components {
          * @description What a notification tells of, which an endpoint chooses among
          * @enum {string}
          */
-        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished" | "blitz_reminder" | "blitz_sign_ups";
+        NotificationEvent: "sign_up" | "link_request" | "blitz_report" | "blitz_flag" | "feed_failing" | "ratings_run" | "ratings_top10" | "blitz_round" | "blitz_finished" | "blitz_reminder" | "blitz_sign_ups" | "blitz_threads";
+        /**
+         * @description A Discord webhook, or a channel the bot makes blitz games' private threads in (taking blitz_threads and, in those threads, blitz_reminder); webhook when an endpoint is added without one, and kept on a change
+         * @enum {string}
+         */
+        NotificationEndpointKind: "webhook" | "bot_channel";
         NotificationEndpoint: {
             /** Format: int64 */
             id: number;
             name: string;
-            /** @description The Discord webhook's id. Its URL holds its secret and is never sent back */
+            kind: components["schemas"]["NotificationEndpointKind"];
+            /** @description The Discord webhook's id, empty for a bot channel. Its URL holds its secret and is never sent back */
             webhook_id: string;
+            /** @description A bot channel's Discord channel id; empty for a webhook */
+            channel_id: string;
             format: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
             /** @description The feeds it takes, by id */
@@ -4356,8 +4364,11 @@ export interface components {
         NotificationFormat: "discord";
         NotificationEndpointSetting: {
             name: string;
+            kind?: components["schemas"]["NotificationEndpointKind"];
             /** @description A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one */
             url?: string;
+            /** @description A bot channel's Discord channel id, 17 to 20 digits */
+            channel_id?: string;
             format?: components["schemas"]["NotificationFormat"];
             events: components["schemas"]["NotificationEvent"][];
             /** @description The feeds it takes, by id; none when not given */
@@ -14026,7 +14037,8 @@ export const pathsV1TwitchEventsubPostParametersHeaderTwitchEventsubMessageTypeV
 export const adminRunStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminRun"]["status"]> = ["running", "complete", "failed"];
 export const rankingTrackValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RankingTrack"]> = ["community", "superblitz", "community_superblitz", "pulse"];
 export const standingDifferenceKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["StandingDifference"]["kind"]> = ["games", "places", "places_after_a_timeout", "not_held", "not_on_cge"];
-export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished", "blitz_reminder", "blitz_sign_ups"];
+export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEvent"]> = ["sign_up", "link_request", "blitz_report", "blitz_flag", "feed_failing", "ratings_run", "ratings_top10", "blitz_round", "blitz_finished", "blitz_reminder", "blitz_sign_ups", "blitz_threads"];
+export const notificationEndpointKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEndpointKind"]> = ["webhook", "bot_channel"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];

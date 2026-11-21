@@ -173,3 +173,53 @@ func TestReminder(t *testing.T) {
 		})
 	}
 }
+
+func TestGameThread(t *testing.T) {
+	deadline := publishedAt.Add(72 * time.Hour)
+	withID := func(id int64, m store.BlitzMatch) store.BlitzMatch { m.ID = id; return m }
+	dated := func(r store.BlitzRound) store.BlitzRound { r.Deadline = &deadline; return r }
+	tests := []struct {
+		name   string
+		r      store.BlitzRound
+		match  int64
+		want   string
+		wantOK bool
+	}{
+		{"a game to play", dated(round(1, "swiss", false, withID(7, match(1, 2, "")), withID(8, match(3, 4, "")))), 8, "Round 1 Game 2 Cid v Dee", true},
+		{"a round with no deadline", round(1, "swiss", false, withID(7, match(1, 2, ""))), 7, "", false},
+		{"a draft", dated(round(1, "swiss", true, withID(7, match(1, 2, "")))), 7, "", false},
+		{"a game played", dated(round(1, "swiss", false, withID(7, match(1, 2, "a")))), 7, "", false},
+		{"a bye", dated(round(1, "swiss", false, withID(7, match(1, 0, "")))), 7, "", false},
+		{"a game no longer in the round", dated(round(1, "swiss", false, withID(7, match(1, 2, "")))), 9, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ed := edition(3, 0, tt.r)
+			threads, g, ok := GameThread(ed, 1, tt.match)
+			got := ""
+			if ok {
+				got = threads.Round + " Game " + string(rune('0'+g.Number)) + " " + g.A.Name + " v " + g.B.Name
+				if !threads.Deadline.Equal(deadline) || threads.Text != blitz.DefaultThreadText || g.A.DiscordID != "100000000000000051" && g.A.Name == "Ann" {
+					t.Errorf("threads = %+v, want the round's deadline, the default text and Discord ids", threads)
+				}
+			}
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("GameThread(round 1, match %d) = %q, %t; want %q, %t", tt.match, got, ok, tt.want, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestThreadsByMatchKeysEachGameByItsMatch(t *testing.T) {
+	deadline := publishedAt.Add(72 * time.Hour)
+	withID := func(id int64, m store.BlitzMatch) store.BlitzMatch { m.ID = id; return m }
+	r := round(1, "swiss", false, withID(7, match(1, 2, "a")), withID(8, match(3, 4, "")))
+	r.Deadline = &deadline
+	threads, games := ThreadsByMatch(edition(3, 0, r), 1)
+	if !threads.Deadline.Equal(deadline) || len(games) != 2 || games[8].Number != 2 || games[8].A.Name != "Cid" || games[7].B.Name != "Bob" {
+		t.Errorf("ThreadsByMatch = %+v, %+v; want both games by match, Cid's second", threads, games)
+	}
+	if _, games := ThreadsByMatch(edition(3, 0, r), 2); len(games) != 0 {
+		t.Errorf("ThreadsByMatch of a round not there = %+v, want none", games)
+	}
+}

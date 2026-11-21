@@ -188,3 +188,67 @@ func Reminder(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 	}
 	return news, true
 }
+
+// ThreadText is what an edition's thread messages say, and true when it is the edition's own rather than the default.
+func ThreadText(ed store.BlitzEdition) (blitz.ThreadText, bool) {
+	if ed.ThreadText == nil {
+		return blitz.DefaultThreadText, false
+	}
+	return blitz.ThreadText{Message: ed.ThreadText.Message, NoDiscord: ed.ThreadText.NoDiscord}, true
+}
+
+// Threads is what round r's threads say, read for admin: its title, deadline (zero while unset), the edition's text
+// and organisers, every game with two players, numbered by its place in the round as the site numbers it, and the
+// byes.
+func Threads(ed store.BlitzEdition, r store.BlitzRound) blitz.Threads {
+	who := people(ed)
+	text, _ := ThreadText(ed)
+	t := blitz.Threads{Round: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Text: text}
+	if r.Deadline != nil {
+		t.Deadline = *r.Deadline
+	}
+	for _, o := range ed.Organisers {
+		t.Organisers = append(t.Organisers, blitz.Person{Name: o.Name, Discord: o.DiscordName, DiscordID: o.DiscordID})
+	}
+	for i, m := range r.Matches {
+		if m.B == nil {
+			t.Byes = append(t.Byes, who[m.A])
+			continue
+		}
+		t.Games = append(t.Games, blitz.ThreadGame{Number: i + 1, A: who[m.A], B: who[*m.B]})
+	}
+	return t
+}
+
+// GameThread is published round number's threads and the game of match in it, for that game's own thread; false
+// when the round has no deadline or the match is no longer an unplayed game of it.
+func GameThread(ed store.BlitzEdition, number int, match int64) (blitz.Threads, blitz.ThreadGame, bool) {
+	r, ok := published(ed, number)
+	if !ok || r.Deadline == nil {
+		return blitz.Threads{}, blitz.ThreadGame{}, false
+	}
+	i := slices.IndexFunc(r.Matches, func(m store.BlitzMatch) bool { return m.ID == match })
+	if i < 0 || r.Matches[i].B == nil || r.Matches[i].Result != "" {
+		return blitz.Threads{}, blitz.ThreadGame{}, false
+	}
+	t := Threads(ed, r)
+	g := slices.IndexFunc(t.Games, func(g blitz.ThreadGame) bool { return g.Number == i+1 })
+	return t, t.Games[g], true
+}
+
+// ThreadsByMatch is published round number's threads and each of its games by its match's id, for its reminders;
+// no games when the edition has no such round published.
+func ThreadsByMatch(ed store.BlitzEdition, number int) (blitz.Threads, map[int64]blitz.ThreadGame) {
+	r, ok := published(ed, number)
+	if !ok {
+		return blitz.Threads{}, nil
+	}
+	t := Threads(ed, r)
+	games := map[int64]blitz.ThreadGame{}
+	for i, m := range r.Matches {
+		if g := slices.IndexFunc(t.Games, func(g blitz.ThreadGame) bool { return g.Number == i+1 }); g >= 0 {
+			games[m.ID] = t.Games[g]
+		}
+	}
+	return t, games
+}

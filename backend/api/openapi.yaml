@@ -6764,18 +6764,27 @@ components:
     NotificationEvent:
       description: What a notification tells of, which an endpoint chooses among
       type: string
-      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder, blitz_sign_ups]
+      enum: [sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder, blitz_sign_ups, blitz_threads]
+    NotificationEndpointKind:
+      description: A Discord webhook, or a channel the bot makes blitz games' private threads in (taking blitz_threads and, in those threads, blitz_reminder); webhook when an endpoint is added without one, and kept on a change
+      type: string
+      enum: [webhook, bot_channel]
     NotificationEndpoint:
       type: object
-      required: [id, name, webhook_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, blitz_reminder_hours, colour, text, image]
+      required: [id, name, kind, webhook_id, channel_id, format, events, feeds, feed_options, prefix, paused, forum, username, avatar_url, role_id, thread_id, blitz_reminder_hours, colour, text, image]
       properties:
         id:
           type: integer
           format: int64
         name:
           type: string
+        kind:
+          $ref: "#/components/schemas/NotificationEndpointKind"
         webhook_id:
-          description: The Discord webhook's id. Its URL holds its secret and is never sent back
+          description: The Discord webhook's id, empty for a bot channel. Its URL holds its secret and is never sent back
+          type: string
+        channel_id:
+          description: A bot channel's Discord channel id; empty for a webhook
           type: string
         format:
           $ref: "#/components/schemas/NotificationFormat"
@@ -6850,8 +6859,13 @@ components:
       properties:
         name:
           type: string
+        kind:
+          $ref: "#/components/schemas/NotificationEndpointKind"
         url:
           description: A Discord webhook's URL, https://discord.com/api/webhooks/…; needed to add one, and on a change, empty or left out keeps the saved one
+          type: string
+        channel_id:
+          description: A bot channel's Discord channel id, 17 to 20 digits
           type: string
         format:
           $ref: "#/components/schemas/NotificationFormat"

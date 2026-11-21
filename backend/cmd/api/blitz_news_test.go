@@ -112,3 +112,47 @@ func TestARoundPairedAgainKeepsSaying(t *testing.T) {
 		t.Errorf("again = %v, %v; want it kept from the outbox", got.Blitz.Again, err)
 	}
 }
+
+func TestWithBlitzNewsFillsAGamesThread(t *testing.T) {
+	deadline := time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)
+	unplayed := finalWon()
+	unplayed.Rounds = slices.Clone(unplayed.Rounds)
+	unplayed.Rounds[1].Deadline = &deadline
+	unplayed.Rounds[1].Matches = []store.BlitzMatch{{ID: 9, A: 1, B: unplayed.Rounds[1].Matches[0].B}}
+	shown := stubEditions{"open 2026": unplayed, "us_open 2026": finalWon()}
+	full := stubEditions{"open 2026": signedIn(unplayed), "hidden 2026": signedIn(unplayed), "us_open 2026": signedIn(finalWon())}
+	tests := []struct {
+		name     string
+		slug     string
+		wantPost bool
+	}{
+		{"a game to play", "open", true},
+		{"a game played", "us_open", false},
+		{"an edition the site does not show", "hidden", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			n := store.Notification{Kind: "blitz_thread", Slug: tt.slug, Edition: "2026", Round: 2, MatchID: 9}
+			got, post, err := withBlitzNews(context.Background(), shown, full, "https://site.example", n)
+			if err != nil || post != tt.wantPost {
+				t.Fatalf("withBlitzNews = post %v, %v; want post %v", post, err, tt.wantPost)
+			}
+			if post && (got.Thread.Game.A != blitz.Person{Name: "Ann", DiscordID: "100000000000000052"} || !got.Thread.Threads.Deadline.Equal(deadline)) {
+				t.Errorf("thread = %+v, want Ann's game with her Discord id, by the round's deadline", got.Thread)
+			}
+		})
+	}
+}
+
+func TestWithBlitzNewsKeysAReminderGamesByMatch(t *testing.T) {
+	deadline := time.Date(2026, 3, 4, 0, 0, 0, 0, time.UTC)
+	ed := finalWon()
+	ed.Rounds = slices.Clone(ed.Rounds)
+	ed.Rounds[1].Deadline = &deadline
+	ed.Rounds[1].Matches = []store.BlitzMatch{{ID: 9, A: 1, B: ed.Rounds[1].Matches[0].B}}
+	editions := stubEditions{"open 2026": ed}
+	got, post, err := withBlitzNews(context.Background(), editions, editions, "https://site.example", store.Notification{Kind: "blitz_reminder", Slug: "open", Edition: "2026", Round: 2})
+	if err != nil || !post || got.Thread.ByMatch[9].B.Name != "Bob" || !got.Thread.Threads.Deadline.Equal(deadline) {
+		t.Errorf("withBlitzNews = %+v, %t, %v; want match 9's game and the deadline for its thread", got.Thread, post, err)
+	}
+}

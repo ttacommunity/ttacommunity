@@ -342,6 +342,26 @@ answering everyone else.
 finds you only on an api where you signed in with Discord for real, not
 with the local stand-in.
 
+**Blitz games' private threads** are made by the bot itself, so it must
+be in the server as a bot, not only as commands:
+
+1. On the Bot page, turn on **Server Members Intent**: the bot finds a
+   player who never signed in with Discord by their Discord username
+2. In OAuth2, URL Generator, tick the scopes `bot` and
+   `applications.commands` and the permissions View Channels, Create
+   Private Threads, Send Messages in Threads and Manage Threads (only
+   to lock the threads of games a round paired again no longer has).
+   Open the URL it gives and pick the server
+3. Give the api the bot's token as `DISCORD_BOT_TOKEN` (in `.env`
+   locally; in the cluster, deploy/SECRETS.md). Without it a bot
+   channel's threads fail, and its status says why
+4. In admin's Notifications tab, add an endpoint of kind **Bot channel**
+   with the channel's id (Developer Mode on, right-click the channel,
+   Copy Channel ID), and press Test. Publishing a round with a
+   deadline then makes a thread per game; moving the deadline edits
+   each and tells its players. Tick its reminders to remind the players
+   of games still to play in their threads, hours before the deadline
+
 ## Load ratings data
 
 No match or rating data is kept in this repo. The data lives outside it, and

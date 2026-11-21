@@ -1,5 +1,6 @@
 // Discord threads for a round: the round's games as DiscordText lists them, then each game's thread title and the
-// edition's welcome message mentioning its players and organisers, as text an organiser pastes into Discord by hand.
+// edition's welcome message mentioning its players and organisers, as text an organiser pastes into Discord by hand
+// or the bot posts in each game's own thread.
 package blitz
 
 import (
@@ -135,12 +136,8 @@ func threadTitle(round string, g ThreadGame) string {
 }
 
 // ThreadsText writes a round's threads: first the games as DiscordText lists them and a blank line, then a block
-// per game between --- lines: its title, then the edition's message and whom to ping, then the no-Discord sentence
-// for each player without a username, an empty part left out. A blank line parts the blocks. The deadline is a
-// Discord timestamp, shown to each reader on their own clock.
+// per game between --- lines: its title, then its message as GameThread writes it. A blank line parts the blocks.
 func ThreadsText(t Threads) string {
-	deadline := fmt.Sprintf("<t:%d:F>", t.Deadline.Unix())
-	ping := "If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n"
 	games := make([][2]Person, len(t.Games))
 	for i, g := range t.Games {
 		games[i] = [2]Person{g.A, g.B}
@@ -148,18 +145,46 @@ func ThreadsText(t Threads) string {
 	var out strings.Builder
 	out.WriteString(DiscordText(games, t.Byes) + "\n")
 	for _, g := range t.Games {
-		out.WriteString("\n")
-		fmt.Fprintf(&out, "---\n%s\n---\n", threadTitle(t.Round, g))
-		if t.Text.Message != "" {
-			out.WriteString(strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message) + " ")
-		}
-		out.WriteString(ping)
-		for _, p := range []Person{g.A, g.B} {
-			if !reachable(p) && t.Text.NoDiscord != "" {
-				out.WriteString(strings.ReplaceAll(t.Text.NoDiscord, "{name}", p.Name) + "\n")
-			}
-		}
-		out.WriteString("---\n")
+		title, message := GameThread(t, g, nil)
+		fmt.Fprintf(&out, "\n---\n%s\n---\n%s---\n", title, message)
 	}
 	return out.String()
+}
+
+// GameThread is game g's thread: its title, and its message, the edition's text mentioning its players, then whom
+// to ping, the no-Discord sentence for each player without a username, an empty part left out, and a line asking
+// the organisers to add each of missing, players the bot could not find. The deadline is a Discord timestamp, shown
+// to each reader on their own clock.
+func GameThread(t Threads, g ThreadGame, missing []Person) (title, message string) {
+	deadline := fmt.Sprintf("<t:%d:F>", t.Deadline.Unix())
+	var out strings.Builder
+	if t.Text.Message != "" {
+		out.WriteString(strings.NewReplacer("{players}", mention(g.A)+", "+mention(g.B), "{deadline}", deadline).Replace(t.Text.Message) + " ")
+	}
+	out.WriteString("If the game did not finish, or there are any issues with scheduling or otherwise, please ping " + moderators(t.Organisers) + ".\n")
+	for _, p := range []Person{g.A, g.B} {
+		if !reachable(p) && t.Text.NoDiscord != "" {
+			out.WriteString(strings.ReplaceAll(t.Text.NoDiscord, "{name}", p.Name) + "\n")
+		}
+	}
+	for _, p := range missing {
+		out.WriteString("Organisers: please add " + p.Name + " (" + mention(p) + ") to this thread; the bot could not find them in this server.\n")
+	}
+	return threadTitle(t.Round, g), out.String()
+}
+
+// ReplacedThread is what the bot posts in a game's thread before closing it, once its round is paired again without
+// the game.
+const ReplacedThread = "This round was paired again and this game is no longer in it. Please use your new thread; this one is closed."
+
+// DeadlineMoved is the line posted in game g's thread when its round's deadline moves, mentioning its players.
+func DeadlineMoved(t Threads, g ThreadGame) string {
+	at := t.Deadline.Unix()
+	return fmt.Sprintf("%s, %s: the deadline for this game is now <t:%d:F> (<t:%d:R>).", mention(g.A), mention(g.B), at, at)
+}
+
+// ThreadReminder is the line posted in game g's thread when its round's deadline nears, mentioning its players.
+func ThreadReminder(t Threads, g ThreadGame) string {
+	at := t.Deadline.Unix()
+	return fmt.Sprintf("%s, %s: a reminder that this game is due <t:%d:R>, by <t:%d:F>.", mention(g.A), mention(g.B), at, at)
 }

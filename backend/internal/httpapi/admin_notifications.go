@@ -1,4 +1,5 @@
-// Admin's notification endpoints: the Discord webhooks notifications are posted to, and a test post to one.
+// Admin's notification endpoints: the Discord webhooks notifications are posted to and the bot's channels, and a
+// test post to one.
 // Admins only.
 package httpapi
 
@@ -29,7 +30,7 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 		match := FeedOptionMatch(o.Match)
 		opts[i] = FeedOption{Feed: o.Feed, Categories: orEmpty(o.Categories), Keywords: orEmpty(o.Keywords), Match: &match, WasLive: o.WasLive}
 	}
-	out := NotificationEndpoint{Id: e.ID, Name: e.Name, WebhookId: e.WebhookID(), Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
+	out := NotificationEndpoint{Id: e.ID, Name: e.Name, Kind: NotificationEndpointKind(e.Kind), WebhookId: e.WebhookID(), ChannelId: e.ChannelID, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
 		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID, ThreadId: e.ThreadID, BlitzReminderHours: e.BlitzReminderHours,
 		Colour: e.Look.Colour, Text: FeedItemText(e.Look.Text), Image: e.Look.Image,
 		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
@@ -47,15 +48,24 @@ func orEmpty(words []string) []string {
 	return words
 }
 
-// endpointIn is the endpoint a setting asks for, discord when no format is given, or the refusal of an unknown
-// format or event. The database checks the rest.
+// endpointIn is the endpoint a setting asks for, a discord webhook when no format or kind is given, or the refusal of
+// an unknown kind, format or event. The database checks the rest.
 func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, string) {
 	if b == nil {
 		return store.NotificationEndpoint{}, "an endpoint: name, url and events"
 	}
-	e := store.NotificationEndpoint{Name: b.Name, Format: string(NotificationFormatDiscord), Events: []string{}, Feeds: []int64{}}
+	e := store.NotificationEndpoint{Name: b.Name, Kind: string(Webhook), Format: string(NotificationFormatDiscord), Events: []string{}, Feeds: []int64{}}
+	if b.Kind != nil {
+		if !b.Kind.Valid() {
+			return store.NotificationEndpoint{}, "the kind is webhook or bot_channel"
+		}
+		e.Kind = string(*b.Kind)
+	}
 	if b.Url != nil {
 		e.URL = *b.Url
+	}
+	if b.ChannelId != nil {
+		e.ChannelID = *b.ChannelId
 	}
 	if b.Feeds != nil {
 		e.Feeds = *b.Feeds
@@ -81,7 +91,7 @@ func endpointIn(b *NotificationEndpointSetting) (store.NotificationEndpoint, str
 	}
 	for _, ev := range b.Events {
 		if !ev.Valid() {
-			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder and blitz_sign_ups"
+			return store.NotificationEndpoint{}, "events are sign_up, link_request, blitz_report, blitz_flag, feed_failing, ratings_run, ratings_top10, blitz_round, blitz_finished, blitz_reminder, blitz_sign_ups and blitz_threads"
 		}
 		e.Events = append(e.Events, string(ev))
 	}
@@ -230,12 +240,24 @@ func (s *server) DeleteAdminNotificationEndpoint(ctx context.Context, req Delete
 	return DeleteAdminNotificationEndpoint204Response{}, nil
 }
 
-// testOutcome says what a test post's error means for admin.
-func testOutcome(err error) NotificationTest {
+// testOutcome says what a test post to e answered, its error worded for e's kind.
+func testOutcome(e store.NotificationEndpoint, err error) NotificationTest {
 	var refused *notify.RefusedError
+	var lacking *notify.LackingError
+	bot := e.Kind == "bot_channel"
 	switch {
 	case err == nil:
 		return NotificationTest{Delivered: true, Message: "Posted: look for the test message in the channel"}
+	case errors.As(err, &lacking) && len(lacking.Needed) > 0:
+		return NotificationTest{Message: "Not posted: " + lacking.Error()}
+	case errors.As(err, &lacking):
+		return NotificationTest{Delivered: true, Message: "Posted: look for the test message in the channel. But " + lacking.Error()}
+	case errors.Is(err, notify.ErrNoBot):
+		return NotificationTest{Message: "The api has no bot token (DISCORD_BOT_TOKEN): a bot channel needs one"}
+	case bot && errors.As(err, &refused) && refused.Status == http.StatusNotFound:
+		return NotificationTest{Message: "Discord answered 404: the channel was deleted, or the bot cannot see it"}
+	case bot && errors.As(err, &refused) && refused.Status == http.StatusForbidden:
+		return NotificationTest{Message: "Discord answered 403: the bot lacks a permission in the channel"}
 	case errors.As(err, &refused) && refused.Status == http.StatusNotFound:
 		return NotificationTest{Message: "Discord answered 404: the webhook was deleted, or the URL is wrong"}
 	case errors.As(err, &refused):
@@ -259,6 +281,6 @@ func (s *server) PostAdminNotificationEndpointTest(ctx context.Context, req Post
 	if err != nil {
 		return nil, err
 	}
-	return PostAdminNotificationEndpointTest200JSONResponse{Body: testOutcome(s.admins.PostTestNotification(ctx, e)),
+	return PostAdminNotificationEndpointTest200JSONResponse{Body: testOutcome(e, s.admins.PostTestNotification(ctx, e)),
 		Headers: PostAdminNotificationEndpointTest200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
