@@ -212,7 +212,8 @@ func linkRounds(rounds []BracketRound) {
 
 // blitzBracket returns a shown blitz edition's knockout as a bracket, from its published rounds: first its
 // Qualifiers, each player alone in the group of their place in the draw (2k+1 and 2k+2 for match slot k), then each
-// knockout round's matches, as group slot + 1, the winner first once decided (place 1, the loser 2). Before the
+// knockout round's matches, as group slot + 1, the winner first once decided (place 1, the loser 2), a best of 3 with
+// each side's points. Before the
 // knockout is drawn it has no rounds; an edition not shown is ErrTournamentNotFound.
 func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) (SeasonBracket, error) {
 	ed, err := r.BlitzEdition(ctx, slug, edition)
@@ -253,7 +254,10 @@ func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) 
 		out := BracketRound{Stage: fmt.Sprintf("Round %d", rd.Number), Groups: make([]BracketGroup, len(matches))}
 		for i, m := range matches {
 			a, b := seat(m.A, *m.SeedA), seat(*m.B, *m.SeedB)
-			if m.Game != nil {
+			switch {
+			case m.BestOf == 3:
+				a.Points, b.Points = bestOfPoints(m.Games)
+			case m.Game != nil:
 				a.Outcome, b.Outcome = m.Game.A.Outcome, m.Game.B.Outcome
 			}
 			g := BracketGroup{Name: fmt.Sprintf("match %d", *m.Slot+1), Number: *m.Slot + 1, State: "prepared", Seats: []BracketSeat{a, b}}
@@ -270,6 +274,22 @@ func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) 
 	}
 	linkRounds(got.Rounds)
 	return got, nil
+}
+
+// bestOfPoints returns each side's points from a best-of-3 match's games, a win 1 and a draw ½.
+func bestOfPoints(games []BlitzMatchGame) (a, b *float64) {
+	var pa, pb float64
+	for _, g := range games {
+		switch g.Result {
+		case "a":
+			pa++
+		case "b":
+			pb++
+		case "draw":
+			pa, pb = pa+0.5, pb+0.5
+		}
+	}
+	return &pa, &pb
 }
 
 // valueOr returns what p points to, or 0 for nil.

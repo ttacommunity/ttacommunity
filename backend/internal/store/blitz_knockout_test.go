@@ -61,7 +61,7 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 		return BlitzGame{ShareCode: code, A: finished(120, 1), B: finished(120, 2),
 			Finished: time.Date(2026, 12, 9, 20, 0, 0, 0, time.UTC)}
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", semi.Matches[1].ID, drawn("KO-DRAW-1")); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", semi.Matches[1].ID, 1, drawn("KO-DRAW-1")); err != nil {
 		t.Fatalf("RecordBlitzGame(a drawn semi-final): %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestABlitzKnockoutIsPlayedToAChampion(t *testing.T) {
 	if ed, err := reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || ed.Champion != nil {
 		t.Errorf("the champion before the final's result = %v, %v; want none", ed.Champion, err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", final.Matches[0].ID, drawn("KO-DRAW-2")); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", final.Matches[0].ID, 1, drawn("KO-DRAW-2")); err != nil {
 		t.Fatalf("RecordBlitzGame(a drawn final): %v", err)
 	}
 

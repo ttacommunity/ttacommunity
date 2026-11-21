@@ -36,11 +36,13 @@ type SignIns interface {
 	RequestLink(ctx context.Context, login int64, name string, now time.Time) error
 	SetOwnDetails(ctx context.Context, login int64, country, zone *string) error
 	MarkMoviesSeen(ctx context.Context, account int64, now time.Time) error
-	// ReportBlitzGame, ConfirmBlitzResult and FlagBlitzResult are a player's report of their own blitz match, and the
-	// opponent's answer to it, as the session hashing to tokenHash.
-	ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, g store.BlitzGame, now time.Time) error
-	ConfirmBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, now time.Time) error
-	FlagBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, reason string, now time.Time) error
+	// ReportBlitzGame, ConfirmBlitzResult and FlagBlitzResult are a player's report of a game of their own blitz match,
+	// and the opponent's answer to it, as the session hashing to tokenHash; AnswerBlitzBestOf is their say on playing
+	// the match as best of 3.
+	ReportBlitzGame(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, number int, g store.BlitzGame, now time.Time) error
+	ConfirmBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, number int, now time.Time) error
+	FlagBlitzResult(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, number int, reason string, now time.Time) error
+	AnswerBlitzBestOf(ctx context.Context, tokenHash []byte, slug, edition string, matchID int64, answer string, now time.Time) error
 	// SubmitChallengeEntries saves a player's own challenge entries, as the session hashing to tokenHash.
 	SubmitChallengeEntries(ctx context.Context, tokenHash []byte, entries []challenges.Submission, now time.Time) (int, error)
 	// MyNostradamus, RequestNostradamusEntry and SubmitNostradamusAnswers are a player's own Nostradamus: their status

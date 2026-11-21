@@ -34,6 +34,8 @@ func TestText(t *testing.T) {
 	corrected.Corrected = true
 	byBob := blitz("blitz_flag", "draw")
 	byBob.ReportedBy = "Bob"
+	gameTwo := blitz("blitz_report", "b")
+	gameTwo.Game = 2
 	tests := []struct {
 		name string
 		n    store.Notification
@@ -51,6 +53,8 @@ func TestText(t *testing.T) {
 			"**Link request**: a player who signs in with Discord, email and Google asks to be linked to **Eve**. Answer it in admin: <" + admin + "/#members>"},
 		{"a report", blitz("blitz_report", "a"),
 			"**Blitz result reported**: US Open 2026, round 2: Ann beat Bob, reported by Ann. <" + admin + "/blitz/?t=us_open&e=2026>"},
+		{"a game of a best of 3", gameTwo,
+			"**Blitz result reported**: US Open 2026, round 2, game 2: Bob beat Ann, reported by Ann. <" + admin + "/blitz/?t=us_open&e=2026>"},
 		{"a correction", corrected,
 			"**Blitz result corrected**: US Open 2026, round 2: Bob beat Ann, reported by Ann. <" + admin + "/blitz/?t=us_open&e=2026>"},
 		{"a double loss", blitz("blitz_report", "double_loss"),

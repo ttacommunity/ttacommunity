@@ -68,7 +68,7 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	a, reader, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	annBob, cyDee := matches[0], matches[1]
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	ed, err := a.BlitzEdition(ctx, "us_open", "2026")
@@ -99,13 +99,13 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	}
 
 	// A correction changes the one game: Bob wins now, then equal cultures draw, with no second game row.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(260, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(260, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(correction): %v", err)
 	}
 	if ed, _ = a.BlitzEdition(ctx, "us_open", "2026"); resultLine(matchOf(t, ed, annBob)) != "b game=ABCD1234 250/finished 260/finished on 2026-10-15T03:30:00Z" {
 		t.Errorf("after the correction: %q, want Bob's win", resultLine(matchOf(t, ed, annBob)))
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(250, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(250, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(draw): %v", err)
 	}
 	ed, _ = a.BlitzEdition(ctx, "us_open", "2026")
@@ -121,7 +121,7 @@ func TestBlitzGamesAreRecordedCorrectedAndRead(t *testing.T) {
 	}
 
 	// A resigned player loses with culture 0 and the second place, whatever was typed.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", cyDee, BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: BlitzSide{Culture: 190, Outcome: "resigned", Turn: 2}, Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", cyDee, 1, BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: BlitzSide{Culture: 190, Outcome: "resigned", Turn: 2}, Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(resigned): %v", err)
 	}
 	public, err := reader.BlitzEdition(ctx, "us_open", "2026")
@@ -148,10 +148,10 @@ func TestABlitzGameKeepsItsTurnOrder(t *testing.T) {
 		record func(a *AdminStore, p *PlayerStore, match int64, g BlitzGame) error
 	}{
 		{"recorded by an organiser", func(a *AdminStore, _ *PlayerStore, match int64, g BlitzGame) error {
-			return a.RecordBlitzGame(ctx, "us_open", "2026", match, g)
+			return a.RecordBlitzGame(ctx, "us_open", "2026", match, 1, g)
 		}},
 		{"reported by a player", func(_ *AdminStore, p *PlayerStore, match int64, g BlitzGame) error {
-			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", match, g, reportsAt)
+			return p.ReportBlitzGame(ctx, tokenHash("ann"), "us_open", "2026", match, 1, g, reportsAt)
 		}},
 	}
 	for _, tt := range tests {
@@ -182,7 +182,7 @@ func TestABlitzGameKeepsItsTurnOrder(t *testing.T) {
 func TestAGameRecordedWithoutTurnOrderReadsAsUnknown(t *testing.T) {
 	a, reader, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "OLD-1", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], 1, BlitzGame{ShareCode: "OLD-1", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if _, err := a.pool.Exec(ctx, "UPDATE seats SET starting_position = NULL WHERE game_id = (SELECT game_id FROM games WHERE share_code = 'OLD-1')"); err != nil {
@@ -209,7 +209,7 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 		t.Fatalf("AddBlitzRound: %v", err)
 	}
 	matches, bye := []int64{r1.Matches[0].ID, r1.Matches[1].ID}, r1.Matches[2]
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	game := BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}
@@ -235,7 +235,7 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := a.RecordBlitzGame(ctx, "us_open", "2026", tt.match, tt.game)
+			err := a.RecordBlitzGame(ctx, "us_open", "2026", tt.match, 1, tt.game)
 			var taken *BlitzShareCodeError
 			if _, ok := tt.want.(*BlitzShareCodeError); ok {
 				if !errors.As(err, &taken) || taken.GameID == 0 {
@@ -258,7 +258,7 @@ func TestAGameNeedsNoShareCode(t *testing.T) {
 	a, _, _, matches := blitzRoundOne(t)
 	ctx := context.Background()
 	for _, m := range matches {
-		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, BlitzGame{ShareCode: " ", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+		if err := a.RecordBlitzGame(ctx, "us_open", "2026", m, 1, BlitzGame{ShareCode: " ", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 			t.Fatalf("RecordBlitzGame(match %d) with no code: %v", m, err)
 		}
 	}
@@ -293,7 +293,7 @@ func TestBlitzRulingsDecideAMatch(t *testing.T) {
 	}
 
 	// A ruling may overrule a played game, which stays; recording the game again puts its result back.
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", annBob, "b", "Ann used a banned account"); err != nil {
@@ -303,7 +303,7 @@ func TestBlitzRulingsDecideAMatch(t *testing.T) {
 	if got := resultLine(matchOf(t, ed, annBob)); got != "b game=ABCD1234 250/finished 200/finished on 2026-10-15T03:30:00Z ruling=Ann used a banned account" {
 		t.Errorf("the overruled game = %q, want Bob's win by ruling with the game kept", got)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", annBob, 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame(again): %v", err)
 	}
 	if ed, _ = a.BlitzEdition(ctx, "us_open", "2026"); resultLine(matchOf(t, ed, annBob)) != "a game=ABCD1234 250/finished 200/finished on 2026-10-15T03:30:00Z" {
@@ -351,7 +351,7 @@ func TestBlitzRoundsWaitForResultsAndKeepDecidedMatches(t *testing.T) {
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", next); !errors.Is(err, ErrBlitzRoundUndecided) || !containsAll(err.Error(), "Ann", "Bob", "Cy", "Dee") {
 		t.Errorf("round 2 before any result = %v, want ErrBlitzRoundUndecided naming both matches", err)
 	}
-	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
+	if err := a.RecordBlitzGame(ctx, "us_open", "2026", matches[0], 1, BlitzGame{ShareCode: "ABCD1234", A: finished(250, 1), B: finished(200, 2), Finished: finishedAt}); err != nil {
 		t.Fatalf("RecordBlitzGame: %v", err)
 	}
 	if _, err := a.AddBlitzRound(ctx, "us_open", "2026", next); !errors.Is(err, ErrBlitzRoundUndecided) || containsAll(err.Error(), "Ann") {

@@ -36,6 +36,24 @@ type BlitzMatch struct {
 	ReportedBy *int64
 	Report     string
 	FlagReason string
+	// BestOf is the games the match is played as, 1 or 3 (agreed); ProposedBy, the entrant proposing three, waiting
+	// for the opponent. Games are its games so far in order, the first also given as GameID, Game, ReportedBy,
+	// Report and FlagReason.
+	BestOf     int
+	ProposedBy *int64
+	Games      []BlitzMatchGame
+}
+
+// BlitzMatchGame is one game of a match: its number from 1, the game as recorded, its own result (a, b or draw), and
+// a player's report of it as for BlitzMatch.
+type BlitzMatchGame struct {
+	Number     int
+	GameID     int64
+	Game       BlitzGame
+	Result     string
+	ReportedBy *int64
+	Report     string
+	FlagReason string
 }
 
 // BlitzRound is one round of an edition: its number, kind (swiss or knockout), the method ("" for a knockout round)
@@ -51,7 +69,9 @@ type BlitzRound struct {
 	PublishedAt  *time.Time
 	Deadline     *time.Time
 	DeadlineZone string
-	Matches      []BlitzMatch
+	// BestOf is 3 when a knockout round's matches may be best of 3, else 1.
+	BestOf  int
+	Matches []BlitzMatch
 }
 
 // ErrNoBlitzRound means no round of the edition has that id.
@@ -102,7 +122,7 @@ var ErrBlitzEntrantNotPlayed = errors.New("the entrant has not played yet: remov
 // blitzRounds reads an edition's rounds with their matches, every round or the published ones only.
 func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzRound, error) {
 	rows, err := db.Query(ctx, `
-		SELECT r.round_id, r.number, r.kind, coalesce(r.method, ''), coalesce(r.pairing_order, ''), r.seed, r.published_at, r.deadline, coalesce(r.deadline_zone, '')
+		SELECT r.round_id, r.number, r.kind, coalesce(r.method, ''), coalesce(r.pairing_order, ''), r.seed, r.published_at, r.deadline, coalesce(r.deadline_zone, ''), r.best_of
 		FROM blitz_rounds r JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
 		WHERE s.slug = $1 AND t.label = $2 AND (r.published_at IS NOT NULL OR NOT $3)
 		ORDER BY r.number`, slug, edition, public)
@@ -111,7 +131,7 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	}
 	rounds, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzRound, error) {
 		r := BlitzRound{Matches: []BlitzMatch{}}
-		return r, row.Scan(&r.ID, &r.Number, &r.Kind, &r.Method, &r.Order, &r.Seed, &r.PublishedAt, &r.Deadline, &r.DeadlineZone)
+		return r, row.Scan(&r.ID, &r.Number, &r.Kind, &r.Method, &r.Order, &r.Seed, &r.PublishedAt, &r.Deadline, &r.DeadlineZone, &r.BestOf)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's rounds: %w", slug, edition, err)
@@ -123,30 +143,24 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 	for i, r := range rounds {
 		ids[i] = r.ID
 	}
+	games, err := blitzMatchGames(ctx, db, ids)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s %s's games: %w", slug, edition, err)
+	}
 	matches, err := db.Query(ctx, `
-		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.game_id, m.ruling, m.decided_at,
-		       coalesce(g.share_code, ''), coalesce(g.finished_at, g.date::timestamp AT TIME ZONE 'UTC'), sa.culture, coalesce(sa.outcome, ''),
-		       coalesce(sa.starting_position + 1, 0), sb.culture, coalesce(sb.outcome, ''), coalesce(sb.starting_position + 1, 0),
-		       m.reported_by, coalesce(m.report, ''), m.flag_reason
-		FROM blitz_matches m
-		LEFT JOIN games g ON g.game_id = m.game_id
-		LEFT JOIN seats sa ON sa.game_id = m.game_id AND sa.seat = 1
-		LEFT JOIN seats sb ON sb.game_id = m.game_id AND sb.seat = 2
-		WHERE m.round_id = ANY($1) ORDER BY m.match_id`, ids)
+		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.ruling, m.decided_at, m.games, m.proposed_by
+		FROM blitz_matches m WHERE m.round_id = ANY($1) ORDER BY m.match_id`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's matches: %w", slug, edition, err)
 	}
 	var roundID int64
 	var m BlitzMatch
-	var g BlitzGame
-	var finished *time.Time
-	var cultureA, cultureB *float64
-	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.GameID, &m.Ruling, &m.DecidedAt,
-		&g.ShareCode, &finished, &cultureA, &g.A.Outcome, &g.A.Turn, &cultureB, &g.B.Outcome, &g.B.Turn, &m.ReportedBy, &m.Report, &m.FlagReason}, func() error {
+	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.Ruling, &m.DecidedAt,
+		&m.BestOf, &m.ProposedBy}, func() error {
 		i := slices.IndexFunc(rounds, func(r BlitzRound) bool { return r.ID == roundID })
-		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling, Report: m.Report, FlagReason: m.FlagReason}
-		if m.ReportedBy != nil {
-			got.ReportedBy = new(*m.ReportedBy)
+		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling, BestOf: m.BestOf, Games: games[m.ID]}
+		if got.Games == nil {
+			got.Games = []BlitzMatchGame{}
 		}
 		if m.B != nil {
 			got.B = new(*m.B)
@@ -154,19 +168,15 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		if m.Slot != nil {
 			got.Slot, got.SeedA, got.SeedB = new(*m.Slot), new(*m.SeedA), new(*m.SeedB)
 		}
-		if m.GameID != nil {
-			got.GameID = new(*m.GameID)
-			game := BlitzGame{ShareCode: g.ShareCode, A: BlitzSide{Outcome: g.A.Outcome, Turn: g.A.Turn}, B: BlitzSide{Outcome: g.B.Outcome, Turn: g.B.Turn}}
-			if finished != nil {
-				game.Finished = *finished
-			}
-			if cultureA != nil && cultureB != nil {
-				game.A.Culture, game.B.Culture = *cultureA, *cultureB
-			}
-			got.Game = &game
+		if m.ProposedBy != nil {
+			got.ProposedBy = new(*m.ProposedBy)
 		}
 		if m.DecidedAt != nil {
 			got.DecidedAt = new(*m.DecidedAt)
+		}
+		if len(got.Games) > 0 && got.Games[0].Number == 1 {
+			first := got.Games[0]
+			got.GameID, got.Game, got.ReportedBy, got.Report, got.FlagReason = new(first.GameID), new(first.Game), first.ReportedBy, first.Report, first.FlagReason
 		}
 		rounds[i].Matches = append(rounds[i].Matches, got)
 		return nil
@@ -174,6 +184,37 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		return nil, fmt.Errorf("reading %s %s's matches: %w", slug, edition, err)
 	}
 	return rounds, nil
+}
+
+// blitzMatchGames reads the games of the rounds' matches, by match id, each match's in order.
+func blitzMatchGames(ctx context.Context, db conn, rounds []int64) (map[int64][]BlitzMatchGame, error) {
+	rows, err := db.Query(ctx, `
+		SELECT bg.match_id, bg.number, bg.game_id, bg.result, bg.reported_by, coalesce(bg.report, ''), bg.flag_reason,
+		       coalesce(g.share_code, ''), coalesce(g.finished_at, g.date::timestamp AT TIME ZONE 'UTC'),
+		       coalesce(sa.culture, 0), sa.outcome, coalesce(sa.starting_position + 1, 0),
+		       coalesce(sb.culture, 0), sb.outcome, coalesce(sb.starting_position + 1, 0)
+		FROM blitz_match_games bg JOIN blitz_matches m USING (match_id) JOIN games g ON g.game_id = bg.game_id
+		JOIN seats sa ON sa.game_id = bg.game_id AND sa.seat = 1 JOIN seats sb ON sb.game_id = bg.game_id AND sb.seat = 2
+		WHERE m.round_id = ANY($1) ORDER BY bg.match_id, bg.number`, rounds)
+	if err != nil {
+		return nil, err
+	}
+	out := map[int64][]BlitzMatchGame{}
+	var match int64
+	var g BlitzMatchGame
+	if _, err := pgx.ForEachRow(rows, []any{&match, &g.Number, &g.GameID, &g.Result, &g.ReportedBy, &g.Report, &g.FlagReason,
+		&g.Game.ShareCode, &g.Game.Finished, &g.Game.A.Culture, &g.Game.A.Outcome, &g.Game.A.Turn,
+		&g.Game.B.Culture, &g.Game.B.Outcome, &g.Game.B.Turn}, func() error {
+		got := g
+		if g.ReportedBy != nil {
+			got.ReportedBy = new(*g.ReportedBy)
+		}
+		out[match] = append(out[match], got)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // blitzRoundOf finds a round of the edition and returns its kind (swiss or knockout) and number, or ErrNoBlitzRound.
@@ -304,7 +345,7 @@ func insertBlitzMatches(ctx context.Context, tx pgx.Tx, roundID int64, matches [
 			roundID, m.A, m.B, m.Slot, m.SeedA, m.SeedB).Scan(&id); err != nil {
 			return nil, fmt.Errorf("adding a match to round %d: %w", roundID, err)
 		}
-		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB})
+		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB, BestOf: 1, Games: []BlitzMatchGame{}})
 	}
 	return out, nil
 }
@@ -365,6 +406,7 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 	if err != nil {
 		return BlitzRound{}, err
 	}
+	r.BestOf = 1
 	return r, nil
 }
 
@@ -535,7 +577,7 @@ func (a *AdminStore) DeleteBlitzRound(ctx context.Context, slug, edition string,
 }
 
 // ReplaceBlitzPlayer puts in, an active entrant not in the round, in the place of out, a player who dropped, in a
-// knockout match without a result, keeping out's slot and seed. It returns ErrNoBlitzEdition, ErrNoBlitzRound,
+// knockout match without a result or a game, keeping out's slot and seed and dropping any proposal. It returns ErrNoBlitzEdition, ErrNoBlitzRound,
 // ErrNoBlitzMatch, ErrBlitzNotKnockout, ErrBlitzMatchDecided, ErrBlitzNotDropped, or ErrBadBlitzMatch naming
 // whom it cannot take.
 func (a *AdminStore) ReplaceBlitzPlayer(ctx context.Context, slug, edition string, roundID, matchID, out, in int64) error {
@@ -550,15 +592,17 @@ func (a *AdminStore) ReplaceBlitzPlayer(ctx context.Context, slug, edition strin
 		var entryA int64
 		var entryB *int64
 		var result *string
-		err = tx.QueryRow(ctx, "SELECT entry_a, entry_b, result FROM blitz_matches WHERE match_id = $1 AND round_id = $2 FOR UPDATE",
-			matchID, roundID).Scan(&entryA, &entryB, &result)
+		var played bool
+		err = tx.QueryRow(ctx, `SELECT entry_a, entry_b, result, EXISTS (SELECT 1 FROM blitz_match_games g WHERE g.match_id = m.match_id)
+			FROM blitz_matches m WHERE match_id = $1 AND round_id = $2 FOR UPDATE OF m`,
+			matchID, roundID).Scan(&entryA, &entryB, &result, &played)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNoBlitzMatch
 		}
 		if err != nil {
 			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
 		}
-		if result != nil {
+		if result != nil || played {
 			return ErrBlitzMatchDecided
 		}
 		if out != entryA && (entryB == nil || out != *entryB) {
@@ -587,7 +631,8 @@ func (a *AdminStore) ReplaceBlitzPlayer(ctx context.Context, slug, edition strin
 		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE blitz_matches SET entry_a = CASE WHEN entry_a = $2 THEN $3 ELSE entry_a END,
-			                         entry_b = CASE WHEN entry_b = $2 THEN $3 ELSE entry_b END
+			                         entry_b = CASE WHEN entry_b = $2 THEN $3 ELSE entry_b END,
+			                         proposed_by = NULL
 			WHERE match_id = $1`, matchID, out, in); err != nil {
 			return fmt.Errorf("replacing a player of match %d: %w", matchID, err)
 		}

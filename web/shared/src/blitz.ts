@@ -215,6 +215,12 @@ export function pointsText(n: number): string {
   return whole === 0 ? '½' : `${whole}½`;
 }
 
+/** bestOfScore writes a best-of-3 match's score by its games, a win 1 and a draw ½: "Ann 1½, Bob ½". */
+export function bestOfScore(m: { a: string; b: string | null; games: readonly { result: 'a' | 'b' | 'draw' }[] }): string {
+  const points = (side: 'a' | 'b') => m.games.reduce((sum, g) => sum + (g.result === side ? 1 : g.result === 'draw' ? 0.5 : 0), 0);
+  return `${m.a} ${pointsText(points('a'))}, ${m.b ?? '?'} ${pointsText(points('b'))}`;
+}
+
 /** pointsList lists what each outcome is worth: "win 3, draw 1, loss 0, forfeit win 3, forfeit loss 0, bye 3, skip 0". */
 export function pointsList(p: BlitzPoints): string {
   const outcomes: [string, number][] = [

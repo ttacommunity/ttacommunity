@@ -71,6 +71,11 @@ func TestAProposalPairsByTheRoundsOwnMethod(t *testing.T) {
 	if round.Method == nil || *round.Method != "dutch" {
 		t.Errorf("method = %v, want dutch", round.Method)
 	}
+	for _, m := range round.Matches {
+		if m.BestOf != 1 || m.Games == nil {
+			t.Errorf("proposed match %d-%v: best of %d, games %v; want one game and none played", m.A, m.B, m.BestOf, m.Games)
+		}
+	}
 }
 
 func TestAnOrganiserSetsHowRoundsArePaired(t *testing.T) {

@@ -32,9 +32,11 @@ type Notification struct {
 	Slug, Series, Edition string
 	Round                 int
 	A, B, Result          string
-	ReportedBy            string
-	Corrected             bool
-	FlagReason            string
+	// Game is the game's number in a best-of-3 match, whose result is then that game's; 0 in a one-game match.
+	Game       int
+	ReportedBy string
+	Corrected  bool
+	FlagReason string
 	// An RSS item, posted to the endpoints taking FeedID. A feed failing or reading again: its kind (rss), its
 	// name (its title or else its address), and FeedError, why it failed.
 	FeedID             int64
@@ -112,6 +114,16 @@ func queueNotification(ctx context.Context, tx pgx.Tx, kind string, ref int64, n
 	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, account_id, request_id, match_id, created_at, next_at)
 		VALUES ($1, CASE WHEN $1 = 'sign_up' THEN $2::bigint END, CASE WHEN $1 = 'link_request' THEN $2::bigint END,
 		        CASE WHEN $1 IN ('blitz_report', 'blitz_flag') THEN $2::bigint END, $3, $3)`, kind, ref, now); err != nil {
+		return fmt.Errorf("queueing a notification: %w", err)
+	}
+	return nil
+}
+
+// queueBlitzNotification puts a blitz_report or blitz_flag notification in the outbox, due at now, about game
+// number of match matchID.
+func queueBlitzNotification(ctx context.Context, tx pgx.Tx, kind string, matchID int64, number int, now time.Time) error {
+	if _, err := tx.Exec(ctx, `INSERT INTO notification_outbox (kind, match_id, game_number, created_at, next_at) VALUES ($1, $2, $3, $4, $4)`,
+		kind, matchID, number, now); err != nil {
 		return fmt.Errorf("queueing a notification: %w", err)
 	}
 	return nil
@@ -212,16 +224,19 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			                            'blitz_round', 'blitz_finished', 'blitz_reminder', 'blitz_sign_ups') THEN true
 			            WHEN o.kind IN ('ratings_run', 'ratings_top10') THEN o.published_run_id IS NOT NULL
 			            WHEN o.kind = 'link_request' THEN lr.status = 'pending'
-			            WHEN o.kind = 'blitz_report' THEN bm.report IS NOT NULL
-			            ELSE bm.report IS NOT DISTINCT FROM 'flagged' END,
+			            WHEN o.kind = 'blitz_report' THEN bg.report IS NOT NULL
+			            ELSE bg.report IS NOT DISTINCT FROM 'flagged' END,
 			       coalesce(lr.tta_name, am.tta_name, ''),
 			       coalesce((SELECT array_agg(DISTINCT l.provider ORDER BY l.provider) FROM logins l
 			                 WHERE l.account_id = coalesce(o.account_id, lr.account_id)), '{}'),
 			       coalesce(ac.linked_how, ''),
 			       coalesce(s.slug, ns.slug, ''), coalesce(s.name, ns.name, ''), coalesce(t.label, nt.label, ''), coalesce(r.number, nr.number, 0),
-			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''), coalesce(bm.result, ''), coalesce(mr.tta_name, ''),
-			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text) > 1, false),
-			       coalesce(bm.flag_reason, ''),
+			       coalesce(ma.tta_name, ''), coalesce(mb.tta_name, ''),
+			       coalesce(CASE WHEN bm.games > 1 THEN bg.result ELSE bm.result END, ''), CASE WHEN bm.games > 1 THEN bg.number ELSE 0 END,
+			       coalesce(mr.tta_name, ''),
+			       coalesce((SELECT count(*) FROM admin_audit au WHERE au.action = 'blitz.match.report' AND au.target = bm.match_id::text
+			                 AND coalesce((au.detail->>'game')::int, 1) = bg.number) > 1, false),
+			       coalesce(bg.flag_reason, ''),
 			       coalesce(o.feed_id, ts.feed_id, ri.feed_id, ys.feed_id, 0), coalesce(ff.last_error, ''),
 			       coalesce(o.twitch_stream_id, o.youtube_stream_id, 0), coalesce(tf.source, ''), coalesce(tf.display_name, ''), coalesce(ts.title, ''),
 			       coalesce(ts.category, ''), coalesce(ts.thumbnail_url, ''), coalesce(ts.started_at, o.created_at), ts.ended_at,
@@ -258,12 +273,13 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			LEFT JOIN accounts ac ON ac.account_id = o.account_id LEFT JOIN members am ON am.member_id = ac.member_id
 			LEFT JOIN link_requests lr ON lr.request_id = o.request_id
 			LEFT JOIN blitz_matches bm ON bm.match_id = o.match_id
+			LEFT JOIN blitz_match_games bg ON bg.match_id = bm.match_id AND bg.number = coalesce(o.game_number, 1)
 			LEFT JOIN blitz_rounds r ON r.round_id = bm.round_id
 			LEFT JOIN tournaments t ON t.tournament_id = r.tournament_id
 			LEFT JOIN series s ON s.series_id = t.series_id
 			LEFT JOIN blitz_entries xa ON xa.entry_id = bm.entry_a LEFT JOIN members ma ON ma.member_id = xa.member_id
 			LEFT JOIN blitz_entries xb ON xb.entry_id = bm.entry_b LEFT JOIN members mb ON mb.member_id = xb.member_id
-			LEFT JOIN blitz_entries xr ON xr.entry_id = bm.reported_by LEFT JOIN members mr ON mr.member_id = xr.member_id
+			LEFT JOIN blitz_entries xr ON xr.entry_id = bg.reported_by LEFT JOIN members mr ON mr.member_id = xr.member_id
 			WHERE o.next_at <= $1
 			ORDER BY o.notification_id
 			LIMIT $2
@@ -283,7 +299,7 @@ func (a *AdminStore) SendNotifications(ctx context.Context, now time.Time, limit
 			var d due
 			n := &d.n
 			if err := rows.Scan(&n.ID, &n.Kind, &d.ref, &d.attempts, &d.sentTo, &d.open, &n.Name, &n.SignIns, &n.LinkedHow, &n.Slug, &n.Series,
-				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.ReportedBy, &n.Corrected, &n.FlagReason,
+				&n.Edition, &n.Round, &n.A, &n.B, &n.Result, &n.Game, &n.ReportedBy, &n.Corrected, &n.FlagReason,
 				&n.FeedID, &n.FeedError,
 				&n.StreamRef, &n.Twitch.Login, &n.Twitch.DisplayName, &n.Twitch.Title, &n.Twitch.Category, &n.Twitch.ThumbnailURL,
 				&n.Twitch.StartedAt, &n.Twitch.EndedAt, &n.Twitch.Posts, &n.FeedKind, &n.FeedName,

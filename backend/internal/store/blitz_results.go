@@ -34,6 +34,12 @@ type BlitzGame struct {
 // ErrNoBlitzMatch means no match of the edition has that id.
 var ErrNoBlitzMatch = errors.New("no such match")
 
+// ErrNoBlitzGame means a game a match does not take: beyond its agreed games, or before the game ahead of it.
+var ErrNoBlitzGame = errors.New("the match has no such game: a match is one game unless its players agree to best of 3, and its games come in order")
+
+// ErrBlitzGameNotNeeded means a game after the match's games decided it.
+var ErrBlitzGameNotNeeded = errors.New("the match is already decided: it needs no more games")
+
 // ErrBlitzBye means a result was recorded on a bye.
 var ErrBlitzBye = errors.New("a bye has no result")
 
@@ -66,8 +72,8 @@ func (e *BlitzShareCodeError) Error() string {
 
 var blitzResults = []string{"a", "b", "draw", "double_loss"}
 
-// resolvesReport is the SET clause by which an organiser's game or ruling resolves a player's report, if any.
-const resolvesReport = "report = CASE WHEN report IS NULL THEN NULL ELSE 'resolved' END"
+// resolvesReports resolves the players' reports of match $1's games, if any, as an organiser's game or ruling does.
+const resolvesReports = "UPDATE blitz_match_games SET report = 'resolved' WHERE match_id = $1 AND report IS NOT NULL"
 
 var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 
@@ -115,7 +121,7 @@ func blitzOutcome(g BlitzGame) (result string, a, b BlitzSide, placeA, placeB in
 }
 
 // blitzMatchRow is a match as recording a result needs it: its round and the round's kind, each side's entry,
-// name, player (none for a member we have not linked), CGE account and knockout seed, its game.
+// name, player (none for a member we have not linked), CGE account and knockout seed, and its agreed games.
 type blitzMatchRow struct {
 	Round      int
 	Kind       string
@@ -129,7 +135,7 @@ type blitzMatchRow struct {
 	PlayerB    *int64
 	CGEUserA   *int32
 	CGEUserB   *int32
-	GameID     *int64
+	Games      int
 	SeriesName string
 }
 
@@ -147,13 +153,13 @@ func blitzMatchOf(ctx context.Context, tx pgx.Tx, edID, matchID int64) (blitzMat
 	var m blitzMatchRow
 	err := tx.QueryRow(ctx, `
 		SELECT r.number, r.kind, m.seed_a, m.seed_b, m.entry_a, m.entry_b, ma.tta_name, coalesce(mb.tta_name, ''),
-		       ma.player_id, mb.player_id, ma.cge_user, mb.cge_user, m.game_id, s.name
+		       ma.player_id, mb.player_id, ma.cge_user, mb.cge_user, m.games, s.name
 		FROM blitz_matches m JOIN blitz_rounds r USING (round_id)
 		JOIN tournaments t USING (tournament_id) JOIN series s USING (series_id)
 		JOIN blitz_entries a ON a.entry_id = m.entry_a JOIN members ma ON ma.member_id = a.member_id
 		LEFT JOIN blitz_entries b ON b.entry_id = m.entry_b LEFT JOIN members mb ON mb.member_id = b.member_id
 		WHERE m.match_id = $1 AND r.tournament_id = $2`, matchID, edID).Scan(&m.Round, &m.Kind, &m.SeedA, &m.SeedB, &m.A, &m.B, &m.NameA, &m.NameB, &m.PlayerA, &m.PlayerB, &m.CGEUserA, &m.CGEUserB,
-		&m.GameID, &m.SeriesName)
+		&m.Games, &m.SeriesName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNoBlitzMatch
 	}
@@ -222,11 +228,11 @@ func blitzRoundGroup(ctx context.Context, tx pgx.Tx, edID int64, round int) (int
 	return groupID, nil
 }
 
-// RecordBlitzGame records a played game on a match, or corrects the game it already has (the one game: no
-// duplicate), and sets the match's result from it, clearing any ruling. A drawn knockout game stays a draw as a
-// game, and the match goes to the higher seed. It returns ErrNoBlitzEdition,
-// ErrNoBlitzMatch, ErrBlitzBye, ErrBadBlitzGame, or a *BlitzShareCodeError for a code on another game.
-func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, g BlitzGame) error {
+// RecordBlitzGame records game number of a match, or corrects the one it has (no duplicate), and sets the match's
+// result from its games (blitz_match_result), clearing any ruling or proposal. It returns ErrNoBlitzEdition,
+// ErrNoBlitzMatch, ErrBlitzBye, ErrBadBlitzGame, ErrNoBlitzGame, ErrBlitzGameNotNeeded, or a *BlitzShareCodeError for a
+// code on another game.
+func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, matchID int64, number int, g BlitzGame) error {
 	if !validBlitzGame(&g) {
 		return ErrBadBlitzGame
 	}
@@ -236,14 +242,22 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		if err != nil {
 			return err
 		}
-		if m.Kind == "knockout" && result == "draw" {
-			result = "b"
-			if *m.SeedA < *m.SeedB {
-				result = "a"
-			}
+		var open string
+		if err := tx.QueryRow(ctx, "SELECT blitz_game_open($1, $2)", matchID, number).Scan(&open); err != nil {
+			return fmt.Errorf("checking the game: %w", err)
+		}
+		switch open {
+		case "no-game":
+			return ErrNoBlitzGame
+		case "not-needed":
+			return ErrBlitzGameNotNeeded
+		}
+		var gameID *int64
+		if err := tx.QueryRow(ctx, "SELECT game_id FROM blitz_match_games WHERE match_id = $1 AND number = $2", matchID, number).Scan(&gameID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("finding the game: %w", err)
 		}
 		var other int64
-		switch err := tx.QueryRow(ctx, "SELECT game_id FROM games WHERE share_code = nullif($1, '') AND game_id IS DISTINCT FROM $2", g.ShareCode, m.GameID).Scan(&other); {
+		switch err := tx.QueryRow(ctx, "SELECT game_id FROM games WHERE share_code = nullif($1, '') AND game_id IS DISTINCT FROM $2", g.ShareCode, gameID).Scan(&other); {
 		case err == nil:
 			return &BlitzShareCodeError{GameID: other}
 		case !errors.Is(err, pgx.ErrNoRows):
@@ -261,7 +275,13 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		if err != nil {
 			return err
 		}
-		name := fmt.Sprintf("%s %s Round %d", m.SeriesName, edition, m.Round)
+		name, source := fmt.Sprintf("%s %s Round %d", m.SeriesName, edition, m.Round), fmt.Sprintf("blitz match %d", matchID)
+		if m.Games > 1 {
+			name += fmt.Sprintf(" Game %d", number)
+		}
+		if number > 1 {
+			source += fmt.Sprintf(" game %d", number)
+		}
 		// A game's day is its finish's day in UTC, as for the games CGE's data brings.
 		date := g.Finished.UTC().Truncate(24 * time.Hour)
 		seats := []struct {
@@ -270,7 +290,6 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			side   BlitzSide
 			place  int
 		}{{playerA, m.CGEUserA, sideA, placeA}, {playerB, m.CGEUserB, sideB, placeB}}
-		gameID := m.GameID
 		if gameID == nil {
 			var batch int64
 			if err := tx.QueryRow(ctx, "INSERT INTO import_batches (source) VALUES ('admin') RETURNING batch_id").Scan(&batch); err != nil {
@@ -280,7 +299,7 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 			if err := tx.QueryRow(ctx, `
 				INSERT INTO games (batch_id, source_file, source_line, name, date, finished_at, share_code, state, group_id)
 				VALUES ($1, $2, 0, $3, $4, $5, nullif($6, ''), 'played', $7) RETURNING game_id`,
-				batch, fmt.Sprintf("blitz match %d", matchID), name, date, g.Finished, g.ShareCode, groupID).Scan(gameID); err != nil {
+				batch, source, name, date, g.Finished, g.ShareCode, groupID).Scan(gameID); err != nil {
 				return fmt.Errorf("recording a game: %w", err)
 			}
 			for seat, s := range seats {
@@ -308,8 +327,18 @@ func (a *AdminStore) RecordBlitzGame(ctx context.Context, slug, edition string, 
 		if _, err := tx.Exec(ctx, "INSERT INTO group_members (group_id, player_id) VALUES ($1, $2), ($1, $3) ON CONFLICT DO NOTHING", groupID, playerA, playerB); err != nil {
 			return fmt.Errorf("recording a game's players: %w", err)
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, game_id = $3, ruling = '', decided_at = now(), "+resolvesReport+" WHERE match_id = $1",
-			matchID, result, *gameID); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE blitz_match_games SET report = 'resolved' WHERE match_id = $1 AND number = $2 AND report IS NOT NULL", matchID, number); err != nil {
+			return fmt.Errorf("recording a result: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO blitz_match_games (match_id, number, game_id, result) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (match_id, number) DO UPDATE SET result = excluded.result`, matchID, number, *gameID, result); err != nil {
+			return fmt.Errorf("recording a result: %w", err)
+		}
+		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET ruling = '', proposed_by = NULL WHERE match_id = $1", matchID); err != nil {
+			return fmt.Errorf("recording a result: %w", err)
+		}
+		if _, err := tx.Exec(ctx, "SELECT blitz_match_result($1, now())", matchID); err != nil {
 			return fmt.Errorf("recording a result: %w", err)
 		}
 		return nil
@@ -332,8 +361,11 @@ func (a *AdminStore) RecordBlitzRuling(ctx context.Context, slug, edition string
 		if m.Kind == "knockout" && result != "a" && result != "b" {
 			return ErrBlitzKnockoutWinner
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, ruling = $3, decided_at = now(), "+resolvesReport+" WHERE match_id = $1",
+		if _, err := tx.Exec(ctx, "UPDATE blitz_matches SET result = $2, ruling = $3, decided_at = now(), proposed_by = NULL WHERE match_id = $1",
 			matchID, result, reason); err != nil {
+			return fmt.Errorf("recording a ruling: %w", err)
+		}
+		if _, err := tx.Exec(ctx, resolvesReports, matchID); err != nil {
 			return fmt.Errorf("recording a ruling: %w", err)
 		}
 		return nil

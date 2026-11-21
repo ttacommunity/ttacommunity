@@ -6,7 +6,7 @@ import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, sortRows, type Sort } from '@ttac/shared/sort';
 import { hashTab } from '@ttac/shared/tabs';
-import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, TIE_BREAKS, UNPLAYED_NOTE, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
+import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, TIE_BREAKS, UNPLAYED_NOTE, bestOfScore, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
@@ -18,7 +18,7 @@ import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } 
 import { countryNames, type Country } from '@ttac/shared/countries';
 import { clockIn, type Region } from '../lib/zones';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
-import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, hiddenNote, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedMatches, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
+import { asChanges, byeTakers, canDeleteRound, canResetEdition, decidedOnly, hiddenNote, flaggedColumns, matchColumns, nextPairing, type MatchColumn, resetsOf, entrantActions, entrantState, leftUnpaired, newestFirst, openRound, flaggedGames, gameChoices, pairAction, pairCounts, partnersFor, reconcilePending, replaceableSide, reportNote, rulingChoices, rulingLabel, samePairs, shownAfter, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzMatch, type AdminBlitzMatchGame, type AdminBlitzRound, type Pending } from '../lib/blitz-rounds';
 import AdminPage from './AdminPage';
 import CountryPick from './CountryPick';
 import InfoTip from './InfoTip';
@@ -108,25 +108,27 @@ export default function BlitzEditionPage() {
 /** FlaggedResults lists the players' reports flagged for an organiser, with a count, as Members lists the requests waiting: each one kept as reported, corrected in place, or reset for the players to report again; it says when none is flagged. */
 function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props, 'countries'>) {
   const dialog = useDialog();
-  const [correcting, setCorrecting] = useState<number | null>(null);
+  // correcting is the flagged game whose form is open, as "<match>-<game>".
+  const [correcting, setCorrecting] = useState<string | null>(null);
   const [resultZone, setResultZone] = useState(viewerZone);
-  const flagged = flaggedMatches(ed.rounds);
+  const flagged = flaggedGames(ed.rounds);
   const resets = resetsOf(ed.rounds);
   const byId = new Map(ed.entrants.map((e) => [e.id, e]));
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
   const pairOf = (m: AdminBlitzMatch) => `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
-  const view = (m: AdminBlitzMatch) => ({ a: nameOf(m.a), b: nameOf(m.b as number), result: m.result, game: m.game, ruled: m.ruling !== '' });
+  const view = (m: AdminBlitzMatch, g: AdminBlitzMatchGame) => gameView(m, g, nameOf);
   const [flaggedRows, flaggedSort, sortFlagged] = useSort(flagged, flaggedColumns(nameOf));
+  const gameOf = (m: AdminBlitzMatch, g: AdminBlitzMatchGame) => (m.best_of === 3 ? `${pairOf(m)}, game ${g.number}` : pairOf(m));
   const run = async (r: req.Request, done: string) => {
     say(outcomeOf(await req.send(r), done, 'flagged'));
     await onReload();
   };
-  const keep = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
+  const keep = async (r: AdminBlitzRound, m: AdminBlitzMatch, g: AdminBlitzMatchGame, opener: HTMLElement) => {
     const sure = await dialog.confirm(
-      { heading: `Keep the reported result of ${pairOf(m)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
+      { heading: `Keep the reported result of ${gameOf(m, g)}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
       opener,
     );
-    if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pairOf(m)}: report kept.`);
+    if (sure) await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id, g.number), `${gameOf(m, g)}: report kept.`);
   };
   const reset = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
     const sure = await dialog.confirm({ heading: `Reset ${pairOf(m)}?`, text: 'Its result and game go, as if never played; the players can report it again.', action: 'Reset game', final: true }, opener);
@@ -165,21 +167,21 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
             </tr>
           </thead>
           <tbody>
-            {flaggedRows.map(({ round: r, match: m }) => (
-              <Fragment key={m.id}>
+            {flaggedRows.map(({ round: r, match: m, game: g }) => (
+              <Fragment key={`${m.id}-${g.number}`}>
                 <tr>
                   <td>{roundTitle(r.number, ed.format)}</td>
-                  <th scope="row">{pairOf(m)}</th>
+                  <th scope="row">{gameOf(m, g)}</th>
                   <td>
-                    {resultSummary(view(m))}
-                    {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
-                    <span className="row-detail row-flagged">{reportNote(m, nameOf)}</span>
+                    {resultSummary(view(m, g))}
+                    {turnOrder(view(m, g)) !== '' && <span className="row-detail muted">{turnOrder(view(m, g))}</span>}
+                    <span className="row-detail row-flagged">{reportNote(m, g, nameOf)}</span>
                   </td>
                   <td className="run-buttons">
-                    <button type="button" className="btn-antique" onClick={(e) => void keep(r, m, e.currentTarget)}>
+                    <button type="button" className="btn-antique" onClick={(e) => void keep(r, m, g, e.currentTarget)}>
                       Keep
                     </button>
-                    <button type="button" className="btn-antique" aria-expanded={correcting === m.id} onClick={() => setCorrecting(correcting === m.id ? null : m.id)}>
+                    <button type="button" className="btn-antique" aria-expanded={correcting === `${m.id}-${g.number}`} onClick={() => setCorrecting(correcting === `${m.id}-${g.number}` ? null : `${m.id}-${g.number}`)}>
                       Correct
                     </button>
                     {resets.matches.includes(m.id) && (
@@ -189,13 +191,14 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
                     )}
                   </td>
                 </tr>
-                {correcting === m.id && (
+                {correcting === `${m.id}-${g.number}` && (
                   <tr className="form-row">
                     <td colSpan={4}>
                       <ResultForm
                         at={at}
                         round={r}
                         match={m}
+                        start={g.number}
                         nameOf={nameOf}
                         regions={regions}
                         zone={resultZone}
@@ -272,7 +275,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
   const [zone] = useState(viewerZone);
   const byId = new Map(ed.entrants.map((e) => [e.id, e]));
   const nameOf = (id: number) => byId.get(id)?.name ?? `entrant ${id}`;
-  const view = (m: AdminBlitzMatch) => ({ a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: m.result, game: m.game, ruled: m.ruling !== '' });
+  const view = (m: AdminBlitzMatch) => matchView(m, nameOf);
   const ratingOf = (id: number) => {
     const r = byId.get(id)?.rating ?? null;
     return r === null ? '–' : String(Math.round(r));
@@ -356,14 +359,18 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     setRecording(null);
     await run(req.resetBlitzResult(at.slug, at.edition, r.id, m.id), `${pair} reset.`, `match ${m.id}`);
   };
-  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch, opener: HTMLElement) => {
-    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+  const keepReport = async (r: AdminBlitzRound, m: AdminBlitzMatch, g: AdminBlitzMatchGame, opener: HTMLElement) => {
+    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}` + (m.best_of === 3 ? `, game ${g.number}` : '');
     const sure = await dialog.confirm(
       { heading: `Keep the reported result of ${pair}?`, text: 'The flag is resolved and the result stays as reported. Players still cannot change it; Reset opens it to them again.', action: 'Keep result' },
       opener,
     );
     if (!sure) return;
-    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id), `${pair}: report kept.`, `match ${m.id}`);
+    await run(req.keepBlitzReport(at.slug, at.edition, r.id, m.id, g.number), `${pair}: report kept.`, `match ${m.id}`);
+  };
+  const setBestOf = async (r: AdminBlitzRound, m: AdminBlitzMatch, games: number) => {
+    const pair = `${nameOf(m.a)} v ${nameOf(m.b as number)}`;
+    await run(req.setBlitzMatchBestOf(at.slug, at.edition, r.id, m.id, games), `${pair}: ${games === 3 ? 'best of 3' : 'one game'}.`, `match ${m.id}`);
   };
   const resetRound = async (r: AdminBlitzRound, opener: HTMLElement) => {
     const title = roundTitle(r.number, ed.format);
@@ -381,7 +388,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
     await run(req.resetBlitzRound(at.slug, at.edition, r.id), `${title}'s results reset.`, `round ${r.id}`);
   };
   const resetEdition = async (opener: HTMLElement) => {
-    const games = ed.rounds.flatMap((r) => r.matches).filter((m) => m.game !== null).length;
+    const games = ed.rounds.flatMap((r) => r.matches).reduce((n, m) => n + m.games.length, 0);
     const what = `${ed.rounds.length} round${ed.rounds.length === 1 ? '' : 's'} and ${games} recorded game${games === 1 ? '' : 's'}`;
     const sure = await dialog.confirm(
       {
@@ -496,6 +503,7 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
             )}
           </p>
           <RoundDeadline at={at} ed={ed} round={r} regions={regions} unsaved={changed(r)} onReload={onReload} say={say} />
+          {r.kind === 'knockout' && <RoundBestOf at={at} ed={ed} round={r} onReload={onReload} say={say} />}
           <Notice outcome={shownAt(outcome, `round ${r.id}`)} onClose={close} />
           {shown(r) && (
             <>
@@ -563,10 +571,32 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                             {m.repeat && <span className="row-detail">met before</span>}
                           </td>
                           <td>
-                            {m.b !== null && m.result === null ? <span className="muted">not yet</span> : resultSummary(view(m))}
-                            {turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
+                            {m.best_of === 3 && m.games.length > 0 ? (
+                              `Best of 3: ${bestOfScore({ a: nameOf(m.a), b: nameOf(m.b as number), games: m.games })}`
+                            ) : m.b !== null && m.result === null ? (
+                              <span className="muted">not yet</span>
+                            ) : (
+                              resultSummary(view(m))
+                            )}
+                            {m.best_of === 3 && m.games.length === 0 && <span className="row-detail muted">Best of 3</span>}
+                            {m.best_of === 1 && turnOrder(view(m)) !== '' && <span className="row-detail muted">{turnOrder(view(m))}</span>}
+                            {m.best_of === 3 &&
+                              m.games.map((g) => (
+                                <span key={g.number} className="row-detail muted">
+                                  Game {g.number}: {resultSummary(gameView(m, g, nameOf))}
+                                </span>
+                              ))}
                             {m.ruling !== '' && <span className="row-detail muted">{m.ruling}</span>}
-                            {reportNote(m, nameOf) !== '' && <span className={m.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>{reportNote(m, nameOf)}</span>}
+                            {m.games.map(
+                              (g) =>
+                                reportNote(m, g, nameOf) !== '' && (
+                                  <span key={`note-${g.number}`} className={g.report === 'flagged' ? 'row-detail row-flagged' : 'row-detail muted'}>
+                                    {m.best_of === 3 && `Game ${g.number}: `}
+                                    {reportNote(m, g, nameOf)}
+                                  </span>
+                                ),
+                            )}
+                            {m.proposed_by !== null && <span className="row-detail muted">{nameOf(m.proposed_by)} proposes best of 3</span>}
                           </td>
                           <td className="run-buttons">
                             {m.b !== null && m.id !== 0 && !changed(r) && (
@@ -582,9 +612,17 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                                 {m.result === null ? 'Record' : 'Correct'}
                               </button>
                             )}
-                            {m.report === 'flagged' && !changed(r) && (
-                              <button type="button" className="btn-antique" onClick={(e) => void keepReport(r, m, e.currentTarget)}>
-                                Keep
+                            {!changed(r) &&
+                              m.games
+                                .filter((g) => g.report === 'flagged')
+                                .map((g) => (
+                                  <button key={g.number} type="button" className="btn-antique" onClick={(e) => void keepReport(r, m, g, e.currentTarget)}>
+                                    {m.best_of === 3 ? `Keep game ${g.number}` : 'Keep'}
+                                  </button>
+                                ))}
+                            {r.best_of === 3 && m.b !== null && m.id !== 0 && !changed(r) && (
+                              <button type="button" className="btn-antique" onClick={() => void setBestOf(r, m, m.best_of === 3 ? 1 : 3)}>
+                                {m.best_of === 3 ? 'Make one game' : 'Make best of 3'}
                               </button>
                             )}
                             {resets.matches.includes(m.id) && !changed(r) && (
@@ -1064,6 +1102,40 @@ function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
   );
 }
 
+/** matchView is a match's result as a result line reads it: names for the sides, and its one game, for a one-game match. */
+function matchView(m: AdminBlitzMatch, nameOf: (id: number) => string) {
+  return { a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: m.result, game: m.best_of === 1 ? (m.games[0]?.game ?? null) : null, ruled: m.ruling !== '' };
+}
+
+/** gameView is one game of a match as a result line reads it: in a one-game match the match's result, in a best of 3 the game's own. */
+function gameView(m: AdminBlitzMatch, g: AdminBlitzMatchGame, nameOf: (id: number) => string) {
+  const one = m.best_of === 1;
+  return { a: nameOf(m.a), b: m.b === null ? null : nameOf(m.b), result: one ? m.result : g.result, game: g.game, ruled: one && m.ruling !== '' };
+}
+
+/** RoundBestOf sets whether a knockout round's matches are one game, or may be best of 3 as their players agree. */
+function RoundBestOf({ at, ed, round, onReload, say }: Pick<Props, 'at' | 'ed' | 'onReload' | 'say'> & { round: AdminBlitzRound }) {
+  const set = async (bestOf: 1 | 3) => {
+    const r = await req.send(req.setBlitzRoundBestOf(at.slug, at.edition, round.id, bestOf));
+    say(outcomeOf(r, `${roundTitle(round.number, ed.format)}: ${bestOf === 3 ? 'best of 3 by agreement' : 'one game a match'}.`, `round ${round.id}`));
+    await onReload();
+  };
+  return (
+    <div className="format-bar round-view">
+      <Segmented<1 | 3>
+        label="Games"
+        prefix="Games:"
+        options={[
+          { value: 1, label: 'One game' },
+          { value: 3, label: 'Best of 3 by agreement' },
+        ]}
+        value={round.best_of === 3 ? 3 : 1}
+        onChange={(v) => void set(v)}
+      />
+    </div>
+  );
+}
+
 type RoundDeadlineProps = Pick<Props, 'at' | 'ed' | 'regions' | 'onReload' | 'say'> & { round: AdminBlitzRound; unsaved: boolean };
 
 /** RoundDeadline shows a round's deadline and sets it (a day and a time on a zone's clocks) until the round is finished, and downloads the round's Discord threads once they can be made. */
@@ -1302,18 +1374,19 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
   );
 }
 
-/** formFromGame fills the game form from a recorded game, its finish on the clocks of zone, for a correction; else the empty form in zone, today on its clocks. */
-function formFromGame(m: AdminBlitzMatch, zone: string, regions: readonly Region[]): GameForm {
-  if (m.game === null) return emptyGameForm(clockIn(regions, zone, new Date().toISOString()).day, zone);
-  const { day, clock } = clockIn(regions, zone, m.game.finished_at);
+/** formFromGame fills the game form from game number of a match, its finish on the clocks of zone, for a correction; else, for a game not yet recorded, the empty form in zone, today on its clocks. */
+function formFromGame(m: AdminBlitzMatch, number: number, zone: string, regions: readonly Region[]): GameForm {
+  const g = m.games.find((x) => x.number === number)?.game;
+  if (g === undefined) return emptyGameForm(clockIn(regions, zone, new Date().toISOString()).day, zone);
+  const { day, clock } = clockIn(regions, zone, g.finished_at);
   return {
-    share_code: m.game.share_code,
-    a_culture: String(m.game.a_culture),
-    a_outcome: m.game.a_outcome,
-    a_turn: m.game.a_turn,
-    b_culture: String(m.game.b_culture),
-    b_outcome: m.game.b_outcome,
-    b_turn: m.game.b_turn,
+    share_code: g.share_code,
+    a_culture: String(g.a_culture),
+    a_outcome: g.a_outcome,
+    a_turn: g.a_turn,
+    b_culture: String(g.b_culture),
+    b_outcome: g.b_outcome,
+    b_turn: g.b_turn,
     finished_on: day,
     finished_time: clock,
     zone,
@@ -1324,6 +1397,8 @@ type ResultFormProps = {
   at: Edition;
   round: AdminBlitzRound;
   match: AdminBlitzMatch;
+  /** start is the game the form opens on; else the match's next game, or its last once its games decide it. */
+  start?: number;
   nameOf: (id: number) => string;
   regions: readonly Region[];
   /** zone is the time zone the form starts in; onZone is told the one a game was saved in. */
@@ -1333,11 +1408,17 @@ type ResultFormProps = {
   onCancel: () => void;
 };
 
-/** ResultForm records a match's result: the game played (share code, each player's outcome, culture and turn, when it finished and in which time zone), or the organisers' ruling with its reason. A refusal shows in the form. */
-function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, onCancel }: ResultFormProps) {
+/** ResultForm records a match's result: a game played (which one in a best of 3; share code, each player's outcome, culture and turn, when it finished and in which time zone), or the organisers' ruling with its reason. A refusal shows in the form. */
+function ResultForm({ at, round, match, start, nameOf, regions, zone, onZone, onDone, onCancel }: ResultFormProps) {
   const [refusal, setRefusal] = useState<Outcome | null>(null);
   const [kind, setKind] = useState<'game' | 'ruling'>(match.ruling !== '' ? 'ruling' : 'game');
-  const [game, setGame] = useState<GameForm>(() => formFromGame(match, zone, regions));
+  const numbers = gameChoices(match);
+  const [number, setNumber] = useState(start ?? numbers[numbers.length - 1]);
+  const [game, setGame] = useState<GameForm>(() => formFromGame(match, number, zone, regions));
+  const pickGame = (n: number) => {
+    setNumber(n);
+    setGame(formFromGame(match, n, zone, regions));
+  };
   const choices = rulingChoices(round.kind);
   const [ruling, setRuling] = useState({ result: match.result !== null && choices.includes(match.result) ? match.result : 'a', reason: match.ruling });
   const a = nameOf(match.a);
@@ -1350,13 +1431,13 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
         setRefusal(refused(r.message, ''));
         return;
       }
-      const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, r.body));
+      const res = await req.send(req.recordBlitzGame(at.slug, at.edition, round.id, match.id, number, r.body));
       if (!res.ok) {
         setRefusal(refused(res.message, ''));
         return;
       }
       onZone(r.body.zone);
-      await onDone(`${a} v ${b} recorded.`);
+      await onDone(`${a} v ${b}${match.best_of === 3 ? `, game ${number},` : ''} recorded.`);
       return;
     }
     if (ruling.reason.trim() === '') {
@@ -1389,6 +1470,11 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
       </div>
       {kind === 'game' && (
         <>
+          {numbers.length > 1 && (
+            <div className="format-bar round-view">
+              <Segmented<number> label="Game" prefix="Game:" options={numbers.map((n) => ({ value: n, label: String(n) }))} value={number} onChange={pickGame} />
+            </div>
+          )}
           <div className="result-row">
             <label>
               Share code, if any
@@ -1417,7 +1503,7 @@ function ResultForm({ at, round, match, nameOf, regions, zone, onZone, onDone, o
             {choices.map((c) => (
               <label key={c} className="setting-inline">
                 <input type="radio" name={`ruling-${match.id}`} checked={ruling.result === c} onChange={() => setRuling({ ...ruling, result: c })} />
-                {rulingLabel(c, seededName(a, match.a_seed), seededName(b, match.b_seed), match.game !== null)}
+                {rulingLabel(c, seededName(a, match.a_seed), seededName(b, match.b_seed), match.games.length > 0)}
               </label>
             ))}
           </fieldset>

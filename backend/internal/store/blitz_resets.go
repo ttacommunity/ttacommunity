@@ -38,7 +38,7 @@ func dropBlitzGames(ctx context.Context, tx pgx.Tx, games []int64) error {
 
 // undecide clears the results of the matches matching where ($1 its value), and returns the games they held.
 func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int64, error) {
-	rows, err := tx.Query(ctx, "SELECT m.game_id FROM blitz_matches m WHERE m.game_id IS NOT NULL AND "+where, value)
+	rows, err := tx.Query(ctx, "DELETE FROM blitz_match_games g USING blitz_matches m WHERE g.match_id = m.match_id AND "+where+" RETURNING g.game_id", value)
 	if err != nil {
 		return nil, fmt.Errorf("finding the games: %w", err)
 	}
@@ -46,7 +46,7 @@ func undecide(ctx context.Context, tx pgx.Tx, where string, value int64) ([]int6
 	if err != nil {
 		return nil, fmt.Errorf("finding the games: %w", err)
 	}
-	if _, err := tx.Exec(ctx, "UPDATE blitz_matches m SET result = NULL, game_id = NULL, ruling = '', decided_at = NULL, reported_by = NULL, report = NULL, flag_reason = '' WHERE "+where, value); err != nil {
+	if _, err := tx.Exec(ctx, "UPDATE blitz_matches m SET result = NULL, ruling = '', decided_at = NULL WHERE "+where, value); err != nil {
 		return nil, fmt.Errorf("clearing the results: %w", err)
 	}
 	return games, nil

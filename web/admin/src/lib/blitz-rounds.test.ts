@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { byeTakers, canDeleteRound, hiddenNote, nextPairing, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedMatches, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
+import { byeTakers, canDeleteRound, hiddenNote, nextPairing, flaggedColumns, matchColumns, canResetEdition, entrantActions, entrantState, resetsOf, partnersFor, leftUnpaired, pairCounts, reconcilePending, replaceableSide, canPair, decidedOnly, nextRound, openRound, pairAction, flaggedGames, gameChoices, reportNote, rulingChoices, rulingLabel, newestFirst, samePairs, shownAfter, undecided, unpaired, unsavedMatch, zoneGapLabel, type AdminBlitzRound } from './blitz-rounds';
 import { sortRows } from '@ttac/shared/sort';
 
 const round = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({
@@ -12,6 +12,7 @@ const round = (id: number, number: number, published: boolean, matches: AdminBli
   deadline: null,
   matches,
   reserve: null,
+  best_of: 1,
 });
 const knockout = (id: number, number: number, published: boolean, matches: AdminBlitzRound['matches']): AdminBlitzRound => ({ ...round(id, number, published, matches), kind: 'knockout' });
 const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'draw' | 'double_loss' | null = null): AdminBlitzRound['matches'][number] => ({
@@ -25,12 +26,11 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
   rating_gap: null,
   repeat: false,
   result,
-  game: null,
   ruling: result === null ? '' : 'ruled',
   decided_at: result === null ? null : '2026-10-15T09:00:00Z',
-  reported_by: null,
-  report: null,
-  flag_reason: '',
+  best_of: 1,
+  proposed_by: null,
+  games: [],
 });
 const entrant = (id: number, status: 'active' | 'dropped' = 'active', skips: number[] = []) => ({
   id,
@@ -63,7 +63,7 @@ describe('canPair', () => {
 
 describe('unsavedMatch and samePairs', () => {
   it('makes a match with no id, no gaps and no result', () => {
-    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, game: null, ruling: '', decided_at: null, reported_by: null, report: null, flag_reason: '' });
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, ruling: '', decided_at: null, best_of: 1, proposed_by: null, games: [] });
     expect(unsavedMatch(3, null).b).toBe(null);
   });
   it.each([
@@ -391,6 +391,17 @@ describe('partnersFor and byeTakers', () => {
   });
 });
 
+/** gameOf is game number of a match, an organiser's entry won by a unless extra says otherwise. */
+const gameOf = (number: number, extra: Partial<AdminBlitzRound['matches'][number]['games'][number]> = {}) => ({
+  number,
+  result: 'a' as const,
+  game: { share_code: '', a_culture: 50, a_outcome: 'finished' as const, a_turn: 1, b_culture: 40, b_outcome: 'finished' as const, b_turn: 2, finished_at: '2026-10-14T20:00:00Z' },
+  reported_by: null,
+  report: null,
+  flag_reason: '',
+  ...extra,
+});
+
 describe('reportNote', () => {
   const nameOf = (id: number) => ({ 1: 'Ann', 2: 'Bob' })[id] ?? '?';
   it.each([
@@ -401,16 +412,32 @@ describe('reportNote', () => {
     ['resolved from a flag', { reported_by: 1, report: 'resolved', flag_reason: 'I won' }, 'Reported by Ann, flagged by Bob: “I won”; resolved'],
     ['resolved without a flag', { reported_by: 2, report: 'resolved' }, 'Reported by Bob; resolved'],
   ] as const)('%s', (_name, extra, want) => {
-    expect(reportNote({ ...match(7, 1, 2, 'a'), ...extra }, nameOf)).toBe(want);
+    expect(reportNote(match(7, 1, 2, 'a'), gameOf(1, extra), nameOf)).toBe(want);
   });
 });
 
-describe('flaggedMatches', () => {
-  it('lists the flagged matches, oldest round first, with their round', () => {
-    const flagged = (id: number) => ({ ...match(id, 1, 2, 'a'), reported_by: 1, report: 'flagged' as const, flag_reason: 'wrong' });
-    const rounds = [round(12, 2, true, [flagged(21), match(22, 3, 4, 'a')]), round(11, 1, true, [flagged(11), { ...match(12, 3, 4, 'b'), reported_by: 3, report: 'resolved' as const }])];
-    expect(flaggedMatches(rounds).map((f) => `${f.round.number}:${f.match.id}`)).toEqual(['1:11', '2:21']);
-    expect(flaggedMatches([round(11, 1, true, [match(12, 3, 4, 'b')])])).toEqual([]);
+describe('flaggedGames', () => {
+  it('lists the flagged games, oldest round first, with their round and match', () => {
+    const flagged = gameOf(1, { reported_by: 1, report: 'flagged', flag_reason: 'wrong' });
+    const rounds = [
+      round(12, 2, true, [{ ...match(21, 1, 2), best_of: 3, games: [gameOf(1), { ...flagged, number: 2 }] }, match(22, 3, 4, 'a')]),
+      round(11, 1, true, [{ ...match(11, 1, 2, 'a'), games: [flagged] }, { ...match(12, 3, 4, 'b'), games: [gameOf(1, { reported_by: 3, report: 'resolved' })] }]),
+    ];
+    expect(flaggedGames(rounds).map((f) => `${f.round.number}:${f.match.id}:${f.game.number}`)).toEqual(['1:11:1', '2:21:2']);
+    expect(flaggedGames([round(11, 1, true, [match(12, 3, 4, 'b')])])).toEqual([]);
+  });
+});
+
+describe('gameChoices', () => {
+  it.each([
+    ['a one-game match not played', match(1, 1, 2), [1]],
+    ['a one-game match played', { ...match(1, 1, 2, 'a'), games: [gameOf(1)] }, [1]],
+    ['a best of 3 not played', { ...match(1, 1, 2), best_of: 3 }, [1]],
+    ['a best of 3 at one each', { ...match(1, 1, 2), best_of: 3, games: [gameOf(1), gameOf(2, { result: 'b' })] }, [1, 2, 3]],
+    ['a best of 3 decided in two', { ...match(1, 1, 2), best_of: 3, result: 'a' as const, games: [gameOf(1), gameOf(2)] }, [1, 2]],
+    ['a best of 3 ruled after one', { ...match(1, 1, 2, 'b'), best_of: 3, games: [gameOf(1)] }, [1, 2]],
+  ])('%s', (_name, m, want) => {
+    expect(gameChoices(m)).toEqual(want);
   });
 });
 
@@ -442,8 +469,8 @@ describe('matchColumns', () => {
 describe('flaggedColumns', () => {
   const columns = flaggedColumns((id) => ({ 1: 'cy', 2: 'Ann', 3: 'bo', 4: 'di' })[id] ?? '?');
   const rows = [
-    { round: round(2, 2, true, []), match: { ...match(20, 1, 2, 'a'), decided_at: '2026-10-20T09:00:00Z' } },
-    { round: round(1, 1, true, []), match: { ...match(10, 3, 4, 'b'), decided_at: '2026-10-21T09:00:00Z' } },
+    { round: round(2, 2, true, []), match: { ...match(20, 1, 2, 'a'), decided_at: '2026-10-20T09:00:00Z' }, game: gameOf(1) },
+    { round: round(1, 1, true, []), match: { ...match(10, 3, 4, 'b'), decided_at: '2026-10-21T09:00:00Z' }, game: gameOf(1) },
   ];
   it.each([
     ['round', { col: 'round', desc: false }, [10, 20]],
