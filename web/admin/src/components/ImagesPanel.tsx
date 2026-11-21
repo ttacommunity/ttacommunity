@@ -18,6 +18,7 @@ export default function ImagesPanel() {
   const [list, setList] = useState<StoredImage[] | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [sending, setSending] = useState(false);
+  const [name, setName] = useState('');
   const picker = useRef<HTMLInputElement>(null);
   const dialog = useDialog();
   const zone = viewerZone();
@@ -38,10 +39,13 @@ export default function ImagesPanel() {
       return;
     }
     setSending(true);
-    const r = await req.send<StoredImage>(req.uploadImage(BUCKET, file));
+    const r = await req.send<StoredImage>(req.uploadImage(BUCKET, file, name));
     setSending(false);
     setOutcome(outcomeOf(r, r.ok ? `Uploaded as ${r.data.key}.` : '', 'images'));
-    if (r.ok && picker.current !== null) picker.current.value = '';
+    if (r.ok && picker.current !== null) {
+      picker.current.value = '';
+      setName('');
+    }
     await load();
   };
 
@@ -61,12 +65,22 @@ export default function ImagesPanel() {
       {dialog.element}
       <p className="muted">
         Pictures the site and Discord can link to, at an address that never changes. A PNG, JPEG, GIF or WebP of 5 MB at most; the same picture is
-        stored once. Copy an image's address to use it. Everyone can see what is here, at <a href={`${siteUrlFor(window.location.hostname)}/assets/`}>the site's assets page</a>.
+        stored once. Its address starts with the name you give it, filled in from the file's. Copy an image's address to use it. Everyone can see what is here, at <a href={`${siteUrlFor(window.location.hostname)}/assets/`}>the site's assets page</a>.
       </p>
       <div className="images-upload">
         <label>
           <span className="visually-hidden">Image to upload</span>
-          <input ref={picker} type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="input-antique" />
+          <input
+            ref={picker}
+            type="file"
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            className="input-antique"
+            onChange={(e) => setName(e.currentTarget.files?.[0]?.name ?? '')}
+          />
+        </label>
+        <label>
+          Name{' '}
+          <input type="text" className="input-antique" value={name} maxLength={255} placeholder="the file's name" onChange={(e) => setName(e.currentTarget.value)} />
         </label>
         <button type="button" className="btn-antique" disabled={sending} onClick={() => void upload()}>
           {sending ? 'Uploading…' : 'Upload'}

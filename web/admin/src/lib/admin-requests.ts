@@ -276,9 +276,9 @@ export const linkNostradamusParticipant = (slug: string, id: number, member: str
 
 /** ImageBucket is a bucket images are kept in. */
 export type ImageBucket = Schemas['ImageBucket'];
-/** uploadImage sends file to bucket, named by its file name; the API checks and names it. */
-export const uploadImage = (bucket: ImageBucket, file: File): Request => ({
-  path: `/api/images/${bucket}?name=${encodeURIComponent(file.name)}`,
+/** uploadImage sends file to bucket under name, trimmed, or the file's own name when that is empty; the API checks and names it. */
+export const uploadImage = (bucket: ImageBucket, file: File, name: string): Request => ({
+  path: `/api/images/${bucket}?name=${encodeURIComponent(name.trim() || file.name)}`,
   init: { method: 'POST', file },
 });
 /** deleteImage deletes the image stored under key. */

@@ -132,8 +132,12 @@ describe('blitzThreadsPath', () => {
 });
 
 describe('uploadImage', () => {
-  it('sends the file itself to the bucket, its name in the address', () => {
-    const file = new File(['x'], 'Blitz Bolts #2.png', { type: 'image/png' });
-    expect(req.uploadImage('assets', file)).toEqual({ path: '/api/images/assets?name=Blitz%20Bolts%20%232.png', init: { method: 'POST', file } });
+  const file = new File(['x'], '26669.png', { type: 'image/png' });
+  it.each([
+    ['the name typed, escaped', 'Blitz Bolts #2.png', '/api/images/assets?name=Blitz%20Bolts%20%232.png'],
+    ['the name typed, trimmed', '  robot-logo.png ', '/api/images/assets?name=robot-logo.png'],
+    ["the file's own name when none is typed", '   ', '/api/images/assets?name=26669.png'],
+  ])('sends the file itself to the bucket, named by %s', (_name, typed, path) => {
+    expect(req.uploadImage('assets', file, typed)).toEqual({ path, init: { method: 'POST', file } });
   });
 });
