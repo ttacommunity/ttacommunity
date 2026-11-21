@@ -10,7 +10,7 @@ import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPat
 import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
 import KeptData from './KeptData';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import usePlayerSearch from './usePlayerSearch';
 import Turnstile from './Turnstile';
 import Waiting from './Waiting';
@@ -351,12 +351,10 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
       {!linked && (
         <>
           <label htmlFor="account-tta-name">Your TTA username, as in the app</label>
-          <SearchBox
+          <PlayerSearch
             id="account-tta-name"
             players={players}
             value={draft.name}
-            placeholder=""
-            wide
             onChange={(name) => setDraft((d) => ({ ...d, name }))}
             onFocus={() => setSearching(true)}
           />

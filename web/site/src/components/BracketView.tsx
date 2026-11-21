@@ -26,7 +26,7 @@ import {
   type ViewRound,
 } from '../lib/bracket';
 import { editionHref } from '@ttac/shared/blitz';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
@@ -130,7 +130,7 @@ export default function BracketView({
             </nav>
             <div className="bracket-find">
               <label htmlFor="bracket-find" className="visually-hidden">Find a player</label>
-              <SearchBox players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" inputClassName="input-antique bracket-find-input" />
+              <PlayerSearch players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" />
             </div>
           </div>
           {treeable && (

@@ -6,7 +6,7 @@ import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import Message from './Message';
 import { signed } from '@ttac/shared/numbers';
@@ -56,12 +56,12 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
         <div className="challenges-pickers">
           <div>
             <label htmlFor="cmp-a">Player A</label>
-            <SearchBox id="cmp-a" players={names} value={a} placeholder="Name…" onChange={(v) => choose('a', v)} />
+            <PlayerSearch id="cmp-a" players={names} value={a} onChange={(v) => choose('a', v)} />
           </div>
           <span className="muted">vs</span>
           <div>
             <label htmlFor="cmp-b">Player B</label>
-            <SearchBox id="cmp-b" players={names} value={b} placeholder="Name…" onChange={(v) => choose('b', v)} />
+            <PlayerSearch id="cmp-b" players={names} value={b} onChange={(v) => choose('b', v)} />
           </div>
         </div>
       </PageHeader>

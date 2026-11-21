@@ -84,12 +84,6 @@
   margin-left: 0.5rem;
 }
 
-.games-player .search-form {
-  margin: 0;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 /* In a ViewBar's actions: the box alone, filling the line on a phone. */
 .games-player-inline {
   text-transform: none;

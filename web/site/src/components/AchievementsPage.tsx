@@ -222,8 +222,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
       aside={
         <FilterInput
           label="Filter tournaments, seasons"
-          placeholder="Filter tournaments, seasons..."
-          className="ach-filter"
+          placeholder="Filter tournaments ..."
           value={filter}
           onChange={setFilter}
         />

@@ -16,6 +16,7 @@ import Tex from '../components/Tex';
 import { divisionTagClass } from '../lib/divisions';
 import SignInNote from '../components/SignInNote';
 import SignUpSamples from '../components/SignUpSamples';
+import PlayerSearchSamples from '../components/PlayerSearchSamples';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
 import { titleCodeValues } from '@ttac/shared/api';
@@ -106,10 +107,14 @@ const rows = [
         </select>
       </label>
       <div class="format-bar-actions">
-        <input class="input-antique" type="text" aria-label="A field in a bar" placeholder="Search player ..." />
+        <PlayerSearchSamples client:only="react" />
         <button type="button" class="btn-antique">Options</button>
       </div>
     </div>
+
+    <h2>Player search</h2>
+    <p>Every player search and filter is this one box, <code>PlayerSearch</code>: its options say what it does (search, fill a field, filter), never how it looks or what it says.</p>
+    <PlayerSearchSamples client:only="react" />
 
     <h2>Button rows</h2>
     <p>A choice sets what a page shows (above); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>

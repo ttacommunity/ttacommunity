@@ -51,7 +51,6 @@ import {
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import './PlayerPage.css';
-import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
 import Panel from './Panel';
@@ -74,6 +73,7 @@ import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
 import Inset from './Inset';
+import PlayerSearch from './PlayerSearch';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -498,13 +498,7 @@ function Rivals({
               </option>
             ))}
           </select>
-          <FilterInput
-            label="Filter rivals by name"
-            placeholder="Filter rival by name..."
-            className="rival-filter"
-            value={rv.filter}
-            onChange={(filter) => setRv({ ...rv, filter })}
-          />
+          <PlayerSearch players={all} value={rv.filter} onChange={(filter) => setRv({ ...rv, filter })} />
         </div>
       }
     >
