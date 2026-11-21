@@ -265,6 +265,72 @@ dev admin. **Anyone with that URL is that admin on your local database**
 until the tunnel stops, so share it with the one person testing and stop it
 after.
 
+### Let someone sign in as a test player: one tunnel
+
+The steps above keep every dev sign-in off, so nobody can sign in through
+them: the site and the API are two tunnel addresses, and a browser treats
+each `*.trycloudflare.com` address as its own site, so the API's session
+cookie would not reach the site anyway. To let someone try what a signed-in
+player does (report a game, answer best of 3), put both behind **one**
+address with `backend/cmd/shareproxy`: `/v1/*` goes to the API, everything
+else to the site build, and admin routes are refused. The API keeps its
+local settings and `DISCORD_DEV_USER`, so "Sign in with Discord" signs the
+visitor straight in as that invented player; the proxy tells the API each
+request comes from the local site, and points its redirects back at the
+tunnel.
+
+**Anyone with the URL is signed in as that player**, on your local database.
+Keep the URL to the people testing, and stop everything when they are done.
+
+1. Open the tunnel first, to the port the proxy will listen on, and note its
+   URL:
+
+   ```bash
+   cloudflared tunnel --no-autoupdate --url http://127.0.0.1:4325
+   ```
+
+2. Run a second API on port 8090, with the player's dev sign-in on and
+   admin's off (`scripts/dev.sh` can keep running on 8080):
+
+   ```bash
+   cd backend && set -a && . ../.env && set +a &&
+     API_ADDR=127.0.0.1:8090 METRICS_ADDR= ADMIN_DEV_USER= DISCORD_DEV_USER=local_player \
+     SITE_ORIGIN=http://127.0.0.1:4323 API_ORIGIN=http://127.0.0.1:8090 \
+     go run ./cmd/api
+   ```
+
+   `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/v1/admin/me`
+   prints `401`
+
+3. Build the site against the tunnel's URL (the API is behind the same
+   address now), and serve it:
+
+   ```bash
+   cd web
+   PUBLIC_API_URL=https://<tunnel>.trycloudflare.com pnpm --filter @ttac/site build
+   cd site && pnpm exec astro preview --port 4323 --host 127.0.0.1 --allowed-hosts .trycloudflare.com
+   ```
+
+4. Start the proxy:
+
+   ```bash
+   cd backend && go run ./cmd/shareproxy -public https://<tunnel>.trycloudflare.com
+   ```
+
+5. Check it through the tunnel: a page, the API and a refused admin route.
+
+   ```bash
+   for p in /blitz/ /v1/blitz /v1/admin/me; do curl -s -o /dev/null -w "$p %{http_code}\n" "https://<tunnel>.trycloudflare.com$p"; done
+   ```
+
+   prints `200`, `200` and `403`. To make the invented player someone in a
+   tournament, sign in once through the tunnel, then link the account in
+   admin's Members tab like any other.
+
+The same warnings hold as above: another site build overwrites this one, and
+the preview sends no `public/_headers`. Admin is shown through its own
+tunnel, as above.
+
 ### The Discord bot
 
 The api answers our Discord slash commands at
