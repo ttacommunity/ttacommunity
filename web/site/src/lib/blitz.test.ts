@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { components } from '@ttac/shared/api';
-import { asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
+import { asksToSignIn, blitzGames, knockoutRule, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds } from './blitz';
 import { methodText, roundLine } from '@ttac/shared/blitz';
 
 describe('splitRounds', () => {
@@ -257,5 +257,14 @@ describe('pairingNotes', () => {
     ['fixed already', ed('dutch', 'dutch', 'rating', 'rating', 1, 8, 'rating'), 'were fixed for everyone when round 1 was paired, by rating'],
   ])('says how the starting ranks are given: %s', (_, edition, want) => {
     expect(pairingNotes(edition).rules.find((r) => r.startsWith('Starting ranks'))).toContain(want);
+  });
+});
+
+describe('knockoutRule', () => {
+  it.each([
+    ['one-game rounds', [1, 1], 'A drawn game sends the higher seed through.'],
+    ['a round offering best of 3', [1, 3], 'A match is one game, or best of 3 where a round offers it and both players agree before game 1: a win is 1 and a draw ½, the first to 2 goes through. A drawn one-game match, or one level after three games, sends the higher seed through.'],
+  ])('%s', (_name, bestOf, want) => {
+    expect(knockoutRule(bestOf.map((best_of) => ({ best_of })))).toBe(want);
   });
 });

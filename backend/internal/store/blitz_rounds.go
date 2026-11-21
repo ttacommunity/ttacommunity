@@ -345,7 +345,7 @@ func insertBlitzMatches(ctx context.Context, tx pgx.Tx, roundID int64, matches [
 			roundID, m.A, m.B, m.Slot, m.SeedA, m.SeedB).Scan(&id); err != nil {
 			return nil, fmt.Errorf("adding a match to round %d: %w", roundID, err)
 		}
-		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB})
+		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB, BestOf: 1, Games: []BlitzMatchGame{}})
 	}
 	return out, nil
 }
@@ -406,6 +406,7 @@ func (a *AdminStore) AddBlitzRound(ctx context.Context, slug, edition string, r 
 	if err != nil {
 		return BlitzRound{}, err
 	}
+	r.BestOf = 1
 	return r, nil
 }
 

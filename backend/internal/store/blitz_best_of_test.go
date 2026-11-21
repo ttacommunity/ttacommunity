@@ -445,3 +445,14 @@ func TestAReplacementTakesAMatchWithoutItsGamesOrProposal(t *testing.T) {
 		})
 	}
 }
+
+func TestANewRoundIsOneGameAMatchAsSaved(t *testing.T) {
+	a, _, ids := blitzWithEntrants(t)
+	r, err := a.AddBlitzRound(context.Background(), "us_open", "2026", BlitzRound{Method: "dutch", Order: "rating", Seed: 1, Matches: []BlitzMatch{{A: ids[0], B: &ids[1]}}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound: %v", err)
+	}
+	if m := r.Matches[0]; r.BestOf != 1 || m.BestOf != 1 || m.Games == nil || len(m.Games) != 0 {
+		t.Errorf("the new round: best of %d, its match best of %d with games %v; want 1, 1 and none", r.BestOf, m.BestOf, m.Games)
+	}
+}

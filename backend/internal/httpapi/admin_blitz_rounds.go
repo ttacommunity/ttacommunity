@@ -613,5 +613,9 @@ func (s *server) PostAdminBlitzRoundPairing(ctx context.Context, req PostAdminBl
 			proposal.Matches = append(proposal.Matches, store.BlitzMatch{A: *paired.Bye})
 		}
 	}
+	// A proposed match is not saved yet: one game, as a Swiss match is saved.
+	for i := range proposal.Matches {
+		proposal.Matches[i].BestOf = 1
+	}
 	return PostAdminBlitzRoundPairing200JSONResponse{Body: s.adminBlitzRound(proposal, ed, rated, now), Headers: PostAdminBlitzRoundPairing200ResponseHeaders{CacheControl: cacheNone}}, nil
 }

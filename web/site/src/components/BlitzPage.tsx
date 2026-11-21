@@ -9,7 +9,7 @@ import { nextSort, type Sort } from '@ttac/shared/sort';
 import InfoDialog from '@ttac/shared/InfoDialog';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
-import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
+import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, knockoutRule, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
 import BlitzReport from './BlitzReport';
 import { yourRow, type MyBlitz } from '../lib/blitz-report';
 import { TTA_DISCORD } from '../lib/links';
@@ -188,8 +188,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
           )}
           <p className="blitz-intro">
             The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
-            and the winners of neighbouring matches meet next, through to the final. A drawn game sends the higher seed
-            through.
+            and the winners of neighbouring matches meet next, through to the final. {knockoutRule(knockout)}
           </p>
           {ed.bracket && (
             <p className="blitz-intro">

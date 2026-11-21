@@ -77,6 +77,15 @@ function reportTag(report: BlitzMatchReport | null): string {
   return report.confirmed ? `Reported by ${report.reported_by}, confirmed` : `Reported by ${report.reported_by}`;
 }
 
+/** knockoutRule says how a knockout match is decided: a drawn game sends the higher seed through, and, once a round offers best of 3, how a best of 3 is won. */
+export function knockoutRule(rounds: readonly { best_of: number }[]): string {
+  if (!rounds.some((r) => r.best_of === 3)) return 'A drawn game sends the higher seed through.';
+  return (
+    'A match is one game, or best of 3 where a round offers it and both players agree before game 1: a win is 1 and a draw ½, the first to 2 goes through. ' +
+    'A drawn one-game match, or one level after three games, sends the higher seed through.'
+  );
+}
+
 /** asksToSignIn says whether the pairings ask a visitor to sign in to report: once the page knows nobody is signed in (seen null; undefined while it asks), while the edition has no champion. */
 export function asksToSignIn(seen: MyBlitz | null | undefined, champion: string | null): boolean {
   return seen === null && champion === null;

@@ -128,7 +128,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
       {oneGame && buttons(first)}
       {!oneGame &&
         lines.map((l) => (
-          <div key={`${l.number}-${l.heading}`}>
+          <div key={`${l.number}-${l.heading}`} className="report-game">
             <p className="blitz-intro">
               {l.heading !== '' && <strong>{l.heading}: </strong>}
               {l.text}
