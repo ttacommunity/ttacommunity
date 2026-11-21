@@ -472,7 +472,8 @@ func (a *AdminStore) SetBlitzRoundMatches(ctx context.Context, slug, edition str
 
 // PublishBlitzRound makes a round public: a Swiss round once every active entrant not skipping it is in it exactly
 // once and no pair is a repeat; a knockout round as the bracket made it; either only while the site shows the
-// tournament (ErrBlitzHidden). Publishing again changes nothing.
+// tournament (ErrBlitzHidden). Its news is queued, with a deadline its games' threads, and the closing of threads of
+// games it no longer has. Publishing again changes nothing.
 func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string, roundID int64) error {
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, edID int64) error {
 		kind, number, err := blitzRoundOf(ctx, tx, edID, roundID)
@@ -507,7 +508,13 @@ func (a *AdminStore) PublishBlitzRound(ctx context.Context, slug, edition string
 		if tag.RowsAffected() == 0 {
 			return nil
 		}
-		return queueRoundNews(ctx, tx, edID, roundID, number, matches)
+		if err := queueRoundNews(ctx, tx, edID, roundID, number, matches); err != nil {
+			return err
+		}
+		if err := queueRoundThreads(ctx, tx, roundID); err != nil {
+			return err
+		}
+		return queueReplacedThreads(ctx, tx, roundID)
 	})
 }
 
