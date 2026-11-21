@@ -83,7 +83,7 @@ func hubUpload(channel, video, title string) string {
 
 func hubServe(hub MovieHub, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, nil, nil, nil, hub, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+	NewMux(&fakeRatings{}, nil, nil, nil, hub, nil, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 	return rec
 }
 

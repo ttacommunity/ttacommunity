@@ -1463,6 +1463,38 @@ paths:
                 type: array
                 items:
                   type: string
+  /v1/assets:
+    get:
+      operationId: getAssets
+      tags: [site]
+      summary: The images in the assets bucket, newest first
+      description: |
+        Images the site and others may link to, served from the assets
+        bucket's own address. An image's address never changes and never
+        names another picture. Cached for a minute.
+      responses:
+        "200":
+          description: Every image
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredImage"
+        "404":
+          description: This API has no assets bucket
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /v1/site/visits:
     get:
       operationId: getSiteVisits
@@ -4484,6 +4516,118 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /v1/admin/images/{bucket}:
+    get:
+      operationId: getAdminImages
+      tags: [admin]
+      summary: The images in a bucket, newest first
+      parameters:
+        - $ref: "#/components/parameters/ImageBucketName"
+      responses:
+        "200":
+          description: Every image
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StoredImage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      operationId: postAdminImage
+      tags: [admin]
+      summary: Upload an image to a bucket
+      description: >-
+        Audited. The Origin must be the admin site. The body is the file itself. It must be a PNG, JPEG, GIF or
+        WebP by its content, and 5 MB at most. It is stored under its cleaned name, 12 hex characters of its SHA-256
+        and the extension its content shows, for good. 409 when that image is stored already; 503 when the bucket
+        is not set up here.
+      parameters:
+        - $ref: "#/components/parameters/ImageBucketName"
+        - name: name
+          in: query
+          required: true
+          description: The file's name, which the image's key starts with
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredImage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          description: The image is over 5 MB
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/admin/images/{bucket}/{key}:
+    delete:
+      operationId: deleteAdminImage
+      tags: [admin]
+      summary: Delete an image from a bucket
+      description: >-
+        Audited. The Origin must be the admin site. Pages that link to it show a broken image; its address is
+        never given to another picture. Deleting one that is not there is not an error.
+      parameters:
+        - $ref: "#/components/parameters/ImageBucketName"
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /v1/admin/titles:
     get:
       operationId: getAdminTitles
@@ -6209,6 +6353,12 @@ components:
         type: integer
         format: int64
         minimum: 1
+    ImageBucketName:
+      name: bucket
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ImageBucket"
     AdminYouTubeFeedId:
       name: feed
       in: path
@@ -7077,6 +7227,27 @@ components:
       properties:
         paused:
           type: boolean
+    ImageBucket:
+      description: A bucket images are kept in
+      type: string
+      enum: [assets]
+    StoredImage:
+      type: object
+      required: [key, url, size, uploaded]
+      properties:
+        key:
+          description: Its name in the bucket
+          type: string
+        url:
+          description: Where it is served from
+          type: string
+        size:
+          description: In bytes
+          type: integer
+          format: int64
+        uploaded:
+          type: string
+          format: date-time
     YouTubeFeed:
       type: object
       required: [id, paused, channels, waiting, live, created_at]

@@ -66,7 +66,7 @@ func twitchPush(hub TwitchHub, kind, body string, secret []byte, at string) *htt
 		req.Header.Set(twitch.HeaderSignature, "sha256="+hex.EncodeToString(mac.Sum(nil)))
 	}
 	rec := httptest.NewRecorder()
-	NewMux(&fakeRatings{}, nil, nil, nil, nil, hub, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
+	NewMux(&fakeRatings{}, nil, nil, nil, nil, hub, nil, nil, slog.New(slog.DiscardHandler), &recordedRequests{}, stepClock(time.Millisecond)).ServeHTTP(rec, req)
 	return rec
 }
 

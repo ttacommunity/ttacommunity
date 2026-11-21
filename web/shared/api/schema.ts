@@ -1079,6 +1079,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The images in the assets bucket, newest first
+         * @description Images the site and others may link to, served from the assets
+         *     bucket's own address. An image's address never changes and never
+         *     names another picture. Cached for a minute.
+         */
+        get: operations["getAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/site/visits": {
         parameters: {
             query?: never;
@@ -3032,6 +3054,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/images/{bucket}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The images in a bucket, newest first */
+        get: operations["getAdminImages"];
+        put?: never;
+        /**
+         * Upload an image to a bucket
+         * @description Audited. The Origin must be the admin site. The body is the file itself. It must be a PNG, JPEG, GIF or WebP by its content, and 5 MB at most. It is stored under its cleaned name, 12 hex characters of its SHA-256 and the extension its content shows, for good. 409 when that image is stored already; 503 when the bucket is not set up here.
+         */
+        post: operations["postAdminImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/images/{bucket}/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an image from a bucket
+         * @description Audited. The Origin must be the admin site. Pages that link to it show a broken image; its address is never given to another picture. Deleting one that is not there is not an error.
+         */
+        delete: operations["deleteAdminImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/titles": {
         parameters: {
             query?: never;
@@ -4486,6 +4549,24 @@ export interface components {
         };
         RSSFeedSetting: {
             paused: boolean;
+        };
+        /**
+         * @description A bucket images are kept in
+         * @enum {string}
+         */
+        ImageBucket: "assets";
+        StoredImage: {
+            /** @description Its name in the bucket */
+            key: string;
+            /** @description Where it is served from */
+            url: string;
+            /**
+             * Format: int64
+             * @description In bytes
+             */
+            size: number;
+            /** Format: date-time */
+            uploaded: string;
         };
         YouTubeFeed: {
             /** Format: int64 */
@@ -8102,6 +8183,7 @@ export interface components {
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
         AdminRSSFeedId: number;
+        ImageBucketName: components["schemas"]["ImageBucket"];
         AdminYouTubeFeedId: number;
         AdminTwitchFeedId: number;
         /** @description The player's name, as the leaderboard gives it */
@@ -9451,6 +9533,38 @@ export interface operations {
                     "application/json": string[];
                 };
             };
+        };
+    };
+    getAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every image */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredImage"][];
+                };
+            };
+            /** @description This API has no assets bucket */
+            404: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            503: components["responses"]["Unavailable"];
         };
     };
     getSiteVisits: {
@@ -12368,6 +12482,105 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getAdminImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bucket: components["parameters"]["ImageBucketName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every image */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredImage"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    postAdminImage: {
+        parameters: {
+            query: {
+                /** @description The file's name, which the image's key starts with */
+                name: string;
+            };
+            header?: never;
+            path: {
+                bucket: components["parameters"]["ImageBucketName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Stored */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoredImage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description The image is over 5 MB */
+            413: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteAdminImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bucket: components["parameters"]["ImageBucketName"];
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     getAdminTitles: {
         parameters: {
             query?: never;
@@ -14041,6 +14254,7 @@ export const notificationEventValues: ReadonlyArray<FlattenedDeepRequired<compon
 export const notificationEndpointKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationEndpointKind"]> = ["webhook", "bot_channel"];
 export const notificationFormatValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NotificationFormat"]> = ["discord"];
 export const discordReplyVisibilityValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["DiscordReplyVisibility"]> = ["private", "shared", "always_private", "always_shared"];
+export const imageBucketValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ImageBucket"]> = ["assets"];
 export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedOption"]["match"]> = ["all", "any"];
 export const feedItemTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedItemText"]> = ["full", "short", "none"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
