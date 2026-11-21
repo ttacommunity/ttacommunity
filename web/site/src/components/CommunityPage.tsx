@@ -1,5 +1,5 @@
 /** The community leaderboard page: standings, dynamic best-N highlights, and tournament or event columns. */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   communityEditions,
   communityLeaderboard,
@@ -188,7 +188,7 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
   );
 }
 
-function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[] }) {
+function Table({ data, view, rows, children }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[]; children?: ReactNode }) {
   const columns = data.categories.flatMap((c) => c.columns);
   const sheetOrder = columns.map((c) => c.id);
   const standard = view.view === 'standard';
@@ -293,6 +293,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
           </tbody>
         </table>
       </ScrollTable>
+      {children}
     </Panel>
   );
 }
@@ -340,16 +341,17 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
           </strong>
         </div>
       </Inset>
-      <Table data={data} view={onPage} rows={shown} />
-      {total > 1 && (
-        <Pager
-          page={page}
-          pages={total}
-          total={{ count: found.length, noun: 'competitors' }}
-          link={(p) => ({ href: href(onPage, { page: p }) })}
-          go={(p) => window.location.assign(href(onPage, { page: p }))}
-        />
-      )}
+      <Table data={data} view={onPage} rows={shown}>
+        {total > 1 && (
+          <Pager
+            page={page}
+            pages={total}
+            total={{ count: found.length, noun: 'competitors' }}
+            link={(p) => ({ href: href(onPage, { page: p }) })}
+            go={(p) => window.location.assign(href(onPage, { page: p }))}
+          />
+        )}
+      </Table>
     </div>
   );
 }

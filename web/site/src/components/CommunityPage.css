@@ -219,10 +219,3 @@
 
 /* styles.css's scroll hint, shown on phones. */
 
-/* The pager sits below the table, not inside a card, so it brings its own panel. */
-.community-page > .pagination {
-  padding: 0.75rem 1rem;
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-}
