@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ttacommunity/backend/internal/blitz"
+	"ttacommunity/backend/internal/blitzview"
 	"ttacommunity/backend/internal/store"
 )
 
@@ -31,22 +32,7 @@ func roundThreads(ed store.BlitzEdition, r store.BlitzRound) (blitz.Threads, err
 	case len(ed.Organisers) == 0:
 		return blitz.Threads{}, fmt.Errorf("%w: add the edition's organisers first", errNoThreads)
 	}
-	people := map[int64]blitz.Person{}
-	for _, e := range ed.Entrants {
-		people[e.ID] = blitz.Person{Name: e.Name, Discord: e.DiscordName, DiscordID: e.DiscordID}
-	}
-	text, _ := threadText(ed)
-	t := blitz.Threads{Round: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: *r.Deadline, Text: text}
-	for _, o := range ed.Organisers {
-		t.Organisers = append(t.Organisers, blitz.Person{Name: o.Name, Discord: o.DiscordName, DiscordID: o.DiscordID})
-	}
-	for i, m := range r.Matches {
-		if m.B == nil {
-			t.Byes = append(t.Byes, people[m.A])
-			continue
-		}
-		t.Games = append(t.Games, blitz.ThreadGame{Number: i + 1, A: people[m.A], B: people[*m.B]})
-	}
+	t := blitzview.Threads(ed, r)
 	if len(t.Games) == 0 {
 		return blitz.Threads{}, fmt.Errorf("%w: the round has no game to make a thread for", errNoThreads)
 	}
@@ -167,12 +153,7 @@ func (s *server) DeleteAdminBlitzOrganiser(ctx context.Context, req DeleteAdminB
 }
 
 // threadText is what an edition's thread messages say, and true when it is the edition's own rather than the default.
-func threadText(ed store.BlitzEdition) (blitz.ThreadText, bool) {
-	if ed.ThreadText == nil {
-		return blitz.DefaultThreadText, false
-	}
-	return blitz.ThreadText{Message: ed.ThreadText.Message, NoDiscord: ed.ThreadText.NoDiscord}, true
-}
+var threadText = blitzview.ThreadText
 
 func (s *server) PutAdminBlitzThreadText(ctx context.Context, req PutAdminBlitzThreadTextRequestObject) (PutAdminBlitzThreadTextResponseObject, error) {
 	me, _ := adminFrom(ctx)

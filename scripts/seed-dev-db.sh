@@ -79,9 +79,9 @@ if [ "$result" != exit=0 ]; then
   exit 1
 fi
 
-# Production's webhooks post to real channels, and its Twitch streamers are subscribed by production's Twitch
-# app: dev's admin adds its own.
-echo "removing production's notification webhooks and Twitch streamers from ratings_dev"
+# Production's webhooks post to real channels, its bot channels make threads in production's server (their
+# threads go with them), and its Twitch streamers are subscribed by production's Twitch app: dev's admin adds its own.
+echo "removing production's notification webhooks, bot channels and Twitch streamers from ratings_dev"
 sql -d ratings_dev <<'SQL'
 DELETE FROM notification_outbox;
 DELETE FROM notification_endpoints;

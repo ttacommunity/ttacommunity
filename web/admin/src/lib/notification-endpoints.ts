@@ -1,13 +1,14 @@
-/** The Notifications tab's decisions: the events and feeds an endpoint may take, what it takes in a line, whether an edit can be saved, and what is sent. */
+/** The Notifications tab's decisions: a webhook or a bot channel, the events and feeds an endpoint may take, what it takes in a line, whether an edit can be saved, and what is sent. */
 import type { components } from '@ttac/shared/api';
 import { KIND_LABELS, type FeedChoice } from './feeds';
 
 type Event = components['schemas']['NotificationEvent'];
+type Kind = components['schemas']['NotificationEndpointKind'];
 type Feed = Pick<FeedChoice, 'kind' | 'id' | 'name'>;
 type FeedOption = components['schemas']['FeedOption'];
 type Setting = Pick<
   components['schemas']['NotificationEndpoint'],
-  'name' | 'webhook_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'thread_id' | 'blitz_reminder_hours' | 'colour' | 'text' | 'image'
+  'name' | 'kind' | 'webhook_id' | 'channel_id' | 'prefix' | 'paused' | 'forum' | 'username' | 'avatar_url' | 'role_id' | 'thread_id' | 'blitz_reminder_hours' | 'colour' | 'text' | 'image'
 > & {
   /** A new webhook URL, or '' to keep the saved one: the API never sends it back. */
   url: string;
@@ -39,10 +40,21 @@ export const EVENTS: { key: Event; label: string }[] = [
   { key: 'blitz_sign_ups', label: 'Blitz sign-ups opening' },
 ];
 
-/** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved, and differs from what is saved. */
+/** THREADS is what a bot channel takes, as the tab says it. */
+const THREADS = 'A private thread for each blitz game';
+
+/** ofKind is a new endpoint's draft made kind: a bot channel takes only blitz games' threads, a webhook starts taking nothing. */
+export function ofKind<T extends Setting>(draft: T, kind: Kind): T {
+  return kind === 'bot_channel'
+    ? { ...draft, kind, url: '', events: ['blitz_threads'], feeds: [], feed_options: [] }
+    : { ...draft, kind, channel_id: '', events: [] };
+}
+
+/** endpointChanged says whether an endpoint's edit can be saved: it has a name, a URL given or saved (a bot channel: a channel), and differs from what is saved. */
 export function endpointChanged(saved: Setting, draft: Setting): boolean {
-  if (draft.name.trim() === '' || (draft.url.trim() === '' && saved.webhook_id === '')) return false;
-  const texts = ['name', 'url', 'prefix', 'username', 'avatar_url', 'role_id', 'thread_id'] as const;
+  if (draft.name.trim() === '') return false;
+  if (draft.kind === 'bot_channel' ? draft.channel_id.trim() === '' : draft.url.trim() === '' && saved.webhook_id === '') return false;
+  const texts = ['name', 'url', 'channel_id', 'prefix', 'username', 'avatar_url', 'role_id', 'thread_id'] as const;
   const choices = ['paused', 'forum', 'colour', 'text', 'image', 'blitz_reminder_hours'] as const;
   return texts.some((k) => draft[k].trim() !== saved[k]) || choices.some((k) => draft[k] !== saved[k]) ||
     !sameSet(saved.events, draft.events) || !sameSet(saved.feeds, draft.feeds) ||
@@ -57,10 +69,14 @@ function takenOptions(s: Pick<Setting, 'feeds' | 'feed_options'>): FeedOption[] 
     .sort((a, b) => a.feed - b.feed);
 }
 
-/** endpointSetting is what saving draft sends: without the webhook's id, and without a URL when none was given, keeping the saved one. */
+/** endpointSetting is what saving draft sends: its kind and channel, without the webhook's id, and without a URL when none was given, keeping the saved one. */
 export function endpointSetting(draft: Setting): Omit<components['schemas']['NotificationEndpointSetting'], 'format'> {
-  const { name, prefix, paused, forum, username, avatar_url, role_id, blitz_reminder_hours, colour, text, image } = draft;
-  const setting = { name, prefix, paused, forum, username, avatar_url, role_id, thread_id: draft.thread_id.trim(), blitz_reminder_hours, colour, text, image, events: [...draft.events], feeds: [...draft.feeds],
+  if (draft.kind === 'bot_channel') {
+    return { name: draft.name, kind: draft.kind, channel_id: draft.channel_id.trim(), paused: draft.paused,
+      events: withReminders(draft.events.includes('blitz_reminder')), blitz_reminder_hours: draft.blitz_reminder_hours, feeds: [], feed_options: [] };
+  }
+  const { name, kind, prefix, paused, forum, username, avatar_url, role_id, blitz_reminder_hours, colour, text, image } = draft;
+  const setting = { name, kind, prefix, paused, forum, username, avatar_url, role_id, thread_id: draft.thread_id.trim(), blitz_reminder_hours, colour, text, image, events: [...draft.events], feeds: [...draft.feeds],
     feed_options: takenOptions(draft) };
   return draft.url.trim() === '' ? setting : { ...setting, url: draft.url.trim() };
 }
@@ -81,6 +97,7 @@ function sameSet<T>(a: readonly T[], b: readonly T[]): boolean {
 /** subscriptions says in a line what an endpoint takes, from the feeds there are: its site events, then its feeds by name. */
 export function subscriptions(events: readonly Event[], feeds: readonly number[], all: readonly Feed[]): string {
   const parts: string[] = [];
+  if (events.includes('blitz_threads')) return events.includes('blitz_reminder') ? `${THREADS}, with deadline reminders` : THREADS;
   if (events.length === EVENTS.length) parts.push('every site event');
   else if (events.length > 0) parts.push(EVENTS.filter((e) => events.includes(e.key)).map((e) => e.label).join(', '));
   parts.push(...all.filter((f) => feeds.includes(f.id)).map((f) => `${f.name} on ${KIND_LABELS[f.kind]}`));
@@ -96,4 +113,9 @@ export function toggledFeed(feeds: readonly number[], feed: number, on: boolean)
 /** toggled returns events with event taken (on) or not, in EVENTS's order. */
 export function toggled(events: readonly Event[], event: Event, on: boolean): Event[] {
   return EVENTS.map((e) => e.key).filter((k) => (k === event ? on : events.includes(k)));
+}
+
+/** withReminders is a bot channel's events: its threads, and their deadline reminders when on. */
+export function withReminders(on: boolean): Event[] {
+  return on ? ['blitz_threads', 'blitz_reminder'] : ['blitz_threads'];
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { EVENTS, endpointChanged, endpointSetting, endpointStatus, subscriptions, toggled, toggledFeed } from './notification-endpoints';
+import { EVENTS, endpointChanged, endpointSetting, endpointStatus, ofKind, subscriptions, toggled, toggledFeed, withReminders } from './notification-endpoints';
 
-const SAVED = { name: 'Admins', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', thread_id: '', blitz_reminder_hours: 24, colour: '#ff4500', text: 'full' as const, image: true };
+const SAVED = { name: 'Admins', kind: 'webhook' as const, channel_id: '', url: '', webhook_id: '100000000000000001', events: ['link_request' as const], feeds: [2, 5], feed_options: [{ feed: 5, categories: [], keywords: ['tta'], was_live: true }], prefix: '', paused: false, forum: false, username: '', avatar_url: '', role_id: '', thread_id: '', blitz_reminder_hours: 24, colour: '#ff4500', text: 'full' as const, image: true };
 
 describe('notification endpoints', () => {
   it('offers every event the API knows', () => {
@@ -111,5 +111,48 @@ describe('notification endpoints', () => {
     ['paused', { ...DELIVERY, paused: true, last_sent_at: '2026-11-17T01:00:00Z' }, 'Paused: sent nothing'],
   ])('says how an endpoint is doing: %s', (_, e, want) => {
     expect(endpointStatus(e, when)).toBe(want);
+  });
+
+  const BOT = { ...SAVED, kind: 'bot_channel' as const, webhook_id: '', channel_id: '200000000000000001', events: ['blitz_threads' as const], feeds: [], feed_options: [] };
+  it.each([
+    ['unchanged', BOT, false],
+    ['moved to another channel', { ...BOT, channel_id: '200000000000000002' }, true],
+    ['left without a channel', { ...BOT, channel_id: ' ' }, false],
+    ['paused', { ...BOT, paused: true }, true],
+  ])('a bot channel can be saved when %s', (_, draft, want) => {
+    expect(endpointChanged(BOT, draft)).toBe(want);
+  });
+
+  it('adds a bot channel with its channel, taking only threads', () => {
+    const draft = ofKind({ ...SAVED, name: 'Threads', webhook_id: '', url: 'https://discord.com/api/webhooks/1/x', channel_id: ' 200000000000000001 ' }, 'bot_channel');
+    expect(endpointChanged({ ...SAVED, name: '', webhook_id: '' }, draft)).toBe(true);
+    const setting = endpointSetting(draft);
+    expect(setting).toMatchObject({ kind: 'bot_channel', channel_id: '200000000000000001', events: ['blitz_threads'], feeds: [] });
+    expect(setting.url).toBeUndefined();
+  });
+
+  it('turns a new bot channel back into a webhook taking nothing yet', () => {
+    expect(ofKind(BOT, 'webhook')).toMatchObject({ kind: 'webhook', events: [], channel_id: '' });
+  });
+
+  it('says a bot channel takes the threads', () => {
+    expect(subscriptions(['blitz_threads'], [], [])).toBe('A private thread for each blitz game');
+  });
+
+  it.each([
+    ['on', true, ['blitz_threads', 'blitz_reminder']],
+    ['off', false, ['blitz_threads']],
+  ])('a bot channel\'s reminders %s', (_, on, want) => {
+    expect(withReminders(on)).toEqual(want);
+  });
+
+  it('sends a bot channel\'s reminders and their hours', () => {
+    const draft = { ...BOT, events: withReminders(true), blitz_reminder_hours: 6 };
+    expect(endpointChanged(BOT, draft)).toBe(true);
+    expect(endpointSetting(draft)).toMatchObject({ events: ['blitz_threads', 'blitz_reminder'], blitz_reminder_hours: 6 });
+  });
+
+  it('says a bot channel reminds the threads', () => {
+    expect(subscriptions(['blitz_threads', 'blitz_reminder'], [], [])).toBe('A private thread for each blitz game, with deadline reminders');
   });
 });
