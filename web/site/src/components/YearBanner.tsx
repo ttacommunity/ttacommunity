@@ -5,6 +5,7 @@ import type { View } from '../lib/leaderboard-view';
 import type { LinkTo } from './OptionsDrawer';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
+import Highlight from './Highlight';
 
 interface Props {
   board: YearLeaderboard;
@@ -22,7 +23,7 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
     <div className="archive-hero-banner">
       <div>
         <div className="archive-head">
-          <span className="archive-badge">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
+          <span className="tag">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
           <span className="archive-snapshot">
             Snapshot Date: <strong>{board.snapshot}</strong>
           </span>
@@ -59,12 +60,14 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
         </div>
       </div>
       {champion !== undefined && (
-        <div className="archive-champion">
-          <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
-          <div className="archive-champion-name">
-            <PlayerLink name={champion.name} />
+        <Highlight>
+          <div className="archive-champion">
+            <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
+            <div className="archive-champion-name">
+              <PlayerLink name={champion.name} />
+            </div>
           </div>
-        </div>
+        </Highlight>
       )}
     </div>
   );

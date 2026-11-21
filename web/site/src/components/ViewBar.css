@@ -6,10 +6,11 @@
   justify-content: space-between;
   gap: 0.75rem 1rem;
   margin-bottom: 1.5rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+}
+
+/* Over a page's panels, the stack's gap spaces it. */
+.panels > .view-bar {
+  margin-bottom: 0;
 }
 
 .view-bar-actions {
@@ -49,7 +50,6 @@
 
   .view-bar-actions {
     width: 100%;
-    flex-wrap: nowrap;
     justify-content: flex-end;
   }
 }

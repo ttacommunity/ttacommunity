@@ -57,23 +57,21 @@
   white-space: nowrap;
   text-decoration: none;
 }
-.tournaments-table .col-setting,
-.tournaments-table .col-seasons {
+.admin-table .col-setting,
+.admin-table .col-seasons {
   text-align: center;
 }
-.tournaments-table .yes {
+.admin-table .yes {
   color: var(--win);
 }
-.tournaments-table .no {
+.admin-table .no {
   color: var(--text-muted);
 }
+/* An admin table on a phone: the columns a page marks as wide hidden. */
 @media (max-width: 640px) {
-  .tournaments-table .col-seasons {
+  .admin-table .col-seasons,
+  .admin-table .run-wide {
     display: none;
-  }
-  .tournaments-table th,
-  .tournaments-table td {
-    padding-inline: 0.4rem;
   }
 }
 .settings-list {
@@ -164,9 +162,6 @@
   align-items: flex-end;
   gap: 0.75rem;
   margin-top: 1rem;
-}
-.admin-add > .btn-antique {
-  height: var(--control-height);
 }
 .admin-add h3 {
   width: 100%;
@@ -260,15 +255,6 @@
 }
 .run-buttons button {
   white-space: nowrap;
-}
-@media (max-width: 640px) {
-  .runs-table .run-wide {
-    display: none;
-  }
-  .runs-table th,
-  .runs-table td {
-    padding-inline: 0.4rem;
-  }
 }
 .run-block {
   margin-block: 1rem;
@@ -514,7 +500,7 @@
   gap: 0.6rem;
   margin: 0 0 0.6rem;
 }
-.stages-table .stage-note {
+.admin-table .stage-note {
   max-width: 28rem;
   white-space: pre-wrap;
 }
@@ -663,20 +649,10 @@
   position: static;
   margin-top: 4px;
 }
-/* A field or button that cannot be used now looks it, and a button does not light up. */
+/* A field that cannot be used now looks it (a button does through the shared button CSS). */
 .admin-main .input-antique:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-.admin-main .btn-antique:disabled,
-.admin-main .btn-antique:disabled:hover {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
-  border-color: var(--accent-gold);
-  box-shadow: none;
-  color: var(--text-main);
-  transform: none;
 }
 /* A note on when to use a control (InfoTip): an "i" beside it, the note opening under the row it is in. */
 .admin-add {

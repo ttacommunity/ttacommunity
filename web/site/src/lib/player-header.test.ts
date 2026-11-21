@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { headerPeak, headerTitle } from './player-header';
+import { headerPeak, headerTitle, otherPlayerPages } from './player-header';
+
+describe('otherPlayerPages', () => {
+  it.each([
+    ['the profile', 'profile', ['achievements', 'years']],
+    ['the achievements page', 'achievements', ['profile', 'years']],
+    ['Career Years', 'years', ['profile', 'achievements']],
+  ] as const)('links %s to the other two, in one order', (_, page, want) => {
+    expect(otherPlayerPages(page)).toEqual(want);
+  });
+});
 
 describe('headerTitle', () => {
   it.each([

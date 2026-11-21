@@ -7,9 +7,11 @@ order: 7
 {/* Written by DANeo for the original ratings site. */}
 
 import FaqFigure from '../../components/FaqFigure.astro';
+import Panel from '../../components/Panel';
+import Note from '@ttac/shared/Note';
+import ScrollTable from '../../components/ScrollTable';
 
-<div class="faq-card">
-  <h3>Whole-History Rating (WHR): How Does It Work and How Does It Compare?</h3>
+<Panel title="Whole-History Rating (WHR): How Does It Work and How Does It Compare?" className="faq-card">
   <div>
 
       <p>
@@ -26,7 +28,7 @@ import FaqFigure from '../../components/FaqFigure.astro';
     WHR reflects real-world skill changes by modeling ability as a continuous <a class="faq-link" href="https://en.wikipedia.org/wiki/Wiener_process" target="_blank" rel="noopener noreferrer">one-dimensional Brownian motion (Wiener process)</a>. The uncertainty in skill drift between day $t$ and day $t + \Delta t$ expands in direct proportion to elapsed calendar days:
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 \mathrm{Var}(r_{t + \Delta t} - r_t) = w^2 \cdot \Delta t
@@ -45,7 +47,7 @@ $$
     WHR pools all <strong><FaqFigure name="run.games" fallback="131,000+" /> matches</strong> and <strong><FaqFigure name="run.players" fallback="3,489" /> competitors</strong> across <FaqFigure name="run.years" fallback="2017–2026" /> into a joint posterior probability distribution and finds the most probable skill history for every player simultaneously:
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 P(\mathbf{r} \mid \mathbf{D}) \propto P(\mathbf{r}) \prod_{k=1}^{M} P(\text{Outcome}_k \mid \mathbf{r})
@@ -64,72 +66,70 @@ $$
     Textbook WHR (Coulom 2008) operates without lookahead boundaries. While elegant, an unbounded retrospective smoother introduces a serious flaw: <strong>The Time Machine Problem</strong>.
   </p>
 
-  <div class="faq-verdict">
-    <strong class="c-yellow fs-105">The Scenario: Alice vs. Bob</strong>
-    <p class="faq-lead">
+  <Note title="The Scenario: Alice vs. Bob">
+    <p>
       Suppose that in <strong>2023</strong>, Alice plays a league match and defeats Bob, who is an inexperienced novice at the time. Over the next three years (<strong>2024&ndash;2026</strong>), Bob studies strategy, plays 500 competitive matches, and becomes a <strong>2100-rated World Champion</strong>.
     </p>
-    <p class="faq-lead">
+    <p>
       Under textbook unbounded WHR, Bob's 2026 mastery leaks backward into 2023. The system retroactively treats Alice's 2023 victory as if she defeated a peak 2100 grandmaster! Alice receives an undeserved, massive rating boost for defeating someone who was actually a beginner on that day.
     </p>
-    <p class="faq-lead faq-lead-end c-sage">
+    <p class="c-sage">
       <strong>Our Golden Retrospective Solution:</strong> We apply an exponential attenuation kernel based on the <a class="faq-link" href="https://en.wikipedia.org/wiki/Golden_ratio" target="_blank" rel="noopener noreferrer">Golden Ratio</a> ($\phi = \frac{1 + \sqrt{5}}{2} \approx 1.61803$):
     </p>
-    <div class="faq-formula my-75">
+    <div class="formula">
 
 $$
 W(\Delta t) = \phi^{-2 \cdot \frac{\Delta t}{365.25}}
 $$
 
 </div>
-    <p class="faq-lead faq-lead-end">
+    <p>
       Across three elapsed years ($\Delta t \approx 1095$ days), retrospective weight drops to $\phi^{-6} = (1/\phi)^6 \approx 0.090$ (only <strong>9.0% information leakage</strong>). Modern mastery cannot rewrite historical tournament eras. Alice is evaluated on Bob's genuine skill near the time they actually played.
     </p>
-  </div>
+  </Note>
 
   <h4 class="faq-subhead">
     Key Differences: WHR vs. Glicko-2
   </h4>
-  <div class="faq-table-wrap">
-    <table class="faq-table">
+  <ScrollTable client:visible label="Glicko-2 and WHR compared">
+    <table class="leaderboard-table">
       <thead>
-        <tr class="faq-thead">
-          <th class="cell-lg">Dimension</th>
-          <th class="cell-lg">Glicko-2 (Standard / MP / Adaptive-T)</th>
-          <th class="cell-lg">Whole-History Rating (WHR)</th>
+        <tr>
+          <th>Dimension</th>
+          <th>Glicko-2 (Standard / MP / Adaptive-T)</th>
+          <th>Whole-History Rating (WHR)</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Information Flow</td>
-          <td class="cell-lg c-sand"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
-          <td class="cell-lg c-leaf"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Historical Corrections</td>
-          <td class="cell-lg c-sand"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
-          <td class="cell-lg c-leaf"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">Time Continuity</td>
-          <td class="cell-lg c-sand"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
-          <td class="cell-lg c-leaf"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
+        <tr>
+          <td class="bold c-wheat">Information Flow</td>
+          <td class="c-sand"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
+          <td class="c-leaf"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
         </tr>
         <tr>
-          <td class="cell-lg bold c-wheat">Match Order Invariance</td>
-          <td class="cell-lg c-sand">Order-dependent within periods.</td>
-          <td class="cell-lg c-leaf"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
+          <td class="bold c-wheat">Historical Corrections</td>
+          <td class="c-sand"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
+          <td class="c-leaf"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
+        </tr>
+        <tr>
+          <td class="bold c-wheat">Time Continuity</td>
+          <td class="c-sand"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
+          <td class="c-leaf"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
+        </tr>
+        <tr>
+          <td class="bold c-wheat">Match Order Invariance</td>
+          <td class="c-sand">Order-dependent within periods.</td>
+          <td class="c-leaf"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
-  <div class="faq-takeaway">
-    <strong class="faq-takeaway-title">Technical Note: Why do some WHR graphs exhibit step-like jumps or &ldquo;wild swings&rdquo; after tournament breaks?</strong>
-    <p class="faq-takeaway-text">
+  <Note title="Technical Note: Why do some WHR graphs exhibit step-like jumps or “wild swings” after tournament breaks?">
+    <p>
       WHR models skill as continuous Brownian motion across time. When players take multi-year tournament hiatuses and return in peak form, WHR decouples their active eras while sparse-match visual charts render flat interpolation lines.
     </p>
-  </div>
+  </Note>
           </div>
 
-</div>
+</Panel>

@@ -12,8 +12,12 @@ import {
   type YearLeaderboard,
 } from '@ttac/shared/ratings';
 import Segmented from '@ttac/shared/Segmented';
+import PageHeader from '@ttac/shared/PageHeader';
 import { count } from '@ttac/shared/numbers';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
+import Panel from './Panel';
+import Panels from './Panels';
+import Tex from './Tex';
 import OptionsDrawer, { type LinkTo } from './OptionsDrawer';
 import { OptionsToggle, narrow } from './SideDrawer';
 import YearBanner from './YearBanner';
@@ -134,34 +138,36 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className={optionsOpen ? 'leaderboard-layout options-open' : 'leaderboard-layout'}>
-      <div className="rating-card leaderboard">
-        <div className="format-bar">
-          <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
-          <div className="format-bar-actions">
-            <SearchBox players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
-            <OptionsToggle
-              title="Toggle advanced rating options, season archive, and filters"
-              active={hasOptions(view)}
-              open={optionsOpen}
-              onClick={() => toggleOptions(!optionsOpen)}
-            />
+      <PageHeader
+        title="Competitive Leaderboard"
+        subtitle={
+          <span className="leaderboard-engine">
+            Engine: <strong>{show.engineName(model)}</strong>
+            <span className="badge badge-format">{show.formatName(view.format)}</span>
+            <span className="badge badge-mode">{show.resetModeName(model)}</span>
+            {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
+          </span>
+        }
+      />
+      <Panels>
+        <Panel label="Leaderboard" className="leaderboard">
+          <div className="format-bar">
+            <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
+            <div className="format-bar-actions">
+              <PlayerSearch players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
+              <OptionsToggle
+                title="Toggle advanced rating options, season archive, and filters"
+                active={hasOptions(view)}
+                open={optionsOpen}
+                onClick={() => toggleOptions(!optionsOpen)}
+              />
+            </div>
           </div>
-        </div>
 
-        {yearBoard !== null && (
-          <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
-        )}
+          {yearBoard !== null && (
+            <YearBanner board={yearBoard} latest={archive?.[0]?.year === yearBoard.year} ranked={found.rows.length} view={view} linkTo={linkTo} />
+          )}
 
-        <div className="leaderboard-heading">
-          <div>
-            <h1 className="rating-card-heading">Competitive Leaderboard</h1>
-            <p className="leaderboard-engine">
-              Engine: <strong>{show.engineName(model)}</strong>
-              <span className="badge badge-format">{show.formatName(view.format)}</span>
-              <span className="badge badge-mode">{show.resetModeName(model)}</span>
-              {show.engineNote(model) !== '' && <span className="leaderboard-engine-note">({show.engineNote(model)})</span>}
-            </p>
-          </div>
           {state.kind === 'ready' && (
             <p className="leaderboard-count">
               Players: <strong>{count(found.rows.length)}</strong>{' '}
@@ -176,170 +182,169 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
               )}
             </p>
           )}
-        </div>
 
-        <div className="leaderboard-filters">
-          <div className="leaderboard-pills">
-            {parsedSearch.positive.length > 0 && (
-              <span className="filter-pill">
-                Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
-                <a
-                  {...linkTo({
-                    ...view,
-                    search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
-                    page: 1,
-                  })}
-                  aria-label="Clear search terms"
-                >
-                  ✕
-                </a>
-              </span>
-            )}
-            {parsedSearch.negative.map((neg) => (
-              <span key={neg} className="filter-pill filter-pill-excluded">
-                Excluded: &quot;{neg}&quot;{' '}
-                <a
-                  {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
-                  aria-label={`Remove exclusion for ${neg}`}
-                >
-                  ✕
-                </a>
-              </span>
-            ))}
-            {view.title !== null && (
-              <span className="filter-pill">
-                Title: {view.title}{' '}
-                <a {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.status !== DEFAULT_VIEW.status && (
-              <span className="filter-pill">
-                Status: {view.status === 'all' ? 'All' : 'Inactive'}{' '}
-                <a {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.delta !== DEFAULT_VIEW.delta && (
-              <span className="filter-pill">
-                &Delta;: {deltaNames[view.delta]}{' '}
-                <a {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.ranking !== DEFAULT_VIEW.ranking && (
-              <span className="filter-pill">
-                Track: {trackNames[view.ranking]}{' '}
-                <a {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
-                  ✕
-                </a>
-              </span>
-            )}
-            {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
-              <span className="filter-pill">
-                Min Opponents: &ge;{view.minOpps}{' '}
-                <a {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
-                  ✕
-                </a>
-              </span>
-            )}
-            {hasFilters(view) && (
-              <a
-                {...linkTo({
-                  ...DEFAULT_VIEW,
-                  ranking: view.ranking,
-                  engine: view.engine,
-                  reset: view.reset,
-                  format: view.format,
-                  year: view.year,
-                  stats: view.stats,
-                  minOpps: defaultMinOpps(view.year, view.ranking),
-                })}
-                className="btn-reset"
-              >
-                Clear Filters
-              </a>
-            )}
-          </div>
-          <div>
-            Sorted by: <strong>{sortNames[view.sort]}</strong> ({view.order.toUpperCase()})
-          </div>
-        </div>
-
-        {showMatchesBar && (
-          <div className="search-matches-bar" aria-label="Search matches filter">
-            <span className="search-matches-label">Matches ({found.rows.length}):</span>
-            <div className="search-matches-chips">
-              {found.rows.map((p) => (
-                <span key={p.name} className="search-match-chip">
-                  <span className="chip-name">{p.name}</span>
-                  <button
-                    type="button"
-                    className="chip-dismiss-btn"
-                    title={`Exclude ${p.name}`}
-                    aria-label={`Exclude ${p.name} from search`}
-                    onClick={() => onExclude(p.name)}
+          <div className="leaderboard-filters">
+            <div className="leaderboard-pills">
+              {parsedSearch.positive.length > 0 && (
+                <span className="chip">
+                  Search: &quot;{parsedSearch.positive.join(', ')}&quot;{' '}
+                  <a className="chip-remove"
+                    {...linkTo({
+                      ...view,
+                      search: parsedSearch.negative.length > 0 ? parsedSearch.negative.map((n) => `-${n}`).join(', ') : '',
+                      page: 1,
+                    })}
+                    aria-label="Clear search terms"
                   >
                     ✕
-                  </button>
+                  </a>
                 </span>
-              ))}
+              )}
               {parsedSearch.negative.map((neg) => (
-                <span key={neg} className="search-match-chip chip-excluded">
-                  <span className="chip-name">{neg}</span>
-                  <button
-                    type="button"
-                    className="chip-restore-btn"
-                    title={`Restore ${neg}`}
-                    aria-label={`Restore ${neg} to search`}
-                    onClick={() => onInclude(neg)}
+                <span key={neg} className="chip chip-out">
+                  Excluded: &quot;{neg}&quot;{' '}
+                  <a className="chip-remove"
+                    {...linkTo({ ...view, search: includePlayer(view.search, neg), page: 1 })}
+                    aria-label={`Remove exclusion for ${neg}`}
                   >
-                    +
-                  </button>
+                    ✕
+                  </a>
                 </span>
               ))}
+              {view.title !== null && (
+                <span className="chip">
+                  Title: {view.title}{' '}
+                  <a className="chip-remove" {...linkTo({ ...view, title: null, page: 1 })} aria-label="Clear title filter">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.status !== DEFAULT_VIEW.status && (
+                <span className="chip">
+                  Status: {view.status === 'all' ? 'All' : 'Inactive'}{' '}
+                  <a className="chip-remove" {...linkTo({ ...view, status: DEFAULT_VIEW.status, page: 1 })} aria-label="Clear status filter">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.delta !== DEFAULT_VIEW.delta && (
+                <span className="chip">
+                  &Delta;: {deltaNames[view.delta]}{' '}
+                  <a className="chip-remove" {...linkTo({ ...view, delta: DEFAULT_VIEW.delta, page: 1 })} aria-label="Turn off deltas">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.ranking !== DEFAULT_VIEW.ranking && (
+                <span className="chip">
+                  Track: {trackNames[view.ranking]}{' '}
+                  <a className="chip-remove" {...linkTo(withRanking(view, DEFAULT_VIEW.ranking))} aria-label="Reset rating track">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {view.minOpps !== defaultMinOpps(view.year, view.ranking) && (
+                <span className="chip">
+                  Min Opponents: &ge;{view.minOpps}{' '}
+                  <a className="chip-remove" {...linkTo({ ...view, minOpps: defaultMinOpps(view.year, view.ranking), page: 1 })} aria-label="Clear minimum opponents">
+                    ✕
+                  </a>
+                </span>
+              )}
+              {hasFilters(view) && (
+                <a
+                  {...linkTo({
+                    ...DEFAULT_VIEW,
+                    ranking: view.ranking,
+                    engine: view.engine,
+                    reset: view.reset,
+                    format: view.format,
+                    year: view.year,
+                    stats: view.stats,
+                    minOpps: defaultMinOpps(view.year, view.ranking),
+                  })}
+                  className="btn-quiet btn-compact"
+                >
+                  Clear Filters
+                </a>
+              )}
+            </div>
+            <div>
+              Sorted by: <strong>{sortNames[view.sort]}</strong> ({view.order.toUpperCase()})
             </div>
           </div>
-        )}
 
-        <Waiting load={state} what="the leaderboard" form="inline" />
-        {state.kind === 'ready' && (
-          <>
-            <Table
-              view={view}
-              rows={shown.rows}
-              jumpTo={found.jumpTo}
-              changes={changes}
-              linkTo={linkTo}
-              caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
-              hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
-              onExclude={onExclude}
-            />
-            <Pager
-              page={shown.page}
-              pages={shown.pages}
-              total={{ count: shown.total, noun: 'players' }}
-              link={(page) => linkTo({ ...view, page })}
-              go={(page) => go({ ...view, page })}
-            />
-          </>
-        )}
+          {showMatchesBar && (
+            <div className="view-bar search-matches-bar" aria-label="Search matches filter">
+              <span className="search-matches-label">Matches ({found.rows.length}):</span>
+              <div className="search-matches-chips">
+                {found.rows.map((p) => (
+                  <span key={p.name} className="chip">
+                    <span className="chip-name">{p.name}</span>
+                    <button
+                      type="button"
+                      className="chip-remove"
+                      title={`Exclude ${p.name}`}
+                      aria-label={`Exclude ${p.name} from search`}
+                      onClick={() => onExclude(p.name)}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                {parsedSearch.negative.map((neg) => (
+                  <span key={neg} className="chip chip-out">
+                    <span className="chip-name">− {neg}</span>
+                    <button
+                      type="button"
+                      className="chip-remove"
+                      title={`Restore ${neg}`}
+                      aria-label={`Restore ${neg} to search`}
+                      onClick={() => onInclude(neg)}
+                    >
+                      +
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-        <section className="rating-card rating-card-note" aria-labelledby="leaderboard-guide">
-          <h2 id="leaderboard-guide">Leaderboard Mechanics &amp; Rating Principles</h2>
+          <Waiting load={state} what="the leaderboard" form="inline" />
+          {state.kind === 'ready' && (
+            <>
+              <Table
+                view={view}
+                rows={shown.rows}
+                jumpTo={found.jumpTo}
+                changes={changes}
+                linkTo={linkTo}
+                caption={`${show.modelLabel(model)}, ${show.formatName(view.format)}, run ${state.board.run_id}`}
+                hidden={hidden === null ? null : { note: hiddenNote(hidden, view, view.search), show: hidden.show }}
+                onExclude={onExclude}
+              />
+              <Pager
+                page={shown.page}
+                pages={shown.pages}
+                total={{ count: shown.total, noun: 'players' }}
+                link={(page) => linkTo({ ...view, page })}
+                go={(page) => go({ ...view, page })}
+              />
+            </>
+          )}
+
+        </Panel>
+        <Panel id="leaderboard-guide" title="Leaderboard Mechanics & Rating Principles" stripe="gold">
           <p>
             Rankings are calculated dynamically across all recorded competitive Through the Ages tournaments. The primary
             sorting metric is the{' '}
             <strong>
-              Conservative Rating <i>C</i> = <i>μ</i> − 3<i>σ</i>
+              Conservative Rating <Tex tex="C = \mu - 3\sigma" />
             </strong>
             , guaranteeing that a player&apos;s standing represents an outcome that they can outperform 99.7% of the time.
           </p>
-        </section>
-      </div>
+        </Panel>
+      </Panels>
 
       {optionsOpen && (
           <OptionsDrawer
@@ -458,7 +463,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
   }, [jumpTo]);
 
   return (
-    <ScrollTable hint="full stats">
+    <ScrollTable label="Leaderboard">
       <table className="leaderboard-table">
         <caption className="visually-hidden">{caption}</caption>
         <thead>
@@ -497,7 +502,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
                       </span>
                     )}
                     {!p.active && view.status === 'all' && (
-                      <span className="retired-badge" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
+                      <span className="status" data-tooltip="Inactive / Retired (no competitive match in > 12 months)">
                         Retired
                       </span>
                     )}
@@ -505,7 +510,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
                   {view.search !== '' && onExclude && (
                     <button
                       type="button"
-                      className="btn-exclude-row"
+                      className="btn-icon btn-compact row-exclude"
                       title={`Exclude "${p.name}" from search`}
                       aria-label={`Exclude "${p.name}" from search`}
                       onClick={() => onExclude(p.name)}

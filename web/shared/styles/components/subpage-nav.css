@@ -11,6 +11,10 @@
 }
 
 .subpage-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  box-sizing: border-box;
   padding: 0.4rem 1rem;
   border: 1px solid transparent;
   border-radius: 4px;

@@ -4,6 +4,9 @@ import { PUBLIC_API_URL } from 'astro:env/client';
 import SiteLayout from '../layouts/SiteLayout.astro';
 import HomePage from '../components/HomePage';
 import RunFigures from '../components/RunFigures';
+import HomeHeader from '../components/HomeHeader.astro';
+import Tile, { TileLink } from '../components/Tile';
+import Inset from '../components/Inset';
 import '../components/HomePage.css';
 ---
 <SiteLayout
@@ -11,36 +14,17 @@ import '../components/HomePage.css';
   description="The official platform for the Through the Ages board game community: Glicko-D ratings, tournament circuits, Hall of Fame, and blitz matchmaking."
 >
   <div class="home-container">
-    <section class="home-hero">
-      <div class="home-hero-layout">
-        <div class="home-hero-logo-col">
-          <img
-            src="/img/HubLogo.png"
-            alt="Through the Ages Community"
-            class="home-hero-logo"
-            width="537"
-            height="460"
-          />
-        </div>
-        <div class="home-hero-content-col">
-          <h1 class="home-hero-title">Through the Ages Community</h1>
-          <p class="home-hero-subtitle">
-            The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits,
-            the World Championship Hall of Fame, and automated blitz matchmaking.
-          </p>
-
-          <RunFigures client:only="react" apiUrl={PUBLIC_API_URL} />
-        </div>
-      </div>
-    </section>
+    <HomeHeader>
+      <RunFigures client:only="react" apiUrl={PUBLIC_API_URL} />
+    </HomeHeader>
 
     <section class="home-pillars" aria-label="Core Sections">
-      <div class="home-pillar-card">
+      <Tile>
         <div class="pillar-card-header">
           <span class="pillar-icon">🏆</span>
-          <span class="pillar-tag">Glicko-D Engine</span>
+          <span class="tag">Glicko-D Engine</span>
         </div>
-        <h2 class="pillar-title">Ratings &amp; Leaderboards</h2>
+        <h2 class="pillar-title"><TileLink href="/ratings/">Ratings &amp; Leaderboards</TileLink></h2>
         <p class="pillar-desc">
           The multi-paradigm community rating system tracking performance across all competitive player counts with
           variance-calibrated priors and inactivity decay.
@@ -55,14 +39,14 @@ import '../components/HomePage.css';
             Explore Leaderboards &rarr;
           </a>
         </div>
-      </div>
+      </Tile>
 
-      <div class="home-pillar-card">
+      <Tile>
         <div class="pillar-card-header">
           <span class="pillar-icon">🏛️</span>
-          <span class="pillar-tag">6 Major Circuits</span>
+          <span class="tag">6 Major Circuits</span>
         </div>
-        <h2 class="pillar-title">Tournaments &amp; Hall of Fame</h2>
+        <h2 class="pillar-title"><TileLink href="/ratings/hall_of_fame/">Tournaments &amp; Hall of Fame</TileLink></h2>
         <p class="pillar-desc">
           The historical registry of competitive Through the Ages. Explore official championships, season stages, match replay
           logs, and verified podium trophyboards.
@@ -77,14 +61,14 @@ import '../components/HomePage.css';
             Explore Tournaments &rarr;
           </a>
         </div>
-      </div>
+      </Tile>
 
-      <div class="home-pillar-card pillar-upcoming">
+      <Tile>
         <div class="pillar-card-header">
           <span class="pillar-icon">⏱️</span>
-          <span class="pillar-tag pillar-tag-upcoming">In Development</span>
+          <span class="tag tag-special">In Development</span>
         </div>
-        <h2 class="pillar-title">Blitz Tournaments</h2>
+        <h2 class="pillar-title"><TileLink href="/blitz/">Blitz Tournaments</TileLink></h2>
         <p class="pillar-desc">
           Community-run blitz tournaments: weekly Swiss rounds paired by score and time zone, then a seeded knockout to
           crown the champion.
@@ -99,12 +83,12 @@ import '../components/HomePage.css';
             Explore Blitz &rarr;
           </a>
         </div>
-      </div>
+      </Tile>
 
-      <div class="home-pillar-card pillar-pulse">
+      <Tile>
         <div class="pillar-card-header">
           <span class="pillar-icon">⚡</span>
-          <span class="pillar-tag pillar-tag-upcoming">In Development</span>
+          <span class="tag tag-special">In Development</span>
         </div>
         <h2 class="pillar-title">TTA Pulse</h2>
         <p class="pillar-desc">
@@ -117,9 +101,9 @@ import '../components/HomePage.css';
           <li>Rapid blitz ratings &amp; live match notifications</li>
         </ul>
         <div class="pillar-action">
-          <span class="pillar-coming-soon">Coming Soon &bull; In Development</span>
+          <Inset form="line">Coming Soon &bull; In Development</Inset>
         </div>
-      </div>
+      </Tile>
     </section>
 
     <HomePage client:only="react" apiUrl={PUBLIC_API_URL} />

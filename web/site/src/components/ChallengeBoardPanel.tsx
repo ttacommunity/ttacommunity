@@ -6,6 +6,9 @@ import { CHART, notCounted, recordChart } from '../lib/record-chart';
 import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import Panel from './Panel';
+import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
 export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id: string }) {
@@ -16,7 +19,7 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
 
   return (
     <>
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <h2 className="rating-card-heading challenges-bar-title">Ranking</h2>
         <VerifiedSwitch value={verified} onChange={setVerified} />
       </div>
@@ -32,12 +35,12 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
 function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOnly: boolean; day: (instant: string) => string }) {
   const bugged = notCounted(board.entries, verifiedOnly);
   return (
-    <>
-      <section className="rating-card challenges-card" aria-label="Ranking">
+    <Panels>
+      <Panel label="Ranking" className="challenges-card">
         {board.ranking.length === 0 ? (
           <p className="muted">No {verifiedOnly ? 'verified ' : ''}entries yet.</p>
         ) : (
-          <div className="table-responsive">
+          <ScrollTable label="Leaderboard">
             <table className="leaderboard-table">
               <thead>
                 <tr>
@@ -68,21 +71,18 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
         )}
-      </section>
+      </Panel>
 
       {board.history.length > 0 && <RecordHistory steps={board.history} day={day} />}
 
       {bugged.length > 0 && (
-        <section className="rating-card challenges-card" aria-labelledby="not-counted">
-          <h3 id="not-counted" className="rating-card-heading">
-            Not counted
-          </h3>
+        <Panel id="not-counted" title="Not counted" className="challenges-card">
           <p className="challenges-lead">
             These were made through a game bug that has since been fixed. They stay listed, but don&apos;t count for records, ranks, ratings or totals.
           </p>
-          <div className="table-responsive">
+          <ScrollTable label="Bug entries">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Entries made through a game bug, not counted</caption>
               <thead>
@@ -111,46 +111,48 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                 ))}
               </tbody>
             </table>
-          </div>
-        </section>
+          </ScrollTable>
+        </Panel>
       )}
 
       {board.entries.length > 0 && (
-        <details className="rating-card challenges-card challenges-all">
-          <summary>All {board.entries.length} submissions</summary>
-          <div className="table-responsive">
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Player</th>
-                  <th scope="col">Domination</th>
-                  <th scope="col">Proof</th>
-                </tr>
-              </thead>
-              <tbody>
-                {board.entries.map((e, i) => (
-                  <tr key={i}>
-                    <td className="muted">{day(e.entered_at)}</td>
-                    <td>
-                      <ChallengePlayerLink name={e.player} />
-                    </td>
-                    <td className="num">
-                      {e.domination}
-                      {e.bugged && <BugTag />}
-                    </td>
-                    <td>
-                      <ProofLink url={e.proof_url} />
-                    </td>
+        <Panel label="All submissions" className="challenges-card">
+          <details className="challenges-all">
+            <summary>All {board.entries.length} submissions</summary>
+            <ScrollTable label="Submissions">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Player</th>
+                    <th scope="col">Domination</th>
+                    <th scope="col">Proof</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
+                </thead>
+                <tbody>
+                  {board.entries.map((e, i) => (
+                    <tr key={i}>
+                      <td className="muted">{day(e.entered_at)}</td>
+                      <td>
+                        <ChallengePlayerLink name={e.player} />
+                      </td>
+                      <td className="num">
+                        {e.domination}
+                        {e.bugged && <BugTag />}
+                      </td>
+                      <td>
+                        <ProofLink url={e.proof_url} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </details>
+        </Panel>
       )}
-    </>
+    </Panels>
   );
 }
 
@@ -162,10 +164,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
   const tipLeft = active !== null && active.at.x > CHART.width - 200;
 
   return (
-    <section className="rating-card challenges-card" aria-labelledby="record-history">
-      <h3 id="record-history" className="rating-card-heading">
-        Record history
-      </h3>
+    <Panel id="record-history" title="Record history" className="challenges-card">
       {steps.length > 1 && (
         <svg className="challenges-chart" viewBox={`0 0 ${CHART.width} ${CHART.height}`} role="img" aria-label="The record over time; the table below lists each rise" onMouseLeave={() => setHover(null)}>
           {chart.yTicks.map((t) => (
@@ -202,7 +201,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
           )}
         </svg>
       )}
-      <div className="table-responsive">
+      <ScrollTable label="Entries">
         <table className="leaderboard-table">
           <thead>
             <tr>
@@ -233,7 +232,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
             ))}
           </tbody>
         </table>
-      </div>
-    </section>
+      </ScrollTable>
+    </Panel>
   );
 }

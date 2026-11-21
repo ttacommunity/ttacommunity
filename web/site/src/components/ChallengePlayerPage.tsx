@@ -12,6 +12,10 @@ import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -56,7 +60,7 @@ export default function ChallengePlayerPage({ apiUrl, list }: { apiUrl: string; 
   return (
     <>
       <PageHeader title={p.player} />
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <div className="challenges-bar-group">
           <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           {p.summary && (
@@ -116,64 +120,57 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
   return (
     <>
       <div className="challenges-stats">
-        <Stat label={measure === 'rating' ? 'Rating' : 'Total domination'} value={formatMeasure(measureOf(summary, measure), measure)} />
-        <Stat label="Records held" value={summary.records} />
-        <Stat label="Challenges played" value={`${summary.played} / ${list.length}`} />
-        <Stat label="Verified" value={summary.verified} />
+        <MetricGrid>
+          <MetricCard label={measure === 'rating' ? 'Rating' : 'Total domination'} value={formatMeasure(measureOf(summary, measure), measure)} tone="gold" />
+          <MetricCard label="Records held" value={summary.records} tone="gold" />
+          <MetricCard label="Challenges played" value={`${summary.played} / ${list.length}`} tone="gold" />
+          <MetricCard label="Verified" value={summary.verified} tone="gold" />
+        </MetricGrid>
       </div>
       <p>
         <a className="btn-antique" href={compareHref(p.player)}>
           Compare with someone…
         </a>
       </p>
-      <section className="rating-card challenges-card" aria-label="Best on each challenge">
-        <SetGrid
-          groups={groups}
-          cell={(c) => {
-            const b = bests.get(c.id);
-            if (b === undefined) return <span className="muted">—</span>;
-            return (
-              <span className={b.rank === 1 ? 'challenges-record' : undefined} title={measure === 'rating' ? `Domination ${b.domination}` : `${Math.round(b.share)}% of the record`}>
-                <strong>{measure === 'rating' ? `${Math.round(b.share)}%` : b.domination}</strong>{' '}
-                <span className="muted">
-                  #{b.rank}/{b.entrants}
+      <Panels>
+        <Panel label="Best on each challenge" className="challenges-card">
+          <SetGrid
+            groups={groups}
+            cell={(c) => {
+              const b = bests.get(c.id);
+              if (b === undefined) return <span className="muted">—</span>;
+              return (
+                <span className={b.rank === 1 ? 'challenges-record' : undefined} title={measure === 'rating' ? `Domination ${b.domination}` : `${Math.round(b.share)}% of the record`}>
+                  <strong>{measure === 'rating' ? `${Math.round(b.share)}%` : b.domination}</strong>{' '}
+                  <span className="muted">
+                    #{b.rank}/{b.entrants}
+                  </span>
+                  <ProofMark url={b.proof_url} />
                 </span>
-                <ProofMark url={b.proof_url} />
-              </span>
-            );
-          }}
-        />
-      </section>
-      <PlayNext player={p} list={list} measure={measure} />
-      <section className="rating-card challenges-card" aria-labelledby="latest">
-        <h2 id="latest" className="rating-card-heading">
-          Latest submissions
-        </h2>
-        <ul className="challenges-latest">
-          {p.recent.map((e, i) => {
-            const c = list.find((x) => x.id === e.challenge);
-            return (
-              <li key={i}>
-                <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
-                {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
-                {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+              );
+            }}
+          />
+        </Panel>
+        <PlayNext player={p} list={list} measure={measure} />
+        <Panel id="latest" title="Latest submissions" className="challenges-card">
+          <ul className="challenges-latest">
+            {p.recent.map((e, i) => {
+              const c = list.find((x) => x.id === e.challenge);
+              return (
+                <li key={i}>
+                  <span className="muted">{formatDate(e.entered_at, zone)}</span> — <a href={challengeHref(e.challenge)}>{c?.name ?? e.challenge}</a>{' '}
+                  {c && <span className="muted">({setLabel(c.set)})</span>}: <strong>{e.domination}</strong>
+                  {e.bugged && <BugTag />} <ProofLink url={e.proof_url} />
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      </Panels>
     </>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="challenges-stat">
-      <div className="challenges-stat-value">{value}</div>
-      <div className="challenges-stat-label">{label}</div>
-    </div>
-  );
-}
 
 /** PlayNext suggests records within reach and the lowest results, in the chosen measure. */
 function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list: ChallengeTile[]; measure: Measure }) {
@@ -189,10 +186,7 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
     );
   };
   return (
-    <section className="rating-card challenges-card" aria-labelledby="play-next">
-      <h2 id="play-next" className="rating-card-heading">
-        What to play next
-      </h2>
+    <Panel id="play-next" title="What to play next" className="challenges-card">
       <div className="challenges-play-next">
         {closest.length > 0 && (
           <div>
@@ -200,27 +194,29 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
             <p className="muted">
               Where {p.player}&apos;s best is closest to the record{measure === 'rating' ? ' (in % of the record)' : ' (fewest points to beat it)'}.
             </p>
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">The challenges where {p.player}&apos;s best is closest to the record</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Challenge</th>
-                  <th scope="col">{measure === 'rating' ? 'Of the record' : 'Best / record'}</th>
-                  <th scope="col">To beat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {closest.map((b) => (
-                  <tr key={b.challenge}>
-                    <td>{label(b)}</td>
-                    <td className="num">{measure === 'rating' ? `${Math.round(b.share)}%` : `${b.domination}/${b.record}`}</td>
-                    <td className="num muted" title={`Record: ${b.record} by ${b.record_holder}`}>
-                      {b.record - b.domination + 1} to beat
-                    </td>
+            <ScrollTable label="Records within reach">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">The challenges where {p.player}&apos;s best is closest to the record</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Challenge</th>
+                    <th scope="col">{measure === 'rating' ? 'Of the record' : 'Best / record'}</th>
+                    <th scope="col">To beat</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {closest.map((b) => (
+                    <tr key={b.challenge}>
+                      <td>{label(b)}</td>
+                      <td className="num">{measure === 'rating' ? `${Math.round(b.share)}%` : `${b.domination}/${b.record}`}</td>
+                      <td className="num muted" title={`Record: ${b.record} by ${b.record_holder}`}>
+                        {b.record - b.domination + 1} to beat
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollTable>
           </div>
         )}
         {(lowest.length > 0 || unplayed > 0) && (
@@ -230,27 +226,29 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
               {measure === 'rating' ? `Where ${p.player}'s best is the lowest % of the record: the most rating to gain.` : `${p.player}'s lowest best dominations.`}
             </p>
             {lowest.length > 0 && (
-              <table className="leaderboard-table">
-                <caption className="visually-hidden">{p.player}&apos;s lowest results</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Challenge</th>
-                    {measure === 'rating' && <th scope="col">Of the record</th>}
-                    <th scope="col">Best / record</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lowest.map((b) => (
-                    <tr key={b.challenge}>
-                      <td>{label(b)}</td>
-                      {measure === 'rating' && <td className="num">{Math.round(b.share)}%</td>}
-                      <td className={measure === 'rating' ? 'num muted' : 'num'} title={`Record by ${b.record_holder}`}>
-                        {b.domination}/{b.record}
-                      </td>
+              <ScrollTable label="Lowest results">
+                <table className="leaderboard-table">
+                  <caption className="visually-hidden">{p.player}&apos;s lowest results</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Challenge</th>
+                      {measure === 'rating' && <th scope="col">Of the record</th>}
+                      <th scope="col">Best / record</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {lowest.map((b) => (
+                      <tr key={b.challenge}>
+                        <td>{label(b)}</td>
+                        {measure === 'rating' && <td className="num">{Math.round(b.share)}%</td>}
+                        <td className={measure === 'rating' ? 'num muted' : 'num'} title={`Record by ${b.record_holder}`}>
+                          {b.domination}/{b.record}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </ScrollTable>
             )}
             {unplayed > 0 && (
               <p className="muted">
@@ -260,6 +258,6 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
           </div>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

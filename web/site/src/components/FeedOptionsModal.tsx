@@ -5,8 +5,9 @@ import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
 import { DEFAULT_FEED_SETTINGS, withPlayer, withoutPlayer } from '../lib/feed-settings';
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
 import { waitingText } from '../lib/waiting';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import Sheet from '@ttac/shared/Sheet';
+import Inset from './Inset';
 import './FeedOptionsModal.css';
 
 export interface AvailableTournament {
@@ -143,7 +144,7 @@ export default function FeedOptionsModal({
 
           <div className="feed-tournaments-list">
             {staged.tournaments.length === 0 ? (
-              <div className="feed-empty-hint-small">No tournaments selected. Add one below or reset to premier.</div>
+              <Inset form="line">No tournaments selected. Add one below or reset to premier.</Inset>
             ) : (
               staged.tournaments.map((t, idx) => {
                 const divisions = divisionsMap[t.slug] || [];
@@ -159,7 +160,7 @@ export default function FeedOptionsModal({
 
                     <div className="feed-tourney-controls">
                       <select
-                        className="feed-division-select"
+                        className="input-antique feed-division-select"
                         value={t.division ?? ''}
                         onChange={(e) => changeDivision(idx, e.target.value)}
                         aria-label={`Division for ${t.name}`}
@@ -179,7 +180,7 @@ export default function FeedOptionsModal({
 
                       <button
                         type="button"
-                        className="feed-btn-add-division"
+                        className="btn-antique"
                         onClick={() => addDivision(t.slug)}
                         title={`Add another division for ${t.name}`}
                       >
@@ -188,7 +189,7 @@ export default function FeedOptionsModal({
 
                       <button
                         type="button"
-                        className="feed-row-remove"
+                        className="btn-icon"
                         onClick={() => removeTournament(idx)}
                         title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
                         aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
@@ -202,14 +203,14 @@ export default function FeedOptionsModal({
             )}
 
             {tournamentsWaiting !== null && (
-              <p className="feed-empty-hint-small" role="status">
+              <Inset form="line" role="status">
                 {tournamentsWaiting}
-              </p>
+              </Inset>
             )}
             {tournamentList.length > 0 && (
               <div className="feed-add-tourney-row">
                 <select
-                  className="feed-add-tourney-select"
+                  className="input-antique feed-add-tourney-select"
                   value=""
                   onChange={(e) => {
                     addTournament(e.target.value);
@@ -237,28 +238,27 @@ export default function FeedOptionsModal({
           </h4>
 
           {playersWaiting !== null && (
-            <p className="feed-empty-hint-small" role="status">
+            <Inset form="line" role="status">
               {playersWaiting}
-            </p>
+            </Inset>
           )}
-          <SearchBox
+          <PlayerSearch
             players={searchPlayers.kind === 'ready' ? searchPlayers.data : []}
             value=""
-            placeholder="Search and add competitor..."
             onSearch={addPlayer}
             clearOnSearch
           />
 
           <div className="player-tags-container" aria-label="Selected competitors">
             {staged.players.length === 0 ? (
-              <div className="feed-empty-hint-small">No specific players tracked.</div>
+              <Inset form="line">No specific players tracked.</Inset>
             ) : (
               staged.players.map((name) => (
-                <span key={name} className="player-filter-tag">
+                <span key={name} className="chip">
                   <span className="player-tag-name">{name}</span>
                   <button
                     type="button"
-                    className="player-tag-remove"
+                    className="chip-remove"
                     onClick={() => removePlayer(name)}
                     title={`Remove ${name}`}
                     aria-label={`Remove ${name}`}
@@ -276,7 +276,7 @@ export default function FeedOptionsModal({
         <div className="feed-footer-left">
           <button
             type="button"
-            className="feed-btn-reset"
+            className="btn-quiet"
             onClick={resetToPremier}
             title="Preselect top divisions of IM, IC and RL"
           >
@@ -284,7 +284,7 @@ export default function FeedOptionsModal({
           </button>
           <button
             type="button"
-            className="feed-btn-reset"
+            className="btn-quiet"
             onClick={clearAll}
             title="Clear all filters"
           >
@@ -295,14 +295,14 @@ export default function FeedOptionsModal({
         <div className="feed-footer-right">
           <button
             type="button"
-            className="feed-btn-cancel"
+            className="btn-quiet"
             onClick={() => dialogRef.current?.close()}
           >
             Cancel
           </button>
           <button
             type="button"
-            className="btn-antique feed-btn-apply"
+            className="btn-antique"
             onClick={handleApply}
           >
             Apply &amp; Save

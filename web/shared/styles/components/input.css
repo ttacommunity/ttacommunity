@@ -2,7 +2,7 @@
 .input-antique {
   padding: 0.5rem 0.85rem;
   background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--field-edge);
   border-radius: 4px;
   color: var(--text-main);
   font-family: var(--font-body);
@@ -45,9 +45,3 @@ progress {
 }
 
 /* A box that narrows a table as you type, upstream's filters on the player and achievements pages. */
-.input-antique.filter-input {
-  padding: 0.4rem 0.8rem;
-  background: var(--surface-field);
-  color: var(--text-main);
-  font-size: 0.85rem;
-}

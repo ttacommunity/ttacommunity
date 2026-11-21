@@ -58,10 +58,10 @@ export default function SideDrawer({ onClose, children }: { onClose: () => void;
 /** OptionsToggle opens and closes a page's drawer, marked Active while any option differs from its default. */
 export function OptionsToggle({ title, active, open, onClick }: { title: string; active: boolean; open: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={['btn-options-toggle', active && 'active', open && 'open'].filter(Boolean).join(' ')} title={title} aria-expanded={open} onClick={onClick}>
+    <button type="button" className="btn-antique options-toggle" title={title} aria-expanded={open} onClick={onClick}>
       <span>⚙️ Options</span>
-      {active && <span className="options-active-badge">Active</span>}
-      <span className="btn-options-toggle-arrow">{open ? '✕' : '▶'}</span>
+      {active && <span className="status status-gold">Active</span>}
+      <span className="options-toggle-arrow">{open ? '✕' : '▶'}</span>
     </button>
   );
 }
@@ -84,7 +84,7 @@ export function OptionsPanel({ label, onClose, reset, summary, children }: Panel
       <div className="options-panel" role="dialog" aria-label={label}>
         <div className="options-header">
           <span className="options-header-title">⚙️ Options &amp; Filters</span>
-          <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
+          <button type="button" className="btn-quiet" title="Close options panel" onClick={onClose}>
             ✕ Close
           </button>
         </div>
@@ -93,17 +93,17 @@ export function OptionsPanel({ label, onClose, reset, summary, children }: Panel
           {summary !== undefined && <div>{summary}</div>}
           <div className="options-footer-actions">
             {typeof reset === 'function' ? (
-              <button type="button" className="btn-options-reset" onClick={reset}>
+              <button type="button" className="btn-quiet options-reset" onClick={reset}>
                 Reset All
               </button>
             ) : (
               reset !== undefined && (
-                <a {...reset} className="btn-options-reset">
+                <a {...reset} className="btn-quiet options-reset">
                   Reset All
                 </a>
               )
             )}
-            <button type="button" className="btn-options-close" title="Close options panel" onClick={onClose}>
+            <button type="button" className="btn-quiet" title="Close options panel" onClick={onClose}>
               ✕ Close
             </button>
           </div>

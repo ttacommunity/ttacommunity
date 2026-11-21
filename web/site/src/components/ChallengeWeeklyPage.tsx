@@ -7,6 +7,8 @@ import { ChallengePlayerLink } from './ChallengeParts';
 import { useLoad } from './useLoad';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 /** ChallengeWeeklyPage loads the weeks and lists them. */
 export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; list: ChallengeTile[] }) {
@@ -28,13 +30,13 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
         <>
           <p className="challenges-champions">
             {champions(load.data.weeks).map(([name, wins]) => (
-              <span key={name} className="challenges-chip">
+              <span key={name} className="pill">
                 <ChallengePlayerLink name={name} /> × {wins}
               </span>
             ))}
           </p>
-          <section className="rating-card challenges-card" aria-label="Weeks">
-            <div className="table-responsive">
+          <Panel label="Weeks" className="challenges-card">
+            <ScrollTable label="Weekly challenges">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">Each week of the weekly challenge, its challenge and who won</caption>
                 <thead>
@@ -69,8 +71,8 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
                   ))}
                 </tbody>
               </table>
-            </div>
-          </section>
+            </ScrollTable>
+          </Panel>
         </>
       )}
     </>

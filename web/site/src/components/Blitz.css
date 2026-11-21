@@ -11,25 +11,10 @@
   margin-top: 0.75rem;
 }
 
-/* An edition's panels, one under another. */
-.blitz-panels {
-  display: grid;
-  gap: 1.5rem;
-}
-
-/* Nostradamus's cards; Blitz's are the site's full-width Panel. */
-.blitz-card {
-  max-width: 56rem;
-  margin: 0 auto 1.5rem;
-  padding: 1.5rem 1.75rem;
-}
 .blitz-intro {
   margin: 0 0 1rem;
   color: var(--text-soft);
   line-height: 1.6;
-}
-.blitz-table-wrap {
-  overflow-x: auto;
 }
 .blitz-table caption {
   caption-side: top;
@@ -44,10 +29,6 @@
 }
 .blitz-table thead th {
   white-space: nowrap;
-}
-.blitz-table .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 .blitz-table a {
   color: var(--accent-gold);

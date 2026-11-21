@@ -11,7 +11,7 @@ import Waiting from './Waiting';
 import MeanBadge, { MeanBadges } from './MeanBadge';
 import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { useKeptLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, Tooltip);
 
@@ -110,21 +110,22 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
   const bars = distData === null ? [] : means(distData);
 
   return (
-    <div className="rating-card panel-card engine-spread">
-      <PanelHeader
-        title="Rating Distribution Density Curves"
-        subtitle={
-          <>
-            Player rating distribution across 100-point skill bins for active format (<strong>{formatName(format)}</strong>)
-          </>
-        }
-      >
+    <Panel
+      id="engine-spread"
+      title="Rating Distribution Density Curves"
+      subtitle={
+        <>
+          Player rating distribution across 100-point skill bins for active format (<strong>{formatName(format)}</strong>)
+        </>
+      }
+      aside={
         <MeanBadges>
           {bars.map((b) => (
             <MeanBadge key={b.model} engine={b.model} mean={b.mean} active={b.active} />
           ))}
         </MeanBadges>
-      </PanelHeader>
+      }
+    >
       <div className="density-chart-container">
         {distData === null && load.kind !== 'ready' ? (
           <Waiting load={load} what="the distribution" form="inline" />
@@ -135,6 +136,6 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
           />
         )}
       </div>
-    </div>
+    </Panel>
   );
 }

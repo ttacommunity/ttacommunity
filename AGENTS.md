@@ -240,7 +240,8 @@ agent runs them itself.
    explained in **What it does**. A migration, an `openapi.yaml` change
    and a change to what an existing page shows are always named. For each
    field, control or piece of UI you wrote, search `shared/` and the app's
-   `components/` and `lib/` for one that already does it, and use it; the
+   `components/` and `lib/` for one that already does it, by look and
+   purpose rather than name (see Web), and use it; the
    second hand-made copy of anything becomes a component
 5. **Walk the issue's "Done when"** line by line and say how each is met.
    If something is not done, write `Part of #<n>`, not `Closes #<n>`
@@ -341,13 +342,39 @@ agent runs them itself.
   app's `components/` for one that already does it, and use it; when you
   find a page's own copy of one, move it over. Used by one app: its
   `components/`. By both: `shared`
+- **A shared piece's options say what it does, never how it looks.** No
+  `className`, placeholder or width props: a page that could restyle or
+  reword a piece will, and the copies drift apart. `PlayerSearch` takes
+  search, fill or filter, and the type refuses anything else. A page's
+  CSS places a piece; it never reaches inside one (`.page .piece input`)
+- **Look for a piece by its look and purpose, never by its name.** A
+  search for one class finds one spelling: the same card is also
+  `rating-card account-card`, or drawn from scratch in a page's CSS. To
+  find every card, search the CSS for what draws one (a background, a
+  border or shadow, and a `border-radius`), then sort what you find by
+  what each is for: a panel, a header, a button, a badge, a bar
 - **Use the shared pieces as they look; never restyle one in a page.**
   The site has one of each: page header (`PageHeader`), panel and its
   header (`.rating-card` `.panel-card`, `PanelHeader`), table
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
-  a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
-  drawer (`SideDrawer`), and admin's `AdminPage`, `AdminCard` and
-  `AdminTable`. `/design` shows them all. A page's CSS sets only its own
+  a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
+  a group inside a bar has no box of its own), dialog and sheet (`Dialog`, `Sheet`),
+  drawer (`SideDrawer`), player search and filter (`PlayerSearch`),
+  note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line),
+  tile in a grid (`Tile`; a link tile is all one link, or its title's
+  `TileLink` covers it; only what can be clicked moves under the mouse),
+  headline figure (`MetricCard` in a `MetricGrid`, `compact` for a
+  header's facts), a fact singled out (`Highlight`), formula box (`$$…$$`, or
+  `.formula` around several), buttons (`.btn-antique` for an action,
+  `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
+  cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a
+  table row or list), labels (`.tag` beside a title, `.tag-special` and
+  a division's level colour from `divisionTagClass`; `.pill` for a figure;
+  `.chip` for a removable filter, `.chip-out` when it excludes; `.status`
+  in a tone), and admin's `AdminPage`, `AdminCard` and
+  `AdminTable`. `/design` shows them all. Buttons set the heights
+  (`--control-height`, `--control-height-compact`) and a field beside a
+  button shares its height (`.input-antique`). A page's CSS sets only its own
   layout (widths, alignment, spacing): it never redefines a shared class
   or puts a shared piece in a box of its own colour. A look a piece
   lacks is a change to that piece, on `/design`, agreed with the
@@ -356,6 +383,11 @@ agent runs them itself.
   writes no hex or `rgba()` of its own, and a colour the tokens lack is a
   new token. The raw colours older page CSS still has move to tokens
   when that CSS is next changed
+- **A shared piece takes its colours from roles**: tokens named for what
+  they are for (`--panel-title`, `--page-header-edge`, `--tag-text`), in
+  the Roles section of `tokens.css`, each pointing at a palette colour. A
+  new shared piece adds its roles there, so a change of look, or a theme
+  such as a colour-blind mode, changes a role, not every component
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC

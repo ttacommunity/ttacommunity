@@ -1,13 +1,6 @@
 /* The community leaderboard: upstream community_leaderboard.html's styles, and its inline styles as classes. */
 .comm-hero {
-  background: rgba(26, 17, 12, 0.96);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 2rem;
-  margin: 0.5rem auto 2rem auto;
-  max-width: 1400px;
-  box-shadow: 0 4px 24px var(--shadow-deep);
-  backdrop-filter: blur(8px);
+  margin-bottom: 2rem;
   text-align: center;
 }
 
@@ -49,135 +42,28 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 1.25rem;
-  background: rgba(20, 13, 9, 0.92);
-  padding: 1rem 1.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 4px 16px var(--shadow);
 }
 .comm-search-form {
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  flex: 1;
-  min-width: 320px;
-  max-width: 480px;
-}
-.comm-search-input {
-  flex: 1;
-  height: var(--control-height);
-  box-sizing: border-box;
-  background: rgba(10, 7, 5, 0.95);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-bright);
-  padding: 0.55rem 0.9rem;
-  border-radius: 4px;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  transition: border-color 0.2s;
-}
-.comm-search-input:focus {
-  outline: none;
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 8px var(--gold-wash);
 }
 
 /* Premium Search & Action Buttons */
-.btn-search-gold {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-height);
-  box-sizing: border-box;
-  background: var(--gradient-gold);
-  color: var(--text-on-gold);
-  font-family: var(--font-heading);
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  border: 1px solid #ffcc66;
-  border-radius: 4px;
-  padding: 0.55rem 1.25rem;
-  cursor: pointer;
-  box-shadow: 0 2px 6px var(--shadow);
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-.btn-search-gold:hover {
-  background: linear-gradient(135deg, var(--accent-gold-light) 0%, #d49024 100%);
-  box-shadow: 0 0 12px rgba(229, 169, 60, 0.5);
-  transform: translateY(-1px);
-}
-.btn-clear-muted {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--control-height);
-  box-sizing: border-box;
-  background: var(--surface-panel);
-  color: var(--text-soft);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  padding: 0.55rem 0.95rem;
-  font-family: var(--font-heading);
-  font-size: 0.85rem;
-  text-decoration: none;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-.btn-clear-muted:hover {
-  border-color: var(--accent-gold);
-  color: var(--text-bright);
-  background: rgba(74, 53, 37, 0.6);
-}
 
 /* CMB Scroll Descriptor centered in controls */
-.cmb-hint-box {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  background: var(--surface-field);
-  border: 1px solid var(--gold-wash-strong);
-  padding: 0.45rem 1rem;
-  border-radius: 20px;
-  color: var(--accent-gold-light);
-  font-family: var(--font-stats);
-  font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-align: center;
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
 
-/* Results Counter Card */
-.results-counter-card {
-  max-width: 1400px;
-  margin: 0 auto 0.85rem auto;
-  background: rgba(18, 12, 8, 0.95);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 0.65rem 1.25rem;
-  font-family: var(--font-stats);
-  font-size: 0.92rem;
-  color: #f5ede0;
-  display: flex;
+/* The results count: what is shown at one end, the mode at the other. */
+.comm-results {
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  box-shadow: 0 4px 12px var(--shadow);
+  margin-bottom: 0.85rem;
 }
 
 /* Table Container */
 .table-wrapper {
   max-width: 1400px;
   margin: 0 auto 2rem auto;
-  padding: 1.15rem 1.4rem;
   transition: all 0.3s ease;
-}
-.table-wrapper .table-responsive {
-  margin-bottom: 0;
 }
 /* Expanded view expands to sides for full width visibility */
 .table-wrapper.expanded-view {
@@ -246,52 +132,10 @@
   text-shadow: 0 1px 3px var(--shadow-deep);
 }
 
-/* Maintainer attribution card */
-.maintainer-card {
+/* The maintainer's note, as wide as it was. */
+.comm-maintainer {
   max-width: 900px;
-  margin: 0 auto 1.5rem auto;
-  background: linear-gradient(135deg, var(--surface-card) 0%, rgba(18, 11, 7, 0.98) 100%);
-  border: 1px solid var(--gold-wash-strong);
-  border-radius: 8px;
-  padding: 0.85rem 1.4rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.85rem;
-  flex-wrap: wrap;
-  box-shadow: 0 4px 18px var(--shadow), inset 0 1px 0 rgba(229, 169, 60, 0.15);
-  font-size: 0.95rem;
-  text-align: center;
-}
-.maintainer-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--accent-gold);
-  color: var(--accent-gold);
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-.maintainer-desc {
-  color: #f5ede0;
-  font-family: var(--font-body);
-}
-.maintainer-desc strong a {
-  color: var(--accent-gold-light);
-  text-decoration: none;
-  font-weight: 700;
-  border-bottom: 1px dashed rgba(229, 169, 60, 0.5);
-  transition: all 0.2s;
-}
-.maintainer-desc strong a:hover {
-  color: var(--text-bright);
-  border-bottom-color: var(--accent-gold);
+  margin-inline: auto;
 }
 
 /* Edition / Year Selector Bar */
@@ -315,27 +159,19 @@
 }
 @media (max-width: 768px) {
   .comm-hero {
-    padding: 1.25rem 1rem;
     margin-bottom: 1.25rem;
   }
 
   .comm-controls {
-    padding: 0.85rem;
     flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
   }
   .comm-search-form {
-    min-width: 0;
-    max-width: 100%;
     width: 100%;
-  }
-  .comm-search-input {
-    min-height: 40px;
   }
   .table-wrapper {
     margin-bottom: 1.5rem;
-    padding: 0.75rem;
   }
   .table-wrapper.expanded-view {
     max-width: 100vw;
@@ -352,17 +188,6 @@
 .comm-table thead tr.super-header th.comm-super-left {
   text-align: left;
   padding-left: 1rem;
-}
-.comm-top-link {
-  color: var(--accent-gold-light);
-  text-decoration: none;
-}
-.comm-wc-link {
-  color: var(--accent-gold);
-  text-decoration: none;
-}
-.badge.comm-wc-badge {
-  font-size: 0.85rem;
 }
 .comm-count-shown {
   color: var(--accent-gold);
@@ -393,23 +218,6 @@
 }
 
 /* styles.css's scroll hint, shown on phones. */
-.scroll-hint.comm-scroll-hint {
-  display: none;
-  max-width: 1400px;
-  margin: 0 auto 0.4rem auto;
-  font-size: 0.76rem;
-  color: var(--accent-gold);
-  opacity: 0.85;
-  font-family: var(--font-stats);
-  letter-spacing: 0.3px;
-}
-@media (max-width: 768px) {
-  .scroll-hint.comm-scroll-hint {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-}
 
 /* The pager sits below the table, not inside a card, so it brings its own panel. */
 .community-page > .pagination {

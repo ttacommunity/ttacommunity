@@ -210,7 +210,7 @@ export default function RunsPanel() {
           </div>
         ))}
       {runs !== null && (
-        <AdminTable caption="Rating runs, newest first" className="runs-table">
+        <AdminTable caption="Rating runs, newest first">
           <thead>
             <tr>
               <th scope="col">Run</th>

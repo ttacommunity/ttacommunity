@@ -1,17 +1,6 @@
 /* Upstream's model analysis page (analysis.html), with its inline styles as classes. */
 
-/* The calibration page's bar, chart and ranked table, one under another. */
-.analysis-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.analysis-stack .view-bar {
-  margin-bottom: 0;
-}
-
+/* The calibration chart's card: the chart fills it under its header. */
 .graph-main-card {
   display: flex;
   flex-direction: column;
@@ -21,11 +10,6 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
-}
-
-/* The distribution card under the calibration page's stack. */
-.engine-spread {
-  margin-bottom: 2rem;
 }
 
 .hero-chart-container {
@@ -151,11 +135,6 @@
   /* Upstream's 450px minimum, but never wider than the screen. */
   grid-template-columns: repeat(auto-fit, minmax(min(450px, 100%), 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.activity-countries {
-  margin-bottom: 2rem;
 }
 
 .activity-list {
@@ -168,10 +147,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background: rgba(18, 12, 8, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  gap: 0.75rem;
 }
 
 .activity-item strong {
@@ -218,17 +194,13 @@
   text-align: center;
 }
 
-.activity-table .col-country {
-  text-align: left;
+.activity-table .activity-country {
+  font-weight: 600;
 }
 
 .activity-table .country-rank {
   color: var(--text-muted);
   font-weight: 700;
-}
-
-.activity-table .col-country {
-  font-weight: 600;
 }
 
 .country-flag {

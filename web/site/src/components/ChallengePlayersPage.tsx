@@ -1,5 +1,5 @@
 /** The challenge players: everyone with a counted entry, searchable and sortable, by rating or total. */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import type { SortColumns } from '@ttac/shared/sort';
 import { formatDate, viewerZone } from '@ttac/shared/time';
@@ -7,9 +7,11 @@ import { challengePlayers, type ChallengePlayerSummary } from '@ttac/shared/rati
 import { byMeasure, formatMeasure, matchingPlayers, measureOf, type Measure } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
-import FilterInput from './FilterInput';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 type Col = 'player' | 'overall' | 'records' | 'played' | 'verified' | 'original' | 'expansion' | 'mix' | 'last';
 
@@ -34,6 +36,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
   const [query, setQuery] = useState('');
   const load = useKeptLoad(`players-${verified}`, () => challengePlayers(apiUrl, verified === 'verified'));
   const players = load.kind === 'ready' ? matchingPlayers(byMeasure(load.data.players, measure), query) : [];
+  const names = useMemo(() => (load.kind === 'ready' ? load.data.players.map((p) => ({ name: p.player })) : []), [load]);
   const [rows, sort, onSort] = useSort(players, columns(measure));
   const zone = viewerZone();
 
@@ -48,8 +51,8 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
           </>
         }
       />
-      <div className="challenges-bar">
-        <FilterInput value={query} onChange={setQuery} label="Filter players by name" placeholder="🔍 Filter players by name..." />
+      <div className="view-bar challenges-bar">
+        <PlayerSearch players={names} value={query} onChange={setQuery} />
         <div className="challenges-bar-group">
           <MeasureSwitch value={measure} onChange={setMeasure} />
           <VerifiedSwitch value={verified} onChange={setVerified} />
@@ -58,8 +61,8 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="the players" />
       ) : (
-        <section className="rating-card challenges-card" aria-label="Players">
-          <div className="table-responsive">
+        <Panel label="Players" className="challenges-card">
+          <ScrollTable label="Players">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Every player with a challenge entry, with their figures</caption>
               <thead>
@@ -67,25 +70,25 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                   <SortHeader col="player" sort={sort} onSort={onSort}>
                     Player
                   </SortHeader>
-                  <SortHeader col="overall" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="overall" sort={sort} onSort={onSort} align="end">
                     {measure === 'rating' ? 'Rating' : 'Total'}
                   </SortHeader>
-                  <SortHeader col="records" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="records" sort={sort} onSort={onSort} align="end">
                     Records
                   </SortHeader>
-                  <SortHeader col="played" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="played" sort={sort} onSort={onSort} align="end">
                     Played
                   </SortHeader>
-                  <SortHeader col="verified" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="verified" sort={sort} onSort={onSort} align="end">
                     Verified
                   </SortHeader>
-                  <SortHeader col="original" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="original" sort={sort} onSort={onSort} align="end">
                     Original
                   </SortHeader>
-                  <SortHeader col="expansion" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="expansion" sort={sort} onSort={onSort} align="end">
                     Expansion
                   </SortHeader>
-                  <SortHeader col="mix" sort={sort} onSort={onSort} className="num">
+                  <SortHeader col="mix" sort={sort} onSort={onSort} align="end">
                     Mix
                   </SortHeader>
                   <SortHeader col="last" sort={sort} onSort={onSort}>
@@ -111,8 +114,8 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
                 ))}
               </tbody>
             </table>
-          </div>
-        </section>
+          </ScrollTable>
+        </Panel>
       )}
     </>
   );

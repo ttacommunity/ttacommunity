@@ -26,14 +26,20 @@ import {
   type ViewRound,
 } from '../lib/bracket';
 import { editionHref } from '@ttac/shared/blitz';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 import SeasonPick from './SeasonPick';
+import Segmented from '@ttac/shared/Segmented';
 
 const ROUND_STATE = { finished: 'Finished', in_play: 'Being played', to_come: 'To come' };
+
+const VIEW_OPTIONS: { value: 'tree' | 'grid'; label: string }[] = [
+  { value: 'grid', label: 'Grid' },
+  { value: 'tree', label: 'Tree' },
+];
 
 /** pill is a round button's classes, chosen or not. */
 const pill = (chosen: boolean) => (chosen ? 'year-pill bracket-round active' : 'year-pill bracket-round');
@@ -83,10 +89,7 @@ export default function BracketView({
   const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
   const phone = rounds[view.last];
   return (
-    <div className="rating-card panel-card bracket-panel">
-      <PanelHeader title="Bracket">
-        <SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />
-      </PanelHeader>
+    <Panel id="bracket" title="Bracket" aside={<SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />}>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
       {load.kind === 'ready' && rounds.length === 0 && (
         <Message form="inline">
@@ -126,18 +129,13 @@ export default function BracketView({
               ))}
             </nav>
             <div className="bracket-find">
-              <label htmlFor="bracket-find">Find a player</label>
-              <SearchBox players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" inputClassName="bracket-find-input" placeholder="Player name" />
+              <label htmlFor="bracket-find" className="visually-hidden">Find a player</label>
+              <PlayerSearch players={bracketPlayers(rounds)} value={q} onChange={setQ} id="bracket-find" />
             </div>
           </div>
           {treeable && (
-            <div className="bracket-view bracket-wide-only" role="group" aria-label="Show the round">
-              <button type="button" className="bracket-zoom-button" aria-pressed={single === 'grid'} onClick={() => setSingle('grid')}>
-                Grid
-              </button>
-              <button type="button" className="bracket-zoom-button" aria-pressed={single === 'tree'} onClick={() => setSingle('tree')}>
-                Tree
-              </button>
+            <div className="bracket-view bracket-wide-only">
+              <Segmented label="Show the round" options={VIEW_OPTIONS} value={single} onChange={setSingle} />
             </div>
           )}
           {entrant !== null && <PlayerRoad rounds={rounds} entrant={entrant} onClose={() => setEntrant(null)} />}
@@ -159,7 +157,7 @@ export default function BracketView({
           </div>
         </>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -309,13 +307,13 @@ function BracketTree({
       onPointerCancel={touchUp}
     >
       <div className="bracket-zoom" role="group" aria-label="Zoom the bracket">
-        <button type="button" className="bracket-zoom-button" aria-label="Zoom out" onClick={() => zoomTo(stepZoom(zoom, -1))}>
+        <button type="button" className="btn-icon" aria-label="Zoom out" onClick={() => zoomTo(stepZoom(zoom, -1))}>
           −
         </button>
-        <button type="button" className="bracket-zoom-button" aria-pressed={chosen === null} onClick={() => zoomTo(null)}>
+        <button type="button" className="btn-quiet" aria-pressed={chosen === null} onClick={() => zoomTo(null)}>
           Fit to screen
         </button>
-        <button type="button" className="bracket-zoom-button" aria-label="Zoom in" onClick={() => zoomTo(stepZoom(zoom, 1))}>
+        <button type="button" className="btn-icon" aria-label="Zoom in" onClick={() => zoomTo(stepZoom(zoom, 1))}>
           +
         </button>
         <span className="bracket-zoom-size">{Math.round(zoom * 100)}%</span>
@@ -376,7 +374,7 @@ function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant
         <h3 id="bracket-road-heading" ref={heading} tabIndex={-1}>
           {name}'s road
         </h3>
-        <button type="button" className="bracket-road-close" onClick={onClose}>
+        <button type="button" className="btn-quiet" onClick={onClose}>
           Close
         </button>
       </div>

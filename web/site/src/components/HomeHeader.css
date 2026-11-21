@@ -1,0 +1,73 @@
+/* The home page's header (HomeHeader), on PageHeader's card: the crest beside the site's name and sentence, stacked and centred on a phone. Only its size and layout are its own. */
+.page-header.home-hero {
+  padding: 2.25rem 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.home-hero-layout {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.home-hero-logo-col {
+  flex: 0 0 340px;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-hero-logo {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px var(--shadow));
+}
+
+.home-hero-content-col {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.home-hero-title {
+  margin: 0 0 0.75rem;
+  color: var(--page-header-title);
+  font-family: var(--font-heading);
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  letter-spacing: 1px;
+  text-shadow: 0 2px 6px var(--shadow-deep);
+}
+
+.home-hero-subtitle {
+  max-width: 820px;
+  margin: 0 0 1.5rem;
+  color: var(--page-header-text);
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .page-header.home-hero {
+    padding: 1.75rem 1rem;
+    margin-bottom: 1.75rem;
+  }
+  .home-hero-layout {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.25rem;
+  }
+  .home-hero-logo-col {
+    flex: 0 0 auto;
+    max-width: 270px;
+    margin: 0 auto;
+  }
+  .home-hero-content-col {
+    text-align: center;
+  }
+  .home-hero-subtitle {
+    margin: 0 auto 1.25rem;
+  }
+}

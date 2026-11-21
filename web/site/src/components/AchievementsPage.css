@@ -1,86 +1,10 @@
 /* The achievements page: upstream's player_achievements.html styles, its inline styles as classes, and the base.html and styles.css rules it uses. */
-.medals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
-}
-.medal-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.25rem 1.5rem;
-  text-align: center;
-  backdrop-filter: blur(4px);
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 14px var(--shadow-light);
-}
-.medal-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-  box-shadow: 0 6px 18px var(--shadow), 0 0 10px var(--gold-wash);
-}
-.medal-icon {
-  font-size: 2.2rem;
-  margin-bottom: 0.35rem;
-}
-.medal-count {
-  font-family: var(--font-stats);
-  font-size: 2rem;
-  font-weight: 700;
-}
-.medal-label {
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 0.2rem;
-}
-.gold-accent { color: var(--accent-gold); }
-.silver-accent { color: var(--medal-silver); }
-.bronze-accent { color: var(--medal-bronze); }
-.trophy-accent { color: var(--accent-gold); }
 
-.rating-card.ach-card {
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 2rem;
-  border-left: 4px solid var(--accent-gold);
-}
-.ach-card-title {
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-  font-size: 1.15rem;
-  margin-bottom: 0.4rem;
-}
-.ach-card-title.ach-accolades-title {
-  margin-bottom: 0.75rem;
-}
 .ach-honor-roll {
   font-family: var(--font-body);
   font-size: var(--size-body);
   line-height: 1.6;
   color: var(--text-main);
-}
-.rating-card.ach-records {
-  padding: 1.5rem;
-}
-.ach-records-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-.ach-records-title {
-  font-family: var(--font-heading);
-  color: var(--accent-gold);
-  font-size: 1.35rem;
-  margin: 0 0 0.75rem 0;
-}
-.input-antique.ach-filter {
-  width: 260px;
 }
 
 .ach-category-filters {
@@ -107,68 +31,6 @@
   white-space: nowrap;
 }
 
-.best-results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
-}
-.best-result-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.25rem 1.5rem;
-  text-align: center;
-  backdrop-filter: blur(4px);
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 14px var(--shadow-light);
-}
-.best-result-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-  box-shadow: 0 6px 18px var(--shadow), 0 0 10px var(--gold-wash);
-}
-.best-result-icon {
-  font-size: 2.2rem;
-  margin-bottom: 0.35rem;
-}
-.best-result-value {
-  font-family: var(--font-heading);
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--accent-gold);
-}
-.best-result-sub {
-  font-family: var(--font-stats);
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin-top: 0.25rem;
-}
-.best-result-label {
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  color: var(--text-bright);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 0.35rem;
-}
-
-.table-responsive {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  position: relative;
-  margin-bottom: 1rem;
-}
-.scroll-hint {
-  display: none;
-  font-size: 0.76rem;
-  color: var(--accent-gold);
-  opacity: 0.85;
-  margin-bottom: 0.35rem;
-  font-family: var(--font-stats);
-  letter-spacing: 0.3px;
-}
 .records-table .ach-date {
   font-family: var(--font-stats);
   color: var(--accent-gold);
@@ -353,18 +215,6 @@
 .ach-row-clickable:hover .ach-tournament-title {
   color: var(--accent-gold);
 }
-.seasons-count-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-bright);
-  white-space: nowrap;
-}
 .ach-best-tier {
   display: inline-flex;
   align-items: center;
@@ -387,41 +237,12 @@
   color: var(--text-bright);
   font-weight: 600;
 }
-.winrate-pill {
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.1rem 0.45rem;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--win-edge) 35%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 70%, transparent);
-  color: var(--win-light);
-}
 .ach-action-head {
   text-align: right;
   width: 90px;
 }
 .ach-action-cell {
   text-align: right;
-}
-.ach-view-btn {
-  background: rgba(30, 20, 14, 0.85);
-  border: 1px solid var(--border-subtle);
-  color: var(--accent-gold);
-  font-family: var(--font-subheading);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.25rem 0.65rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-.ach-view-btn:hover {
-  background: var(--surface-card);
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  box-shadow: 0 0 6px var(--gold-wash);
 }
 .ach-drilldown-header {
   display: flex;
@@ -430,26 +251,6 @@
   gap: 1rem;
   flex-wrap: wrap;
   margin-bottom: 1.25rem;
-  padding: 0.85rem 1.1rem;
-  background: var(--surface-well);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-.ach-back-btn {
-  background: rgba(30, 20, 14, 0.9);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-bright);
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.4rem 0.85rem;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.ach-back-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
 }
 .ach-drilldown-info {
   display: flex;
@@ -479,10 +280,5 @@
   .medals-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
-  }
-  .scroll-hint {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
   }
 }

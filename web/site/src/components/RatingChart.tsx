@@ -31,6 +31,7 @@ declare module 'chart.js' {
 import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { drawTierBands, tierSpans } from '../lib/tier-bands';
 import type { PlayerHistory } from '@ttac/shared/ratings';
+import Panel from './Panel';
 import {
   chartData,
   chartTicks,
@@ -352,13 +353,11 @@ export default function RatingChart({
   }, [data, scale, yScale, tiers, engines]);
 
   return (
-    <div className="chart-container">
-      <div className="chart-head">
-        <div>
-          <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
-          <span className="chart-hint">Click legend items or use the top Options panel to customize display</span>
-        </div>
-      </div>
+    <Panel
+      id="rating-chart"
+      title={`Historical Rating Trajectory${years ? ` (${years[0]} - ${years[1]})` : ''}`}
+      subtitle="Click legend items or use the top Options panel to customize display"
+    >
       <div className="chart-container-inner" role={empty ? undefined : 'img'} aria-label={empty ? undefined : 'Rating history by model'}>
         {empty ? (
           <div className="chart-empty">
@@ -373,7 +372,6 @@ export default function RatingChart({
         )}
       </div>
       {data !== null && !empty && <p className="visually-hidden">{summary(data)}</p>}
-
-    </div>
+    </Panel>
   );
 }

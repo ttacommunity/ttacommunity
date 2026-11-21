@@ -6,11 +6,15 @@ import type { ChallengeTile } from '../lib/challenge-list';
 import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import Waiting from './Waiting';
 import Message from './Message';
 import { signed } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -54,16 +58,16 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
         <div className="challenges-pickers">
           <div>
             <label htmlFor="cmp-a">Player A</label>
-            <SearchBox id="cmp-a" players={names} value={a} placeholder="Name…" onChange={(v) => choose('a', v)} />
+            <PlayerSearch id="cmp-a" players={names} value={a} onChange={(v) => choose('a', v)} />
           </div>
           <span className="muted">vs</span>
           <div>
             <label htmlFor="cmp-b">Player B</label>
-            <SearchBox id="cmp-b" players={names} value={b} placeholder="Name…" onChange={(v) => choose('b', v)} />
+            <PlayerSearch id="cmp-b" players={names} value={b} onChange={(v) => choose('b', v)} />
           </div>
         </div>
       </PageHeader>
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <div className="challenges-bar-group">
           {pa && pb && <Segmented label="Set" value={set} onChange={setSet} options={SETS} />}
           {pa && pb && (
@@ -119,105 +123,98 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
   return (
     <>
       <div className="challenges-stats">
-        <Stat label={`${a.player} wins`} value={score.winsA} side="a" />
-        <Stat label={`${b.player} wins`} value={score.winsB} side="b" />
-        <Stat label="Ties" value={score.ties} />
-        <Stat label="Played by both" value={score.both} />
+        <MetricGrid>
+          <MetricCard label={`${a.player} wins`} value={<span className="challenges-side-a">{score.winsA}</span>} />
+          <MetricCard label={`${b.player} wins`} value={<span className="challenges-side-b">{score.winsB}</span>} />
+          <MetricCard label="Ties" value={score.ties} />
+          <MetricCard label="Played by both" value={score.both} />
+        </MetricGrid>
       </div>
-      <section className="rating-card challenges-card" aria-label="Totals">
-        <div className="table-responsive">
-          <table className="leaderboard-table">
-            <caption className="visually-hidden">The two players' totals, by set and all together</caption>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="visually-hidden">Player</span>
-                </th>
-                {SETS.map((s) => (
-                  <th key={s.value} scope="col" className="num">
-                    {setLabel(s.value)}
-                  </th>
-                ))}
-                <th scope="col" className="num">
-                  {measure === 'rating' ? 'Rating' : 'Total'}
-                </th>
-                <th scope="col" className="num">
-                  Records
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[a, b].map((p, i) => (
-                <tr key={p.player}>
-                  <th scope="row" className={i === 0 ? 'challenges-side-a' : 'challenges-side-b'}>
-                    <ChallengePlayerLink name={p.player} />
+      <Panels>
+        <Panel label="Totals" className="challenges-card">
+          <ScrollTable label="Totals">
+            <table className="leaderboard-table">
+              <caption className="visually-hidden">The two players' totals, by set and all together</caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="visually-hidden">Player</span>
                   </th>
                   {SETS.map((s) => (
+                    <th key={s.value} scope="col" className="num">
+                      {setLabel(s.value)}
+                    </th>
+                  ))}
+                  <th scope="col" className="num">
+                    {measure === 'rating' ? 'Rating' : 'Total'}
+                  </th>
+                  <th scope="col" className="num">
+                    Records
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[a, b].map((p, i) => (
+                  <tr key={p.player}>
+                    <th scope="row" className={i === 0 ? 'challenges-side-a' : 'challenges-side-b'}>
+                      <ChallengePlayerLink name={p.player} />
+                    </th>
+                    {SETS.map((s) => (
+                      <td key={s.value} className="num">
+                        {formatMeasure(measureOf(p, measure, s.value), measure)}
+                      </td>
+                    ))}
+                    <td className="num challenges-score">{formatMeasure(measureOf(p, measure), measure)}</td>
+                    <td className="num">{p.records}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <th scope="row">Difference</th>
+                  {SETS.map((s) => (
                     <td key={s.value} className="num">
-                      {formatMeasure(measureOf(p, measure, s.value), measure)}
+                      <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                     </td>
                   ))}
-                  <td className="num challenges-score">{formatMeasure(measureOf(p, measure), measure)}</td>
-                  <td className="num">{p.records}</td>
-                </tr>
-              ))}
-              <tr>
-                <th scope="row">Difference</th>
-                {SETS.map((s) => (
-                  <td key={s.value} className="num">
-                    <Diff value={diff(measureOf(a, measure, s.value), measureOf(b, measure, s.value))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
+                  <td className="num">
+                    <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
                   </td>
-                ))}
-                <td className="num">
-                  <Diff value={diff(measureOf(a, measure), measureOf(b, measure))} decimals={measure === 'rating' ? 1 : 0} suffix={measure === 'rating' ? '%' : ''} />
-                </td>
-                <td className="num">
-                  <Diff value={a.records - b.records} />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="rating-card challenges-card" aria-labelledby="per-challenge">
-        <h2 id="per-challenge" className="rating-card-heading">
-          Per challenge
-        </h2>
-        <SetGrid
-          groups={groups}
-          cell={(c) => {
-            const x = bestA.get(c.id);
-            const y = bestB.get(c.id);
-            if (x === undefined && y === undefined) return <span className="muted">—</span>;
-            const lead = leader(x, y);
-            return (
-              <span className={lead ? `challenges-lead-${lead}` : undefined}>
-                <span className="challenges-side-a">{x ?? '—'}</span>
-                <span className="muted"> : </span>
-                <span className="challenges-side-b">{y ?? '—'}</span>
-                {x !== undefined && y !== undefined && (
-                  <span>
-                    {' '}
-                    (<Diff value={x - y} />)
-                  </span>
-                )}
-              </span>
-            );
-          }}
-        />
-      </section>
+                  <td className="num">
+                    <Diff value={a.records - b.records} />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </ScrollTable>
+        </Panel>
+        <Panel id="per-challenge" title="Per challenge" className="challenges-card">
+          <SetGrid
+            groups={groups}
+            cell={(c) => {
+              const x = bestA.get(c.id);
+              const y = bestB.get(c.id);
+              if (x === undefined && y === undefined) return <span className="muted">—</span>;
+              const lead = leader(x, y);
+              return (
+                <span className={lead ? `challenges-lead-${lead}` : undefined}>
+                  <span className="challenges-side-a">{x ?? '—'}</span>
+                  <span className="muted"> : </span>
+                  <span className="challenges-side-b">{y ?? '—'}</span>
+                  {x !== undefined && y !== undefined && (
+                    <span>
+                      {' '}
+                      (<Diff value={x - y} />)
+                    </span>
+                  )}
+                </span>
+              );
+            }}
+          />
+        </Panel>
+      </Panels>
     </>
   );
 }
 
-function Stat({ label, value, side }: { label: string; value: number; side?: 'a' | 'b' }) {
-  return (
-    <div className="challenges-stat">
-      <div className={side ? `challenges-stat-value challenges-side-${side}` : 'challenges-stat-value'}>{value}</div>
-      <div className="challenges-stat-label">{label}</div>
-    </div>
-  );
-}
 
 /** Diff is a difference to decimals places, in A's colour when A leads and B's when B does, ±0 for none. */
 function Diff({ value, decimals = 0, suffix = '' }: { value: number; decimals?: number; suffix?: string }) {

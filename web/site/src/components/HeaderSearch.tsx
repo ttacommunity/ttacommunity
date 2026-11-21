@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
 import { searchHref } from '../lib/player-view';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import { useLoad } from './useLoad';
 
 /** HeaderSearch suggests rated players as you type and goes where searchHref says. */
@@ -15,10 +15,9 @@ export default function HeaderSearch({ apiUrl }: { apiUrl: string }) {
   );
   const players: SearchPlayer[] = board.kind === 'ready' ? board.data.players : [];
   return (
-    <SearchBox
+    <PlayerSearch
       players={players}
       value=""
-      inputClassName="input-antique header-search-input"
       onFocus={() => setUsed(true)}
       onSearch={(term) => term !== '' && window.location.assign(searchHref(players.map((p) => p.name), term))}
     />

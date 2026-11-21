@@ -12,16 +12,21 @@ interface Props {
   above?: ReactNode;
   /** A picture beside the text, such as a challenge's card. */
   media?: ReactNode;
+  /** A short tag at the top right, such as a tournament's tagline; under the picture on a phone. */
+  tag?: ReactNode;
   /** The title's id, for a section labelled by it. */
   id?: string;
+  /** Centred, the title in the heading face, as a player's pages are. */
+  centred?: boolean;
   className?: string;
   children?: ReactNode;
 }
 
 /** PageHeader draws the title card; children follow the subtitle inside it. */
-export default function PageHeader({ title, icon, subtitle, back, above, media, id, className, children }: Props) {
+export default function PageHeader({ title, icon, subtitle, back, above, media, tag, id, centred = false, className, children }: Props) {
   const text = (
     <>
+      {tag !== undefined && <div className="tag page-header-tag">{tag}</div>}
       {back !== undefined && (
         <div className="header-back">
           <BackLink href={back.href}>{back.label}</BackLink>
@@ -37,7 +42,7 @@ export default function PageHeader({ title, icon, subtitle, back, above, media, 
     </>
   );
   return (
-    <div className={`page-header${media === undefined ? '' : ' page-header-media'}${className === undefined ? '' : ` ${className}`}`}>
+    <div className={`page-header${media === undefined ? '' : ' page-header-media'}${centred ? ' page-header-centred' : ''}${className === undefined ? '' : ` ${className}`}`}>
       {media === undefined ? (
         text
       ) : (

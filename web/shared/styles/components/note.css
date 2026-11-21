@@ -1,10 +1,35 @@
-/* A note a page puts in front of the reader: a gold edge, thicker on the left, on its own panel so it reads on a card or the page. */
+/* A note a page puts in front of the reader (Note): an edge, thicker on the left, on a dark well so it reads on a card or the page; an optional title on its own line; red for a warning. */
 .page-note {
   margin: 0 0 1rem;
   padding: 0.75rem 1rem;
-  border: 1px solid var(--accent-gold);
+  border: 1px solid var(--note-edge);
   border-left-width: 4px;
   border-radius: 4px;
-  background: var(--surface-panel);
+  background: var(--note-surface);
   line-height: 1.5;
+}
+
+.page-note > p {
+  margin: 0 0 0.5rem;
+}
+
+.page-note > :last-child {
+  margin-bottom: 0;
+}
+
+.page-note-title {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--note-title);
+  font-family: var(--font-subheading);
+  font-size: var(--size-body);
+  font-weight: 400;
+}
+
+.page-note-warning {
+  border-color: var(--note-warning-edge);
+}
+
+.page-note-warning .page-note-title {
+  color: var(--note-warning-title);
 }

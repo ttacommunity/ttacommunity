@@ -1,9 +1,9 @@
-/** Upstream's player search: a text field with suggestions as you type, for one name or a comma list. */
+/** The site's one player search: a field with suggestions as you type, for one name or a comma list. Its options are what it does, never how it looks or what it says, so every player search is the same. */
 import { useEffect, useId, useRef, useState } from 'react';
 import type { LeaderboardRow } from '@ttac/shared/ratings';
 import { suggest } from '../lib/leaderboard-view';
 import { TitleBadge } from './PlayerMarks';
-import './SearchBox.css';
+import './PlayerSearch.css';
 
 /** A player the box can suggest: their name, and the flag and title shown beside it where known. */
 export type SearchPlayer = { name: string; country?: string | null; title?: LeaderboardRow['title'] };
@@ -17,10 +17,6 @@ interface Props {
   clearOnSearch?: boolean;
   /** Field mode: the box is one field of the page's own form, sent under this name. */
   name?: string;
-  inputClassName?: string;
-  placeholder?: string;
-  /** Fills the width it is given, for long names. */
-  wide?: boolean;
   /** Fill mode: one name, a field of the page's own form; onChange gets each edit and the name picked, and nothing is searched. */
   onChange?: (text: string) => void;
   /** The input's id, for the page's own label. */
@@ -48,16 +44,13 @@ function Highlighted({ name, query }: { name: string; query: string }) {
   );
 }
 
-/** SearchBox searches on Enter or 🔍, and fills in a suggestion when one is picked; in field mode, the page's form submits. */
-export default function SearchBox({
+/** PlayerSearch searches on Enter or 🔍, and fills in a suggestion when one is picked; in field mode, Enter or 🔍 submits the page's form. */
+export default function PlayerSearch({
   players,
   value,
   onSearch,
   clearOnSearch = false,
   name,
-  inputClassName = 'input-antique',
-  placeholder = 'Search player ...',
-  wide = false,
   onChange,
   id,
   onFocus,
@@ -117,14 +110,14 @@ export default function SearchBox({
   };
 
   const box = (
-    <div className={wide ? 'search-input-wrapper wide' : 'search-input-wrapper'}>
+    <div className="search-input-wrapper">
       <input
         type="text"
         ref={input}
         id={id}
         name={name}
-        className={inputClassName}
-        placeholder={placeholder}
+        className="input-antique"
+        placeholder="Search player ..."
         title={fill ? undefined : 'Separate multiple names with commas.'}
         aria-label={id === undefined ? 'Search player' : undefined}
         autoComplete="off"
@@ -147,8 +140,12 @@ export default function SearchBox({
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
       />
-      {!field && !fill && (
-        <button type="submit" className="search-submit" title="Search" aria-label="Search">
+      {fill ? (
+        <span className="btn-icon search-submit search-icon" aria-hidden="true">
+          🔍
+        </span>
+      ) : (
+        <button type="submit" className="btn-icon search-submit" title="Search" aria-label="Search">
           🔍
         </button>
       )}
@@ -201,7 +198,7 @@ export default function SearchBox({
     >
       {box}
       {value !== '' && (
-        <button type="button" className="search-clear" title="Clear search" onClick={() => onSearch?.('')}>
+        <button type="button" className="btn-icon" title="Clear search" onClick={() => onSearch?.('')}>
           ✕
         </button>
       )}

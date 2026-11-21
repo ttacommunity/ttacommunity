@@ -42,19 +42,6 @@
   gap: 8px 16px;
   padding: 12px 20px 0;
 }
-.bracket-find input {
-  width: 240px;
-  max-width: 100%;
-  height: var(--control-height);
-  box-sizing: border-box;
-  padding: 0 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-field);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: var(--size-body-short);
-}
 .bracket-key {
   padding: 0 20px;
 }
@@ -184,23 +171,6 @@ button.bracket-name:focus-visible {
   font-family: var(--font-stats);
   font-size: var(--size-label);
   color: var(--text-muted);
-}
-.bracket-zoom-button {
-  min-width: 44px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-panel);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: var(--size-body-short);
-  cursor: pointer;
-}
-.bracket-zoom-button[aria-pressed='true'] {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash);
-  color: var(--accent-gold-light);
 }
 .bracket-zoom-size {
   min-width: 4ch;
@@ -336,16 +306,6 @@ button.bracket-name:focus-visible {
   font-family: var(--font-heading);
   font-size: var(--size-card-title);
   color: var(--accent-gold-light);
-}
-.bracket-road-close {
-  min-height: 44px;
-  padding: 0 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-inset);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  cursor: pointer;
 }
 .bracket-road-steps {
   display: grid;

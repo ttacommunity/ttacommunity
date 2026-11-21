@@ -16,20 +16,6 @@
   gap: 0.4rem;
 }
 
-.pagination a {
-  padding: 0.4rem 0.9rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-main);
-  font-weight: 600;
-}
-
-.pagination a:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-}
-
 .page-jumper {
   display: inline-flex;
   align-items: center;
@@ -42,36 +28,8 @@
 }
 
 .page-jumper input {
-  width: 55px;
-  padding: 0.3rem 0.4rem;
-  background: rgba(22, 14, 10, 0.9);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--accent-gold);
-  font-family: var(--font-stats);
-  font-size: 0.88rem;
+  width: 4.5rem;
   text-align: center;
-}
-
-.page-jumper input:focus {
-  border-color: var(--accent-gold);
-  outline: none;
-}
-
-.page-jumper button {
-  padding: 0.3rem 0.6rem;
-  background: rgba(43, 29, 20, 0.9);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.page-jumper button:hover {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
 }
 
 @media (max-width: 768px) {
@@ -83,17 +41,5 @@
 
   .pagination-links {
     justify-content: center;
-  }
-
-  .pagination a,
-  .page-jumper button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 42px;
-  }
-
-  .page-jumper input {
-    min-height: 40px;
   }
 }

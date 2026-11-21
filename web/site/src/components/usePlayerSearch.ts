@@ -1,7 +1,7 @@
 /** The rated players a TTA username search suggests, asked for only once the search is wanted. */
 import { currentRun, leaderboard } from '@ttac/shared/ratings';
 import { DEFAULT_VIEW, modelOf } from '../lib/leaderboard-view';
-import type { SearchPlayer } from './SearchBox';
+import type { SearchPlayer } from './PlayerSearch';
 import { useLoad } from './useLoad';
 
 /** usePlayerSearch returns the current run's rated players once wanted (the box was used, or already holds a name); none before, or while they load. */

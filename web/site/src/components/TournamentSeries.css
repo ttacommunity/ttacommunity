@@ -1,25 +1,8 @@
 /* Upstream's Hall of Fame series page (tournaments/detail.html): its <style> block as it is, then its inline styles as classes. */
 
-.detail-hero {
-  background: linear-gradient(135deg, rgba(28, 19, 13, 0.95), rgba(45, 30, 20, 0.9));
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  position: relative;
-  box-shadow: 0 4px 20px var(--shadow-light);
-}
-.detail-hero-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.detail-hero-left {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
+/* A tournament's page header (TournamentHero): the space above its description. */
+.tournament-summary {
+  margin: 0.75rem 0 0;
 }
 .detail-hero-icon {
   font-size: 3.2rem;
@@ -29,63 +12,16 @@
   border-radius: 12px;
   border: 1px solid var(--gold-wash);
 }
-.detail-hero-title {
-  font-size: var(--size-page-title);
-  font-weight: 800;
-  color: var(--text-bright);
-  margin-bottom: 0.3rem;
-}
-.detail-hero-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  padding: 0.3rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  align-self: flex-start;
-}
-.detail-hero-desc {
-  color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1.6;
-  margin-top: 1rem;
-  max-width: 900px;
-}
 .detail-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--gold-wash-faint);
-}
-.meta-box {
-  background: var(--shadow-light);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-}
-.meta-box-label {
-  font-size: var(--size-label);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  margin-bottom: 0.25rem;
-}
-.meta-box-val {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent-gold);
 }
 
 .content-two-col {
   display: grid;
   grid-template-columns: 1.1fr 1.9fr;
-  gap: 2rem;
-  margin-bottom: 2.5rem;
+  gap: 1.5rem;
 }
 @media (max-width: 960px) {
   .content-two-col {
@@ -134,21 +70,6 @@
   top: 0.25rem;
 }
 
-/* Scrollable Trophyboard */
-.trophy-table-container {
-  max-height: 480px;
-  overflow-y: auto;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-gold) var(--shadow-light);
-}
-.trophy-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  box-shadow: 0 1px 0 var(--gold-wash);
-}
 .medal-count {
   font-weight: 700;
   font-family: var(--font-stats);
@@ -164,23 +85,12 @@
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1.25rem;
 }
-.story-card {
-  background: rgba(18, 12, 8, 0.75);
-  border: 1px solid var(--gold-wash);
-  border-radius: 6px;
-  padding: 1.25rem;
-  position: relative;
-  border-left: 4px solid var(--accent-gold);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-.story-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-}
 .story-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 .story-author {
@@ -194,15 +104,6 @@
 }
 .story-author:hover {
   color: var(--accent-gold);
-}
-.story-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-  font-weight: 600;
 }
 .story-title {
   font-size: 1.05rem;
@@ -223,12 +124,6 @@
   display: flex;
   flex-direction: column;
 }
-/* The board's table fills its panel (the row is as tall as the longer column), never under its 480px. */
-.content-two-col .trophy-table-container {
-  flex: 1 1 0;
-  min-height: 480px;
-  max-height: none;
-}
 /* A long Format & Regulations (a CGE description) scrolls in its panel, as the board does. */
 .content-two-col .rules-list {
   max-height: 640px;
@@ -238,39 +133,7 @@
   scrollbar-color: var(--accent-gold) var(--shadow-light);
 }
 
-/* Upstream's phone sizes for the hero name .tournament-hero, which the page does not use; applied to the hero it does, so a long series name fits (changed from upstream). */
-.detail-hero-left {
-  min-width: 0;
-}
-
-.detail-hero-title {
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 768px) {
-  .detail-hero {
-    padding: 1.25rem 1rem;
-  }
-
-  .detail-hero-title {
-    font-size: 1.45rem;
-  }
-}
-
 /* Upstream's inline styles, as classes. */
-.detail-hero-title {
-  margin: 0 0 0.3rem;
-}
-
-.detail-hero-subtitle {
-  color: var(--accent-gold);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.meta-box-val.meta-box-text {
-  font-size: 0.95rem;
-}
 
 .rules-note {
   margin-top: 1.5rem;
@@ -293,21 +156,12 @@
   font-size: 0.82rem;
 }
 
-.trophy-sub-hint {
-  color: var(--accent-gold);
-  font-weight: 600;
-}
-
 .trophy-table .col-num {
   width: 40px;
 }
 
 .trophy-table .col-rank {
   width: 45px;
-  text-align: center;
-}
-
-.trophy-table .col-center {
   text-align: center;
 }
 
@@ -343,23 +197,11 @@
   border-radius: 4px;
 }
 
-.panel-card.panel-stories {
-  margin-bottom: 2.5rem;
-}
-
-.panel-card.panel-records {
-  margin-bottom: 2rem;
-}
-
 .records-intro {
   margin-bottom: 1.25rem;
   color: var(--text-main);
   font-size: var(--size-body-short);
   line-height: 1.5;
-}
-
-.trophy-table-container.records-table {
-  max-height: 420px;
 }
 
 .trophy-table .cell-points {

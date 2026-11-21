@@ -24,7 +24,9 @@ import { waitingText } from '../lib/waiting';
 import Message from './Message';
 import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import Highlight from './Highlight';
 
 /** HallOfFamePage loads the current run's overview and shows it as upstream's page does. */
 export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
@@ -48,268 +50,266 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
         subtitle="The definitive historical registry of competitive Through the Ages achievements. Explore verified trophyboards, matchdata-derived season champions, World Championship playoff bracket analytics, and career milestones of Master+ competitors."
       >
         <div className="tournaments-stats-bar">
-          <div className="stat-pill">
+          <div className="pill">
             Series Active: <strong>6 Major Circuits</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             Derived Matches: <strong>{data ? derivedMatches(data.series) : '…'}</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             Historical Span: <strong>2016 – Present</strong>
           </div>
-          <div className="stat-pill">
+          <div className="pill">
             World Champions: <strong>{new Set(champions.map((c) => c.name)).size} Crowned Titleholders</strong>
           </div>
         </div>
       </PageHeader>
 
-      <div className="podium-preview-card">
-        <h2 className="podium-preview-title">
-          <span>👑</span> World Championship Hall of Fame &amp; Annual Podiums
-        </h2>
-        <p className="podium-intro">
-          The official annual World Championship crowns the definitive global Through the Ages champion. Below are the verified
-          podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
-        </p>
-        <div className="champions-highlight-grid">
-          {finals
-            .filter((s) => s.in_champions && s.podium.length > 0)
-            .slice()
-            .reverse()
-            .map((s) => {
-              const gold = s.podium.find((p) => p.place === 1);
-              const silver = s.podium.find((p) => p.place === 2);
-              const bronze = s.podium.find((p) => p.place === 3);
+      <Panels>
+        <Panel id="hof-world-championship" icon="👑" title="World Championship Hall of Fame & Annual Podiums">
+          <p className="podium-intro">
+            The official annual World Championship crowns the definitive global Through the Ages champion. Below are the verified
+            podiums (Gold 🥇, Silver 🥈, Bronze 🥉) across each contested edition.
+          </p>
+          <div className="champions-highlight-grid">
+            {finals
+              .filter((s) => s.in_champions && s.podium.length > 0)
+              .slice()
+              .reverse()
+              .map((s) => {
+                const gold = s.podium.find((p) => p.place === 1);
+                const silver = s.podium.find((p) => p.place === 2);
+                const bronze = s.podium.find((p) => p.place === 3);
+                return (
+                  <Highlight key={s.label}>
+                    <div className="wcs-podium-card">
+                      <div className="champ-highlight-avatar">🏆</div>
+                      <div className="champ-highlight-info">
+                        <div className="wcs-edition-title">World Championship {s.label}</div>
+                        <div className="wcs-podium-places">
+                          {gold && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WC' }} />
+                              <PlayerLink name={gold.name} className="champ-highlight-name" />
+                            </div>
+                          )}
+                          {silver && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WCS' }} />
+                              <PlayerLink name={silver.name} className="podium-runner-up" />
+                            </div>
+                          )}
+                          {bronze && (
+                            <div className="wcs-place-row">
+                              <TitleBadge title={{ code: 'WCB' }} />
+                              <PlayerLink name={bronze.name} className="podium-third" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Highlight>
+                );
+              })}
+          </div>
+        </Panel>
+
+        <div className="series-grid">
+          {MAJORS.map((m) => {
+            const entry = tournaments.find((t) => t.slug === m.slug);
             return (
-              <div key={s.label} className="champ-highlight-box wcs-podium-card">
-                <div className="champ-highlight-avatar">🏆</div>
-                <div className="champ-highlight-info">
-                  <div className="wcs-edition-title">World Championship {s.label}</div>
-                  <div className="wcs-podium-places">
-                    {gold && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WC' }} />
-                        <PlayerLink name={gold.name} className="champ-highlight-name" />
-                      </div>
-                    )}
-                    {silver && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WCS' }} />
-                        <PlayerLink name={silver.name} className="podium-runner-up" />
-                      </div>
-                    )}
-                    {bronze && (
-                      <div className="wcs-place-row">
-                        <TitleBadge title={{ code: 'WCB' }} />
-                        <PlayerLink name={bronze.name} className="podium-third" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <TournamentCard
+                key={m.slug}
+                href={seriesHref(m.slug)}
+                name={m.name}
+                card={cardView(entry?.card)}
+                rows={entry !== undefined ? entryRows(entry) : [['Recorded Database Matches', '…']]}
+                cta="View Champions, Rules & Games"
+              />
             );
           })}
+          {CIRCUITS.map((slug) => {
+            const c = count(slug);
+            const circuit = data?.circuits.find((x) => x.series === slug);
+            return (
+              <TournamentCard
+                key={slug}
+                href={seriesHref(slug)}
+                name={circuit?.name ?? SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug}
+                card={cardView(circuit?.card)}
+                rows={[
+                  ['Structure & Cadence', circuit ? circuit.card.cadence : '…'],
+                  ['Active History', circuit ? circuitEra(circuit.first_game) : '…'],
+                  ['Recorded Database Matches', c ? seriesGames(c) : '…'],
+                ]}
+                cta="View Board & Tournaments"
+              />
+            );
+          })}
+          <TournamentCard
+            href={catalogueHref()}
+            name="Every Tournament"
+            card={cardView({ icon: '📜', tagline: '', subtitle: '', cadence: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
+            rows={[]}
+            cta="View Every Tournament"
+          />
         </div>
-      </div>
 
-      <div className="series-grid">
-        {MAJORS.map((m) => {
-          const entry = tournaments.find((t) => t.slug === m.slug);
-          return (
-            <TournamentCard
-              key={m.slug}
-              href={seriesHref(m.slug)}
-              name={m.name}
-              card={cardView(entry?.card)}
-              rows={entry !== undefined ? entryRows(entry) : [['Recorded Database Matches', '…']]}
-              cta="View Champions, Rules & Games"
-            />
-          );
-        })}
-        {CIRCUITS.map((slug) => {
-          const c = count(slug);
-          const circuit = data?.circuits.find((x) => x.series === slug);
-          return (
-            <TournamentCard
-              key={slug}
-              href={seriesHref(slug)}
-              name={circuit?.name ?? SERIES_NAV.find((t) => t.slug === slug)?.label ?? slug}
-              card={cardView(circuit?.card)}
-              rows={[
-                ['Structure & Cadence', circuit ? circuit.card.cadence : '…'],
-                ['Active History', circuit ? circuitEra(circuit.first_game) : '…'],
-                ['Recorded Database Matches', c ? seriesGames(c) : '…'],
-              ]}
-              cta="View Board & Tournaments"
-            />
-          );
-        })}
-        <TournamentCard
-          href={catalogueHref()}
-          name="Every Tournament"
-          card={cardView({ icon: '📜', tagline: '', subtitle: '', cadence: '', summary: 'Every tournament in the record, beyond the six circuits: its champions, seasons, stages and games.' })}
-          rows={[]}
-          cta="View Every Tournament"
-        />
-      </div>
-
-      <div className="rating-card panel-card wcs-analytics-card">
-        <PanelHeader
+        <Panel
+          id="hof-majors"
           icon="👑"
           title="All-Time Major Circuits Hall of Fame"
           subtitle="Verified Premier Division titles and podium medals won strictly in the 4 official major circuits: World Championship, International Championship (3/4P), Intermezzo Championship (3P), and Royal League (2P)."
+          aside={<span className="tag">Major League Titles Only</span>}
         >
-          <span className="panel-tag">Major League Titles Only</span>
-        </PanelHeader>
-        <ScrollTable hint="full records">
-          <table className="leaderboard-table wcs-table">
-            <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="col-rank-wide">
-                  Rank
-                </th>
-                <th scope="col">Competitor</th>
-                <th scope="col" className="col-center">
-                  Major Titles 🏆
-                </th>
-                <th scope="col" className="col-center">
-                  World (WCS) 👑
-                </th>
-                <th scope="col" className="col-center">
-                  International (4P) 🌐
-                </th>
-                <th scope="col" className="col-center">
-                  Intermezzo (3P) ⚔️
-                </th>
-                <th scope="col" className="col-center">
-                  Royal League (2P) 👑
-                </th>
-                <th scope="col" className="col-right">
-                  Major Medals (🥇 / 🥈 / 🥉)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data === null ? (
-                <Message form="row" colSpan={8}>
-                  {waiting}
-                </Message>
-              ) : (
-                data.legends.map((l, i) => {
-                  const mark = legendMark(l);
-                  return (
-                    <tr key={l.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={l.name} className="legend-player" />{' '}
-                        {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
-                        {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
-                      </td>
-                      <td className="cell-titles">{majorTitles(l)}</td>
-                      <td className="cell-world">{titleCell(l.world_titles, true)}</td>
-                      <td className="cell-international">{titleCell(l.international_titles)}</td>
-                      <td className="cell-intermezzo">{titleCell(l.intermezzo_titles)}</td>
-                      <td className="cell-royal">{titleCell(l.royal_league_titles)}</td>
-                      <td className="cell-medals">{majorMedals(l)}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </ScrollTable>
-      </div>
-
-      <div className="hof-two-col">
-        <div className="rating-card panel-card wcs-analytics-card">
-          <PanelHeader icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens" />
-          <ScrollTable hint="full records">
+          <ScrollTable label="Titles and medals">
             <table className="leaderboard-table wcs-table">
-              <caption className="visually-hidden">The cups&apos; leading medallists</caption>
+              <caption className="visually-hidden">Titles and podium medals across the four major circuits</caption>
               <thead>
                 <tr>
-                  <th scope="col" className="col-rank-narrow">
+                  <th scope="col" className="col-rank-wide">
                     Rank
                   </th>
                   <th scope="col">Competitor</th>
                   <th scope="col" className="col-center">
-                    🥇 Gold
+                    Major Titles 🏆
                   </th>
                   <th scope="col" className="col-center">
-                    🥈 Silver
-                  </th>
-                  <th scope="col">Notable Cup Titles</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data === null ? (
-                  <Message form="row" colSpan={5}>
-                    {waiting}
-                  </Message>
-                ) : (
-                  data.grand_slams.map((g, i) => (
-                    <tr key={g.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={g.name} className="board-player" />
-                      </td>
-                      <td className="cell-gold">{g.gold}</td>
-                      <td className="cell-silver">{g.silver}</td>
-                      <td className="cell-cups">{g.details}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ScrollTable>
-        </div>
-
-        <div className="rating-card panel-card wcs-analytics-card">
-          <PanelHeader icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders" />
-          <ScrollTable hint="full records">
-            <table className="leaderboard-table wcs-table">
-              <caption className="visually-hidden">The ladders&apos; most winning players</caption>
-              <thead>
-                <tr>
-                  <th scope="col" className="col-rank-narrow">
-                    Rank
-                  </th>
-                  <th scope="col">Competitor</th>
-                  <th scope="col" className="col-right">
-                    Ladder Wins
-                  </th>
-                  <th scope="col" className="col-right">
-                    Matches
+                    World (WCS) 👑
                   </th>
                   <th scope="col" className="col-center">
-                    Win Rate
+                    International (4P) 🌐
+                  </th>
+                  <th scope="col" className="col-center">
+                    Intermezzo (3P) ⚔️
+                  </th>
+                  <th scope="col" className="col-center">
+                    Royal League (2P) 👑
+                  </th>
+                  <th scope="col" className="col-right">
+                    Major Medals (🥇 / 🥈 / 🥉)
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {data === null ? (
-                  <Message form="row" colSpan={5}>
+                  <Message form="row" colSpan={8}>
                     {waiting}
                   </Message>
                 ) : (
-                  data.ladders.map((l, i) => (
-                    <tr key={l.name}>
-                      <td className="cell-rank">#{i + 1}</td>
-                      <td>
-                        <PlayerLink name={l.name} className="board-player" />
-                      </td>
-                      <td className="cell-wins">{l.wins} W</td>
-                      <td className="cell-games">{l.games}</td>
-                      <td className="cell-rate">{l.win_rate?.toFixed(1)}%</td>
-                    </tr>
-                  ))
+                  data.legends.map((l, i) => {
+                    const mark = legendMark(l);
+                    return (
+                      <tr key={l.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={l.name} className="legend-player" />{' '}
+                          {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
+                          {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
+                        </td>
+                        <td className="cell-titles">{majorTitles(l)}</td>
+                        <td className="cell-world">{titleCell(l.world_titles, true)}</td>
+                        <td className="cell-international">{titleCell(l.international_titles)}</td>
+                        <td className="cell-intermezzo">{titleCell(l.intermezzo_titles)}</td>
+                        <td className="cell-royal">{titleCell(l.royal_league_titles)}</td>
+                        <td className="cell-medals">{majorMedals(l)}</td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </ScrollTable>
+        </Panel>
+
+        <div className="hof-two-col">
+          <Panel id="hof-cups" icon="🎾" title="All-Time Grand Slams & Cups Hall of Fame" subtitle="Survivors Cup, Wimbledon TTA, Eiffel Tower, Slow Burn & Major Opens">
+            <ScrollTable label="Cup medallists">
+              <table className="leaderboard-table wcs-table">
+                <caption className="visually-hidden">The cups&apos; leading medallists</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="col-rank-narrow">
+                      Rank
+                    </th>
+                    <th scope="col">Competitor</th>
+                    <th scope="col" className="col-center">
+                      🥇 Gold
+                    </th>
+                    <th scope="col" className="col-center">
+                      🥈 Silver
+                    </th>
+                    <th scope="col">Notable Cup Titles</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data === null ? (
+                    <Message form="row" colSpan={5}>
+                      {waiting}
+                    </Message>
+                  ) : (
+                    data.grand_slams.map((g, i) => (
+                      <tr key={g.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={g.name} className="board-player" />
+                        </td>
+                        <td className="cell-gold">{g.gold}</td>
+                        <td className="cell-silver">{g.silver}</td>
+                        <td className="cell-cups">{g.details}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
+
+          <Panel id="hof-ladders" icon="🪜" title="All-Time Competitive Ladders Hall of Fame" subtitle="Top competitors on the Mercurial, Sodium, and Transcontinental (TCL) challenge ladders">
+            <ScrollTable label="Ladder winners">
+              <table className="leaderboard-table wcs-table">
+                <caption className="visually-hidden">The ladders&apos; most winning players</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" className="col-rank-narrow">
+                      Rank
+                    </th>
+                    <th scope="col">Competitor</th>
+                    <th scope="col" className="col-right">
+                      Ladder Wins
+                    </th>
+                    <th scope="col" className="col-right">
+                      Matches
+                    </th>
+                    <th scope="col" className="col-center">
+                      Win Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data === null ? (
+                    <Message form="row" colSpan={5}>
+                      {waiting}
+                    </Message>
+                  ) : (
+                    data.ladders.map((l, i) => (
+                      <tr key={l.name}>
+                        <td className="cell-rank">#{i + 1}</td>
+                        <td>
+                          <PlayerLink name={l.name} className="board-player" />
+                        </td>
+                        <td className="cell-wins">{l.wins} W</td>
+                        <td className="cell-games">{l.games}</td>
+                        <td className="cell-rate">{l.win_rate?.toFixed(1)}%</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
         </div>
-      </div>
+      </Panels>
     </>
   );
 }

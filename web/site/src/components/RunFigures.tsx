@@ -11,17 +11,17 @@ export default function RunFigures({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="home-stats-bar">
       {run.players !== null && (
-        <div className="home-stat-pill">
+        <div className="pill">
           Active Players: <strong>{count(run.players)}</strong>
         </div>
       )}
       {run.games !== null && (
-        <div className="home-stat-pill">
+        <div className="pill">
           Recorded Matches: <strong>{count(run.games)}</strong>
         </div>
       )}
       {run.finished_at && (
-        <div className="home-stat-pill">
+        <div className="pill">
           Updated: <strong>{formatInstant(run.finished_at, viewerZone())}</strong>
         </div>
       )}

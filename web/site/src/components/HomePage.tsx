@@ -8,6 +8,7 @@ import { score } from '@ttac/shared/numbers';
 import { browserStorage } from '@ttac/shared/storage';
 import { toggledSet } from '@ttac/shared/toggle';
 import { seatRankClass } from '../lib/home-view';
+import { divisionTagClass } from '../lib/divisions';
 import { waitingText } from '../lib/waiting';
 
 import {
@@ -24,6 +25,8 @@ import PlayerLink from './PlayerLink';
 import { useLoad } from './useLoad';
 import CopyCode from './CopyCode';
 import Message from './Message';
+import Panel from './Panel';
+import Inset from './Inset';
 
 interface HomeData {
   run: Run;
@@ -40,7 +43,7 @@ interface Spoiler {
 /** SpoilerButton hides or reveals every item in a list at once. */
 function SpoilerButton({ shown, what, onToggle }: Spoiler) {
   return (
-    <button type="button" className="spoiler-toggle-btn" onClick={onToggle} title={`${shown ? 'Hide' : 'Reveal'} all ${what}`}>
+    <button type="button" className="btn-antique" onClick={onToggle} title={`${shown ? 'Hide' : 'Reveal'} all ${what}`}>
       {shown ? '👁️ Spoilers: Shown' : '🔒 Spoilers: Hidden'}
     </button>
   );
@@ -50,7 +53,7 @@ function SpoilerButton({ shown, what, onToggle }: Spoiler) {
 function RevealButton({ shown, what, onToggle }: Spoiler) {
   const label = `${shown ? 'Hide' : 'Reveal'} ${what}`;
   return (
-    <button type="button" className="spoiler-cell-btn" onClick={onToggle} title={label} aria-label={label}>
+    <button type="button" className="btn-quiet btn-compact" onClick={onToggle} title={label} aria-label={label}>
       {shown ? 'Hide' : 'Reveal'}
     </button>
   );
@@ -110,20 +113,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <section className="rating-card home-feed-section" aria-label="Community Pulse Feed">
-        <div className="home-feed-header-bar">
-          <h2 className="home-feed-heading">
-            <span>📡</span> Community Pulse &amp; Highlights
-          </h2>
-          <span className="home-feed-badge">Live Updates</span>
-        </div>
+      <Panel id="home-feed" icon="📡" title="Community Pulse & Highlights" aside={<span className="home-feed-badge">Live Updates</span>} className="home-feed-section">
 
         {data === null ? (
           <Message form="inline">{waiting ?? 'Loading the latest highlights…'}</Message>
         ) : (
           <div className="home-feed-grid">
             {/* ── Left Column: Recent Matches (Top Contenders & Premier Divisions) ── */}
-            <div className="home-feed-card">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>🎮</span> Recent Matches
@@ -131,7 +128,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 <div className="feed-header-actions">
                   <button
                     type="button"
-                    className="feed-options-btn"
+                    className="btn-antique"
                     onClick={openOptions}
                     title="Customize tournaments, divisions, and players in feed"
                     aria-label="Feed filter options"
@@ -145,17 +142,17 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 Recently finished tournament matches featuring your selected divisions and competitors.
               </p>
               {/* Feed Filter Toolbar */}
-              <div className="player-filter-toolbar">
+              <div className="view-bar player-filter-toolbar">
                 <div className="filter-active-tags-row">
                   <div className="filter-tags-scroll" aria-label="Active feed filters">
                     {feedSettings.tournaments.map((t, idx) => (
-                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="player-filter-tag tourney-filter-tag">
+                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="chip">
                         <span className="player-tag-name">
                           🏛️ {t.name}{t.division ? ` · ${t.division}` : ''}
                         </span>
                         <button
                           type="button"
-                          className="player-tag-remove"
+                          className="chip-remove"
                           onClick={() => changeSettings(withoutTournament(feedSettings, t.slug, t.division))}
                           title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
                           aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
@@ -165,11 +162,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                       </span>
                     ))}
                     {feedSettings.players.map((name) => (
-                      <span key={name} className="player-filter-tag">
+                      <span key={name} className="chip">
                         <span className="player-tag-name">👤 {name}</span>
                         <button
                           type="button"
-                          className="player-tag-remove"
+                          className="chip-remove"
                           onClick={() => changeSettings(withoutPlayer(feedSettings, name))}
                           title={`Remove ${name} from feed`}
                           aria-label={`Remove ${name}`}
@@ -183,14 +180,14 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   <div className="filter-quick-actions">
                     <button
                       type="button"
-                      className="feed-options-btn feed-filter-inline-btn"
+                      className="btn-antique"
                       onClick={openOptions}
                     >
                       <span>⚙️</span> Filter / Add
                     </button>
                     <button
                       type="button"
-                      className="btn-antique reset-top-btn"
+                      className="btn-quiet"
                       onClick={() => changeSettings(DEFAULT_FEED_SETTINGS)}
                       title="Reset to top divisions of IM, IC, and RL"
                     >
@@ -203,11 +200,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               {/* Matches List */}
               <div className="feed-list">
                 {feedMatches.kind !== 'ready' ? (
-                  <div className="feed-sub-loading">{waitingText(feedMatches, 'recent matches')}</div>
+                  <Message form="inline">{waitingText(feedMatches, 'recent matches')}</Message>
                 ) : feedMatches.data.length === 0 ? (
-                  <div className="feed-empty-hint">
+                  <Message form="inline">
                     No recent matches found for the chosen filters. Try adjusting your selections with the Options button above.
-                  </div>
+                  </Message>
                 ) : (
                   feedMatches.data.map((m) => {
                     const isRevealed = globalMatchSpoilers || revealedMatchIds.has(m.matchId);
@@ -216,7 +213,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                       <div key={m.matchId} className="feed-match-item">
                         <div className="match-item-meta">
                           <span className="match-tournament">{m.tournament}</span>
-                          {m.division && <span className="badge badge-division">{m.division}</span>}
+                          {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
                           <span className="badge badge-seats">{m.playerCount}P</span>
                           <span className="match-date">{m.date}</span>
                           {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
@@ -255,11 +252,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   Browse All Matches in Catalogue &rarr;
                 </a>
               </div>
-            </div>
+            </Inset>
 
 
             {/* ── Right Column: Recent Tournaments & Champions ── */}
-            <div className="home-feed-card">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>🏆</span> Recent Tournaments
@@ -272,9 +269,9 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
               <div className="feed-list">
                 {data.recentTournaments.kind !== 'ready' ? (
-                  <div className="feed-sub-loading">{waitingText(data.recentTournaments, 'the recent tournaments')}</div>
+                  <Message form="inline">{waitingText(data.recentTournaments, 'the recent tournaments')}</Message>
                 ) : data.recentTournaments.data.length === 0 ? (
-                  <div className="feed-empty-hint">No recent tournament podiums recorded.</div>
+                  <Message form="inline">No recent tournament podiums recorded.</Message>
                 ) : (
                   data.recentTournaments.data.map((t) => {
                     const key = `${t.slug}-${t.seasonLabel}`;
@@ -286,7 +283,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             <a href={`/ratings/tournaments/?t=${encodeURIComponent(t.slug)}`} className="tourney-link">
                               {t.name}
                             </a>
-                            <span className="tourney-season-badge">
+                            <span className="tag">
                               {seasonName(t.seasonLabel, t.seasonWord)}
                             </span>
                           </div>
@@ -361,15 +358,15 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                   Explore Full Tournament Registry &rarr;
                 </a>
               </div>
-            </div>
+            </Inset>
 
             {/* ── Third Column: TTA Pulse Blitz Feed (In Development) ── */}
-            <div className="home-feed-card feed-card-pulse">
+            <Inset className="home-feed-card">
               <div className="feed-card-header">
                 <h3 className="feed-card-title">
                   <span>⚡</span> TTA Pulse Feed
                 </h3>
-                <span className="feed-card-badge pulse-badge">In Development</span>
+                <span className="tag tag-special">In Development</span>
               </div>
               <p className="feed-card-intro">
                 Live blitz games, instant matchmaking queue pairing, and rating velocity updates.
@@ -415,10 +412,10 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
               <div className="feed-card-footer">
                 <span className="feed-footer-tag">Coming Soon in Phase 2</span>
               </div>
-            </div>
+            </Inset>
           </div>
         )}
-      </section>
+      </Panel>
 
       {optionsOpener !== null && data && (
         <FeedOptionsModal

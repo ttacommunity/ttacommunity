@@ -36,17 +36,3 @@
 .notice-failed .notice-heading {
   color: var(--loss);
 }
-.notice-close {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  padding: 0 0.3rem;
-  border: 0;
-  background: none;
-  color: var(--text-soft);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.notice-close:hover {
-  color: var(--text-main);
-}

@@ -1,10 +1,5 @@
 /* Upstream's FAQ page (faq.html): its own styles, then its inline styles as classes. */
 
-.faq-container {
-  max-width: 1120px;
-  margin: 0 auto;
-}
-
 .faq-nav {
   margin-bottom: 2rem;
 }
@@ -30,28 +25,6 @@
   }
 }
 
-.faq-card {
-  position: relative;
-  margin-bottom: 1.5rem;
-  padding: 1.75rem;
-  background: var(--surface-card);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px var(--shadow);
-  backdrop-filter: blur(8px);
-}
-
-.faq-card h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.85rem;
-  color: var(--accent-gold);
-  font-family: var(--font-heading);
-  font-size: var(--size-subheading);
-  text-shadow: 0 2px 4px var(--shadow-deep);
-}
-
 .faq-card p {
   margin-bottom: 0.75rem;
   color: var(--text-main);
@@ -62,20 +35,6 @@
 
 .faq-card p:last-child {
   margin-bottom: 0;
-}
-
-.faq-formula {
-  margin: 1rem 0;
-  padding: 0.95rem 1.35rem;
-  overflow-x: auto;
-  background: rgba(12, 8, 5, 0.92);
-  border: 1px solid var(--gold-wash-strong);
-  border-left: 4px solid var(--accent-gold);
-  border-radius: 4px;
-  box-shadow: inset 0 0 10px var(--shadow-deep);
-  color: #ffe6a3;
-  font-family: var(--font-stats);
-  font-size: 1rem;
 }
 
 .faq-list {
@@ -104,7 +63,6 @@
   text-shadow: 0 0 8px rgba(229, 169, 60, 0.6);
 }
 
-
 /* Upstream's inline styles as classes. Inline styles beat every rule, so these are prefixed to outrank the
    page's own rules above (such as .faq-card p) and keep upstream's result. Boxes, headings and rows by name: */
 
@@ -131,31 +89,6 @@
   padding-bottom: 0.35rem;
 }
 
-.faq-container .faq-section .faq-card-bronze {
-  border-left: 4px solid var(--medal-bronze);
-  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95), var(--surface-well));
-}
-
-.faq-container .faq-section .faq-card-gold {
-  border-left: 4px solid var(--accent-gold);
-  background: linear-gradient(135deg, rgba(35, 20, 10, 0.95), rgba(20, 12, 6, 0.95));
-}
-
-.faq-container .faq-section .faq-card-edge {
-  border-left: 4px solid var(--accent-gold);
-}
-
-.faq-container .faq-section .faq-card-green {
-  border-left: 4px solid var(--win-edge);
-}
-
-.faq-container .faq-section .faq-box {
-  background: rgba(14, 9, 6, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1rem 1.25rem;
-}
-
 .faq-container .faq-section .faq-box-head {
   display: flex;
   justify-content: space-between;
@@ -176,75 +109,12 @@
   margin-bottom: 0;
 }
 
-.faq-container .faq-section .faq-table-wrap {
-  overflow-x: auto;
-  margin: 1rem 0;
-}
-
-.faq-container .faq-section .faq-table-wrap-tight {
-  overflow-x: auto;
-  margin: 0.75rem 0;
-}
-
-.faq-container .faq-section .faq-table-wrap-loose {
-  overflow-x: auto;
-  margin: 1.25rem 0;
-}
-
 .faq-container .faq-section .faq-chip {
   font-size: 0.82rem;
   background: var(--shadow-light);
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
   border: 1px solid var(--border-subtle);
-}
-
-.faq-container .faq-section .faq-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.92rem;
-  background: rgba(14, 9, 6, 0.85);
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-}
-
-.faq-container .faq-section .faq-table-small {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
-  background: rgba(14, 9, 6, 0.85);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-
-.faq-container .faq-section .faq-table-framed {
-  background: var(--surface-field);
-  border: 1px solid var(--gold-wash);
-}
-
-.faq-container .faq-section .faq-table-framed-bright {
-  background: var(--surface-field);
-  border: 1px solid var(--gold-wash-strong);
-}
-
-.faq-container .faq-section .faq-thead {
-  background: var(--surface-card);
-  color: var(--accent-gold);
-  border-bottom: 2px solid var(--border-subtle);
-  text-align: left;
-}
-
-.faq-container .faq-section .faq-thead-plain {
-  background: var(--surface-card);
-  color: var(--accent-gold);
-  text-align: left;
-}
-
-.faq-container .faq-section .row-line {
-  border-bottom: 1px solid var(--border-faint);
 }
 
 .faq-container .faq-section .row-gold-strong {
@@ -276,112 +146,10 @@
   background: rgba(229, 169, 60, 0.10);
 }
 
-.faq-container .faq-section .faq-lead {
-  margin: 0.5rem 0;
-  font-size: 0.98rem;
-  line-height: 1.7;
-  color: var(--text-main);
-}
-
 .faq-container .faq-section .faq-steps {
   margin-left: 1.5rem;
   color: var(--text-main);
   line-height: 1.75;
-}
-
-.faq-container .faq-section .faq-aside {
-  background: rgba(14, 9, 6, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin: 1rem 0;
-  font-size: 0.88rem;
-}
-
-.faq-container .faq-section .faq-aside-green {
-  background: rgba(14, 9, 6, 0.85);
-  border: 1px solid color-mix(in srgb, var(--win-edge) 60%, transparent);
-  border-left: 3px solid var(--win-edge);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin-bottom: 1.25rem;
-}
-
-.faq-container .faq-section .faq-aside-green-title {
-  color: var(--win-light);
-  font-family: var(--font-subheading);
-  font-size: 0.95rem;
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.faq-container .faq-section .faq-aside-text {
-  margin: 0;
-  font-size: 0.94rem;
-  color: var(--text-soft);
-  line-height: 1.65;
-}
-
-.faq-container .faq-section .faq-quote {
-  background: var(--gold-wash-faint);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
-  margin: 0.75rem 0;
-  font-style: italic;
-  color: var(--text-main);
-}
-
-.faq-container .faq-section .faq-verdict {
-  background: rgba(14, 9, 6, 0.9);
-  border: 1px solid var(--gold-wash-strong);
-  border-left: 4px solid var(--accent-gold);
-  padding: 1rem 1.25rem;
-  border-radius: 6px;
-  margin: 1rem 0;
-}
-
-.faq-container .faq-section .faq-takeaway {
-  background: rgba(45, 26, 12, 0.45);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.85rem 1.15rem;
-  margin-top: 1rem;
-  border-radius: 4px;
-}
-
-.faq-container .faq-section .faq-takeaway-title {
-  color: var(--accent-gold-light);
-  font-family: var(--font-subheading);
-  font-size: 1.05rem;
-}
-
-.faq-container .faq-section .faq-takeaway-text {
-  margin: 0.4rem 0 0.5rem 0;
-  font-size: 0.95rem;
-  color: var(--text-soft);
-}
-
-.faq-container .faq-section .faq-callout {
-  background: var(--gold-wash-faint);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.85rem 1.15rem;
-  border-radius: 4px;
-  margin: 1rem 0 1.5rem 0;
-}
-
-.faq-container .faq-section .faq-callout-title {
-  color: var(--accent-gold);
-  font-size: 0.95rem;
-  display: block;
-  margin-bottom: 0.35rem;
-}
-
-.faq-container .faq-section .faq-callout-text {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--text-soft);
-  line-height: 1.55;
 }
 
 .faq-container .faq-section .faq-stack {
@@ -389,15 +157,6 @@
   grid-template-columns: 1fr;
   gap: 1rem;
   margin-bottom: 1.5rem;
-}
-
-.faq-container .faq-section .faq-eyebrow {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--accent-gold);
-  margin-bottom: 0.5rem;
-  font-weight: 700;
 }
 
 .faq-container .faq-section .faq-inline {
@@ -410,20 +169,7 @@
   margin-bottom: 1.75rem;
 }
 
-
 /* Upstream's inline styles: single declarations combined on cells, spans and text. */
-
-.faq-container .faq-section .cell {
-  padding: 0.5rem 1rem;
-}
-
-.faq-container .faq-section .cell-lg {
-  padding: 0.75rem 1rem;
-}
-
-.faq-container .faq-section .cell-md {
-  padding: 0.6rem 1rem;
-}
 
 .faq-container .faq-section .stat {
   font-family: var(--font-stats);
@@ -491,14 +237,6 @@
 
 .faq-container .faq-section .my-50 {
   margin: 0.5rem 0;
-}
-
-.faq-container .faq-section .my-75 {
-  margin: 0.75rem 0;
-}
-
-.faq-container .faq-section .m-0 {
-  margin: 0;
 }
 
 .faq-container .faq-section .mt-85 {
@@ -628,10 +366,6 @@
   font-weight: 700;
 }
 
-.faq-container .faq-section .faq-lead-end {
-  margin: 0.5rem 0 0;
-}
-
 .faq-container .faq-section .faq-stack-tight {
   margin-bottom: 0.5rem;
 }
@@ -647,19 +381,5 @@
 @media (max-width: 768px) {
   .faq-nav {
     margin-bottom: 1.25rem;
-  }
-
-  .faq-card {
-    margin-bottom: 1.15rem;
-    padding: 1.15rem 1rem;
-  }
-
-  .faq-card h3 {
-    font-size: 1.15rem;
-  }
-
-  .faq-formula {
-    padding: 0.75rem 0.85rem;
-    font-size: 0.9rem;
   }
 }

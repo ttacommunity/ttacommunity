@@ -1,77 +1,8 @@
 /* Upstream's comparison matrix page: player_matrix.html's styles, the leaderboard's year pills, and its inline styles as classes. */
-.peak-year-card {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.25rem;
-  margin-bottom: 1.75rem;
-  padding: 1rem 1.35rem;
-  background: linear-gradient(135deg, rgba(35, 25, 12, 0.95), rgba(20, 14, 8, 0.95));
-  border: 1px solid var(--gold-wash-strong);
-  border-left: 4px solid var(--accent-gold);
-  border-radius: 8px;
-  box-shadow: 0 4px 15px var(--shadow-light);
-}
-
-.peak-year-badge {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  padding: 0.4rem 0.55rem;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  border-radius: 8px;
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.peak-year-body {
-  flex-grow: 1;
-}
-
-.peak-year-kicker {
-  font-family: var(--font-heading);
-  font-size: 0.75rem;
-  color: var(--accent-gold);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-.peak-year-title {
-  margin: 0.15rem 0;
-  font-size: 1.18rem;
-  font-weight: 700;
-  color: var(--text-bright);
-}
-
-.peak-year-year,
-.peak-year-score {
-  color: var(--accent-gold);
-}
-
-.peak-year-title .badge-small {
-  margin-left: 0.5rem;
-  font-size: 0.75rem;
-}
-
-.peak-year-text {
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
 
 .peak-year-rating {
   color: var(--accent-gold);
 }
-
-.rating-card.matrix-card {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-}
-
-
-
 
 .matrix-card-note strong {
   color: var(--accent-gold);
@@ -134,15 +65,3 @@
   cursor: help;
 }
 
-@media (max-width: 768px) {
-
-  .peak-year-card {
-    gap: 0.75rem;
-    padding: 0.85rem;
-  }
-
-  .peak-year-badge {
-    padding: 0.35rem;
-    font-size: 1.25rem;
-  }
-}

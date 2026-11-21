@@ -1,0 +1,19 @@
+---
+/** The home page's own header, the one page header that is not PageHeader: the community crest beside the site's name, a sentence, and the live figures passed in its slot, on PageHeader's card. */
+import './HomeHeader.css';
+---
+<section class="page-header home-hero">
+  <div class="home-hero-layout">
+    <div class="home-hero-logo-col">
+      <img src="/img/HubLogo.png" alt="Through the Ages Community" class="home-hero-logo" width="537" height="460" />
+    </div>
+    <div class="home-hero-content-col">
+      <h1 class="home-hero-title">Through the Ages Community</h1>
+      <p class="home-hero-subtitle">
+        The definitive home for competitive Through the Ages: verified Glicko-D community ratings, premier tournament circuits, the World
+        Championship Hall of Fame, and automated blitz matchmaking.
+      </p>
+      <slot />
+    </div>
+  </div>
+</section>

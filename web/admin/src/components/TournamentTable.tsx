@@ -35,7 +35,7 @@ export default function TournamentTable({
   details?: boolean;
 }) {
   return (
-    <AdminTable caption={caption} className="tournaments-table">
+    <AdminTable caption={caption}>
       <thead>
         <tr>
           <th scope="col">Tournament</th>

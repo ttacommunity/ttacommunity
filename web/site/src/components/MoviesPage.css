@@ -1,7 +1,5 @@
 /* Movies feed page: uses the shared dark card/hero theme so text and thumbnails stay readable over the parchment background. */
 .movies-page {
-  max-width: 1120px;
-  margin: 0 auto;
   padding: 0 0 3rem;
 }
 
@@ -13,52 +11,16 @@
   padding: 0.75rem 1rem;
 }
 
-.movies-filter-btn {
-  padding: 0.4rem 0.85rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: var(--surface-well);
-  color: var(--text-soft);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-
-.movies-filter-btn:hover {
-  border-color: var(--accent-gold);
-  color: var(--text-main);
-}
-
-.movies-filter-btn.active {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-  border-color: var(--accent-gold);
-  font-weight: 700;
-}
-
 .movies-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 1.25rem;
 }
 
-.movie-card {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.movie-thumb-btn {
+.movie-thumb {
   position: relative;
-  display: block;
-  width: 100%;
   aspect-ratio: 16 / 9;
-  padding: 0;
-  border: 0;
-  background: #0d0907;
-  cursor: pointer;
-  overflow: hidden;
+  background: var(--surface-well);
 }
 
 .movie-thumb-img {
@@ -74,7 +36,7 @@
   width: 2.3rem;
   height: 2.3rem;
   border-radius: 999px;
-  background: rgba(15, 13, 10, 0.86);
+  background: var(--surface-well);
   color: var(--accent-gold);
   display: grid;
   place-items: center;
@@ -83,7 +45,6 @@
 }
 
 .movie-card-body {
-  padding: 0.85rem 1rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -92,25 +53,13 @@
 
 .movie-title {
   margin: 0;
+  color: var(--text-main);
   font-family: var(--font-body);
   font-size: 1rem;
+  font-weight: 600;
   line-height: 1.35;
 }
 
-.movie-title-btn {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--text-main);
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.movie-title-btn:hover {
-  color: var(--accent-gold-light);
-}
 
 .movie-meta {
   margin-top: auto;
@@ -128,16 +77,6 @@
 
 .movie-creator a:hover {
   text-decoration: underline;
-}
-
-.movies-status {
-  padding: 1.5rem 1.25rem;
-  text-align: center;
-  color: var(--text-soft);
-}
-
-.movies-error {
-  color: var(--loss);
 }
 
 .movie-modal {
@@ -177,21 +116,6 @@
   margin: 0;
   font-size: 0.88rem;
   color: var(--text-muted);
-}
-
-.movie-modal-close {
-  background: var(--surface-well);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  color: var(--text-main);
-  width: 2rem;
-  height: 2rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.movie-modal-close:hover {
-  border-color: var(--accent-gold);
 }
 
 .movie-modal-frame-wrap {

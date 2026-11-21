@@ -1,8 +1,4 @@
-/* The rating percentiles page's own layout: the chart's card and height. */
-.percentiles-chart-card {
-  margin-bottom: 2rem;
-}
-
+/* The rating percentiles page's own layout: the chart's height. */
 .percentiles-chart {
   position: relative;
   width: 100%;

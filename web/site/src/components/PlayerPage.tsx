@@ -32,6 +32,7 @@ import {
   matrixHref,
   pageModel,
   parsePlayerView,
+  playerHref,
   playerParams,
   renamedView,
   formatCards,
@@ -39,7 +40,6 @@ import {
   seatName,
   seatDeltaClass,
   visibleRivals,
-  RIVALS_SHOWN,
   type ChartCurve,
   type ChartMode,
   type ChartScale,
@@ -50,9 +50,11 @@ import {
 } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import './PlayerPage.css';
-import FilterInput from './FilterInput';
 import PlayerLink from './PlayerLink';
 import ScrollTable from './ScrollTable';
+import Panel from './Panel';
+import Panels from './Panels';
+import Tile from './Tile';
 import Waiting from './Waiting';
 import UnratedToggle from './UnratedToggle';
 import RatedFilter from './RatedFilter';
@@ -65,12 +67,14 @@ import { type Load } from '@ttac/shared/load';
 import { counted, ordinal, score } from '@ttac/shared/numbers';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
-import { VideosButton } from './PlayerMarks';
 import { SortButton } from '@ttac/shared/SortHeader';
 import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
+import Inset from './Inset';
+import PlayerSearch from './PlayerSearch';
+import ShowAll from './ShowAll';
 
 const ADDRESS: Address<PlayerView> = {
   parse: parsePlayerView,
@@ -171,48 +175,48 @@ export default function PlayerPage({ apiUrl }: { apiUrl: string }) {
     <div className={optionsOpen ? 'player-layout options-open' : 'player-layout'}>
       <Header player={p} view={view} provisional={provisional} gamesInFormat={gamesInFormat} />
 
-      <ViewBar
-        actions={
-          <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
-        }
-      >
-        <FormatPick value={view.format} link={(format) => linkTo({ ...view, format, matchPage: 1 })} what="rating and history" />
-      </ViewBar>
+      <Panels>
+        <ViewBar
+          actions={
+            <OptionsToggle title="Profile options, track, reset mode, and chart controls" active={activeOptions} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+          }
+        >
+          <FormatPick value={view.format} link={(format) => linkTo({ ...view, format, matchPage: 1 })} what="rating and history" />
+        </ViewBar>
 
-      <CareerBox
-        player={p}
-        career={career.kind === 'ready' ? career.data : null}
-        summary={achievements.kind === 'ready' ? achievements.data.summary : null}
-        view={view}
-      />
-
-      <FormatCards player={p} view={view} linkTo={linkTo} />
-
-      <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
-
-      <div className="tables-grid">
-        <Games
-          state={games}
+        <CareerBox
+          player={p}
+          career={career.kind === 'ready' ? career.data : null}
+          summary={achievements.kind === 'ready' ? achievements.data.summary : null}
           view={view}
-          provisional={provisional}
-          gamesInFormat={gamesInFormat}
-          linkTo={linkTo}
-          go={go}
-          ratingFilter={gamesFilter}
-          onRatingFilter={(next) => {
-            setGamesFilter(next);
-            if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
-          }}
         />
-        <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
-      </div>
 
-      <PositionSeatStats
-        state={seats}
-        format={view.format}
-        includeUnrated={includeUnrated}
-        onToggleUnrated={setIncludeUnrated}
-      />
+        <FormatCards player={p} view={view} linkTo={linkTo} />
+
+        <RatingChart history={history.kind === 'ready' ? history.data : null} options={chartOptions} setEngines={setEngines} />
+
+          <Games
+            state={games}
+            view={view}
+            provisional={provisional}
+            gamesInFormat={gamesInFormat}
+            linkTo={linkTo}
+            go={go}
+            ratingFilter={gamesFilter}
+            onRatingFilter={(next) => {
+              setGamesFilter(next);
+              if (view.matchPage !== 1) go({ ...view, matchPage: 1 });
+            }}
+          />
+          <Rivals state={rivals} compare={runId === null ? null : { apiUrl, runId, format: view.format }} ratingFilter={rivalsFilter} onRatingFilter={setRivalsFilter} />
+
+        <PositionSeatStats
+          state={seats}
+          format={view.format}
+          includeUnrated={includeUnrated}
+          onToggleUnrated={setIncludeUnrated}
+        />
+      </Panels>
 
       {optionsOpen && (
         <PlayerOptionsDrawer
@@ -259,32 +263,22 @@ function Header({
           </>
         )
       }
-      links={
-        <>
-          <a href={achievementsHref(player.name)} className="btn-tournament-achievements">
-            <span aria-hidden="true">🏆</span> Tournament Achievements »
-          </a>
-          <a href={matrixHref(player.name, view)} className="btn-tournament-achievements btn-matrix">
-            <span aria-hidden="true">📊</span> Career Years »
-          </a>
-          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-tournament-achievements btn-matrix" />
-        </>
-      }
+      page="profile"
+      hrefs={{ profile: playerHref(player.name), achievements: achievementsHref(player.name), years: matrixHref(player.name, view) }}
     />
   );
 }
 
-/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is gold. */
+/** FormatCards shows upstream's four GlickoD cards, one per format, each a link to that format; the chosen one is the current tile. */
 function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerView; linkTo: LinkTo }) {
   return (
     <div className="cards-grid">
       {formatCards(player, view.reset).map((c) => {
         const active = c.format === view.format;
         const r = c.rating;
-        const classes = ['model-card', 'format-card', active && 'active-card card-daneo'].filter(Boolean).join(' ');
         return (
-          <a key={c.format} className={classes} {...linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })}>
-            <h3>
+          <Tile key={c.format} link={linkTo({ ...view, engine: 'glicko2_daneo', format: c.format, matchPage: 1 })} current={active}>
+            <h3 className="format-card-title">
               <span>
                 {c.icon} {c.label}
               </span>
@@ -311,7 +305,7 @@ function FormatCards({ player, view, linkTo }: { player: Player; view: PlayerVie
             <div className="model-card-caption">
               {r && r.opponents > 0 ? `Opponents: ${r.opponents} | Win%: ${r.win_rate.toFixed(1)}%` : c.description}
             </div>
-          </a>
+          </Tile>
         );
       })}
     </div>
@@ -342,22 +336,28 @@ function Games({
   const data = state.kind === 'ready' ? state.data : null;
   const total = data?.total ?? gamesInFormat;
   return (
-    <div className="rating-card">
-      <div className="panel-head">
-        <h3>
+    <Panel
+      id="game-history"
+      title={
+        <>
           Game History <span className="panel-head-count">(Recent Matches: {total})</span>
-        </h3>
-        {provisional && (
-          <span
-            className="badge badge-calibration"
-            title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
-          >
-            ⏳ Prior Calibration ({gamesInFormat}/15)
-          </span>
-        )}
-        <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
-      </div>
-      <ScrollTable hint="full match details">
+        </>
+      }
+      aside={
+        <>
+          {provisional && (
+            <span
+              className="badge badge-calibration"
+              title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
+            >
+              ⏳ Prior Calibration ({gamesInFormat}/15)
+            </span>
+          )}
+          <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
+        </>
+      }
+    >
+      <ScrollTable label="Match history">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">
             Games of {view.name}, {show.formatName(view.format)}, page {data?.page ?? view.matchPage}
@@ -431,7 +431,7 @@ function Games({
           go={(matchPage) => go({ ...view, matchPage })}
         />
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -449,6 +449,9 @@ function GameDelta({ value }: { value: number | null }) {
 }
 
 const MIN_GAMES = [1, 2, 3, 5, 10, 20];
+
+/** A finishing place's pill tone: the medals' gold, silver and bronze for the first three. */
+const PLACE_TONES: Record<number, string> = { 1: 'pill-gold', 2: 'pill-silver', 3: 'pill-bronze' };
 
 type Compare = { apiUrl: string; runId: number; format: Format };
 
@@ -469,20 +472,22 @@ function Rivals({
   const rows = visibleRivals(all, rv);
   const filtering = rv.filter.trim() !== '' || rv.minGames > 1;
   const sortBy = (col: RivalKey) => setRv({ ...rv, sort: nextSort(rv.sort, col, RIVAL_COLUMNS) });
-  const head = (col: RivalKey, label: string, className?: string) => (
-    <SortButton col={col} sort={rv.sort} onSort={sortBy} className={className}>
+  const head = (col: RivalKey, label: string, tone?: 'win' | 'loss' | 'draw') => (
+    <SortButton col={col} sort={rv.sort} onSort={sortBy} tone={tone}>
       {label}
     </SortButton>
   );
   const way = (col: RivalKey) => (rv.sort?.col === col ? (rv.sort.desc ? 'descending' : 'ascending') : undefined);
 
   return (
-    <div className="rating-card">
-      <div className="panel-head">
-        <h3>Head-to-Head vs Rivals ({filtering ? rows.length : all.length})</h3>
+    <Panel
+      id="rivals"
+      title={`Head-to-Head vs Rivals (${filtering ? rows.length : all.length})`}
+      aside={
         <div className="rivals-controls">
           <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
           <select
+            className="input-antique"
             aria-label="Minimum matches"
             value={rv.minGames}
             onChange={(e) => setRv({ ...rv, minGames: Number(e.target.value) })}
@@ -493,16 +498,11 @@ function Rivals({
               </option>
             ))}
           </select>
-          <FilterInput
-            label="Filter rivals by name"
-            placeholder="🔍 Filter rival by name..."
-            className="rival-filter"
-            value={rv.filter}
-            onChange={(filter) => setRv({ ...rv, filter })}
-          />
+          <PlayerSearch players={all} value={rv.filter} onChange={(filter) => setRv({ ...rv, filter })} />
         </div>
-      </div>
-      <ScrollTable hint="full opponent stats">
+      }
+    >
+      <ScrollTable label="Rivals">
         <table className="leaderboard-table data-table">
           <caption className="visually-hidden">Record against each opponent</caption>
           <thead>
@@ -547,7 +547,7 @@ function Rivals({
                   <strong className={r.win_rate >= 50 ? 'rival-rate good' : 'rival-rate bad'}>{r.win_rate.toFixed(1)}%</strong>
                 </td>
                 <td>
-                  <button type="button" className="btn-h2h-compare" onClick={(e) => setVersus({ other: r.name, opener: e.currentTarget })}>
+                  <button type="button" className="btn-antique btn-compact" onClick={(e) => setVersus({ other: r.name, opener: e.currentTarget })}>
                     <span aria-hidden="true">⚔️</span> Compare
                   </button>
                 </td>
@@ -568,14 +568,8 @@ function Rivals({
           onClose={() => setVersus(null)}
         />
       )}
-      {all.length > RIVALS_SHOWN && !filtering && (
-        <div className="rivals-expand">
-          <button type="button" className="btn-antique" onClick={() => setRv({ ...rv, expanded: !rv.expanded })}>
-            {rv.expanded ? `- Show top ${RIVALS_SHOWN} rivals only` : `+ Show all ${all.length} rivals`}
-          </button>
-        </div>
-      )}
-    </div>
+      {!filtering && <ShowAll total={all.length} expanded={rv.expanded} onToggle={() => setRv({ ...rv, expanded: !rv.expanded })} />}
+    </Panel>
   );
 }
 
@@ -595,23 +589,16 @@ function PositionSeatStats({
   const overall = data?.overall;
 
   return (
-    <div className="rating-card position-seat-card">
-      <div className="position-seat-head">
-        <div className="position-head-title">
-          <h3>
-            <span aria-hidden="true">🎲</span> Position &amp; Turn Order Performance
-          </h3>
-          <span className="position-head-subtitle">
-            Win rates, average culture scores, and finishing placement distributions by starting seat.
-          </span>
-        </div>
-        <div className="position-filter-toggle">
-          <UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />
-        </div>
-      </div>
+    <Panel
+      id="position-seat"
+      icon="🎲"
+      title="Position & Turn Order Performance"
+      subtitle="Win rates, average culture scores, and finishing placement distributions by starting seat."
+      aside={<UnratedToggle on={includeUnrated} onChange={onToggleUnrated} />}
+    >
 
       {overall && overall.total_games > 0 && (
-        <div className="position-delta-banner">
+        <Inset form="figures" className="position-delta-banner">
           <div className="position-banner-metric">
             <span className="banner-metric-label">Analyzed Games:</span>
             <strong>{overall.total_games}</strong>
@@ -631,7 +618,7 @@ function PositionSeatStats({
               <strong className="delta-pos">
                 {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
               </strong>
-              <span className="delta-tag delta-pos">
+              <span className="pill pill-win">
                 {signedDelta(overall.strongest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
@@ -642,15 +629,15 @@ function PositionSeatStats({
               <strong className="delta-neg">
                 {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
               </strong>
-              <span className="delta-tag delta-neg">
+              <span className="pill pill-loss">
                 {signedDelta(overall.weakest_seat.delta_win_rate)}% vs Format
               </span>
             </div>
           )}
-        </div>
+        </Inset>
       )}
 
-      <ScrollTable hint="seat statistics">
+      <ScrollTable label="Seats">
         <table className="leaderboard-table data-table position-seat-table">
           <caption className="visually-hidden">
             Position and turn order win rates and placement breakdown for {data?.name ?? 'player'}
@@ -718,7 +705,7 @@ function PositionSeatStats({
                           {row.places.map((p) => (
                             <span
                               key={p.place}
-                              className={`place-rate-pill place-pill-${p.place}`}
+                              className={`pill ${PLACE_TONES[p.place] ?? ''}`}
                               title={`${ordinal(p.place)} place: ${p.count} times (${p.rate.toFixed(1)}%)`}
                             >
                               <span className="pill-place">{p.place}:</span> {p.count}{' '}
@@ -735,7 +722,7 @@ function PositionSeatStats({
           </tbody>
         </table>
       </ScrollTable>
-    </div>
+    </Panel>
   );
 }
 

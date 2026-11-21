@@ -14,6 +14,8 @@ import {
 } from '../lib/movies';
 import './MoviesPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Message from './Message';
+import Tile, { TileLink } from './Tile';
 
 type FeedState =
   | { kind: 'loading' }
@@ -81,7 +83,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
     return (
       <div className="movies-page">
         <MoviesHero />
-        <p className="movies-status rating-card">Loading videos…</p>
+        <Message role="status">Loading videos…</Message>
       </div>
     );
   }
@@ -89,7 +91,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
     return (
       <div className="movies-page">
         <MoviesHero />
-        <p className="movies-status movies-error rating-card">{state.message}</p>
+        <Message role="alert">{state.message}</Message>
       </div>
     );
   }
@@ -106,7 +108,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
         <div className="movies-filters rating-card" role="group" aria-label="Filter by creator">
           <button
             type="button"
-            className={`movies-filter-btn${selected.size === 0 ? ' active' : ''}`}
+            className={selected.size === 0 ? 'format-btn active' : 'format-btn'}
             aria-pressed={selected.size === 0}
             onClick={() => setSelected(new Set())}
           >
@@ -119,7 +121,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
               <button
                 key={c.channel_id}
                 type="button"
-                className={`movies-filter-btn${on ? ' active' : ''}`}
+                className={on ? 'format-btn active' : 'format-btn'}
                 aria-pressed={on}
                 onClick={() => toggleCreator(c.channel_id)}
               >
@@ -131,32 +133,26 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       {visible.length === 0 ? (
-        <p className="movies-status rating-card">No videos match the selected creators yet.</p>
+        <Message>No videos match the selected creators yet.</Message>
       ) : (
         <div className="movies-grid">
           {visible.map((v) => (
-            <article key={v.video_id} className="movie-card rating-card">
-              <button
-                type="button"
-                className="movie-thumb-btn"
-                onClick={() => setActive(v)}
-                aria-label={`Play ${v.title} by ${v.creator_name}`}
-              >
-                <img
-                  src={v.thumbnail_url}
-                  alt=""
-                  loading="lazy"
-                  width="480"
-                  height="360"
-                  className="movie-thumb-img"
-                />
-                <span className="movie-play-badge" aria-hidden="true">▶</span>
-              </button>
+            <Tile
+              key={v.video_id}
+              picture={
+                <div className="movie-thumb">
+                  <img src={v.thumbnail_url} alt="" loading="lazy" width="480" height="360" className="movie-thumb-img" />
+                  <span className="movie-play-badge" aria-hidden="true">
+                    ▶
+                  </span>
+                </div>
+              }
+            >
               <div className="movie-card-body">
                 <h2 className="movie-title">
-                  <button type="button" className="movie-title-btn" onClick={() => setActive(v)}>
+                  <TileLink onClick={() => setActive(v)} label={`Play ${v.title} by ${v.creator_name}`}>
                     {v.title}
-                  </button>
+                  </TileLink>
                 </h2>
                 <div className="movie-meta">
                   <span className="movie-creator">
@@ -173,7 +169,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
                   </time>
                 </div>
               </div>
-            </article>
+            </Tile>
           ))}
         </div>
       )}
@@ -190,7 +186,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
               </div>
               <button
                 type="button"
-                className="movie-modal-close"
+                className="btn-icon"
                 onClick={() => setActive(null)}
                 aria-label="Close video player"
               >

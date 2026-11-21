@@ -26,18 +26,23 @@ import {
   tournamentCategory,
   tournamentOverviews,
   CATEGORY_ICON,
+  achievementsHref,
   type Direction,
   type TournamentCategoryFilter,
 } from '../lib/achievements';
 import './PlayerPage.css';
 import './AchievementsPage.css';
-import { playerHref } from '../lib/player-view';
+import { matrixHref, playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { counted } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
 import PlayerHeader from './PlayerHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import MetricCard, { MetricGrid } from './MetricCard';
+import Honours from './Honours';
 
 type Sort = { col: number; dir: Direction } | null;
 
@@ -89,7 +94,14 @@ function TournamentName({ r }: { r: TournamentRecord }) {
 }
 
 function Header({ player }: { player: Player }) {
-  return <PlayerHeader player={player} back={{ href: playerHref(player.name), label: 'Player Profile' }} />;
+  return (
+    <PlayerHeader
+      player={player}
+      back={{ href: playerHref(player.name), label: 'Player Profile' }}
+      page="achievements"
+      hrefs={{ profile: playerHref(player.name), achievements: achievementsHref(player.name), years: matrixHref(player.name) }}
+    />
+  );
 }
 
 type HighlightMode = 'medals' | 'promotions' | 'best' | 'hof';
@@ -206,29 +218,28 @@ function Records({ records }: { records: TournamentRecord[] }) {
     : null;
 
   return (
-    <div className="rating-card ach-records">
-      <div className="ach-records-top">
-        <div>
-          <h2 className="ach-records-title">Historical Tournament Records</h2>
-          <Segmented
-            label="Records"
-            look="tabs"
-            options={[
-              { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
-              { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
-            ]}
-            value={tab}
-            onChange={handleTabChange}
-          />
-        </div>
+    <Panel
+      id="ach-records"
+      title="Historical Tournament Records"
+      aside={
         <FilterInput
           label="Filter tournaments, seasons"
-          placeholder="🔍 Filter tournaments, seasons..."
-          className="ach-filter"
+          placeholder="Filter tournaments ..."
           value={filter}
           onChange={setFilter}
         />
-      </div>
+      }
+    >
+      <Segmented
+        label="Records"
+        look="tabs"
+        options={[
+          { value: 'seasons', label: `🏆 Tournaments (${activeTournaments.length})` },
+          { value: 'highlights', label: `🎖️ Career Highlights (${activeHighlights.length})` },
+        ]}
+        value={tab}
+        onChange={handleTabChange}
+      />
 
       <Segmented
         label="Tournament category"
@@ -242,7 +253,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
       {tab === 'seasons' ? (
         selectedTournament === null ? (
           <div>
-            <ScrollTable hint="click any row or button to view seasons">
+            <ScrollTable label="Tournaments">
               <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
@@ -294,7 +305,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                             </div>
                           </td>
                           <td className="ach-seasons-cell">
-                            <span className="seasons-count-badge">
+                            <span className="pill">
                               {counted(t.seasonsCount, 'season')}
                             </span>
                           </td>
@@ -310,14 +321,14 @@ function Records({ records }: { records: TournamentRecord[] }) {
                                 {t.wins}W - {t.losses}L{t.draws > 0 ? ` - ${t.draws}D` : ''}
                               </span>
                               {t.totalMatches > 0 && (
-                                <span className="winrate-pill">{t.winRate.toFixed(1)}%</span>
+                                <span className="pill pill-win">{t.winRate.toFixed(1)}%</span>
                               )}
                             </div>
                           </td>
                           <td className="ach-action-cell">
                             <button
                               type="button"
-                              className="ach-view-btn"
+                              className="btn-antique btn-compact"
                               title="View all seasons of this tournament"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -337,13 +348,13 @@ function Records({ records }: { records: TournamentRecord[] }) {
           </div>
         ) : (
           <div className="ach-drilldown-view">
-            <div className="ach-drilldown-header">
+            <div className="view-bar ach-drilldown-header">
               <button
                 type="button"
-                className="ach-back-btn"
+                className="btn-antique"
                 onClick={() => setSelectedTournament(null)}
               >
-                ← Back to all tournaments
+                « Back to all tournaments
               </button>
               {selectedOverview && (
                 <div className="ach-drilldown-info">
@@ -367,7 +378,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                     )}
                   </div>
                   <div className="ach-drilldown-summary">
-                    <span className="seasons-count-badge">
+                    <span className="pill">
                       {counted(selectedOverview.seasonsCount, 'edition')}
                     </span>
                     <span className="record-stat">
@@ -379,7 +390,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
               )}
             </div>
 
-            <ScrollTable hint="full season details">
+            <ScrollTable label="Seasons">
               <table className="leaderboard-table records-table">
                 <thead>
                   <tr>
@@ -435,7 +446,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
             onChange={setHighlightMode}
           />
 
-          <ScrollTable hint="full highlight details">
+          <ScrollTable label="Highlights">
             {highlightMode === 'hof' ? (
               <table className="leaderboard-table records-table">
                 <thead>
@@ -590,7 +601,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
           </ScrollTable>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -614,102 +625,73 @@ export default function AchievementsPage({ apiUrl }: { apiUrl: string }) {
   return (
     <div className="achievements-page">
       <Header player={player} />
-      {totalMedals > 0 ? (
-        <div className="medals-grid">
-          {s?.world_titles && s.world_titles > 0 ? (
-            <div className="medal-card" title="World Championship titles in Through the Ages">
-              <div className="medal-icon" aria-hidden="true">
-                👑
-              </div>
-              <div className="medal-count trophy-accent">{s.world_titles}</div>
-              <div className="medal-label">World Championships</div>
-            </div>
-          ) : null}
-          <div className="medal-card" title="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥇
-            </div>
-            <div className="medal-count gold-accent">{s?.gold ?? 0}</div>
-            <div className="medal-label">Major Gold Medals</div>
-          </div>
-          <div className="medal-card" title="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥈
-            </div>
-            <div className="medal-count silver-accent">{s?.silver ?? 0}</div>
-            <div className="medal-label">Major Silver Medals</div>
-          </div>
-          <div className="medal-card" title="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)">
-            <div className="medal-icon" aria-hidden="true">
-              🥉
-            </div>
-            <div className="medal-count bronze-accent">{s?.bronze ?? 0}</div>
-            <div className="medal-label">Major Bronze Medals</div>
-          </div>
-        </div>
-      ) : (
-        <div className="best-results-grid">
-          <div className="best-result-card" title="Highest division reached in Royal League">
-            <div className="best-result-icon" aria-hidden="true">
-              🏰
-            </div>
-            <div className="best-result-value">{best.rl ? best.rl.division : '—'}</div>
-            <div className="best-result-sub">{best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">Royal League Peak</div>
-          </div>
-          <div className="best-result-card" title="Highest tier reached in International Championship (4P)">
-            <div className="best-result-icon" aria-hidden="true">
-              🌍
-            </div>
-            <div className="best-result-value">{best.ic ? best.ic.division : '—'}</div>
-            <div className="best-result-sub">{best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">International Peak</div>
-          </div>
-          <div className="best-result-card" title="Highest tier reached in Intermezzo (3P)">
-            <div className="best-result-icon" aria-hidden="true">
-              ⚔️
-            </div>
-            <div className="best-result-value">{best.im ? best.im.division : '—'}</div>
-            <div className="best-result-sub">{best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}</div>
-            <div className="best-result-label">Intermezzo Peak</div>
-          </div>
-          <div className="best-result-card" title="Career competitive tournament matches and victory rate">
-            <div className="best-result-icon" aria-hidden="true">
-              📊
-            </div>
-            <div className="best-result-value">{best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}</div>
-            <div className="best-result-sub">{best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}</div>
-            <div className="best-result-label">Tournament Record</div>
-          </div>
-        </div>
-      )}
+      <Panels>
+        {totalMedals > 0 ? (
+          <MetricGrid>
+            {s?.world_titles && s.world_titles > 0 ? (
+              <MetricCard icon="👑" label="World Championships" value={s.world_titles} tone="gold" hint="World Championship titles in Through the Ages" />
+            ) : null}
+            <MetricCard icon="🥇" label="Major Gold Medals" value={s?.gold ?? 0} tone="gold" hint="1st place gold medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+            <MetricCard icon="🥈" label="Major Silver Medals" value={s?.silver ?? 0} tone="silver" hint="2nd place silver medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+            <MetricCard icon="🥉" label="Major Bronze Medals" value={s?.bronze ?? 0} tone="bronze" hint="3rd place bronze medals in major circuits (World Championship, International Championship, Intermezzo, Royal League Emperor)" />
+          </MetricGrid>
+        ) : (
+          <MetricGrid>
+            <MetricCard
+              icon="🏰"
+              label="Royal League Peak"
+              value={best.rl ? best.rl.division : '—'}
+              note={best.rl ? `Best: ${best.rl.placement} (${best.rl.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest division reached in Royal League"
+            />
+            <MetricCard
+              icon="🌍"
+              label="International Peak"
+              value={best.ic ? best.ic.division : '—'}
+              note={best.ic ? `Best: ${best.ic.placement} (${best.ic.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest tier reached in International Championship (4P)"
+            />
+            <MetricCard
+              icon="⚔️"
+              label="Intermezzo Peak"
+              value={best.im ? best.im.division : '—'}
+              note={best.im ? `Best: ${best.im.placement} (${best.im.season})` : 'Not entered yet'}
+              tone="gold"
+              words
+              hint="Highest tier reached in Intermezzo (3P)"
+            />
+            <MetricCard
+              icon="📊"
+              label="Tournament Record"
+              value={best.totalMatches > 0 ? `${best.totalMatches} Matches` : '—'}
+              note={best.totalMatches > 0 ? `${best.winRate.toFixed(1)}% Victory Rate` : 'No matches on record'}
+              tone="gold"
+              words
+              hint="Career competitive tournament matches and victory rate"
+            />
+          </MetricGrid>
+        )}
 
-      {s && (
-        <div className="rating-card ach-card">
-          <h3 className="ach-card-title">
-            <span>🏅 Career Tournament Honor Roll</span>
-          </h3>
-          <p className="ach-honor-roll">
-            {totalMedals > 0
-              ? honorRoll(ach.name, s)
-              : `${ach.name} has competed in ${ach.records.filter((r) => !r.career).length} tournament seasons with ${best.totalMatches} competitive matches played (${best.winRate.toFixed(1)}% win rate).`}
-          </p>
-        </div>
-      )}
-      {s && s.accolades.length > 0 && (
-        <div className="rating-card ach-card">
-          <h3 className="ach-card-title ach-accolades-title">Featured Career Accolades</h3>
-          <div className="career-honors-grid">
-            {s.accolades.map((a) => (
-              <div className="career-honor-badge" key={a}>
-                <span className="honor-star">★</span>
-                <span className="honor-text">{a}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      <Records records={ach.records} />
+        {s && (
+          <Panel id="ach-honor-roll" icon="🏅" title="Career Tournament Honor Roll" stripe="gold">
+            <p className="ach-honor-roll">
+              {totalMedals > 0
+                ? honorRoll(ach.name, s)
+                : `${ach.name} has competed in ${ach.records.filter((r) => !r.career).length} tournament seasons with ${best.totalMatches} competitive matches played (${best.winRate.toFixed(1)}% win rate).`}
+            </p>
+          </Panel>
+        )}
+        {s && s.accolades.length > 0 && (
+          <Panel id="ach-accolades" title="Featured Career Accolades" stripe="gold">
+            <Honours accolades={s.accolades} />
+          </Panel>
+        )}
+        <Records records={ach.records} />
+      </Panels>
     </div>
   );
 }

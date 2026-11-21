@@ -8,7 +8,8 @@ import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { count } from '@ttac/shared/numbers';
 import { useKeptLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import { OptionsPanel, OptionsSection, OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
 
@@ -71,23 +72,25 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
   return (
     <>
       {bar}
-      <MetricGrid>
-        <MetricCard label="Analyzed Matches" value={count(totalGames)} note="Full corpus sample" tone="win" />
-        <MetricCard label="4-Player Seat 1 vs 4" value={delta4P !== null ? seatDeltaText(delta4P) : '—'} note="First vs fourth player spread" />
-        <MetricCard label="3-Player Seat 1 vs 3" value={delta3P !== null ? seatDeltaText(delta3P) : '—'} note="First vs third player spread" />
-        <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
-      </MetricGrid>
+      <Panels>
+        <MetricGrid>
+          <MetricCard label="Analyzed Matches" value={count(totalGames)} note="Full corpus sample" tone="win" />
+          <MetricCard label="4-Player Seat 1 vs 4" value={delta4P !== null ? seatDeltaText(delta4P) : '—'} note="First vs fourth player spread" />
+          <MetricCard label="3-Player Seat 1 vs 3" value={delta3P !== null ? seatDeltaText(delta3P) : '—'} note="First vs third player spread" />
+          <MetricCard label="2-Player Seat 1 vs 2" value={delta2P !== null ? seatDeltaText(delta2P) : '—'} note="Starting duel advantage" />
+        </MetricGrid>
 
-      <div className="seat-groups-stack">
         {data.groups.map((group: SeatStatsGroup) => {
           const pc = group.player_count;
           const parity = (100 / pc).toFixed(2);
           return (
-            <div key={pc} className="rating-card panel-card eval-table-card">
-              <PanelHeader title={`${pc}-Player Matches • ${count(group.total_games)} games`}>
-                <span className="seat-parity-note">Expected Parity: {parity}% per seat</span>
-              </PanelHeader>
-              <ScrollTable hint="all placement columns">
+            <Panel
+              key={pc}
+              id={`seats-${pc}p`}
+              title={`${pc}-Player Matches • ${count(group.total_games)} games`}
+              aside={<span className="seat-parity-note">Expected Parity: {parity}% per seat</span>}
+            >
+              <ScrollTable label="Placement by seat">
                 <table className="leaderboard-table">
                   <caption className="visually-hidden">
                     {pc}-Player Turn Order Win Rates and Placement Distribution
@@ -141,10 +144,10 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
                   </tbody>
                 </table>
               </ScrollTable>
-            </div>
+            </Panel>
           );
         })}
-      </div>
+      </Panels>
     </>
   );
 }
