@@ -8,7 +8,11 @@
 
 .peak-season-icon {
   flex-shrink: 0;
-  font-size: 1.8rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--gold-wash-faint);
+  border: 1px solid var(--gold-wash);
+  border-radius: 8px;
+  font-size: 1.4rem;
   line-height: 1;
 }
 
@@ -18,10 +22,12 @@
 }
 
 .peak-season-kicker {
+  margin-bottom: 0.3rem;
   color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: var(--size-label);
   letter-spacing: 0.5px;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -29,7 +35,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.3;
   color: var(--accent-gold);
   font-family: var(--font-heading);
   font-size: 1.05rem;
@@ -40,7 +48,7 @@
   color: var(--text-muted);
   font-family: var(--font-stats);
   font-size: 0.85rem;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 /* :where keeps a page's own figure colours ahead of the plain strong colour. */

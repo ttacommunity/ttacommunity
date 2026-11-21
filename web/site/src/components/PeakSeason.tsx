@@ -7,6 +7,8 @@ import './PeakSeason.css';
 
 type Props = {
   season: ScoredYear;
+  /** The picture beside it, in its small box: the matrix's crown, the player page's star. */
+  icon: string;
   /** A small line above the title, such as what the season is measured by. */
   kicker?: string;
   /** A link beside it, such as to the year-by-year matrix. */
@@ -16,12 +18,12 @@ type Props = {
 };
 
 /** PeakSeason shows the season's year and title, the page's words under them, and the link at the side. */
-export default function PeakSeason({ season, kicker, link, children }: Props) {
+export default function PeakSeason({ season, icon, kicker, link, children }: Props) {
   return (
     <Highlight>
       <div className="peak-season">
         <span className="peak-season-icon" aria-hidden="true">
-          🌟
+          {icon}
         </span>
         <div className="peak-season-body">
           {kicker !== undefined && <div className="peak-season-kicker">{kicker}</div>}

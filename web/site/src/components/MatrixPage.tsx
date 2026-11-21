@@ -75,7 +75,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
 
       <Panels>
         {best !== null && (
-          <PeakSeason season={best} kicker="Career Benchmark Evaluation">
+          <PeakSeason season={best} icon="👑" kicker="Career Benchmark Evaluation">
             In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
             <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
             {best.peak_rating ? (

@@ -92,6 +92,7 @@ export default function CareerBox({
         {season !== null && (
           <PeakSeason
             season={season}
+            icon="🌟"
             link={
               <a href={matrixHref(player.name, view)} className="career-matrix-link">
                 View Year-by-Year Matrix »
