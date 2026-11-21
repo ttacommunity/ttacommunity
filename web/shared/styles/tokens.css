@@ -143,9 +143,9 @@
   --tile-edge: var(--border-subtle);
   --tile-hover-edge: var(--accent-gold);
   --tile-hover-glow: var(--gold-wash);
-  /* A figure tile (MetricCard): what it counts, the figure, a note under it. */
-  --metric-surface: var(--surface-panel);
-  --metric-edge: var(--border-subtle);
+  /* A figure tile (MetricCard): on the tiles' surface, so every card in a grid is one surface; what it counts, the figure, a note under it. */
+  --metric-surface: var(--tile-surface);
+  --metric-edge: var(--tile-edge);
   --metric-label: var(--text-muted);
   --metric-figure: var(--text-main);
   --metric-note: var(--text-muted);

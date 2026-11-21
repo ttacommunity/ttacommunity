@@ -14,8 +14,9 @@
   min-width: 0;
   padding: 1.5rem;
   background: var(--metric-surface);
-  border: 1px solid var(--metric-edge);
+  border: 1.5px solid var(--metric-edge);
   border-radius: 6px;
+  box-shadow: 0 4px 16px var(--shadow);
   text-align: center;
 }
 
