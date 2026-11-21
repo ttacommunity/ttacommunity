@@ -9,6 +9,7 @@ order: 5
 import FaqFigure from '../../components/FaqFigure.astro';
 import Panel from '../../components/Panel';
 import Note from '@ttac/shared/Note';
+import ScrollTable from '../../components/ScrollTable';
 
 <Panel title="Glicko-2 MP-Weighted: Multiplayer Weighting & Fractional Game Variance" className="faq-card">
   <div>
@@ -95,8 +96,8 @@ $$
     Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-gold underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
   </p>
 
-  <div class="faq-table-wrap">
-    <table>
+  <ScrollTable client:visible label="MP-weighting results">
+    <table class="leaderboard-table">
       <thead>
         <tr>
           <th class="left">Rating Model</th>
@@ -147,7 +148,7 @@ $$
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
   <Note>
     <strong class="c-gold">4-Player Match Impact (Strict Walk-Forward):</strong>

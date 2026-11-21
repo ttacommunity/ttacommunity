@@ -8,6 +8,7 @@ order: 1
 
 import FaqFigure from '../../components/FaqFigure.astro';
 import Panel from '../../components/Panel';
+import ScrollTable from '../../components/ScrollTable';
 
 <Panel title="What is a Rating Engine and What Does It Try to Achieve?" stripe="gold" className="faq-card">
   <div>
@@ -47,60 +48,60 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
       <p>
     To provide complete analytical transparency, this portal computes five distinct mathematical rating engines on the exact same competitive dataset of <FaqFigure name="run.games" fallback="over 131,000" /> matches:
   </p>
-  <div class="faq-table-wrap">
-    <table class="faq-table">
+  <ScrollTable client:visible label="Rating engines">
+    <table class="leaderboard-table">
       <thead>
-        <tr class="faq-thead">
-          <th class="cell-lg">Rating Engine</th>
-          <th class="cell-lg">Paradigm</th>
-          <th class="cell-lg">Multiplayer Handling</th>
-          <th class="cell-lg">Key Distinction</th>
+        <tr>
+          <th>Rating Engine</th>
+          <th>Paradigm</th>
+          <th>Multiplayer Handling</th>
+          <th>Key Distinction</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="row-line row-gold">
-          <td class="cell-lg bold c-yellow">
+        <tr class="row-gold">
+          <td class="bold c-yellow">
             <a class="faq-link c-yellow" href="#gold-standard">GlickoD</a>
           </td>
-          <td class="cell-lg c-yellow">Bayesian Recalibrated Forward</td>
-          <td class="cell-lg c-yellow">Golden Ratio ($w = \frac{\phi^{N-2}}{N-1}$)</td>
-          <td class="cell-lg c-wheat"><strong>Flagship Model</strong> &bull; Combines self-similar multiplayer evidence scaling with 15-game emergent prior recalibration.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-wheat">
-            <a class="faq-link" href="#glicko-std">Glicko-2 Standard</a>
-          </td>
-          <td class="cell-lg c-sand">Sequential Forward (Odometer)</td>
-          <td class="cell-lg c-red">Unweighted ($w = 1.0$)</td>
-          <td class="cell-lg c-sand">The official online benchmark (naive 1v1 pairwise decomposition).</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-green">
-            <a class="faq-link" href="#glicko-mp">Glicko-2 MP-Weighted</a>
-          </td>
-          <td class="cell-lg c-sand">Sequential Forward (Odometer)</td>
-          <td class="cell-lg c-green">Coulom Fractional ($w = \frac{1}{N-1}$)</td>
-          <td class="cell-lg c-green">Prevents multiplayer certainty explosion; solid baseline calibration.</td>
-        </tr>
-        <tr class="row-line">
-          <td class="cell-lg bold c-green-deep">
-            <a class="faq-link" href="#glicko-adapt">Glicko-2 Adaptive-T</a>
-          </td>
-          <td class="cell-lg c-sand">Thermal Experimental Forward</td>
-          <td class="cell-lg c-green">Fractional + $T(P, N)$</td>
-          <td class="cell-lg c-mint">Research benchmark evaluating thermal probability scaling.</td>
+          <td class="c-yellow">Bayesian Recalibrated Forward</td>
+          <td class="c-yellow">Golden Ratio ($w = \frac{\phi^{N-2}}{N-1}$)</td>
+          <td class="c-wheat"><strong>Flagship Model</strong> &bull; Combines self-similar multiplayer evidence scaling with 15-game emergent prior recalibration.</td>
         </tr>
         <tr>
-          <td class="cell-lg bold c-blue">
+          <td class="bold c-wheat">
+            <a class="faq-link" href="#glicko-std">Glicko-2 Standard</a>
+          </td>
+          <td class="c-sand">Sequential Forward (Odometer)</td>
+          <td class="c-red">Unweighted ($w = 1.0$)</td>
+          <td class="c-sand">The official online benchmark (naive 1v1 pairwise decomposition).</td>
+        </tr>
+        <tr>
+          <td class="bold c-green">
+            <a class="faq-link" href="#glicko-mp">Glicko-2 MP-Weighted</a>
+          </td>
+          <td class="c-sand">Sequential Forward (Odometer)</td>
+          <td class="c-green">Coulom Fractional ($w = \frac{1}{N-1}$)</td>
+          <td class="c-green">Prevents multiplayer certainty explosion; solid baseline calibration.</td>
+        </tr>
+        <tr>
+          <td class="bold c-green-deep">
+            <a class="faq-link" href="#glicko-adapt">Glicko-2 Adaptive-T</a>
+          </td>
+          <td class="c-sand">Thermal Experimental Forward</td>
+          <td class="c-green">Fractional + $T(P, N)$</td>
+          <td class="c-mint">Research benchmark evaluating thermal probability scaling.</td>
+        </tr>
+        <tr>
+          <td class="bold c-blue">
             <a class="faq-link c-blue" href="#whr">Whole-History Rating (WHR)</a>
           </td>
-          <td class="cell-lg c-leaf">Retrospective MAP (Biographer)</td>
-          <td class="cell-lg c-green">Multinomial Bradley-Terry</td>
-          <td class="cell-lg c-blue-light">Optimal career retrospective; smooths noise via Brownian motion.</td>
+          <td class="c-leaf">Retrospective MAP (Biographer)</td>
+          <td class="c-green">Multinomial Bradley-Terry</td>
+          <td class="c-blue-light">Optimal career retrospective; smooths noise via Brownian motion.</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
           </div>
 
 </Panel>

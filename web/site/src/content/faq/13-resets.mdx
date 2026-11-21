@@ -6,6 +6,7 @@ order: 13
 
 import FaqFigure from '../../components/FaqFigure.astro';
 import Panel from '../../components/Panel';
+import ScrollTable from '../../components/ScrollTable';
 
 <Panel title="Why Introduce Season Resets? Career Inertia vs. Seasonal Stakes" className="faq-card">
   <div>
@@ -64,37 +65,37 @@ $$
 
 </div>
 
-  <div class="faq-table-wrap-tight">
-    <table class="faq-table-small">
+  <ScrollTable client:visible label="Division bounds">
+    <table class="leaderboard-table">
       <thead>
-        <tr class="faq-thead-plain">
-          <th class="cell-md">Skill Tier</th>
-          <th class="cell-md">Standard Score ($z$)</th>
-          <th class="cell-md">Active Pool Percentile</th>
-          <th class="cell-md">Seasonal Reset Anchor ($\mu_{\text{target}}$)</th>
-          <th class="cell-md">Direction</th>
+        <tr>
+          <th>Skill Tier</th>
+          <th>Standard Score ($z$)</th>
+          <th>Active Pool Percentile</th>
+          <th>Seasonal Reset Anchor ($\mu_{\text{target}}$)</th>
+          <th>Direction</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="row-line"><td class="cell c-rose bold">SuperGM 2</td><td class="cell">$z \ge +3.0$</td><td class="cell">Top 0.13%</td><td class="cell bold c-cream">SuperGM 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-rose bold">SuperGM 1</td><td class="cell">$+\phi^2 \le z \lt  +3.0$</td><td class="cell">Top 0.44%</td><td class="cell bold c-cream">GM 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-yellow bold">GM 2</td><td class="cell">$+2.0 \le z \lt  +\phi^2$</td><td class="cell">Top 2.28%</td><td class="cell bold c-cream">GM 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-yellow bold">GM 1</td><td class="cell">$+\phi \le z \lt  +2.0$</td><td class="cell">Top 5.28%</td><td class="cell bold c-cream">Master 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-sand bold">Master 2</td><td class="cell">$+1.0 \le z \lt  +\phi$</td><td class="cell">Top 15.87%</td><td class="cell bold c-cream">Master 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-sand bold">Master 1</td><td class="cell">$+\phi^{-1} \le z \lt  +1.0$</td><td class="cell">Top 26.83%</td><td class="cell bold c-cream">Platinum 2 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-sky bold">Platinum 2</td><td class="cell">$+\phi^{-2} \le z \lt  +\phi^{-1}$</td><td class="cell">Top 35.12%</td><td class="cell bold c-cream">Platinum 1 Lower Bound</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-sky bold">Platinum 1</td><td class="cell">$0.0 \le z \lt  +\phi^{-2}$</td><td class="cell">Top 50.00%</td><td class="cell bold c-cream">Active Pool Mean</td><td class="cell c-red">&darr; Deflates</td></tr>
-        <tr class="row-line"><td class="cell c-mustard bold">Gold 2</td><td class="cell">$-\phi^{-2} \le z \lt  0.0$</td><td class="cell">Bottom 50.00%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-mustard bold">Gold 1</td><td class="cell">$-\phi^{-1} \le z \lt  -\phi^{-2}$</td><td class="cell">Bottom 35.12%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-slate bold">Silver 2</td><td class="cell">$-1.0 \le z \lt  -\phi^{-1}$</td><td class="cell">Bottom 26.83%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-slate bold">Silver 1</td><td class="cell">$-\phi \le z \lt  -1.0$</td><td class="cell">Bottom 15.87%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-bronze bold">Bronze 2</td><td class="cell">$-2.0 \le z \lt  -\phi$</td><td class="cell">Bottom 5.28%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-bronze bold">Bronze 1</td><td class="cell">$-\phi^2 \le z \lt  -2.0$</td><td class="cell">Bottom 2.28%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr class="row-line"><td class="cell c-brown bold">Wood 2</td><td class="cell">$-3.0 \le z \lt  -\phi^2$</td><td class="cell">Bottom 0.44%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
-        <tr><td class="cell c-brown bold">Wood 1</td><td class="cell">$z \lt  -3.0$</td><td class="cell">Bottom 0.13%</td><td class="cell c-sand">Earned Rating ($\lambda = 0$)</td><td class="cell c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-rose bold">SuperGM 2</td><td>$z \ge +3.0$</td><td>Top 0.13%</td><td class="bold c-cream">SuperGM 1 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-rose bold">SuperGM 1</td><td>$+\phi^2 \le z \lt  +3.0$</td><td>Top 0.44%</td><td class="bold c-cream">GM 2 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-yellow bold">GM 2</td><td>$+2.0 \le z \lt  +\phi^2$</td><td>Top 2.28%</td><td class="bold c-cream">GM 1 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-yellow bold">GM 1</td><td>$+\phi \le z \lt  +2.0$</td><td>Top 5.28%</td><td class="bold c-cream">Master 2 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-sand bold">Master 2</td><td>$+1.0 \le z \lt  +\phi$</td><td>Top 15.87%</td><td class="bold c-cream">Master 1 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-sand bold">Master 1</td><td>$+\phi^{-1} \le z \lt  +1.0$</td><td>Top 26.83%</td><td class="bold c-cream">Platinum 2 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-sky bold">Platinum 2</td><td>$+\phi^{-2} \le z \lt  +\phi^{-1}$</td><td>Top 35.12%</td><td class="bold c-cream">Platinum 1 Lower Bound</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-sky bold">Platinum 1</td><td>$0.0 \le z \lt  +\phi^{-2}$</td><td>Top 50.00%</td><td class="bold c-cream">Active Pool Mean</td><td class="c-red">&darr; Deflates</td></tr>
+        <tr><td class="c-mustard bold">Gold 2</td><td>$-\phi^{-2} \le z \lt  0.0$</td><td>Bottom 50.00%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-mustard bold">Gold 1</td><td>$-\phi^{-1} \le z \lt  -\phi^{-2}$</td><td>Bottom 35.12%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-slate bold">Silver 2</td><td>$-1.0 \le z \lt  -\phi^{-1}$</td><td>Bottom 26.83%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-slate bold">Silver 1</td><td>$-\phi \le z \lt  -1.0$</td><td>Bottom 15.87%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-bronze bold">Bronze 2</td><td>$-2.0 \le z \lt  -\phi$</td><td>Bottom 5.28%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-bronze bold">Bronze 1</td><td>$-\phi^2 \le z \lt  -2.0$</td><td>Bottom 2.28%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-brown bold">Wood 2</td><td>$-3.0 \le z \lt  -\phi^2$</td><td>Bottom 0.44%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
+        <tr><td class="c-brown bold">Wood 1</td><td>$z \lt  -3.0$</td><td>Bottom 0.13%</td><td class="c-sand">Earned Rating ($\lambda = 0$)</td><td class="c-sand">&mdash; Preserved</td></tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
           </div>
 
@@ -190,8 +191,8 @@ $$
         In an out-of-sample walk-forward evaluation across monthly evaluation windows (predicting each month strictly from prior games alone), <strong>GlickoD with Softer Reset achieves the lowest Brier score (<FaqFigure name="daneo_softer.0.brier" fallback="0.2127" />) across tested configurations</strong>:
       </p>
 
-      <div class="faq-table-wrap-loose">
-        <table>
+      <ScrollTable client:visible label="Reset modes compared">
+        <table class="leaderboard-table">
           <thead>
             <tr>
               <th class="left">Rating System</th>
@@ -221,7 +222,7 @@ $$
             </tr>
           </tbody>
         </table>
-      </div>
+      </ScrollTable>
           </div>
 
 </Panel>
