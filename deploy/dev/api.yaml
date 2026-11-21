@@ -182,6 +182,37 @@ spec:
                   name: cloudflare-analytics
                   key: account-id
                   optional: true
+            # Images: as deploy/api.yaml, from the dev site's own Secret, with its own bucket and token.
+            - name: R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2-dev
+                  key: account-id
+                  optional: true
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2-dev
+                  key: access-key-id
+                  optional: true
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2-dev
+                  key: secret-access-key
+                  optional: true
+            - name: ASSETS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2-dev
+                  key: bucket
+                  optional: true
+            - name: ASSETS_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2-dev
+                  key: public-url
+                  optional: true
             # Movies: as deploy/api.yaml, from the dev site's own Secret.
             - name: MOVIES_HUB_SECRET
               valueFrom:

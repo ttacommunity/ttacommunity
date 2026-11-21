@@ -206,6 +206,38 @@ spec:
                   name: cloudflare-analytics
                   key: account-id
                   optional: true
+            # Images in R2 (admin's Images tab, /v1/assets): the account, a token for the assets bucket, and the
+            # bucket's name and address. Without the Secret images are off; with some keys alone the api refuses to start.
+            - name: R2_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: account-id
+                  optional: true
+            - name: R2_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: access-key-id
+                  optional: true
+            - name: R2_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: secret-access-key
+                  optional: true
+            - name: ASSETS_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: bucket
+                  optional: true
+            - name: ASSETS_PUBLIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: images-r2
+                  key: public-url
+                  optional: true
             # Movies: the secret YouTube's hub signs pushes with, and the Data API key. Without the Secret the
             # hub's callback is off and admin takes channels only by id.
             - name: MOVIES_HUB_SECRET
