@@ -100,18 +100,19 @@ function Hero({
         <MetricGrid>
           <MetricCard label="Ranked Competitors" value={count(data.rows.length)} tone="gold" />
           <MetricCard label={`Tracked Events (${data.categories.length} Tiers)`} value={events} tone="gold" />
-          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} className="comm-top-link" />} />
+          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} />} tone="gold" />
           <MetricCard
             label={info.wc_desc || 'Reigning World Champion'}
             value={
               info.wc ? (
-                <PlayerLink name={info.wc} className="comm-wc-link">
-                  <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
+                <PlayerLink name={info.wc}>
+                  <TitleBadge title={{ code: 'WC' }} /> {info.wc}
                 </PlayerLink>
               ) : (
-                <span className="comm-muted">—</span>
+                '—'
               )
             }
+            tone={info.wc ? 'gold' : 'muted'}
           />
         </MetricGrid>
       </Panel>
@@ -324,7 +325,7 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
         slots={editionFacts(data).slots}
         names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
       />
-      <Inset form="line" className="comm-results">
+      <Inset form="figures" className="comm-results">
         <div>
           Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
           <strong className="comm-count-total">{found.length}</strong> competitors

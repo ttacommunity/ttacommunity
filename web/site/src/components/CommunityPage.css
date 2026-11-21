@@ -55,11 +55,7 @@
 
 /* The results count: what is shown at one end, the mode at the other. */
 .comm-results {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
   margin-bottom: 0.85rem;
 }
 
@@ -192,17 +188,6 @@
 .comm-table thead tr.super-header th.comm-super-left {
   text-align: left;
   padding-left: 1rem;
-}
-.comm-top-link {
-  color: var(--accent-gold-light);
-  text-decoration: none;
-}
-.comm-wc-link {
-  color: var(--accent-gold);
-  text-decoration: none;
-}
-.badge.comm-wc-badge {
-  font-size: 0.85rem;
 }
 .comm-count-shown {
   color: var(--accent-gold);
