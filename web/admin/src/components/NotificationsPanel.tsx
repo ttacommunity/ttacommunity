@@ -82,10 +82,10 @@ function FeedsCard({ feeds, onReload }: { feeds: Feeds; onReload: () => Promise<
                 <td>{row.sends}</td>
                 <td>{row.status}</td>
                 <td>
-                  <button type="button" className="btn-settings" onClick={() => void pause(row)}>
+                  <button type="button" className="btn-antique btn-compact" onClick={() => void pause(row)}>
                     {row.paused ? 'Resume' : 'Pause'}
                   </button>
-                  <button type="button" className="btn-settings" onClick={(e) => void remove(row, e.currentTarget)}>
+                  <button type="button" className="btn-antique btn-danger btn-compact" onClick={(e) => void remove(row, e.currentTarget)}>
                     Remove
                   </button>
                 </td>
@@ -196,13 +196,13 @@ export default function NotificationsPanel() {
                   <td>{subscriptions(e.events, e.feeds, groups.flatMap((g) => g.feeds))}</td>
                   <td>{endpointStatus(e, when)}</td>
                   <td>
-                    <button type="button" className="btn-settings" onClick={(ev) => setEditing({ endpoint: e, opener: ev.currentTarget })}>
+                    <button type="button" className="btn-antique btn-compact" onClick={(ev) => setEditing({ endpoint: e, opener: ev.currentTarget })}>
                       Edit
                     </button>
-                    <button type="button" className="btn-settings" onClick={() => void test(e)}>
+                    <button type="button" className="btn-antique btn-compact" onClick={() => void test(e)}>
                       Test
                     </button>
-                    <button type="button" className="btn-settings" onClick={(ev) => void remove(e, ev.currentTarget)}>
+                    <button type="button" className="btn-antique btn-danger btn-compact" onClick={(ev) => void remove(e, ev.currentTarget)}>
                       Remove
                     </button>
                   </td>

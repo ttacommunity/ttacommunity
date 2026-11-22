@@ -40,7 +40,7 @@ export default function MoveSeasonButton({
       {!open ? (
         <button
           type="button"
-          className="btn-antique btn-settings"
+          className="btn-antique"
           onClick={() => {
             setOpen(true);
             setDest('');

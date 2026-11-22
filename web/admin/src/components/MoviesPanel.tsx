@@ -280,7 +280,7 @@ export default function MoviesPanel() {
                       <td className="movies-actions">
                         <button
                           type="button"
-                          className="btn-settings"
+                          className="btn-antique btn-compact"
                           disabled={running || starting}
                           onClick={() => void startRun(c, `channel-${c.channel_id}`)}
                           title="Start the Movies job for this creator alone"
@@ -289,7 +289,7 @@ export default function MoviesPanel() {
                         </button>
                         <button
                           type="button"
-                          className="btn-settings"
+                          className="btn-antique btn-danger btn-compact"
                           onClick={(e) => void deleteChannel(c, e.currentTarget)}
                         >
                           Remove

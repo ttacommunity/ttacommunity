@@ -96,7 +96,7 @@ export default function ImagesPanel() {
             images={list}
             zone={zone}
             actions={(image) => (
-              <button type="button" className="btn-settings" onClick={(e) => void remove(image, e.currentTarget)}>
+              <button type="button" className="btn-antique btn-danger btn-compact" onClick={(e) => void remove(image, e.currentTarget)}>
                 Delete
               </button>
             )}

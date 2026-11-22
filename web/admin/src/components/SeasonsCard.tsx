@@ -84,7 +84,7 @@ export default function SeasonsCard({
                 {counted(sum.stages, 'stage')} · {sum.players} players · {sum.games} games
               </span>{' '}
               {sum.stages > 0 && (
-                <button type="button" className="btn-antique btn-settings" aria-expanded={shown.includes(se.label)} onClick={() => toggle(se.label)}>
+                <button type="button" className="btn-antique" aria-expanded={shown.includes(se.label)} onClick={() => toggle(se.label)}>
                   {shown.includes(se.label) ? 'Hide stages' : 'Show stages'}
                 </button>
               )}{' '}

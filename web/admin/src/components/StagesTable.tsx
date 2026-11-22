@@ -39,7 +39,7 @@ export default function StagesTable({ slug, season, rows, onReload }: { slug: st
               <td>
                 <button
                   type="button"
-                  className="btn-antique btn-settings"
+                  className="btn-antique btn-compact"
                   aria-expanded={editing === st.label}
                   onClick={() => setEditing(editing === st.label ? '' : st.label)}
                 >

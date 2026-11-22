@@ -491,13 +491,13 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
           </h3>
           <p className="season-summary">
             <span className="muted">{roundSummary(shownOf(r))}</span>{' '}
-            <button type="button" className="btn-antique btn-settings" aria-expanded={shown(r)} onClick={() => toggleRound(r.number)}>
+            <button type="button" className="btn-antique" aria-expanded={shown(r)} onClick={() => toggleRound(r.number)}>
               {shown(r) ? 'Hide matches' : 'Show matches'}
             </button>
             {resets.round === r.id && !changed(r) && (
               <>
                 {' '}
-                <button type="button" className="btn-antique btn-settings" onClick={(e) => void resetRound(r, e.currentTarget)}>
+                <button type="button" className="btn-antique" onClick={(e) => void resetRound(r, e.currentTarget)}>
                   Reset results
                 </button>
               </>
@@ -983,7 +983,7 @@ function EditionSettings(props: Props) {
     <div className="admin-subsection">
       <div className="settings-head">
         <h3>Settings</h3>
-        <button type="button" className="btn-antique btn-settings" aria-expanded={editing} aria-controls="edition-settings-forms" onClick={() => setEditing(!editing)}>
+        <button type="button" className="btn-antique" aria-expanded={editing} aria-controls="edition-settings-forms" onClick={() => setEditing(!editing)}>
           {editing ? 'Close settings' : 'Edit settings'}
         </button>
       </div>
@@ -1170,11 +1170,11 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
       <p className="season-summary">
         <span className="muted">{deadlineLabel(regions, round.deadline)}</span>{' '}
         {!deadlineLocked(round) && (
-          <button type="button" className="btn-antique btn-settings" aria-expanded={form !== null} onClick={() => setForm(form === null ? deadlineForm(regions, round.deadline, viewerZone()) : null)}>
+          <button type="button" className="btn-antique" aria-expanded={form !== null} onClick={() => setForm(form === null ? deadlineForm(regions, round.deadline, viewerZone()) : null)}>
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
+        <button type="button" className="btn-antique" disabled={blocker !== ''} onClick={() => void download()}>
           Discord threads
         </button>
         {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
