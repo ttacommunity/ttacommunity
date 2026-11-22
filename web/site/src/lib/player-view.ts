@@ -118,6 +118,7 @@ export type ChartTiers = 'on' | 'off';
 export interface ChartSeriesLine {
   key: string;
   label: string;
+  /** The role tokens of the line's colour and of the fill under it. */
   color: string;
   fill?: string;
   borderDash?: number[];
@@ -476,23 +477,23 @@ export function chartYBounds(
   return s ? { min: s.axisMin, max: s.axisMax } : null;
 }
 
-/** Rating tier definition with parchment-fitting colors. */
+/** A rating tier: its range, name and code, and the role tokens its band and top edge are drawn in. */
 export interface RatingTier {
   min: number;
   max: number;
   name: string;
   code: string;
-  color: string;
-  borderColor?: string;
+  band: string;
+  edge?: string;
 }
 
 export const RATING_TIERS: readonly RatingTier[] = [
-  { min: 0, max: 1399, name: 'Bronze', code: 'BRZ', color: 'rgba(100, 75, 55, 0.07)' },
-  { min: 1400, max: 1599, name: 'Silver', code: 'SLV', color: 'rgba(140, 150, 165, 0.09)' },
-  { min: 1600, max: 1799, name: 'Gold', code: 'GLD', color: 'rgba(212, 175, 55, 0.12)' },
-  { min: 1800, max: 1999, name: 'Master', code: 'MST', color: 'rgba(215, 120, 40, 0.14)', borderColor: 'rgba(215, 120, 40, 0.35)' },
-  { min: 2000, max: 2199, name: 'Grandmaster', code: 'GM', color: 'rgba(180, 70, 60, 0.15)', borderColor: 'rgba(180, 70, 60, 0.4)' },
-  { min: 2200, max: 3000, name: 'Supreme Grandmaster', code: 'SGM', color: 'rgba(160, 60, 170, 0.16)', borderColor: 'rgba(160, 60, 170, 0.45)' },
+  { min: 0, max: 1399, name: 'Bronze', code: 'BRZ', band: '--band-bronze' },
+  { min: 1400, max: 1599, name: 'Silver', code: 'SLV', band: '--band-silver' },
+  { min: 1600, max: 1799, name: 'Gold', code: 'GLD', band: '--band-gold' },
+  { min: 1800, max: 1999, name: 'Master', code: 'MST', band: '--band-master', edge: '--band-master-edge' },
+  { min: 2000, max: 2199, name: 'Grandmaster', code: 'GM', band: '--band-gm', edge: '--band-gm-edge' },
+  { min: 2200, max: 3000, name: 'Supreme Grandmaster', code: 'SGM', band: '--band-sgm', edge: '--band-sgm-edge' },
 ];
 
 
@@ -533,18 +534,7 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
 
       const engineName = engine === 'glicko2_daneo' ? '👑 GlickoD' : 'Glicko-2 Standard';
       const modeLabel = modes.length > 1 ? (m === 'softer' ? ' (Season Reset)' : ' (Continuous)') : '';
-      const baseColor =
-        engine === 'glicko2_daneo'
-          ? m === 'softer'
-            ? '#38bdf8'
-            : '#c084fc'
-          : '#e5a93c';
-      const baseFill =
-        engine === 'glicko2_daneo'
-          ? m === 'softer'
-            ? 'rgba(56, 189, 248, 0.12)'
-            : 'rgba(168, 85, 247, 0.12)'
-          : 'rgba(229, 169, 60, 0.1)';
+      const role = engine === 'glicko2_daneo' ? (m === 'softer' ? '--model-daneo-reset' : '--model-daneo') : '--model-std';
 
       for (const c of curves) {
         const curveLabel = curves.length > 1 ? (c === 'conservative' ? ' (C)' : ' (E)') : '';
@@ -552,8 +542,8 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
         lines.push({
           key: engine + '-' + m + '-' + c,
           label: engineName + modeLabel + curveLabel,
-          color: baseColor,
-          fill: isDashed ? 'transparent' : baseFill,
+          color: role,
+          fill: isDashed ? undefined : `${role}-wash`,
           borderDash: isDashed ? [5, 5] : undefined,
           curve: c,
           data: labels.map((d) => (c === 'conservative' ? atCRating.get(d) ?? null : atRating.get(d) ?? null)),

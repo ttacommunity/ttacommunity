@@ -35,7 +35,7 @@
   margin-right: 0.35rem;
   font-family: var(--font-heading);
   font-size: 0.8rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-transform: uppercase;
 }
 

@@ -26,7 +26,7 @@
 }
 
 .status-min {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 /* The page, which the Options drawer sits beside. */
@@ -108,33 +108,33 @@ tr:hover .row-exclude,
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .leaderboard-table tbody tr.jump-highlight td,
 .leaderboard-table tbody tr.jump-highlight th {
-  background: var(--gold-wash);
+  background: var(--accent-wash);
   animation: jump-pulse 1.8s ease-in-out 3;
 }
 
 @keyframes jump-pulse {
   0% {
-    background: var(--gold-wash-strong);
-    box-shadow: inset 0 0 15px rgba(229, 169, 60, 0.8);
+    background: var(--accent-wash-strong);
+    box-shadow: inset 0 0 15px var(--accent-glow-strong);
   }
   50% {
-    background: var(--gold-wash-faint);
-    box-shadow: inset 0 0 4px var(--gold-wash-strong);
+    background: var(--accent-wash-faint);
+    box-shadow: inset 0 0 4px var(--accent-wash-strong);
   }
   100% {
-    background: var(--gold-wash-strong);
-    box-shadow: inset 0 0 12px rgba(229, 169, 60, 0.7);
+    background: var(--accent-wash-strong);
+    box-shadow: inset 0 0 12px var(--accent-glow-strong);
   }
 }
 
 .calibrating-badge {
   margin-left: 0.35rem;
-  color: #f59e0b;
+  color: var(--status-warn);
   font-size: 0.85rem;
   vertical-align: middle;
 }
@@ -168,7 +168,7 @@ tr:hover .row-exclude,
 }
 
 .options-export-note a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 
@@ -198,7 +198,7 @@ tr:hover .row-exclude,
 
 .archive-snapshot strong,
 .archive-deltas {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .archive-facts {
@@ -209,7 +209,7 @@ tr:hover .row-exclude,
 }
 
 .archive-games {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .archive-ranked {
@@ -227,7 +227,7 @@ tr:hover .row-exclude,
 .archive-stats-label {
   font-family: var(--font-heading);
   font-size: 0.8rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-transform: uppercase;
 }
 
@@ -238,7 +238,7 @@ tr:hover .row-exclude,
 .archive-champion-title {
   font-family: var(--font-heading);
   font-size: 0.76rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -251,7 +251,7 @@ tr:hover .row-exclude,
 }
 
 .archive-champion-name a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: none;
 }
 

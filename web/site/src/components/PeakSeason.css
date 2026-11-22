@@ -9,8 +9,8 @@
 .peak-season-icon {
   flex-shrink: 0;
   padding: 0.4rem 0.55rem;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
+  background: var(--accent-wash-faint);
+  border: 1px solid var(--accent-wash);
   border-radius: 8px;
   font-size: 1.4rem;
   line-height: 1;
@@ -23,7 +23,7 @@
 
 .peak-season-kicker {
   margin-bottom: 0.3rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: var(--size-label);
   letter-spacing: 0.5px;
@@ -38,7 +38,7 @@
   gap: 0.5rem;
   margin-bottom: 0.4rem;
   line-height: 1.3;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1.05rem;
   font-weight: 700;

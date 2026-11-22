@@ -8,7 +8,7 @@
   border: 1px solid var(--win-edge);
   border-left-width: 4px;
   border-radius: 6px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--win-edge) 28%, transparent), var(--surface-well) 60%), var(--surface-well);
+  background: var(--notice-good-surface);
   color: var(--text-main);
   font-family: var(--font-body);
   font-size: var(--size-body-short);
@@ -19,7 +19,7 @@
 .notice-refused,
 .notice-failed {
   border-color: var(--loss-edge);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--loss-edge) 30%, transparent), var(--surface-well) 60%), var(--surface-well);
+  background: var(--notice-bad-surface);
 }
 .notice-body {
   flex: 1;

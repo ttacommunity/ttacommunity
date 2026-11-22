@@ -218,14 +218,14 @@ function SpreadChart({ data }: { data: RatingPercentiles }) {
     const highlight = (i: number) => i === bins.playerBin;
     const chart = new Chart(canvas.current, {
       type: 'bar',
-      plugins: [tierBands(spans, { line: token('--border-faint'), text: token('--text-soft'), font: token('--font-heading') })],
+      plugins: [tierBands(spans, { line: token('--border-faint'), text: token('--text-soft'), font: token('--font-heading'), read: token })],
       data: {
         labels: bins.labels,
         datasets: [
           {
             label: 'Players',
             data: bins.counts,
-            backgroundColor: bins.counts.map((_, i) => (highlight(i) ? token('--win') : token('--gold-wash-strong'))),
+            backgroundColor: bins.counts.map((_, i) => (highlight(i) ? token('--win') : token('--accent-wash-strong'))),
             borderColor: bins.counts.map((_, i) => (highlight(i) ? token('--win-edge') : gold)),
             borderWidth: 1,
             categoryPercentage: 1,

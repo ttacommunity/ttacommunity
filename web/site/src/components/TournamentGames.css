@@ -7,7 +7,7 @@
   padding: 0;
   border: none;
   background: none;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font: inherit;
   font-weight: 700;
   text-align: left;
@@ -20,23 +20,23 @@
 }
 
 .champion-name a {
-  color: #f7dfa5;
+  color: var(--player-name);
   font-weight: 600;
   text-decoration: none;
 }
 
 .champion-cell .champion-name a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
 .champion-name a:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .cge-link {
   margin-right: 0.5rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   white-space: nowrap;
 }
 
@@ -54,13 +54,13 @@
 }
 
 .ladder-winners a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
   text-decoration: none;
 }
 
 .ladder-winners a:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .season-note {

@@ -12,8 +12,8 @@
 
 .input-antique:focus {
   outline: none;
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 8px var(--gold-wash);
+  border-color: var(--edge-accent);
+  box-shadow: 0 0 8px var(--accent-wash);
 }
 
 /* A select has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
@@ -33,7 +33,7 @@ select.input-antique {
 input[type='checkbox'],
 input[type='radio'],
 progress {
-  accent-color: var(--accent-gold);
+  accent-color: var(--fill-accent);
 }
 
 /* A checkbox in a row of fields, centred on them. */

@@ -47,9 +47,9 @@
   padding: 4px 0;
   overflow-y: auto;
   background: var(--surface-well);
-  border: 1.5px solid var(--accent-gold);
+  border: 1.5px solid var(--edge-accent);
   border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 15px rgba(212, 160, 23, 0.3);
+  box-shadow: 0 10px 30px var(--shadow-deep), 0 0 15px var(--accent-wash);
   font-family: var(--font-stats);
   backdrop-filter: blur(12px);
 }
@@ -60,15 +60,15 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.55rem 0.85rem;
-  border-bottom: 1px solid rgba(229, 169, 60, 0.08);
-  color: #dfd7cc;
+  border-bottom: 1px solid var(--accent-wash-subtle);
+  color: var(--text-main);
   font-size: 0.88rem;
   cursor: pointer;
   transition: background 0.1s ease, color 0.1s ease;
 }
 
 .search-suggestion.active {
-  background: rgba(212, 160, 23, 0.25);
+  background: var(--accent-wash);
   color: var(--text-bright);
 }
 
@@ -82,20 +82,20 @@
 }
 
 .search-suggestion-name {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 600;
 }
 
 .search-suggestion.active .search-suggestion-name {
   color: var(--text-bright);
-  text-shadow: 0 0 8px rgba(229, 169, 60, 0.6);
+  text-shadow: 0 0 8px var(--accent-glow);
 }
 
 .search-match {
   color: var(--text-bright);
   font-weight: 700;
   text-decoration: underline;
-  text-decoration-color: var(--accent-gold);
+  text-decoration-color: var(--text-accent);
   text-underline-offset: 3px;
 }
 
@@ -108,8 +108,8 @@
   display: flex;
   justify-content: space-between;
   padding: 0.4rem 0.85rem;
-  background: rgba(12, 8, 5, 0.8);
-  border-top: 1px solid rgba(229, 169, 60, 0.1);
+  background: var(--surface-code);
+  border-top: 1px solid var(--accent-wash-subtle);
   color: var(--text-muted);
   font-size: 0.72rem;
   letter-spacing: 0.5px;

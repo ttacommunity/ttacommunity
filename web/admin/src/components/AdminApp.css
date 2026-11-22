@@ -104,7 +104,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .season-notes + .season-notes {
   padding-top: 1rem;
@@ -120,7 +120,7 @@
   gap: 0.3rem;
 }
 .note-box label {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 .note-box textarea {
   box-sizing: border-box;
@@ -167,7 +167,7 @@
   width: 100%;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .admin-add label {
   display: grid;
@@ -219,8 +219,8 @@
   white-space: nowrap;
 }
 .run-shown {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
+  border-color: var(--edge-accent);
+  color: var(--text-accent);
 }
 .run-running {
   border-color: var(--draw);
@@ -264,7 +264,7 @@
   margin: 0 0 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .run-stop {
   margin-top: 0.5rem;
@@ -518,7 +518,7 @@
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .setting-inline,
 .admin-add .setting-inline {
@@ -550,7 +550,7 @@
 .result-form h3 {
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .result-row {
   display: flex;
@@ -617,9 +617,9 @@
   padding: 4px 0;
   overflow-y: auto;
   background: var(--surface-well);
-  border: 1.5px solid var(--accent-gold);
+  border: 1.5px solid var(--edge-accent);
   border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 10px 30px var(--shadow-deep);
   font-family: var(--font-stats);
 }
 .pick-option {
@@ -631,7 +631,7 @@
   cursor: pointer;
 }
 .pick-option.active {
-  background: rgba(212, 160, 23, 0.25);
+  background: var(--accent-wash);
 }
 .pick-option[aria-disabled='true'] {
   color: var(--text-muted);
@@ -667,10 +667,10 @@
   width: 1.5rem;
   height: 1.5rem;
   padding: 0;
-  border: 1.5px solid var(--accent-gold);
+  border: 1.5px solid var(--edge-accent);
   border-radius: 50%;
   background: transparent;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
   font-size: 0.85rem;
   font-weight: 700;
@@ -679,7 +679,7 @@
 }
 .info-tip-button[aria-expanded='true'],
 .info-tip-button:hover {
-  background: var(--accent-gold);
+  background: var(--fill-accent);
   color: var(--bg-dark);
 }
 .info-tip-note {
@@ -689,8 +689,8 @@
   z-index: 20;
   max-width: min(32rem, 100%);
   padding: 0.5rem 0.8rem;
-  background: rgba(18, 12, 8, 0.98);
-  border: 1px solid var(--accent-gold);
+  background: var(--tooltip-surface);
+  border: 1px solid var(--edge-accent);
   border-radius: 5px;
   box-shadow: 0 6px 24px var(--shadow-deep);
   color: var(--text-main);
@@ -745,7 +745,7 @@
   margin: 1rem 0 0.4rem;
   font-family: var(--font-heading);
   font-size: 0.9rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .settings-forms h4:first-child {
   margin-top: 0.25rem;
@@ -766,7 +766,7 @@
   margin-left: 0.35rem;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: var(--accent-gold);
+  background: var(--fill-accent);
   color: var(--bg-dark);
   font-family: var(--font-stats);
   font-size: 0.72rem;
@@ -808,7 +808,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .movies-add-card .admin-add {
   margin-top: 0.65rem;
@@ -833,7 +833,7 @@
   margin: 0 0 0.6rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .movies-creator-name {
   font-weight: 600;

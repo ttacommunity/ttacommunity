@@ -14,6 +14,6 @@
   text-align: left;
 }
 .blitz-draw {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }

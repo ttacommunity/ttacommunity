@@ -111,24 +111,23 @@
   display: inline-block;
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
-  background: var(--gold-wash);
-  border: 1px solid rgba(229, 169, 60, 0.5);
-  color: var(--accent-gold-light);
+  background: var(--accent-wash);
+  border: 1px solid var(--edge-accent-soft);
+  color: var(--text-accent-bright);
   font-weight: 700;
-  box-shadow: 0 0 5px var(--gold-wash);
+  box-shadow: 0 0 5px var(--accent-wash);
 }
 .score-dropped {
-  color: #6d5b4f;
+  color: var(--text-muted);
   font-size: 0.82rem;
-  opacity: 0.65;
 }
 .score-empty {
-  color: #4a382b;
+  color: var(--text-muted);
 }
 .points-total {
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
   text-shadow: 0 1px 3px var(--shadow-deep);
 }
 
@@ -152,7 +151,7 @@
 .edition-label {
   font-family: var(--font-heading);
   font-size: 0.88rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 700;
@@ -190,7 +189,7 @@
   padding-left: 1rem;
 }
 .comm-count-shown {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 1rem;
 }
 .comm-count-total {
@@ -200,7 +199,7 @@
   color: var(--text-soft);
 }
 .comm-mode {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .comm-player {
   font-weight: 700;
@@ -214,7 +213,7 @@
   color: var(--text-muted);
 }
 .comm-dash {
-  color: #665544;
+  color: var(--text-muted);
 }
 
 /* styles.css's scroll hint, shown on phones. */

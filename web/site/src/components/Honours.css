@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  color: var(--gold-pale);
+  color: var(--text-accent-pale);
   font-family: var(--font-subheading);
   font-size: 0.92rem;
   font-weight: 700;
@@ -20,6 +20,6 @@
 
 .honour-star {
   flex-shrink: 0;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   line-height: 1;
 }

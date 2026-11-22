@@ -46,7 +46,7 @@
 }
 .challenges-totals-line strong,
 .challenges-score {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .challenges-cards {
@@ -97,7 +97,7 @@
   background: var(--border-subtle);
 }
 .challenge-difficulty .pip.on {
-  background: var(--accent-gold);
+  background: var(--fill-accent);
 }
 .challenge-proof,
 .challenge-proof-mark {
@@ -132,7 +132,7 @@
 }
 .challenge-grid-label {
   align-self: center;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
   font-size: var(--size-body-short);
 }
@@ -201,7 +201,7 @@
   font-size: var(--size-body-short);
 }
 .challenges-crumbs a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .challenges-head-img {
   flex: none;
@@ -232,11 +232,11 @@
   margin: 0;
 }
 .challenges-first td {
-  background: var(--gold-wash-faint);
+  background: var(--accent-wash-faint);
 }
 .challenges-all summary {
   cursor: pointer;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
 }
 
@@ -257,7 +257,7 @@
 }
 .challenges-chart .record-line {
   fill: none;
-  stroke: var(--accent-gold);
+  stroke: var(--text-accent);
   stroke-width: 2.5;
 }
 .challenges-chart .hit {
@@ -265,19 +265,19 @@
 }
 .challenges-chart .marker {
   fill: var(--bg-dark);
-  stroke: var(--accent-gold);
+  stroke: var(--text-accent);
   stroke-width: 2;
 }
 .challenges-chart .marker.active,
 .challenges-chart g:focus .marker {
-  fill: var(--accent-gold);
+  fill: var(--text-accent);
 }
 .challenges-chart g:focus {
   outline: none;
 }
 .challenges-chart .chart-tip rect {
   fill: var(--surface-well);
-  stroke: var(--accent-gold);
+  stroke: var(--text-accent);
 }
 .challenges-chart .chart-tip text {
   fill: var(--text-main);
@@ -300,7 +300,7 @@
   margin-bottom: 1rem;
 }
 .challenges-record strong {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 .challenges-play-next {
   display: grid;
@@ -309,7 +309,7 @@
 }
 .challenges-subhead {
   margin: 0 0 0.25rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
   font-size: var(--size-subheading);
 }
@@ -339,7 +339,7 @@
 }
 .challenges-side-a,
 .challenges-side-a .player-link {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 .challenges-side-b,
 .challenges-side-b .player-link {

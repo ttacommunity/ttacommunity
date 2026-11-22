@@ -511,16 +511,38 @@ The ratings site keeps DANeo's design. What is shared lives in two places:
 
 - **Tokens** in `web/shared/styles/tokens.css`: the four font families (Cinzel
   for titles and table headers, Marcellus for buttons and labels, Source Serif
-  for reading, Inter for numbers), the colours, the gold gradient, and a text
-  size for each role (page title, card title, subheading, body, table header,
-  table cell, label). Use a token before writing a new value
+  for reading, Inter for numbers), the colours (see [Colours](#colours)), and a
+  text size for each role (page title, card title, subheading, body, table
+  header, table cell, label). Use a token before writing a new value
 - **Components** for anything that appears on more than one page:
   `Segmented` (a row of buttons choosing one value, in each page's look),
   `SearchBox`, `FilterInput`, `PlayerLink`, `ScrollTable`, `Waiting` (loading
   and could-not-load messages), `TournamentCard` and `TournamentHero`
 
-A page's own decoration (a hero, a banner, a badge's colours) stays in that
-page's stylesheet.
+A page's own layout stays in that page's stylesheet; its colours are roles.
+
+### Colours
+
+`tokens.css` has two layers. The **palette** names each colour by how it looks
+(`--gold`, `--violet`, `--parchment`) and is used only inside `tokens.css`. The
+**roles** below it name what a colour is for (`--text-accent`, `--player-name`,
+`--medal-gold`, `--tier-m`, `--model-daneo`, `--overlay-surface`), each pointing
+at the palette. Pages, components, charts and the FAQ's MDX use only roles.
+
+- **A meaning has one role.** Tiers, medals, results, rating models and
+  tournament places each have their own, so one colour never means two things
+  on a page, and changing one meaning never moves another
+- **A mode is a block of overrides.** A light or colour-blind mode redefines
+  palette colours or roles in one place; nothing outside `tokens.css` holds a
+  colour it would miss. Charts read roles when they draw
+  (`documentTokens` in `web/site/src/lib/chart-theme.ts`), so they would
+  redraw in a mode's colours
+- **Checked, not remembered.** `checks/colour-tokens.sh` fails CI on any colour
+  value, `color-mix()` or palette token outside `tokens.css` (CSS, Astro,
+  TypeScript, MDX), and on a token no file defines. Its few allowed values
+  are listed in the script, each with its reason.
+  `web/shared/src/tokens.test.ts` checks every text role against the surfaces
+  it is drawn on, at WCAG AA (4.5:1, 3:1 for large text)
 
 ### Web tests
 

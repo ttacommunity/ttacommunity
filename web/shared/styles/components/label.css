@@ -19,20 +19,20 @@
 }
 
 /* A tag in another colour: special, or a division's level. */
-.tag-special { --tone: var(--tag-special); }
-.tag-level-1 { --tone: var(--division-1); }
-.tag-level-2 { --tone: var(--division-2); }
-.tag-level-3 { --tone: var(--division-3); }
-.tag-level-4 { --tone: var(--division-4); }
-.tag-level-5 { --tone: var(--division-5); }
-.tag-level-6 { --tone: var(--division-6); }
-.tag-level-7 { --tone: var(--division-7); }
-.tag-level-8 { --tone: var(--division-8); }
+.tag-special { --tone: var(--tag-special); --tone-edge: var(--tag-special-edge); --tone-tint: var(--tag-special-tint); }
+.tag-level-1 { --tone: var(--division-1); --tone-edge: var(--division-1-edge); --tone-tint: var(--division-1-tint); }
+.tag-level-2 { --tone: var(--division-2); --tone-edge: var(--division-2-edge); --tone-tint: var(--division-2-tint); }
+.tag-level-3 { --tone: var(--division-3); --tone-edge: var(--division-3-edge); --tone-tint: var(--division-3-tint); }
+.tag-level-4 { --tone: var(--division-4); --tone-edge: var(--division-4-edge); --tone-tint: var(--division-4-tint); }
+.tag-level-5 { --tone: var(--division-5); --tone-edge: var(--division-5-edge); --tone-tint: var(--division-5-tint); }
+.tag-level-6 { --tone: var(--division-6); --tone-edge: var(--division-6-edge); --tone-tint: var(--division-6-tint); }
+.tag-level-7 { --tone: var(--division-7); --tone-edge: var(--division-7-edge); --tone-tint: var(--division-7-tint); }
+.tag-level-8 { --tone: var(--division-8); --tone-edge: var(--division-8-edge); --tone-tint: var(--division-8-tint); }
 
 .tag[class*='tag-level-'],
 .tag.tag-special {
-  border-color: color-mix(in srgb, var(--tone) 45%, transparent);
-  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  border-color: var(--tone-edge);
+  background: var(--tone-tint);
   color: var(--tone);
 }
 
@@ -68,17 +68,17 @@
 
 /* A place on the podium: the medals' colours. */
 .pill-gold {
-  border-color: color-mix(in srgb, var(--pill-gold) 50%, transparent);
+  border-color: var(--pill-gold-edge);
   color: var(--pill-gold);
 }
 
 .pill-silver {
-  border-color: color-mix(in srgb, var(--pill-silver) 50%, transparent);
+  border-color: var(--pill-silver-edge);
   color: var(--pill-silver);
 }
 
 .pill-bronze {
-  border-color: color-mix(in srgb, var(--pill-bronze) 50%, transparent);
+  border-color: var(--pill-bronze-edge);
   color: var(--pill-bronze);
 }
 

@@ -73,7 +73,7 @@
 .rating-card-heading {
   font-family: var(--font-heading);
   font-size: var(--size-card-title);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   letter-spacing: 0.5px;
 }
 

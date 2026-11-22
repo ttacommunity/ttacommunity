@@ -50,7 +50,7 @@
 .scroll-hint {
   display: none;
   margin: 0 0 0.35rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-stats);
   font-size: 0.76rem;
   letter-spacing: 0.3px;
@@ -68,7 +68,7 @@
   padding: 0.85rem 1rem;
   background: var(--surface-card);
   border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: var(--size-table-header);
   letter-spacing: 1px;
@@ -80,12 +80,12 @@
 }
 
 .leaderboard-table tbody tr:nth-child(odd) {
-  --row: rgba(16, 10, 6, 0.65);
+  --row: var(--row-odd);
   background: var(--row);
 }
 
 .leaderboard-table tbody tr:nth-child(even) {
-  --row: rgba(28, 18, 12, 0.4);
+  --row: var(--row-even);
   background: var(--row);
 }
 
@@ -119,7 +119,7 @@
 
 .leaderboard-table tbody tr:hover td,
 .leaderboard-table tbody tr:hover th {
-  background: var(--gold-wash-faint);
+  background: var(--accent-wash-faint);
 }
 
 /* A column that stays in view while the table scrolls sideways. Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through. */
@@ -137,7 +137,7 @@
 }
 
 .scrolled-x .leaderboard-table tbody tr:hover .col-pinned {
-  background: linear-gradient(var(--gold-wash-faint), var(--gold-wash-faint)), linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
+  background: linear-gradient(var(--accent-wash-faint), var(--accent-wash-faint)), linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
 }
 
 .leaderboard-table .rank-col {
@@ -148,12 +148,12 @@
 }
 
 .leaderboard-table .top-3-rank {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .player-link,
 .player-name {
-  color: var(--text-main);
+  color: var(--player-name);
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
@@ -161,17 +161,17 @@
 }
 
 .player-link:hover {
-  color: var(--accent-gold);
+  color: var(--player-name-hover);
   text-decoration: underline;
 }
 
 .c-rating-val {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
 .rating-primary {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
   font-weight: 700;
 }
 
@@ -215,7 +215,7 @@
     position: sticky;
     left: 0;
     z-index: 4;
-    background: rgba(22, 14, 10, 0.98);
+    background: var(--row-solid);
     box-shadow: 1px 0 3px var(--shadow);
   }
 }

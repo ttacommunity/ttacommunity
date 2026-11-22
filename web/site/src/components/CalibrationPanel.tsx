@@ -111,7 +111,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
       {
         label: 'Ideal Benchmark (Perfect Calibration)',
         data: ideal,
-        borderColor: 'rgba(255, 255, 255, 0.4)',
+        borderColor: documentTokens('--chart-ideal'),
         borderDash: [6, 6],
         pointRadius: 0,
         fill: false,
@@ -123,8 +123,8 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
         return {
           label: m.name,
           data: actuals.length > 0 ? actuals : ideal,
-          borderColor: m.color,
-          backgroundColor: m.color,
+          borderColor: documentTokens(m.colour),
+          backgroundColor: documentTokens(m.colour),
           pointRadius: m.reset === 'continuous' ? 6 : 5,
           pointHoverRadius: 8,
           borderWidth: m.reset === 'continuous' ? 3 : 2.2,

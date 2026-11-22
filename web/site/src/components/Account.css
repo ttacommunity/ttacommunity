@@ -63,7 +63,7 @@
   margin: 1.25rem 0 0.25rem;
   font-family: var(--font-subheading);
   font-size: var(--size-subheading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .account-form {
   display: flex;
@@ -106,10 +106,10 @@
   gap: 10px;
   min-height: 2.75rem;
   padding: 0 12px;
-  border: 1px solid #8e918f;
+  border: 1px solid var(--google-edge);
   border-radius: 4px;
-  background: #131314;
-  color: #e3e3e3;
+  background: var(--google-surface);
+  color: var(--google-text);
   font-family: 'Google Sans', var(--font-stats);
   font-size: 14px;
   font-weight: 500;
@@ -117,8 +117,8 @@
   text-decoration: none;
 }
 .btn-google:hover {
-  background: color-mix(in srgb, #e3e3e3 8%, #131314);
-  color: #e3e3e3;
+  background: var(--google-hover-surface);
+  color: var(--google-text);
 }
 .btn-google img {
   flex: none;

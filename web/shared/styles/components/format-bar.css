@@ -43,15 +43,15 @@
 }
 
 .format-btn:hover {
-  border-color: var(--accent-gold);
+  border-color: var(--edge-accent);
   color: var(--text-main);
 }
 
 /* The chosen button: outlined in gold, so an icon or tag on it still reads. */
 .format-btn.active {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
+  border-color: var(--edge-accent);
+  background: var(--accent-wash-faint);
+  color: var(--text-accent);
   font-weight: 700;
 }
 

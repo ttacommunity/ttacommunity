@@ -29,8 +29,8 @@
   justify-content: center;
   gap: 0.65rem;
   padding: 0.35rem 0.95rem;
-  background: var(--gradient-gold);
-  border: 1px solid var(--accent-gold-deep);
+  background: var(--fill-accent-gradient);
+  border: 1px solid var(--edge-accent-deep);
   border-radius: 4px;
   box-shadow: 0 2px 6px var(--shadow);
   color: var(--text-on-gold);
@@ -39,7 +39,7 @@
   font-weight: 700;
 }
 .player-meta-pill .meta-separator {
-  color: var(--text-on-gold-soft);
+  color: var(--text-on-gold);
   font-weight: 900;
 }
 .player-header-subtitle {
@@ -48,7 +48,7 @@
   color: var(--text-muted);
 }
 .player-header-subtitle strong {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .profile-links {
   display: flex;

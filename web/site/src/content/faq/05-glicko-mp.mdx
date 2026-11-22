@@ -93,7 +93,7 @@ $$
     Empirical Proof: Comparing Glicko-2 Standard vs. MP-Weighted Models
   </h4>
   <p>
-    Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-gold underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
+    Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-emphasis underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
   </p>
 
   <ScrollTable client:visible label="MP-weighting results">
@@ -111,39 +111,39 @@ $$
       </thead>
       <tbody>
         <tr class="row-green">
-          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-          <td><span class="faq-chip c-mint">Continuous</span></td>
+          <td class="left bold c-good">Glicko-2 MP-Weighted</td>
+          <td><span class="faq-chip c-good">Continuous</span></td>
           <td class="stat bold">$0.500$</td>
           <td class="stat bold">$0.333$</td>
-          <td class="stat heavy c-green"><FaqFigure name="mp.0.brier" fallback="0.2141" /></td>
-          <td class="stat heavy c-green"><FaqFigure name="mp.0.ece" fallback="1.15" />%</td>
-          <td class="left fs-84 c-green"><strong>Statistically Optimal</strong> &bull; Lowest forecast error and cleanest calibration without multiplayer inflation.</td>
+          <td class="stat heavy c-good"><FaqFigure name="mp.0.brier" fallback="0.2141" /></td>
+          <td class="stat heavy c-good"><FaqFigure name="mp.0.ece" fallback="1.15" />%</td>
+          <td class="left fs-84 c-good"><strong>Statistically Optimal</strong> &bull; Lowest forecast error and cleanest calibration without multiplayer inflation.</td>
         </tr>
         <tr>
-          <td class="left bold c-gold">Glicko-2 Standard</td>
+          <td class="left bold c-emphasis">Glicko-2 Standard</td>
           <td><span class="faq-chip">Continuous</span></td>
           <td class="stat">$1.000$</td>
           <td class="stat">$1.000$</td>
-          <td class="stat heavy c-amber"><FaqFigure name="std.0.brier" fallback="0.2143" /></td>
-          <td class="stat heavy c-amber"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std.0.brier" fallback="0.2143" /></td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
           <td class="left fs-84 c-muted">Higher calibration error (+28% ECE) due to unscaled certainty inflation in 3p/4p games.</td>
         </tr>
         <tr class="row-green-faint">
-          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-          <td><span class="faq-chip c-mint">Soft Reset</span></td>
+          <td class="left bold c-good">Glicko-2 MP-Weighted</td>
+          <td><span class="faq-chip c-good">Soft Reset</span></td>
           <td class="stat bold">$0.500$</td>
           <td class="stat bold">$0.333$</td>
-          <td class="stat heavy c-green"><FaqFigure name="daneo_softer.0.brier" fallback="0.2147" /></td>
-          <td class="stat heavy c-green"><FaqFigure name="daneo_softer.0.ece" fallback="0.93" />%</td>
-          <td class="left fs-84 c-green"><strong>Sub-1% Calibration</strong> &bull; Seasonal Golden Ratio reset paired with fractional MP evidence.</td>
+          <td class="stat heavy c-good"><FaqFigure name="daneo_softer.0.brier" fallback="0.2147" /></td>
+          <td class="stat heavy c-good"><FaqFigure name="daneo_softer.0.ece" fallback="0.93" />%</td>
+          <td class="left fs-84 c-good"><strong>Sub-1% Calibration</strong> &bull; Seasonal Golden Ratio reset paired with fractional MP evidence.</td>
         </tr>
         <tr>
-          <td class="left bold c-gold">Glicko-2 Standard</td>
+          <td class="left bold c-emphasis">Glicko-2 Standard</td>
           <td><span class="faq-chip">Soft Reset</span></td>
           <td class="stat">$1.000$</td>
           <td class="stat">$1.000$</td>
-          <td class="stat heavy c-amber"><FaqFigure name="std_softer.0.brier" fallback="0.2150" /></td>
-          <td class="stat heavy c-amber"><FaqFigure name="std_softer.0.ece" fallback="1.05" />%</td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std_softer.0.brier" fallback="0.2150" /></td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std_softer.0.ece" fallback="1.05" />%</td>
           <td class="left fs-84 c-muted">Calibrated seasonal mobility, but trailing MP-weighted accuracy.</td>
         </tr>
       </tbody>
@@ -151,7 +151,7 @@ $$
   </ScrollTable>
 
   <Note>
-    <strong class="c-gold">4-Player Match Impact (Strict Walk-Forward):</strong>
+    <strong class="c-emphasis">4-Player Match Impact (Strict Walk-Forward):</strong>
     In 4-player games, where an unweighted engine credits each win with 3 full matches of evidence, Standard Glicko-2 exhibits an ECE of <strong><FaqFigure name="std.4.ece" fallback="3.24" />%</strong> (Brier <FaqFigure name="std.4.brier" fallback="0.2240" />). Glicko-2 MP-Weighted ($w = 1/3$) reduces this calibration error to <strong><FaqFigure name="mp.4.ece" fallback="1.96" />%</strong> (Brier <FaqFigure name="mp.4.brier" fallback="0.2224" />).
   </Note>
   <p>

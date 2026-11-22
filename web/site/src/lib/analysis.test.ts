@@ -40,6 +40,10 @@ describe('MODELS', () => {
   it('lists the three models a run computes, GlickoD first', () => {
     expect(MODELS.map((m) => m.key)).toEqual(['glicko2_daneo', 'glicko2_daneo_softer', 'glicko2_std']);
   });
+
+  it('draws each model in its role colour', () => {
+    expect(MODELS.map((m) => m.colour)).toEqual(['--model-daneo', '--model-daneo-reset', '--model-std']);
+  });
 });
 
 describe('compositeScore', () => {

@@ -18,11 +18,12 @@ export function tierSpans(lo: number, hi: number, at: (rating: number) => number
   });
 }
 
-/** The colours and font tier bands are drawn in, from the theme. */
+/** The colours and font tier bands are drawn in, from the theme, and how to read a band's role token. */
 export interface TierLook {
   line: string;
   text: string;
   font: string;
+  read: (token: string) => string;
 }
 
 interface Area {
@@ -45,11 +46,11 @@ export function drawTierBands(ctx: CanvasRenderingContext2D, area: Area, toPixel
     const b = toPixel(s.end);
     const lo = Math.min(a, b);
     const size = Math.abs(b - a);
-    ctx.fillStyle = s.tier.color;
+    ctx.fillStyle = look.read(s.tier.band);
     if (axis === 'x') ctx.fillRect(lo, area.top, size, area.bottom - area.top);
     else ctx.fillRect(area.left, lo, area.right - area.left, size);
     if (i > 0) {
-      ctx.strokeStyle = s.tier.borderColor ?? look.line;
+      ctx.strokeStyle = s.tier.edge === undefined ? look.line : look.read(s.tier.edge);
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       if (axis === 'x') {

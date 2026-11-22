@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { chartTheme } from './chart-theme';
 
 const tokens: Record<string, string> = {
-  '--accent-gold': 'gold',
+  '--text-accent': 'gold',
   '--border-faint': 'faint',
   '--text-soft': 'soft',
   '--text-main': 'main',
   '--font-stats': 'Stats',
   '--font-heading': 'Heading',
   '--surface-well': 'well',
-  '--gold-wash-strong': 'wash',
+  '--accent-wash-strong': 'wash',
 };
 const read = (name: string) => tokens[name] ?? '';
 

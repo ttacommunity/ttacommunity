@@ -148,19 +148,19 @@ const crumbs = breadcrumb(Astro.url.pathname);
 
   .footer-small {
     margin-top: 0.5rem;
-    color: #887864;
+    color: var(--text-muted);
     font-size: 0.8rem;
   }
 
   .footer-small a {
-    color: #887864;
+    color: var(--text-muted);
     /* Underlined, as the same colour as the text would not show they are links. */
     text-decoration: underline;
     text-underline-offset: 2px;
   }
 
   .footer-small a:hover {
-    color: var(--accent-gold);
+    color: var(--text-accent);
   }
 
   /* Phones only: there the bar is folded into the menu, so nothing else says where the page is. */
@@ -203,7 +203,7 @@ const crumbs = breadcrumb(Astro.url.pathname);
   }
 
   .breadcrumb a:hover {
-    color: var(--accent-gold);
+    color: var(--text-accent);
   }
 
   .breadcrumb [aria-current] {

@@ -17,15 +17,15 @@
 }
 
 .badge-format {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--accent-gold);
-  color: var(--accent-gold);
+  background: var(--accent-wash-faint);
+  border: 1px solid var(--edge-accent);
+  color: var(--text-accent);
 }
 
 .badge-mode {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #e0d0c0;
+  background: var(--badge-neutral-surface);
+  border: 1px solid var(--badge-neutral-edge);
+  color: var(--badge-neutral-text);
 }
 
 /* Tournament titles, from Wood (W) up to the reigning World Champion (WC). */
@@ -33,95 +33,95 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 30%, #991b1b 60%, #450a0a 100%);
-  border: 1.5px solid #d4af37;
-  box-shadow: 0 0 14px rgba(212, 175, 55, 0.6), inset 0 1px 2px rgba(255, 235, 150, 0.4), 0 2px 6px var(--shadow);
-  color: var(--accent-gold);
+  background: var(--title-wc-surface);
+  border: 1.5px solid var(--title-wc-edge);
+  box-shadow: var(--title-wc-shadow);
+  color: var(--title-wc-text);
   font-weight: 800;
   letter-spacing: 0.6px;
-  text-shadow: 0 0 6px rgba(229, 169, 60, 0.6), 0 1px 2px var(--shadow-deep);
+  text-shadow: var(--title-wc-glow);
 }
 
 .badge-wc::before {
   content: '👑';
   font-size: 0.85em;
-  filter: drop-shadow(0 0 4px rgba(229, 169, 60, 0.95));
+  filter: var(--title-wc-icon);
 }
 
 .badge-sgm {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: linear-gradient(135deg, #78350f 0%, #b45309 30%, #d97706 60%, #f59e0b 100%);
-  border: 1.5px solid #fde047;
+  background: var(--title-sgm-surface);
+  border: 1.5px solid var(--title-sgm-edge);
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5), inset 0 1px 2px rgba(254, 240, 138, 0.5), 0 2px 5px var(--shadow);
-  color: #fffbeb;
+  box-shadow: var(--title-sgm-shadow);
+  color: var(--title-crest-text);
   font-weight: 800;
   letter-spacing: 0.5px;
-  text-shadow: 0 0 4px rgba(253, 224, 71, 0.5), 0 1px 2px var(--shadow-deep);
+  text-shadow: var(--title-sgm-glow);
 }
 
 .badge-sgm::before {
   content: '👑';
   font-size: 0.85em;
-  filter: drop-shadow(0 0 3px rgba(253, 224, 71, 0.9));
+  filter: var(--title-sgm-icon);
 }
 
 .badge-wcs {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: linear-gradient(135deg, #1e293b 0%, #475569 35%, #94a3b8 65%, #cbd5e1 100%);
-  border: 1.5px solid #e2e8f0;
+  background: var(--title-wcs-surface);
+  border: 1.5px solid var(--title-wcs-edge);
   border-radius: 4px;
-  box-shadow: 0 0 8px rgba(226, 232, 240, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.5), 0 2px 4px var(--shadow);
-  color: #f8fafc;
+  box-shadow: var(--title-wcs-shadow);
+  color: var(--title-wcs-text);
   font-weight: 800;
   letter-spacing: 0.5px;
-  text-shadow: 0 0 4px rgba(255, 255, 255, 0.5), 0 1px 2px var(--shadow-deep);
+  text-shadow: var(--title-wcs-glow);
 }
 
 .badge-wcs::before {
   content: '🥈';
   font-size: 0.85em;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  filter: var(--title-wcs-icon);
 }
 
 .badge-wcb {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: linear-gradient(135deg, #451a03 0%, #78350f 35%, #92400e 65%, #b45309 100%);
-  border: 1.5px solid #d97706;
+  background: var(--title-wcb-surface);
+  border: 1.5px solid var(--title-wcb-edge);
   border-radius: 4px;
-  box-shadow: 0 0 8px rgba(217, 119, 6, 0.4), inset 0 1px 2px rgba(254, 215, 170, 0.4), 0 2px 4px var(--shadow);
-  color: #fffbeb;
+  box-shadow: var(--title-wcb-shadow);
+  color: var(--title-crest-text);
   font-weight: 800;
   letter-spacing: 0.5px;
-  text-shadow: 0 0 4px rgba(217, 119, 6, 0.5), 0 1px 2px var(--shadow-deep);
+  text-shadow: var(--title-wcb-glow);
 }
 
 .badge-wcb::before {
   content: '🥉';
   font-size: 0.85em;
-  filter: drop-shadow(0 0 3px rgba(217, 119, 6, 0.8));
+  filter: var(--title-wcb-icon);
 }
 
-/* The title tiers, from the palette division tags share. */
-.badge-gm { background: var(--tier-gm); border: 1px solid var(--tier-gm-edge); color: var(--bg-dark); }
-.badge-m { background: var(--tier-m); border: 1px solid var(--tier-m-edge); color: #0f172a; }
-.badge-p { background: var(--tier-p); border: 1px solid var(--tier-p-edge); color: #082f49; }
-.badge-g { background: var(--tier-g); border: 1px solid var(--tier-g-edge); color: var(--bg-dark); }
-.badge-s { background: var(--tier-s); border: 1px solid var(--tier-s-edge); color: var(--bg-dark); }
-.badge-b { background: var(--tier-b); border: 1px solid var(--tier-b-edge); color: #fffbeb; }
-.badge-w { background: var(--tier-w); border: 1px solid var(--tier-w-edge); color: #fef3c7; }
+/* The title tiers, from the palette division tags share: dark text on a light fill, light on Bronze and Wood. */
+.badge-gm { background: var(--tier-gm); border: 1px solid var(--tier-gm-edge); color: var(--text-on-fill); }
+.badge-m { background: var(--tier-m); border: 1px solid var(--tier-m-edge); color: var(--text-on-fill); }
+.badge-p { background: var(--tier-p); border: 1px solid var(--tier-p-edge); color: var(--text-on-fill); }
+.badge-g { background: var(--tier-g); border: 1px solid var(--tier-g-edge); color: var(--text-on-fill); }
+.badge-s { background: var(--tier-s); border: 1px solid var(--tier-s-edge); color: var(--text-on-fill); }
+.badge-b { background: var(--tier-b); border: 1px solid var(--tier-b-edge); color: var(--text-bright); }
+.badge-w { background: var(--tier-w); border: 1px solid var(--tier-w-edge); color: var(--text-bright); }
 
 /* A badge admin gave: a title's shape, in a neutral colour so it is not read as a rank. */
-.badge-extra { margin-left: 0.25rem; background: transparent; border: 1px solid #a8a29e; color: #e7e5e4; font-weight: 600; }
+.badge-extra { margin-left: 0.25rem; background: transparent; border: 1px solid var(--title-extra-edge); color: var(--title-extra-text); font-weight: 600; }
 
 .badge-none {
-  color: #665544;
+  color: var(--text-muted);
 }
 
 /* Rating changes over a window, upstream's .delta-badge. */
@@ -138,12 +138,12 @@
 }
 
 .delta-pos {
-  background: color-mix(in srgb, var(--win) 12%, transparent);
+  background: var(--win-tint);
   color: var(--win);
 }
 
 .delta-neg {
-  background: color-mix(in srgb, var(--loss) 12%, transparent);
+  background: var(--loss-tint);
   color: var(--loss);
 }
 
@@ -154,7 +154,7 @@
 
 /* A plain gold badge, as upstream's .badge-rank. */
 .badge-rank {
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
-  border: 1px solid var(--gold-wash-strong);
+  background: var(--accent-wash-faint);
+  color: var(--text-accent);
+  border: 1px solid var(--accent-wash-strong);
 }

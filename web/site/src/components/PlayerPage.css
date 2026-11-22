@@ -29,14 +29,14 @@
   margin-bottom: 0.75rem;
   font-family: var(--font-heading);
   font-size: var(--size-subheading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .rating-number {
   font-family: var(--font-stats);
   font-size: 2rem;
   font-weight: 700;
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .rd-tag {
@@ -50,7 +50,7 @@
   justify-content: space-between;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(74, 53, 37, 0.5);
+  border-top: 1px solid var(--border-faint);
   font-family: var(--font-stats);
   font-size: 0.9rem;
 }
@@ -60,7 +60,7 @@
 }
 
 .c-rating-box strong {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .model-card-caption {
@@ -101,7 +101,7 @@
 
 .chart-empty-title {
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .chart-empty-text {
@@ -117,9 +117,9 @@
 
 .badge.badge-calibration {
   padding: 0.25rem 0.6rem;
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
+  background: var(--status-warn-tint);
+  color: var(--status-warn);
+  border: 1px solid var(--status-warn);
   font-size: 0.8rem;
   cursor: help;
 }
@@ -140,7 +140,7 @@
 }
 
 .badge.badge-seats {
-  background: rgba(74, 53, 37, 0.6);
+  background: var(--badge-quiet-surface);
   color: var(--text-main);
 }
 
@@ -167,23 +167,23 @@
 }
 
 .place-1 {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
+  background: var(--medal-gold);
+  color: var(--text-on-fill);
 }
 
 .place-2 {
   background: var(--medal-silver);
-  color: #111;
+  color: var(--text-on-fill);
 }
 
 .place-3 {
   background: var(--medal-bronze);
-  color: var(--text-bright);
+  color: var(--text-on-fill);
 }
 
 .place-4 {
   background: var(--border-subtle);
-  color: #aaa;
+  color: var(--text-soft);
 }
 
 .game-delta {
@@ -226,7 +226,7 @@
 
 .seat.seat-self {
   font-weight: bold;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .seat-score {
@@ -235,7 +235,7 @@
 
 .seat .player-link,
 .h2h-scores .player-link {
-  color: var(--accent-gold);
+  color: var(--player-name);
   text-decoration: none;
 }
 
@@ -285,7 +285,7 @@
   font-family: var(--font-body);
   font-size: 0.9rem;
   font-weight: 600;
-  color: #f7dfa5;
+  color: var(--player-name);
 }
 
 .rival-rate.good {
@@ -326,7 +326,7 @@
   font-size: 0.85rem;
   color: var(--text-muted);
 }
-.career-medal-gold { color: var(--accent-gold); }
+.career-medal-gold { color: var(--medal-gold); }
 .career-medal-silver { color: var(--medal-silver); }
 .career-medal-bronze { color: var(--medal-bronze); }
 
@@ -334,23 +334,23 @@
   margin-bottom: 0.6rem;
   font-size: var(--size-body);
   font-weight: 500;
-  color: #fff3db;
+  color: var(--text-main);
 }
 
 .career-peak-note {
   font-weight: 600;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .career-season-peak {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .career-notes {
   margin-top: 0.4rem;
   margin-left: 1.25rem;
   font-size: 0.9rem;
-  color: #d0c0b0;
+  color: var(--text-soft);
 }
 
 .career-notes li {
@@ -384,7 +384,7 @@
 }
 
 .h2h-total {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-win {
@@ -411,7 +411,7 @@
 
 .h2h-tournament {
   font-weight: 600;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-scores {
@@ -420,7 +420,7 @@
 
 .h2h-target {
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-other {
@@ -430,7 +430,7 @@
 .career-matrix-link {
   font-family: var(--font-heading);
   font-size: 0.82rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 
@@ -483,7 +483,7 @@
 }
 
 .format-group-row td {
-  background: rgba(45, 30, 20, 0.5);
+  background: var(--row-group);
   border-top: 1.5px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.6rem 0.75rem;
@@ -491,7 +491,7 @@
 
 .format-group-cell strong {
   font-family: var(--font-heading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.95rem;
 }
 

@@ -25,32 +25,32 @@
   border-radius: 4px;
   font-size: 0.82rem;
   font-weight: 700;
-  background: color-mix(in srgb, var(--win-edge) 35%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 70%, transparent);
+  background: var(--win-fill);
+  border: 1px solid var(--win-fill-edge);
   color: var(--win-light);
   white-space: nowrap;
 }
 
 .records-table .ach-date {
   font-family: var(--font-stats);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   white-space: nowrap;
   font-weight: 700;
 }
 .records-table .ach-tournament {
   font-weight: 700;
-  color: #fff3db;
+  color: var(--text-main);
 }
 .records-table .ach-strong {
   font-weight: 600;
 }
 .records-table .ach-career-tournament {
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .records-table .ach-career-scope {
   font-weight: 600;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .records-table .ach-details {
   color: var(--text-muted);
@@ -77,97 +77,25 @@
 }
 .ach-result {
   font-weight: 600;
-  color: #dfcfbc;
+  color: var(--text-soft);
 }
 
-/* Upstream's medal styles by tournament category. World Championship: cosmic crown gold. */
-.medal-wcs-gold {
-  background: linear-gradient(135deg, rgba(142, 45, 226, 0.45) 0%, rgba(229, 169, 60, 0.35) 100%);
-  border: 1px solid var(--accent-gold);
-  color: #fff275;
-  box-shadow: 0 0 10px rgba(229, 169, 60, 0.55);
+/* A medal badge in its medal's colour; the tournament's kind is the icon inside it. */
+.medal-badge-gold {
+  background: var(--medal-gold-fill);
+  border: 1px solid var(--medal-gold-edge);
+  color: var(--medal-gold-text);
+  box-shadow: 0 0 8px var(--accent-wash-strong);
 }
-.medal-wcs-silver {
-  background: linear-gradient(135deg, rgba(142, 45, 226, 0.35) 0%, color-mix(in srgb, var(--medal-silver) 30%, transparent) 100%);
+.medal-badge-silver {
+  background: var(--medal-silver-fill);
   border: 1px solid var(--medal-silver);
   color: var(--medal-silver);
 }
-.medal-wcs-bronze {
-  background: linear-gradient(135deg, rgba(142, 45, 226, 0.35) 0%, color-mix(in srgb, var(--medal-bronze) 30%, transparent) 100%);
+.medal-badge-bronze {
+  background: var(--medal-bronze-fill);
   border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze);
-}
-
-/* Major leagues: International, Intermezzo, Royal League. */
-.medal-major-gold {
-  background: linear-gradient(135deg, rgba(218, 165, 32, 0.3) 0%, rgba(184, 134, 11, 0.4) 100%);
-  border: 1px solid rgba(229, 169, 60, 0.7);
-  color: var(--accent-gold);
-  box-shadow: 0 0 8px var(--gold-wash-strong);
-}
-.medal-major-silver {
-  background: linear-gradient(135deg, rgba(192, 192, 192, 0.25) 0%, color-mix(in srgb, var(--medal-silver) 30%, transparent) 100%);
-  border: 1px solid var(--medal-silver);
-  color: var(--medal-silver);
-}
-.medal-major-bronze {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--medal-bronze) 25%, transparent) 0%, color-mix(in srgb, var(--medal-bronze) 30%, transparent) 100%);
-  border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze);
-}
-
-/* Ladders: Sodium, Mercurial, TCL. */
-.medal-ladder-gold {
-  background: linear-gradient(135deg, rgba(0, 180, 219, 0.25) 0%, rgba(0, 131, 176, 0.35) 100%);
-  border: 1px solid rgba(0, 210, 255, 0.65);
-  color: #67e8f9;
-  box-shadow: 0 0 8px rgba(0, 210, 255, 0.35);
-}
-.medal-ladder-silver {
-  background: linear-gradient(135deg, rgba(0, 180, 219, 0.18) 0%, color-mix(in srgb, var(--medal-silver) 30%, transparent) 100%);
-  border: 1px solid var(--medal-silver);
-  color: var(--medal-silver);
-}
-.medal-ladder-bronze {
-  background: linear-gradient(135deg, rgba(0, 180, 219, 0.18) 0%, color-mix(in srgb, var(--medal-bronze) 30%, transparent) 100%);
-  border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze);
-}
-
-/* Grand Slams: French Open, Wimbledon, Australian Open. */
-.medal-slam-gold {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--win-edge) 30%, transparent) 0%, color-mix(in srgb, var(--win-edge) 45%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--win) 70%, transparent);
-  color: var(--win-light);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--win) 40%, transparent);
-}
-.medal-slam-silver {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--win-edge) 20%, transparent) 0%, color-mix(in srgb, var(--medal-silver) 30%, transparent) 100%);
-  border: 1px solid var(--medal-silver);
-  color: var(--medal-silver);
-}
-.medal-slam-bronze {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--win-edge) 20%, transparent) 0%, color-mix(in srgb, var(--medal-bronze) 30%, transparent) 100%);
-  border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze);
-}
-
-/* Other tournaments: Survivors Cup, Leaderboard Trophy and the rest. */
-.medal-other-gold {
-  background: linear-gradient(135deg, rgba(230, 81, 0, 0.25) 0%, rgba(191, 54, 12, 0.35) 100%);
-  border: 1px solid rgba(255, 138, 101, 0.65);
-  color: #ffcc80;
-  box-shadow: 0 0 8px rgba(255, 112, 67, 0.35);
-}
-.medal-other-silver {
-  background: linear-gradient(135deg, rgba(100, 100, 100, 0.25) 0%, color-mix(in srgb, var(--medal-silver) 30%, transparent) 100%);
-  border: 1px solid var(--medal-silver);
-  color: var(--medal-silver);
-}
-.medal-other-bronze {
-  background: linear-gradient(135deg, rgba(140, 70, 20, 0.25) 0%, color-mix(in srgb, var(--medal-bronze) 30%, transparent) 100%);
-  border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze);
+  color: var(--medal-bronze-text);
 }
 
 .tournament-cge-link {
@@ -175,15 +103,15 @@
   align-items: center;
   gap: 0.3rem;
   font-weight: 700;
-  color: #fff3db;
+  color: var(--text-main);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 .ach-career-tournament .tournament-cge-link {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .tournament-cge-link:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 .external-link-icon {
@@ -197,7 +125,7 @@
   transition: background-color 0.15s ease;
 }
 .ach-row-clickable:hover {
-  background-color: rgba(240, 186, 84, 0.08);
+  background-color: var(--accent-wash-subtle);
 }
 .ach-tournament-name-wrap {
   display: inline-flex;
@@ -210,10 +138,10 @@
   line-height: 1;
 }
 .ach-tournament-title {
-  color: #fff3db;
+  color: var(--text-main);
 }
 .ach-row-clickable:hover .ach-tournament-title {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .ach-best-tier {
   display: inline-flex;
@@ -265,7 +193,7 @@
 }
 .ach-drilldown-name {
   font-family: var(--font-heading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 1.2rem;
   margin: 0;
 }

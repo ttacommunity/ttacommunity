@@ -80,6 +80,8 @@ foreach ($site in 'site', 'admin') {
 
 Run-Step . 'checks: comment density' { & $bash checks/comment-density.sh }
 Run-Step . 'checks: raw HTML' { & $bash checks/no-raw-html.sh }
+Run-Step . 'checks: colour check''s test' { & $bash checks/colour-tokens.test.sh }
+Run-Step . 'checks: colours' { & $bash checks/colour-tokens.sh }
 Run-Step . 'checks: secret scan''s test' { & $bash checks/secret-scan.test.sh }
 Run-Step . 'checks: secrets' { & $bash checks/secret-scan.sh --all }
 Run-Step . 'checks: sign-off check''s test' { & $bash checks/dco.test.sh }

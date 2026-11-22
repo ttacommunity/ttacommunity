@@ -18,8 +18,8 @@ Chart.register(BarController, BarElement, CategoryScale, LinearScale, Legend, To
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const BARS: { model: Engine; label: string; short: string; fill: string; line: string }[] = [
-  { model: 'glicko2_daneo', label: '👑 GlickoD', short: 'GlickoD', fill: 'rgba(168, 85, 247, 0.65)', line: '#a855f7' },
-  { model: 'glicko2_std', label: 'Glicko-2 Standard', short: 'Std', fill: 'rgba(234, 179, 8, 0.55)', line: '#eab308' },
+  { model: 'glicko2_daneo', label: '👑 GlickoD', short: 'GlickoD', fill: '--model-daneo-bar', line: '--model-daneo' },
+  { model: 'glicko2_std', label: 'Glicko-2 Standard', short: 'Std', fill: '--model-std-bar', line: '--model-std' },
 ];
 
 /** means returns each bar's all-player and active-player mean, 1500 for an engine the answer lacks. */
@@ -99,8 +99,8 @@ export default function EngineSpread({ apiUrl }: { apiUrl: string }) {
     c.data.datasets = currentBars.map((b) => ({
       label: b.label,
       data: b.counts,
-      backgroundColor: b.fill,
-      borderColor: b.line,
+      backgroundColor: documentTokens(b.fill),
+      borderColor: documentTokens(b.line),
       borderWidth: 1.5,
       minBarLength: 5,
     }));

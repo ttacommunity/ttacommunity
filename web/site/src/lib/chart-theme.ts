@@ -1,6 +1,6 @@
 /** The site's chart look for Chart.js, read from the theme's tokens: ticks, grid, axis titles, legend and tooltip. */
 
-/** A token's value by its name, such as '--accent-gold'; '' when the theme does not define it. */
+/** A token's value by its name, such as '--text-accent'; '' when the theme does not define it. */
 export type ReadToken = (name: string) => string;
 
 /** documentTokens reads a token from the page's root element. */
@@ -8,7 +8,7 @@ export const documentTokens: ReadToken = (name) => getComputedStyle(document.doc
 
 /** chartTheme returns the chart options every chart on the site shares, from read; fonts fall back to generic families. */
 export function chartTheme(read: ReadToken) {
-  const gold = read('--accent-gold');
+  const gold = read('--text-accent');
   const stats = read('--font-stats') || 'sans-serif';
   const heading = read('--font-heading') || 'serif';
   return {
@@ -23,7 +23,7 @@ export function chartTheme(read: ReadToken) {
       bodyColor: read('--text-main'),
       titleFont: { family: heading, size: 13, weight: 'bold' as const },
       bodyFont: { family: stats, size: 11 },
-      borderColor: read('--gold-wash-strong'),
+      borderColor: read('--accent-wash-strong'),
       borderWidth: 1,
       padding: 10,
     },

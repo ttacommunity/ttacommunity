@@ -33,6 +33,7 @@ import {
   RIVAL_COLUMNS,
 } from './player-view';
 
+
 describe('playerHref', () => {
   it.each([
     ['a plain name', 'alder440', '/ratings/player/?name=alder440'],
@@ -240,6 +241,19 @@ describe('chartData', () => {
     expect(got.lines[1].data).toEqual([null, 1690, 1700.1]);
     expect(got.lines[2].data).toEqual([1500.6, null, null]);
     expect(got.lines[3].data).toEqual([1400, null, null]);
+  });
+
+  it('draws each model and mode in its role colour, filled under the expected curve only', () => {
+    const all: PlayerHistory = { ...history, series: [...history.series, { model: 'glicko2_std', points: [{ date: '2025-01-31', rating: 1600, c_rating: 1500 }] }] };
+    const got = chartData(all, 'all', 'all').lines.map((l) => [l.label, l.color, l.fill]);
+    expect(got).toEqual([
+      ['👑 GlickoD (Continuous) (E)', '--model-daneo', '--model-daneo-wash'],
+      ['👑 GlickoD (Continuous) (C)', '--model-daneo', undefined],
+      ['Glicko-2 Standard (Continuous) (E)', '--model-std', '--model-std-wash'],
+      ['Glicko-2 Standard (Continuous) (C)', '--model-std', undefined],
+      ['👑 GlickoD (Season Reset) (E)', '--model-daneo-reset', '--model-daneo-reset-wash'],
+      ['👑 GlickoD (Season Reset) (C)', '--model-daneo-reset', undefined],
+    ]);
   });
 
   it('anchors minDate to first data point and places first point at x=0', () => {
@@ -482,9 +496,13 @@ describe('RATING_TIERS', () => {
     expect(RATING_TIERS[0].min).toBe(0);
     expect(RATING_TIERS[RATING_TIERS.length - 1]?.max).toBe(3000);
     for (const tier of RATING_TIERS) {
-      expect(tier.color).toContain('rgba(');
       expect(tier.name).toBeTruthy();
     }
+  });
+
+  it.each(RATING_TIERS.map((t) => [t.name, t] as const))('shades %s in its band role', (_, tier) => {
+    expect(tier.band).toMatch(/^--band-[a-z]+$/);
+    if (tier.edge !== undefined) expect(tier.edge).toBe(`${tier.band}-edge`);
   });
 });
 

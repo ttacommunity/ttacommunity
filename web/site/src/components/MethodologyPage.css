@@ -9,7 +9,7 @@
 
 .methodology-body h2 {
   margin: 2rem 0 0.85rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1.35rem;
   text-shadow: 0 2px 4px var(--shadow-deep);
@@ -21,14 +21,14 @@
 
 .methodology-body h3 {
   margin: 1.5rem 0 0.5rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1.15rem;
 }
 
 .methodology-body h4 {
   margin: 1.25rem 0 0.5rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
   font-size: 1.05rem;
 }
@@ -49,7 +49,7 @@
 }
 
 .methodology-body strong {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .methodology-body hr {
@@ -70,7 +70,7 @@
   margin: 1rem 0;
   padding: 0.95rem 1.35rem;
   overflow-x: auto;
-  background: rgba(12, 8, 5, 0.92);
+  background: var(--surface-code);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   line-height: 1.5;
@@ -95,7 +95,7 @@
   padding: 0.6rem 1rem;
   background: var(--surface-card);
   border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-align: left;
 }
 

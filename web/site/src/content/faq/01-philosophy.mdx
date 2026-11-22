@@ -60,44 +60,44 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
       </thead>
       <tbody>
         <tr class="row-gold">
-          <td class="bold c-yellow">
-            <a class="faq-link c-yellow" href="#gold-standard">GlickoD</a>
+          <td class="bold c-emphasis">
+            <a class="faq-link c-emphasis" href="#gold-standard">GlickoD</a>
           </td>
-          <td class="c-yellow">Bayesian Recalibrated Forward</td>
-          <td class="c-yellow">Golden Ratio ($w = \frac{\phi^{N-2}}{N-1}$)</td>
-          <td class="c-wheat"><strong>Flagship Model</strong> &bull; Combines self-similar multiplayer evidence scaling with 15-game emergent prior recalibration.</td>
+          <td class="c-emphasis">Bayesian Recalibrated Forward</td>
+          <td class="c-emphasis">Golden Ratio ($w = \frac{\phi^{N-2}}{N-1}$)</td>
+          <td class="c-emphasis"><strong>Flagship Model</strong> &bull; Combines self-similar multiplayer evidence scaling with 15-game emergent prior recalibration.</td>
         </tr>
         <tr>
-          <td class="bold c-wheat">
+          <td class="bold c-emphasis">
             <a class="faq-link" href="#glicko-std">Glicko-2 Standard</a>
           </td>
-          <td class="c-sand">Sequential Forward (Odometer)</td>
-          <td class="c-red">Unweighted ($w = 1.0$)</td>
-          <td class="c-sand">The official online benchmark (naive 1v1 pairwise decomposition).</td>
+          <td class="c-soft">Sequential Forward (Odometer)</td>
+          <td class="c-bad">Unweighted ($w = 1.0$)</td>
+          <td class="c-soft">The official online benchmark (naive 1v1 pairwise decomposition).</td>
         </tr>
         <tr>
-          <td class="bold c-green">
+          <td class="bold c-good">
             <a class="faq-link" href="#glicko-mp">Glicko-2 MP-Weighted</a>
           </td>
-          <td class="c-sand">Sequential Forward (Odometer)</td>
-          <td class="c-green">Coulom Fractional ($w = \frac{1}{N-1}$)</td>
-          <td class="c-green">Prevents multiplayer certainty explosion; solid baseline calibration.</td>
+          <td class="c-soft">Sequential Forward (Odometer)</td>
+          <td class="c-good">Coulom Fractional ($w = \frac{1}{N-1}$)</td>
+          <td class="c-good">Prevents multiplayer certainty explosion; solid baseline calibration.</td>
         </tr>
         <tr>
-          <td class="bold c-green-deep">
+          <td class="bold c-good">
             <a class="faq-link" href="#glicko-adapt">Glicko-2 Adaptive-T</a>
           </td>
-          <td class="c-sand">Thermal Experimental Forward</td>
-          <td class="c-green">Fractional + $T(P, N)$</td>
-          <td class="c-mint">Research benchmark evaluating thermal probability scaling.</td>
+          <td class="c-soft">Thermal Experimental Forward</td>
+          <td class="c-good">Fractional + $T(P, N)$</td>
+          <td class="c-good">Research benchmark evaluating thermal probability scaling.</td>
         </tr>
         <tr>
-          <td class="bold c-blue">
-            <a class="faq-link c-blue" href="#whr">Whole-History Rating (WHR)</a>
+          <td class="bold">
+            <a class="faq-link" href="#whr">Whole-History Rating (WHR)</a>
           </td>
-          <td class="c-leaf">Retrospective MAP (Biographer)</td>
-          <td class="c-green">Multinomial Bradley-Terry</td>
-          <td class="c-blue-light">Optimal career retrospective; smooths noise via Brownian motion.</td>
+          <td class="c-good">Retrospective MAP (Biographer)</td>
+          <td class="c-good">Multinomial Bradley-Terry</td>
+          <td class="c-soft">Optimal career retrospective; smooths noise via Brownian motion.</td>
         </tr>
       </tbody>
     </table>

@@ -74,7 +74,7 @@ function ResultCell({ r }: { r: TournamentRecord }) {
   const medal = r.medal.charAt(0).toUpperCase() + r.medal.slice(1);
   return (
     <span
-      className={`medal-badge-inline medal-${recordCategory(r.tournament)}-${r.medal}`}
+      className={`medal-badge-inline medal-badge-${r.medal}`}
       title={`${formatTournamentDisplay(r.tournament)} ${medal} (${r.placement})`}
     >
       {resultCell(r)}

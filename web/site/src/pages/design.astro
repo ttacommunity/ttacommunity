@@ -39,24 +39,33 @@ import ImagesTable from '@ttac/shared/ImagesTable';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { emptyGameForm } from '@ttac/shared/game-form';
 
+// The roles pages colour with (the palette is used only in tokens.css).
 const colours = [
   'bg-dark',
   'surface-panel',
-  'surface-inset',
+  'surface-well',
   'surface-code',
-  'accent-gold',
-  'accent-gold-light',
-  'accent-crimson',
   'text-main',
   'text-soft',
   'text-muted',
+  'text-accent',
+  'text-accent-bright',
+  'player-name',
   'border-subtle',
   'win',
-  'loss',
   'win-light',
   'win-edge',
+  'loss',
+  'loss-light',
   'loss-edge',
   'draw',
+  'medal-gold',
+  'medal-silver',
+  'medal-bronze',
+  'special',
+  'model-daneo',
+  'model-daneo-reset',
+  'model-std',
 ];
 const fonts = [
   ['heading', 'Cinzel'],
@@ -434,7 +443,7 @@ const rows = [
 <style>
   .design > h2 {
     margin: 1.75rem 0 0.6rem;
-    color: var(--accent-gold);
+    color: var(--text-accent);
     font-family: var(--font-subheading);
     font-size: 1.1rem;
   }
@@ -497,27 +506,35 @@ const rows = [
   .swatch {
     width: 2rem;
     height: 2rem;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid var(--swatch-edge);
     border-radius: 4px;
   }
 
   .swatch-bg-dark { background: var(--bg-dark); }
   .swatch-surface-panel { background: var(--surface-panel); }
-  .swatch-surface-inset { background: var(--surface-inset); }
+  .swatch-surface-well { background: var(--surface-well); }
   .swatch-surface-code { background: var(--surface-code); }
-  .swatch-accent-gold { background: var(--accent-gold); }
-  .swatch-accent-gold-light { background: var(--accent-gold-light); }
-  .swatch-accent-crimson { background: var(--accent-crimson); }
   .swatch-text-main { background: var(--text-main); }
   .swatch-text-soft { background: var(--text-soft); }
   .swatch-text-muted { background: var(--text-muted); }
+  .swatch-text-accent { background: var(--text-accent); }
+  .swatch-text-accent-bright { background: var(--text-accent-bright); }
+  .swatch-player-name { background: var(--player-name); }
   .swatch-border-subtle { background: var(--border-subtle); }
   .swatch-win { background: var(--win); }
-  .swatch-loss { background: var(--loss); }
   .swatch-win-light { background: var(--win-light); }
   .swatch-win-edge { background: var(--win-edge); }
+  .swatch-loss { background: var(--loss); }
+  .swatch-loss-light { background: var(--loss-light); }
   .swatch-loss-edge { background: var(--loss-edge); }
   .swatch-draw { background: var(--draw); }
+  .swatch-medal-gold { background: var(--medal-gold); }
+  .swatch-medal-silver { background: var(--medal-silver); }
+  .swatch-medal-bronze { background: var(--medal-bronze); }
+  .swatch-special { background: var(--special); }
+  .swatch-model-daneo { background: var(--model-daneo); }
+  .swatch-model-daneo-reset { background: var(--model-daneo-reset); }
+  .swatch-model-std { background: var(--model-std); }
 
   .fonts {
     display: grid;

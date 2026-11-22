@@ -29,7 +29,7 @@
   height: 2.3rem;
   border-radius: 999px;
   background: var(--surface-well);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   display: grid;
   place-items: center;
   font-size: 0.95rem;
@@ -63,7 +63,7 @@
 }
 
 .movie-creator a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: none;
 }
 

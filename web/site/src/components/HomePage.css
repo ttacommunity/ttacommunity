@@ -44,7 +44,7 @@
 
 .pillar-title {
   margin: 0 0 0.6rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1.35rem;
 }
@@ -77,7 +77,7 @@
   content: '✦';
   position: absolute;
   left: 0;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.7rem;
   top: 0.15rem;
 }
@@ -100,10 +100,10 @@
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.6rem;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
+  background: var(--accent-wash-faint);
+  border: 1px solid var(--accent-wash);
   border-radius: 4px;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-stats);
   font-size: 0.78rem;
   font-weight: 700;
@@ -222,7 +222,7 @@
 }
 
 .feed-match-item:hover {
-  background: rgba(229, 169, 60, 0.04);
+  background: var(--accent-wash-hint);
 }
 
 .match-item-meta {
@@ -236,7 +236,7 @@
 
 .match-tournament {
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
 }
 
@@ -272,7 +272,7 @@
 }
 
 .match-score-badge.revealed {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .match-score-badge.blurred {
@@ -293,28 +293,28 @@
 }
 
 .match-player-link {
-  color: var(--text-bright);
+  color: var(--player-name);
   font-weight: 600;
   text-decoration: none;
   transition: color 0.15s ease, text-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .match-player-link:hover {
-  color: var(--accent-gold);
+  color: var(--player-name-hover);
   text-decoration: underline;
 }
 
 /* Color grading when match is revealed: Gold, Silver, Bronze, Gray */
 .match-player-link.rank-gold,
 .match-player-link.rank-1 {
-  color: var(--accent-gold);
+  color: var(--medal-gold);
   font-weight: 700;
-  text-shadow: 0 0 10px rgba(229, 169, 60, 0.4);
+  text-shadow: 0 0 10px var(--medal-gold-glow);
 }
 
 .match-player-link.rank-gold:hover,
 .match-player-link.rank-1:hover {
-  color: #fff;
+  color: var(--text-bright);
   text-decoration: underline;
 }
 
@@ -323,7 +323,7 @@
 .match-player-link.rank-2 {
   color: var(--medal-silver);
   font-weight: 600;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-silver) 35%, transparent);
+  text-shadow: 0 0 8px var(--medal-silver-glow);
 }
 
 .match-player-link.rank-silver:hover,
@@ -337,42 +337,40 @@
 .match-player-link.rank-3 {
   color: var(--medal-bronze);
   font-weight: 600;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--medal-bronze) 25%, transparent);
+  text-shadow: 0 0 8px var(--medal-bronze-glow);
 }
 
 .match-player-link.rank-bronze:hover,
 .match-player-link.rank-3:hover {
-  color: color-mix(in srgb, var(--medal-bronze) 70%, white);
+  color: var(--medal-bronze-light);
   text-decoration: underline;
 }
 
 /* 4th place (or 2p loser): Flat, muted, dim matte gray (clearly distinct from silver) */
 .match-player-link.rank-gray,
 .match-player-link.rank-last {
-  color: #7b756d;
+  color: var(--text-muted);
   font-weight: 400;
-  opacity: 0.72;
   text-shadow: none;
 }
 
 .match-player-link.rank-gray:hover,
 .match-player-link.rank-last:hover {
-  color: #a8a29e;
-  opacity: 1;
+  color: var(--text-soft);
   text-decoration: underline;
 }
 
 /* Matching score badge color tones when revealed */
 .match-seat.rank-gold .match-score-badge.revealed,
 .match-seat.rank-1 .match-score-badge.revealed {
-  color: var(--accent-gold);
-  text-shadow: 0 0 8px rgba(229, 169, 60, 0.3);
+  color: var(--medal-gold);
+  text-shadow: 0 0 8px var(--medal-gold-glow);
 }
 
 .match-seat.rank-silver .match-score-badge.revealed,
 .match-seat.rank-2 .match-score-badge.revealed {
   color: var(--medal-silver);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--medal-silver) 25%, transparent);
+  text-shadow: 0 0 6px var(--medal-silver-glow);
 }
 
 .match-seat.rank-bronze .match-score-badge.revealed,
@@ -382,13 +380,12 @@
 
 .match-seat.rank-gray .match-score-badge.revealed,
 .match-seat.rank-last .match-score-badge.revealed {
-  color: #7b756d;
-  opacity: 0.72;
+  color: var(--text-muted);
   text-shadow: none;
 }
 
 .match-score {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-stats);
   font-weight: 700;
   font-size: 0.82rem;
@@ -413,7 +410,7 @@
 }
 
 .feed-tourney-item:hover {
-  background: rgba(229, 169, 60, 0.04);
+  background: var(--accent-wash-hint);
 }
 
 .tourney-item-header {
@@ -431,7 +428,7 @@
 }
 
 .tourney-link {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 700;
@@ -476,8 +473,8 @@
   display: inline-block;
   min-width: 0;
   overflow: hidden;
-  background: rgba(229, 169, 60, 0.12);
-  color: var(--border-subtle);
+  background: var(--spoiler-surface);
+  color: var(--spoiler-blank);
   border-radius: 4px;
   padding: 0.1rem 0.5rem;
   font-family: monospace;
@@ -488,9 +485,9 @@
 }
 
 .tourney-podium-content.podium-censored-mask:hover .podium-censored-pill {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-  background: var(--gold-wash-faint);
+  border-color: var(--edge-accent);
+  color: var(--text-accent);
+  background: var(--accent-wash-faint);
 }
 
 .podium-row {
@@ -518,12 +515,12 @@
 }
 
 .podium-player:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 
 .champion-row .podium-player {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
@@ -534,19 +531,19 @@
 }
 
 .feed-footer-link {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.86rem;
   font-weight: 700;
   text-decoration: none;
 }
 
 .feed-footer-link:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 
 .feed-footer-tag {
-  color: #c084fc;
+  color: var(--special);
   font-family: var(--font-stats);
   font-size: 0.8rem;
   font-weight: 600;
@@ -586,7 +583,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(168, 85, 247, 0.35);
+  border: 2px solid var(--special-wash);
   animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
 
@@ -594,8 +591,8 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #c084fc;
-  box-shadow: 0 0 12px rgba(192, 132, 252, 0.8);
+  background: var(--special);
+  box-shadow: 0 0 12px var(--special-glow);
 }
 
 @keyframes pulse-ring {

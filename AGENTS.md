@@ -383,15 +383,24 @@ agent runs them itself.
   or puts a shared piece in a box of its own colour. A look a piece
   lacks is a change to that piece, on `/design`, agreed with the
   maintainers, never a page's copy
-- **Colours come from the tokens** (`shared/styles/tokens.css`): new CSS
-  writes no hex or `rgba()` of its own, and a colour the tokens lack is a
-  new token. The raw colours older page CSS still has move to tokens
-  when that CSS is next changed
-- **A shared piece takes its colours from roles**: tokens named for what
-  they are for (`--panel-title`, `--page-header-edge`, `--tag-text`), in
-  the Roles section of `tokens.css`, each pointing at a palette colour. A
-  new shared piece adds its roles there, so a change of look, or a theme
-  such as a colour-blind mode, changes a role, not every component
+- **Every colour is a role**: a token in `shared/styles/tokens.css`
+  named for what it is for (`--player-name`, `--text-accent`,
+  `--medal-gold`, `--model-daneo`, `--tier-m`), never for how it looks.
+  The palette at the top of `tokens.css` (colours by look: `--gold`,
+  `--violet`) is used only by the roles below it. CSS, Astro,
+  TypeScript and MDX write no colour value, `color-mix()` or palette
+  token of their own; a colour the roles lack is a new role there.
+  `checks/colour-tokens.sh` fails CI otherwise, and on a token no file
+  defines. A chart reads its roles by name (`documentTokens('--model-std')`)
+- **A colour means one thing.** Before using a role for something new,
+  check what it already means: a meaning (a tier, a medal, a result, a
+  model) has its own role, so a mode can change it alone. Grand Slam
+  medals once took the win colours, and a colour-blind win colour
+  would have recoloured them
+- **Text meets WCAG AA** (4.5:1, 3:1 for large text) on the surfaces it
+  sits on. `shared/src/tokens.test.ts` checks each text role on its
+  surfaces: a new text role, or a role drawn on a new surface, adds its
+  pair there
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC

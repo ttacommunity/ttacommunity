@@ -10,12 +10,12 @@
   background: var(--shadow-light);
   padding: 0.75rem;
   border-radius: 12px;
-  border: 1px solid var(--gold-wash);
+  border: 1px solid var(--accent-wash);
 }
 .detail-meta-grid {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--gold-wash-faint);
+  border-top: 1px solid var(--accent-wash-faint);
 }
 
 .content-two-col {
@@ -65,7 +65,7 @@
   content: '▶';
   position: absolute;
   left: 0;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.7rem;
   top: 0.25rem;
 }
@@ -74,7 +74,7 @@
   font-weight: 700;
   font-family: var(--font-stats);
 }
-.medal-gold { color: var(--accent-gold); }
+.medal-gold { color: var(--text-accent); }
 .medal-silver { color: var(--medal-silver); }
 .medal-bronze { color: var(--medal-bronze); }
 .medal-total { color: var(--text-bright); }
@@ -96,19 +96,19 @@
 .story-author {
   font-weight: 700;
   font-size: 1.05rem;
-  color: var(--text-bright);
+  color: var(--player-name);
   text-decoration: none;
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 .story-author:hover {
-  color: var(--accent-gold);
+  color: var(--player-name-hover);
 }
 .story-title {
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   margin-bottom: 0.5rem;
   line-height: 1.4;
 }
@@ -130,7 +130,7 @@
   overflow-y: auto;
   padding-right: 0.5rem;
   scrollbar-width: thin;
-  scrollbar-color: var(--accent-gold) var(--shadow-light);
+  scrollbar-color: var(--edge-accent) var(--shadow-light);
 }
 
 /* Upstream's inline styles, as classes. */
@@ -138,13 +138,13 @@
 .rules-note {
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border-faint);
   color: var(--text-muted);
   font-size: 0.85rem;
 }
 
 .rules-note strong {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .trophy-sub {
@@ -183,7 +183,7 @@
 }
 
 .trophy-player {
-  color: var(--text-bright);
+  color: var(--player-name);
   font-weight: 700;
   text-decoration: none;
 }
@@ -205,7 +205,7 @@
 }
 
 .trophy-table .cell-points {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-stats);
   font-size: 1.05rem;
   font-weight: 800;
@@ -220,7 +220,7 @@
 }
 
 .cell-record-value {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -237,7 +237,7 @@
 }
 
 .cell-opponents-list {
-  color: #cbd5e1;
+  color: var(--text-soft);
 }
 
 .trophy-table .cell-date {

@@ -41,18 +41,18 @@
 }
 
 .game-seat a {
-  color: #f7dfa5;
+  color: var(--player-name);
   font-weight: 600;
   text-decoration: none;
 }
 
 .game-seat-name {
-  color: #f7dfa5;
+  color: var(--player-name);
   font-weight: 600;
 }
 
 .game-seat a:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .game-outcome {
@@ -66,12 +66,12 @@
 
 /* The signed-in player's own blitz game: a gold edge, and a link to their report box. */
 .game-yours td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent-gold);
+  box-shadow: inset 3px 0 0 var(--edge-accent);
 }
 .game-you {
   display: block;
   margin-top: 0.25rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.85rem;
 }
 

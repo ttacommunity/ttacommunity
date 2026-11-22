@@ -73,7 +73,7 @@ $$
     <p>
       Under textbook unbounded WHR, Bob's 2026 mastery leaks backward into 2023. The system retroactively treats Alice's 2023 victory as if she defeated a peak 2100 grandmaster! Alice receives an undeserved, massive rating boost for defeating someone who was actually a beginner on that day.
     </p>
-    <p class="c-sage">
+    <p class="c-good">
       <strong>Our Golden Retrospective Solution:</strong> We apply an exponential attenuation kernel based on the <a class="faq-link" href="https://en.wikipedia.org/wiki/Golden_ratio" target="_blank" rel="noopener noreferrer">Golden Ratio</a> ($\phi = \frac{1 + \sqrt{5}}{2} \approx 1.61803$):
     </p>
     <div class="formula">
@@ -102,24 +102,24 @@ $$
       </thead>
       <tbody>
         <tr>
-          <td class="bold c-wheat">Information Flow</td>
-          <td class="c-sand"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
-          <td class="c-leaf"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
+          <td class="bold c-emphasis">Information Flow</td>
+          <td class="c-soft"><strong>Forward-Only (Odometer)</strong>: Only past games count. Today's match cannot inform yesterday.</td>
+          <td class="c-good"><strong>Bidirectional (Biographer)</strong>: Future matches inform past skill estimates via Kalman smoothing.</td>
         </tr>
         <tr>
-          <td class="bold c-wheat">Historical Corrections</td>
-          <td class="c-sand"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
-          <td class="c-leaf"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
+          <td class="bold c-emphasis">Historical Corrections</td>
+          <td class="c-soft"><strong>Permanent</strong>: Past ratings never update, even if opponents were misrated.</td>
+          <td class="c-good"><strong>Self-Correcting</strong>: Historical victories gain or lose value as opponents' true skill emerges.</td>
         </tr>
         <tr>
-          <td class="bold c-wheat">Time Continuity</td>
-          <td class="c-sand"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
-          <td class="c-leaf"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
+          <td class="bold c-emphasis">Time Continuity</td>
+          <td class="c-soft"><strong>Discrete Periods</strong>: Matches are binned into fixed rating windows.</td>
+          <td class="c-good"><strong>Continuous Drift</strong>: Skill drift scales smoothly per calendar day ($\Delta t$) via Brownian motion.</td>
         </tr>
         <tr>
-          <td class="bold c-wheat">Match Order Invariance</td>
-          <td class="c-sand">Order-dependent within periods.</td>
-          <td class="c-leaf"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
+          <td class="bold c-emphasis">Match Order Invariance</td>
+          <td class="c-soft">Order-dependent within periods.</td>
+          <td class="c-good"><strong>100% Order-Invariant</strong>: Operates on the full graph; match upload order has zero effect.</td>
         </tr>
       </tbody>
     </table>

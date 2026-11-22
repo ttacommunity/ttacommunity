@@ -2,14 +2,14 @@
 .videos-link {
   display: inline-block;
   margin-left: 0.35rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   vertical-align: baseline;
   text-decoration: none;
 }
 
 .videos-link:hover,
 .videos-link:focus-visible {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .videos-link .videos-icon {

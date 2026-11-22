@@ -6,7 +6,7 @@
   flex-wrap: wrap;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--gold-wash-faint);
+  border-top: 1px solid var(--accent-wash-faint);
 }
 .series-grid {
   display: grid;
@@ -45,7 +45,7 @@
   font-size: 0.82rem;
   color: var(--text-muted);
   padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-faint);
 }
 .series-meta-row:last-of-type {
   border-bottom: none;
@@ -60,10 +60,10 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 1rem;
-  border-top: 1px solid var(--gold-wash-faint);
+  border-top: 1px solid var(--accent-wash-faint);
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .champions-highlight-grid {
   display: grid;
@@ -77,8 +77,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
+  background: var(--accent-wash-faint);
+  border: 1px solid var(--accent-wash);
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -88,11 +88,11 @@
 .champ-highlight-name {
   font-weight: 700;
   font-size: 1.05rem;
-  color: var(--text-bright);
+  color: var(--player-name);
   text-decoration: none;
 }
 .champ-highlight-name:hover {
-  color: var(--accent-gold);
+  color: var(--player-name-hover);
 }
 .champ-highlight-desc {
   font-size: 0.82rem;
@@ -108,7 +108,7 @@
 .wcs-edition-title {
   font-weight: 800;
   font-size: 1.1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   margin-bottom: 0.5rem;
 }
 .wcs-podium-places {
@@ -130,7 +130,7 @@
 }
 .podium-runner-up:hover,
 .podium-third:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 /* WCS & Circuit Analytics Section */
@@ -186,18 +186,18 @@
 }
 
 .wcs-table .cell-rank {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
 .legend-player {
-  color: var(--text-main);
+  color: var(--player-name);
   font-weight: 700;
   text-decoration: none;
 }
 
 .board-player {
-  color: var(--text-bright);
+  color: var(--player-name);
   font-weight: 700;
   text-decoration: none;
 }
@@ -219,38 +219,28 @@
   text-align: center;
 }
 
-.wcs-table .cell-world {
-  color: var(--accent-gold);
-  font-weight: 700;
-  text-align: center;
-}
-
-.wcs-table .cell-international {
-  color: #81d4fa;
-  font-weight: 600;
-  text-align: center;
-}
-
-.wcs-table .cell-intermezzo {
-  color: #ffb74d;
-  font-weight: 600;
-  text-align: center;
-}
-
+/* Titles by league: the columns' headings name the league, so the counts are plain. */
+.wcs-table .cell-world,
+.wcs-table .cell-international,
+.wcs-table .cell-intermezzo,
 .wcs-table .cell-royal {
-  color: #ce93d8;
+  color: var(--text-main);
   font-weight: 600;
   text-align: center;
+}
+
+.wcs-table .cell-world {
+  font-weight: 700;
 }
 
 .wcs-table .cell-medals {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 600;
   text-align: right;
 }
 
 .wcs-table .cell-gold {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 800;
   text-align: center;
 }
@@ -278,7 +268,7 @@
 }
 
 .wcs-table .cell-rate {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
   text-align: center;
 }

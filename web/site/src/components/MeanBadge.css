@@ -1,4 +1,4 @@
-/* A row of engines' mean ratings, each in its engine's chart colour. */
+/* A row of models' mean ratings, each on its model's tint and edged in its chart colour. */
 .mean-badges {
   display: flex;
   flex-wrap: wrap;
@@ -11,6 +11,7 @@
   padding: 2px 7px;
   border: 1px solid;
   border-radius: 4px;
+  color: var(--text-main);
 }
 
 .mean-badge small {
@@ -19,13 +20,11 @@
 }
 
 .mean-glicko2_daneo {
-  background: color-mix(in srgb, var(--engine-daneo) 15%, transparent);
-  border-color: color-mix(in srgb, var(--engine-daneo) 40%, transparent);
-  color: var(--engine-daneo-light);
+  background: var(--model-daneo-tint);
+  border-color: var(--model-daneo);
 }
 
 .mean-glicko2_std {
-  background: color-mix(in srgb, var(--engine-std) 15%, transparent);
-  border-color: color-mix(in srgb, var(--engine-std) 40%, transparent);
-  color: var(--engine-std-light);
+  background: var(--model-std-tint);
+  border-color: var(--model-std);
 }

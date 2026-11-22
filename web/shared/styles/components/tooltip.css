@@ -4,7 +4,7 @@
 }
 
 span[data-tooltip] {
-  border-bottom: 1px dotted var(--gold-wash-strong);
+  border-bottom: 1px dotted var(--accent-wash-strong);
   cursor: help;
 }
 
@@ -14,8 +14,8 @@ span[data-tooltip] {
   width: max-content;
   max-width: 340px;
   padding: 0.45rem 0.8rem;
-  background: rgba(18, 12, 8, 0.98);
-  border: 1px solid var(--accent-gold);
+  background: var(--tooltip-surface);
+  border: 1px solid var(--edge-accent);
   border-radius: 5px;
   box-shadow: 0 6px 24px var(--shadow-deep);
   color: var(--text-main);

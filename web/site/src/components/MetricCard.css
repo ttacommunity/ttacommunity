@@ -70,8 +70,8 @@
 
 .metric-win { color: var(--win); }
 .metric-muted { color: var(--text-muted); }
-.metric-gold { color: var(--accent-gold); }
-.metric-sky { color: var(--accent-sky); }
+.metric-gold { color: var(--text-accent); }
+.metric-sky { color: var(--figure-sky); }
 .metric-silver { color: var(--medal-silver); }
 .metric-bronze { color: var(--medal-bronze); }
 

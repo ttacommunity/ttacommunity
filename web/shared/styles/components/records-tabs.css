@@ -10,9 +10,9 @@
 .records-tab-btn {
   min-height: var(--control-height);
   box-sizing: border-box;
-  background: rgba(35, 23, 16, 0.9);
-  border: 1px solid rgba(138, 98, 51, 0.6);
-  color: #dfcfbc;
+  background: var(--tab-surface);
+  border: 1px solid var(--tab-edge);
+  color: var(--tab-text);
   font-family: var(--font-subheading);
   font-size: var(--size-button);
   font-weight: 600;
@@ -27,17 +27,17 @@
 }
 .records-tab-btn:hover {
   color: var(--text-bright);
-  border-color: var(--accent-gold);
-  background: var(--gold-wash);
+  border-color: var(--edge-accent);
+  background: var(--accent-wash);
   transform: translateY(-1px);
   box-shadow: 0 4px 10px var(--shadow);
 }
 .records-tab-btn.active {
-  background: var(--gradient-gold);
+  background: var(--fill-accent-gradient);
   color: var(--text-on-gold);
   font-weight: 700;
-  border-color: var(--accent-gold);
-  box-shadow: 0 3px 12px var(--gold-wash-strong);
+  border-color: var(--edge-accent);
+  box-shadow: 0 3px 12px var(--accent-wash-strong);
 }
 
 @media (max-width: 768px) {
