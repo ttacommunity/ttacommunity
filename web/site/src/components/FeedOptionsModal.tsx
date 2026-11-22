@@ -7,7 +7,7 @@ import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '.
 import { waitingText } from '../lib/waiting';
 import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import Sheet, { SheetSection } from '@ttac/shared/Sheet';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import './FeedOptionsModal.css';
 
 export interface AvailableTournament {

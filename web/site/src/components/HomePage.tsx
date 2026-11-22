@@ -26,7 +26,7 @@ import { useLoad } from './useLoad';
 import CopyCode from '@ttac/shared/CopyCode';
 import Message from './Message';
 import Panel from './Panel';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 
 interface HomeData {
   run: Run;

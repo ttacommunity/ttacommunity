@@ -1,7 +1,6 @@
 /** A box inside a panel, or on the page where text needs one: a group of content such as a worked example, a row of figures, a short line such as an empty list, or one item of a list with its figures or actions. */
 import type { ReactNode } from 'react';
-import { insetClass, type InsetForm } from '../lib/inset';
-import './Inset.css';
+import { insetClass, type InsetForm } from './inset';
 
 interface Props {
   /** block (the default) holds any content; figures lays its children out in a row; line is one short muted line; row puts its first child on the left and the rest on the right. */

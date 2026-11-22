@@ -9,7 +9,7 @@ import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
 import Panel from './Panel';
 import Panels from './Panels';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import Tile, { TileLink } from './Tile';
 import PageHeader from '@ttac/shared/PageHeader';
 import ScrollTable from './ScrollTable';

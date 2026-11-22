@@ -28,7 +28,7 @@ import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
 import Panel from './Panel';
 import Panels from './Panels';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import Note from '@ttac/shared/Note';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';

@@ -72,7 +72,7 @@ import { nextSort } from '@ttac/shared/sort';
 import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import PlayerSearch from './PlayerSearch';
 import ShowAll from './ShowAll';
 

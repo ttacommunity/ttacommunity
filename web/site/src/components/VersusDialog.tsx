@@ -10,7 +10,7 @@ import Sheet from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from '@ttac/shared/CopyCode';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';

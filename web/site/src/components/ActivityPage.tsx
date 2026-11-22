@@ -7,7 +7,7 @@ import { runYears } from '../lib/player-view';
 import { Flag, TitleBadge } from './PlayerMarks';
 import Panel from './Panel';
 import Panels from './Panels';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 import MetricCard, { MetricGrid } from './MetricCard';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';

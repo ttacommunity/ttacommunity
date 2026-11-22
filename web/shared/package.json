@@ -37,6 +37,7 @@
     "./OutcomeNotice": "./src/OutcomeNotice.tsx",
     "./SortHeader": "./src/SortHeader.tsx",
     "./Note": "./src/Note.tsx",
+    "./Inset": "./src/Inset.tsx",
     "./PageHeader": "./src/PageHeader.tsx",
     "./NewerOlder": "./src/NewerOlder.tsx",
     "./GameSeatFields": "./src/GameSeatFields.tsx",

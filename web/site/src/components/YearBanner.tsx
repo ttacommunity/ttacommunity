@@ -6,7 +6,7 @@ import type { LinkTo } from './OptionsDrawer';
 import Segmented from '@ttac/shared/Segmented';
 import PlayerLink from './PlayerLink';
 import Highlight from './Highlight';
-import Inset from './Inset';
+import Inset from '@ttac/shared/Inset';
 
 interface Props {
   board: YearLeaderboard;
