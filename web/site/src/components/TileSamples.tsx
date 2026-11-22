@@ -5,7 +5,7 @@ import Highlight from './Highlight';
 import Honours from './Honours';
 import { TitleBadge } from './PlayerMarks';
 
-/** TileSamples shows each form of tile: a link, the current one, one with a TileLink, a picture tile and a plain one. */
+/** TileSamples shows each form of tile: a link, the current one, one with a TileLink, a picture tile, one whose picture plays, and a plain one. */
 export default function TileSamples() {
   return (
     <div className="design-tiles">
@@ -28,6 +28,10 @@ export default function TileSamples() {
       <Tile picture={<img className="design-tile-img" src="/img/groups/classic.jpg" alt="" loading="lazy" width={340} height={284} />}>
         <TileLink href="/design/">A picture tile</TileLink>
         <span>A caption under its picture.</span>
+      </Tile>
+      <Tile playable picture={<img className="design-tile-img" src="/img/groups/classic.jpg" alt="" loading="lazy" width={340} height={284} />}>
+        <TileLink href="/design/">A picture that plays</TileLink>
+        <span>Its ▶ says choosing it plays a video.</span>
       </Tile>
       <Tile>
         <strong>A tile that is not a link</strong>

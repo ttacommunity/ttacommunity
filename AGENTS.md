@@ -357,28 +357,34 @@ agent runs them itself.
   The site has one of each: page header (`PageHeader`; `emblem` for a
   tournament's framed icon), panel and its header (`Panel`, `PanelHeader`;
   `holds="text"` for text to read, in the reading look), table
-  (`.leaderboard-table`, straight on a card), button row (`Segmented`:
-  a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
+  (`.leaderboard-table`, straight on a card; `.row-chosen` for a row
+  singled out for the reader; its sortable headers `SortHeader`, or
+  `SortLink` where the sort is in the page's address), button row
+  (`Segmented`: a choice, tabs or a filter; `ToggleGroup` for several), bar of controls (`ViewBar`, `.view-bar`;
   a group inside a bar has no box of its own; `stacked` in a drawer), a question (`Dialog`),
   anything to read, choose or fill in above the page (`Sheet`: `holds` a
   table or a video for the wide one, `actions` and `resets` in its
   footer, `SheetSection` for its parts; from the bottom on a phone),
   a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
+  a list of suggestions under a field (`.suggestions`, on both sites),
   note (`Note`), box inside a panel (`Inset`: content, a row of figures, a short line,
   or a row: an item with its figures or actions), a player's name (`PlayerLink`;
   `place` where it stands for a result, `quiet` where it is not the subject),
   tile in a grid (`Tile`; a link tile is all one link, or its title's
-  `TileLink` covers it; only what can be clicked moves under the mouse),
+  `TileLink` covers it; only what can be clicked moves under the mouse;
+  `playable` when its picture plays a video),
   headline figure (`MetricCard` in a `MetricGrid`, `compact` for a
   header's facts), a fact singled out (`Highlight`), formula box (`$$…$$`, or
   `.formula` around several), buttons (`.btn-antique` for an action,
   `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
   cancel, reset and paging, a bare `.btn-icon`, `.btn-close` in an
   overlay's head; `.btn-compact` inside a
-  table row or list), labels (`.tag` beside a title, `.tag-special` and
+  table row or list; `.btn-text` for a button inside a sentence or a
+  table cell; a toggle says it is on with `aria-pressed`), labels (`.tag` beside a title, `.tag-special` and
   a division's level colour from `divisionTagClass`; `.pill` for a figure;
   `.chip` for a removable filter, `.chip-out` when it excludes; `.status`
-  in a tone), and admin's `AdminPage`, `AdminCard` and
+  for a short state, in a tone from `statusClass`; `.count` for how
+  many wait or are new), and admin's `AdminPage`, `AdminCard` and
   `AdminTable`. `/design` shows them all. Buttons set the heights
   (`--control-height`, `--control-height-compact`) and a field beside a
   button shares its height (`.input-antique`). A page's CSS sets only its own
