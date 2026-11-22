@@ -138,7 +138,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
                     <tr key={y.year} className={isBest ? 'peak-row' : undefined}>
                       <td>
                         <strong className="career-year">{y.year}</strong>
-                        {shown === 'WC' && <span className="badge-wc badge-tiny">WC</span>}
+                        {shown === 'WC' && <TitleBadge title={{ code: 'WC' }} />}
                       </td>
                       <td>{shown !== null ? <TitleBadge title={{ code: shown }} long /> : <span className="career-none">-</span>}</td>
                       <td>{y.opponents}</td>
@@ -158,9 +158,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
                       <td className="career-score">{y.score.toFixed(1)}</td>
                       <td>
                         {isBest ? (
-                          <span className="badge badge-peak-year">
-                            👑 Peak Career Year{shown !== null ? ` (${show.titleName(shown)})` : ''}
-                          </span>
+                          <span className="status status-gold">👑 Peak Career Year</span>
                         ) : (
                           <span className="career-active">Active</span>
                         )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildNewChannelBody, channelStatus, moviesRunStarted, overrideChoice, overrideOf, NO_VIDEO_FILTERS, reasonKind, videoPage, videosMatching, videoStatus, type AdminVideo, type AdminVideoChannel } from './admin-movies';
+import { buildNewChannelBody, channelStatus, channelTone, moviesRunStarted, overrideChoice, overrideOf, NO_VIDEO_FILTERS, reasonKind, videoPage, videosMatching, videoStatus, videoTone, type AdminVideo, type AdminVideoChannel } from './admin-movies';
 
 describe('buildNewChannelBody', () => {
   it('requires channel and name', () => {
@@ -179,5 +179,24 @@ describe('videoPage', () => {
   });
   it('one empty page for no videos', () => {
     expect(videoPage([], 1)).toEqual({ page: 1, pages: 1, rows: [] });
+  });
+});
+
+describe('channelTone', () => {
+  it.each([
+    { name: 'a working channel is good', kind: 'ok' as const, want: 'good' },
+    { name: 'a channel waiting for its first fetch is muted', kind: 'waiting' as const, want: 'muted' },
+    { name: 'a failing channel is bad', kind: 'failing' as const, want: 'bad' },
+  ])('$name', ({ kind, want }) => {
+    expect(channelTone(kind)).toBe(want);
+  });
+});
+
+describe('videoTone', () => {
+  it.each([
+    { name: 'a shown video is good', shown: true, want: 'good' },
+    { name: 'a hidden video is muted', shown: false, want: 'muted' },
+  ])('$name', ({ shown, want }) => {
+    expect(videoTone(shown)).toBe(want);
   });
 });

@@ -22,12 +22,6 @@
   color: var(--text-bright);
 }
 
-.badge-wc.badge-tiny {
-  margin-left: 0.3rem;
-  padding: 0.1rem 0.3rem;
-  font-size: 0.65rem;
-}
-
 .career-peak {
   color: var(--text-accent);
 }
@@ -35,13 +29,6 @@
 .career-score {
   font-weight: 700;
   color: var(--text-accent);
-}
-
-.badge.badge-peak-year {
-  background: var(--accent-wash);
-  border: 1px solid var(--edge-accent);
-  color: var(--text-accent-bright);
-  font-size: 0.75rem;
 }
 
 .career-active {

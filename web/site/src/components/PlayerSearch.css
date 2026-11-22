@@ -99,11 +99,6 @@
   text-underline-offset: 3px;
 }
 
-.search-suggestion .badge {
-  padding: 2px 6px;
-  font-size: 0.72rem;
-}
-
 .search-suggestions-hint {
   display: flex;
   justify-content: space-between;

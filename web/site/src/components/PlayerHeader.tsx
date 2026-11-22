@@ -29,7 +29,6 @@ const PAGE_LINKS: Record<PlayerPage, { icon: string; label: string }> = {
 export default function PlayerHeader({ player, back, page, hrefs, nameExtra, subtitle }: Props) {
   const title = headerTitle(player.title);
   const peak = headerPeak(player.peak);
-  const big = title !== null && (title.code === 'WC' || title.code === 'SGM');
   return (
     <PageHeader
       centred
@@ -37,7 +36,7 @@ export default function PlayerHeader({ player, back, page, hrefs, nameExtra, sub
       above={
         <div className="player-header-badges">
           {title !== null && (
-            <span className={`badge badge-${title.code.toLowerCase()}${big ? ' badge-profile-lg' : ''}`} data-tooltip={title.hover}>
+            <span className={`badge badge-${title.code.toLowerCase()}`} data-tooltip={title.hover}>
               {title.text}
             </span>
           )}

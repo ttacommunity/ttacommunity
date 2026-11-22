@@ -195,29 +195,6 @@
 .runs-actions {
   margin-bottom: 0.75rem;
 }
-.run-state {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-.run-shown {
-  border-color: var(--edge-accent);
-  color: var(--text-accent);
-}
-.run-running {
-  border-color: var(--draw);
-  color: var(--draw);
-}
-.run-complete {
-  color: var(--win);
-}
-.run-failed {
-  border-color: var(--loss);
-  color: var(--loss);
-}
 .run-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -304,28 +281,6 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin: 0.5rem 0 0;
-}
-.badge-holder {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  color: var(--text-main);
-}
-.badge-take {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-soft);
-  cursor: pointer;
-}
-.badge-take:hover,
-.badge-take:focus-visible {
-  color: var(--loss);
 }
 .data-facts {
   display: grid;
@@ -745,21 +700,6 @@
   }
 }
 /* A count beside a tab or heading: the requests to be linked waiting for an answer. */
-.count-badge {
-  display: inline-block;
-  min-width: 1.25rem;
-  margin-left: 0.35rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: var(--fill-accent);
-  color: var(--bg-dark);
-  font-family: var(--font-stats);
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.25rem;
-  text-align: center;
-  vertical-align: 0.1em;
-}
 
 
 
@@ -842,21 +782,6 @@
 .movies-date {
   white-space: nowrap;
 }
-.movies-status {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-.movies-status-visible {
-  color: var(--win);
-  border: 1px solid var(--win);
-}
-.movies-status-hidden {
-  color: var(--text-muted);
-  border: 1px solid var(--border-subtle);
-}
 .movies-run {
   display: flex;
   flex-wrap: wrap;
@@ -920,10 +845,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-}
-.movies-status-failing {
-  color: var(--loss);
-  border: 1px solid var(--loss);
 }
 .movies-why {
   display: block;

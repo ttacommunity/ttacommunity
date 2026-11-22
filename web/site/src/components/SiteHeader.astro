@@ -44,7 +44,7 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
               {s.href !== undefined ? (
                 <a href={s.href} class:list={['section-name', { current: here?.section === s }]} aria-current={here?.section === s ? 'page' : undefined}>
                   {s.label}
-                  {s.href === '/movies/' && <span class="movies-badge" data-movies-badge hidden aria-label="New videos"></span>}
+                  {s.href === '/movies/' && <span class="count" data-movies-badge hidden aria-label="New videos"></span>}
                 </a>
               ) : (
                 <button
@@ -55,7 +55,7 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
                   data-current={here?.section === s ? '' : undefined}
                 >
                   {s.label}
-                  {s.href === '/movies/' && <span class="movies-badge" data-movies-badge hidden aria-label="New videos"></span>}
+                  {s.href === '/movies/' && <span class="count" data-movies-badge hidden aria-label="New videos"></span>}
                   {here?.section === s && <span class="visually-hidden">(current section)</span>}
                   <svg class="caret" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
                     <path d="M6 9l6 6 6-6"></path>
@@ -139,26 +139,6 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
 </script>
 
 <style>
-  .movies-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.15rem;
-    height: 1.15rem;
-    padding: 0 0.35rem;
-    margin-left: 0.4rem;
-    border-radius: 999px;
-    background: var(--fill-accent);
-    color: var(--bg-dark);
-    font-size: 0.72rem;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .movies-badge[hidden] {
-    display: none;
-  }
-
   @media (max-width: 820px) {
     .search {
       margin-bottom: 0.75rem;

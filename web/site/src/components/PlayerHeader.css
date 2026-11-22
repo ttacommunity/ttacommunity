@@ -8,10 +8,6 @@
 .player-header-badges:empty {
   display: none;
 }
-.badge.badge-profile-lg {
-  padding: 0.25rem 0.85rem;
-  font-size: 0.95rem;
-}
 .profile-calibrating {
   font-size: 1.1rem;
   vertical-align: middle;

@@ -216,7 +216,6 @@
   --badge-neutral-surface: rgba(255, 255, 255, 0.08);
   --badge-neutral-edge: rgba(255, 255, 255, 0.15);
   --badge-neutral-text: var(--text-soft);
-  --badge-quiet-surface: color-mix(in srgb, var(--brown-edge) 60%, transparent);
   --win-tint: color-mix(in srgb, var(--green) 12%, transparent);
   --win-fill: color-mix(in srgb, var(--green-deep) 35%, transparent);
   --win-fill-edge: color-mix(in srgb, var(--green) 70%, transparent);
@@ -329,6 +328,9 @@
   --chip-out-text: var(--loss-light);
   --chip-out-edge: var(--loss-edge);
   --chip-out-surface: color-mix(in srgb, var(--red-deep) 14%, var(--brown-well));
+  /* A count of things waiting or new, beside a tab or a menu's link. */
+  --count-surface: var(--fill-accent);
+  --count-text: var(--bg-dark);
   /* A bar of controls (format bar, view bar): the well, solid so a sticky bar hides what scrolls under it. */
   --bar-surface: linear-gradient(var(--surface-well), var(--surface-well)), var(--bg-dark);
   --bar-edge: var(--border-subtle);

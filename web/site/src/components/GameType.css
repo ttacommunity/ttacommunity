@@ -1,0 +1,7 @@
+/* A game's type (GameType): its tag and status side by side, wrapping in a narrow column. */
+.game-type {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}

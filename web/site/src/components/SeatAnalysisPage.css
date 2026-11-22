@@ -28,18 +28,6 @@
   font-weight: 600;
 }
 
-.seat-cell-delta.delta-pos {
-  color: var(--win);
-}
-
-.seat-cell-delta.delta-neg {
-  color: var(--loss);
-}
-
-.seat-cell-delta.delta-zero {
-  color: var(--text-muted);
-}
-
 .seat-place-count {
   font-size: 0.75rem;
   color: var(--text-muted);

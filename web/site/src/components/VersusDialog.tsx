@@ -11,6 +11,8 @@ import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from '@ttac/shared/CopyCode';
 import Inset from '@ttac/shared/Inset';
+import GameType from './GameType';
+import Place from './Place';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
@@ -124,14 +126,13 @@ export default function VersusDialog({
                     <td>{m.date}</td>
                     <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
                     <td>
-                      {m.player_count}p
-                      {!m.rated && <span className="badge badge-unrated">Unrated</span>}
+                      <GameType players={m.player_count} rated={m.rated} />
                     </td>
                     <td>
-                      <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>
+                      <Place n={m.name_place} />
                     </td>
                     <td>
-                      <span className={`placement-badge place-${m.other_place}`}>#{m.other_place}</span>
+                      <Place n={m.other_place} />
                     </td>
                     <td className="h2h-scores">
                       {m.seats.map((s, i) => (

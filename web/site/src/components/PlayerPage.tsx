@@ -73,6 +73,8 @@ import { useAddressView, type Address } from './useAddressView';
 import { OptionsToggle } from './SideDrawer';
 import ViewBar, { FormatPick } from './ViewBar';
 import Inset from '@ttac/shared/Inset';
+import GameType from './GameType';
+import Place from './Place';
 import PlayerSearch from './PlayerSearch';
 import ShowAll from './ShowAll';
 
@@ -344,7 +346,7 @@ function Games({
           <span className="tag">Recent Matches: {total}</span>
           {provisional && (
             <span
-              className="badge badge-calibration"
+              className="status status-warn"
               title="Provisional Phase: Player ratings undergo prior calibration during their first 15 matches. Match deltas are displayed normally while the rating converges."
             >
               ⏳ Prior Calibration ({gamesInFormat}/15)
@@ -388,11 +390,10 @@ function Games({
                 <td className="cell-date">{m.date}</td>
                 <td className="cell-tournament">{formatTournamentDisplay(m.tournament)}</td>
                 <td>
-                  <span className="badge badge-seats">{m.player_count}P</span>
-                  {!m.rated && <span className="badge badge-unrated">Unrated</span>}
+                  <GameType players={m.player_count} rated={m.rated} />
                 </td>
                 <td>
-                  <span className={`placement-badge place-${m.placement}`}>{m.placement}</span>
+                  <Place n={m.placement} />
                 </td>
                 <td>
                   <GameDelta value={m.rating_delta} />

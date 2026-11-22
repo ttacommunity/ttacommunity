@@ -17,7 +17,6 @@ import {
   matchesFilter,
   matchesTournamentFilter,
   recordCategory,
-  resultCell,
   seasonCells,
   seasonDisplay,
   sortCareer,
@@ -34,6 +33,7 @@ import './PlayerPage.css';
 import './AchievementsPage.css';
 import { matrixHref, playerHref } from '../lib/player-view';
 import FilterInput from './FilterInput';
+import MedalResult from './MedalResult';
 import ScrollTable from './ScrollTable';
 import Waiting from './Waiting';
 import { counted } from '@ttac/shared/numbers';
@@ -67,19 +67,6 @@ function shownSort(sort: Sort, fallback: { col: string; desc: boolean } | null):
 
 function next(dirs: Record<number, Direction>, col: number): Direction {
   return (dirs[col] ?? 'asc') === 'asc' ? 'desc' : 'asc';
-}
-
-function ResultCell({ r }: { r: TournamentRecord }) {
-  if (r.medal === null) return <span className="ach-result">{r.placement || '-'}</span>;
-  const medal = r.medal.charAt(0).toUpperCase() + r.medal.slice(1);
-  return (
-    <span
-      className={`medal-badge-inline medal-badge-${r.medal}`}
-      title={`${formatTournamentDisplay(r.tournament)} ${medal} (${r.placement})`}
-    >
-      {resultCell(r)}
-    </span>
-  );
 }
 
 function TournamentName({ r }: { r: TournamentRecord }) {
@@ -313,7 +300,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td>
                             <div className="ach-best-tier">
                               <span className="ach-division-label">{t.bestRecord.division}</span>
-                              <ResultCell r={t.bestRecord} />
+                              <MedalResult r={t.bestRecord} />
                             </div>
                           </td>
                           <td>
@@ -419,7 +406,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td className="ach-strong">{seasonDisplay(r)}</td>
                           <td>{r.division}</td>
                           <td>
-                            <ResultCell r={r} />
+                            <MedalResult r={r} />
                           </td>
                           <td className="ach-details">{r.details}</td>
                         </tr>
@@ -514,7 +501,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td className="ach-strong">{r.season}</td>
                           <td>{r.division}</td>
                           <td>
-                            <span className="promotion-badge">🚀 Promoted ({r.placement})</span>
+                            <span className="status status-good">🚀 Promoted ({r.placement})</span>
                           </td>
                           <td className="ach-details">{r.details}</td>
                         </tr>
@@ -550,7 +537,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td className="ach-strong">{r.season}</td>
                           <td>{r.division}</td>
                           <td>
-                            <ResultCell r={r} />
+                            <MedalResult r={r} />
                           </td>
                           <td className="ach-details">{r.details}</td>
                         </tr>
@@ -590,7 +577,7 @@ function Records({ records }: { records: TournamentRecord[] }) {
                           <td className="ach-strong">{r.season}</td>
                           <td>{r.division}</td>
                           <td>
-                            <ResultCell r={r} />
+                            <MedalResult r={r} />
                           </td>
                           <td className="ach-details">{r.details}</td>
                         </tr>

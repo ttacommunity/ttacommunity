@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from './runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, runTone, shownRuns } from './runs-view';
 
 describe('parseProgress', () => {
   it('reads the step, label, time taken and time left from an engine line', () => {
@@ -81,6 +81,16 @@ describe('runs panel', () => {
     ['a running one', RUN(6, { status: 'running' }), 'Running'],
   ])('labels %s', (_, run, want) => {
     expect(runLabel(run)).toBe(want);
+  });
+
+  it.each([
+    ['the one on the site in gold', RUN(5, { current: true }), 'gold'],
+    ['a running one in the warning tone', RUN(6, { status: 'running' }), 'warn'],
+    ['a complete one in the good tone', RUN(2), 'good'],
+    ['a failed one in the bad tone', RUN(3, { status: 'failed' }), 'bad'],
+    ['one being deleted muted', RUN(4, { deleting: true }), 'muted'],
+  ])('tones %s', (_, run, want) => {
+    expect(runTone(run)).toBe(want);
   });
 
   it.each([

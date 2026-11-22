@@ -15,20 +15,6 @@
   margin: 1rem 0;
 }
 
-.promotion-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  background: var(--win-fill);
-  border: 1px solid var(--win-fill-edge);
-  color: var(--win-light);
-  white-space: nowrap;
-}
-
 .records-table .ach-date {
   font-family: var(--font-stats);
   color: var(--text-accent);
@@ -61,39 +47,6 @@
 }
 .ach-muted {
   color: var(--text-muted);
-}
-.medal-badge-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 2px 5px var(--shadow-light);
-}
-.ach-result {
-  font-weight: 600;
-  color: var(--text-soft);
-}
-
-/* A medal badge in its medal's colour; the tournament's kind is the icon inside it. */
-.medal-badge-gold {
-  background: var(--medal-gold-fill);
-  border: 1px solid var(--medal-gold-edge);
-  color: var(--medal-gold-text);
-  box-shadow: 0 0 8px var(--accent-wash-strong);
-}
-.medal-badge-silver {
-  background: var(--medal-silver-fill);
-  border: 1px solid var(--medal-silver);
-  color: var(--medal-silver);
-}
-.medal-badge-bronze {
-  background: var(--medal-bronze-fill);
-  border: 1px solid var(--medal-bronze);
-  color: var(--medal-bronze-text);
 }
 
 .tournament-cge-link {

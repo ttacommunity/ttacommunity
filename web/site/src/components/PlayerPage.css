@@ -104,15 +104,6 @@
   font-size: 0.85rem;
 }
 
-.badge.badge-calibration {
-  padding: 0.25rem 0.6rem;
-  background: var(--status-warn-tint);
-  color: var(--status-warn);
-  border: 1px solid var(--status-warn);
-  font-size: 0.8rem;
-  cursor: help;
-}
-
 .data-table .cell-date {
   white-space: nowrap;
   color: var(--text-muted);
@@ -126,49 +117,6 @@
   padding: 1.5rem;
   text-align: center;
   color: var(--text-muted);
-}
-
-.badge.badge-seats {
-  background: var(--badge-quiet-surface);
-  color: var(--text-main);
-}
-
-.badge.badge-unrated {
-  margin-left: 0.35rem;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.placement-badge {
-  display: inline-block;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 0.8rem;
-  font-weight: 700;
-  line-height: 26px;
-  text-align: center;
-}
-
-.place-1 {
-  background: var(--medal-gold);
-  color: var(--text-on-fill);
-}
-
-.place-2 {
-  background: var(--medal-silver);
-  color: var(--text-on-fill);
-}
-
-.place-3 {
-  background: var(--medal-bronze);
-  color: var(--text-on-fill);
-}
-
-.place-4 {
-  background: var(--border-subtle);
-  color: var(--text-soft);
 }
 
 .game-delta {
@@ -399,18 +347,6 @@
 .banner-metric-sub {
   color: var(--text-muted);
   font-size: 0.82rem;
-}
-
-.delta-pos {
-  color: var(--win);
-}
-
-.delta-neg {
-  color: var(--loss);
-}
-
-.delta-zero {
-  color: var(--text-muted);
 }
 
 .seat-delta-badge {

@@ -14,18 +14,21 @@ import {
   REASONS,
   SHOWN_BY,
   STATUSES,
+  channelTone,
   UPLOADS,
   overrideChoice,
   overrideOf,
   videoPage,
   videosMatching,
   videoStatus,
+  videoTone,
   type AdminMoviesState,
   type AdminVideo,
   type AdminVideoChannel,
   type OverrideChoice,
   type VideoFilters,
 } from '../lib/admin-movies';
+import { statusClass } from '@ttac/shared/status';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { playerChoices } from '../lib/person-form';
 import Notice, { LoadNotice } from './Notice';
@@ -273,7 +276,7 @@ export default function MoviesPanel() {
                         {c.videos_found} found · {c.video_count} shown
                       </td>
                       <td>
-                        <span className={`movies-status movies-status-${{ ok: 'visible', waiting: 'hidden', failing: 'failing' }[status.kind]}`}>
+                        <span className={statusClass(channelTone(status.kind))}>
                           {status.text}
                         </span>
                       </td>
@@ -391,7 +394,7 @@ export default function MoviesPanel() {
                       <td>{v.creator_name}</td>
                       <td className="movies-date">{formatDate(v.published_at, zone)}</td>
                       <td>
-                        <span className={status.shown ? 'movies-status movies-status-visible' : 'movies-status movies-status-hidden'}>
+                        <span className={statusClass(videoTone(status.shown))}>
                           {status.shown ? 'Shown' : 'Not shown'}
                         </span>
                         <span className="muted movies-why">{status.why}</span>

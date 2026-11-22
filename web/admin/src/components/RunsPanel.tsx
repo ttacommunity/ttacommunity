@@ -7,7 +7,8 @@ import * as req from '../lib/admin-requests';
 import { adminRequest, type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
-import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, shownRuns } from '../lib/runs-view';
+import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, runTone, shownRuns } from '../lib/runs-view';
+import { statusClass } from '@ttac/shared/status';
 import { TRACKS, trackName } from '@ttac/shared/tracks';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
@@ -272,13 +273,12 @@ function RunRow({
   onProtect: (on: boolean) => void;
   onDelete: (opener: HTMLElement) => void;
 }) {
-  const state = run.current ? 'shown' : run.status;
   return (
     <tr>
       <th scope="row">{run.id}</th>
       <td>{trackName(run.ranking)}</td>
       <td>
-        <span className={`run-state run-${state}`}>{runLabel(run)}</span>
+        <span className={statusClass(runTone(run))}>{runLabel(run)}</span>
       </td>
       <td>{when(run.started_at)}</td>
       <td className="run-wide">{run.games > 0 ? count(run.games) : ''}</td>

@@ -215,7 +215,7 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                           <div className="match-item-meta">
                             <span className="match-tournament">{m.tournament}</span>
                             {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
-                            <span className="badge badge-seats">{m.playerCount}P</span>
+                            <span className="tag">{m.playerCount}P</span>
                             <span className="match-date">{m.date}</span>
                             {m.replayCode && (
                               <span className="home-replay">

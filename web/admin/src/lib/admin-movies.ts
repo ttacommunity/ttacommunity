@@ -1,4 +1,5 @@
 import type { components } from '@ttac/shared/api';
+import type { StatusTone } from '@ttac/shared/status';
 
 export type AdminMoviesState = components['schemas']['AdminMoviesState'];
 export type AdminVideoChannel = components['schemas']['AdminVideoChannel'];
@@ -45,6 +46,16 @@ export function overrideOf(choice: OverrideChoice): boolean | null {
 /** Whether the Movies page shows a video, and why: its verdict's reason, or an admin's say. */
 export function videoStatus(v: AdminVideo): { shown: boolean; why: string } {
   return { shown: v.shown, why: overrideChoice(v) === 'verdict' ? v.tta_reason : `by an admin (${v.tta_reason})` };
+}
+
+/** videoTone is the tone of a video's state: good when shown, muted when not. */
+export function videoTone(shown: boolean): StatusTone {
+  return shown ? 'good' : 'muted';
+}
+
+/** channelTone is the tone of a channel's subscription: good when it works, muted while it waits, bad when it fails. */
+export function channelTone(kind: 'waiting' | 'ok' | 'failing'): StatusTone {
+  return kind === 'ok' ? 'good' : kind === 'failing' ? 'bad' : 'muted';
 }
 
 /** A channel's subscription to YouTube's pushes, as admin shows it: waiting, ok, or failing and why, at now. The

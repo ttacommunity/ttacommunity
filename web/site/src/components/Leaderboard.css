@@ -268,11 +268,6 @@ tr:hover .row-exclude,
   font-size: 0.78rem;
 }
 
-.archive-pills .year-pill-wc {
-  padding: 1px 3px;
-  font-size: 0.65rem;
-}
-
 .archive-pills .year-pill-current {
   background: var(--win-edge);
   color: var(--text-bright);

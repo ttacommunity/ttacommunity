@@ -60,10 +60,6 @@
   text-decoration: none;
 }
 
-.metric-number .badge {
-  font-size: 0.85rem;
-}
-
 .metric-words {
   font-size: 1.35rem;
   overflow-wrap: normal;

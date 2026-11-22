@@ -1,4 +1,5 @@
 /** How the admin page reads a rating run's progress line from the engine. */
+import type { StatusTone } from '@ttac/shared/status';
 import { sizeText } from '@ttac/shared/numbers';
 
 /** Progress is one engine step line, "[done/total] label | elapsed 2m00s | eta 1h03m00s". */
@@ -46,6 +47,13 @@ const STATES: Record<Run['status'], string> = { running: 'Running', complete: 'C
 export function runLabel(run: Run): string {
   if (run.current) return 'On the site';
   return run.deleting ? 'Deleting…' : STATES[run.status];
+}
+
+/** runTone is the tone of a run's state: the one on the site gold, running warn, complete good, failed bad, and muted while it is deleted. */
+export function runTone(run: Run): StatusTone {
+  if (run.current) return 'gold';
+  if (run.deleting) return 'muted';
+  return run.status === 'running' ? 'warn' : run.status === 'complete' ? 'good' : 'bad';
 }
 
 /** publishVerb says what publishing run does: roll back to an earlier run than the one shown, else publish. */

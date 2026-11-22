@@ -97,14 +97,6 @@
   margin-bottom: 0;
 }
 
-.faq-container .faq-section .faq-chip {
-  font-size: 0.82rem;
-  background: var(--shadow-light);
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  border: 1px solid var(--border-subtle);
-}
-
 .faq-container .faq-section .row-gold-strong {
   background: var(--accent-wash-faint);
   color: var(--text-accent);
@@ -262,12 +254,6 @@
 .faq-container .faq-section .c-tier-w { color: var(--tier-w-text); }
 
 /* Variants that override a named box above. */
-.faq-container .faq-section .faq-chip-green {
-  border: 1px solid var(--win-edge);
-  color: var(--win-light);
-  font-weight: 700;
-}
-
 .faq-container .faq-section .faq-stack-tight {
   margin-bottom: 0.5rem;
 }

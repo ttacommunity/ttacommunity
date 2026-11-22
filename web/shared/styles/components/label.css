@@ -1,4 +1,4 @@
-/* Small labels: a tag (a category beside a title), a pill (a figure with its label), a chip (a filter you can remove) and a status (a short state). */
+/* Small labels: a tag (a category beside a title), a pill (a figure with its label), a chip (a filter you can remove), a status (a short state) and a count (how many wait or are new). */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -150,9 +150,33 @@
   font-weight: 700;
   letter-spacing: 0.03em;
   line-height: 1.4;
+  white-space: nowrap;
 }
 
 .status-gold { color: var(--status-gold); }
 .status-good { color: var(--status-good); }
 .status-warn { color: var(--status-warn); }
 .status-bad { color: var(--status-bad); }
+
+/* A count beside a tab or a menu's link: how many wait, or how many are new. */
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--count-surface);
+  color: var(--count-text);
+  font-family: var(--font-stats);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.count[hidden] {
+  display: none;
+}

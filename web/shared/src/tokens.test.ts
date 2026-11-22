@@ -109,6 +109,7 @@ const pairs: [string, string[], number][] = [
   ['--text-main', ['--model-daneo-reset-tint', ...PAGE], BODY],
   ['--text-main', ['--model-std-tint', ...PAGE], BODY],
   ['--chip-out-text', ['--chip-out-surface'], BODY],
+  ['--count-text', ['--count-surface'], BODY],
   ['--panel-title', PAGE, LARGE],
   ['--page-header-title', ['--surface-warm'], LARGE],
   ['--note-warning-title', WELL, BODY],
