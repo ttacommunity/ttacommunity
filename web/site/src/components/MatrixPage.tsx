@@ -140,7 +140,7 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
                         <strong className="career-year">{y.year}</strong>
                         {shown === 'WC' && <span className="badge-wc badge-tiny">WC</span>}
                       </td>
-                      <td>{shown !== null ? <TitleBadge title={{ code: shown }} long className="badge-small" /> : <span className="career-none">-</span>}</td>
+                      <td>{shown !== null ? <TitleBadge title={{ code: shown }} long /> : <span className="career-none">-</span>}</td>
                       <td>{y.opponents}</td>
                       <td>
                         <span className="wld-num win">{y.wins}</span> - <span className="wld-num loss">{y.losses}</span> -{' '}

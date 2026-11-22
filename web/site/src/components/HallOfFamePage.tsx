@@ -204,8 +204,8 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                         <td className="cell-rank">#{i + 1}</td>
                         <td>
                           <PlayerLink name={l.name} />{' '}
-                          {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
-                          {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
+                          {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} />}
+                          {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} />}
                         </td>
                         <td className="cell-titles">{majorTitles(l)}</td>
                         <td className="cell-world">{titleCell(l.world_titles, true)}</td>

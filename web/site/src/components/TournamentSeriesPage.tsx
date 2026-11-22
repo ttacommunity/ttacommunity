@@ -21,14 +21,14 @@ import ScrollTable from './ScrollTable';
 
 
 function WorldChampion() {
-  return <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />;
+  return <TitleBadge title={{ code: 'WC' }} />;
 }
 
 /** TitleMark shows the board's title in the site's title badges; WC only on the World Championship's board. */
 function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
   if (series === 'worlds' && (row.title === 'WC' || row.world_champion)) return <WorldChampion />;
   if (row.title === 'WC') return null;
-  return row.title ? <TitleBadge title={{ code: row.title }} className="trophy-mark" /> : null;
+  return row.title ? <TitleBadge title={{ code: row.title }} /> : null;
 }
 
 /** TournamentSeriesPage loads the current run's results for a circuit, with its card, rules and stories as admin writes them. */

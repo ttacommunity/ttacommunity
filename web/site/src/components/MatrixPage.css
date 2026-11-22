@@ -22,12 +22,6 @@
   color: var(--text-bright);
 }
 
-.badge.badge-small,
-.badge-wc.badge-small {
-  padding: 0.15rem 0.45rem;
-  font-size: 0.72rem;
-}
-
 .badge-wc.badge-tiny {
   margin-left: 0.3rem;
   padding: 0.1rem 0.3rem;

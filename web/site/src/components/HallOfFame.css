@@ -170,16 +170,6 @@
   font-weight: 700;
 }
 
-.legend-mark {
-  margin-left: 0.3rem;
-  padding: 0.1rem 0.35rem;
-  font-size: 0.65rem;
-}
-
-.badge.legend-mark {
-  border-radius: 4px;
-}
-
 .wcs-table .cell-titles {
   color: var(--win);
   font-size: 1.05rem;

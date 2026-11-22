@@ -1,9 +1,4 @@
-/* Upstream's player page: player.html's styles, the base.html rules it uses, and its inline styles as classes. */
-.badge.badge-inline {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.75rem;
-  vertical-align: middle;
-}
+
 
 .view-selectors {
   display: flex;

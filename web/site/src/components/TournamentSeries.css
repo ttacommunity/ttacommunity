@@ -170,15 +170,6 @@
   text-align: center;
 }
 
-.trophy-mark {
-  padding: 0.1rem 0.35rem;
-  font-size: 0.65rem;
-}
-
-.badge-wc.trophy-mark {
-  border-radius: 4px;
-}
-
 .records-intro {
   margin-bottom: 1.25rem;
   color: var(--text-main);

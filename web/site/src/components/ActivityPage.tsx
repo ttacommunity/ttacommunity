@@ -70,7 +70,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
             {a.titles.map((t) => (
               <Inset key={t.code} form="row">
                 <div className="activity-title">
-                  <TitleBadge title={{ code: t.code }} className="activity-badge" />
+                  <TitleBadge title={{ code: t.code }} />
                   <strong>{titleLabel(t.code)}</strong>
                 </div>
                 <div className="activity-item-value activity-title-count">{t.players} players</div>

@@ -58,7 +58,7 @@ export default function PlayerHeader({ player, back, page, hrefs, nameExtra, sub
             <>
               <span className="meta-separator">•</span>
               <span>
-                Peak Rank: <span className={`badge badge-inline badge-${peak.code.toLowerCase()}`}>{peak.text}</span>
+                Peak Rank: <span className={`badge badge-${peak.code.toLowerCase()}`}>{peak.text}</span>
               </span>
             </>
           )}

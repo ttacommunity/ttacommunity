@@ -29,7 +29,7 @@ export default function PeakSeason({ season, icon, kicker, link, children }: Pro
           {kicker !== undefined && <div className="peak-season-kicker">{kicker}</div>}
           <div className="peak-season-title">
             Peak Career Season: {season.year}
-            {season.title !== null && <TitleBadge title={{ code: season.title }} long className="badge-inline" />}
+            {season.title !== null && <TitleBadge title={{ code: season.title }} long />}
           </div>
           <div className="peak-season-text">{children}</div>
         </div>
