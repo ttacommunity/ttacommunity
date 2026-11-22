@@ -393,6 +393,12 @@ agent runs them itself.
   or puts a shared piece in a box of its own colour. A look a piece
   lacks is a change to that piece, on `/design`, agreed with the
   maintainers, never a page's copy
+- **`checks/shared-look.mjs` warns, never fails**, when a page's CSS
+  changes how a shared piece looks (a rule on a shared class or a form
+  control that sets more than layout); `scripts/ci.sh` and `ci.ps1` print
+  it. An agent shows each warning to the person and asks: make it an
+  option of the piece, or keep the rule, with its reason, in the
+  script's kept list. Never silence one without asking
 - **Every colour is a role**: a token in `shared/styles/tokens.css`
   named for what it is for (`--player-name`, `--text-accent`,
   `--medal-gold`, `--model-daneo`, `--tier-m`), never for how it looks.
