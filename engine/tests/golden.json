@@ -34,5 +34,9 @@
   "1.15.0": {
     "ratings": "ffc991872a6737aae9507b0bc6ff3f90e45d7d484dc33ed29b9a2104802f85a0",
     "derived": "87b969cccbb15cafa1ecae5c23bb1be7113c41870e194d62b0d736de563746c0"
+  },
+  "1.16.0": {
+    "ratings": "ffc991872a6737aae9507b0bc6ff3f90e45d7d484dc33ed29b9a2104802f85a0",
+    "derived": "82a653d67469cfd48858551f2f854e0f950b3ab3800c66eac32d7aacd39d67c7"
   }
 }

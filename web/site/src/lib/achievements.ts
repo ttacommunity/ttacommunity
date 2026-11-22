@@ -465,6 +465,12 @@ export function bestResultsPerTournament(records: TournamentRecord[]): Tournamen
   return results;
 }
 
+/** playedAndWon reads how many matches a result's details say were played and won ("7 matches played, 6 victories", "1 match played, 1 victory"), or null when they give none; runs before engine 1.16 wrote "1 matches", "1 victories". */
+export function playedAndWon(details: string): { played: number; won: number } | null {
+  const m = /(\d+)\s+match(?:es)?\s+played,\s+(\d+)\s+victor(?:y|ies)\b/i.exec(details);
+  return m && m[1] && m[2] ? { played: Number(m[1]), won: Number(m[2]) } : null;
+}
+
 export type MajorBest = {
   rl: TournamentRecord | null;
   ic: TournamentRecord | null;
@@ -484,10 +490,10 @@ export function majorBestResults(records: TournamentRecord[]): MajorBest {
   for (const r of records) {
     if (r.career) continue;
 
-    const m = /(\d+)\s+matches\s+played,\s+(\d+)\s+victories/i.exec(r.details);
-    if (m && m[1] && m[2]) {
-      totalMatches += Number(m[1]);
-      totalVictories += Number(m[2]);
+    const counts = playedAndWon(r.details);
+    if (counts !== null) {
+      totalMatches += counts.played;
+      totalVictories += counts.won;
     }
 
     const t = r.tournament.toLowerCase();
@@ -544,10 +550,10 @@ export function tournamentOverviews(records: TournamentRecord[]): TournamentOver
     let totalMatches = 0;
     let wins = 0;
     for (const r of recs) {
-      const m = /(\d+)\s+matches\s+played,\s+(\d+)\s+victories/i.exec(r.details);
-      if (m && m[1] && m[2]) {
-        totalMatches += Number(m[1]);
-        wins += Number(m[2]);
+      const counts = playedAndWon(r.details);
+      if (counts !== null) {
+        totalMatches += counts.played;
+        wins += counts.won;
       }
     }
     const draws = 0;

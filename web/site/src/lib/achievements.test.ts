@@ -12,6 +12,7 @@ import {
   isPromotion,
   isQnD,
   majorBestResults,
+  playedAndWon,
   matchesFilter,
   matchesTournamentFilter,
   recordCategory,
@@ -307,6 +308,18 @@ describe('bestResultsPerTournament', () => {
     expect(best.find((b) => b.tournament.includes('Royal League'))?.placement).toBe('1 / 8');
     expect(best.find((b) => b.tournament.includes('Royal League'))?.medal).toBe('gold');
     expect(best.find((b) => b.tournament.includes('Wimbledon'))?.medal).toBe('gold');
+  });
+});
+
+describe('playedAndWon', () => {
+  it.each([
+    { name: 'several of each', details: 'Competed in King: 7 matches played, 6 victories (85.7% win rate)', want: { played: 7, won: 6 } },
+    { name: 'one of each, as runs since 1.16 write it', details: 'Competed in Main: 1 match played, 1 victory (100.0% win rate)', want: { played: 1, won: 1 } },
+    { name: 'one of each, as older runs wrote it', details: 'Competed in Main: 1 matches played, 1 victories (100.0% win rate)', want: { played: 1, won: 1 } },
+    { name: 'a stage line', details: 'Advanced to Stage 3 • 12 matches played, 1 victory (8.3% win rate)', want: { played: 12, won: 1 } },
+    { name: 'a line without counts', details: 'Champion by forfeit', want: null },
+  ])('$name', ({ details, want }) => {
+    expect(playedAndWon(details)).toEqual(want);
   });
 });
 
