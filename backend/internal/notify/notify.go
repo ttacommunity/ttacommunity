@@ -374,8 +374,8 @@ func heading(title, link string) string {
 }
 
 // roundText is a published round as text, with no card (Discord shows a card below the text): its title, which also
-// names it, as a bold link to the edition, then its deadline on each reader's clock once set, then its games and
-// byes, a line each; for a reminder (blitz_reminder), the games still to play. It returns the title, the text and
+// names it, as a bold link to the edition, then its deadline on each reader's clock once set, then its games, any
+// third-place match and its byes, a line each; for a reminder (blitz_reminder), the games still to play. It returns the title, the text and
 // whom it tags.
 func roundText(n store.Notification) (title, text string, users []string) {
 	b := n.Blitz
@@ -399,6 +399,9 @@ func roundText(n store.Notification) (title, text string, users []string) {
 	var t tagger
 	for _, g := range b.Games {
 		lines = append(lines, t.name(g[0], false)+" vs "+t.name(g[1], false))
+	}
+	if g := b.ThirdPlace; g != nil {
+		lines = append(lines, "Third-place match: "+t.name(g[0], false)+" vs "+t.name(g[1], false))
 	}
 	for _, p := range b.Byes {
 		lines = append(lines, "Bye: "+t.name(p, false))

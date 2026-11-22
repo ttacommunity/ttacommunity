@@ -73,7 +73,7 @@ func (s *server) adminBlitzEntrant(e store.BlitzEntrant, rated map[string]store.
 
 func adminBlitzEditionRow(r store.BlitzEditionRow) AdminBlitzEditionRow {
 	return AdminBlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Dropped: r.Dropped, Flagged: r.Flagged,
-		Round: r.Round, Champion: r.Champion, Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
+		Round: r.Round, Champion: r.Champion, Format: blitzFormat(r.Format)}
 }
 
 func (s *server) GetAdminBlitzEditions(ctx context.Context, _ GetAdminBlitzEditionsRequestObject) (GetAdminBlitzEditionsResponseObject, error) {
@@ -129,9 +129,9 @@ func (s *server) PatchAdminBlitzEdition(ctx context.Context, req PatchAdminBlitz
 		return PatchAdminBlitzEdition400JSONResponse{badRequest400("bad parameter: tournament")}, nil
 	}
 	if req.Body == nil {
-		return PatchAdminBlitzEdition400JSONResponse{badRequest400("a format: swiss_rounds and knockout_size")}, nil
+		return PatchAdminBlitzEdition400JSONResponse{badRequest400("a format: swiss_rounds, knockout_size and third_place")}, nil
 	}
-	f := store.BlitzFormat{SwissRounds: req.Body.SwissRounds, KnockoutSize: req.Body.KnockoutSize}
+	f := store.BlitzFormat{SwissRounds: req.Body.SwissRounds, KnockoutSize: req.Body.KnockoutSize, ThirdPlace: req.Body.ThirdPlace}
 	err := s.admins.Change(ctx, func(tx Admins) error {
 		if err := tx.SetBlitzFormat(ctx, req.Tournament, req.Edition, f); err != nil {
 			return err
@@ -141,7 +141,7 @@ func (s *server) PatchAdminBlitzEdition(ctx context.Context, req PatchAdminBlitz
 	switch {
 	case errors.Is(err, store.ErrBadBlitzFormat):
 		return PatchAdminBlitzEdition400JSONResponse{badRequest400(err.Error())}, nil
-	case errors.Is(err, store.ErrBlitzFormatLocked):
+	case errors.Is(err, store.ErrBlitzFormatLocked), errors.Is(err, store.ErrBlitzThirdPlaceLocked):
 		return PatchAdminBlitzEdition409JSONResponse{conflict409(err.Error())}, nil
 	case errors.Is(err, store.ErrNoBlitzEdition):
 		return PatchAdminBlitzEdition404JSONResponse{notFound404("no such blitz edition")}, nil

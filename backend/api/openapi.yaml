@@ -7960,8 +7960,11 @@ components:
       description: How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none)
       type: object
       additionalProperties: false
-      required: [swiss_rounds, knockout_size]
+      required: [swiss_rounds, knockout_size, third_place]
       properties:
+        third_place:
+          description: Whether the semi-finals' losers play a third-place match beside the final; a knockout of 4 or more only. It changes until the final round is paired
+          type: boolean
         swiss_rounds:
           type: integer
           minimum: 1
@@ -8653,8 +8656,11 @@ components:
     BlitzPublicMatch:
       description: Who plays whom and how it ended; b is null for the bye
       type: object
-      required: [a, a_rating, a_seed, b, b_rating, b_seed, result, ruled, best_of, games]
+      required: [a, a_rating, a_seed, b, b_rating, b_seed, third_place, result, ruled, best_of, games]
       properties:
+        third_place:
+          description: Whether it is the final round's match between the semi-finals' losers
+          type: boolean
         best_of:
           description: The games the match is played as, 1 or 3 (agreed)
           type: integer
@@ -8919,8 +8925,11 @@ components:
     AdminBlitzMatch:
       description: A match by entrant ids; b is null for the bye. The gaps are as the entrants are now
       type: object
-      required: [id, a, b, slot, a_seed, b_seed, zone_gap_minutes, rating_gap, repeat, result, ruling, decided_at, best_of, proposed_by, games]
+      required: [id, a, b, slot, a_seed, b_seed, third_place, zone_gap_minutes, rating_gap, repeat, result, ruling, decided_at, best_of, proposed_by, games]
       properties:
+        third_place:
+          description: Whether it is the final round's match between the semi-finals' losers
+          type: boolean
         best_of:
           description: The games the match is played as, 1 or 3 (agreed)
           type: integer
@@ -11675,6 +11684,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BracketRound"
+        third_place:
+          description: A blitz knockout's third-place match, between the semi-finals' losers, once paired; absent otherwise. Not in rounds, whose last stage is the final
+          allOf:
+            - $ref: "#/components/schemas/BracketGroup"
     BracketRound:
       type: object
       required: [stage, qualifiers, groups]

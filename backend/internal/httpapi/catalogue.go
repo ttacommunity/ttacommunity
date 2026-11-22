@@ -262,27 +262,35 @@ func (s *server) GetSeasonBracket(ctx context.Context, req GetSeasonBracketReque
 	for i, r := range got.Rounds {
 		round := BracketRound{Stage: r.Stage, Qualifiers: r.Qualifiers, Groups: make([]BracketGroup, len(r.Groups))}
 		for j, g := range r.Groups {
-			group := BracketGroup{Name: g.Name, Number: g.Number, State: GameState(g.State), Seats: make([]BracketSeat, len(g.Seats))}
-			for k, seat := range g.Seats {
-				ds := BracketSeat{Entrant: seat.Entrant, Name: seat.Name, Place: seat.Place, Points: seat.Points, Next: seat.Next}
-				if seat.Seed > 0 {
-					ds.Seed = new(seat.Seed)
-				}
-				if seat.Outcome != "" {
-					o := SeatOutcome(seat.Outcome)
-					ds.Outcome = &o
-				}
-				group.Seats[k] = ds
-			}
-			round.Groups[j] = group
+			round.Groups[j] = bracketGroup(g)
 		}
 		body.Rounds[i] = round
+	}
+	if got.ThirdPlace != nil {
+		body.ThirdPlace = new(bracketGroup(*got.ThirdPlace))
 	}
 	cache := cacheRun
 	if got.Live {
 		cache = cacheCurrent
 	}
 	return GetSeasonBracket200JSONResponse{Body: body, Headers: GetSeasonBracket200ResponseHeaders{CacheControl: cache}}, nil
+}
+
+// bracketGroup is a bracket's group as the API sends it.
+func bracketGroup(g store.BracketGroup) BracketGroup {
+	group := BracketGroup{Name: g.Name, Number: g.Number, State: GameState(g.State), Seats: make([]BracketSeat, len(g.Seats))}
+	for k, seat := range g.Seats {
+		ds := BracketSeat{Entrant: seat.Entrant, Name: seat.Name, Place: seat.Place, Points: seat.Points, Next: seat.Next}
+		if seat.Seed > 0 {
+			ds.Seed = new(seat.Seed)
+		}
+		if seat.Outcome != "" {
+			o := SeatOutcome(seat.Outcome)
+			ds.Outcome = &o
+		}
+		group.Seats[k] = ds
+	}
+	return group
 }
 
 // optionalDate returns t as an API date, or nil for none.

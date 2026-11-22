@@ -4939,6 +4939,8 @@ export interface components {
         };
         /** @description How a blitz edition runs, Swiss rounds and then a knockout of that many players (0 for none) */
         BlitzFormat: {
+            /** @description Whether the semi-finals' losers play a third-place match beside the final; a knockout of 4 or more only. It changes until the final round is paired */
+            third_place: boolean;
             swiss_rounds: number;
             /** @description 0, 2, 4, 8, 16 or 32 */
             knockout_size: number;
@@ -5315,6 +5317,8 @@ export interface components {
         };
         /** @description Who plays whom and how it ended; b is null for the bye */
         BlitzPublicMatch: {
+            /** @description Whether it is the final round's match between the semi-finals' losers */
+            third_place: boolean;
             /** @description The games the match is played as, 1 or 3 (agreed) */
             best_of: number;
             /** @description Its games so far, in order */
@@ -5509,6 +5513,8 @@ export interface components {
         };
         /** @description A match by entrant ids; b is null for the bye. The gaps are as the entrants are now */
         AdminBlitzMatch: {
+            /** @description Whether it is the final round's match between the semi-finals' losers */
+            third_place: boolean;
             /** @description The games the match is played as, 1 or 3 (agreed) */
             best_of: number;
             /**
@@ -7075,6 +7081,8 @@ export interface components {
             season: string;
             /** @description The season's stages, first to last */
             rounds: components["schemas"]["BracketRound"][];
+            /** @description A blitz knockout's third-place match, between the semi-finals' losers, once paired; absent otherwise. Not in rounds, whose last stage is the final */
+            third_place?: components["schemas"]["BracketGroup"];
         };
         BracketRound: {
             /** @description The stage's label, as the catalogue gives it */

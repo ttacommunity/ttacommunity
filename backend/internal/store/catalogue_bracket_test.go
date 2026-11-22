@@ -278,6 +278,53 @@ func TestSeasonBracketGivesABlitzKnockoutItsQualifiersAndMatches(t *testing.T) {
 	}
 }
 
+func TestSeasonBracketShowsTheThirdPlaceMatchBesideTheFinal(t *testing.T) {
+	run, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{ko(ann, bob, 0, 1, 4), ko(cy, dee, 1, 2, 3)}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(semi-finals): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(semi-finals): %v", err)
+	}
+	for _, m := range semi.Matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling(semi-finals): %v", err)
+		}
+	}
+	third := ko(bob, dee, 1, 4, 3)
+	third.ThirdPlace = true
+	final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 3, Matches: []BlitzMatch{ko(ann, cy, 0, 1, 2), third}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(final): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(final): %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", final.Matches[1].ID, "b", "ruled"); err != nil {
+		t.Fatalf("RecordBlitzRuling(third place): %v", err)
+	}
+
+	got, err := r.SeasonBracket(ctx, run, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("SeasonBracket: %v", err)
+	}
+	lines := bracketLines(got)
+	want := []string{
+		"Round 2|match 1 1|played: 1 Ann#1 1 - →1; 2 Bob#4 2 - →0;",
+		"Round 2|match 2 2|played: 3 Cy#2 1 - →1; 4 Dee#3 2 - →0;",
+		"Round 3|match 1 1|prepared: 1 Ann#1 0 - →0; 3 Cy#2 0 - →0;",
+	}
+	if diff := cmp.Diff(want, lines[len(lines)-3:]); diff != "" {
+		t.Errorf("the semi-finals and the final (-want +got):\n%s", diff)
+	}
+	if g := got.ThirdPlace; g == nil || g.State != "played" || len(g.Seats) != 2 || g.Seats[0].Name != "Dee" || g.Seats[0].Place != 1 || g.Seats[1].Name != "Bob" {
+		t.Errorf("the third-place match = %+v, want Dee's win over Bob, apart from the rounds", g)
+	}
+}
+
 func TestSeasonBracketRefusesABlitzEditionNotShownAsABracket(t *testing.T) {
 	for _, tt := range []struct{ name, set string }{
 		{"not marked as a bracket", "bracket = false"},

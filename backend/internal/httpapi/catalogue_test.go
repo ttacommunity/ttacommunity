@@ -239,7 +239,7 @@ func TestSeasonBracketOfABlitzKnockout(t *testing.T) {
 		{Stage: "Round 2", Groups: []store.BracketGroup{{Name: "match 1", Number: 1, State: "prepared", Seats: []store.BracketSeat{
 			{Entrant: 1, Name: "ann", Seed: 1},
 		}}}},
-	}}}
+	}, ThirdPlace: &store.BracketGroup{Name: "third-place match", Number: 1, State: "prepared", Seats: []store.BracketSeat{{Entrant: 2, Name: "bob", Seed: 4}}}}}
 	rec, _ := serve(t, f, "/v1/runs/7/catalogue/us_open/bracket?season=2026")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET bracket = %d %s", rec.Code, rec.Body)
@@ -248,6 +248,8 @@ func TestSeasonBracketOfABlitzKnockout(t *testing.T) {
 	wantJSON(t, body, "rounds.0", `{"stage": "Qualifiers", "qualifiers": true}`)
 	wantJSON(t, body, "rounds.1", `{"stage": "Round 2", "qualifiers": false}`)
 	wantJSON(t, body, "rounds.0.groups.0.seats.0", `{"name": "ann", "seed": 1}`)
+	wantJSON(t, body, "third_place", `{"name": "third-place match", "state": "prepared"}`)
+	wantJSON(t, body, "third_place.seats.0", `{"name": "bob", "seed": 4}`)
 	if got := rec.Header().Get("Cache-Control"); got != cacheCurrent {
 		t.Errorf("a blitz bracket's Cache-Control = %q, want %q: its results change as they are recorded", got, cacheCurrent)
 	}

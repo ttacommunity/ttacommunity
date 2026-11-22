@@ -14,7 +14,12 @@ import (
 
 func blitzEditionRow(r store.BlitzEditionRow) BlitzEditionRow {
 	return BlitzEditionRow{Tournament: r.Slug, Name: r.Name, Edition: r.Edition, Entrants: r.Entrants, Round: r.Round, Champion: r.Champion, Knockout: r.Knockout, Bracket: r.Bracket,
-		Format: BlitzFormat{SwissRounds: r.Format.SwissRounds, KnockoutSize: r.Format.KnockoutSize}}
+		Format: blitzFormat(r.Format)}
+}
+
+// blitzFormat is an edition's format as the API sends it.
+func blitzFormat(f store.BlitzFormat) BlitzFormat {
+	return BlitzFormat{SwissRounds: f.SwissRounds, KnockoutSize: f.KnockoutSize, ThirdPlace: f.ThirdPlace}
 }
 
 // blitzPoints is an edition's points as the API sends them.
@@ -186,7 +191,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
 				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())
 			}
-			pm.ASeed, pm.BSeed = m.SeedA, m.SeedB
+			pm.ASeed, pm.BSeed, pm.ThirdPlace = m.SeedA, m.SeedB, m.ThirdPlace
 			if m.B != nil {
 				b := named[*m.B]
 				pm.B, pm.BRating = &b.Name, rating(b)

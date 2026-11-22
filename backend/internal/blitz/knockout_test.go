@@ -86,25 +86,36 @@ func TestAKnockoutIsRefusedWithoutAPowerOfTwo(t *testing.T) {
 	}
 }
 
-func TestWinnerNamesWhoGoesThrough(t *testing.T) {
+func TestWinnerAndLoserNameWhoGoesThroughAndWhoGoesOut(t *testing.T) {
 	tests := []struct {
-		name   string
-		result blitz.Result
-		want   int64
-		ok     bool
+		name          string
+		result        blitz.Result
+		winner, loser int64
+		ok            bool
 	}{
-		{"a win for a", blitz.WinA, 1, true},
-		{"a win for b", blitz.WinB, 2, true},
-		{"a draw", blitz.Draw, 0, false},
-		{"a double loss", blitz.DoubleLoss, 0, false},
-		{"no result", blitz.Undecided, 0, false},
+		{"a win for a", blitz.WinA, 1, 2, true},
+		{"a win for b", blitz.WinB, 2, 1, true},
+		{"a draw", blitz.Draw, 0, 0, false},
+		{"a double loss", blitz.DoubleLoss, 0, 0, false},
+		{"no result", blitz.Undecided, 0, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, ok := blitz.Winner(blitz.Played{A: 1, B: 2, Result: tt.result})
-			if got != tt.want || ok != tt.ok {
-				t.Errorf("Winner(%s) = %d, %v; want %d, %v", tt.result, got, ok, tt.want, tt.ok)
+			m := blitz.Played{A: 1, B: 2, Result: tt.result}
+			if got, ok := blitz.Winner(m); got != tt.winner || ok != tt.ok {
+				t.Errorf("Winner(%s) = %d, %v; want %d, %v", tt.result, got, ok, tt.winner, tt.ok)
+			}
+			if got, ok := blitz.Loser(m); got != tt.loser || ok != tt.ok {
+				t.Errorf("Loser(%s) = %d, %v; want %d, %v", tt.result, got, ok, tt.loser, tt.ok)
 			}
 		})
+	}
+}
+
+func TestKnockoutRoundsCountsTheRoundsToTheFinal(t *testing.T) {
+	for _, tt := range []struct{ size, want int }{{0, 0}, {2, 1}, {4, 2}, {8, 3}, {32, 5}} {
+		if got := blitz.KnockoutRounds(tt.size); got != tt.want {
+			t.Errorf("KnockoutRounds(%d) = %d, want %d", tt.size, got, tt.want)
+		}
 	}
 }

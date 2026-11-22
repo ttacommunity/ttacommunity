@@ -52,6 +52,26 @@ func Winner(m Played) (int64, bool) {
 	return 0, false
 }
 
+// KnockoutRounds is how many rounds a knockout of size players takes: 3 for 8, 0 for none.
+func KnockoutRounds(size int) int {
+	n := 0
+	for ; size > 1; size >>= 1 {
+		n++
+	}
+	return n
+}
+
+// Loser returns who goes out of a match, and false when it has no winner.
+func Loser(m Played) (int64, bool) {
+	switch m.Result {
+	case WinA:
+		return m.B, true
+	case WinB:
+		return m.A, true
+	}
+	return 0, false
+}
+
 func powerOfTwo(n int) bool {
 	return n >= 2 && n&(n-1) == 0
 }

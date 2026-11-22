@@ -116,6 +116,125 @@ func TestTheKnockoutIsPairedFromTheStandingsThenFromTheWinners(t *testing.T) {
 	}
 }
 
+func TestTheFinalRoundHasAThirdPlaceMatchWhenTheFormatSaysSo(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	tests := []struct {
+		name       string
+		size       int
+		thirdPlace bool
+		want       []AdminBlitzMatch
+	}{
+		{"a knockout of 4 with the setting", 4, true, []AdminBlitzMatch{
+			{A: 10, B: new(int64(9)), Slot: new(0), ASeed: new(4), BSeed: new(2)},
+			{A: 7, B: new(int64(8)), Slot: new(1), ASeed: new(1), BSeed: new(3), ThirdPlace: true},
+		}},
+		{"a knockout of 4 without it", 4, false, []AdminBlitzMatch{{A: 10, B: new(int64(9)), Slot: new(0), ASeed: new(4), BSeed: new(2)}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			semisPublished("b", "a")(f)
+			f.format = store.BlitzFormat{SwissRounds: 1, KnockoutSize: tt.size, ThirdPlace: tt.thirdPlace}
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`)
+			var round AdminBlitzRound
+			if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated {
+				t.Fatalf("POST rounds = %d %s, want 201", rec.Code, rec.Body)
+			}
+			if len(round.Matches) != len(tt.want) {
+				t.Fatalf("the final round has %d matches, want %d", len(round.Matches), len(tt.want))
+			}
+			for i, w := range tt.want {
+				m := round.Matches[i]
+				if m.A != w.A || *m.B != *w.B || *m.Slot != *w.Slot || *m.ASeed != *w.ASeed || *m.BSeed != *w.BSeed || m.ThirdPlace != w.ThirdPlace {
+					t.Errorf("match %d = %d v %d, slot %d, seeds %d v %d, third place %t; want %d v %d, slot %d, seeds %d v %d, third place %t", i,
+						m.A, *m.B, *m.Slot, *m.ASeed, *m.BSeed, m.ThirdPlace, w.A, *w.B, *w.Slot, *w.ASeed, *w.BSeed, w.ThirdPlace)
+				}
+			}
+		})
+	}
+}
+
+func TestTheThirdPlaceMatchIsSetUntilTheFinalIsPaired(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	finalPaired := func(f *fakeAdmins) {
+		semisPublished("b", "a")(f)
+		cy, bob := int64(8), int64(9)
+		f.rounds = append(f.rounds, store.BlitzRound{ID: 103, Number: 3, Kind: "knockout", Seed: 3, Matches: []store.BlitzMatch{
+			{ID: 1030, A: 10, B: &bob, Slot: new(0), SeedA: new(4), SeedB: new(2)}, {ID: 1031, A: 7, B: &cy, Slot: new(1), SeedA: new(1), SeedB: new(3)}}})
+	}
+	tests := []struct {
+		name  string
+		setup func(*fakeAdmins)
+		want  int
+	}{
+		{"after the semi-finals", semisPublished("b", "a"), http.StatusNoContent},
+		{"once the final is paired", finalPaired, http.StatusConflict},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			tt.setup(f)
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPatch, "/v1/admin/blitz/us_open/2026", site,
+				`{"swiss_rounds": 1, "knockout_size": 4, "third_place": true}`)
+			if rec.Code != tt.want {
+				t.Errorf("PATCH the third-place match = %d %s, want %d", rec.Code, rec.Body, tt.want)
+			}
+			if set := f.format.ThirdPlace; set != (tt.want == http.StatusNoContent) {
+				t.Errorf("the third-place match saved = %t, want %t", set, tt.want == http.StatusNoContent)
+			}
+		})
+	}
+}
+
+func TestAKnockoutOfTwoIgnoresTheThirdPlaceMatch(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	f := &fakeAdmins{}
+	swissDone(f)
+	f.format = store.BlitzFormat{SwissRounds: 1, KnockoutSize: 2, ThirdPlace: true}
+	rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`)
+	var round AdminBlitzRound
+	if err := json.Unmarshal(rec.Body.Bytes(), &round); err != nil || rec.Code != http.StatusCreated {
+		t.Fatalf("POST rounds = %d %s, want 201", rec.Code, rec.Body)
+	}
+	if len(round.Matches) != 1 || round.Matches[0].ThirdPlace {
+		t.Errorf("the final of a knockout of 2 = %+v, want the final alone", round.Matches)
+	}
+}
+
+func TestNoRoundFollowsAFinalRoundWithAThirdPlaceMatch(t *testing.T) {
+	const site, org = "https://ttac-admin.example", "222222222222222222"
+	tests := []struct {
+		name          string
+		final, bronze string
+		want          string
+	}{
+		{"the third-place match undecided", "a", "", "no winner yet"},
+		{"both decided", "a", "b", store.ErrBlitzFinished.Error()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeAdmins{}
+			semisPublished("b", "a")(f)
+			f.format.ThirdPlace = true
+			at := time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
+			cy, bob := int64(8), int64(9)
+			final := store.BlitzRound{ID: 103, Number: 3, Kind: "knockout", Seed: 3, PublishedAt: &at, Matches: []store.BlitzMatch{
+				{ID: 1030, A: 10, B: &bob, Slot: new(0), SeedA: new(4), SeedB: new(2)},
+				{ID: 1031, A: 7, B: &cy, Slot: new(1), SeedA: new(1), SeedB: new(3), ThirdPlace: true}}}
+			for i, r := range []string{tt.final, tt.bronze} {
+				if r != "" {
+					final.Matches[i].Result, final.Matches[i].Ruling, final.Matches[i].DecidedAt = r, "ruled", &at
+				}
+			}
+			f.rounds = append(f.rounds, final)
+			rec := adminDoWith(t, &fakeRatings{run: store.PublishedRun{ID: 7}}, f, org, http.MethodPost, "/v1/admin/blitz/us_open/2026/rounds", site, `{}`)
+			if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), tt.want) {
+				t.Errorf("POST rounds = %d %s, want 409 naming %q", rec.Code, rec.Body, tt.want)
+			}
+		})
+	}
+}
+
 // semisPublished gives the fake swissDone's edition with its semi-finals published: Ann (7, seed 1) v Dee (10,
 // seed 4) in slot 0 and bob (9, seed 2) v Cy (8, seed 3) in slot 1, with the results given.
 func semisPublished(first, second string) func(*fakeAdmins) {

@@ -88,15 +88,17 @@ type BlitzThreadNews struct {
 // games, the podium of a finished edition, the format and closing time (nil for none) of its open sign-ups, and the
 // link to the edition's page.
 type BlitzNews struct {
-	Title    string
-	Games    [][2]blitz.Person
-	Byes     []blitz.Person
-	Deadline *time.Time
-	Again    bool
-	Podium   []BlitzPlace
-	Format   BlitzFormat
-	Closes   *time.Time
-	Link     string
+	Title string
+	Games [][2]blitz.Person
+	// ThirdPlace is the final round's third-place match, apart from its games; nil for none.
+	ThirdPlace *[2]blitz.Person
+	Byes       []blitz.Person
+	Deadline   *time.Time
+	Again      bool
+	Podium     []BlitzPlace
+	Format     BlitzFormat
+	Closes     *time.Time
+	Link       string
 }
 
 // BlitzPlace is a place on a podium, 1 the top, and who shares it, each as Discord can name them.

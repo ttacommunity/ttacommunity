@@ -13,11 +13,13 @@ import (
 )
 
 // SeasonBracket is a season of a tournament shown as a bracket: its stages as rounds, first to last, or a blitz
-// edition's knockout, which is Live: it changes as results are recorded, not with the run.
+// edition's knockout, which is Live: it changes as results are recorded, not with the run. ThirdPlace is a blitz
+// knockout's third-place match, kept out of the rounds so that their last is the final; nil for none.
 type SeasonBracket struct {
-	Season string
-	Live   bool
-	Rounds []BracketRound
+	Season     string
+	Live       bool
+	Rounds     []BracketRound
+	ThirdPlace *BracketGroup
 }
 
 // BracketRound is one stage of a bracket and its groups, by number. Qualifiers marks a blitz knockout's first
@@ -213,8 +215,8 @@ func linkRounds(rounds []BracketRound) {
 // blitzBracket returns a shown blitz edition's knockout as a bracket, from its published rounds: first its
 // Qualifiers, each player alone in the group of their place in the draw (2k+1 and 2k+2 for match slot k), then each
 // knockout round's matches, as group slot + 1, the winner first once decided (place 1, the loser 2), a best of 3 with
-// each side's points. Before the
-// knockout is drawn it has no rounds; an edition not shown is ErrTournamentNotFound.
+// each side's points; the third-place match apart, as ThirdPlace. Before the knockout is drawn it has no rounds; an
+// edition not shown is ErrTournamentNotFound.
 func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) (SeasonBracket, error) {
 	ed, err := r.BlitzEdition(ctx, slug, edition)
 	if errors.Is(err, ErrNoBlitzEdition) {
@@ -251,8 +253,8 @@ func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) 
 			}
 			got.Rounds = append(got.Rounds, q)
 		}
-		out := BracketRound{Stage: fmt.Sprintf("Round %d", rd.Number), Groups: make([]BracketGroup, len(matches))}
-		for i, m := range matches {
+		out := BracketRound{Stage: fmt.Sprintf("Round %d", rd.Number), Groups: []BracketGroup{}}
+		for _, m := range matches {
 			a, b := seat(m.A, *m.SeedA), seat(*m.B, *m.SeedB)
 			switch {
 			case m.BestOf == 3:
@@ -261,6 +263,9 @@ func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) 
 				a.Outcome, b.Outcome = m.Game.A.Outcome, m.Game.B.Outcome
 			}
 			g := BracketGroup{Name: fmt.Sprintf("match %d", *m.Slot+1), Number: *m.Slot + 1, State: "prepared", Seats: []BracketSeat{a, b}}
+			if m.ThirdPlace {
+				g.Name, g.Number = "third-place match", 1
+			}
 			switch m.Result {
 			case "a":
 				g.State, g.Seats[0].Place, g.Seats[1].Place = "played", 1, 2
@@ -268,7 +273,11 @@ func (r *RatingsReader) blitzBracket(ctx context.Context, slug, edition string) 
 				g.State, g.Seats = "played", []BracketSeat{b, a}
 				g.Seats[0].Place, g.Seats[1].Place = 1, 2
 			}
-			out.Groups[i] = g
+			if m.ThirdPlace {
+				got.ThirdPlace = &g
+				continue
+			}
+			out.Groups = append(out.Groups, g)
 		}
 		got.Rounds = append(got.Rounds, out)
 	}
