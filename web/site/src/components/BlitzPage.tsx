@@ -6,7 +6,7 @@ import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
-import InfoDialog from '@ttac/shared/InfoDialog';
+import Sheet from '@ttac/shared/Sheet';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, knockoutRule, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
@@ -211,6 +211,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
 /** HowPairedDialog explains how the edition's rounds are paired (its settings, and the rules every method keeps) and how ties in the standings are broken; opened at the top, or at the ties (at). */
 function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener: HTMLElement; at: 'top' | 'ties'; onClose: () => void }) {
   const notes = pairingNotes(ed);
+  const box = useRef<HTMLDialogElement>(null);
   const ties = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (at === 'ties') {
@@ -219,33 +220,35 @@ function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener
     }
   }, [at]);
   return (
-    <InfoDialog title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
-      {notes.methods.map((m) => (
-        <p key={m.when} className="site-dialog-text">
-          <strong>
-            {m.when}: {m.label}.
-          </strong>{' '}
-          {m.about}
-        </p>
-      ))}
-      {notes.rules.map((r) => (
-        <p key={r} className="site-dialog-text">
-          {r}
-        </p>
-      ))}
-      <p className="site-dialog-text" ref={ties} tabIndex={-1}>
-        <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
-        ones before leave them level:
-      </p>
-      <ol className="site-dialog-text blitz-paired-list">
-        {TIE_BREAKS.map((t) => (
-          <li key={t.label}>
-            <strong>{t.label}:</strong> {t.about}
-          </li>
+    <Sheet dialog={box} id="how-paired" title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
+      <div className="sheet-body">
+        {notes.methods.map((m) => (
+          <p key={m.when} className="site-dialog-text">
+            <strong>
+              {m.when}: {m.label}.
+            </strong>{' '}
+            {m.about}
+          </p>
         ))}
-      </ol>
-      <p className="site-dialog-text">{UNPLAYED_NOTE}</p>
-    </InfoDialog>
+        {notes.rules.map((r) => (
+          <p key={r} className="site-dialog-text">
+            {r}
+          </p>
+        ))}
+        <p className="site-dialog-text" ref={ties} tabIndex={-1}>
+          <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
+          ones before leave them level:
+        </p>
+        <ol className="site-dialog-text blitz-paired-list">
+          {TIE_BREAKS.map((t) => (
+            <li key={t.label}>
+              <strong>{t.label}:</strong> {t.about}
+            </li>
+          ))}
+        </ol>
+        <p className="site-dialog-text">{UNPLAYED_NOTE}</p>
+      </div>
+    </Sheet>
   );
 }
 

@@ -5,7 +5,9 @@ import {
   loadFeedSettings,
   saveFeedSettings,
   sanitizeFeedSettings,
+  namedFromList,
   withPlayer,
+  withTournamentRow,
   withoutPlayer,
   withoutTournament,
   type FeedSettings,
@@ -147,5 +149,28 @@ describe('withPlayer and withoutPlayer', () => {
     const got = withoutPlayer(league, name);
     expect(got.players).toEqual(want);
     expect(got.tournaments).toEqual(league.tournaments);
+  });
+});
+
+describe('withTournamentRow', () => {
+  it.each([
+    ['under its tournament\'s last row', { slug: 'royal_league', name: 'Royal League', division: 'King 2' }, ['royal_league Emperor', 'royal_league King 1', 'royal_league ', 'royal_league King 2', 'intermezzo ']],
+    ['at the end for a tournament not there', { slug: 'international', name: 'International', division: 'Grandmaster' }, ['royal_league Emperor', 'royal_league King 1', 'royal_league ', 'intermezzo ', 'international Grandmaster']],
+    ['under a tournament that is last', { slug: 'intermezzo', name: 'Intermezzo', division: 'Master' }, ['royal_league Emperor', 'royal_league King 1', 'royal_league ', 'intermezzo ', 'intermezzo Master']],
+  ])('adds a row %s', (_, entry, want) => {
+    expect(withTournamentRow(league.tournaments, entry).map((t) => `${t.slug} ${t.division ?? ''}`)).toEqual(want);
+  });
+});
+
+describe('namedFromList', () => {
+  const available = [
+    { slug: 'intermezzo', name: 'Intermezzo' },
+    { slug: 'royal_league', name: 'Royal League' },
+  ];
+  it.each([
+    ['takes the list\'s name', 'intermezzo', 'Intermezzo Championship', 'Intermezzo'],
+    ['keeps the stored name of a tournament not in the list', 'international', 'International Championship', 'International Championship'],
+  ])('%s', (_, slug, stored, want) => {
+    expect(namedFromList([{ slug, name: stored, division: '' }], available).map((t) => t.name)).toEqual([want]);
   });
 });

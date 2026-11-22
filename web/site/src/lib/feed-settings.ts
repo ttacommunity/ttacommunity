@@ -14,8 +14,8 @@ export interface FeedSettings {
 
 /** The default premier circuits and their top divisions. */
 export const PREMIER_TOURNAMENTS: TournamentFeedFilter[] = [
-  { slug: 'international', name: 'International Championship', division: 'Grandmaster' },
-  { slug: 'intermezzo', name: 'Intermezzo Championship', division: 'Grandmaster' },
+  { slug: 'international', name: 'International', division: 'Grandmaster' },
+  { slug: 'intermezzo', name: 'Intermezzo', division: 'Grandmaster' },
   { slug: 'royal_league', name: 'Royal League', division: 'Emperor' },
 ];
 
@@ -74,6 +74,19 @@ export function withoutTournament(settings: FeedSettings, slug: string, division
     ...settings,
     tournaments: settings.tournaments.filter((t) => !(t.slug === slug && (t.division ?? '') === (division ?? ''))),
   };
+}
+
+/** withTournamentRow adds entry straight after the last row of its tournament, or at the end when the tournament has none. */
+export function withTournamentRow(tournaments: TournamentFeedFilter[], entry: TournamentFeedFilter): TournamentFeedFilter[] {
+  const last = tournaments.findLastIndex((t) => t.slug === entry.slug);
+  if (last === -1) return [...tournaments, entry];
+  return [...tournaments.slice(0, last + 1), entry, ...tournaments.slice(last + 1)];
+}
+
+/** namedFromList gives each tournament its name from available (the API's list), keeping the stored name of one not in it. */
+export function namedFromList(tournaments: TournamentFeedFilter[], available: { slug: string; name: string }[]): TournamentFeedFilter[] {
+  const names = new Map(available.map((t) => [t.slug, t.name]));
+  return tournaments.map((t) => ({ ...t, name: names.get(t.slug) ?? t.name }));
 }
 
 /** withPlayer adds a player, trimmed, unless the name is empty or already there in any case. */

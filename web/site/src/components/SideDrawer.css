@@ -164,8 +164,8 @@
     height: 100dvh;
     max-height: none;
     overflow-y: visible;
-    background: var(--shadow-deep);
-    backdrop-filter: blur(5px);
+    background: var(--overlay-dim);
+    backdrop-filter: blur(4px);
     animation: fade-in-modal 0.2s ease-out;
   }
 

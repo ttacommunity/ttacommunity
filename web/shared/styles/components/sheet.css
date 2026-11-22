@@ -1,22 +1,27 @@
-/* A modal sheet (the site's Sheet.tsx): "Data we keep", head-to-head, the feed's options. */
+/* A modal sheet (Sheet.tsx): its frame, its head with the close, a body that scrolls, a footer that stays, its sections; from the bottom on a phone. */
 .sheet {
   width: calc(100% - 2rem);
   max-width: 44rem;
   max-height: 88vh;
   margin: auto;
   padding: 0;
-  background: var(--surface-sheet);
-  border: 2px solid var(--accent-gold);
+  background: var(--overlay-surface);
+  border: 2px solid var(--overlay-edge);
   border-radius: 8px;
-  box-shadow: 0 8px 32px var(--shadow-deep);
+  box-shadow: 0 8px 32px var(--overlay-shadow);
   color: var(--text-main);
+}
+/* A table or a video. */
+.sheet-wide {
+  max-width: 58rem;
 }
 .sheet[open] {
   display: flex;
   flex-direction: column;
 }
 .sheet::backdrop {
-  background: rgba(0, 0, 0, 0.85);
+  background: var(--overlay-dim);
+  backdrop-filter: blur(4px);
 }
 .sheet-head {
   display: flex;
@@ -24,7 +29,7 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--overlay-rule);
 }
 .sheet-head h2 {
   display: flex;
@@ -33,18 +38,7 @@
   margin: 0;
   font-family: var(--font-heading);
   font-size: var(--size-card-title);
-  color: var(--accent-gold);
-}
-.sheet-close {
-  flex-shrink: 0;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  background: transparent;
-  border: none;
-  font-size: 1.8rem;
-  line-height: 1;
-  color: var(--accent-gold);
-  cursor: pointer;
+  color: var(--overlay-title);
 }
 .sheet-body {
   flex: 1;
@@ -52,10 +46,75 @@
   overflow-y: auto;
   line-height: 1.5;
 }
-@media (max-width: 600px) {
+.sheet-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--overlay-rule);
+}
+.sheet-foot-resets,
+.sheet-foot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.sheet-foot-actions {
+  margin-left: auto;
+}
+/* The line that says what the sheet is for, above its sections. */
+.sheet-intro {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: var(--size-body-short);
+}
+.sheet-section {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--overlay-rule);
+}
+.sheet-section-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-subheading);
+  font-size: var(--size-subheading);
+  color: var(--overlay-title);
+}
+.sheet-section-aside {
+  font-family: var(--font-stats);
+  font-size: var(--size-label);
+  font-weight: normal;
+  color: var(--overlay-aside);
+}
+@media (max-width: 768px) {
   .sheet {
     width: 100%;
-    max-height: 100%;
-    border-radius: 0;
+    max-width: 100%;
+    max-height: 88dvh;
+    margin: auto 0 0;
+    border-bottom: none;
+    border-radius: 14px 14px 0 0;
+  }
+  .sheet-body:last-child,
+  .sheet-foot {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: no-preference) {
+  .sheet[open] {
+    animation: sheet-rise 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+@keyframes sheet-rise {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
   }
 }

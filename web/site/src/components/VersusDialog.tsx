@@ -61,7 +61,7 @@ export default function VersusDialog({
   const b = state.kind === 'ready' ? state.data.other : other;
 
   return (
-    <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} className="h2h-modal">
+    <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} holds="table">
       <div className="view-bar h2h-toolbar">
         <span className="view-bar-label">Match format:</span>
         <Segmented label="Match format" groupClass="format-bar-group h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />

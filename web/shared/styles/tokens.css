@@ -162,7 +162,15 @@
   --formula-text: var(--gold-pale);
   --quote-edge: var(--accent-gold);
   --quote-text: var(--text-soft);
-  /* Buttons: the gold action, the crimson one that cannot be undone, the quiet one, and a bare icon. */
+  /* An overlay above the page (Dialog, Sheet, the options drawer, the phone menu): the dim behind it, its frame, its head's title and its rules. */
+  --overlay-dim: var(--shadow);
+  --overlay-surface: var(--surface-sheet);
+  --overlay-edge: var(--accent-gold);
+  --overlay-shadow: var(--shadow-deep);
+  --overlay-title: var(--accent-gold);
+  --overlay-rule: var(--border-subtle);
+  --overlay-aside: var(--text-muted);
+  /* Buttons: the gold action, the crimson one that cannot be undone, the quiet one, a bare icon, and an overlay's close. */
   --button-surface: linear-gradient(180deg, var(--antique-top) 0%, var(--antique-bottom) 100%);
   --button-hover-surface: linear-gradient(180deg, var(--antique-hover-top) 0%, var(--antique-hover-bottom) 100%);
   --button-edge: var(--accent-gold);
@@ -180,6 +188,7 @@
   --button-quiet-hover-text: var(--accent-gold);
   --button-icon-text: var(--text-soft);
   --button-icon-hover-text: var(--accent-gold);
+  --button-close-text: var(--accent-gold);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;

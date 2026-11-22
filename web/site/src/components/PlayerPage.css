@@ -357,10 +357,6 @@
   margin-bottom: 0.25rem;
 }
 
-.h2h-modal {
-  max-width: 900px;
-}
-
 /* Each group's label in one column, so the button groups start in line. */
 .h2h-toolbar {
   margin: 1rem 1.25rem 0;

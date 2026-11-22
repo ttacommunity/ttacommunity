@@ -51,8 +51,24 @@ export default function FeedSheet({ opener, hasYouTube, onSaved, onClose }: Prop
     dialog.current?.close();
   };
   return (
-    <Sheet dialog={dialog} id={id} title="Add a feed" opener={opener} onClose={onClose}>
-      <form className="sheet-body" onSubmit={(e) => void save(e)}>
+    <Sheet
+      dialog={dialog}
+      id={id}
+      title="Add a feed"
+      opener={opener}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn-quiet" onClick={() => dialog.current?.close()}>
+            Cancel
+          </button>
+          <button type="submit" form={`${id}-form`} className="btn-antique" disabled={kind !== 'youtube' && typed.trim() === ''}>
+            Add
+          </button>
+        </>
+      }
+    >
+      <form id={`${id}-form`} className="sheet-body" onSubmit={(e) => void save(e)}>
         <Segmented<Kind> label="Kind of feed" options={addableKinds(hasYouTube).map((k) => ({ value: k, label: KIND_LABELS[k] }))} value={kind} onChange={setKind} />
         {kind === 'youtube' ? (
           <p className="muted">
@@ -69,14 +85,6 @@ export default function FeedSheet({ opener, hasYouTube, onSaved, onClose }: Prop
           </div>
         )}
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
-        <div className="site-dialog-buttons">
-          <button type="button" className="btn-antique" onClick={() => dialog.current?.close()}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-antique" disabled={kind !== 'youtube' && typed.trim() === ''}>
-            Add
-          </button>
-        </div>
       </form>
     </Sheet>
   );

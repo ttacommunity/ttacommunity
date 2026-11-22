@@ -90,6 +90,23 @@
   color: var(--button-icon-hover-text);
 }
 
+/* The close in an overlay's head (Sheet, the options drawer, the phone menu): a large ×, easy to find. */
+.btn-close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--button-close-text);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* Inside a table row or list: the compact height, so the row keeps its own. */
 .btn-compact {
   min-height: var(--control-height-compact);

@@ -358,8 +358,11 @@ agent runs them itself.
   header (`.rating-card` `.panel-card`, `PanelHeader`), table
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
   a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
-  a group inside a bar has no box of its own), dialog and sheet (`Dialog`, `Sheet`),
-  drawer (`SideDrawer`), player search and filter (`PlayerSearch`),
+  a group inside a bar has no box of its own), a question (`Dialog`),
+  anything to read, choose or fill in above the page (`Sheet`: `holds` a
+  table or a video for the wide one, `actions` and `resets` in its
+  footer, `SheetSection` for its parts; from the bottom on a phone),
+  a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
   note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line),
   tile in a grid (`Tile`; a link tile is all one link, or its title's
   `TileLink` covers it; only what can be clicked moves under the mouse),
@@ -367,7 +370,8 @@ agent runs them itself.
   header's facts), a fact singled out (`Highlight`), formula box (`$$…$$`, or
   `.formula` around several), buttons (`.btn-antique` for an action,
   `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
-  cancel, reset and paging, a bare `.btn-icon`; `.btn-compact` inside a
+  cancel, reset and paging, a bare `.btn-icon`, `.btn-close` in an
+  overlay's head; `.btn-compact` inside a
   table row or list), labels (`.tag` beside a title, `.tag-special` and
   a division's level colour from `divisionTagClass`; `.pill` for a figure;
   `.chip` for a removable filter, `.chip-out` when it excludes; `.status`

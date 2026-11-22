@@ -1,20 +1,8 @@
 /* "Data we keep": the account page's dialog of everything kept about the player. */
-.kept-intro,
 .kept-rule {
   margin: 0 0 0.75rem;
   color: var(--text-muted);
   font-size: var(--size-body-short);
-}
-.kept-group {
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-subtle);
-}
-.kept-group h3 {
-  margin: 0 0 0.25rem;
-  font-family: var(--font-subheading);
-  font-size: var(--size-subheading);
-  color: var(--accent-gold);
 }
 .kept-list {
   margin: 0 0 1rem;

@@ -49,8 +49,24 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
     dialog.current?.close();
   };
   return (
-    <Sheet dialog={dialog} id={id} title={endpoint === null ? 'Add an endpoint' : `Edit ${endpoint.name}`} opener={opener} onClose={onClose}>
-      <form className="sheet-body" onSubmit={(e) => void save(e)}>
+    <Sheet
+      dialog={dialog}
+      id={id}
+      title={endpoint === null ? 'Add an endpoint' : `Edit ${endpoint.name}`}
+      opener={opener}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn-quiet" onClick={() => dialog.current?.close()}>
+            Cancel
+          </button>
+          <button type="submit" form={`${id}-form`} className="btn-antique" disabled={!endpointChanged(saved, draft)}>
+            {endpoint === null ? 'Add' : 'Save'}
+          </button>
+        </>
+      }
+    >
+      <form id={`${id}-form`} className="sheet-body" onSubmit={(e) => void save(e)}>
         {endpoint === null && (
           <Segmented
             label="Kind of endpoint"
@@ -205,14 +221,6 @@ export default function EndpointSheet({ endpoint, groups, opener, onSaved, onClo
           </>
         )}
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
-        <div className="site-dialog-buttons">
-          <button type="button" className="btn-antique" onClick={() => dialog.current?.close()}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-antique" disabled={!endpointChanged(saved, draft)}>
-            {endpoint === null ? 'Add' : 'Save'}
-          </button>
-        </div>
       </form>
     </Sheet>
   );

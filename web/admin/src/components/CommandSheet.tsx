@@ -30,8 +30,24 @@ export default function CommandSheet({ command, opener, onSaved, onClose }: Prop
     dialog.current?.close();
   };
   return (
-    <Sheet dialog={dialog} id={id} title={`/${command.name}`} opener={opener} onClose={onClose}>
-      <form className="sheet-body" onSubmit={(e) => void save(e)}>
+    <Sheet
+      dialog={dialog}
+      id={id}
+      title={`/${command.name}`}
+      opener={opener}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="btn-quiet" onClick={() => dialog.current?.close()}>
+            Cancel
+          </button>
+          <button type="submit" form={`${id}-form`} className="btn-antique" disabled={!commandChanged(command, draft)}>
+            Save
+          </button>
+        </>
+      }
+    >
+      <form id={`${id}-form`} className="sheet-body" onSubmit={(e) => void save(e)}>
         <p className="muted">{command.description}</p>
         <div className="admin-add">
           <label>
@@ -70,14 +86,6 @@ export default function CommandSheet({ command, opener, onSaved, onClose }: Prop
           )}
         </div>
         <Notice outcome={outcome} onClose={() => setOutcome(null)} />
-        <div className="site-dialog-buttons">
-          <button type="button" className="btn-antique" onClick={() => dialog.current?.close()}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-antique" disabled={!commandChanged(command, draft)}>
-            Save
-          </button>
-        </div>
       </form>
     </Sheet>
   );

@@ -30,8 +30,8 @@ export default function Tile({ link, current, picture, children }: Props) {
   );
 }
 
-/** TileLink is a tile's main link (href) or action (onClick), usually its title: its click area covers the whole tile, and the tile's other links stay their own; label names it for a reader when its words are not enough. */
-export function TileLink({ href, onClick, label, children }: { href?: string; onClick?: () => void; label?: string; children: ReactNode }) {
+/** TileLink is a tile's main link (href) or action (onClick, given the button as the opener of what it opens), usually its title: its click area covers the whole tile, and the tile's other links stay their own; label names it for a reader when its words are not enough. */
+export function TileLink({ href, onClick, label, children }: { href?: string; onClick?: (opener: HTMLElement) => void; label?: string; children: ReactNode }) {
   if (href !== undefined) {
     return (
       <a className="tile-cover" href={href} aria-label={label}>
@@ -40,7 +40,7 @@ export function TileLink({ href, onClick, label, children }: { href?: string; on
     );
   }
   return (
-    <button type="button" className="tile-cover" onClick={onClick} aria-label={label}>
+    <button type="button" className="tile-cover" onClick={(e) => onClick?.(e.currentTarget)} aria-label={label}>
       {children}
     </button>
   );

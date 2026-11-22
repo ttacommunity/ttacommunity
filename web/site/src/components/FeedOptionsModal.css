@@ -1,85 +1,25 @@
-/* FeedOptionsModal styling: dialog, tournament/division rows, player chips, action buttons */
+/* The feed's options sheet: the layout of its tournament rows and its players' part; the pieces draw themselves. */
 
-.feed-options-modal {
-  max-width: 680px;
-  color: var(--text-soft);
-}
-
-.feed-modal-body {
+.feed-tournaments-list,
+.feed-players {
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
-  line-height: normal;
-}
-
-.feed-modal-intro {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
-.feed-modal-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.feed-section-heading {
-  margin: 0;
-  font-family: var(--font-subheading);
-  font-size: 0.96rem;
-  font-weight: 700;
-  color: var(--text-bright);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.feed-section-hint {
-  font-size: 0.75rem;
-  font-weight: normal;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-}
-
-/* Tournaments List in Modal */
-.feed-tournaments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .feed-tourney-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.55rem 0.8rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-faint);
-  border-radius: 6px;
-  transition: border-color 0.15s ease;
-}
-
-.feed-tourney-row:hover {
-  border-color: var(--border-subtle);
-}
-
-.feed-tourney-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-grow: 1;
-  min-width: 0;
+  gap: 0.5rem 0.75rem;
 }
 
 .feed-tourney-name {
+  min-width: 0;
   font-family: var(--font-subheading);
   font-weight: 700;
-  color: var(--accent-gold);
   font-size: 0.9rem;
+  color: var(--accent-gold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -87,39 +27,35 @@
 
 .feed-tourney-controls {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
 }
 
 .feed-division-select {
   max-width: 170px;
 }
 
-.feed-add-tourney-row {
-  margin-top: 0.25rem;
-}
-
 .feed-add-tourney-select {
   width: 100%;
 }
 
-/* Modal Footer */
-.feed-modal-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 1rem 1.4rem;
-  border-top: 1px solid var(--border-faint);
-  background: rgba(18, 12, 8, 0.4);
-}
+/* On a phone the name takes its own line above its controls. */
+@media (max-width: 600px) {
+  .feed-tourney-row {
+    flex-wrap: wrap;
+  }
 
-.feed-footer-left,
-.feed-footer-right {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
+  .feed-tourney-name {
+    flex-basis: 100%;
+  }
 
+  .feed-tourney-controls {
+    flex: 1 1 100%;
+  }
+
+  .feed-division-select {
+    flex: 1;
+    max-width: none;
+  }
+}

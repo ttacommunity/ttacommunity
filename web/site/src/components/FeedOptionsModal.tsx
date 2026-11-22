@@ -2,11 +2,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Load } from '@ttac/shared/load';
 import type { FeedSettings, TournamentFeedFilter } from '../lib/feed-settings';
-import { DEFAULT_FEED_SETTINGS, withPlayer, withoutPlayer } from '../lib/feed-settings';
+import { DEFAULT_FEED_SETTINGS, namedFromList, withPlayer, withTournamentRow, withoutPlayer } from '../lib/feed-settings';
 import { divisionsToFetch, fetchTournamentDivisions, PREMIER_DIVISIONS } from '../lib/feed-data';
 import { waitingText } from '../lib/waiting';
 import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
-import Sheet from '@ttac/shared/Sheet';
+import Sheet, { SheetSection } from '@ttac/shared/Sheet';
 import Inset from './Inset';
 import './FeedOptionsModal.css';
 
@@ -46,6 +46,11 @@ export default function FeedOptionsModal({
   const tournamentsWaiting = waitingText(availableTournaments, 'the tournaments to choose from');
   const playersWaiting = waitingText(searchPlayers, 'the players to choose from');
 
+  // Every row is named as the tournament list names it, once that has loaded.
+  useEffect(() => {
+    if (availableTournaments.kind === 'ready') setStaged((prev) => ({ ...prev, tournaments: namedFromList(prev.tournaments, availableTournaments.data) }));
+  }, [availableTournaments]);
+
   useEffect(() => {
     for (const slug of divisionsToFetch(staged.tournaments, askedDivisions.current)) {
       askedDivisions.current.add(slug);
@@ -77,7 +82,7 @@ export default function FeedOptionsModal({
 
     setStaged((prev) => ({
       ...prev,
-      tournaments: [...prev.tournaments, newEntry],
+      tournaments: withTournamentRow(prev.tournaments, newEntry),
     }));
   };
 
@@ -128,20 +133,33 @@ export default function FeedOptionsModal({
       }
       opener={opener}
       onClose={onClose}
-      className="feed-options-modal"
+      resets={
+        <>
+          <button type="button" className="btn-quiet" onClick={resetToPremier} title="Preselect top divisions of IM, IC and RL">
+            Reset to Premier
+          </button>
+          <button type="button" className="btn-quiet" onClick={clearAll} title="Clear all filters">
+            Clear All
+          </button>
+        </>
+      }
+      actions={
+        <>
+          <button type="button" className="btn-quiet" onClick={() => dialogRef.current?.close()}>
+            Cancel
+          </button>
+          <button type="button" className="btn-antique" onClick={handleApply}>
+            Apply &amp; Save
+          </button>
+        </>
+      }
     >
-      <div className="sheet-body feed-modal-body">
-        <p className="feed-modal-intro">
+      <div className="sheet-body">
+        <p className="sheet-intro">
           Choose which tournaments and divisions appear in your Recent Matches feed, or highlight individual competitors.
         </p>
 
-        {/* Section 1: Tournaments & Divisions */}
-        <section className="feed-modal-section" aria-labelledby="tourneys-heading">
-          <h4 id="tourneys-heading" className="feed-section-heading">
-            <span>🏛️ Tournaments &amp; Divisions</span>
-            <span className="feed-section-hint">Premier circuits preselected</span>
-          </h4>
-
+        <SheetSection title="🏛️ Tournaments & Divisions" aside="Premier circuits preselected">
           <div className="feed-tournaments-list">
             {staged.tournaments.length === 0 ? (
               <Inset form="line">No tournaments selected. Add one below or reset to premier.</Inset>
@@ -151,12 +169,10 @@ export default function FeedOptionsModal({
                 const state = divisionsState[t.slug];
 
                 return (
-                  <div key={`${t.slug}-${t.division || 'all'}-${idx}`} className="feed-tourney-row">
-                    <div className="feed-tourney-info">
-                      <span className="feed-tourney-name" title={t.name}>
-                        {t.name}
-                      </span>
-                    </div>
+                  <Inset key={`${t.slug}-${t.division || 'all'}-${idx}`} className="feed-tourney-row">
+                    <span className="feed-tourney-name" title={t.name}>
+                      {t.name}
+                    </span>
 
                     <div className="feed-tourney-controls">
                       <select
@@ -171,19 +187,20 @@ export default function FeedOptionsModal({
                             {d}
                           </option>
                         ))}
-                        {t.division && !divisions.includes(t.division) && (
-                          <option value={t.division}>{t.division}</option>
+                        {t.division && !divisions.includes(t.division) && <option value={t.division}>{t.division}</option>}
+                        {state === 'loading' && (
+                          <option value="" disabled>
+                            Loading divisions…
+                          </option>
                         )}
-                        {state === 'loading' && <option value="" disabled>Loading divisions…</option>}
-                        {state === 'failed' && <option value="" disabled>Divisions could not be loaded</option>}
+                        {state === 'failed' && (
+                          <option value="" disabled>
+                            Divisions could not be loaded
+                          </option>
+                        )}
                       </select>
 
-                      <button
-                        type="button"
-                        className="btn-antique"
-                        onClick={() => addDivision(t.slug)}
-                        title={`Add another division for ${t.name}`}
-                      >
+                      <button type="button" className="btn-antique" onClick={() => addDivision(t.slug)} title={`Add another division for ${t.name}`}>
                         + Division
                       </button>
 
@@ -197,7 +214,7 @@ export default function FeedOptionsModal({
                         ✕
                       </button>
                     </div>
-                  </div>
+                  </Inset>
                 );
               })
             )}
@@ -208,106 +225,53 @@ export default function FeedOptionsModal({
               </Inset>
             )}
             {tournamentList.length > 0 && (
-              <div className="feed-add-tourney-row">
-                <select
-                  className="input-antique feed-add-tourney-select"
-                  value=""
-                  onChange={(e) => {
-                    addTournament(e.target.value);
-                    e.target.value = '';
-                  }}
-                  aria-label="Add tournament to feed"
-                >
-                  <option value="" disabled>+ Add Tournament / Division to Feed…</option>
-                  {tournamentList.map((item) => (
-                    <option key={item.slug} value={item.slug}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                className="input-antique feed-add-tourney-select"
+                value=""
+                onChange={(e) => {
+                  addTournament(e.target.value);
+                  e.target.value = '';
+                }}
+                aria-label="Add tournament to feed"
+              >
+                <option value="" disabled>
+                  + Add Tournament / Division to Feed…
+                </option>
+                {tournamentList.map((item) => (
+                  <option key={item.slug} value={item.slug}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
-        </section>
+        </SheetSection>
 
-        {/* Section 2: Individual Players */}
-        <section className="feed-modal-section" aria-labelledby="players-heading">
-          <h4 id="players-heading" className="feed-section-heading">
-            <span>👤 Highlighted Competitors</span>
-            <span className="feed-section-hint">Optional player tracking</span>
-          </h4>
-
-          {playersWaiting !== null && (
-            <Inset form="line" role="status">
-              {playersWaiting}
-            </Inset>
-          )}
-          <PlayerSearch
-            players={searchPlayers.kind === 'ready' ? searchPlayers.data : []}
-            value=""
-            onSearch={addPlayer}
-            clearOnSearch
-          />
-
-          <div className="player-tags-container" aria-label="Selected competitors">
-            {staged.players.length === 0 ? (
-              <Inset form="line">No specific players tracked.</Inset>
-            ) : (
-              staged.players.map((name) => (
-                <span key={name} className="chip">
-                  <span className="player-tag-name">{name}</span>
-                  <button
-                    type="button"
-                    className="chip-remove"
-                    onClick={() => removePlayer(name)}
-                    title={`Remove ${name}`}
-                    aria-label={`Remove ${name}`}
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))
+        <SheetSection title="👤 Highlighted Competitors" aside="Optional player tracking">
+          <div className="feed-players">
+            {playersWaiting !== null && (
+              <Inset form="line" role="status">
+                {playersWaiting}
+              </Inset>
             )}
+            <PlayerSearch players={searchPlayers.kind === 'ready' ? searchPlayers.data : []} value="" onSearch={addPlayer} clearOnSearch />
+
+            <div className="player-tags-container" aria-label="Selected competitors">
+              {staged.players.length === 0 ? (
+                <Inset form="line">No specific players tracked.</Inset>
+              ) : (
+                staged.players.map((name) => (
+                  <span key={name} className="chip">
+                    <span className="player-tag-name">{name}</span>
+                    <button type="button" className="chip-remove" onClick={() => removePlayer(name)} title={`Remove ${name}`} aria-label={`Remove ${name}`}>
+                      ✕
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
           </div>
-        </section>
-      </div>
-
-      <div className="feed-modal-footer">
-        <div className="feed-footer-left">
-          <button
-            type="button"
-            className="btn-quiet"
-            onClick={resetToPremier}
-            title="Preselect top divisions of IM, IC and RL"
-          >
-            Reset to Premier
-          </button>
-          <button
-            type="button"
-            className="btn-quiet"
-            onClick={clearAll}
-            title="Clear all filters"
-          >
-            Clear All
-          </button>
-        </div>
-
-        <div className="feed-footer-right">
-          <button
-            type="button"
-            className="btn-quiet"
-            onClick={() => dialogRef.current?.close()}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-antique"
-            onClick={handleApply}
-          >
-            Apply &amp; Save
-          </button>
-        </div>
+        </SheetSection>
       </div>
     </Sheet>
   );

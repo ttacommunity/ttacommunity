@@ -84,8 +84,8 @@ export function OptionsPanel({ label, onClose, reset, summary, children }: Panel
       <div className="options-panel" role="dialog" aria-label={label}>
         <div className="options-header">
           <span className="options-header-title">⚙️ Options &amp; Filters</span>
-          <button type="button" className="btn-quiet" title="Close options panel" onClick={onClose}>
-            ✕ Close
+          <button type="button" className="btn-close" aria-label="Close options" onClick={onClose}>
+            ×
           </button>
         </div>
         {children}

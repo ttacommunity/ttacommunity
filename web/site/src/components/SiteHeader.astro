@@ -32,7 +32,7 @@ const exact = (href: string) => (path.endsWith('/') ? path : `${path}/`) === hre
     <div id="site-menu" class="nav-drawer site-menu">
       <div class="nav-mobile-header">
         <span class="nav-mobile-title">Menu</span>
-        <button type="button" class="btn-icon nav-close-btn" aria-label="Close navigation">✕</button>
+        <button type="button" class="btn-close nav-close-btn" aria-label="Close navigation">×</button>
       </div>
       <div class="search">
         <HeaderSearch client:only="react" apiUrl={PUBLIC_API_URL} />
