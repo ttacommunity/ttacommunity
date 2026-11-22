@@ -21,6 +21,7 @@ import {
   playNext,
   scopeLeaders,
   setLabel,
+  standing,
 } from './challenges';
 
 const challenge = (id: string, set: 'original' | 'expansion' | 'mix', group: string) => ({ id, set, group });
@@ -237,5 +238,19 @@ describe('playedInSet', () => {
     ['a set with no challenge', 'expansion', { played: 0, of: 0 }],
   ] as const)('counts %s', (_name, set, want) => {
     expect(playedInSet([{ challenge: 'a' }, { challenge: 'c' }, { challenge: 'gone' }], list, set)).toEqual(want);
+  });
+});
+
+describe('standing', () => {
+  it.each([
+    { name: 'a higher figure leads', mine: 420, theirs: 380, want: 'ahead' },
+    { name: 'a lower figure trails', mine: 380, theirs: 420, want: null },
+    { name: 'the same figure ties', mine: 400, theirs: 400, want: 'tied' },
+    { name: 'played when the other has not', mine: 300, theirs: undefined, want: 'ahead' },
+    { name: 'not played trails a played one', mine: undefined, theirs: 300, want: null },
+    { name: 'neither played is no tie', mine: undefined, theirs: undefined, want: null },
+    { name: 'zero each, nothing played, is no tie', mine: 0, theirs: 0, want: null },
+  ])('$name', ({ mine, theirs, want }) => {
+    expect(standing(mine, theirs)).toBe(want);
   });
 });

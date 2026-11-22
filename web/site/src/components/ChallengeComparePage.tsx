@@ -1,9 +1,9 @@
 /** Two players' challenge results side by side: wins and ties, totals by set, and each challenge's difference. */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengePlayer, challengePlayers, RatingsApiError, type ChallengePlayer, type ChallengePlayerSummary } from '@ttac/shared/ratings';
 import type { ChallengeTile } from '../lib/challenge-list';
-import { challengeSets, compareBests, formatMeasure, leader, measureOf, setLabel, type Measure, type SetId } from '../lib/challenges';
+import { challengeSets, compareBests, formatMeasure, measureOf, setLabel, standing, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, MeasureSwitch, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import PlayerSearch from './PlayerSearch';
@@ -72,7 +72,7 @@ export default function ChallengeComparePage({ apiUrl, list }: { apiUrl: string;
           {pa && pb && <Segmented label="Set" value={set} onChange={setSet} options={SETS} />}
           {pa && pb && (
             <span className="muted">
-              <span className="challenges-side-a">■</span> {pa.player} ahead · <span className="challenges-side-b">■</span> {pb.player} ahead
+              <span className="challenges-ahead">■</span> ahead · <span className="challenges-tied">■</span> tied
             </span>
           )}
         </div>
@@ -124,9 +124,9 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
     <>
       <div className="challenges-stats">
         <MetricGrid>
-          <MetricCard label={`${a.player} wins`} value={<span className="challenges-side-a">{score.winsA}</span>} />
-          <MetricCard label={`${b.player} wins`} value={<span className="challenges-side-b">{score.winsB}</span>} />
-          <MetricCard label="Ties" value={score.ties} />
+          <MetricCard label={`${a.player} wins`} value={score.winsA} tone={STANDING_TONE[standing(score.winsA, score.winsB) ?? 'none']} />
+          <MetricCard label={`${b.player} wins`} value={score.winsB} tone={STANDING_TONE[standing(score.winsB, score.winsA) ?? 'none']} />
+          <MetricCard label="Ties" value={score.ties} tone={score.ties > 0 ? 'draw' : undefined} />
           <MetricCard label="Played by both" value={score.both} />
         </MetricGrid>
       </div>
@@ -154,18 +154,31 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {[a, b].map((p, i) => (
+                {[
+                  [a, b],
+                  [b, a],
+                ].map(([p, other]) => (
                   <tr key={p.player}>
-                    <th scope="row" className={i === 0 ? 'challenges-side-a' : 'challenges-side-b'}>
+                    <th scope="row">
                       <ChallengePlayerLink name={p.player} />
                     </th>
                     {SETS.map((s) => (
                       <td key={s.value} className="num">
-                        {formatMeasure(measureOf(p, measure, s.value), measure)}
+                        <Lead mine={measureOf(p, measure, s.value)} theirs={measureOf(other, measure, s.value)}>
+                          {formatMeasure(measureOf(p, measure, s.value), measure)}
+                        </Lead>
                       </td>
                     ))}
-                    <td className="num challenges-score">{formatMeasure(measureOf(p, measure), measure)}</td>
-                    <td className="num">{p.records}</td>
+                    <td className="num challenges-score">
+                      <Lead mine={measureOf(p, measure)} theirs={measureOf(other, measure)}>
+                        {formatMeasure(measureOf(p, measure), measure)}
+                      </Lead>
+                    </td>
+                    <td className="num">
+                      <Lead mine={p.records} theirs={other.records}>
+                        {p.records}
+                      </Lead>
+                    </td>
                   </tr>
                 ))}
                 <tr>
@@ -193,12 +206,15 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
               const x = bestA.get(c.id);
               const y = bestB.get(c.id);
               if (x === undefined && y === undefined) return <span className="muted">—</span>;
-              const lead = leader(x, y);
               return (
-                <span className={lead ? `challenges-lead-${lead}` : undefined}>
-                  <span className="challenges-side-a">{x ?? '—'}</span>
+                <span>
+                  <Lead mine={x} theirs={y}>
+                    {x ?? '—'}
+                  </Lead>
                   <span className="muted"> : </span>
-                  <span className="challenges-side-b">{y ?? '—'}</span>
+                  <Lead mine={y} theirs={x}>
+                    {y ?? '—'}
+                  </Lead>
                   {x !== undefined && y !== undefined && (
                     <span>
                       {' '}
@@ -216,11 +232,18 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
 }
 
 
-/** Diff is a difference to decimals places, in A's colour when A leads and B's when B does, ±0 for none. */
+const STANDING_TONE = { ahead: 'win', tied: 'draw', none: undefined } as const;
+const STANDING_CLASS = { ahead: 'challenges-ahead', tied: 'challenges-tied', none: undefined } as const;
+
+/** Lead shows a figure in the win colour when it leads the other player's, the draw colour when they tie, else plain. */
+function Lead({ mine, theirs, children }: { mine: number | undefined; theirs: number | undefined; children: ReactNode }) {
+  return <span className={STANDING_CLASS[standing(mine, theirs) ?? 'none']}>{children}</span>;
+}
+
+/** Diff is a difference to decimals places, A's figure less B's; its sign says who leads, ±0 for none. */
 function Diff({ value, decimals = 0, suffix = '' }: { value: number; decimals?: number; suffix?: string }) {
-  const side = value > 0 ? 'challenges-side-a' : value < 0 ? 'challenges-side-b' : 'muted';
   return (
-    <span className={side}>
+    <span className="challenges-diff">
       {signed(value, decimals, '±0')}
       {suffix}
     </span>

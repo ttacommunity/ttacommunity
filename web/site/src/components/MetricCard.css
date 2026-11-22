@@ -70,6 +70,7 @@
 }
 
 .metric-win { color: var(--win); }
+.metric-draw { color: var(--draw); }
 .metric-muted { color: var(--text-muted); }
 .metric-gold { color: var(--text-accent); }
 .metric-sky { color: var(--figure-sky); }

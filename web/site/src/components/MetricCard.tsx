@@ -2,8 +2,8 @@
 import type { ReactNode } from 'react';
 import './MetricCard.css';
 
-/** The figure's colour: win green, muted, gold, sky blue, a medal's silver or bronze, or the plain text colour without one. */
-export type MetricTone = 'win' | 'muted' | 'gold' | 'sky' | 'silver' | 'bronze';
+/** The figure's colour: win green, a draw's orange, muted, gold, sky blue, a medal's silver or bronze, or the plain text colour without one. */
+export type MetricTone = 'win' | 'draw' | 'muted' | 'gold' | 'sky' | 'silver' | 'bronze';
 
 /** MetricGrid lays its MetricCards out in a row, two to a line on a phone; compact is the small form for a page header's facts. */
 export function MetricGrid({ compact, children }: { compact?: boolean; children: ReactNode }) {

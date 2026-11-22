@@ -331,13 +331,15 @@
   font-family: var(--font-stats);
   font-size: var(--size-label);
 }
-.challenges-side-a,
-.challenges-side-a .player-link {
-  color: var(--text-accent-bright);
+/* On the compare page, the figure that leads the other player's, and two that tie. */
+.challenges-ahead {
+  color: var(--win);
 }
-.challenges-side-b,
-.challenges-side-b .player-link {
-  color: var(--loss-light);
+.challenges-tied {
+  color: var(--draw);
+}
+.challenges-diff {
+  color: var(--text-soft);
 }
 
 @media (max-width: 700px) {
