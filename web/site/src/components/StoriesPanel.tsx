@@ -15,7 +15,7 @@ export default function StoriesPanel({ stories }: { stories: readonly StoryView[
         {stories.map((s, i) => (
           <Highlight key={`${i} ${s.player}`}>
             <div className="story-header">
-              <PlayerLink name={s.player} className="story-author">
+              <PlayerLink name={s.player}>
                 <span>👤</span> {s.player}
               </PlayerLink>
               {s.badge !== '' && <div className="tag">{s.badge}</div>}

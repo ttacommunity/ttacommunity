@@ -7,7 +7,7 @@ import { settled, type Load } from '@ttac/shared/load';
 import { score } from '@ttac/shared/numbers';
 import { browserStorage } from '@ttac/shared/storage';
 import { toggledSet } from '@ttac/shared/toggle';
-import { seatRankClass } from '../lib/home-view';
+import { seatPlace } from '../lib/home-view';
 import { divisionTagClass } from '../lib/divisions';
 import { waitingText } from '../lib/waiting';
 
@@ -224,13 +224,10 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                           <div className="match-seats-row">
                             <div className="match-seats-content">
                               {m.seats.map((s, idx) => {
-                                const rankClass = isRevealed ? seatRankClass(s.score, matchScores) : '';
+                                const place = isRevealed ? seatPlace(s.score, matchScores) : undefined;
                                 return (
-                                  <span key={s.name} className={`match-seat ${rankClass}`.trim()}>
-                                    <PlayerLink
-                                      name={s.name}
-                                      className={`match-player-link ${rankClass}`.trim()}
-                                    />
+                                  <span key={s.name} className={place === undefined ? 'match-seat' : `match-seat place-${place}`}>
+                                    <PlayerLink name={s.name} place={place} />
                                     <span className={`match-score-badge ${isRevealed ? 'revealed' : 'blurred'}`}>
                                       {isRevealed ? `(${score(s.score)})` : '(???)'}
                                     </span>
@@ -301,21 +298,21 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                                   <div className="podium-row champion-row">
                                     <span className="podium-icon">🥇</span>
                                     <span className="podium-rank">Champion:</span>
-                                    <PlayerLink name={t.champion} className="podium-player" />
+                                    <PlayerLink name={t.champion} place={1} />
                                   </div>
                                 )}
                                 {t.runnerUp && (
                                   <div className="podium-row">
                                     <span className="podium-icon">🥈</span>
                                     <span className="podium-rank">Runner-Up:</span>
-                                    <PlayerLink name={t.runnerUp} className="podium-player" />
+                                    <PlayerLink name={t.runnerUp} />
                                   </div>
                                 )}
                                 {t.third && (
                                   <div className="podium-row">
                                     <span className="podium-icon">🥉</span>
                                     <span className="podium-rank">3rd Place:</span>
-                                    <PlayerLink name={t.third} className="podium-player" />
+                                    <PlayerLink name={t.third} />
                                   </div>
                                 )}
                               </div>

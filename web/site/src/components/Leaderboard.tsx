@@ -494,7 +494,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
               <th scope="row">
                 <div className="player-row-content">
                   <span className="player-name-wrapper">
-                    <PlayerLink name={p.name} ranking={view.ranking} className="player-link" />
+                    <PlayerLink name={p.name} ranking={view.ranking} />
                     <VideosLink name={p.name} hasVideos={p.has_videos} />
                     {p.provisional && (
                       <span className="calibrating-badge" data-tooltip={`Provisional / Prior Calibration (${p.opponents}/15 opponents faced)`}>

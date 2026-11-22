@@ -250,7 +250,7 @@ function Table({ data, view, rows, children }: { data: LeaderboardData; view: Co
                     <td className={isTopThree(r.rank) ? 'col-pinned comm-pinned-rank rank-col top-3-rank' : 'col-pinned comm-pinned-rank rank-col'}>{rank(r.rank)}</td>
                     <td className="col-pinned comm-pinned-name text-left">
                       <Flag country={r.country} />{' '}
-                      <PlayerLink name={r.name} className="player-link comm-player" />
+                      <PlayerLink name={r.name} />
                     </td>
                     <td>
                       {mark === null ? <span className="comm-dash">-</span> : <TitleBadge title={{ code: mark }} />}

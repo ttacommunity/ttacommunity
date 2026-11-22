@@ -277,94 +277,22 @@
   gap: 0.25rem;
 }
 
-.match-player-link {
-  color: var(--player-name);
-  font-weight: 600;
-  text-decoration: none;
-  transition: color 0.15s ease, text-shadow 0.15s ease, opacity 0.15s ease;
-}
-
-.match-player-link:hover {
-  color: var(--player-name-hover);
-  text-decoration: underline;
-}
-
-/* Color grading when match is revealed: Gold, Silver, Bronze, Gray */
-.match-player-link.rank-gold,
-.match-player-link.rank-1 {
-  color: var(--medal-gold);
-  font-weight: 700;
-  text-shadow: 0 0 10px var(--medal-gold-glow);
-}
-
-.match-player-link.rank-gold:hover,
-.match-player-link.rank-1:hover {
-  color: var(--text-bright);
-  text-decoration: underline;
-}
-
-/* 2nd place: Luminous cool metallic platinum/silver with subtle shine */
-.match-player-link.rank-silver,
-.match-player-link.rank-2 {
-  color: var(--medal-silver);
-  font-weight: 600;
-  text-shadow: 0 0 8px var(--medal-silver-glow);
-}
-
-.match-player-link.rank-silver:hover,
-.match-player-link.rank-2:hover {
-  color: var(--text-bright);
-  text-decoration: underline;
-}
-
-/* 3rd place: Warm metallic copper-bronze */
-.match-player-link.rank-bronze,
-.match-player-link.rank-3 {
-  color: var(--medal-bronze);
-  font-weight: 600;
-  text-shadow: 0 0 8px var(--medal-bronze-glow);
-}
-
-.match-player-link.rank-bronze:hover,
-.match-player-link.rank-3:hover {
-  color: var(--medal-bronze-light);
-  text-decoration: underline;
-}
-
-/* 4th place (or 2p loser): Flat, muted, dim matte gray (clearly distinct from silver) */
-.match-player-link.rank-gray,
-.match-player-link.rank-last {
-  color: var(--text-muted);
-  font-weight: 400;
-  text-shadow: none;
-}
-
-.match-player-link.rank-gray:hover,
-.match-player-link.rank-last:hover {
-  color: var(--text-soft);
-  text-decoration: underline;
-}
-
 /* Matching score badge color tones when revealed */
-.match-seat.rank-gold .match-score-badge.revealed,
-.match-seat.rank-1 .match-score-badge.revealed {
+.match-seat.place-1 .match-score-badge.revealed {
   color: var(--medal-gold);
   text-shadow: 0 0 8px var(--medal-gold-glow);
 }
 
-.match-seat.rank-silver .match-score-badge.revealed,
-.match-seat.rank-2 .match-score-badge.revealed {
+.match-seat.place-2 .match-score-badge.revealed {
   color: var(--medal-silver);
   text-shadow: 0 0 6px var(--medal-silver-glow);
 }
 
-.match-seat.rank-bronze .match-score-badge.revealed,
-.match-seat.rank-3 .match-score-badge.revealed {
+.match-seat.place-3 .match-score-badge.revealed {
   color: var(--medal-bronze);
 }
 
-.match-seat.rank-gray .match-score-badge.revealed,
-.match-seat.rank-last .match-score-badge.revealed {
+.match-seat.place-last .match-score-badge.revealed {
   color: var(--text-muted);
   text-shadow: none;
 }
@@ -491,22 +419,6 @@
   color: var(--text-muted);
   font-size: 0.78rem;
   min-width: 5.5rem;
-}
-
-.podium-player {
-  color: var(--text-bright);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.podium-player:hover {
-  color: var(--text-accent);
-  text-decoration: underline;
-}
-
-.champion-row .podium-player {
-  color: var(--text-accent);
-  font-weight: 700;
 }
 
 .feed-card-footer {

@@ -93,18 +93,6 @@
   gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
-.story-author {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--player-name);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-.story-author:hover {
-  color: var(--player-name-hover);
-}
 .story-title {
   font-size: 1.05rem;
   font-weight: 700;
@@ -180,12 +168,6 @@
   font-family: var(--font-stats);
   font-weight: 700;
   text-align: center;
-}
-
-.trophy-player {
-  color: var(--player-name);
-  font-weight: 700;
-  text-decoration: none;
 }
 
 .trophy-mark {

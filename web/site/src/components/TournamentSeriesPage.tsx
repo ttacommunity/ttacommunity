@@ -155,7 +155,7 @@ export function SeriesSections({
                     <tr key={`${s.season} ${s.name}`}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <PlayerLink name={s.name} className="trophy-player" /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
+                        <PlayerLink name={s.name} /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
                       </td>
                       <td className="cell-points">{leaguePoints(s.points)}</td>
                       <td className="cell-record">

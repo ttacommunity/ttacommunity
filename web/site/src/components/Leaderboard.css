@@ -245,11 +245,6 @@ tr:hover .row-exclude,
   font-weight: 700;
 }
 
-.archive-champion-name a {
-  color: var(--text-accent);
-  text-decoration: none;
-}
-
 .archive-pills {
   display: flex;
   flex-wrap: wrap;

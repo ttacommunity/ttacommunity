@@ -54,7 +54,7 @@ export default function GameRecordsPanel({
                 <tr key={`${g.tournament} ${g.date} ${g.name}`}>
                   <td className="cell-rank">#{i + 1}</td>
                   <td>
-                    <PlayerLink name={g.name} className="trophy-player" />{' '}
+                    <PlayerLink name={g.name} />{' '}
                     {showsWorldChampion(slug, g.world_champion) && <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />}
                   </td>
                   <td className="cell-points">{cultureScore(g.score)}</td>

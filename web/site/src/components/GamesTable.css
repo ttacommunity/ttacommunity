@@ -40,19 +40,9 @@
   gap: 0.25rem 0.9rem;
 }
 
-.game-seat a {
-  color: var(--player-name);
-  font-weight: 600;
-  text-decoration: none;
-}
-
 .game-seat-name {
   color: var(--player-name);
   font-weight: 600;
-}
-
-.game-seat a:hover {
-  color: var(--text-accent);
 }
 
 .game-outcome {

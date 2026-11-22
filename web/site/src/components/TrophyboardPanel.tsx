@@ -57,7 +57,7 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
                 <tr key={b.name}>
                   <td className="cell-num">{i + 1}</td>
                   <td>
-                    <PlayerLink name={b.name} className="trophy-player" />{' '}
+                    <PlayerLink name={b.name} />{' '}
                     {mark?.(b)}
                   </td>
                   {board.rows[i]?.map((cell, j) => (

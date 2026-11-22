@@ -137,7 +137,7 @@ export default function VersusDialog({
                       {m.seats.map((s, i) => (
                         <span key={`${s.name}-${i}`}>
                           <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
-                            <PlayerLink name={s.name} className="player-link" />
+                            <PlayerLink name={s.name} quiet={s.name !== a && s.name !== b} />
                             : {s.score}
                           </span>
                           {i < m.seats.length - 1 ? ', ' : ''}

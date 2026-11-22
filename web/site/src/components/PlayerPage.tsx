@@ -407,7 +407,7 @@ function Games({
                         {s.name === data.name ? (
                           s.name
                         ) : (
-                          <PlayerLink name={s.name} className="player-link" />
+                          <PlayerLink name={s.name} />
                         )}{' '}
                         <span className="seat-score">({score(s.score)})</span>
                         {i < m.seats.length - 1 ? <span className="seat-score">,</span> : ''}
@@ -531,7 +531,7 @@ function Rivals({
             {rows.map((r) => (
               <tr key={r.name}>
                 <td>
-                  <PlayerLink name={r.name} className="player-link rival-name" />
+                  <PlayerLink name={r.name} />
                 </td>
                 <td>
                   <strong>{r.games}</strong>

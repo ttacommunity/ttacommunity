@@ -90,19 +90,19 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                           {gold && (
                             <div className="wcs-place-row">
                               <TitleBadge title={{ code: 'WC' }} />
-                              <PlayerLink name={gold.name} className="champ-highlight-name" />
+                              <PlayerLink name={gold.name} />
                             </div>
                           )}
                           {silver && (
                             <div className="wcs-place-row">
                               <TitleBadge title={{ code: 'WCS' }} />
-                              <PlayerLink name={silver.name} className="podium-runner-up" />
+                              <PlayerLink name={silver.name} />
                             </div>
                           )}
                           {bronze && (
                             <div className="wcs-place-row">
                               <TitleBadge title={{ code: 'WCB' }} />
-                              <PlayerLink name={bronze.name} className="podium-third" />
+                              <PlayerLink name={bronze.name} />
                             </div>
                           )}
                         </div>
@@ -203,7 +203,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                       <tr key={l.name}>
                         <td className="cell-rank">#{i + 1}</td>
                         <td>
-                          <PlayerLink name={l.name} className="legend-player" />{' '}
+                          <PlayerLink name={l.name} />{' '}
                           {mark === 'WC' && <TitleBadge title={{ code: 'WC' }} className="legend-mark" />}
                           {mark === 'GM' && <TitleBadge title={{ code: 'GM' }} className="legend-mark" />}
                         </td>
@@ -252,7 +252,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                       <tr key={g.name}>
                         <td className="cell-rank">#{i + 1}</td>
                         <td>
-                          <PlayerLink name={g.name} className="board-player" />
+                          <PlayerLink name={g.name} />
                         </td>
                         <td className="cell-gold">{g.gold}</td>
                         <td className="cell-silver">{g.silver}</td>
@@ -296,7 +296,7 @@ export default function HallOfFamePage({ apiUrl }: { apiUrl: string }) {
                       <tr key={l.name}>
                         <td className="cell-rank">#{i + 1}</td>
                         <td>
-                          <PlayerLink name={l.name} className="board-player" />
+                          <PlayerLink name={l.name} />
                         </td>
                         <td className="cell-wins">{l.wins} W</td>
                         <td className="cell-games">{l.games}</td>

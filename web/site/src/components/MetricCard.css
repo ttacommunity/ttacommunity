@@ -53,9 +53,10 @@
   vertical-align: top;
 }
 
-/* A figure that is a link (a player) takes the figure's colour. */
+/* A figure that is a link (a player) takes the figure's colour and weight. */
 .metric-number a {
   color: inherit;
+  font-weight: inherit;
   text-decoration: none;
 }
 

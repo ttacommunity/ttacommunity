@@ -85,15 +85,6 @@
 .champ-highlight-info {
   flex-grow: 1;
 }
-.champ-highlight-name {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--player-name);
-  text-decoration: none;
-}
-.champ-highlight-name:hover {
-  color: var(--player-name-hover);
-}
 .champ-highlight-desc {
   font-size: 0.82rem;
   color: var(--text-muted);
@@ -120,17 +111,6 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-.podium-runner-up,
-.podium-third {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-main);
-  text-decoration: none;
-}
-.podium-runner-up:hover,
-.podium-third:hover {
-  color: var(--text-accent);
 }
 
 /* WCS & Circuit Analytics Section */
@@ -188,18 +168,6 @@
 .wcs-table .cell-rank {
   color: var(--text-accent);
   font-weight: 700;
-}
-
-.legend-player {
-  color: var(--player-name);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.board-player {
-  color: var(--player-name);
-  font-weight: 700;
-  text-decoration: none;
 }
 
 .legend-mark {

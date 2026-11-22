@@ -223,21 +223,6 @@
   color: var(--text-muted);
 }
 
-.seat .player-link,
-.h2h-scores .player-link {
-  color: var(--player-name);
-  text-decoration: none;
-}
-
-.seat .player-link:hover,
-.h2h-scores .player-link:hover {
-  text-decoration: underline;
-}
-
-.h2h-other .player-link {
-  color: inherit;
-}
-
 .sort-header.win,
 .sort-header.loss,
 .sort-header.draw {
@@ -262,13 +247,6 @@
 
 .wld-num {
   font-weight: 600;
-}
-
-.rival-name.player-link {
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--player-name);
 }
 
 .rival-rate.good {

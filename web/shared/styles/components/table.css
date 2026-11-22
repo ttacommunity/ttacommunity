@@ -151,18 +151,63 @@
   color: var(--text-accent);
 }
 
+/* A player's name (PlayerLink): in the face and size of the text around it; in a table, the row's subject at the body's face and size. */
 .player-link,
 .player-name {
   color: var(--player-name);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+:is(td, th) :is(.player-link, .player-name) {
   font-family: var(--font-body);
   font-size: 1rem;
-  font-weight: 600;
-  transition: color 0.2s;
 }
 
 .player-link:hover {
   color: var(--player-name-hover);
   text-decoration: underline;
+}
+
+/* Where a player finished (PlayerLink's place): first, second and third in the medals' colours, last set back. */
+.player-place-1 {
+  color: var(--medal-gold);
+  font-weight: 700;
+  text-shadow: 0 0 10px var(--medal-gold-glow);
+}
+
+.player-place-2 {
+  color: var(--medal-silver);
+  text-shadow: 0 0 8px var(--medal-silver-glow);
+}
+
+.player-place-3 {
+  color: var(--medal-bronze);
+  text-shadow: 0 0 8px var(--medal-bronze-glow);
+}
+
+.player-place-last {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.player-place-1:hover,
+.player-place-2:hover {
+  color: var(--text-bright);
+}
+
+.player-place-3:hover {
+  color: var(--medal-bronze-light);
+}
+
+.player-place-last:hover {
+  color: var(--text-soft);
+}
+
+/* A name that is not the subject (PlayerLink's quiet), such as the other seats in a game between two players. */
+.player-quiet {
+  color: var(--text-muted);
 }
 
 .c-rating-val {

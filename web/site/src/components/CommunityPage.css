@@ -148,9 +148,6 @@
 .comm-mode {
   color: var(--text-accent);
 }
-.comm-player {
-  font-weight: 700;
-}
 .comm-muted {
   color: var(--text-muted);
 }

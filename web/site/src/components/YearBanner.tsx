@@ -66,7 +66,7 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
             <div className="archive-champion">
               <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
               <div className="archive-champion-name">
-                <PlayerLink name={champion.name} />
+                <PlayerLink name={champion.name} place={1} />
               </div>
             </div>
           </Highlight>
