@@ -166,24 +166,14 @@
   color: var(--text-muted);
 }
 
-.sort-header.win,
-.sort-header.loss,
-.sort-header.draw {
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.sort-header.win,
 .wld-num.win {
   color: var(--win);
 }
 
-.sort-header.loss,
 .wld-num.loss {
   color: var(--loss);
 }
 
-.sort-header.draw,
 .wld-num.draw {
   color: var(--draw);
 }

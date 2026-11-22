@@ -128,14 +128,3 @@
   list-style: none;
   color: var(--text-soft);
 }
-
-/* The "How ties are broken" button, a link in the standings' note. */
-.blitz-text-button {
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--text-accent);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}

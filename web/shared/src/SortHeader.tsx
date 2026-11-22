@@ -1,6 +1,6 @@
 /** A sortable table's column header, the same on the site and in admin, and the state that holds its sort. */
-import { useState, type ReactNode } from 'react';
-import { nextSort, sortRows, type Sort, type SortColumns } from './sort';
+import { useState, type MouseEvent, type ReactNode } from 'react';
+import { nextSort, sortArrow, sortRows, type Sort, type SortColumns, type SortWay } from './sort';
 
 /** useSort holds a table's sort, off until a header is chosen: the rows in that order, the sort, and a function choosing a column. */
 export function useSort<T, C extends string>(rows: readonly T[], columns: SortColumns<T, C>): [T[], Sort<C>, (col: C) => void] {
@@ -41,11 +41,23 @@ export default function SortHeader<C extends string>({ col, sort, onSort, align,
 export function SortButton<C extends string>({ col, sort, onSort, tone, children }: Props<C> & { tone?: 'win' | 'loss' | 'draw' }) {
   const on = sort?.col === col;
   return (
-    <button type="button" className={`sort-header${on ? ' sort-on' : ''}${tone === undefined ? '' : ` ${tone}`}`} onClick={() => onSort(col)}>
+    <button type="button" className={`sort-header${on ? ' sort-on' : ''}${tone === undefined ? '' : ` sort-header-${tone}`}`} onClick={() => onSort(col)}>
       {children}
       <span className="sort-arrow" aria-hidden="true">
-        {!on ? '⇅' : sort.desc ? '▼' : '▲'}
+        {sortArrow(on ? (sort.desc ? 'descending' : 'ascending') : undefined)}
       </span>
     </button>
+  );
+}
+
+/** SortLink is a header's sort as a link, for a page whose sort is in its address: link goes to the table sorted by this column, way says how it sorts now (its th's aria-sort), hint explains the column under the mouse. */
+export function SortLink({ link, way, hint, children }: { link: { href: string; onClick: (e: MouseEvent<HTMLAnchorElement>) => void }; way: SortWay; hint?: string; children: ReactNode }) {
+  return (
+    <a className={way === undefined ? 'sort-header' : 'sort-header sort-on'} href={link.href} onClick={link.onClick} data-tooltip={hint}>
+      {children}
+      <span className="sort-arrow" aria-hidden="true">
+        {sortArrow(way)}
+      </span>
+    </a>
   );
 }

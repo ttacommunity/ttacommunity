@@ -12,6 +12,14 @@ export type SortColumns<T, C extends string> = Record<C, SortColumn<T>>;
 /** Sort is the column a table is sorted by and which way, or null for the table's own order. */
 export type Sort<C extends string> = { col: C; desc: boolean } | null;
 
+/** Which way a column sorts, as aria-sort says it; undefined when the table is not sorted by it. */
+export type SortWay = 'ascending' | 'descending' | undefined;
+
+/** sortArrow is the arrow a sortable header shows: both ways when the table is not sorted by it, else up or down. */
+export function sortArrow(way: SortWay): string {
+  return way === undefined ? '⇅' : way === 'descending' ? '▼' : '▲';
+}
+
 /** nextSort is the sort after choosing col: its first way, then the other, then the table's own order again. */
 export function nextSort<T, C extends string>(current: Sort<C>, col: C, columns: SortColumns<T, C>): Sort<C> {
   const first = columns[col].first === 'desc';

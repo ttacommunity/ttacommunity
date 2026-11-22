@@ -3,22 +3,6 @@
   max-height: 640px;
 }
 
-.season-pick {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-accent);
-  font: inherit;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
-}
-
-.season-pick:hover,
-.season-pick:focus-visible {
-  text-decoration: underline;
-}
-
 .champion-name a {
   color: var(--player-name);
   font-weight: 600;

@@ -34,6 +34,7 @@ import {
   hasOptions,
   modelOf,
   nextSort,
+  sortWay,
   page,
   parseSearch,
   excludePlayer,
@@ -55,6 +56,7 @@ import {
   type Track,
   type View,
 } from '../lib/leaderboard-view';
+import { SortLink } from '@ttac/shared/SortHeader';
 import { remember } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
 import './Leaderboard.css';
@@ -469,13 +471,13 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
         <thead>
           <tr>
             {headers.map(([key, name, tip], i) => (
-              <th key={name} scope="col" className={i === 0 ? 'col-sticky-rank' : undefined}>
+              <th key={name} scope="col" className={i === 0 ? 'col-sticky-rank' : undefined} aria-sort={key === null ? undefined : sortWay(view, key)}>
                 {key === null ? (
                   <span data-tooltip={name === 'W-L-D' ? wldTip(view) : tip}>{name === 'W-L-D' ? wldName(view) : name}</span>
                 ) : (
-                  <a {...linkTo({ ...view, ...nextSort(view, key), page: 1 })} data-tooltip={tip}>
+                  <SortLink link={linkTo({ ...view, ...nextSort(view, key), page: 1 })} way={sortWay(view, key)} hint={tip}>
                     {name}
-                  </a>
+                  </SortLink>
                 )}
               </th>
             ))}

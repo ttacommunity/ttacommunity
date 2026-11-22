@@ -1,4 +1,4 @@
-/* Upstream's tooltips: data-tooltip text shown in one gold-edged box, placed by the page script inside the viewport. */
+/* Upstream's tooltips: data-tooltip text shown in one gold-edged box, placed by the page script inside the viewport; a note a button opens (admin's InfoTip) is the same box. */
 [data-tooltip] {
   position: relative;
 }
@@ -8,11 +8,8 @@ span[data-tooltip] {
   cursor: help;
 }
 
-.site-tooltip {
-  position: fixed;
-  z-index: 1000000;
-  width: max-content;
-  max-width: 340px;
+.site-tooltip,
+.tip-note {
   padding: 0.45rem 0.8rem;
   background: var(--tooltip-surface);
   border: 1px solid var(--edge-accent);
@@ -24,6 +21,13 @@ span[data-tooltip] {
   font-weight: 400;
   line-height: 1.4;
   white-space: normal;
+}
+
+.site-tooltip {
+  position: fixed;
+  z-index: 1000000;
+  width: max-content;
+  max-width: 340px;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;

@@ -417,6 +417,12 @@
   --button-icon-text: var(--text-soft);
   --button-icon-hover-text: var(--text-accent);
   --button-close-text: var(--text-accent);
+  /* A gold button pressed (a toggle that is on), and a button drawn as words in text, underlined as a link. */
+  --button-pressed-surface: var(--fill-accent);
+  --button-pressed-text: var(--bg-dark);
+  --button-text-link: var(--text-accent);
+  --button-text-link-hover: var(--text-accent-bright);
+  --button-text-underline: var(--link-underline);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;

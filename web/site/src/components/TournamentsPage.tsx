@@ -259,7 +259,7 @@ function Champions({
             {shownRows([...seasons].reverse(), expanded).map((s) => (
               <tr key={s.label}>
                 <td>
-                  <button type="button" className="season-pick" onClick={() => onPick(s.label)} title={`Show the games of ${seasonName(s.label, word)}`}>
+                  <button type="button" className="btn-text" onClick={() => onPick(s.label)} title={`Show the games of ${seasonName(s.label, word)}`}>
                     {seasonName(s.label, word)}
                   </button>
                   {s.organiser !== null && <div className="season-note">Organised by {s.organiser}</div>}

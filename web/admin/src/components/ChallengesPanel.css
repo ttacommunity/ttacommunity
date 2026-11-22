@@ -1,10 +1,4 @@
-/* The Challenges tab: a mark that is on (checked, bugged) lights its button, and the actions stay on one line each. */
-.challenge-toggle.on {
-  background: var(--fill-accent-gradient);
-  border-color: var(--edge-accent);
-  color: var(--text-on-gold);
-  box-shadow: 0 2px 8px var(--accent-wash-strong);
-}
+/* The Challenges tab: the actions stay on one line each. */
 .admin-table .btn-antique {
   white-space: nowrap;
 }

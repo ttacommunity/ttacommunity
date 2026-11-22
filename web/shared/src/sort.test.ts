@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextSort, sortRows, type SortColumns } from './sort';
+import { nextSort, sortArrow, sortRows, type SortColumns } from './sort';
 
 type Row = { name: string; points: number; rating: number | null; round: number; score: number };
 const rows: Row[] = [
@@ -35,5 +35,15 @@ describe('sortRows', () => {
     ['several values in turn', { col: 'game', desc: false }, ['bo', 'Ann', 'cy']],
   ] as const)('keeps %s', (_name, sort, want) => {
     expect(sortRows(rows, columns, sort).map((r) => r.name)).toEqual(want);
+  });
+});
+
+describe('sortArrow', () => {
+  it.each([
+    { name: 'a column not sorted by offers both ways', way: undefined, want: '⇅' },
+    { name: 'ascending points up', way: 'ascending' as const, want: '▲' },
+    { name: 'descending points down', way: 'descending' as const, want: '▼' },
+  ])('$name', ({ way, want }) => {
+    expect(sortArrow(way)).toBe(want);
   });
 });

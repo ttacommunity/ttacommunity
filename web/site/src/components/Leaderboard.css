@@ -103,14 +103,6 @@ tr:hover .row-exclude,
   opacity: 1;
 }
 
-/* Sortable headers are links, as upstream's. */
-.leaderboard-table thead th a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--text-accent);
-}
-
 .leaderboard-table tbody tr.jump-highlight td,
 .leaderboard-table tbody tr.jump-highlight th {
   background: var(--accent-wash);

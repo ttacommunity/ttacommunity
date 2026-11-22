@@ -18,10 +18,6 @@
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.nostradamus-choice[aria-pressed='true'] {
-  background: var(--fill-accent);
-  color: var(--bg-dark);
-}
 .nostradamus-stake {
   display: flex;
   align-items: center;

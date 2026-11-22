@@ -594,7 +594,7 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
-/* A note on when to use a control (InfoTip): an "i" beside it, the note opening under the row it is in. */
+/* A note on when to use a control (InfoTip): an ⓘ beside it, the note (the tooltip's box) opening under the row it is in. */
 .admin-add {
   position: relative;
 }
@@ -603,40 +603,12 @@
   align-items: center;
   gap: 0.5rem;
 }
-.info-tip-button {
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 1.5px solid var(--edge-accent);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-accent);
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-}
-.info-tip-button[aria-expanded='true'],
-.info-tip-button:hover {
-  background: var(--fill-accent);
-  color: var(--bg-dark);
-}
 .info-tip-note {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: 20;
   max-width: min(32rem, 100%);
-  padding: 0.5rem 0.8rem;
-  background: var(--tooltip-surface);
-  border: 1px solid var(--edge-accent);
-  border-radius: 5px;
-  box-shadow: 0 6px 24px var(--shadow-deep);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: 0.8rem;
-  line-height: 1.4;
 }
 .member-search {
   margin-top: 0;

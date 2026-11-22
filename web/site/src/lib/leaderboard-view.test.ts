@@ -10,6 +10,7 @@ import {
   hasFilters,
   modelOf,
   nextSort,
+  sortWay,
   page,
   parseView,
   rankPool,
@@ -244,6 +245,14 @@ describe('sortRows and nextSort', () => {
     ['a number, again', view({ sort: 'c_rating', order: 'desc' }), 'c_rating', { sort: 'c_rating', order: 'asc' }],
   ] as const)('toggles %s', (_name, current, column, want) => {
     expect(nextSort(current, column)).toEqual(want);
+  });
+
+  it.each([
+    ['the column sorted by, ascending', view({ sort: 'rank', order: 'asc' }), 'rank', 'ascending'],
+    ['the column sorted by, descending', view({ sort: 'c_rating', order: 'desc' }), 'c_rating', 'descending'],
+    ['another column', view({ sort: 'rank', order: 'asc' }), 'name', undefined],
+  ] as const)('says which way %s sorts', (_name, current, column, want) => {
+    expect(sortWay(current, column)).toBe(want);
   });
 });
 

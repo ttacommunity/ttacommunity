@@ -264,7 +264,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
           <label className="blitz-toggle">
             <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
           </label>
-          <button type="button" className="blitz-text-button" onClick={onHow}>
+          <button type="button" className="btn-text" onClick={onHow}>
             How ties are broken
           </button>
         </span>

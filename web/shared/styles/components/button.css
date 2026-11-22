@@ -1,4 +1,4 @@
-/* The site's buttons, one shape at the control height: gold for an action, crimson for one that cannot be undone, quiet for cancel, reset and paging, and a bare icon; compact inside a table row or list. */
+/* The site's buttons, one shape at the control height: gold for an action, crimson for one that cannot be undone, quiet for cancel, reset and paging, and a bare icon; compact inside a table row or list; words inside text. */
 .btn-antique,
 .btn-quiet {
   display: inline-flex;
@@ -36,6 +36,12 @@
     inset 0 1px 0 var(--button-hover-rim);
   color: var(--button-hover-text);
   transform: translateY(-1px);
+}
+
+/* A gold button that turns something on or off, while on (aria-pressed): filled gold. */
+.btn-antique[aria-pressed='true'] {
+  background: var(--button-pressed-surface);
+  color: var(--button-pressed-text);
 }
 
 /* An action that cannot be undone, such as deleting a run: crimson where the gold button is gold. */
@@ -117,6 +123,26 @@
 .btn-icon.btn-compact {
   min-width: var(--control-height-compact);
   padding-inline: 0;
+}
+
+/* A button that is words inside a sentence or a table cell: gold and underlined, as a link in text. */
+.btn-text {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--button-text-link);
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--button-text-underline);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.btn-text:hover {
+  color: var(--button-text-link-hover);
+  text-decoration-color: currentColor;
 }
 
 /* A button that cannot be used now looks it, and does not light up. */

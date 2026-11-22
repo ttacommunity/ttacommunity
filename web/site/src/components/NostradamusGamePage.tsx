@@ -203,7 +203,7 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
             return (
               <p key={r.id} className={done.answered < done.of ? 'nostradamus-nudge' : undefined}>
                 <strong>{r.name}</strong> is open, {r.closes_at ? timeLeft(r.closes_at, new Date()) : ''}: you have answered {done.answered} of {done.of}.{' '}
-                <button type="button" className="blitz-text-button" onClick={() => onOpen(r.id)}>
+                <button type="button" className="btn-text" onClick={() => onOpen(r.id)}>
                   {done.answered < done.of ? 'Answer now' : 'Change your answers'}
                 </button>
               </p>
@@ -281,7 +281,7 @@ function AnswerForm({ apiUrl, edition, round, place, onSaved }: { apiUrl: string
                 <button
                   key={c.label}
                   type="button"
-                  className="btn-antique nostradamus-choice"
+                  className="btn-antique"
                   aria-pressed={draft[q.id]?.answer.includes(c.label) ?? false}
                   onClick={() => setDraft(choose(draft, q, c.label))}
                 >
