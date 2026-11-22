@@ -110,6 +110,8 @@ const pairs: [string, string[], number][] = [
   ['--text-main', ['--model-std-tint', ...PAGE], BODY],
   ['--chip-out-text', ['--chip-out-surface'], BODY],
   ['--count-text', ['--count-surface'], BODY],
+  ['--disclosure-title', PAGE, BODY],
+  ['--disclosure-title', CARD, BODY],
   ['--text-main', ['--row-chosen', '--row-odd'], BODY],
   ['--text-accent', ['--row-chosen', '--row-odd'], BODY],
   ['--text-muted', ['--row-chosen', '--row-odd'], BODY],

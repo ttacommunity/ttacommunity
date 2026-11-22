@@ -132,10 +132,15 @@
   background: var(--accent-wash-faint);
 }
 
-/* A column that stays in view while the table scrolls sideways. Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through. */
+/* A column that stays in view while the table scrolls sideways (the first at left 0; a page sets a later one's left). Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through, and the last pinned column draws an edge. */
 .leaderboard-table .col-pinned {
   position: sticky;
+  left: 0;
   z-index: 4;
+}
+
+.scrolled-x .leaderboard-table .col-pinned:not(:has(+ .col-pinned)) {
+  box-shadow: 1px 0 3px var(--shadow);
 }
 
 .scrolled-x .leaderboard-table .col-pinned {
@@ -263,14 +268,5 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-  }
-
-  .leaderboard-table .col-sticky-rank,
-  .leaderboard-table tbody tr:hover .col-sticky-rank {
-    position: sticky;
-    left: 0;
-    z-index: 4;
-    background: var(--row-solid);
-    box-shadow: 1px 0 3px var(--shadow);
   }
 }

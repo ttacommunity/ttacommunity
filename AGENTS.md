@@ -367,6 +367,7 @@ agent runs them itself.
   footer, `SheetSection` for its parts; from the bottom on a phone),
   a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
   a list of suggestions under a field (`.suggestions`, on both sites),
+  an expander (`<details>`: its `<summary>` is the shared look),
   note (`Note`), box inside a panel (`Inset`: content, a row of figures, a short line,
   or a row: an item with its figures or actions), a player's name (`PlayerLink`;
   `place` where it stands for a result, `quiet` where it is not the subject),

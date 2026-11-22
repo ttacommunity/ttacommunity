@@ -471,7 +471,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
         <thead>
           <tr>
             {headers.map(([key, name, tip], i) => (
-              <th key={name} scope="col" className={i === 0 ? 'col-sticky-rank' : undefined} aria-sort={key === null ? undefined : sortWay(view, key)}>
+              <th key={name} scope="col" className={i === 0 ? 'col-pinned' : undefined} aria-sort={key === null ? undefined : sortWay(view, key)}>
                 {key === null ? (
                   <span data-tooltip={name === 'W-L-D' ? wldTip(view) : tip}>{name === 'W-L-D' ? wldName(view) : name}</span>
                 ) : (
@@ -486,7 +486,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
         <tbody>
           {rows.map((p) => (
             <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'row-chosen jump-highlight' : undefined}>
-              <td className={show.isTopThree(p.displayRank) ? 'col-sticky-rank rank-col top-3-rank' : 'col-sticky-rank rank-col'}>
+              <td className={show.isTopThree(p.displayRank) ? 'col-pinned rank-col top-3-rank' : 'col-pinned rank-col'}>
                 {show.rank(p.displayRank)}
                 {changes !== null && <RankChange delta={changes.get(p.name)} rank={rankNow(p, view)} />}
               </td>

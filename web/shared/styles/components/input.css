@@ -57,6 +57,13 @@ progress {
   accent-color: var(--fill-accent);
 }
 
+/* One size for a checkbox or radio on both sites, larger than the browser's, so it is easy to see and hit. */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 /* A checkbox in a row of fields, centred on them. */
 .check-inline {
   display: inline-flex;

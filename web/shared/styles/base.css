@@ -56,3 +56,23 @@ blockquote {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* An expander (details): its title in the body face, bold and cream, behind a gold marker; a summary drawn as a field (a multi-pick) keeps the field's look, and a heading inside the title is the title. */
+details > summary:not(.input-antique) {
+  cursor: pointer;
+  color: var(--disclosure-title);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+details > summary:not(.input-antique)::marker {
+  color: var(--disclosure-marker);
+}
+
+details > summary > :is(h2, h3, h4) {
+  display: inline;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}

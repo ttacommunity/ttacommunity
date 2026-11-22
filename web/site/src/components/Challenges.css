@@ -228,12 +228,6 @@
 .challenges-first td {
   background: var(--accent-wash-faint);
 }
-.challenges-all summary {
-  cursor: pointer;
-  color: var(--text-accent);
-  font-family: var(--font-subheading);
-}
-
 /* The record history chart. */
 .challenges-chart {
   display: block;

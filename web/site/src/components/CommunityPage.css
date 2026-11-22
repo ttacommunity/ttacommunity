@@ -65,9 +65,6 @@
 .comm-pinned-name {
   left: 48px;
 }
-.scrolled-x .comm-pinned-name {
-  box-shadow: 1px 0 3px var(--shadow);
-}
 
 /* Scores: Active Counting vs Discarded */
 .score-counting {

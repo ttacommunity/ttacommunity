@@ -20,7 +20,6 @@
   --brown-tooltip: rgba(18, 12, 8, 0.98);
   --brown-row-odd: rgba(16, 10, 6, 0.65);
   --brown-row-even: rgba(28, 18, 12, 0.4);
-  --brown-row-solid: rgba(22, 14, 10, 0.98);
   --brown-row-group: rgba(45, 30, 20, 0.5);
   --brown-tab: rgba(35, 23, 16, 0.9);
   --brown-tab-edge: rgba(138, 98, 51, 0.6);
@@ -126,7 +125,6 @@
   /* A table's rows, striped, and a sticky cell's solid fill. */
   --row-odd: var(--brown-row-odd);
   --row-even: var(--brown-row-even);
-  --row-solid: var(--brown-row-solid);
   --row-group: var(--brown-row-group);
   /* A row singled out for the reader (the models chosen, their own game): a gold wash and a gold edge. */
   --row-chosen: var(--accent-wash-faint);
@@ -327,6 +325,9 @@
   --chip-out-text: var(--loss-light);
   --chip-out-edge: var(--loss-edge);
   --chip-out-surface: color-mix(in srgb, var(--red-deep) 14%, var(--brown-well));
+  /* An expander's title (details' summary) and its marker. */
+  --disclosure-title: var(--text-main);
+  --disclosure-marker: var(--text-accent);
   /* A count of things waiting or new, beside a tab or a menu's link. */
   --count-surface: var(--fill-accent);
   --count-text: var(--bg-dark);
