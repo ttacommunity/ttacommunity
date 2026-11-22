@@ -2,11 +2,11 @@
 import { useCopy } from './copy';
 
 /** CopyCode shows code and copies it on a click: the button ticks once copied, and where the browser refuses, a note asks to select it. what names it for the button's label. */
-export default function CopyCode({ code, className, what = 'replay code' }: { code: string | null; className?: string; what?: string }) {
+export default function CopyCode({ code, what = 'replay code' }: { code: string | null; what?: string }) {
   const { copied, copy } = useCopy();
   if (code === null) return <span className="copy-code-none">—</span>;
   return (
-    <div className={className === undefined ? 'copy-code' : `copy-code ${className}`}>
+    <div className="copy-code">
       <code>{code}</code>
       <button type="button" className="btn-icon btn-compact" onClick={() => copy(code)} title={`Copy ${what}`} aria-label={`Copy ${what} ${code}`}>
         {copied === true ? '✓' : '📋'}

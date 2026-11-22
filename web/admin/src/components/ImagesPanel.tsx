@@ -1,7 +1,8 @@
 /** Images, for admins and organisers: the assets bucket's images, uploaded here and listed with the address to link to, each to delete. */
 import { useEffect, useRef, useState } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
-import ImagesTable from '@ttac/shared/ImagesTable';
+import ImagesRows from '@ttac/shared/ImagesRows';
+import AdminTable from './AdminTable';
 import type { StoredImage } from '@ttac/shared/ratings';
 import { viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
@@ -90,17 +91,17 @@ export default function ImagesPanel() {
       {list === null ? null : list.length === 0 ? (
         <p className="muted">No images yet.</p>
       ) : (
-        <ImagesTable
-          images={list}
-          zone={zone}
-          caption="Every image, newest first, with its address"
-          className="admin-table"
-          actions={(image) => (
-            <button type="button" className="btn-settings" onClick={(e) => void remove(image, e.currentTarget)}>
-              Delete
-            </button>
-          )}
-        />
+        <AdminTable caption="Every image, newest first, with its address">
+          <ImagesRows
+            images={list}
+            zone={zone}
+            actions={(image) => (
+              <button type="button" className="btn-settings" onClick={(e) => void remove(image, e.currentTarget)}>
+                Delete
+              </button>
+            )}
+          />
+        </AdminTable>
       )}
     </AdminCard>
   );

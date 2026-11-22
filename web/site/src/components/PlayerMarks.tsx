@@ -49,11 +49,11 @@ export function VideosLink({ name, hasVideos }: { name: string; hasVideos: boole
   );
 }
 
-/** VideosButton is the "Movies »" link among a player page's buttons, in the button class given; drawn only when they have videos. */
-export function VideosButton({ name, hasVideos, className }: { name: string; hasVideos: boolean; className: string }) {
+/** VideosButton is the "Movies »" link among a player page's buttons, drawn as the site's button; drawn only when they have videos. */
+export function VideosButton({ name, hasVideos }: { name: string; hasVideos: boolean }) {
   if (!hasVideos) return null;
   return (
-    <a className={`${className} videos-button`} href={moviesHref(name)} title={`Videos by ${name}`}>
+    <a className="btn-antique videos-button" href={moviesHref(name)} title={`Videos by ${name}`}>
       <PlayIcon /> Movies »
     </a>
   );

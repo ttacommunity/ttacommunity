@@ -8,17 +8,14 @@ type Heading =
   | { label: string; id?: never; title?: never; actions?: never };
 
 type Props = Heading & {
-  className?: string;
-  /** alert, for a card that replaces the page to say what went wrong. */
-  role?: 'alert';
   children: ReactNode;
 };
 
-export default function AdminCard({ id, title, actions, label, className, role, children }: Props) {
-  const cls = `rating-card admin-card${className === undefined ? '' : ` ${className}`}`;
+export default function AdminCard({ id, title, actions, label, children }: Props) {
+  const cls = 'rating-card admin-card';
   if (label !== undefined) {
     return (
-      <section className={cls} role={role} aria-label={label}>
+      <section className={cls} aria-label={label}>
         {children}
       </section>
     );
@@ -29,7 +26,7 @@ export default function AdminCard({ id, title, actions, label, className, role, 
     </h2>
   );
   return (
-    <section className={cls} role={role} aria-labelledby={id}>
+    <section className={cls} aria-labelledby={id}>
       {actions === undefined ? (
         heading
       ) : (

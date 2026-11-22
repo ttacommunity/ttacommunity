@@ -217,7 +217,11 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                             {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
                             <span className="badge badge-seats">{m.playerCount}P</span>
                             <span className="match-date">{m.date}</span>
-                            {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
+                            {m.replayCode && (
+                              <span className="home-replay">
+                                <CopyCode code={m.replayCode} />
+                              </span>
+                            )}
                           </div>
 
                           {/* Participants and Scores with Spoiler Protection for Points */}

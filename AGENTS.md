@@ -354,16 +354,19 @@ agent runs them itself.
   border or shadow, and a `border-radius`), then sort what you find by
   what each is for: a panel, a header, a button, a badge, a bar
 - **Use the shared pieces as they look; never restyle one in a page.**
-  The site has one of each: page header (`PageHeader`), panel and its
-  header (`.rating-card` `.panel-card`, `PanelHeader`), table
+  The site has one of each: page header (`PageHeader`; `emblem` for a
+  tournament's framed icon), panel and its header (`Panel`, `PanelHeader`;
+  `holds="text"` for text to read, in the reading look), table
   (`.leaderboard-table`, straight on a card), button row (`Segmented`:
   a choice, tabs or a filter), bar of controls (`ViewBar`, `.view-bar`;
-  a group inside a bar has no box of its own), a question (`Dialog`),
+  a group inside a bar has no box of its own; `stacked` in a drawer), a question (`Dialog`),
   anything to read, choose or fill in above the page (`Sheet`: `holds` a
   table or a video for the wide one, `actions` and `resets` in its
   footer, `SheetSection` for its parts; from the bottom on a phone),
   a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
-  note (`Note`), box inside a panel (`Inset`: content, a row of figures or a short line),
+  note (`Note`), box inside a panel (`Inset`: content, a row of figures, a short line,
+  or a row: an item with its figures or actions), a player's name (`PlayerLink`;
+  `place` where it stands for a result, `quiet` where it is not the subject),
   tile in a grid (`Tile`; a link tile is all one link, or its title's
   `TileLink` covers it; only what can be clicked moves under the mouse),
   headline figure (`MetricCard` in a `MetricGrid`, `compact` for a

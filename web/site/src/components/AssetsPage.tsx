@@ -1,11 +1,12 @@
 /** The assets bucket's images for anyone, newest first, each with the address to link to. */
 import { useEffect, useState } from 'react';
-import ImagesTable from '@ttac/shared/ImagesTable';
 import PageHeader from '@ttac/shared/PageHeader';
 import { settled, type Load } from '@ttac/shared/load';
 import { assets, type StoredImage } from '@ttac/shared/ratings';
 import { viewerZone } from '@ttac/shared/time';
+import AssetsTable from './AssetsTable';
 import Message from './Message';
+import Panel from './Panel';
 import Waiting from './Waiting';
 
 /** AssetsPage loads the assets once and lists them, in the viewer's time zone. */
@@ -22,9 +23,9 @@ export default function AssetsPage({ apiUrl }: { apiUrl: string }) {
         (load.data.length === 0 ? (
           <Message>No images yet.</Message>
         ) : (
-          <div className="rating-card">
-            <ImagesTable images={load.data} zone={viewerZone()} caption="Every image, newest first, with its address" />
-          </div>
+          <Panel label="Images">
+            <AssetsTable images={load.data} zone={viewerZone()} caption="Every image, newest first, with its address" />
+          </Panel>
         ))}
     </>
   );

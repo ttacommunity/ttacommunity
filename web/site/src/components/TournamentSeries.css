@@ -4,14 +4,6 @@
 .tournament-summary {
   margin: 0.75rem 0 0;
 }
-.detail-hero-icon {
-  font-size: 3.2rem;
-  line-height: 1;
-  background: var(--shadow-light);
-  padding: 0.75rem;
-  border-radius: 12px;
-  border: 1px solid var(--accent-wash);
-}
 .detail-meta-grid {
   margin-top: 1.5rem;
   padding-top: 1.25rem;

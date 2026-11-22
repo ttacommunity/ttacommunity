@@ -22,6 +22,7 @@ import ShowAllSample from '../components/ShowAllSample';
 import TileSamples, { FigureSamples, HighlightSamples } from '../components/TileSamples';
 import Message from '../components/Message';
 import { Flag, TitleBadge, VideosButton, VideosLink } from '../components/PlayerMarks';
+import PlayerLink from '../components/PlayerLink';
 import { titleCodeValues } from '@ttac/shared/api';
 import type { TitleCode } from '@ttac/shared/ratings';
 import PageHeader from '@ttac/shared/PageHeader';
@@ -35,7 +36,7 @@ import TitleSelect from '../components/TitleSelect';
 import MinOppsField from '../components/MinOppsField';
 import NewerOlder from '@ttac/shared/NewerOlder';
 import CopyCode from '@ttac/shared/CopyCode';
-import ImagesTable from '@ttac/shared/ImagesTable';
+import AssetsTable from '../components/AssetsTable';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { emptyGameForm } from '@ttac/shared/game-form';
 
@@ -198,7 +199,7 @@ const rows = [
       Invented Caster <VideosLink name="Invented Caster" hasVideos />
     </p>
     <p class="design-row design-buttons">
-      <VideosButton name="Invented Caster" hasVideos className="btn-antique" />
+      <VideosButton name="Invented Caster" hasVideos />
     </p>
 
     <h2>Text to copy</h2>
@@ -208,7 +209,7 @@ const rows = [
 
     <h2>Images</h2>
     <p>Stored images, each small with its address to copy; admin adds a column of actions.</p>
-    <ImagesTable
+    <AssetsTable
       client:only="react"
       zone="UTC"
       caption="Sample images"
@@ -281,7 +282,7 @@ const rows = [
     <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
 
     <h2>Page header with a tag</h2>
-    <PageHeader tag="Annual sample" title="Sample tournament" subtitle="A tournament's header carries its tagline at the top right, and its icon as the picture beside the title." />
+    <PageHeader tag="Annual sample" emblem="🏆" title="Sample tournament" subtitle="A tournament's header carries its tagline at the top right, and its icon as an emblem beside the title." />
 
     <h2>Home header</h2>
     <p>The home page's own header, the one page header that is not the page header below; the live figures go in its slot.</p>
@@ -320,7 +321,17 @@ const rows = [
 
     <h2>Panel size: reading</h2>
     <Panel id="design-reading" title="A form or prose" size="reading">
-      <p>A panel read top to bottom, such as a sign-in form or the terms, sits centred at about 70 characters a line. Tables, charts and lists take the full width, the default.</p>
+      <p>A panel read top to bottom, such as a sign-in form or the terms, sits centred at about 70 characters a line. Tables, charts and lists take the full width, the default; a table with more columns than the page is wide takes the screen's width (size screen).</p>
+    </Panel>
+
+    <h2>Panel of text to read</h2>
+    <Panel id="design-text" title="A document" size="reading" holds="text">
+      <p>Text to read, such as the FAQ, the methodology or the terms, in the reading look: its paragraphs, lists and headings.</p>
+      <h3>A heading inside it</h3>
+      <ul>
+        <li>A list item.</li>
+        <li>Another, with <code>code</code> in it.</li>
+      </ul>
     </Panel>
 
     <h2>Panel picture</h2>
@@ -366,7 +377,21 @@ const rows = [
         <span>Best seat <strong>4P Seat 2</strong></span>
       </Inset>
       <Inset form="line">A short line, such as an empty list.</Inset>
+      <Inset form="row">
+        <span>An item of a list</span>
+        <strong>1,234</strong>
+      </Inset>
     </div>
+
+    <h2>A player's name</h2>
+    <p class="design-row">
+      <PlayerLink name="Invented Player" />
+      <PlayerLink name="First Place" place={1} />
+      <PlayerLink name="Second Place" place={2} />
+      <PlayerLink name="Third Place" place={3} />
+      <PlayerLink name="Last Place" place="last" />
+      <PlayerLink name="Not The Subject" quiet />
+    </p>
 
     <h2>Prose</h2>
     <blockquote>“A quotation in the site’s prose: Markdown’s quote in MDX.”</blockquote>

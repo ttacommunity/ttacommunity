@@ -21,11 +21,7 @@ export default function TournamentHero({
 }) {
   return (
     <PageHeader
-      media={
-        <div className="detail-hero-icon" aria-hidden="true">
-          {card.icon}
-        </div>
-      }
+      emblem={card.icon}
       tag={card.tagline ?? undefined}
       title={title}
       subtitle={

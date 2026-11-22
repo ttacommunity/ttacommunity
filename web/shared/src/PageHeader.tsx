@@ -12,18 +12,19 @@ interface Props {
   above?: ReactNode;
   /** A picture beside the text, such as a challenge's card. */
   media?: ReactNode;
+  /** An emoji beside the text in a frame, as a tournament's emblem; in place of media. */
+  emblem?: string;
   /** A short tag at the top right, such as a tournament's tagline; under the picture on a phone. */
   tag?: ReactNode;
   /** The title's id, for a section labelled by it. */
   id?: string;
   /** Centred, the title in the heading face, as a player's pages are. */
   centred?: boolean;
-  className?: string;
   children?: ReactNode;
 }
 
 /** PageHeader draws the title card; children follow the subtitle inside it. */
-export default function PageHeader({ title, icon, subtitle, back, above, media, tag, id, centred = false, className, children }: Props) {
+export default function PageHeader({ title, icon, subtitle, back, above, media, emblem, tag, id, centred = false, children }: Props) {
   const text = (
     <>
       {tag !== undefined && <div className="tag page-header-tag">{tag}</div>}
@@ -41,13 +42,21 @@ export default function PageHeader({ title, icon, subtitle, back, above, media, 
       {children}
     </>
   );
+  const picture =
+    emblem === undefined ? (
+      media
+    ) : (
+      <div className="page-header-emblem" aria-hidden="true">
+        {emblem}
+      </div>
+    );
   return (
-    <div className={`page-header${media === undefined ? '' : ' page-header-media'}${centred ? ' page-header-centred' : ''}${className === undefined ? '' : ` ${className}`}`}>
-      {media === undefined ? (
+    <div className={`page-header${picture === undefined ? '' : ' page-header-media'}${centred ? ' page-header-centred' : ''}`}>
+      {picture === undefined ? (
         text
       ) : (
         <>
-          {media}
+          {picture}
           <div className="page-header-text">{text}</div>
         </>
       )}

@@ -45,6 +45,15 @@
   flex: 1;
   min-width: 0;
 }
+/* An emblem beside the text (PageHeader's emblem): the emoji large, in a framed square. */
+.page-header-emblem {
+  padding: 0.75rem;
+  border: 1px solid var(--accent-wash);
+  border-radius: 12px;
+  background: var(--shadow-light);
+  font-size: 3.2rem;
+  line-height: 1;
+}
 /* A header's tag (PageHeader's tag), top right with the title beside it: a tournament's tagline. */
 .page-header-tag {
   position: relative;

@@ -70,7 +70,7 @@ export default function PlayerHeader({ player, back, page, hrefs, nameExtra, sub
               <span aria-hidden="true">{PAGE_LINKS[p].icon}</span> {PAGE_LINKS[p].label} »
             </a>
           ))}
-          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-antique" />
+          <VideosButton name={player.name} hasVideos={player.has_videos} />
         </div>
       </div>
     </PageHeader>

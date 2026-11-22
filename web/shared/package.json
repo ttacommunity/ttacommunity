@@ -24,7 +24,7 @@
     "./BackLink": "./src/BackLink.tsx",
     "./Dialog": "./src/Dialog.tsx",
     "./CopyCode": "./src/CopyCode.tsx",
-    "./ImagesTable": "./src/ImagesTable.tsx",
+    "./ImagesRows": "./src/ImagesRows.tsx",
     "./Sheet": "./src/Sheet.tsx",
     "./InfoDialog": "./src/InfoDialog.tsx",
     "./modal": "./src/modal.ts",
