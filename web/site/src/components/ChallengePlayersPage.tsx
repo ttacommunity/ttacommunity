@@ -61,7 +61,7 @@ export default function ChallengePlayersPage({ apiUrl }: { apiUrl: string }) {
       {load.kind !== 'ready' ? (
         <Waiting load={load} what="the players" />
       ) : (
-        <Panel label="Players" className="challenges-card">
+        <Panel label="Players">
           <ScrollTable label="Players">
             <table className="leaderboard-table">
               <caption className="visually-hidden">Every player with a challenge entry, with their figures</caption>

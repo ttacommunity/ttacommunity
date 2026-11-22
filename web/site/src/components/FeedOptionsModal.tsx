@@ -169,7 +169,7 @@ export default function FeedOptionsModal({
                 const state = divisionsState[t.slug];
 
                 return (
-                  <Inset key={`${t.slug}-${t.division || 'all'}-${idx}`} className="feed-tourney-row">
+                  <Inset key={`${t.slug}-${t.division || 'all'}-${idx}`} form="row">
                     <span className="feed-tourney-name" title={t.name}>
                       {t.name}
                     </span>

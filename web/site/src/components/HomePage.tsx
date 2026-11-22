@@ -113,304 +113,310 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
 
   return (
     <>
-      <Panel id="home-feed" icon="📡" title="Community Pulse & Highlights" aside={<span className="home-feed-badge">Live Updates</span>} className="home-feed-section">
+      <Panel id="home-feed" icon="📡" title="Community Pulse & Highlights" aside={<span className="tag">Live Updates</span>}>
 
         {data === null ? (
           <Message form="inline">{waiting ?? 'Loading the latest highlights…'}</Message>
         ) : (
           <div className="home-feed-grid">
             {/* ── Left Column: Recent Matches (Top Contenders & Premier Divisions) ── */}
-            <Inset className="home-feed-card">
-              <div className="feed-card-header">
-                <h3 className="feed-card-title">
-                  <span>🎮</span> Recent Matches
-                </h3>
-                <div className="feed-header-actions">
-                  <button
-                    type="button"
-                    className="btn-antique"
-                    onClick={openOptions}
-                    title="Customize tournaments, divisions, and players in feed"
-                    aria-label="Feed filter options"
-                  >
-                    <span>⚙️</span> Options
-                  </button>
-                  <SpoilerButton shown={globalMatchSpoilers} what="match scores" onToggle={() => setGlobalMatchSpoilers(!globalMatchSpoilers)} />
-                </div>
-              </div>
-              <p className="feed-card-intro">
-                Recently finished tournament matches featuring your selected divisions and competitors.
-              </p>
-              {/* Feed Filter Toolbar */}
-              <div className="view-bar player-filter-toolbar">
-                <div className="filter-active-tags-row">
-                  <div className="filter-tags-scroll" aria-label="Active feed filters">
-                    {feedSettings.tournaments.map((t, idx) => (
-                      <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="chip">
-                        <span className="player-tag-name">
-                          🏛️ {t.name}{t.division ? ` · ${t.division}` : ''}
-                        </span>
-                        <button
-                          type="button"
-                          className="chip-remove"
-                          onClick={() => changeSettings(withoutTournament(feedSettings, t.slug, t.division))}
-                          title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
-                          aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                    {feedSettings.players.map((name) => (
-                      <span key={name} className="chip">
-                        <span className="player-tag-name">👤 {name}</span>
-                        <button
-                          type="button"
-                          className="chip-remove"
-                          onClick={() => changeSettings(withoutPlayer(feedSettings, name))}
-                          title={`Remove ${name} from feed`}
-                          aria-label={`Remove ${name}`}
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="filter-quick-actions">
+            <Inset>
+              <div className="home-feed-card">
+                <div className="feed-card-header">
+                  <h3 className="feed-card-title">
+                    <span>🎮</span> Recent Matches
+                  </h3>
+                  <div className="feed-header-actions">
                     <button
                       type="button"
                       className="btn-antique"
                       onClick={openOptions}
+                      title="Customize tournaments, divisions, and players in feed"
+                      aria-label="Feed filter options"
                     >
-                      <span>⚙️</span> Filter / Add
+                      <span>⚙️</span> Options
                     </button>
-                    <button
-                      type="button"
-                      className="btn-quiet"
-                      onClick={() => changeSettings(DEFAULT_FEED_SETTINGS)}
-                      title="Reset to top divisions of IM, IC, and RL"
-                    >
-                      Reset to Premier
-                    </button>
+                    <SpoilerButton shown={globalMatchSpoilers} what="match scores" onToggle={() => setGlobalMatchSpoilers(!globalMatchSpoilers)} />
                   </div>
                 </div>
-              </div>
+                <p className="feed-card-intro">
+                  Recently finished tournament matches featuring your selected divisions and competitors.
+                </p>
+                {/* Feed Filter Toolbar */}
+                <div className="view-bar player-filter-toolbar">
+                  <div className="filter-active-tags-row">
+                    <div className="filter-tags-scroll" aria-label="Active feed filters">
+                      {feedSettings.tournaments.map((t, idx) => (
+                        <span key={`${t.slug}-${t.division || 'all'}-${idx}`} className="chip">
+                          <span className="player-tag-name">
+                            🏛️ {t.name}{t.division ? ` · ${t.division}` : ''}
+                          </span>
+                          <button
+                            type="button"
+                            className="chip-remove"
+                            onClick={() => changeSettings(withoutTournament(feedSettings, t.slug, t.division))}
+                            title={`Remove ${t.name}${t.division ? ` (${t.division})` : ''} from feed`}
+                            aria-label={`Remove ${t.name}${t.division ? ` (${t.division})` : ''}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                      {feedSettings.players.map((name) => (
+                        <span key={name} className="chip">
+                          <span className="player-tag-name">👤 {name}</span>
+                          <button
+                            type="button"
+                            className="chip-remove"
+                            onClick={() => changeSettings(withoutPlayer(feedSettings, name))}
+                            title={`Remove ${name} from feed`}
+                            aria-label={`Remove ${name}`}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
 
-              {/* Matches List */}
-              <div className="feed-list">
-                {feedMatches.kind !== 'ready' ? (
-                  <Message form="inline">{waitingText(feedMatches, 'recent matches')}</Message>
-                ) : feedMatches.data.length === 0 ? (
-                  <Message form="inline">
-                    No recent matches found for the chosen filters. Try adjusting your selections with the Options button above.
-                  </Message>
-                ) : (
-                  feedMatches.data.map((m) => {
-                    const isRevealed = globalMatchSpoilers || revealedMatchIds.has(m.matchId);
-                    const matchScores = m.seats.map((st) => st.score);
-                    return (
-                      <div key={m.matchId} className="feed-match-item">
-                        <div className="match-item-meta">
-                          <span className="match-tournament">{m.tournament}</span>
-                          {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
-                          <span className="badge badge-seats">{m.playerCount}P</span>
-                          <span className="match-date">{m.date}</span>
-                          {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
-                        </div>
+                    <div className="filter-quick-actions">
+                      <button
+                        type="button"
+                        className="btn-antique"
+                        onClick={openOptions}
+                      >
+                        <span>⚙️</span> Filter / Add
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-quiet"
+                        onClick={() => changeSettings(DEFAULT_FEED_SETTINGS)}
+                        title="Reset to top divisions of IM, IC, and RL"
+                      >
+                        Reset to Premier
+                      </button>
+                    </div>
+                  </div>
+                </div>
 
-                        {/* Participants and Scores with Spoiler Protection for Points */}
-                        <div className="match-seats-row">
-                          <div className="match-seats-content">
-                            {m.seats.map((s, idx) => {
-                              const rankClass = isRevealed ? seatRankClass(s.score, matchScores) : '';
-                              return (
-                                <span key={s.name} className={`match-seat ${rankClass}`.trim()}>
-                                  <PlayerLink
-                                    name={s.name}
-                                    className={`match-player-link ${rankClass}`.trim()}
-                                  />
-                                  <span className={`match-score-badge ${isRevealed ? 'revealed' : 'blurred'}`}>
-                                    {isRevealed ? `(${score(s.score)})` : '(???)'}
-                                  </span>
-                                  {idx < m.seats.length - 1 && <span className="match-sep">vs</span>}
-                                </span>
-                              );
-                            })}
+                {/* Matches List */}
+                <div className="feed-list">
+                  {feedMatches.kind !== 'ready' ? (
+                    <Message form="inline">{waitingText(feedMatches, 'recent matches')}</Message>
+                  ) : feedMatches.data.length === 0 ? (
+                    <Message form="inline">
+                      No recent matches found for the chosen filters. Try adjusting your selections with the Options button above.
+                    </Message>
+                  ) : (
+                    feedMatches.data.map((m) => {
+                      const isRevealed = globalMatchSpoilers || revealedMatchIds.has(m.matchId);
+                      const matchScores = m.seats.map((st) => st.score);
+                      return (
+                        <div key={m.matchId} className="feed-match-item">
+                          <div className="match-item-meta">
+                            <span className="match-tournament">{m.tournament}</span>
+                            {m.division && <span className={divisionTagClass(m.division, m.tournament)}>{m.division}</span>}
+                            <span className="badge badge-seats">{m.playerCount}P</span>
+                            <span className="match-date">{m.date}</span>
+                            {m.replayCode && <CopyCode code={m.replayCode} className="home-replay" />}
                           </div>
 
-                          <RevealButton shown={isRevealed} what="scores" onToggle={() => toggleMatchSpoiler(m.matchId)} />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                          {/* Participants and Scores with Spoiler Protection for Points */}
+                          <div className="match-seats-row">
+                            <div className="match-seats-content">
+                              {m.seats.map((s, idx) => {
+                                const rankClass = isRevealed ? seatRankClass(s.score, matchScores) : '';
+                                return (
+                                  <span key={s.name} className={`match-seat ${rankClass}`.trim()}>
+                                    <PlayerLink
+                                      name={s.name}
+                                      className={`match-player-link ${rankClass}`.trim()}
+                                    />
+                                    <span className={`match-score-badge ${isRevealed ? 'revealed' : 'blurred'}`}>
+                                      {isRevealed ? `(${score(s.score)})` : '(???)'}
+                                    </span>
+                                    {idx < m.seats.length - 1 && <span className="match-sep">vs</span>}
+                                  </span>
+                                );
+                              })}
+                            </div>
 
-              <div className="feed-card-footer">
-                <a href="/ratings/tournaments/" className="feed-footer-link">
-                  Browse All Matches in Catalogue &rarr;
-                </a>
+                            <RevealButton shown={isRevealed} what="scores" onToggle={() => toggleMatchSpoiler(m.matchId)} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="feed-card-footer">
+                  <a href="/ratings/tournaments/" className="feed-footer-link">
+                    Browse All Matches in Catalogue &rarr;
+                  </a>
+                </div>
               </div>
             </Inset>
 
 
             {/* ── Right Column: Recent Tournaments & Champions ── */}
-            <Inset className="home-feed-card">
-              <div className="feed-card-header">
-                <h3 className="feed-card-title">
-                  <span>🏆</span> Recent Tournaments
-                </h3>
-                <SpoilerButton shown={globalTourneySpoilers} what="tournament podiums" onToggle={() => setGlobalTourneySpoilers(!globalTourneySpoilers)} />
-              </div>
-              <p className="feed-card-intro">
-                Recently concluded premier tournament editions and crowned titleholders.
-              </p>
+            <Inset>
+              <div className="home-feed-card">
+                <div className="feed-card-header">
+                  <h3 className="feed-card-title">
+                    <span>🏆</span> Recent Tournaments
+                  </h3>
+                  <SpoilerButton shown={globalTourneySpoilers} what="tournament podiums" onToggle={() => setGlobalTourneySpoilers(!globalTourneySpoilers)} />
+                </div>
+                <p className="feed-card-intro">
+                  Recently concluded premier tournament editions and crowned titleholders.
+                </p>
 
-              <div className="feed-list">
-                {data.recentTournaments.kind !== 'ready' ? (
-                  <Message form="inline">{waitingText(data.recentTournaments, 'the recent tournaments')}</Message>
-                ) : data.recentTournaments.data.length === 0 ? (
-                  <Message form="inline">No recent tournament podiums recorded.</Message>
-                ) : (
-                  data.recentTournaments.data.map((t) => {
-                    const key = `${t.slug}-${t.seasonLabel}`;
-                    const isRevealed = globalTourneySpoilers || revealedTourneyKeys.has(key);
-                    return (
-                      <div key={key} className="feed-tourney-item">
-                        <div className="tourney-item-header">
-                          <div className="tourney-title-row">
-                            <a href={`/ratings/tournaments/?t=${encodeURIComponent(t.slug)}`} className="tourney-link">
-                              {t.name}
-                            </a>
-                            <span className="tag">
-                              {seasonName(t.seasonLabel, t.seasonWord)}
-                            </span>
+                <div className="feed-list">
+                  {data.recentTournaments.kind !== 'ready' ? (
+                    <Message form="inline">{waitingText(data.recentTournaments, 'the recent tournaments')}</Message>
+                  ) : data.recentTournaments.data.length === 0 ? (
+                    <Message form="inline">No recent tournament podiums recorded.</Message>
+                  ) : (
+                    data.recentTournaments.data.map((t) => {
+                      const key = `${t.slug}-${t.seasonLabel}`;
+                      const isRevealed = globalTourneySpoilers || revealedTourneyKeys.has(key);
+                      return (
+                        <div key={key} className="feed-tourney-item">
+                          <div className="tourney-item-header">
+                            <div className="tourney-title-row">
+                              <a href={`/ratings/tournaments/?t=${encodeURIComponent(t.slug)}`} className="tourney-link">
+                                {t.name}
+                              </a>
+                              <span className="tag">
+                                {seasonName(t.seasonLabel, t.seasonWord)}
+                              </span>
+                            </div>
+                            {t.finished && <span className="tourney-date">{formatDay(t.finished)}</span>}
                           </div>
-                          {t.finished && <span className="tourney-date">{formatDay(t.finished)}</span>}
-                        </div>
 
-                        {/* Podium with Spoiler Protection */}
-                        <div className="tourney-podium-wrap">
-                          {isRevealed ? (
-                            <div className="tourney-podium-content revealed">
-                              {t.champion && (
+                          {/* Podium with Spoiler Protection */}
+                          <div className="tourney-podium-wrap">
+                            {isRevealed ? (
+                              <div className="tourney-podium-content revealed">
+                                {t.champion && (
+                                  <div className="podium-row champion-row">
+                                    <span className="podium-icon">🥇</span>
+                                    <span className="podium-rank">Champion:</span>
+                                    <PlayerLink name={t.champion} className="podium-player" />
+                                  </div>
+                                )}
+                                {t.runnerUp && (
+                                  <div className="podium-row">
+                                    <span className="podium-icon">🥈</span>
+                                    <span className="podium-rank">Runner-Up:</span>
+                                    <PlayerLink name={t.runnerUp} className="podium-player" />
+                                  </div>
+                                )}
+                                {t.third && (
+                                  <div className="podium-row">
+                                    <span className="podium-icon">🥉</span>
+                                    <span className="podium-rank">3rd Place:</span>
+                                    <PlayerLink name={t.third} className="podium-player" />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div
+                                className="tourney-podium-content podium-censored-mask"
+                                onClick={() => toggleTourneySpoiler(key)}
+                                aria-hidden="true"
+                                title="Click to reveal podium results"
+                              >
                                 <div className="podium-row champion-row">
                                   <span className="podium-icon">🥇</span>
                                   <span className="podium-rank">Champion:</span>
-                                  <PlayerLink name={t.champion} className="podium-player" />
+                                  <span className="podium-censored-pill">████████████</span>
                                 </div>
-                              )}
-                              {t.runnerUp && (
-                                <div className="podium-row">
-                                  <span className="podium-icon">🥈</span>
-                                  <span className="podium-rank">Runner-Up:</span>
-                                  <PlayerLink name={t.runnerUp} className="podium-player" />
-                                </div>
-                              )}
-                              {t.third && (
-                                <div className="podium-row">
-                                  <span className="podium-icon">🥉</span>
-                                  <span className="podium-rank">3rd Place:</span>
-                                  <PlayerLink name={t.third} className="podium-player" />
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div
-                              className="tourney-podium-content podium-censored-mask"
-                              onClick={() => toggleTourneySpoiler(key)}
-                              aria-hidden="true"
-                              title="Click to reveal podium results"
-                            >
-                              <div className="podium-row champion-row">
-                                <span className="podium-icon">🥇</span>
-                                <span className="podium-rank">Champion:</span>
-                                <span className="podium-censored-pill">████████████</span>
+                                {t.runnerUp && (
+                                  <div className="podium-row">
+                                    <span className="podium-icon">🥈</span>
+                                    <span className="podium-rank">Runner-Up:</span>
+                                    <span className="podium-censored-pill">████████████</span>
+                                  </div>
+                                )}
+                                {t.third && (
+                                  <div className="podium-row">
+                                    <span className="podium-icon">🥉</span>
+                                    <span className="podium-rank">3rd Place:</span>
+                                    <span className="podium-censored-pill">████████████</span>
+                                  </div>
+                                )}
                               </div>
-                              {t.runnerUp && (
-                                <div className="podium-row">
-                                  <span className="podium-icon">🥈</span>
-                                  <span className="podium-rank">Runner-Up:</span>
-                                  <span className="podium-censored-pill">████████████</span>
-                                </div>
-                              )}
-                              {t.third && (
-                                <div className="podium-row">
-                                  <span className="podium-icon">🥉</span>
-                                  <span className="podium-rank">3rd Place:</span>
-                                  <span className="podium-censored-pill">████████████</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            )}
 
-                          <RevealButton shown={isRevealed} what="podium" onToggle={() => toggleTourneySpoiler(key)} />
+                            <RevealButton shown={isRevealed} what="podium" onToggle={() => toggleTourneySpoiler(key)} />
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                      );
+                    })
+                  )}
+                </div>
 
-              <div className="feed-card-footer">
-                <a href="/ratings/tournaments/" className="feed-footer-link">
-                  Explore Full Tournament Registry &rarr;
-                </a>
+                <div className="feed-card-footer">
+                  <a href="/ratings/tournaments/" className="feed-footer-link">
+                    Explore Full Tournament Registry &rarr;
+                  </a>
+                </div>
               </div>
             </Inset>
 
             {/* ── Third Column: TTA Pulse Blitz Feed (In Development) ── */}
-            <Inset className="home-feed-card">
-              <div className="feed-card-header">
-                <h3 className="feed-card-title">
-                  <span>⚡</span> TTA Pulse Feed
-                </h3>
-                <span className="tag tag-special">In Development</span>
-              </div>
-              <p className="feed-card-intro">
-                Live blitz games, instant matchmaking queue pairing, and rating velocity updates.
-              </p>
+            <Inset>
+              <div className="home-feed-card">
+                <div className="feed-card-header">
+                  <h3 className="feed-card-title">
+                    <span>⚡</span> TTA Pulse Feed
+                  </h3>
+                  <span className="tag tag-special">In Development</span>
+                </div>
+                <p className="feed-card-intro">
+                  Live blitz games, instant matchmaking queue pairing, and rating velocity updates.
+                </p>
 
-              <div className="pulse-feed-placeholder">
-                <div className="pulse-placeholder-status">
-                  <div className="pulse-radar-anim">
-                    <span className="radar-circle"></span>
-                    <span className="radar-dot"></span>
+                <div className="pulse-feed-placeholder">
+                  <div className="pulse-placeholder-status">
+                    <div className="pulse-radar-anim">
+                      <span className="radar-circle"></span>
+                      <span className="radar-dot"></span>
+                    </div>
+                    <div className="pulse-radar-title">Matchmaking Engine Syncing</div>
+                    <p className="pulse-radar-text">
+                      Automated pairing and real-time CGE API game dispatch are currently undergoing integration testing.
+                    </p>
                   </div>
-                  <div className="pulse-radar-title">Matchmaking Engine Syncing</div>
-                  <p className="pulse-radar-text">
-                    Automated pairing and real-time CGE API game dispatch are currently undergoing integration testing.
-                  </p>
+
+                  <div className="pulse-features-list">
+                    <div className="pulse-feature-item">
+                      <span className="pulse-feature-icon">⏱️</span>
+                      <div>
+                        <strong>Rapid Blitz Ladder</strong>
+                        <p>Fast-clock competitive duels with dedicated Elo / Glicko blitz volatility tracking.</p>
+                      </div>
+                    </div>
+                    <div className="pulse-feature-item">
+                      <span className="pulse-feature-icon">🤖</span>
+                      <div>
+                        <strong>Automated Game Spawning</strong>
+                        <p>Instant lobby launch without manual player invites via direct CGE API handshake.</p>
+                      </div>
+                    </div>
+                    <div className="pulse-feature-item">
+                      <span className="pulse-feature-icon">🔔</span>
+                      <div>
+                        <strong>Match Alerts &amp; Spectating</strong>
+                        <p>Real-time turn notifications, live spectator boards, and discord match reminders.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="pulse-features-list">
-                  <div className="pulse-feature-item">
-                    <span className="pulse-feature-icon">⏱️</span>
-                    <div>
-                      <strong>Rapid Blitz Ladder</strong>
-                      <p>Fast-clock competitive duels with dedicated Elo / Glicko blitz volatility tracking.</p>
-                    </div>
-                  </div>
-                  <div className="pulse-feature-item">
-                    <span className="pulse-feature-icon">🤖</span>
-                    <div>
-                      <strong>Automated Game Spawning</strong>
-                      <p>Instant lobby launch without manual player invites via direct CGE API handshake.</p>
-                    </div>
-                  </div>
-                  <div className="pulse-feature-item">
-                    <span className="pulse-feature-icon">🔔</span>
-                    <div>
-                      <strong>Match Alerts &amp; Spectating</strong>
-                      <p>Real-time turn notifications, live spectator boards, and discord match reminders.</p>
-                    </div>
-                  </div>
+                <div className="feed-card-footer">
+                  <span className="feed-footer-tag">Coming Soon in Phase 2</span>
                 </div>
-              </div>
-
-              <div className="feed-card-footer">
-                <span className="feed-footer-tag">Coming Soon in Phase 2</span>
               </div>
             </Inset>
           </div>

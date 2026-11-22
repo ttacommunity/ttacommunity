@@ -25,18 +25,6 @@
   }
 }
 
-.faq-card p {
-  margin-bottom: 0.75rem;
-  color: var(--text-main);
-  font-family: var(--font-body);
-  font-size: var(--size-body);
-  line-height: 1.75;
-}
-
-.faq-card p:last-child {
-  margin-bottom: 0;
-}
-
 .faq-list {
   margin-bottom: 0.75rem;
   margin-left: 1.5rem;
@@ -64,7 +52,7 @@
 }
 
 /* Upstream's inline styles as classes. Inline styles beat every rule, so these are prefixed to outrank the
-   page's own rules above (such as .faq-card p) and keep upstream's result. Boxes, headings and rows by name: */
+   panels' reading look (Panel holds="text") and keep upstream's result. Boxes, headings and rows by name: */
 
 .faq-container .faq-section .faq-subhead {
   color: var(--text-accent);

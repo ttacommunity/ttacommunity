@@ -32,28 +32,28 @@ export default function CareerBox({
       stripe="gold"
       aside={
         summary !== null && (
-          <div className="career-medals">
+          <>
             {totalTitles(summary) > 0 && (
-              <span className="career-medal-gold">
+              <span className="pill pill-gold">
                 🏆 <strong>{totalTitles(summary)}</strong> Titles
               </span>
             )}
             {summary.gold > 0 && (
-              <span className="career-medal-gold">
+              <span className="pill pill-gold">
                 🥇 <strong>{summary.gold}</strong>
               </span>
             )}
             {summary.silver > 0 && (
-              <span className="career-medal-silver">
+              <span className="pill pill-silver">
                 🥈 <strong>{summary.silver}</strong>
               </span>
             )}
             {summary.bronze > 0 && (
-              <span className="career-medal-bronze">
+              <span className="pill pill-bronze">
                 🥉 <strong>{summary.bronze}</strong>
               </span>
             )}
-          </div>
+          </>
         )
       }
     >

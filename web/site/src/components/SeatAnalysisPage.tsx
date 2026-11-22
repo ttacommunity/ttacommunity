@@ -88,7 +88,7 @@ export default function SeatAnalysisPage({ apiUrl }: { apiUrl: string }) {
               key={pc}
               id={`seats-${pc}p`}
               title={`${pc}-Player Matches • ${count(group.total_games)} games`}
-              aside={<span className="seat-parity-note">Expected Parity: {parity}% per seat</span>}
+              aside={<span className="tag">Expected Parity: {parity}% per seat</span>}
             >
               <ScrollTable label="Placement by seat">
                 <table className="leaderboard-table">

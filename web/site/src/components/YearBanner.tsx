@@ -21,55 +21,57 @@ export default function YearBanner({ board, latest, ranked, view, linkTo }: Prop
   const y = board.year;
   const champion = board.champions.find((c) => c.reigning) ?? board.champions[0];
   return (
-    <Inset className="archive-banner">
-      <div>
-        <div className="archive-head">
-          <span className="tag">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
-          <span className="archive-snapshot">
-            Snapshot Date: <strong>{board.snapshot}</strong>
-          </span>
-        </div>
-        <p className="archive-facts">
-          Recorded Matches in {y}: <strong className="archive-games">{count(board.games)}</strong> • Ranked
-          Competitors: <strong className="archive-ranked">{count(ranked)}</strong>
-          {board.previous !== null && (
-            <>
-              {' '}
-              • <span className="archive-deltas">Deltas vs {y - 1} Year-End</span>
-            </>
-          )}
-        </p>
-        <div className="archive-stats">
-          <span className="archive-stats-label">📊 Match Stats Mode:</span>
-          <Segmented
-            label="Match stats mode"
-            options={[
-              {
-                value: 'season',
-                label: `📅 Season ${y} Only`,
-                tooltip: `Display wins, losses, and draws for Season ${y} only. Ratings are derived according to the selected engine and reset mode.`,
-              },
-              {
-                value: 'career',
-                label: '📈 Career to Date',
-                tooltip: `Display cumulative career wins, losses, and draws up through Season ${y}. Ratings are derived according to the selected engine and reset mode.`,
-              },
-            ]}
-            value={view.stats}
-            link={(stats) => linkTo({ ...view, stats, page: 1 })}
-          />
-        </div>
-      </div>
-      {champion !== undefined && (
-        <Highlight>
-          <div className="archive-champion">
-            <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
-            <div className="archive-champion-name">
-              <PlayerLink name={champion.name} />
-            </div>
+    <div className="archive-banner">
+      <Inset form="row">
+        <div>
+          <div className="archive-head">
+            <span className="tag">{latest ? `Active Season ${y} Standings` : `Season ${y} Final Archive`}</span>
+            <span className="archive-snapshot">
+              Snapshot Date: <strong>{board.snapshot}</strong>
+            </span>
           </div>
-        </Highlight>
-      )}
-    </Inset>
+          <p className="archive-facts">
+            Recorded Matches in {y}: <strong className="archive-games">{count(board.games)}</strong> • Ranked
+            Competitors: <strong className="archive-ranked">{count(ranked)}</strong>
+            {board.previous !== null && (
+              <>
+                {' '}
+                • <span className="archive-deltas">Deltas vs {y - 1} Year-End</span>
+              </>
+            )}
+          </p>
+          <div className="archive-stats">
+            <span className="archive-stats-label">📊 Match Stats Mode:</span>
+            <Segmented
+              label="Match stats mode"
+              options={[
+                {
+                  value: 'season',
+                  label: `📅 Season ${y} Only`,
+                  tooltip: `Display wins, losses, and draws for Season ${y} only. Ratings are derived according to the selected engine and reset mode.`,
+                },
+                {
+                  value: 'career',
+                  label: '📈 Career to Date',
+                  tooltip: `Display cumulative career wins, losses, and draws up through Season ${y}. Ratings are derived according to the selected engine and reset mode.`,
+                },
+              ]}
+              value={view.stats}
+              link={(stats) => linkTo({ ...view, stats, page: 1 })}
+            />
+          </div>
+        </div>
+        {champion !== undefined && (
+          <Highlight>
+            <div className="archive-champion">
+              <div className="archive-champion-title">🏆 {champion.reigning ? 'Reigning World Champion' : 'World Champion'}</div>
+              <div className="archive-champion-name">
+                <PlayerLink name={champion.name} />
+              </div>
+            </div>
+          </Highlight>
+        )}
+      </Inset>
+    </div>
   );
 }

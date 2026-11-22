@@ -338,13 +338,10 @@ function Games({
   return (
     <Panel
       id="game-history"
-      title={
-        <>
-          Game History <span className="panel-head-count">(Recent Matches: {total})</span>
-        </>
-      }
+      title="Game History"
       aside={
         <>
+          <span className="tag">Recent Matches: {total}</span>
           {provisional && (
             <span
               className="badge badge-calibration"
@@ -353,7 +350,7 @@ function Games({
               ⏳ Prior Calibration ({gamesInFormat}/15)
             </span>
           )}
-          <RatedFilter value={ratingFilter} onChange={onRatingFilter} className="unrated-toggle-end" />
+          <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
         </>
       }
     >
@@ -484,7 +481,7 @@ function Rivals({
       id="rivals"
       title={`Head-to-Head vs Rivals (${filtering ? rows.length : all.length})`}
       aside={
-        <div className="rivals-controls">
+        <>
           <RatedFilter value={ratingFilter} onChange={onRatingFilter} />
           <select
             className="input-antique"
@@ -499,7 +496,7 @@ function Rivals({
             ))}
           </select>
           <PlayerSearch players={all} value={rv.filter} onChange={(filter) => setRv({ ...rv, filter })} />
-        </div>
+        </>
       }
     >
       <ScrollTable label="Rivals">
@@ -598,43 +595,45 @@ function PositionSeatStats({
     >
 
       {overall && overall.total_games > 0 && (
-        <Inset form="figures" className="position-delta-banner">
-          <div className="position-banner-metric">
-            <span className="banner-metric-label">Analyzed Games:</span>
-            <strong>{overall.total_games}</strong>
-            <span className="banner-metric-sub">
-              ({counted(overall.total_wins, 'win')}
-              {overall.total_draws > 0 ? ` · ${counted(overall.total_draws, 'draw')}` : ''}
-              {' '}· {overall.win_rate.toFixed(1)}%)
-            </span>
-          </div>
-          <div className="position-banner-metric">
-            <span className="banner-metric-label">Avg Culture:</span>
-            <strong>{overall.avg_culture.toFixed(1)}</strong>
-          </div>
-          {overall.strongest_seat && (
-            <div className="position-banner-metric strongest-metric">
-              <span className="banner-metric-label">Strongest Position:</span>
-              <strong className="delta-pos">
-                {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
-              </strong>
-              <span className="pill pill-win">
-                {signedDelta(overall.strongest_seat.delta_win_rate)}% vs Format
+        <div className="position-delta-banner">
+          <Inset form="figures">
+            <div className="position-banner-metric">
+              <span className="banner-metric-label">Analyzed Games:</span>
+              <strong>{overall.total_games}</strong>
+              <span className="banner-metric-sub">
+                ({counted(overall.total_wins, 'win')}
+                {overall.total_draws > 0 ? ` · ${counted(overall.total_draws, 'draw')}` : ''}
+                {' '}· {overall.win_rate.toFixed(1)}%)
               </span>
             </div>
-          )}
-          {overall.weakest_seat && (
-            <div className="position-banner-metric weakest-metric">
-              <span className="banner-metric-label">Toughest Position:</span>
-              <strong className="delta-neg">
-                {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
-              </strong>
-              <span className="pill pill-loss">
-                {signedDelta(overall.weakest_seat.delta_win_rate)}% vs Format
-              </span>
+            <div className="position-banner-metric">
+              <span className="banner-metric-label">Avg Culture:</span>
+              <strong>{overall.avg_culture.toFixed(1)}</strong>
             </div>
-          )}
-        </Inset>
+            {overall.strongest_seat && (
+              <div className="position-banner-metric strongest-metric">
+                <span className="banner-metric-label">Strongest Position:</span>
+                <strong className="delta-pos">
+                  {overall.strongest_seat.player_count}P {seatName(overall.strongest_seat.seat)}
+                </strong>
+                <span className="pill pill-win">
+                  {signedDelta(overall.strongest_seat.delta_win_rate)}% vs Format
+                </span>
+              </div>
+            )}
+            {overall.weakest_seat && (
+              <div className="position-banner-metric weakest-metric">
+                <span className="banner-metric-label">Toughest Position:</span>
+                <strong className="delta-neg">
+                  {overall.weakest_seat.player_count}P {seatName(overall.weakest_seat.seat)}
+                </strong>
+                <span className="pill pill-loss">
+                  {signedDelta(overall.weakest_seat.delta_win_rate)}% vs Format
+                </span>
+              </div>
+            )}
+          </Inset>
+        </div>
       )}
 
       <ScrollTable label="Seats">

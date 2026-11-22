@@ -179,12 +179,11 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
         id="calibration-diagram"
         title="Reliability Calibration Diagram"
         subtitle="Predicted Win Probability vs. Observed Win Rate across 10 Probability Bins"
-        className="graph-main-card"
         aside={
-          <div className="card-badges">
+          <>
             <span className="badge badge-format">{formatName(format)}</span>
             <span className="badge badge-mode">{MODE_NAMES[mode]}</span>
-          </div>
+          </>
         }
       >
         <div className="hero-chart-container">

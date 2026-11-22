@@ -96,7 +96,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
       )}
 
       {view === 'compact' ? (
-        <Panel label="Challenges by group" className="challenges-card">
+        <Panel label="Challenges by group">
           <SetGrid
             groups={groups}
             label={(_cs, group) => {
@@ -135,7 +135,6 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
               title={g.label}
               aside={scope && <TotalsLine scope={scope} measure={measure} />}
               art={groupPicture(g.id)}
-              className="challenges-group"
             >
               <div className="challenges-cards">
                 {g.challenges.map((c) => (
@@ -159,7 +158,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
         })
       )}
 
-      <Panel id="challenges-totals" title="Totals" className="challenges-card">
+      <Panel id="challenges-totals" title="Totals">
         <p className="challenges-lead">
           <strong>Pooled</strong> adds up the record of every challenge, as if all players formed one team. <strong>Best single player</strong> ranks players
           by{' '}
@@ -213,7 +212,7 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
         </ScrollTable>
       </Panel>
 
-      <Panel id="challenges-holders" title="Most records held" className="challenges-card">
+      <Panel id="challenges-holders" title="Most records held">
         {holders.length === 0 ? (
           <p className="muted">No records yet.</p>
         ) : (

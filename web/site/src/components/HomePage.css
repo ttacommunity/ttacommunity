@@ -92,34 +92,19 @@
 
 
 /* ── Community Pulse Feed ── */
-.home-feed-section {
-  margin-top: 2rem;
-}
-
-.home-feed-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.6rem;
-  background: var(--accent-wash-faint);
-  border: 1px solid var(--accent-wash);
-  border-radius: 4px;
-  color: var(--text-accent);
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .home-feed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1.5rem;
 }
 
+/* A feed card's content: a column, so the placeholder can fill the card's height. */
 .home-feed-card {
   display: flex;
   flex-direction: column;
+  height: 100%;
+}
+.home-feed-grid > * {
   min-width: 0;
 }
 

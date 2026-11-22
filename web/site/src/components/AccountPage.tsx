@@ -70,7 +70,7 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
       <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
       <Panels>
         {notice !== null && (
-          <Panel label="Sign-in result" size="reading" className="account-card">
+          <Panel label="Sign-in result" size="reading">
             <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
           </Panel>
         )}
@@ -98,7 +98,7 @@ function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: 
   if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
   const who = signedInAs(me);
   return (
-    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} size="reading" className="account-card">
+    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} size="reading">
       {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
       {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
@@ -123,7 +123,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
   const returnTo = back ?? window.location.pathname;
   const [emailOpen, setEmailOpen] = useState(false);
   return (
-    <Panel id="account-sign-in" title="Sign in or create an account" size="reading" className="account-card">
+    <Panel id="account-sign-in" title="Sign in or create an account" size="reading">
       <ul className="account-ways">
         <li>
           <SignerLink signer="discord" href={signInHref(apiUrl, 'discord', returnTo)}>
@@ -193,7 +193,7 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
     return (
       <div id="account-email-panel" className="account-email-panel" role="status">
         <p>
-          Check your inbox: a sign-in link is on its way to <strong>{sentTo}</strong>. It works once, within the hour.
+          Check your inbox: a sign-in link is on its way to <strong className="account-address">{sentTo}</strong>. It works once, within the hour.
         </p>
         <button type="button" className="btn-antique" onClick={() => setSentTo('')}>
           Send another

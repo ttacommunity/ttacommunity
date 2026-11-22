@@ -85,7 +85,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
       <OptionsSection icon="🎯" title="Rating Track">
         <Segmented
           label="Rating track"
-          groupClass="format-bar-group stacked"
+          stacked
           options={TRACKS.map((t) => ({
             value: t.value,
             label: (
@@ -104,7 +104,7 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
       <OptionsSection icon="⚡" title="Rating Engine">
         <Segmented
           label="Rating engine"
-          groupClass="format-bar-group stacked"
+          stacked
           options={ENGINES.map((e) => ({
             value: e,
             label: (

@@ -35,7 +35,7 @@ export default function ChallengeWeeklyPage({ apiUrl, list }: { apiUrl: string; 
               </span>
             ))}
           </p>
-          <Panel label="Weeks" className="challenges-card">
+          <Panel label="Weeks">
             <ScrollTable label="Weekly challenges">
               <table className="leaderboard-table">
                 <caption className="visually-hidden">Each week of the weekly challenge, its challenge and who won</caption>

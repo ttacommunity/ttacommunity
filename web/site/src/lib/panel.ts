@@ -3,15 +3,18 @@
 /** A left stripe marks a panel of commentary about the data (a summary, a guide, a finding); data panels have none. Gold: summaries and guides; green: a finding; bronze: a deep dive. */
 export type PanelStripe = 'gold' | 'green' | 'bronze';
 
-/** A panel's width, chosen by what it holds: full for tables, charts and lists; reading (centred, about 70 characters a line) for forms and prose. */
-export type PanelSize = 'full' | 'reading';
+/** A panel's width, chosen by what it holds: full for tables, charts and lists; reading (centred, about 70 characters a line) for forms and prose; screen for a table with more columns than the page is wide. */
+export type PanelSize = 'full' | 'reading' | 'screen';
 
-/** panelClass returns a panel's classes: the card, then its width, stripe and picture when set, then the page's own layout class. */
-export function panelClass({ size, stripe, art, className }: { size?: PanelSize; stripe?: PanelStripe; art?: string; className?: string }): string {
+/** What a panel holds, when it is text to read (a document, the FAQ, an explainer): drawn in the reading look. */
+export type PanelHolds = 'text';
+
+/** panelClass returns a panel's classes: the card, then its width, what it holds, its stripe and picture when set. */
+export function panelClass({ size, holds, stripe, art }: { size?: PanelSize; holds?: PanelHolds; stripe?: PanelStripe; art?: string }): string {
   const classes = ['rating-card', 'panel-card'];
-  if (size === 'reading') classes.push('panel-reading');
+  if (size === 'reading' || size === 'screen') classes.push(`panel-${size}`);
+  if (holds !== undefined) classes.push(`panel-${holds}`);
   if (stripe !== undefined) classes.push('panel-stripe', `panel-stripe-${stripe}`);
   if (art) classes.push('panel-art');
-  if (className) classes.push(className);
   return classes.join(' ');
 }

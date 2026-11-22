@@ -142,7 +142,6 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
           Flagged results <Count n={flagged.length} what="flagged" />
         </>
       }
-      className="flagged-results"
     >
       {dialog.element}
       <p className="muted">A player says their opponent&apos;s report is wrong. Ask both on Discord, then keep it, correct it or reset it.</p>

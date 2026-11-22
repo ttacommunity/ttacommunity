@@ -27,7 +27,7 @@ export default function PanelHeader({ title, icon, id, subtitle, children }: Pro
           <p className="panel-header-sub">{subtitle}</p>
         </div>
       )}
-      {children}
+      {children !== undefined && children !== null && children !== false && <div className="panel-header-aside">{children}</div>}
     </div>
   );
 }

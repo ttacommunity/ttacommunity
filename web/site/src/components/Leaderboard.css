@@ -174,11 +174,6 @@ tr:hover .row-exclude,
 
 /* The season archive: its banner and the drawer's year pills. */
 .archive-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
   margin-bottom: 1.25rem;
 }
 

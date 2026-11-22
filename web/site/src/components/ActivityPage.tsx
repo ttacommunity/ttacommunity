@@ -54,8 +54,8 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <Panel id="activity-formats" title="Matches by Game Format" subtitle="Distribution of competitive tournaments across player counts.">
           <div className="activity-list">
             {formats.cards.map((f) => (
-              <Inset key={f.format} className="activity-item">
-                <div>
+              <Inset key={f.format} form="row">
+                <div className="activity-name">
                   <strong>{f.name}</strong>
                   <div className="activity-item-note">{f.note}</div>
                 </div>
@@ -68,7 +68,7 @@ export default function ActivityPage({ apiUrl }: { apiUrl: string }) {
         <Panel id="activity-titles" title="Official Tournament Titles" subtitle="Awarded for top finishes in official World Championships & continental championships.">
           <div className="activity-list">
             {a.titles.map((t) => (
-              <Inset key={t.code} className="activity-item">
+              <Inset key={t.code} form="row">
                 <div className="activity-title">
                   <TitleBadge title={{ code: t.code }} className="activity-badge" />
                   <strong>{titleLabel(t.code)}</strong>

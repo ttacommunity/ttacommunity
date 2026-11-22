@@ -10,7 +10,7 @@ import FaqFigure from '../../components/FaqFigure.astro';
 import Panel from '../../components/Panel';
 import ScrollTable from '../../components/ScrollTable';
 
-<Panel title="What is a Rating Engine and What Does It Try to Achieve?" stripe="gold" className="faq-card">
+<Panel title="What is a Rating Engine and What Does It Try to Achieve?" stripe="gold" holds="text">
   <div>
 
       <p>A rating engines main purpose is to answer one central question: &quot;When two opponents meet in a match, given the results we have seen these opponents achieve in the past, what is the expected outcome of the match?&quot;</p>
@@ -24,7 +24,7 @@ But his place there is also not &quot;unearned&quot; - it is the engines current
 
 </Panel>
 
-<Panel id="faq-accuracy-goal" title="Attempts at evalution of an engines predictive capabilities (Brier Score & ECE)" className="faq-card">
+<Panel id="faq-accuracy-goal" title="Attempts at evalution of an engines predictive capabilities (Brier Score & ECE)" holds="text">
   <div>
 
       <p>Since rating systems exist to predict match outcomes, the question <em>&quot;Which rating model is best?&quot;</em> is not a matter of aesthetic taste or community politics. It is a strictly empirical question answered by evaluating how accurately the model predicts unseen future matches:</p>
@@ -42,7 +42,7 @@ Measures the mean squared difference between predicted win probabilities $P_k$ a
 
 </Panel>
 
-<Panel title="The Rating Engines Implemented on This Portal" className="faq-card">
+<Panel title="The Rating Engines Implemented on This Portal" holds="text">
   <div>
 
       <p>

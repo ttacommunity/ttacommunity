@@ -94,7 +94,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
 
   return (
     <Panels>
-      <Panel label="Your submission" className="challenges-card">
+      <Panel label="Your submission">
         <p>
           Submitting as <strong>{name}</strong> · <a href={challengePlayerHref(name)}>your challenges page</a>
         </p>
@@ -119,7 +119,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           {challengeSets(list)
             .find((s) => s.id === set)
             ?.groups.map((g) => (
-              <Panel key={g.id} id={`submit-${g.id}`} title={g.label} className="challenges-card">
+              <Panel key={g.id} id={`submit-${g.id}`} title={g.label}>
                 {g.challenges.map((c) => {
                   const row = rows[c.id] ?? { domination: '', proof: '' };
                   const best = mine.get(c.id);
@@ -215,7 +215,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
   const record = new Map(records.challenges.flatMap((c) => (c.record === null ? [] : [[c.id, c.record] as const])));
   const newRecords = recordsBeaten(chosen, new Map([...record].map(([id, r]) => [id, r.domination])));
   return (
-    <Panel id="review" title="Check your entries" className="challenges-card">
+    <Panel id="review" title="Check your entries">
       <p>
         Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
         {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
@@ -300,7 +300,7 @@ function Intro({ me }: { me: Me | null | undefined }) {
 /** Examples shows what to post in Discord for a verified entry. */
 function Examples() {
   return (
-    <Panel id="examples" title="What to post in Discord" className="challenges-card">
+    <Panel id="examples" title="What to post in Discord">
       <div className="challenges-examples">
         <figure>
           <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">

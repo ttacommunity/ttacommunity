@@ -9,7 +9,7 @@ order: 2
 import Panel from '../../components/Panel';
 import ScrollTable from '../../components/ScrollTable';
 
-<Panel icon="👑" title="The Full-Circle Journey: From Naive Glicko to WHR to GlickoD" subtitle="GlickoD Engine" stripe="bronze" className="faq-card">
+<Panel icon="👑" title="The Full-Circle Journey: From Naive Glicko to WHR to GlickoD" subtitle="GlickoD Engine" stripe="bronze" holds="text">
   <p>
     The journey to the current GlickoD rating engine iteration involved several discoveries: Our starting observation was that standard Glicko-2, while effective overall, showed a <strong>steady overconfidence in high-probability predictions</strong>: when predicting a win chance of $X \ge 90\%$, the actual observed win rate in tournament play was closer to $\approx 89\%$.
   </p>
@@ -49,7 +49,7 @@ import ScrollTable from '../../components/ScrollTable';
   </p>
 </Panel>
 
-<Panel icon="📐" title="Golden Ratio Multiplayer Information Decomposition" stripe="bronze" className="faq-card">
+<Panel icon="📐" title="Golden Ratio Multiplayer Information Decomposition" stripe="bronze" holds="text">
   <p>
     In board games with $N \in \{2, 3, 4\}$ players, a single table is conventionally decomposed into $\binom{N}{2}$ pairwise matchups:
   </p>
@@ -171,7 +171,7 @@ $$
   </p>
 </Panel>
 
-<Panel icon="🔬" title="Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)" stripe="bronze" className="faq-card">
+<Panel icon="🔬" title="Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)" stripe="bronze" holds="text">
   <p>
     When players enter the tournament pool, they begin with a nominal 1500 rating and high uncertainty ($\mathrm{RD} = 350$). Because active veterans average $\approx 1521$ while the overall pool mean is $\approx 1471$, games involving uncalibrated newcomers generate severe network noise, false upsets, and the notorious "50% underconfidence droop" in standard Glicko.
   </p>
@@ -185,7 +185,7 @@ $$
   </div>
 </Panel>
 
-<Panel icon="🎯" title="The Temperature Scaling Journey: Why GlickoD Retired Logit Compression" stripe="bronze" className="faq-card">
+<Panel icon="🎯" title="The Temperature Scaling Journey: Why GlickoD Retired Logit Compression" stripe="bronze" holds="text">
   <p>
     One of the most instructive chapters in the development of GlickoD was the rise and subsequent retirement of <strong>Adaptive Temperature Scaling</strong> $T(P, N)$.
   </p>
@@ -285,7 +285,7 @@ $$
   </p>
 </Panel>
 
-<Panel icon="🏆" title="Empirical Benchmark Scoreboard Across Formats" stripe="bronze" className="faq-card">
+<Panel icon="🏆" title="Empirical Benchmark Scoreboard Across Formats" stripe="bronze" holds="text">
   <p>
     The table below documents the final match-time calibration metrics for <strong>GlickoD</strong> (<em>Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo</em>) across all season reset modes on the full historical dataset (388,493 pairwise encounters):
   </p>

@@ -7,13 +7,6 @@
   gap: 0.6rem;
 }
 
-.feed-tourney-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
-}
-
 .feed-tourney-name {
   min-width: 0;
   font-family: var(--font-subheading);
@@ -42,9 +35,6 @@
 
 /* On a phone the name takes its own line above its controls. */
 @media (max-width: 600px) {
-  .feed-tourney-row {
-    flex-wrap: wrap;
-  }
 
   .feed-tourney-name {
     flex-basis: 100%;

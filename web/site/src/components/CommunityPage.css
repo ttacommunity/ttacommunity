@@ -1,6 +1,6 @@
 /* The community leaderboard: upstream community_leaderboard.html's styles, and its inline styles as classes. */
-.comm-hero {
-  margin-bottom: 2rem;
+/* The edition panel's maintainer note, picker and figures, centred. */
+.comm-edition {
   text-align: center;
 }
 
@@ -10,33 +10,10 @@
   /* Upstream's 420px minimum, but never wider than the screen, so the page fits a phone */
   grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-}
-/* The explainers' text, in shared panels. */
-.explainer-card p {
-  font-size: var(--size-body-short);
-  line-height: 1.55;
-  color: var(--text-soft);
-  margin-bottom: 0.75rem;
-}
-.explainer-card ul {
-  margin: 0.5rem 0 0.75rem 1.25rem;
-  padding: 0;
-  font-size: 0.9rem;
-  color: var(--text-soft);
-  line-height: 1.5;
-}
-.explainer-card li {
-  margin-bottom: 0.35rem;
 }
 
 /* Filter and Search Bar */
 .comm-controls {
-  max-width: 1400px;
-  margin: 0 auto 1.5rem auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,24 +31,10 @@
 /* CMB Scroll Descriptor centered in controls */
 
 /* The results count: what is shown at one end, the mode at the other. */
-.comm-results {
-  justify-content: space-between;
-  margin-bottom: 0.85rem;
+.comm-results-mode {
+  margin-left: auto;
 }
 
-/* Table Container */
-.table-wrapper {
-  max-width: 1400px;
-  margin: 0 auto 2rem auto;
-  transition: all 0.3s ease;
-}
-/* Expanded view expands to sides for full width visibility */
-.table-wrapper.expanded-view {
-  max-width: 98vw;
-  width: 98vw;
-  margin-left: calc(-49vw + 50%);
-  margin-right: calc(-49vw + 50%);
-}
 
 .comm-table {
   white-space: nowrap;
@@ -157,10 +120,6 @@
   font-weight: 700;
 }
 @media (max-width: 768px) {
-  .comm-hero {
-    margin-bottom: 1.25rem;
-  }
-
   .comm-controls {
     flex-direction: column;
     align-items: stretch;
@@ -168,18 +127,6 @@
   }
   .comm-search-form {
     width: 100%;
-  }
-  .table-wrapper {
-    margin-bottom: 1.5rem;
-  }
-  .table-wrapper.expanded-view {
-    max-width: 100vw;
-    width: 100vw;
-    margin-left: -0.75rem;
-    margin-right: -0.75rem;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
   }
 }
 

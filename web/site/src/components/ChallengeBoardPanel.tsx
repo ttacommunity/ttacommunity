@@ -36,7 +36,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
   const bugged = notCounted(board.entries, verifiedOnly);
   return (
     <Panels>
-      <Panel label="Ranking" className="challenges-card">
+      <Panel label="Ranking">
         {board.ranking.length === 0 ? (
           <p className="muted">No {verifiedOnly ? 'verified ' : ''}entries yet.</p>
         ) : (
@@ -78,7 +78,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
       {board.history.length > 0 && <RecordHistory steps={board.history} day={day} />}
 
       {bugged.length > 0 && (
-        <Panel id="not-counted" title="Not counted" className="challenges-card">
+        <Panel id="not-counted" title="Not counted">
           <p className="challenges-lead">
             These were made through a game bug that has since been fixed. They stay listed, but don&apos;t count for records, ranks, ratings or totals.
           </p>
@@ -116,7 +116,7 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
       )}
 
       {board.entries.length > 0 && (
-        <Panel label="All submissions" className="challenges-card">
+        <Panel label="All submissions">
           <details className="challenges-all">
             <summary>All {board.entries.length} submissions</summary>
             <ScrollTable label="Submissions">
@@ -164,7 +164,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
   const tipLeft = active !== null && active.at.x > CHART.width - 200;
 
   return (
-    <Panel id="record-history" title="Record history" className="challenges-card">
+    <Panel id="record-history" title="Record history">
       {steps.length > 1 && (
         <svg className="challenges-chart" viewBox={`0 0 ${CHART.width} ${CHART.height}`} role="img" aria-label="The record over time; the table below lists each rise" onMouseLeave={() => setHover(null)}>
           {chart.yTicks.map((t) => (

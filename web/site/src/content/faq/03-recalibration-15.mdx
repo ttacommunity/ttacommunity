@@ -8,7 +8,7 @@ order: 3
 
 import Panel from '../../components/Panel';
 
-<Panel icon="🔬" title="Eliminating Newcomer Bleed: The 1471 vs. 1521 Population Mismatch" stripe="bronze" className="faq-card">
+<Panel icon="🔬" title="Eliminating Newcomer Bleed: The 1471 vs. 1521 Population Mismatch" stripe="bronze" holds="text">
   <p>
     In competitive board game matchmaking, few problems are more damaging than <strong>uncalibrated newcomer noise</strong>. In standard Glicko-2, every newcomer enters the rating network with a generic placeholder rating ($\mu = 1500$) and maximum rating deviation ($\mathrm{RD} = 350$).
   </p>
@@ -30,7 +30,7 @@ import Panel from '../../components/Panel';
   </p>
 </Panel>
 
-<Panel icon="⚖️" title="The Transition Month Split: Preventing Newcomer Double-Counting" stripe="bronze" className="faq-card">
+<Panel icon="⚖️" title="The Transition Month Split: Preventing Newcomer Double-Counting" stripe="bronze" holds="text">
   <p>
     Online tournaments are compiled and rated in chronological monthly batches. This creates a challenging edge case: <strong>what occurs when a newcomer completes their 15th game halfway through a month?</strong>
   </p>
@@ -58,7 +58,7 @@ $$
   </p>
 </Panel>
 
-<Panel icon="📐" title="Bayesian DAG Invariance: Why Opponent Updates Require a Calibrated Prior" stripe="bronze" className="faq-card">
+<Panel icon="📐" title="Bayesian DAG Invariance: Why Opponent Updates Require a Calibrated Prior" stripe="bronze" holds="text">
   <p>
     A frequent question is: <em>"Why do opponents calculate rating changes against a stabilized prior rather than a fluctuating provisional rating?"</em>
   </p>
@@ -75,7 +75,7 @@ $$
   </p>
 </Panel>
 
-<Panel icon="⏳" title="The Second Calibration Criterion: Historical Inactive Accounts (< 15 Games, > 1 Year Inactive)" stripe="bronze" className="faq-card">
+<Panel icon="⏳" title="The Second Calibration Criterion: Historical Inactive Accounts (< 15 Games, > 1 Year Inactive)" stripe="bronze" holds="text">
   <p>
     What happens to players who enter the competitive scene, play 5 or 8 games, and then permanently retire?
   </p>
@@ -98,7 +98,7 @@ $$
   </p>
 </Panel>
 
-<Panel icon="🔍" title="Frontend Display & The Provisional Calibration Indicator (⏳)" stripe="bronze" className="faq-card">
+<Panel icon="🔍" title="Frontend Display & The Provisional Calibration Indicator (⏳)" stripe="bronze" holds="text">
   <p>
     While the backend computational engine separates measurement from forward updates to maintain Bayesian DAG independence, the <strong>user-facing frontend operates with complete transparency</strong>:
   </p>

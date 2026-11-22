@@ -6,7 +6,7 @@ order: 14
 
 import Panel from '../../components/Panel';
 
-<Panel title="What is the ΔR shown next to each game on the player page?" className="faq-card">
+<Panel title="What is the ΔR shown next to each game on the player page?" holds="text">
   <div>
     <p>
       The &Delta;R (delta rating) shown in a player&rsquo;s game history is an <strong>estimated standalone impact</strong>. It simulates what that single match would be worth in isolation under Glicko-2 with Golden Ratio multiplayer scaling, evaluated against both players&rsquo; historical pre-month ratings entering the month of the match:
@@ -23,7 +23,7 @@ import Panel from '../../components/Panel';
   </div>
 </Panel>
 
-<Panel title="Why does ΔR differ from actual monthly rating changes?" className="faq-card">
+<Panel title="Why does ΔR differ from actual monthly rating changes?" holds="text">
   <div>
     <p>
       In competitive Through the Ages rating engines (including Glicko-D and Standard Glicko-2), ratings are <strong>never updated game-by-game</strong>. Instead, all games played in a calendar month are processed together in a single <strong>simultaneous batch update</strong>:
@@ -39,7 +39,7 @@ import Panel from '../../components/Panel';
   </div>
 </Panel>
 
-<Panel title="Illustrative Example: Batch Update vs Sum of Deltas" className="faq-card">
+<Panel title="Illustrative Example: Batch Update vs Sum of Deltas" holds="text">
   <div>
     <p>
       Suppose an established player ($R = 1800$, $\mathrm{RD} = 40$) plays 5 matches in June:

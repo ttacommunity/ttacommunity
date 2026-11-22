@@ -150,7 +150,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
         }
       />
       <Panels>
-        <Panel label="Leaderboard" className="leaderboard">
+        <Panel label="Leaderboard">
           <div className="format-bar">
             <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
             <div className="format-bar-actions">

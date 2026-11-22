@@ -100,7 +100,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
 
       {creators.length > 0 && (
         <ViewBar>
-          <div className="view-group" role="group" aria-label="Filter by creator">
+          <div className="format-bar-group" role="group" aria-label="Filter by creator">
             <span className="view-bar-label">Creator:</span>
             <button
               type="button"

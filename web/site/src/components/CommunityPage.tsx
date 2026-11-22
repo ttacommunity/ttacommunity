@@ -27,6 +27,7 @@ import Segmented from '@ttac/shared/Segmented';
 import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
 import Panel from './Panel';
+import Panels from './Panels';
 import Inset from './Inset';
 import Note from '@ttac/shared/Note';
 import PlayerLink from './PlayerLink';
@@ -71,9 +72,8 @@ function Hero({
   const info = data.info;
 
   return (
-    <>
-      <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
-      <Panel label="Leaderboard edition" className="comm-hero">
+    <Panel label="Leaderboard edition">
+      <div className="comm-edition">
         <div className="comm-maintainer">
           <Note>
             <p>
@@ -115,8 +115,8 @@ function Hero({
             tone={info.wc ? 'gold' : 'muted'}
           />
         </MetricGrid>
-      </Panel>
-    </>
+      </div>
+    </Panel>
   );
 }
 
@@ -125,7 +125,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} stripe="gold" className="explainer-card">
+      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} stripe="gold" holds="text">
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -145,7 +145,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
           </li>
         </ul>
       </Panel>
-      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" stripe="gold" className="explainer-card">
+      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" stripe="gold" holds="text">
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (
@@ -196,7 +196,7 @@ function Table({ data, view, rows, children }: { data: LeaderboardData; view: Co
   const wcName = data.info.wc;
 
   return (
-    <Panel label="Community leaderboard" className={standard ? 'table-wrapper' : 'table-wrapper expanded-view'}>
+    <Panel label="Community leaderboard" size={standard ? 'full' : 'screen'}>
       <ScrollTable label="Community leaderboard">
         <table className="leaderboard-table comm-table">
           <thead>
@@ -318,40 +318,43 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const onPage = { ...view, page, edition: data.edition };
 
   return (
-    <div className="community-page">
-      <Hero data={data} editions={state.data.editions} view={onPage} />
-      <Explainers data={data} />
-      <Controls
-        view={onPage}
-        slots={editionFacts(data).slots}
-        names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
-      />
-      <Inset form="figures" className="comm-results">
-        <div>
-          Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
-          <strong className="comm-count-total">{found.length}</strong> competitors
-          {view.search && <span className="comm-count-filter"> (filtered by &quot;{view.search}&quot;)</span>}
-        </div>
-        <div>
-          Mode:{' '}
-          <strong className="comm-mode">
-            {view.view === 'standard'
-              ? `Tournament Sums (${editionFacts(data).tournaments} Tournaments)`
-              : `All ${editionFacts(data).slots} Period Columns`}
-          </strong>
-        </div>
-      </Inset>
-      <Table data={data} view={onPage} rows={shown}>
-        {total > 1 && (
-          <Pager
-            page={page}
-            pages={total}
-            total={{ count: found.length, noun: 'competitors' }}
-            link={(p) => ({ href: href(onPage, { page: p }) })}
-            go={(p) => window.location.assign(href(onPage, { page: p }))}
-          />
-        )}
-      </Table>
-    </div>
+    <>
+      <PageHeader title="Community Standard Leaderboard" subtitle={data.info.title || data.info.name} />
+      <Panels>
+        <Hero data={data} editions={state.data.editions} view={onPage} />
+        <Explainers data={data} />
+        <Controls
+          view={onPage}
+          slots={editionFacts(data).slots}
+          names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
+        />
+        <Inset form="figures">
+          <div>
+            Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
+            <strong className="comm-count-total">{found.length}</strong> competitors
+            {view.search && <span className="comm-count-filter"> (filtered by &quot;{view.search}&quot;)</span>}
+          </div>
+          <div className="comm-results-mode">
+            Mode:{' '}
+            <strong className="comm-mode">
+              {view.view === 'standard'
+                ? `Tournament Sums (${editionFacts(data).tournaments} Tournaments)`
+                : `All ${editionFacts(data).slots} Period Columns`}
+            </strong>
+          </div>
+        </Inset>
+        <Table data={data} view={onPage} rows={shown}>
+          {total > 1 && (
+            <Pager
+              page={page}
+              pages={total}
+              total={{ count: found.length, noun: 'competitors' }}
+              link={(p) => ({ href: href(onPage, { page: p }) })}
+              go={(p) => window.location.assign(href(onPage, { page: p }))}
+            />
+          )}
+        </Table>
+      </Panels>
+    </>
   );
 }

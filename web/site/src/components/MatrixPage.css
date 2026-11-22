@@ -4,15 +4,6 @@
   color: var(--text-accent);
 }
 
-.matrix-card-note strong {
-  color: var(--text-accent);
-}
-
-.matrix-card-note {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
 .career-none {
   color: var(--text-muted);
 }

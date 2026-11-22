@@ -109,12 +109,6 @@
   font-size: 0.85rem;
 }
 
-.panel-head-count {
-  font-size: 0.85rem;
-  font-weight: normal;
-  color: var(--text-muted);
-}
-
 .badge.badge-calibration {
   padding: 0.25rem 0.6rem;
   background: var(--status-warn-tint);
@@ -149,10 +143,6 @@
   border: 1px solid var(--border-subtle);
   background: transparent;
   color: var(--text-muted);
-}
-
-.unrated-toggle-end {
-  margin-left: auto;
 }
 
 .placement-badge {
@@ -248,13 +238,6 @@
   color: inherit;
 }
 
-.rivals-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .sort-header.win,
 .sort-header.loss,
 .sort-header.draw {
@@ -319,17 +302,6 @@
   margin-bottom: 0.5rem;
 }
 
-.career-medals {
-  display: flex;
-  gap: 0.75rem;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.career-medal-gold { color: var(--medal-gold); }
-.career-medal-silver { color: var(--medal-silver); }
-.career-medal-bronze { color: var(--medal-bronze); }
-
 .career-honor-roll {
   margin-bottom: 0.6rem;
   font-size: var(--size-body);
@@ -371,12 +343,6 @@
   .h2h-toolbar {
     grid-template-columns: 1fr;
   }
-}
-
-.format-bar-group.h2h-formats {
-  gap: 0.3rem;
-  width: fit-content;
-  margin: 0;
 }
 
 .h2h-stats {

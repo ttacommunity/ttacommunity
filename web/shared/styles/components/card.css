@@ -19,6 +19,13 @@
   margin-inline: auto;
 }
 
+/* A table with more columns than the page is wide (Panel's screen size): out to the window's edges. */
+.panel-screen {
+  width: 98vw;
+  max-width: 98vw;
+  margin-inline: calc(-49vw + 50%);
+}
+
 /* A panel of commentary about the data (Panel's stripe): gold for a summary or guide, green for a finding, bronze for a deep dive. */
 .panel-stripe {
   border-left: 4px solid var(--panel-stripe-gold);
@@ -53,6 +60,74 @@
   z-index: 1;
 }
 
+/* A panel of text to read (Panel's holds="text"): paragraphs, lists, headings, formulas and code in the reading look; :where keeps a piece's own text rules ahead. */
+.panel-text :where(p, ul, ol, li),
+.panel-text > .katex {
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: var(--size-body);
+  line-height: 1.75;
+}
+.panel-text :where(p, ul, ol) {
+  margin: 0 0 0.75rem;
+}
+.panel-text :where(ul, ol) {
+  margin-left: 1.5rem;
+}
+.panel-text :where(li) {
+  margin-bottom: 0.35rem;
+}
+.panel-text :where(p:last-child) {
+  margin-bottom: 0;
+}
+.panel-text :where(h2) {
+  margin: 2rem 0 0.85rem;
+  color: var(--text-accent);
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  text-shadow: 0 2px 4px var(--shadow-deep);
+}
+.panel-text :where(h3) {
+  margin: 1.5rem 0 0.5rem;
+  color: var(--text-accent);
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+}
+.panel-text :where(h4) {
+  margin: 1.25rem 0 0.5rem;
+  color: var(--text-accent);
+  font-family: var(--font-subheading);
+  font-size: 1.05rem;
+}
+.panel-text :where(h2, h3, h4):first-child {
+  margin-top: 0;
+}
+.panel-text :where(hr) {
+  margin: 1.5rem 0;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}
+.panel-text :where(code) {
+  padding: 0.1rem 0.35rem;
+  background: var(--shadow-light);
+  border-radius: 4px;
+  font-family: var(--font-stats);
+  font-size: 0.9em;
+}
+.panel-text :where(pre) {
+  margin: 1rem 0;
+  padding: 0.95rem 1.35rem;
+  overflow-x: auto;
+  background: var(--surface-code);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.panel-text :where(pre code) {
+  padding: 0;
+  background: none;
+}
+
 /* A page's panels (Panels), one under another; the only spacing between them. */
 .panels {
   display: grid;
@@ -67,6 +142,16 @@
 @media (max-width: 768px) {
   .panel-card {
     padding: 1rem;
+  }
+  .panel-text :where(h2) {
+    font-size: 1.15rem;
+  }
+  .panel-screen {
+    width: 100vw;
+    max-width: 100vw;
+    margin-inline: -0.75rem;
+    border-radius: 0;
+    border-inline: none;
   }
 }
 

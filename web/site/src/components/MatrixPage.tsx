@@ -98,11 +98,10 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
           id="matrix-years"
           icon="📅"
           title="Year-by-Year Career Breakdown"
-          subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}
-          aside={
-            <span className="matrix-card-note">
-              Hover on <strong>ℹ️ Score Index</strong> for composite formula details
-            </span>
+          subtitle={
+            <>
+              {years.length} Seasons Recorded • Format: {formatName} • Hover on <strong>ℹ️ Score Index</strong> for composite formula details
+            </>
           }
         >
           <ScrollTable label="Career by year">

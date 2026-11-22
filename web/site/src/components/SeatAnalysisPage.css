@@ -1,10 +1,5 @@
 /* Styles for the Seat Advantage / Turn Order analysis page. */
 
-.seat-parity-note {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
 .seat-col-order {
   width: 22%;
 }

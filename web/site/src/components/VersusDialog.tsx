@@ -64,36 +64,38 @@ export default function VersusDialog({
     <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} holds="table">
       <div className="view-bar h2h-toolbar">
         <span className="view-bar-label">Match format:</span>
-        <Segmented label="Match format" groupClass="format-bar-group h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
+        <Segmented label="Match format" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
         <span className="view-bar-label">Rating track:</span>
-        <Segmented label="Rating track" groupClass="format-bar-group h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
+        <Segmented label="Rating track" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
         <span className="view-bar-label">Games:</span>
         <RatedFilter value={ratingFilter} onChange={setRatingFilter} />
       </div>
-      <Inset form="figures" className="h2h-stats">
-        {tally === null ? (
-          <span className="h2h-muted">Fetching exclusive game records...</span>
-        ) : (
-          <>
-            <div>
-              Total Mutual Games: <strong className="h2h-total">{tally.games}</strong>
-            </div>
-            <div>
-              <strong className="h2h-win">
-                {a} Wins: {tally.nameWins}
-              </strong>
-            </div>
-            <div>
-              <strong className="h2h-loss">
-                {b} Wins: {tally.otherWins}
-              </strong>
-            </div>
-            <div>
-              <strong className="h2h-draw">Draws / Splits: {tally.draws}</strong>
-            </div>
-          </>
-        )}
-      </Inset>
+      <div className="h2h-stats">
+        <Inset form="figures">
+          {tally === null ? (
+            <span className="h2h-muted">Fetching exclusive game records...</span>
+          ) : (
+            <>
+              <div>
+                Total Mutual Games: <strong className="h2h-total">{tally.games}</strong>
+              </div>
+              <div>
+                <strong className="h2h-win">
+                  {a} Wins: {tally.nameWins}
+                </strong>
+              </div>
+              <div>
+                <strong className="h2h-loss">
+                  {b} Wins: {tally.otherWins}
+                </strong>
+              </div>
+              <div>
+                <strong className="h2h-draw">Draws / Splits: {tally.draws}</strong>
+              </div>
+            </>
+          )}
+        </Inset>
+      </div>
       <div className="sheet-body">
         <Waiting load={state} what="the match records" form="inline" />
         {tally !== null && tally.games === 0 && (

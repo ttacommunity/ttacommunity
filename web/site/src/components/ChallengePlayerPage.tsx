@@ -133,7 +133,7 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
         </a>
       </p>
       <Panels>
-        <Panel label="Best on each challenge" className="challenges-card">
+        <Panel label="Best on each challenge">
           <SetGrid
             groups={groups}
             cell={(c) => {
@@ -152,7 +152,7 @@ function Results({ player: p, summary, list, set, measure }: ResultsProps) {
           />
         </Panel>
         <PlayNext player={p} list={list} measure={measure} />
-        <Panel id="latest" title="Latest submissions" className="challenges-card">
+        <Panel id="latest" title="Latest submissions">
           <ul className="challenges-latest">
             {p.recent.map((e, i) => {
               const c = list.find((x) => x.id === e.challenge);
@@ -186,7 +186,7 @@ function PlayNext({ player: p, list, measure }: { player: ChallengePlayer; list:
     );
   };
   return (
-    <Panel id="play-next" title="What to play next" className="challenges-card">
+    <Panel id="play-next" title="What to play next">
       <div className="challenges-play-next">
         {closest.length > 0 && (
           <div>

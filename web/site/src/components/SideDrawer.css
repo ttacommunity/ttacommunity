@@ -80,15 +80,10 @@
   text-transform: uppercase;
 }
 
-/* The drawer's choices fill its width; a stacked group puts one to a line. */
+/* The drawer's choices fill its width; a stacked group's buttons spread their label and note. */
 .options-panel .format-bar-group .format-btn {
   flex: 1;
   justify-content: center;
-}
-
-.format-bar-group.stacked {
-  flex-direction: column;
-  align-items: stretch;
 }
 
 .options-panel .stacked .format-btn {

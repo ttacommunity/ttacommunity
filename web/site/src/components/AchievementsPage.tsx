@@ -241,14 +241,15 @@ function Records({ records }: { records: TournamentRecord[] }) {
         onChange={handleTabChange}
       />
 
-      <Segmented
-        label="Tournament category"
-        look="filter"
-        groupClass="year-pills ach-category-filters"
-        options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
-        value={category}
-        onChange={handleCategoryChange}
-      />
+      <div className="ach-category-filters">
+        <Segmented
+          label="Tournament category"
+          look="filter"
+          options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+          value={category}
+          onChange={handleCategoryChange}
+        />
+      </div>
 
       {tab === 'seasons' ? (
         selectedTournament === null ? (
@@ -432,19 +433,20 @@ function Records({ records }: { records: TournamentRecord[] }) {
         )
       ) : (
         <div>
-          <Segmented
-            label="Career highlights view"
-            look="tabs"
-            groupClass="ach-tabs ach-sub-tabs"
-            options={[
-              { value: 'medals', label: `🥇 Major Medals (${activeMedals.length})` },
-              { value: 'promotions', label: `🚀 Promotions & Group Wins (${activePromotions.length})` },
-              { value: 'best', label: `⭐ Best per Tournament (${activeBest.length})` },
-              { value: 'hof', label: `📜 All-Time Career Totals (${activeHof.length})` },
-            ]}
-            value={highlightMode}
-            onChange={setHighlightMode}
-          />
+          <div className="ach-sub-tabs">
+            <Segmented
+              label="Career highlights view"
+              look="tabs"
+              options={[
+                { value: 'medals', label: `🥇 Major Medals (${activeMedals.length})` },
+                { value: 'promotions', label: `🚀 Promotions & Group Wins (${activePromotions.length})` },
+                { value: 'best', label: `⭐ Best per Tournament (${activeBest.length})` },
+                { value: 'hof', label: `📜 All-Time Career Totals (${activeHof.length})` },
+              ]}
+              value={highlightMode}
+              onChange={setHighlightMode}
+            />
+          </div>
 
           <ScrollTable label="Highlights">
             {highlightMode === 'hof' ? (

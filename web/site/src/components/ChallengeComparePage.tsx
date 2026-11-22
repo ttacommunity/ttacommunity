@@ -131,7 +131,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
         </MetricGrid>
       </div>
       <Panels>
-        <Panel label="Totals" className="challenges-card">
+        <Panel label="Totals">
           <ScrollTable label="Totals">
             <table className="leaderboard-table">
               <caption className="visually-hidden">The two players' totals, by set and all together</caption>
@@ -186,7 +186,7 @@ function Comparison({ a, b, sideA, sideB, list, set, measure }: Props) {
             </table>
           </ScrollTable>
         </Panel>
-        <Panel id="per-challenge" title="Per challenge" className="challenges-card">
+        <Panel id="per-challenge" title="Per challenge">
           <SetGrid
             groups={groups}
             cell={(c) => {

@@ -35,7 +35,6 @@ export default function ViewSelectors({
         <FormatPick value={format} link={linkFormat} what="rating and history" />
         <Segmented
           label="Reset mode"
-          groupClass="view-group view-group-reset"
           prefix={<span className="view-bar-label">Reset Mode:</span>}
           options={show.RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
           value={reset}
@@ -46,7 +45,6 @@ export default function ViewSelectors({
         <ViewBar>
           <Segmented
             label="Rating track"
-            groupClass="view-group"
             prefix={<span className="view-bar-label">Track:</span>}
             options={TRACKS.map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }))}
             value={ranking}
