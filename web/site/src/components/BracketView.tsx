@@ -24,6 +24,8 @@ import {
   treeReach,
   type BracketView as View,
   type ViewRound,
+  thirdPlaceSeat,
+  thirdInTree,
 } from '../lib/bracket';
 import { editionHref } from '@ttac/shared/blitz';
 import PlayerSearch from './PlayerSearch';
@@ -88,6 +90,9 @@ export default function BracketView({
       : 'Tap a round for its results, or two rounds for the bracket between them.';
   const listed = tree === null ? rounds.slice(view.first, view.last + 1).map((x, k) => ({ x, r: view.first + k })) : [];
   const phone = rounds[view.last];
+  const thirdPlace = load.kind === 'ready' ? (load.data.third_place ?? null) : null;
+  const withFinal = view.last === rounds.length - 1;
+  const thirdInDrawn = thirdPlace !== null && thirdInTree(rounds, tree, kept);
   return (
     <Panel id="bracket" title="Bracket" aside={<SeasonPick id="bracket-season" seasons={played} value={season} word={seasonWord} onChange={onSeason} />}>
       {load.kind !== 'ready' && <Waiting load={load} what="the bracket" />}
@@ -138,8 +143,8 @@ export default function BracketView({
               <Segmented label="Show the round" options={VIEW_OPTIONS} value={single} onChange={setSingle} />
             </div>
           )}
-          {entrant !== null && <PlayerRoad rounds={rounds} entrant={entrant} onClose={() => setEntrant(null)} />}
-          {tree !== null && <BracketTree rounds={rounds} start={tree.start} end={tree.end} joined={tree.joined} kept={kept} q={q} onPlayer={setEntrant} />}
+          {entrant !== null && <PlayerRoad rounds={rounds} thirdPlace={thirdPlace} entrant={entrant} onClose={() => setEntrant(null)} />}
+          {tree !== null && <BracketTree rounds={rounds} start={tree.start} end={tree.end} joined={tree.joined} kept={kept} third={thirdInDrawn ? thirdPlace : null} q={q} onPlayer={setEntrant} />}
           {listed.map(({ x, r }) => (
             <div key={x.name} className="bracket-wide-only">
               {listed.length > 1 && <h3 className="bracket-list-head">{x.name}</h3>}
@@ -155,6 +160,11 @@ export default function BracketView({
               <GroupCard key={g.number} rounds={rounds} r={view.last} group={g} q={q} onPlayer={setEntrant} />
             ))}
           </div>
+          {withFinal && thirdPlace !== null && (
+            <div className={thirdInDrawn ? 'bracket-list bracket-list-narrow' : 'bracket-list'}>
+              <GroupCard rounds={rounds} r={view.last} group={thirdPlace} q={q} onPlayer={setEntrant} third />
+            </div>
+          )}
         </>
       )}
     </Panel>
@@ -162,13 +172,15 @@ export default function BracketView({
 }
 
 /** BracketTree lays the rounds from start to end out side by side as a tree, each joined round's pairs of groups joined
- * to the group they feed, fitted to the screen until zoomed in or out. */
+ * to the group they feed, and any third-place match under the final, fed by dashed lines from the semi-finals' losers;
+ * fitted to the screen until zoomed in or out. */
 function BracketTree({
   rounds,
   start,
   end,
   joined,
   kept,
+  third,
   q,
   onPlayer,
 }: {
@@ -177,6 +189,7 @@ function BracketTree({
   end: number;
   joined: boolean[];
   kept: Set<string> | null;
+  third: BracketGroup | null;
   q: string;
   onPlayer: (entrant: number) => void;
 }) {
@@ -262,13 +275,48 @@ function BracketTree({
       }
     });
   });
+  // The third-place lines run between cards in different columns, so they are placed by measuring them, unzoomed.
+  const drawThird = () => {
+    const t = tree.current;
+    const lines = t?.querySelector<HTMLElement>('.bracket-third-lines');
+    if (t === null || t === undefined || lines === null || lines === undefined) return;
+    const z = Number(t.style.zoom) || 1;
+    const o = t.getBoundingClientRect();
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { left: (r.left - o.left) / z, right: (r.right - o.left) / z, mid: ((r.top + r.bottom) / 2 - o.top) / z };
+    };
+    const cols = t.querySelectorAll('.bracket-col');
+    const outs = [...(cols[cols.length - 2]?.querySelectorAll('.bracket-seat-out') ?? [])].map(box);
+    const card = t.querySelector('.bracket-third .bracket-card');
+    const [bar, ...stubs] = [...lines.children] as HTMLElement[];
+    if (card === null || bar === undefined || outs.length === 0) return;
+    const to = box(card);
+    const x = Math.max(...outs.map((s) => s.right)) + 10;
+    const top = Math.min(...outs.map((s) => s.mid));
+    Object.assign(bar.style, { left: `${x}px`, top: `${top}px`, width: `${to.left - x}px`, height: `${to.mid - top}px` });
+    stubs.forEach((stub, k) => {
+      const s = outs[k];
+      stub.hidden = s === undefined;
+      if (s !== undefined) Object.assign(stub.style, { left: `${s.right}px`, top: `${s.mid}px`, width: `${x - s.right}px` });
+    });
+  };
+  useLayoutEffect(drawThird);
+  useEffect(() => {
+    const t = tree.current;
+    if (t === null || third === null) return;
+    const watch = new ResizeObserver(drawThird);
+    watch.observe(t);
+    return () => watch.disconnect();
+  });
   const card = (i: number, g: BracketGroup) => <GroupCard rounds={rounds} r={i} group={g} q={q} onPlayer={onPlayer} titled />;
+  const rows = squashed?.rows ?? grid.rows;
   const columns = grid.columns.map((c, k) => {
     const i = start + k;
     const x = rounds[i];
     if (x === undefined) return null;
     return (
-      <section key={x.name} className="bracket-col" aria-label={x.name} data-span={(squashed?.rows ?? grid.rows) + 1}>
+      <section key={x.name} className="bracket-col" aria-label={x.name} data-span={rows + 1 + (third === null ? 0 : 2)}>
         <h3 className="bracket-col-head">{x.name}</h3>
         {squashed === null
           ? c.items.map((item, j) => (
@@ -294,6 +342,12 @@ function BracketTree({
                 </div>
               );
             })}
+        {third !== null && i === end && (
+          <div className="bracket-third" data-rows={`${rows + 2} / span 2`}>
+            <h3 className="bracket-col-head">Third place</h3>
+            <GroupCard rounds={rounds} r={i} group={third} q={q} onPlayer={onPlayer} third />
+          </div>
+        )}
       </section>
     );
   });
@@ -320,16 +374,23 @@ function BracketTree({
       </div>
       <div className="bracket-tree" ref={tree}>
         {columns}
+        {third !== null && (
+          <div className="bracket-third-lines" aria-hidden="true">
+            <span className="bracket-third-bar" />
+            <span className="bracket-third-stub" />
+            <span className="bracket-third-stub" />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/** GroupCard is one group: its players best first, who went through and where to, each name opening their road. */
-function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: ViewRound[]; r: number; group: BracketGroup; q: string; onPlayer: (entrant: number) => void; titled?: boolean }) {
+/** GroupCard is one group, or with third a blitz knockout's third-place match: its players best first, who went through and where to, each name opening their road. */
+function GroupCard({ rounds, r, group, q, onPlayer, titled = false, third = false }: { rounds: ViewRound[]; r: number; group: BracketGroup; q: string; onPlayer: (entrant: number) => void; titled?: boolean; third?: boolean }) {
   const x = rounds[r];
   if (x === undefined) return null;
-  const title = groupLabel(rounds, r, group, titled);
+  const title = third ? 'Third-place match' : groupLabel(rounds, r, group, titled);
   const state = x.unit === 'Seed' ? 'Qualified' : group.seats.length === 0 ? 'To come' : group.state === 'played' ? 'Finished' : group.state === 'running' ? 'Being played' : 'To play';
   const want = q.trim().toLowerCase();
   return (
@@ -341,7 +402,7 @@ function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: 
       {group.seats.length === 0 && <p className="bracket-card-empty">Players to come</p>}
       <ol className="bracket-seats">
         {group.seats.map((s) => {
-          const v = seatView(rounds, r, group, s);
+          const v = third ? thirdPlaceSeat(group, s) : seatView(rounds, r, group, s);
           const hit = want !== '' && s.name.toLowerCase().includes(want);
           return (
             <li key={s.entrant} className={['bracket-seat', v.through ? 'bracket-seat-through' : '', v.out ? 'bracket-seat-out' : '', hit ? 'bracket-seat-hit' : ''].join(' ')}>
@@ -359,8 +420,8 @@ function GroupCard({ rounds, r, group, q, onPlayer, titled = false }: { rounds: 
 }
 
 /** PlayerRoad follows one player through the bracket: each of their groups, then where those sit among every group. */
-function PlayerRoad({ rounds, entrant, onClose }: { rounds: ViewRound[]; entrant: number; onClose: () => void }) {
-  const steps = road(rounds, entrant);
+function PlayerRoad({ rounds, thirdPlace, entrant, onClose }: { rounds: ViewRound[]; thirdPlace: BracketGroup | null; entrant: number; onClose: () => void }) {
+  const steps = road(rounds, entrant, thirdPlace);
   const map = bracketMap(rounds, entrant);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, gamesCount, gamesNote, pointsNote, resultsLabel, offsetMinutes, formatLabel, knockoutStage, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
+import { EDITION_COLUMNS, ENTRANT_COLUMNS, STANDING_COLUMNS, TIE_BREAKS, drawLabel, fixedByLabel, gamesCount, gamesNote, pointsNote, resultsLabel, offsetMinutes, formatLabel, knockoutStage, matchTitle, needsOrder, offsetLabel, methodText, pairingSummary, ranksFixedBy, roundLine, startLabel, pointsList, pointsText, reachedLabel, resultSummary, resultTag, roundShown, roundSummary, roundTitle, scoringLine, scoringSentence, seededName, turnMark, turnOrder, zoneLabel, type BlitzPlayedGame } from './blitz';
 import { sortRows } from './sort';
 import { bestOfScore, editionHref, editionParams } from './blitz';
 
@@ -100,11 +100,24 @@ describe('zoneLabel', () => {
 
 describe('formatLabel', () => {
   it.each([
-    [{ swiss_rounds: 8, knockout_size: 8 }, '8 Swiss rounds, then a top-8 knockout'],
-    [{ swiss_rounds: 1, knockout_size: 4 }, '1 Swiss round, then a top-4 knockout'],
-    [{ swiss_rounds: 6, knockout_size: 0 }, '6 Swiss rounds, no knockout'],
+    [{ swiss_rounds: 8, knockout_size: 8, third_place: false }, '8 Swiss rounds, then a top-8 knockout'],
+    [{ swiss_rounds: 1, knockout_size: 4, third_place: false }, '1 Swiss round, then a top-4 knockout'],
+    [{ swiss_rounds: 6, knockout_size: 4, third_place: true }, '6 Swiss rounds, then a top-4 knockout with a third-place match'],
+    [{ swiss_rounds: 6, knockout_size: 2, third_place: true }, '6 Swiss rounds, then a top-2 knockout'],
+    [{ swiss_rounds: 6, knockout_size: 0, third_place: false }, '6 Swiss rounds, no knockout'],
   ])('describes %o', (format, want) => {
     expect(formatLabel(format)).toBe(want);
+  });
+});
+
+describe('matchTitle', () => {
+  const format = { swiss_rounds: 6, knockout_size: 4, third_place: true };
+  it.each([
+    ['a Swiss match', 3, false, 'Round 3'],
+    ['the final', 8, false, 'Round 8 · Final'],
+    ['the third-place match', 8, true, 'Round 8 · Third-place match'],
+  ])('names %s', (_, round, thirdPlace, want) => {
+    expect(matchTitle(round, format, { third_place: thirdPlace })).toBe(want);
   });
 });
 

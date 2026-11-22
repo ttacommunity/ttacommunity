@@ -118,10 +118,16 @@ export function roundShown(round: number, newest: number, toggled: ReadonlySet<n
   return (round === newest) !== toggled.has(round);
 }
 
-/** formatLabel describes an edition's format in words. */
+/** formatLabel describes an edition's format in words, its third-place match only where the knockout has semi-finals. */
 export function formatLabel(f: BlitzFormat): string {
   const swiss = `${f.swiss_rounds} Swiss round${f.swiss_rounds === 1 ? '' : 's'}`;
-  return f.knockout_size === 0 ? `${swiss}, no knockout` : `${swiss}, then a top-${f.knockout_size} knockout`;
+  if (f.knockout_size === 0) return `${swiss}, no knockout`;
+  return `${swiss}, then a top-${f.knockout_size} knockout${hasThirdPlace(f) ? ' with a third-place match' : ''}`;
+}
+
+/** hasThirdPlace says whether a format's knockout ends with a third-place match: set, and of 4 players or more. */
+export function hasThirdPlace(f: BlitzFormat): boolean {
+  return f.third_place && f.knockout_size >= 4;
 }
 
 export type PairingMethod = components['schemas']['BlitzPairingMethod'];
@@ -259,6 +265,11 @@ export function knockoutStage(round: number, f: BlitzFormat): string | null {
 export function roundTitle(round: number, f: BlitzFormat): string {
   const stage = knockoutStage(round, f);
   return stage === null ? `Round ${round}` : `Round ${round} · ${stage}`;
+}
+
+/** matchTitle names the round a match is in, as roundTitle does, the third-place match by its own stage: "Round 8 · Third-place match". */
+export function matchTitle(round: number, f: BlitzFormat, m: { third_place: boolean }): string {
+  return m.third_place ? `Round ${round} · Third-place match` : roundTitle(round, f);
 }
 
 /** seededName writes a knockout player with their seed, as "(1) Ann", or the name alone without one. */

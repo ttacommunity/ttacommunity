@@ -11,7 +11,7 @@ import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
-import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
+import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, formatLocks, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
 import { deadlineForm, deadlineLabel, deadlineLocked, organiserChoices, publishWarning, threadTextSavable, threadsBlocker, threadsFileName, type DeadlineForm, type ThreadText } from '../lib/blitz-deadlines';
 import { entrantToAdd, wildcardChoices, type PersonChoice, type PersonDetails } from '../lib/person-form';
@@ -562,7 +562,10 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
                     {sortedOf(r).map(({ m, i }) => (
                       <Fragment key={m.id === 0 ? `new-${i}` : m.id}>
                         <tr className={m.repeat ? 'row-error' : ''}>
-                          <th scope="row">{seededName(nameOf(m.a), m.a_seed)}</th>
+                          <th scope="row">
+                            {seededName(nameOf(m.a), m.a_seed)}
+                            {m.third_place && <span className="row-detail">third-place match</span>}
+                          </th>
                           <td>{ratingOf(m.a)}</td>
                           <td>{m.b === null ? <em>bye</em> : seededName(nameOf(m.b), m.b_seed)}</td>
                           <td>{m.b === null ? '' : ratingOf(m.b)}</td>
@@ -1324,10 +1327,11 @@ function PairingPanel({ at, ed, onReload, outcome, say }: Props) {
   );
 }
 
-/** FormatPanel sets the edition's Swiss rounds and knockout size. */
+/** FormatPanel sets the edition's Swiss rounds and knockout size until the knockout starts, and its third-place match until the final is paired. */
 function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
   const [format, setFormat] = useState(ed.format);
-  const locked = ed.rounds.some((r) => r.kind === 'knockout');
+  const locks = formatLocks(ed);
+  const locked = locks.rounds;
   const advice = formatAdvice(format, ed.entrants.filter((e) => e.status === 'active').length);
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -1337,7 +1341,11 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
   };
   return (
     <>
-      {locked && <p className="muted">The knockout has started: the format no longer changes.</p>}
+      {locked && (
+        <p className="muted">
+          {locks.thirdPlace ? 'The final is paired: the format no longer changes.' : 'The knockout has started: only the third-place match can still change, until the final is paired.'}
+        </p>
+      )}
       <form className="admin-add" onSubmit={(e) => void save(e)}>
         <label>
           Swiss rounds
@@ -1347,12 +1355,13 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
             min={1}
             max={30}
             value={format.swiss_rounds}
+            disabled={locked}
             onChange={(e) => setFormat({ ...format, swiss_rounds: Number(e.target.value) })}
           />
         </label>
         <label>
           Knockout
-          <select className="input-antique" value={format.knockout_size} onChange={(e) => setFormat({ ...format, knockout_size: Number(e.target.value) })}>
+          <select className="input-antique" value={format.knockout_size} disabled={locked} onChange={(e) => setFormat({ ...format, knockout_size: Number(e.target.value) })}>
             {KNOCKOUTS.map((n) => (
               <option key={n} value={n}>
                 {n === 0 ? 'none' : `top ${n}`}
@@ -1360,7 +1369,16 @@ function FormatPanel({ at, ed, onReload, outcome, say }: Props) {
             ))}
           </select>
         </label>
-        <button type="submit" className="btn-antique" disabled={locked}>
+        <label className="check-inline" title="The semi-finals' losers play for third, beside the final">
+          <input
+            type="checkbox"
+            checked={format.third_place}
+            disabled={locks.thirdPlace || format.knockout_size < 4}
+            onChange={(e) => setFormat({ ...format, third_place: e.target.checked })}
+          />
+          <span>Third-place match</span>
+        </label>
+        <button type="submit" className="btn-antique" disabled={locks.thirdPlace}>
           Save
         </button>
       </form>

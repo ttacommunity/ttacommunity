@@ -40,11 +40,11 @@ describe('editionViews', () => {
 type Round = components['schemas']['BlitzRound'];
 type Match = components['schemas']['BlitzPublicMatch'];
 
-const format = { swiss_rounds: 8, knockout_size: 8 };
+const format = { swiss_rounds: 8, knockout_size: 8, third_place: false };
 type Played = Match['games'][number]['game'];
 /** match is a one-game match; a game given becomes its game 1, its result the match's. */
 const match = (a: string, b: string | null, { game, ...extra }: Partial<Match> & { game?: Played } = {}): Match => ({
-  a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, result: null, ruled: false, best_of: 1,
+  a, a_rating: null, a_seed: null, b, b_rating: null, b_seed: null, third_place: false, result: null, ruled: false, best_of: 1,
   games: game === undefined ? [] : [{ number: 1, result: extra.result === 'b' ? 'b' : 'a', game }],
   ...extra,
 });
@@ -174,9 +174,14 @@ describe('blitzGames', () => {
     const got = blitzGames(many, format, { ...all, page: 2 }, 'UTC');
     expect([got.rows.length, got.page, got.pages]).toEqual([10, 2, 2]);
   });
+  it('names the third-place match by its stage, beside the final', () => {
+    const top4 = { swiss_rounds: 8, knockout_size: 4, third_place: true };
+    const final = { number: 10, kind: 'knockout' as const, method: null, pairing_order: null, published_at: '2026-12-01T12:00:00Z', matches: [match('Ann', 'Cy'), match('Bob', 'Dee', { third_place: true })], skipped: [], best_of: 1 };
+    expect(blitzGames([final], top4, all, 'UTC').rows.map((r) => r.context)).toEqual(['Round 10 · Final', 'Round 10 · Third-place match']);
+  });
   it('names knockout players with their seeds', () => {
     const final = { number: 9, kind: 'knockout' as const, method: null, pairing_order: null, published_at: '2026-12-01T12:00:00Z', matches: [match('Ann', 'Cy', { a_seed: 1, b_seed: 2 })], skipped: [], best_of: 1 };
-    expect(blitzGames([final], { swiss_rounds: 8, knockout_size: 2 }, all, 'UTC').rows[0].seats.map((s) => s.label)).toEqual(['(1) Ann', '(2) Cy']);
+    expect(blitzGames([final], { swiss_rounds: 8, knockout_size: 2, third_place: false }, all, 'UTC').rows[0].seats.map((s) => s.label)).toEqual(['(1) Ann', '(2) Cy']);
   });
 });
 
@@ -235,7 +240,7 @@ describe('pairingNotes', () => {
     pairing: { first, later, first_order: firstOrder, later_order: laterOrder },
     ranks_fixed_by: fixedBy,
     points: { bye },
-    format: { swiss_rounds: swiss, knockout_size: 8 },
+    format: { swiss_rounds: swiss, knockout_size: 8, third_place: false },
   });
   it.each([
     ['round 1 in its own words, then the later rounds', ed('dutch', 'dutch', 'lot', 'lot'), [['Round 1', 'dutch', 'first', 'lot'], ['Later rounds', 'dutch', 'later', 'lot']]],

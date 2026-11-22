@@ -22,6 +22,13 @@ export function formatAdvice(format: { swiss_rounds: number; knockout_size: numb
   return { limit, warnings };
 }
 
+/** formatLocks says which of an edition's format is fixed: its rounds once the knockout has a round, its third-place match once the final round is paired. */
+export function formatLocks(ed: { format: { swiss_rounds: number; knockout_size: number }; rounds: readonly { number: number; kind: string }[] }): { rounds: boolean; thirdPlace: boolean } {
+  const final = ed.format.swiss_rounds + Math.log2(Math.max(1, ed.format.knockout_size));
+  const knockout = ed.rounds.filter((r) => r.kind === 'knockout');
+  return { rounds: knockout.length > 0, thirdPlace: knockout.some((r) => r.number >= final) };
+}
+
 /** editionFormatWarnings are formatAdvice's warnings for an edition's saved format and active entrants, shown with its settings summed up: none once the knockout has started, when the format no longer changes. */
 export function editionFormatWarnings(ed: { format: { swiss_rounds: number; knockout_size: number }; entrants: readonly { status: string }[]; rounds: readonly { kind: string }[] }): string[] {
   if (ed.rounds.some((r) => r.kind === 'knockout')) return [];
@@ -53,7 +60,7 @@ export function pointsFrom(f: PointsForm): BlitzPoints {
 
 /** settingsRows sums up an edition's settings while they are not being edited: format, points, pairing, organisers and thread text, in that order. */
 export function settingsRows(ed: {
-  format: { swiss_rounds: number; knockout_size: number };
+  format: { swiss_rounds: number; knockout_size: number; third_place: boolean };
   points: BlitzPoints;
   fide_points: boolean;
   pairing: PairingMethods;

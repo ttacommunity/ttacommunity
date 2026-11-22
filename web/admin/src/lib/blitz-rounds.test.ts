@@ -22,6 +22,7 @@ const match = (id: number, a: number, b: number | null, result: 'a' | 'b' | 'dra
   slot: null,
   a_seed: null,
   b_seed: null,
+  third_place: false,
   zone_gap_minutes: 0,
   rating_gap: null,
   repeat: false,
@@ -63,7 +64,7 @@ describe('canPair', () => {
 
 describe('unsavedMatch and samePairs', () => {
   it('makes a match with no id, no gaps and no result', () => {
-    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, ruling: '', decided_at: null, best_of: 1, proposed_by: null, games: [] });
+    expect(unsavedMatch(1, 2)).toEqual({ id: 0, a: 1, b: 2, slot: null, a_seed: null, b_seed: null, third_place: false, zone_gap_minutes: 0, rating_gap: null, repeat: false, result: null, ruling: '', decided_at: null, best_of: 1, proposed_by: null, games: [] });
     expect(unsavedMatch(3, null).b).toBe(null);
   });
   it.each([
