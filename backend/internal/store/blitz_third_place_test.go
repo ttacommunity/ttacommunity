@@ -81,39 +81,56 @@ func TestTheThirdPlaceMatchCanBeSetUntilTheFinalIsPaired(t *testing.T) {
 	}
 }
 
-func TestTheChampionIsTheFinalsWinnerBesideAThirdPlaceMatch(t *testing.T) {
-	a, reader, ids := blitzWithEntrants(t)
-	ctx := context.Background()
-	semiFinalsPlayed(t, a, ids)
-	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
-	third := ko(dee, bob, 1, 4, 3)
-	third.ThirdPlace = true
-	final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 3, Matches: []BlitzMatch{ko(ann, cy, 0, 1, 2), third}})
-	if err != nil {
-		t.Fatalf("AddBlitzRound(final): %v", err)
+func TestTheChampionWaitsForTheThirdPlaceMatch(t *testing.T) {
+	tests := []struct {
+		name    string
+		decided []int
+		want    string
+	}{
+		{"only the third-place match decided", []int{1}, ""},
+		{"only the final decided", []int{0}, ""},
+		{"both decided: the final's winner", []int{0, 1}, "Cy"},
 	}
-	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
-		t.Fatalf("PublishBlitzRound(final): %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, reader, ids := blitzWithEntrants(t)
+			ctx := context.Background()
+			semiFinalsPlayed(t, a, ids)
+			ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
+			third := ko(dee, bob, 1, 4, 3)
+			third.ThirdPlace = true
+			final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 3, Matches: []BlitzMatch{ko(ann, cy, 0, 1, 2), third}})
+			if err != nil {
+				t.Fatalf("AddBlitzRound(final): %v", err)
+			}
+			if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
+				t.Fatalf("PublishBlitzRound(final): %v", err)
+			}
+			for _, i := range tt.decided {
+				if err := a.RecordBlitzRuling(ctx, "us_open", "2026", final.Matches[i].ID, "b", "ruled"); err != nil {
+					t.Fatalf("RecordBlitzRuling(match %d): %v", i, err)
+				}
+			}
+			ed, err := reader.BlitzEdition(ctx, "us_open", "2026")
+			if err != nil {
+				t.Fatalf("BlitzEdition: %v", err)
+			}
+			if got := nameOr(ed.Champion); got != tt.want {
+				t.Errorf("the champion = %q, want %q", got, tt.want)
+			}
+			if got := ed.Rounds[2].Matches; len(got) != 2 || got[0].ThirdPlace || !got[1].ThirdPlace {
+				t.Errorf("the final round's matches = %+v, want the final and then the third-place match", got)
+			}
+		})
 	}
-	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", final.Matches[1].ID, "b", "ruled"); err != nil {
-		t.Fatalf("RecordBlitzRuling(third place): %v", err)
+}
+
+// nameOr is what s points to, or "" for nil.
+func nameOr(s *string) string {
+	if s == nil {
+		return ""
 	}
-	if ed, err := reader.BlitzEdition(ctx, "us_open", "2026"); err != nil || ed.Champion != nil {
-		t.Errorf("the champion with only the third-place match decided = %v, %v; want none", ed.Champion, err)
-	}
-	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", final.Matches[0].ID, "b", "ruled"); err != nil {
-		t.Fatalf("RecordBlitzRuling(final): %v", err)
-	}
-	ed, err := reader.BlitzEdition(ctx, "us_open", "2026")
-	if err != nil {
-		t.Fatalf("BlitzEdition: %v", err)
-	}
-	if ed.Champion == nil || *ed.Champion != "Cy" {
-		t.Errorf("the champion = %v, want Cy, the final's winner", ed.Champion)
-	}
-	if got := ed.Rounds[2].Matches; len(got) != 2 || got[0].ThirdPlace || !got[1].ThirdPlace {
-		t.Errorf("the final round's matches = %+v, want the final and then the third-place match", got)
-	}
+	return *s
 }
 
 func TestMigration104sDownRefusesAThirdPlaceMatch(t *testing.T) {

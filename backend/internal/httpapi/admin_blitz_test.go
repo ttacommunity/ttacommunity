@@ -77,10 +77,14 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 	return row
 }
 
-// finalWinner is the winner of a published knockout round of one match beside any third-place match, the final.
+// finalWinner is the winner of a published knockout round of one match beside any third-place match, the final,
+// once any third-place match has a winner too.
 func finalWinner(r store.BlitzRound) (int64, bool) {
 	matches := slices.DeleteFunc(slices.Clone(r.Matches), func(m store.BlitzMatch) bool { return m.ThirdPlace })
 	if r.Kind != "knockout" || r.PublishedAt == nil || len(matches) != 1 || matches[0].B == nil {
+		return 0, false
+	}
+	if slices.ContainsFunc(r.Matches, func(m store.BlitzMatch) bool { return m.ThirdPlace && m.Result != "a" && m.Result != "b" }) {
 		return 0, false
 	}
 	switch m := matches[0]; m.Result {

@@ -136,12 +136,13 @@ func (e *BlitzEntrantExistsError) Error() string {
 var blitzStatuses = []string{"active", "dropped"}
 
 // blitzChampionOf is the username of the winner of edition t's published final, the knockout round with one
-// match beside any third-place match, or null while it has none.
+// match beside any third-place match, or null until both have a winner.
 const blitzChampionOf = `(SELECT mm.tta_name FROM blitz_rounds r JOIN blitz_matches m ON m.round_id = r.round_id
 	JOIN blitz_entries x ON x.entry_id = CASE m.result WHEN 'a' THEN m.entry_a ELSE m.entry_b END
 	JOIN members mm ON mm.member_id = x.member_id
 	WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL AND m.result IN ('a', 'b') AND NOT m.third_place
-	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.match_id <> m.match_id AND NOT o.third_place))`
+	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.match_id <> m.match_id AND NOT o.third_place)
+	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.third_place AND o.result IS DISTINCT FROM 'a' AND o.result IS DISTINCT FROM 'b'))`
 
 // blitzChampion returns the edition's champion, nil while its final has no winner.
 func blitzChampion(ctx context.Context, tx pgx.Tx, edID int64) (*string, error) {
