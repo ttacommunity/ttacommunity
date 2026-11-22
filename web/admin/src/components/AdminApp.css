@@ -75,15 +75,7 @@
   margin-top: 0.2rem;
 }
 .regulations-text {
-  box-sizing: border-box;
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  background: var(--bg-dark);
-  color: var(--text-main);
-  font: inherit;
-  line-height: 1.4;
 }
 .season-notes h3 {
   margin: 0;
@@ -108,18 +100,12 @@
   color: var(--text-accent-bright);
 }
 .note-box textarea {
-  box-sizing: border-box;
   width: 100%;
-  font-family: var(--font-body);
 }
 .note-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-.note-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 .note-status {
   color: var(--text-muted);
@@ -231,17 +217,6 @@
 .run-stop {
   margin-top: 0.5rem;
 }
-.podium-box {
-  min-width: 0;
-  margin: 0.5rem 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-.podium-box legend {
-  color: var(--text-soft);
-  font-size: 0.85rem;
-}
 .podium-places {
   display: flex;
   flex-wrap: wrap;
@@ -308,11 +283,6 @@
   color: var(--text-soft);
   font-size: 0.85rem;
 }
-.card-fields input,
-.card-fields textarea {
-  box-sizing: border-box;
-  font: inherit;
-}
 .card-fields #card-icon {
   width: 5rem;
 }
@@ -321,17 +291,6 @@
 }
 .card-fields .card-summary {
   flex: 1 1 100%;
-}
-.story-box {
-  min-width: 0;
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-.story-box legend {
-  color: var(--text-soft);
-  font-size: 0.85rem;
 }
 .setting-counts {
   display: flex;
@@ -348,18 +307,45 @@
   color: var(--text-soft);
   font-size: 0.9rem;
 }
-.check-kinds {
+/* A group of related fields (FieldGroup): the box's place, and its legend as the group's title. */
+.field-group {
+  margin: 0.75rem 0 1rem;
+}
+.field-group-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.field-group-title {
+  margin-bottom: 0.5rem;
+  padding: 0;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+/* A list's "Show" filter (ShowFilter): its word beside the toggle group. */
+.show-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.25rem;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0.75rem 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
-.check-kinds legend {
-  padding: 0 0.3rem;
-  color: var(--text-muted);
+.show-filter-label {
+  color: var(--text-soft);
+}
+/* Fields in a row (a sheet section's, a field group's): checkboxes side by side, and a field's label above the field, as on admin's pages. */
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1.25rem;
+}
+.field-row label:has(> .input-antique) {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
 }
 .feed-group {
   display: grid;
@@ -545,54 +531,13 @@
 .pick-box {
   position: relative;
 }
-.pick-options {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 1000;
-  min-width: 100%;
-  width: max-content;
-  max-width: min(26rem, calc(100vw - 2rem));
-  max-height: 20rem;
-  padding: 4px 0;
-  overflow-y: auto;
-  background: var(--surface-well);
-  border: 1.5px solid var(--edge-accent);
-  border-radius: 6px;
-  box-shadow: 0 10px 30px var(--shadow-deep);
-  font-family: var(--font-stats);
-}
-.pick-option {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.45rem 0.75rem;
-  color: var(--text-main);
-  cursor: pointer;
-}
-.pick-option.active {
-  background: var(--accent-wash);
-}
-.pick-option[aria-disabled='true'] {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-.pick-detail {
-  color: var(--text-muted);
-  white-space: nowrap;
-}
 .pick-note {
   align-self: center;
 }
 /* In a table row the list opens in the row, since the table's scroller would cut it off. */
-.admin-table .pick-options {
+.admin-table .suggestions {
   position: static;
   margin-top: 4px;
-}
-/* A field that cannot be used now looks it (a button does through the shared button CSS). */
-.admin-main .input-antique:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 /* A note on when to use a control (InfoTip): an ⓘ beside it, the note (the tooltip's box) opening under the row it is in. */
 .admin-add {
@@ -777,10 +722,6 @@
 .multi-pick {
   position: relative;
 }
-.movies-filter-bar .input-antique {
-  box-sizing: border-box;
-  height: 2.5rem;
-}
 .multi-pick > summary {
   display: flex;
   align-items: center;
@@ -792,20 +733,13 @@
   content: "▾";
   margin-left: 0.4rem;
 }
+/* A multi-pick's list: the shared list's frame, its checkboxes in a column. */
 .multi-pick-options {
-  position: absolute;
-  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  min-width: 100%;
-  max-height: 18rem;
-  overflow-y: auto;
-  margin: 0.25rem 0 0;
+  margin: 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-sheet);
   white-space: nowrap;
 }
 .multi-pick-options label {

@@ -16,17 +16,38 @@
   box-shadow: 0 0 8px var(--accent-wash);
 }
 
-/* A select has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
-select.input-antique {
+/* A select (or a summary that opens a list of choices) has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
+select.input-antique,
+summary.input-antique {
   padding-block: 0;
   cursor: pointer;
 }
 
 /* Text fields and selects share one height, so a row of them lines up neatly. */
 input.input-antique,
-select.input-antique {
+select.input-antique,
+summary.input-antique {
   height: var(--control-height);
   box-sizing: border-box;
+}
+
+/* A text box of several lines: as tall as its rows; its width is where the page puts it. */
+textarea.input-antique {
+  box-sizing: border-box;
+  line-height: 1.4;
+}
+
+/* A colour picker framed as a field, the browser's swatch inside. */
+input[type='color'].input-antique {
+  width: 4.5rem;
+  padding: 3px;
+  cursor: pointer;
+}
+
+/* A field that cannot be used now looks it, as a button does. */
+.input-antique:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Checkboxes, radios and progress bars in the site's gold. */

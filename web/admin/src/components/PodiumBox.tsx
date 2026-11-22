@@ -8,6 +8,7 @@ import SaveBar from './SaveBar';
 import { useSave } from './useSave';
 import PeoplePick from './PeoplePick';
 import { playerChoices } from '../lib/person-form';
+import FieldGroup from './FieldGroup';
 
 const PLACES = [1, 2, 3].map(ordinal);
 
@@ -53,10 +54,13 @@ export default function PodiumBox({
     if (r?.ok) await onReload();
   };
   return (
-    <fieldset className="podium-box">
-      <legend>
-        Season {season} podium {ORIGIN[start.origin]}
-      </legend>
+    <FieldGroup
+      title={
+        <>
+          Season {season} podium {ORIGIN[start.origin]}
+        </>
+      }
+    >
       <div className="podium-places">
         {PLACES.map((label, i) => (
           <PeoplePick key={label} label={label} value={names[i]} choices={playerChoices} placeholder=""
@@ -78,6 +82,6 @@ export default function PodiumBox({
           </button>
         )}
       </SaveBar>
-    </fieldset>
+    </FieldGroup>
   );
 }

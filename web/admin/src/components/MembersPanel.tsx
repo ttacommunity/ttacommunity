@@ -21,6 +21,7 @@ import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
 import PeoplePick from './PeoplePick';
 import { playerChoices } from '../lib/person-form';
+import ShowFilter from './ShowFilter';
 
 type Draft = { name: string; discord_name: string; email: string; country: string; zone: string; cge_user: string };
 
@@ -58,12 +59,6 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
   const signIns = signInGroups(accounts.kind === 'ready' ? accounts.data : []);
   const listed = members.kind === 'ready' ? membersWithStatus(members.data, statuses, new Set(signIns.byMember.keys())) : [];
   const shown = membersMatching(listed, search);
-  const toggle = (s: MemberStatus) =>
-    setStatuses((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(s)) next.add(s);
-      return next;
-    });
   const load = async () => {
     const r = await adminRequest<AdminMember[]>('/api/members', {});
     setMembers(loadOf(r));
@@ -159,14 +154,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
         <Loading load={members} />
         {members.kind === 'ready' && members.data.length === 0 && <p className="muted">No members yet.</p>}
         {members.kind === 'ready' && members.data.length > 0 && (
-          <fieldset className="check-kinds">
-            <legend>Show</legend>
-            {MEMBER_STATUSES.map(({ status, label }) => (
-              <label key={status}>
-                <input type="checkbox" checked={statuses.has(status)} onChange={() => toggle(status)} /> {label}
-              </label>
-            ))}
-          </fieldset>
+          <ShowFilter what="members" options={MEMBER_STATUSES.map(({ status, label }) => ({ value: status, label }))} chosen={statuses} onChange={setStatuses} />
         )}
         {members.kind === 'ready' && members.data.length > 0 && (
           <div className="admin-add member-search">

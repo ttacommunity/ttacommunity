@@ -1082,11 +1082,11 @@ function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
       </p>
       <div className="note-box">
         <label htmlFor="thread-message">Message</label>
-        <textarea id="thread-message" className="regulations-text" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+        <textarea id="thread-message" className="input-antique" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
       </div>
       <div className="note-box">
         <label htmlFor="thread-no-discord">For a player without Discord</label>
-        <textarea id="thread-no-discord" className="regulations-text" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
+        <textarea id="thread-no-discord" className="input-antique" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
       </div>
       <div className="note-actions">
         <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>

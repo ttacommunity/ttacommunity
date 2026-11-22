@@ -38,7 +38,7 @@ function Highlighted({ name, query }: { name: string; query: string }) {
   return (
     <>
       {name.slice(0, at)}
-      <span className="search-match">{name.slice(at, at + query.length)}</span>
+      <span className="suggestion-match">{name.slice(at, at + query.length)}</span>
       {name.slice(at + query.length)}
     </>
   );
@@ -150,7 +150,7 @@ export default function PlayerSearch({
         </button>
       )}
       {found.length > 0 && (
-        <div className="search-suggestions">
+        <div className="suggestions">
           <div id={listId} role="listbox" aria-label="Players">
           {found.map((p, i) => (
             <div
@@ -159,16 +159,16 @@ export default function PlayerSearch({
               role="option"
               tabIndex={-1}
               aria-selected={i === active}
-              className={i === active ? 'search-suggestion active' : 'search-suggestion'}
+              className={i === active ? 'suggestion active' : 'suggestion'}
               onMouseEnter={() => setActive(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
                 pick(p.name);
               }}
             >
-              <span className="search-suggestion-left">
+              <span className="suggestion-label">
                 {flagEmoji(p.country) && <span className="flag-icon">{flagEmoji(p.country)}</span>}
-                <span className="search-suggestion-name">
+                <span className="suggestion-name">
                   <Highlighted name={p.name} query={highlightQuery} />
                 </span>
               </span>
@@ -176,7 +176,7 @@ export default function PlayerSearch({
             </div>
           ))}
           </div>
-          <div className="search-suggestions-hint" aria-hidden="true">
+          <div className="suggestions-hint" aria-hidden="true">
             <span>&uarr;&darr; navigate</span>
             <span>&crarr; select</span>
             <span>ESC close</span>

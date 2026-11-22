@@ -331,6 +331,21 @@
   /* A count of things waiting or new, beside a tab or a menu's link. */
   --count-surface: var(--fill-accent);
   --count-text: var(--bg-dark);
+  /* A list of suggestions under a field (the site's player search, admin's pick boxes): the chosen row in a gold wash, its detail brighter there. */
+  --suggestions-surface: var(--surface-well);
+  --suggestions-edge: var(--edge-accent);
+  --suggestions-glow: var(--accent-wash);
+  --suggestion-rule: var(--accent-wash-subtle);
+  --suggestion-text: var(--text-main);
+  --suggestion-name: var(--text-accent);
+  --suggestion-detail: var(--text-muted);
+  --suggestion-active-surface: var(--accent-wash);
+  --suggestion-active-text: var(--text-bright);
+  --suggestion-active-detail: var(--text-main);
+  --suggestion-active-glow: var(--accent-glow);
+  --suggestion-match-line: var(--text-accent);
+  --suggestions-hint-surface: var(--surface-code);
+  --suggestions-hint-text: var(--text-muted);
   /* A bar of controls (format bar, view bar): the well, solid so a sticky bar hides what scrolls under it. */
   --bar-surface: linear-gradient(var(--surface-well), var(--surface-well)), var(--bg-dark);
   --bar-edge: var(--border-subtle);

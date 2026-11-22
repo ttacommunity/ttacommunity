@@ -1,0 +1,94 @@
+/* A list of suggestions under a field, the same on the site (player search) and in admin (pick boxes): as wide as its longest row, at least the field's width; the chosen row in a gold wash. */
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: max(100%, 15rem);
+  max-width: min(26rem, calc(100vw - 2rem));
+  max-height: 360px;
+  padding: 4px 0;
+  overflow-y: auto;
+  background: var(--suggestions-surface);
+  border: 1.5px solid var(--suggestions-edge);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px var(--shadow-deep), 0 0 15px var(--suggestions-glow);
+  font-family: var(--font-stats);
+  backdrop-filter: blur(12px);
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--suggestion-rule);
+  color: var(--suggestion-text);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.suggestion.active {
+  background: var(--suggestion-active-surface);
+  color: var(--suggestion-active-text);
+}
+
+.suggestion[aria-disabled='true'] {
+  color: var(--suggestion-detail);
+  cursor: not-allowed;
+}
+
+/* What a row is, on its left: a flag or icon and the name. */
+.suggestion-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-name {
+  color: var(--suggestion-name);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.suggestion.active .suggestion-name {
+  color: var(--suggestion-active-text);
+  text-shadow: 0 0 8px var(--suggestion-active-glow);
+}
+
+.suggestion-detail {
+  color: var(--suggestion-detail);
+  white-space: nowrap;
+}
+
+.suggestion.active .suggestion-detail {
+  color: var(--suggestion-active-detail);
+}
+
+/* The part of a name that matches what was typed. */
+.suggestion-match {
+  color: var(--suggestion-active-text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: var(--suggestion-match-line);
+  text-underline-offset: 3px;
+}
+
+/* The keys that work in the list, under it. */
+.suggestions-hint {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0.85rem;
+  background: var(--suggestions-hint-surface);
+  border-top: 1px solid var(--suggestion-rule);
+  color: var(--suggestions-hint-text);
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+}

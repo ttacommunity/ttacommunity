@@ -3,11 +3,11 @@ import { useState } from 'react';
 import { count } from '@ttac/shared/numbers';
 import { adminRequest } from '../lib/admin-api';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
-import { toggledSet } from '@ttac/shared/toggle';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
+import ShowFilter from './ShowFilter';
 
 /** StandingsCheckPanel runs the check when asked (it reads every game), then lists the differences of the kinds ticked. */
 export default function StandingsCheckPanel() {
@@ -18,7 +18,6 @@ export default function StandingsCheckPanel() {
     const r = await saving.run(() => adminRequest<StandingsCheck>('/api/standings-check', {}), { done: '', working: 'Checking every stage…' });
     if (r?.ok) setCheck(r.data);
   };
-  const toggle = (kind: Kind) => setShown(toggledSet(shown, kind));
   const summary = check === null ? null : checkSummary(check);
   const rows = check === null ? [] : differenceRows(check, shown);
 
@@ -39,14 +38,7 @@ export default function StandingsCheckPanel() {
             {count(summary.agree)} of {count(summary.players)} players agree ({summary.share}) in {count(summary.stages)} stages.{' '}
             <span className="muted">{count(summary.onlyOnCGE)} stages are on CGE only.</span>
           </p>
-          <fieldset className="check-kinds">
-            <legend>Show</legend>
-            {summary.byKind.map((k) => (
-              <label key={k.kind}>
-                <input type="checkbox" checked={shown.has(k.kind)} onChange={() => toggle(k.kind)} /> {k.label} ({count(k.count)})
-              </label>
-            ))}
-          </fieldset>
+          <ShowFilter what="differences" options={summary.byKind.map((k) => ({ value: k.kind, label: `${k.label} (${count(k.count)})` }))} chosen={shown} onChange={setShown} />
           {rows.length === 0 ? (
             <p className="muted">No differences of the kinds shown.</p>
           ) : (
