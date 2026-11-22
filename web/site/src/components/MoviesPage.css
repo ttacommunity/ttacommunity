@@ -10,7 +10,6 @@
 }
 
 .movie-thumb {
-  position: relative;
   aspect-ratio: 16 / 9;
   background: var(--surface-well);
 }
@@ -20,20 +19,6 @@
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.movie-play-badge {
-  position: absolute;
-  inset: auto auto 0.65rem 0.65rem;
-  width: 2.3rem;
-  height: 2.3rem;
-  border-radius: 999px;
-  background: var(--surface-well);
-  color: var(--text-accent);
-  display: grid;
-  place-items: center;
-  font-size: 0.95rem;
-  border: 1px solid var(--border-subtle);
 }
 
 .movie-card-body {

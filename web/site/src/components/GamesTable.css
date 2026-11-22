@@ -54,10 +54,7 @@
   opacity: 0.7;
 }
 
-/* The signed-in player's own blitz game: a gold edge, and a link to their report box. */
-.game-yours td:first-child {
-  box-shadow: inset 3px 0 0 var(--edge-accent);
-}
+/* The signed-in player's own blitz game: a link to their report box (the row is singled out by the shared table). */
 .game-you {
   display: block;
   margin-top: 0.25rem;

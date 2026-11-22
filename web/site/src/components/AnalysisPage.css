@@ -47,11 +47,6 @@
   text-align: left;
 }
 
-.ranked-eval-row.active-highlight {
-  background: var(--accent-wash-faint) !important;
-  border-left: 3px solid var(--edge-accent);
-}
-
 .rank-cell {
   color: var(--text-accent);
   font-weight: 700;

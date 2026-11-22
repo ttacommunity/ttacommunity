@@ -485,7 +485,7 @@ function Table({ view, rows, jumpTo, changes, linkTo, caption, hidden, onExclude
         </thead>
         <tbody>
           {rows.map((p) => (
-            <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'jump-highlight' : undefined}>
+            <tr key={p.name} ref={p.name === jumpTo ? jumped : undefined} className={p.name === jumpTo ? 'row-chosen jump-highlight' : undefined}>
               <td className={show.isTopThree(p.displayRank) ? 'col-sticky-rank rank-col top-3-rank' : 'col-sticky-rank rank-col'}>
                 {show.rank(p.displayRank)}
                 {changes !== null && <RankChange delta={changes.get(p.name)} rank={rankNow(p, view)} />}

@@ -89,6 +89,16 @@
   background: var(--row);
 }
 
+/* A row singled out for the reader (the models chosen, their own game): a gold wash, and a gold edge on its first cell. */
+.leaderboard-table tbody tr.row-chosen {
+  --row: var(--row-chosen);
+  background: var(--row);
+}
+
+.leaderboard-table tbody tr.row-chosen > :first-child {
+  box-shadow: inset 3px 0 0 var(--row-chosen-edge);
+}
+
 .leaderboard-table td,
 .leaderboard-table tbody th {
   padding: 0.75rem 1rem;

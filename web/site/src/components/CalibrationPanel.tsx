@@ -230,7 +230,7 @@ export default function CalibrationPanel({ apiUrl }: { apiUrl: string }) {
             <tbody>
               {ready &&
                 ranked.map((rm) => (
-                    <tr key={rm.key} className={`ranked-eval-row model-${rm.key}${active.has(rm.key) ? ' active-highlight' : ''}`}>
+                    <tr key={rm.key} className={`ranked-eval-row model-${rm.key}${active.has(rm.key) ? ' row-chosen' : ''}`}>
                       <td className="rank-cell">#{rm.rank}</td>
                       <td>
                         <span className="model-dot" />

@@ -379,39 +379,47 @@ export default function HomePage({ apiUrl }: { apiUrl: string }) {
                 </p>
 
                 <div className="pulse-feed-placeholder">
-                  <div className="pulse-placeholder-status">
-                    <div className="pulse-radar-anim">
-                      <span className="radar-circle"></span>
-                      <span className="radar-dot"></span>
+                  <Inset>
+                    <div className="pulse-placeholder-status">
+                      <div className="pulse-radar-anim">
+                        <span className="radar-circle"></span>
+                        <span className="radar-dot"></span>
+                      </div>
+                      <div className="pulse-radar-title">Matchmaking Engine Syncing</div>
+                      <p className="pulse-radar-text">
+                        Automated pairing and real-time CGE API game dispatch are currently undergoing integration testing.
+                      </p>
                     </div>
-                    <div className="pulse-radar-title">Matchmaking Engine Syncing</div>
-                    <p className="pulse-radar-text">
-                      Automated pairing and real-time CGE API game dispatch are currently undergoing integration testing.
-                    </p>
-                  </div>
+                  </Inset>
 
                   <div className="pulse-features-list">
-                    <div className="pulse-feature-item">
-                      <span className="pulse-feature-icon">⏱️</span>
-                      <div>
-                        <strong>Rapid Blitz Ladder</strong>
-                        <p>Fast-clock competitive duels with dedicated Elo / Glicko blitz volatility tracking.</p>
+                    <Inset>
+                      <div className="pulse-feature-item">
+                        <span className="pulse-feature-icon">⏱️</span>
+                        <div>
+                          <strong>Rapid Blitz Ladder</strong>
+                          <p>Fast-clock competitive duels with dedicated Elo / Glicko blitz volatility tracking.</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="pulse-feature-item">
-                      <span className="pulse-feature-icon">🤖</span>
-                      <div>
-                        <strong>Automated Game Spawning</strong>
-                        <p>Instant lobby launch without manual player invites via direct CGE API handshake.</p>
+                    </Inset>
+                    <Inset>
+                      <div className="pulse-feature-item">
+                        <span className="pulse-feature-icon">🤖</span>
+                        <div>
+                          <strong>Automated Game Spawning</strong>
+                          <p>Instant lobby launch without manual player invites via direct CGE API handshake.</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="pulse-feature-item">
-                      <span className="pulse-feature-icon">🔔</span>
-                      <div>
-                        <strong>Match Alerts &amp; Spectating</strong>
-                        <p>Real-time turn notifications, live spectator boards, and discord match reminders.</p>
+                    </Inset>
+                    <Inset>
+                      <div className="pulse-feature-item">
+                        <span className="pulse-feature-icon">🔔</span>
+                        <div>
+                          <strong>Match Alerts &amp; Spectating</strong>
+                          <p>Real-time turn notifications, live spectator boards, and discord match reminders.</p>
+                        </div>
                       </div>
-                    </div>
+                    </Inset>
                   </div>
                 </div>
 

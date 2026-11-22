@@ -77,9 +77,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--accent-wash-faint);
-  border: 1px solid var(--accent-wash);
-  border-radius: 50%;
   flex-shrink: 0;
 }
 .champ-highlight-info {

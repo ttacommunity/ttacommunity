@@ -10,15 +10,26 @@ type Props = {
   current?: boolean;
   /** A picture across the tile's top, edge to edge, such as a challenge's art or a video's still. */
   picture?: ReactNode;
+  /** The picture plays something when the tile is chosen, such as a video: a ▶ over its corner. */
+  playable?: boolean;
   children: ReactNode;
 };
 
 /** Tile draws the box, its picture and its body; the page lays out its own content inside. */
-export default function Tile({ link, current, picture, children }: Props) {
+export default function Tile({ link, current, picture, playable, children }: Props) {
   const look = ['tile', link && 'tile-link', current && 'tile-current'].filter(Boolean).join(' ');
   const body = (
     <>
-      {picture !== undefined && <div className="tile-picture">{picture}</div>}
+      {picture !== undefined && (
+        <div className="tile-picture">
+          {picture}
+          {playable && (
+            <span className="tile-play" aria-hidden="true">
+              ▶
+            </span>
+          )}
+        </div>
+      )}
       <div className="tile-body">{children}</div>
     </>
   );

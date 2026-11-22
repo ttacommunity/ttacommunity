@@ -38,6 +38,7 @@ import NewerOlder from '@ttac/shared/NewerOlder';
 import MultiPick from './MultiPick';
 import RowSelect from './RowSelect';
 import PeoplePick from './PeoplePick';
+import Inset from '@ttac/shared/Inset';
 
 const POLL_MS = 5000;
 
@@ -192,37 +193,41 @@ export default function MoviesPanel() {
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
 
-      <form onSubmit={addChannel} className="movies-add-card">
-        <h3>Add creator</h3>
-        <div className="admin-add">
-          <label className="movies-field-wide">
-            YouTube channel URL, @handle, or UC... ID
-            <input
-              className="input-antique"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              placeholder="https://www.youtube.com/@handle or @handle"
-            />
-          </label>
-          <label>
-            Creator display name
-            <input
-              className="input-antique"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Creator name"
-            />
-          </label>
-          <PeoplePick label="Linked TTA player (optional)" value={player} onChange={setPlayer} choices={playerChoices} />
-          <label className="setting movies-include-all">
-            <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
-            <span>Include all uploads (skip TTA filter)</span>
-          </label>
-          <button type="submit" className="btn-antique" disabled={busy}>
-            Add creator
-          </button>
-        </div>
-      </form>
+      <div className="movies-add">
+        <Inset>
+          <form onSubmit={addChannel}>
+            <h3>Add creator</h3>
+            <div className="admin-add">
+              <label className="movies-field-wide">
+                YouTube channel URL, @handle, or UC... ID
+                <input
+                  className="input-antique"
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  placeholder="https://www.youtube.com/@handle or @handle"
+                />
+              </label>
+              <label>
+                Creator display name
+                <input
+                  className="input-antique"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Creator name"
+                />
+              </label>
+              <PeoplePick label="Linked TTA player (optional)" value={player} onChange={setPlayer} choices={playerChoices} />
+              <label className="setting movies-include-all">
+                <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
+                <span>Include all uploads (skip TTA filter)</span>
+              </label>
+              <button type="submit" className="btn-antique" disabled={busy}>
+                Add creator
+              </button>
+            </div>
+          </form>
+        </Inset>
+      </div>
 
       {state.kind === 'loading' && <p className="muted">Loading creators…</p>}
       {state.kind === 'error' && <LoadNotice message={state.message} />}

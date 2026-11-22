@@ -103,9 +103,8 @@ tr:hover .row-exclude,
   opacity: 1;
 }
 
-.leaderboard-table tbody tr.jump-highlight td,
-.leaderboard-table tbody tr.jump-highlight th {
-  background: var(--accent-wash);
+/* The row a search jumped to, drawn as the shared chosen row (row-chosen): it pulses a few times so the eye finds it. */
+.jump-highlight > :is(td, th) {
   animation: jump-pulse 1.8s ease-in-out 3;
 }
 

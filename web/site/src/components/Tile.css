@@ -74,7 +74,24 @@
 }
 
 .tile-picture {
+  position: relative;
   line-height: 0;
+}
+
+/* A picture that plays (Tile's playable): a ▶ in a round well over its bottom-left corner. */
+.tile-play {
+  position: absolute;
+  inset: auto auto 0.65rem 0.65rem;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-well);
+  color: var(--text-accent);
+  font-size: 0.95rem;
+  line-height: 1;
 }
 
 .tile-body {

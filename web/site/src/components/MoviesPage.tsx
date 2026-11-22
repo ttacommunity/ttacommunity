@@ -136,12 +136,10 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
           {visible.map((v) => (
             <Tile
               key={v.video_id}
+              playable
               picture={
                 <div className="movie-thumb">
                   <img src={v.thumbnail_url} alt="" loading="lazy" width="480" height="360" className="movie-thumb-img" />
-                  <span className="movie-play-badge" aria-hidden="true">
-                    ▶
-                  </span>
                 </div>
               }
             >

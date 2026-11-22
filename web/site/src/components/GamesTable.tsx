@@ -59,7 +59,7 @@ export default function GamesTable({
             </tr>
           )}
           {rows.map((r) => (
-            <tr key={r.key} className={[r.unplayed ? 'game-never-played' : '', r.you === undefined ? '' : 'game-yours'].join(' ').trim() || undefined}>
+            <tr key={r.key} className={[r.unplayed ? 'game-never-played' : '', r.you === undefined ? '' : 'row-chosen'].join(' ').trim() || undefined}>
               <td className="cell-date cell-nowrap">{r.date === '' ? <span className="cell-muted">—</span> : r.date}</td>
               <td className="cell-muted cell-nowrap">{r.context}</td>
               <td>

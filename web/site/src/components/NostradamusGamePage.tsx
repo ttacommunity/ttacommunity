@@ -1,5 +1,5 @@
 /** The Nostradamus section: the games (active ones, or past ones too), or one game (?edition=) with the player's place, its standings and its rounds one at a time. */
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
 import { browserStorage } from '@ttac/shared/storage';
@@ -200,14 +200,15 @@ function JoinBox({ apiUrl, game, place, onChange, onOpen }: { apiUrl: string; ga
           .filter((r) => roundStage(r, new Date()) === 'open')
           .map((r) => {
             const done = answeredOf(r.questions, place.mine.answers);
-            return (
-              <p key={r.id} className={done.answered < done.of ? 'nostradamus-nudge' : undefined}>
+            const line = (
+              <p>
                 <strong>{r.name}</strong> is open, {r.closes_at ? timeLeft(r.closes_at, new Date()) : ''}: you have answered {done.answered} of {done.of}.{' '}
                 <button type="button" className="btn-text" onClick={() => onOpen(r.id)}>
                   {done.answered < done.of ? 'Answer now' : 'Change your answers'}
                 </button>
               </p>
             );
+            return done.answered < done.of ? <Note key={r.id}>{line}</Note> : <Fragment key={r.id}>{line}</Fragment>;
           })}
       {message !== '' && <p role="alert">{message}</p>}
     </Panel>

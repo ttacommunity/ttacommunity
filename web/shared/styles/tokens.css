@@ -17,7 +17,6 @@
   --brown-card: rgba(28, 18, 12, 0.95);
   --brown-warm: rgba(32, 20, 13, 0.95);
   --brown-well: rgba(20, 13, 9, 0.98);
-  --brown-field: rgba(14, 9, 6, 0.95);
   --brown-tooltip: rgba(18, 12, 8, 0.98);
   --brown-row-odd: rgba(16, 10, 6, 0.65);
   --brown-row-even: rgba(28, 18, 12, 0.4);
@@ -87,7 +86,6 @@
   --surface-card: var(--brown-card);
   --surface-warm: var(--brown-warm);
   --surface-well: var(--brown-well);
-  --surface-field: var(--brown-field);
   --tooltip-surface: var(--brown-tooltip);
   --surface-sheet: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
   /* Text: main, soft (secondary), muted (labels, notes, anything absent or not counted), bright, and on a light fill. */
@@ -130,6 +128,9 @@
   --row-even: var(--brown-row-even);
   --row-solid: var(--brown-row-solid);
   --row-group: var(--brown-row-group);
+  /* A row singled out for the reader (the models chosen, their own game): a gold wash and a gold edge. */
+  --row-chosen: var(--accent-wash-faint);
+  --row-chosen-edge: var(--edge-accent);
   /* A row picked out in a table of prose (the FAQ): good in four strengths, or the accent. */
   --row-win-faint: color-mix(in srgb, var(--green-deep) 6%, transparent);
   --row-win-soft: color-mix(in srgb, var(--green-deep) 10%, transparent);
@@ -217,8 +218,6 @@
   --badge-neutral-edge: rgba(255, 255, 255, 0.15);
   --badge-neutral-text: var(--text-soft);
   --win-tint: color-mix(in srgb, var(--green) 12%, transparent);
-  --win-fill: color-mix(in srgb, var(--green-deep) 35%, transparent);
-  --win-fill-edge: color-mix(in srgb, var(--green) 70%, transparent);
   --loss-tint: color-mix(in srgb, var(--red) 12%, transparent);
   /* A badge an admin gave: a title's shape in a neutral colour, so it is not read as a rank. */
   --title-extra-edge: #a8a29e;
@@ -358,7 +357,6 @@
   --status-good: var(--win);
   --status-warn: var(--draw);
   --status-bad: var(--loss);
-  --status-warn-tint: color-mix(in srgb, var(--orange) 15%, transparent);
   /* A notice of an outcome (OutcomeNotice): good or bad, its tone fading into the well. */
   --notice-good-surface: linear-gradient(90deg, color-mix(in srgb, var(--green-deep) 28%, transparent), var(--brown-well) 60%), var(--brown-well);
   --notice-bad-surface: linear-gradient(90deg, color-mix(in srgb, var(--red-deep) 30%, transparent), var(--brown-well) 60%), var(--brown-well);

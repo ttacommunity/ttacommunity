@@ -9,9 +9,6 @@
 .peak-season-icon {
   flex-shrink: 0;
   padding: 0.4rem 0.55rem;
-  background: var(--accent-wash-faint);
-  border: 1px solid var(--accent-wash);
-  border-radius: 8px;
   font-size: 1.4rem;
   line-height: 1;
 }
