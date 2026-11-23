@@ -84,6 +84,10 @@
 .report-game {
   margin-bottom: 1rem;
 }
+/* Rows of buttons one after another, outside the form's grid, spaced as the buttons in a row. */
+:not(.report-form) > .report-row + .report-row {
+  margin-top: 0.75rem;
+}
 .report-row label {
   display: grid;
   gap: 0.25rem;
