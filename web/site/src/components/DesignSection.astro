@@ -1,0 +1,39 @@
+---
+/** A section of /design in a panel headed by its title: its samples inside, or, for a piece a page holds itself (onPage), under the panel, on the page. */
+import Panel from './Panel';
+
+interface Props {
+  title: string;
+  /** For a piece that sits on the page, not in a panel: a page header, a panel. */
+  onPage?: boolean;
+}
+
+const { title, onPage = false } = Astro.props;
+const id = `design-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+---
+{onPage ? (
+  <>
+    <Panel id={id} title={title}>
+      <div class="design-section">
+        <slot name="about" />
+        <p class="muted">Shown below, as it sits on a page.</p>
+      </div>
+    </Panel>
+    <slot />
+  </>
+) : (
+  <Panel id={id} title={title}>
+    <div class="design-section">
+      <slot name="about" />
+      <slot />
+    </div>
+  </Panel>
+)}
+
+<style>
+  .design-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+  }
+</style>
