@@ -27,7 +27,8 @@ import Message from './Message';
 import MeanBadge, { MeanBadges } from './MeanBadge';
 import MetricCard, { MetricGrid } from './MetricCard';
 import { OptionsToggle } from './SideDrawer';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 import PercentilesOptionsDrawer from './PercentilesOptionsDrawer';
 import PlayerPicker from './PlayerPicker';
 import ViewBar, { FormatPick } from './ViewBar';
@@ -112,25 +113,26 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
   const rating = ratingLabel(data.rating);
   return (
     <>
-      {p !== undefined && (
-        <MetricGrid>
-          <MetricCard
-            label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
-            value={ordinal(Math.floor(p.percentile))}
-            note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
-            tone="gold"
-          />
-          <MetricCard
-            label="Standing"
-            value={topShare(p, data.players)}
-            note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
-          />
-          <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
-        </MetricGrid>
-      )}
+      <Panels>
+        {p !== undefined && (
+          <MetricGrid>
+            <MetricCard
+              label={<a href={profileHref(p.name, view.board)}>{p.name}</a>}
+              value={ordinal(Math.floor(p.percentile))}
+              note={`percentile: rated above ${p.percentile.toFixed(1)}% of ${who}`}
+              tone="gold"
+            />
+            <MetricCard
+              label="Standing"
+              value={topShare(p, data.players)}
+              note={`#${count(p.rank)} of ${count(data.players + (p.counted ? 0 : 1))}${p.counted ? '' : ` (${p.name} is outside these filters)`}`}
+            />
+            <MetricCard label={rating} value={p.value.toFixed(1)} note={`${show.engineName(percentileQuery(view).model)}, ${show.formatName(data.format)}`} />
+          </MetricGrid>
+        )}
 
-      <div className="rating-card panel-card percentiles-chart-card">
-        <PanelHeader
+        <Panel
+          id="percentiles-chart"
           title={data.rating === 'rating' ? 'Rating Distribution' : 'Conservative Rating Distribution'}
           subtitle={
             <>
@@ -146,42 +148,43 @@ function Spread({ data, view }: { data: RatingPercentiles; view: PercentileView 
               )}
             </>
           }
+          aside={
+            data.players > 0 && (
+              <MeanBadges>
+                <MeanBadge engine={view.board.engine} mean={data.mean} />
+              </MeanBadges>
+            )
+          }
         >
-          {data.players > 0 && (
-            <MeanBadges>
-              <MeanBadge engine={view.board.engine} mean={data.mean} />
-            </MeanBadges>
-          )}
-        </PanelHeader>
-        {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
-      </div>
+          {data.players === 0 ? <Message form="inline">No players match these filters.</Message> : <SpreadChart data={data} />}
+        </Panel>
 
-      {data.marks.length > 0 && (
-        <div className="rating-card panel-card">
-          <PanelHeader title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`} />
-          <ScrollTable hint="all columns">
-            <table className="leaderboard-table">
-              <caption className="visually-hidden">{rating} at each marked percentile</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Percentile</th>
-                  <th scope="col">{rating}</th>
-                  <th scope="col">Players at or above</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.marks.map((m) => (
-                  <tr key={m.percentile}>
-                    <th scope="row">{markLabel(m.percentile)}</th>
-                    <td>{m.value.toFixed(1)}</td>
-                    <td>Top {100 - m.percentile}%</td>
+        {data.marks.length > 0 && (
+          <Panel id="percentiles-marks" title="Percentile Marks" subtitle={`The ${rating} a share of the players are rated at or below`}>
+            <ScrollTable label="Percentiles">
+              <table className="leaderboard-table">
+                <caption className="visually-hidden">{rating} at each marked percentile</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Percentile</th>
+                    <th scope="col">{rating}</th>
+                    <th scope="col">Players at or above</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </ScrollTable>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {data.marks.map((m) => (
+                    <tr key={m.percentile}>
+                      <th scope="row">{markLabel(m.percentile)}</th>
+                      <td>{m.value.toFixed(1)}</td>
+                      <td>Top {100 - m.percentile}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollTable>
+          </Panel>
+        )}
+      </Panels>
     </>
   );
 }
@@ -215,14 +218,14 @@ function SpreadChart({ data }: { data: RatingPercentiles }) {
     const highlight = (i: number) => i === bins.playerBin;
     const chart = new Chart(canvas.current, {
       type: 'bar',
-      plugins: [tierBands(spans, { line: token('--border-faint'), text: token('--text-soft'), font: token('--font-heading') })],
+      plugins: [tierBands(spans, { line: token('--border-faint'), text: token('--text-soft'), font: token('--font-heading'), read: token })],
       data: {
         labels: bins.labels,
         datasets: [
           {
             label: 'Players',
             data: bins.counts,
-            backgroundColor: bins.counts.map((_, i) => (highlight(i) ? token('--win') : token('--gold-wash-strong'))),
+            backgroundColor: bins.counts.map((_, i) => (highlight(i) ? token('--win') : token('--accent-wash-strong'))),
             borderColor: bins.counts.map((_, i) => (highlight(i) ? token('--win-edge') : gold)),
             borderWidth: 1,
             categoryPercentage: 1,

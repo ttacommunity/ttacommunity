@@ -7,8 +7,8 @@
   gap: 0.5rem;
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--gold-wash-faint);
-  color: var(--accent-gold);
+  border-bottom: 1px solid var(--panel-rule);
+  color: var(--panel-title);
   font-size: var(--size-card-title);
   font-weight: 700;
 }
@@ -18,27 +18,21 @@
   gap: 0.6rem;
   margin: 0;
   font-size: inherit;
+  overflow-wrap: anywhere;
 }
 /* What the panel shows, under its title. */
 .panel-header-sub {
   margin: 0.25rem 0 0;
-  color: var(--text-muted);
+  color: var(--panel-text);
   font-family: var(--font-stats);
   font-size: var(--size-label);
   font-weight: normal;
   line-height: 1.5;
 }
-/* A count or a word about the panel, on the right of its title. */
-.panel-tag {
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--gold-wash);
-  border-radius: 4px;
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-.panel-tag-wide {
-  padding: 0.2rem 0.6rem;
-  font-size: 0.8rem;
+/* What the panel says about itself, on the right of its title: its tags, badges and controls in a row. */
+.panel-header-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }

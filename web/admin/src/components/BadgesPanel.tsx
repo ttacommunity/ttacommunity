@@ -83,10 +83,10 @@ function BadgeRow({ badge, onReload, outcome, say }: { badge: AdminBadge; onRelo
           <span className="muted">Nobody holds it yet.</span>
         ) : (
           badge.players.map((p) => (
-            <span key={p} className="badge-holder">
+            <span key={p} className="chip">
               {p}
-              <button type="button" className="badge-take" onClick={() => void take(p)} aria-label={`Take ${badge.label} from ${p}`}>
-                ×
+              <button type="button" className="chip-remove" onClick={() => void take(p)} aria-label={`Take ${badge.label} from ${p}`}>
+                ✕
               </button>
             </span>
           ))

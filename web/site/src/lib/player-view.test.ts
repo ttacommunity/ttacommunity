@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Player, PlayerHistory, Rival } from '@ttac/shared/ratings';
+import { ROWS_SHOWN } from './show-all';
 import {
   chartData,
   chartTicks,
@@ -31,6 +32,7 @@ import {
   visibleRivals,
   RIVAL_COLUMNS,
 } from './player-view';
+
 
 describe('playerHref', () => {
   it.each([
@@ -239,6 +241,19 @@ describe('chartData', () => {
     expect(got.lines[1].data).toEqual([null, 1690, 1700.1]);
     expect(got.lines[2].data).toEqual([1500.6, null, null]);
     expect(got.lines[3].data).toEqual([1400, null, null]);
+  });
+
+  it('draws each model and mode in its role colour, filled under the expected curve only', () => {
+    const all: PlayerHistory = { ...history, series: [...history.series, { model: 'glicko2_std', points: [{ date: '2025-01-31', rating: 1600, c_rating: 1500 }] }] };
+    const got = chartData(all, 'all', 'all').lines.map((l) => [l.label, l.color, l.fill]);
+    expect(got).toEqual([
+      ['👑 GlickoD (Continuous) (E)', '--model-daneo', '--model-daneo-wash'],
+      ['👑 GlickoD (Continuous) (C)', '--model-daneo', undefined],
+      ['Glicko-2 Standard (Continuous) (E)', '--model-std', '--model-std-wash'],
+      ['Glicko-2 Standard (Continuous) (C)', '--model-std', undefined],
+      ['👑 GlickoD (Season Reset) (E)', '--model-daneo-reset', '--model-daneo-reset-wash'],
+      ['👑 GlickoD (Season Reset) (C)', '--model-daneo-reset', undefined],
+    ]);
   });
 
   it('anchors minDate to first data point and places first point at x=0', () => {
@@ -481,9 +496,13 @@ describe('RATING_TIERS', () => {
     expect(RATING_TIERS[0].min).toBe(0);
     expect(RATING_TIERS[RATING_TIERS.length - 1]?.max).toBe(3000);
     for (const tier of RATING_TIERS) {
-      expect(tier.color).toContain('rgba(');
       expect(tier.name).toBeTruthy();
     }
+  });
+
+  it.each(RATING_TIERS.map((t) => [t.name, t] as const))('shades %s in its band role', (_, tier) => {
+    expect(tier.band).toMatch(/^--band-[a-z]+$/);
+    if (tier.edge !== undefined) expect(tier.edge).toBe(`${tier.band}-edge`);
   });
 });
 
@@ -515,8 +534,8 @@ const rival = (name: string, games: number, wins = 0, draws = 0): Rival => ({
 describe('visibleRivals', () => {
   const many = Array.from({ length: 35 }, (_, i) => rival(`p${String(i).padStart(2, '0')}`, 40 - i, i % 3));
 
-  it('shows the first 30 until expanded', () => {
-    expect(visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: null }).map((r) => r.name)).toHaveLength(30);
+  it('shows the first rows a long table shows until expanded', () => {
+    expect(visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: null }).map((r) => r.name)).toHaveLength(ROWS_SHOWN);
     expect(visibleRivals(many, { filter: '', minGames: 1, expanded: true, sort: null })).toHaveLength(35);
   });
 
@@ -531,9 +550,9 @@ describe('visibleRivals', () => {
     expect(visibleRivals(many, { filter: '', minGames: 38, expanded: false, sort: null })).toHaveLength(3);
   });
 
-  it('sorts by a column, the first 30 of the new order shown', () => {
+  it('sorts by a column, the first rows of the new order shown', () => {
     const got = visibleRivals(many, { filter: '', minGames: 1, expanded: false, sort: { col: 'games', desc: false } });
-    expect(got).toHaveLength(30);
+    expect(got).toHaveLength(ROWS_SHOWN);
     expect(got[0].name).toBe('p34');
     const byName = visibleRivals([rival('b', 1), rival('a', 1)], {
       filter: '',
@@ -589,6 +608,10 @@ describe('matrix page address', () => {
     expect(matrixHref('Ann', { engine: 'glicko2_std', reset: 'softer', format: 2 })).toBe(
       '/ratings/player/matrix/?name=Ann&model=glicko2_std&format=2&reset_mode=softer',
     );
+  });
+
+  it('links to the matrix by name alone from a page with no choices, so it opens in the remembered ones', () => {
+    expect(matrixHref('Ann B')).toBe('/ratings/player/matrix/?name=Ann+B');
   });
 
   it("links back to the player page in the matrix's model, reset mode and format", () => {

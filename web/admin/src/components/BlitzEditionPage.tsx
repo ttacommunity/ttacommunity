@@ -142,7 +142,6 @@ function FlaggedResults({ at, ed, regions, onReload, outcome, say }: Omit<Props,
           Flagged results <Count n={flagged.length} what="flagged" />
         </>
       }
-      className="flagged-results"
     >
       {dialog.element}
       <p className="muted">A player says their opponent&apos;s report is wrong. Ask both on Discord, then keep it, correct it or reset it.</p>
@@ -492,13 +491,13 @@ function RoundsPanel({ at, ed, regions, onReload, outcome, say }: Props) {
           </h3>
           <p className="season-summary">
             <span className="muted">{roundSummary(shownOf(r))}</span>{' '}
-            <button type="button" className="btn-antique btn-settings" aria-expanded={shown(r)} onClick={() => toggleRound(r.number)}>
+            <button type="button" className="btn-antique" aria-expanded={shown(r)} onClick={() => toggleRound(r.number)}>
               {shown(r) ? 'Hide matches' : 'Show matches'}
             </button>
             {resets.round === r.id && !changed(r) && (
               <>
                 {' '}
-                <button type="button" className="btn-antique btn-settings" onClick={(e) => void resetRound(r, e.currentTarget)}>
+                <button type="button" className="btn-antique" onClick={(e) => void resetRound(r, e.currentTarget)}>
                   Reset results
                 </button>
               </>
@@ -984,7 +983,7 @@ function EditionSettings(props: Props) {
     <div className="admin-subsection">
       <div className="settings-head">
         <h3>Settings</h3>
-        <button type="button" className="btn-antique btn-settings" aria-expanded={editing} aria-controls="edition-settings-forms" onClick={() => setEditing(!editing)}>
+        <button type="button" className="btn-antique" aria-expanded={editing} aria-controls="edition-settings-forms" onClick={() => setEditing(!editing)}>
           {editing ? 'Close settings' : 'Edit settings'}
         </button>
       </div>
@@ -1083,11 +1082,11 @@ function ThreadTextPanel({ at, ed, onReload, outcome, say }: Props) {
       </p>
       <div className="note-box">
         <label htmlFor="thread-message">Message</label>
-        <textarea id="thread-message" className="regulations-text" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+        <textarea id="thread-message" className="input-antique" rows={5} maxLength={1500} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
       </div>
       <div className="note-box">
         <label htmlFor="thread-no-discord">For a player without Discord</label>
-        <textarea id="thread-no-discord" className="regulations-text" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
+        <textarea id="thread-no-discord" className="input-antique" rows={3} maxLength={300} value={form.no_discord} onChange={(e) => setForm({ ...form, no_discord: e.target.value })} />
       </div>
       <div className="note-actions">
         <button type="button" className="btn-antique" disabled={!threadTextSavable(form, saved)} onClick={() => void send(req.setBlitzThreadText(at.slug, at.edition, form), 'Thread text saved.')}>
@@ -1171,11 +1170,11 @@ function RoundDeadline({ at, ed, round, regions, unsaved, onReload, say }: Round
       <p className="season-summary">
         <span className="muted">{deadlineLabel(regions, round.deadline)}</span>{' '}
         {!deadlineLocked(round) && (
-          <button type="button" className="btn-antique btn-settings" aria-expanded={form !== null} onClick={() => setForm(form === null ? deadlineForm(regions, round.deadline, viewerZone()) : null)}>
+          <button type="button" className="btn-antique" aria-expanded={form !== null} onClick={() => setForm(form === null ? deadlineForm(regions, round.deadline, viewerZone()) : null)}>
             {round.deadline === null ? 'Set deadline' : 'Change deadline'}
           </button>
         )}{' '}
-        <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} onClick={() => void download()}>
+        <button type="button" className="btn-antique" disabled={blocker !== ''} onClick={() => void download()}>
           Discord threads
         </button>
         {blocker !== '' && <span className="row-detail muted">{blocker}</span>}
@@ -1635,7 +1634,7 @@ function StandingsPanel({ standings, scoring, fixedBy }: { standings: BlitzStand
       </div>
       {standings.length === 0 && <p className="muted">Nobody to rank yet.</p>}
       {standings.length > 0 && (
-        <AdminTable caption="The standings" className="blitz-standings">
+        <AdminTable caption="The standings">
           <BlitzStandingsTable standings={standings} fixedBy={fixedBy} tieBreaks={tieBreaks} />
         </AdminTable>
       )}

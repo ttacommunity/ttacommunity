@@ -31,7 +31,6 @@ export function FormatPick({ value, link, onChange, what }: FormatProps) {
   return (
     <Segmented
       label="Format"
-      groupClass="view-group view-group-format"
       prefix={<span className="view-bar-label">Format:</span>}
       options={FORMATS.map((f) => ({ value: f, label: formatName(f), tooltip: `View ${what} for ${formatName(f)}` }))}
       value={value}

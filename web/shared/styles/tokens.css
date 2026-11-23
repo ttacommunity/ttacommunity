@@ -1,44 +1,442 @@
-/* Design tokens, named as in upstream's styles.css. Components use these, never raw values. */
+/* Design tokens: the palette (colours by look, used only in this file) and the roles pages and components use. */
 :root {
-  --bg-dark: #1c130d;
-  --surface-panel: rgba(43, 29, 20, 0.85);
-  --surface-inset: rgba(18, 12, 8, 0.85);
-  /* Text to copy, such as a replay code: a little lighter than an inset. */
-  --surface-code: rgba(18, 12, 8, 0.8);
-  --surface-header: rgba(28, 19, 13, 0.94);
-  --surface-footer: rgba(20, 13, 8, 0.95);
-  /* A dialog or sheet: the cards' colour, made solid so the page does not show through. */
-  --surface-sheet: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
-  --accent-gold: #e5a93c;
-  --accent-gold-light: #ffde8a;
-  --accent-gold-deep: #b87c1c;
-  --gradient-gold: linear-gradient(135deg, #e5a93c 0%, #b87c1c 100%);
-  --accent-crimson: #8e1e1d;
-  /* The crimson button's gradient stops (top, bottom, top on hover) and its light edge on hover. */
+  /* Palette: colours by look. Only roles below use them; checks/colour-tokens.sh fails any other use. */
+  --ink: #1c130d;
+  --char: #120904;
+  --parchment: #f3e5c8;
+  --sand: #cfbeab;
+  --taupe: #a89880;
+  --white: #fff;
+  --brown-edge: #4a3525;
+  --brown-edge-faint: rgba(74, 53, 37, 0.3);
+  --brown-panel: rgba(43, 29, 20, 0.85);
+  --brown-inset: rgba(18, 12, 8, 0.85);
+  --brown-code: rgba(18, 12, 8, 0.8);
+  --brown-header: rgba(28, 19, 13, 0.94);
+  --brown-footer: rgba(20, 13, 8, 0.95);
+  --brown-card: rgba(28, 18, 12, 0.95);
+  --brown-warm: rgba(32, 20, 13, 0.95);
+  --brown-well: rgba(20, 13, 9, 0.98);
+  --brown-tooltip: rgba(18, 12, 8, 0.98);
+  --brown-row-odd: rgba(16, 10, 6, 0.65);
+  --brown-row-even: rgba(28, 18, 12, 0.4);
+  --brown-row-group: rgba(45, 30, 20, 0.5);
+  --brown-tab: rgba(35, 23, 16, 0.9);
+  --brown-tab-edge: rgba(138, 98, 51, 0.6);
+  --gold: #e5a93c;
+  --gold-light: #ffde8a;
+  --gold-deep: #b87c1c;
+  --gold-pale: #ffe6a3;
+  --gold-bright: #ffcc66;
+  --gold-wash-hint: rgba(229, 169, 60, 0.04);
+  --gold-wash-subtle: rgba(229, 169, 60, 0.08);
+  --gold-wash-faint: rgba(229, 169, 60, 0.15);
+  --gold-wash: rgba(229, 169, 60, 0.25);
+  --gold-wash-strong: rgba(229, 169, 60, 0.4);
+  --gold-glow: rgba(229, 169, 60, 0.6);
+  --amber: #f59e0b;
+  --violet: #c084fc;
+  --violet-deep: #a855f7;
+  --violet-pale: #d8b4fe;
+  --cyan: #67e8f9;
+  --sky: #38bdf8;
+  --sky-light: #7dd3fc;
+  --sky-soft: #4fc3f7;
+  --yellow: #eab308;
+  --yellow-light: #fde047;
+  --slate: #94a3b8;
+  --slate-light: #cbd5e1;
+  --rust: #b45309;
+  --rust-light: #d97706;
+  --rust-text: #f08c2e;
+  --wood: #78350f;
+  --wood-edge: #92400e;
+  --wood-text: #cf9d72;
+  --green: #8fb86a;
+  --green-light: #b5d39a;
+  --green-deep: #477d29;
+  --red: #e76f5b;
+  --red-light: #f0907e;
+  --red-deep: #a93325;
+  --orange: #ffa726;
+  --silver: #cfd8dc;
+  --bronze: #cd7f32;
+  --crimson: #8e1e1d;
   --crimson-top: #5c1716;
   --crimson-bottom: #2a0908;
   --crimson-hover: #7a1f1e;
-  --loss-light: #f0907e;
-  --text-main: #f3e5c8;
-  --text-soft: #cfbeab;
-  --text-muted: #a89880;
-  --text-on-gold: #120904;
-  --text-bright: #fff;
-  --border-subtle: #4a3525;
-  /* Win and loss in the game's own colours: text in its lighter shades, edges and fills in its resource bar's. */
-  --win: #8fb86a;
-  --loss: #e76f5b;
-  --win-light: #b5d39a;
-  --win-edge: #477d29;
-  --loss-edge: #a93325;
-  --draw: #ffa726;
-  --medal-silver: #cfd8dc;
-  --medal-bronze: #cd7f32;
-  --accent-sky: #4fc3f7;
-  --engine-daneo: #a855f7;
-  --engine-daneo-light: #c084fc;
-  --engine-std: #eab308;
-  --engine-std-light: #fde047;
+  --antique-top: #2e1d13;
+  --antique-bottom: #170d08;
+  --antique-hover-top: #422919;
+  --antique-hover-bottom: #26150d;
+  --black-30: rgba(0, 0, 0, 0.3);
+  --black-60: rgba(0, 0, 0, 0.6);
+  --black-90: rgba(0, 0, 0, 0.9);
+  --white-wash: rgba(255, 255, 255, 0.18);
+
+  /* Roles: what a colour is for, pointing at the palette. Pages and components use only these, so a mode (light, colour-blind) is a block of overrides here. */
+  /* Surfaces: the page, its header and footer, a panel, a box set into one, a raised card, a field. */
+  --bg-dark: var(--ink);
+  --surface-panel: var(--brown-panel);
+  --surface-inset: var(--brown-inset);
+  --surface-code: var(--brown-code);
+  --surface-header: var(--brown-header);
+  --surface-footer: var(--brown-footer);
+  --surface-card: var(--brown-card);
+  --surface-warm: var(--brown-warm);
+  --surface-well: var(--brown-well);
+  --tooltip-surface: var(--brown-tooltip);
+  --surface-sheet: linear-gradient(var(--surface-panel), var(--surface-panel)), var(--bg-dark);
+  /* Text: main, soft (secondary), muted (labels, notes, anything absent or not counted), bright, and on a light fill. */
+  --text-main: var(--parchment);
+  --text-soft: var(--sand);
+  --text-muted: var(--taupe);
+  --text-bright: var(--white);
+  --text-on-gold: var(--char);
+  --text-on-fill: var(--ink);
+  /* The site's accent: gold text (headings, links, figures), its brighter form, gold edges and fills, and its washes for hover fills, rules and glows. */
+  --text-accent: var(--gold);
+  --text-accent-bright: var(--gold-light);
+  --text-accent-pale: var(--gold-pale);
+  --edge-accent: var(--gold);
+  --edge-accent-deep: var(--gold-deep);
+  --fill-accent: var(--gold);
+  --fill-accent-gradient: linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%);
+  --accent-wash-hint: var(--gold-wash-hint);
+  --accent-wash-subtle: var(--gold-wash-subtle);
+  --accent-wash-faint: var(--gold-wash-faint);
+  --accent-wash: var(--gold-wash);
+  --accent-wash-strong: var(--gold-wash-strong);
+  --accent-glow: var(--gold-glow);
+  --accent-glow-strong: rgba(229, 169, 60, 0.8);
+  --edge-accent-soft: color-mix(in srgb, var(--gold) 50%, transparent);
+  --link-underline: var(--edge-accent-soft);
+  /* A player's name, wherever one is shown and not coloured for a meaning (a place, a side). */
+  --player-name: var(--text-main);
+  --player-name-hover: var(--text-accent);
+  /* Edges and shadows. */
+  --border-subtle: var(--brown-edge);
+  --border-faint: var(--brown-edge-faint);
+  --shadow-light: var(--black-30);
+  --shadow: var(--black-60);
+  --shadow-deep: var(--black-90);
+  --flag-edge: var(--white-wash);
+  --swatch-edge: rgba(255, 255, 255, 0.25);
+  /* A table's rows, striped, and a sticky cell's solid fill. */
+  --row-odd: var(--brown-row-odd);
+  --row-even: var(--brown-row-even);
+  --row-group: var(--brown-row-group);
+  /* A row singled out for the reader (the models chosen, their own game): a gold wash and a gold edge. */
+  --row-chosen: var(--accent-wash-faint);
+  --row-chosen-edge: var(--edge-accent);
+  /* A row picked out in a table of prose (the FAQ): good in four strengths, or the accent. */
+  --row-win-faint: color-mix(in srgb, var(--green-deep) 6%, transparent);
+  --row-win-soft: color-mix(in srgb, var(--green-deep) 10%, transparent);
+  --row-win: color-mix(in srgb, var(--green-deep) 12%, transparent);
+  --row-win-strong: color-mix(in srgb, var(--green-deep) 25%, transparent);
+  --row-accent: rgba(229, 169, 60, 0.1);
+  /* Results: a win, a gain or good in the game's green; a loss, a fall or bad in its red; a draw. */
+  --win: var(--green);
+  --win-light: var(--green-light);
+  --win-edge: var(--green-deep);
+  --loss: var(--red);
+  --loss-light: var(--red-light);
+  --loss-edge: var(--red-deep);
+  --draw: var(--orange);
+  /* Medals and places: gold, silver and bronze, and a medal badge's fill, edge and text. */
+  --medal-gold: var(--gold);
+  --medal-silver: var(--silver);
+  --medal-bronze: var(--bronze);
+  --medal-bronze-text: var(--rust-text);
+  --medal-gold-fill: color-mix(in srgb, var(--gold) 28%, transparent);
+  --medal-gold-edge: color-mix(in srgb, var(--gold) 70%, transparent);
+  --medal-gold-text: var(--gold-light);
+  --medal-silver-fill: color-mix(in srgb, var(--silver) 22%, transparent);
+  --medal-bronze-fill: color-mix(in srgb, var(--bronze) 22%, transparent);
+  --medal-gold-glow: var(--gold-wash-strong);
+  --medal-silver-glow: color-mix(in srgb, var(--silver) 35%, transparent);
+  --medal-bronze-glow: color-mix(in srgb, var(--bronze) 25%, transparent);
+  --medal-bronze-light: color-mix(in srgb, var(--bronze) 70%, var(--white));
+  /* The tiers, top to bottom: the title badges' fills and edges, a division's colour by its level, and a tier named in text (Diamond has no title). */
+  --tier-sgm: var(--amber);
+  --tier-gm: var(--gold);
+  --tier-gm-edge: var(--gold-bright);
+  --tier-m: var(--violet);
+  --tier-m-edge: var(--violet-pale);
+  --tier-d: var(--cyan);
+  --tier-p: var(--sky);
+  --tier-p-edge: var(--sky-light);
+  --tier-g: var(--yellow);
+  --tier-g-edge: var(--yellow-light);
+  --tier-s: var(--slate);
+  --tier-s-edge: var(--slate-light);
+  --tier-b: var(--rust);
+  --tier-b-edge: var(--rust-light);
+  --tier-w: var(--wood);
+  --tier-w-edge: var(--wood-edge);
+  /* Bronze and Wood lightened for text on their tint, so a tag reads at 4.5:1. */
+  --tier-b-text: var(--rust-text);
+  --tier-w-text: var(--wood-text);
+  /* The rating bands behind a chart, by tier, in the tiers' colours. Charts read these as text, so they are plain values. */
+  --band-bronze: rgba(180, 83, 9, 0.1);
+  --band-silver: rgba(148, 163, 184, 0.1);
+  --band-gold: rgba(234, 179, 8, 0.12);
+  --band-master: rgba(192, 132, 252, 0.14);
+  --band-master-edge: rgba(192, 132, 252, 0.35);
+  --band-gm: rgba(229, 169, 60, 0.15);
+  --band-gm-edge: rgba(229, 169, 60, 0.4);
+  --band-sgm: rgba(245, 158, 11, 0.16);
+  --band-sgm-edge: rgba(245, 158, 11, 0.45);
+  /* The title badges drawn as crests: the World Champion and the Super GM, World Championship Silver and Bronze. */
+  --title-wc-surface: linear-gradient(135deg, #450a0a 0%, #7f1d1d 30%, #991b1b 60%, #450a0a 100%);
+  --title-wc-edge: var(--gold);
+  --title-wc-shadow: 0 0 14px var(--gold-glow), inset 0 1px 2px rgba(255, 235, 150, 0.4), 0 2px 6px var(--black-60);
+  --title-wc-text: var(--gold);
+  --title-wc-glow: 0 0 6px var(--gold-glow), 0 1px 2px var(--black-90);
+  --title-sgm-surface: linear-gradient(135deg, #78350f 0%, #92400e 35%, #b45309 70%, #c2410c 100%);
+  --title-sgm-edge: var(--yellow-light);
+  --title-sgm-shadow: 0 0 10px rgba(245, 158, 11, 0.5), inset 0 1px 2px rgba(254, 240, 138, 0.5), 0 2px 5px var(--black-60);
+  --title-sgm-glow: 0 0 4px rgba(253, 224, 71, 0.5), 0 1px 2px var(--black-90);
+  --title-wcs-surface: linear-gradient(135deg, #1e293b 0%, #334155 35%, #475569 65%, #64748b 100%);
+  --title-wcs-edge: #e2e8f0;
+  --title-wcs-shadow: 0 0 8px rgba(226, 232, 240, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.5), 0 2px 4px var(--black-60);
+  --title-wcs-glow: 0 0 4px rgba(255, 255, 255, 0.5), 0 1px 2px var(--black-90);
+  --title-wcb-surface: linear-gradient(135deg, #451a03 0%, #78350f 35%, #92400e 65%, #b45309 100%);
+  --title-wcb-edge: var(--rust-light);
+  --title-wcb-shadow: 0 0 8px rgba(217, 119, 6, 0.4), inset 0 1px 2px rgba(254, 215, 170, 0.4), 0 2px 4px var(--black-60);
+  --title-wcb-glow: 0 0 4px rgba(217, 119, 6, 0.5), 0 1px 2px var(--black-90);
+  --title-crest-text: #fffbeb;
+  --title-wcs-text: #f8fafc;
+  --title-wc-icon: drop-shadow(0 0 4px rgba(229, 169, 60, 0.95));
+  --title-sgm-icon: drop-shadow(0 0 3px rgba(253, 224, 71, 0.9));
+  --title-wcs-icon: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+  --title-wcb-icon: drop-shadow(0 0 3px rgba(217, 119, 6, 0.8));
+  /* A neutral badge beside a heading (a mode), and a change's tint: up in the win colour, down in the loss colour. */
+  --badge-neutral-surface: rgba(255, 255, 255, 0.08);
+  --badge-neutral-edge: rgba(255, 255, 255, 0.15);
+  --badge-neutral-text: var(--text-soft);
+  --win-tint: color-mix(in srgb, var(--green) 12%, transparent);
+  --loss-tint: color-mix(in srgb, var(--red) 12%, transparent);
+  /* A badge an admin gave: a title's shape in a neutral colour, so it is not read as a rank. */
+  --title-extra-edge: #a8a29e;
+  --title-extra-text: #e7e5e4;
+  /* The rating models: GlickoD (continuous), its season reset, and Glicko-2 Standard; a line or dot, a chart's fill under a line, a badge's tint. Charts read these as text. */
+  --model-daneo: #a855f7;
+  --model-daneo-reset: #d8b4fe;
+  --model-std: #eab308;
+  --model-daneo-wash: rgba(168, 85, 247, 0.12);
+  --model-daneo-reset-wash: rgba(216, 180, 254, 0.12);
+  --model-std-wash: rgba(234, 179, 8, 0.1);
+  --model-daneo-tint: rgba(168, 85, 247, 0.25);
+  --model-daneo-reset-tint: rgba(216, 180, 254, 0.25);
+  --model-std-tint: rgba(234, 179, 8, 0.2);
+  --model-daneo-bar: rgba(168, 85, 247, 0.65);
+  --model-std-bar: rgba(234, 179, 8, 0.55);
+  /* A chart's guides: its grid lines (plain, at a year, at a tier, at an axis break), the break marks, and the line of perfect calibration. Charts read these as text. */
+  --chart-grid: rgba(243, 229, 200, 0.06);
+  --chart-grid-year: rgba(243, 229, 200, 0.1);
+  --chart-grid-tier: rgba(243, 229, 200, 0.12);
+  --chart-grid-break: rgba(229, 169, 60, 0.25);
+  --chart-break: rgba(229, 169, 60, 0.65);
+  --chart-ideal: rgba(255, 255, 255, 0.4);
+  /* Something special or different (a tag, the Pulse placeholder). */
+  --special: var(--violet);
+  --special-wash: color-mix(in srgb, var(--violet-deep) 35%, transparent);
+  --special-glow: color-mix(in srgb, var(--violet) 80%, transparent);
+  /* A spoiler: a hidden name drawn as solid blocks, on a faint gold pill. */
+  --spoiler-surface: var(--accent-wash-faint);
+  --spoiler-blank: var(--text-soft);
+  /* A figure picked out in a figure tile. */
+  --figure-sky: var(--sky-soft);
+  /* Sign in with Google: Google's own dark button colours, as its guidelines ask. */
+  --google-surface: #131314;
+  --google-hover-surface: color-mix(in srgb, #e3e3e3 8%, #131314);
+  --google-edge: #8e918f;
+  --google-text: #e3e3e3;
+
+  /* A page's header (PageHeader, HomeHeader). */
+  --page-header-surface: linear-gradient(135deg, var(--surface-warm), var(--surface-well));
+  --page-header-edge: var(--accent-wash);
+  --page-header-title: var(--text-accent);
+  --page-header-text: var(--text-muted);
+  --page-header-link: var(--text-accent);
+  /* A panel (Panel, PanelHeader), and its stripe for commentary and its picture's wash. */
+  --panel-surface: var(--surface-panel);
+  --panel-edge: var(--border-subtle);
+  --panel-title: var(--text-accent);
+  --panel-rule: var(--accent-wash-faint);
+  --panel-text: var(--text-muted);
+  --panel-stripe-gold: var(--edge-accent);
+  --panel-stripe-green: var(--win-edge);
+  --panel-stripe-bronze: var(--medal-bronze);
+  --panel-art-wash: linear-gradient(var(--surface-panel), var(--surface-card));
+  /* A small tag beside a title (a panel's count, a header's tagline). */
+  --tag-text: var(--text-accent);
+  --tag-surface: var(--accent-wash-faint);
+  --tag-edge: var(--accent-wash);
+  /* A tag for something special or different (purple), and a division's tag by level, top first. */
+  --tag-special: var(--special);
+  --division-1: var(--tier-gm);
+  --division-2: var(--tier-m);
+  --division-3: var(--tier-d);
+  --division-4: var(--tier-p);
+  --division-5: var(--tier-g);
+  --division-6: var(--tier-s);
+  --division-7: var(--tier-b-text);
+  --division-8: var(--tier-w-text);
+  /* A tag's edge and tint in its own colour. */
+  --tag-special-edge: color-mix(in srgb, var(--tag-special) 45%, transparent);
+  --tag-special-tint: color-mix(in srgb, var(--tag-special) 15%, transparent);
+  --division-1-edge: color-mix(in srgb, var(--division-1) 45%, transparent);
+  --division-1-tint: color-mix(in srgb, var(--division-1) 15%, transparent);
+  --division-2-edge: color-mix(in srgb, var(--division-2) 45%, transparent);
+  --division-2-tint: color-mix(in srgb, var(--division-2) 15%, transparent);
+  --division-3-edge: color-mix(in srgb, var(--division-3) 45%, transparent);
+  --division-3-tint: color-mix(in srgb, var(--division-3) 15%, transparent);
+  --division-4-edge: color-mix(in srgb, var(--division-4) 45%, transparent);
+  --division-4-tint: color-mix(in srgb, var(--division-4) 15%, transparent);
+  --division-5-edge: color-mix(in srgb, var(--division-5) 45%, transparent);
+  --division-5-tint: color-mix(in srgb, var(--division-5) 15%, transparent);
+  --division-6-edge: color-mix(in srgb, var(--division-6) 45%, transparent);
+  --division-6-tint: color-mix(in srgb, var(--division-6) 15%, transparent);
+  --division-7-edge: color-mix(in srgb, var(--division-7) 45%, transparent);
+  --division-7-tint: color-mix(in srgb, var(--division-7) 15%, transparent);
+  --division-8-edge: color-mix(in srgb, var(--division-8) 45%, transparent);
+  --division-8-tint: color-mix(in srgb, var(--division-8) 15%, transparent);
+  /* A pill: a figure with its label, green for a win and red for a loss. */
+  --pill-surface: var(--surface-well);
+  --pill-edge: var(--border-subtle);
+  --pill-text: var(--text-soft);
+  --pill-figure: var(--text-main);
+  --pill-win: var(--win);
+  --pill-win-edge: var(--win-edge);
+  --pill-loss: var(--loss);
+  --pill-loss-edge: var(--loss-edge);
+  --pill-gold: var(--medal-gold);
+  --pill-silver: var(--medal-silver);
+  --pill-bronze: var(--medal-bronze);
+  --pill-gold-edge: color-mix(in srgb, var(--medal-gold) 50%, transparent);
+  --pill-silver-edge: color-mix(in srgb, var(--medal-silver) 50%, transparent);
+  --pill-bronze-edge: color-mix(in srgb, var(--medal-bronze) 50%, transparent);
+  /* A chip: a filter you can remove, in a gentle red when it excludes. */
+  --chip-surface: var(--surface-well);
+  --chip-edge: var(--text-muted);
+  --chip-text: var(--text-soft);
+  --chip-out-text: var(--loss-light);
+  --chip-out-edge: var(--loss-edge);
+  --chip-out-surface: color-mix(in srgb, var(--red-deep) 14%, var(--brown-well));
+  /* An expander's title (details' summary) and its marker. */
+  --disclosure-title: var(--text-main);
+  --disclosure-marker: var(--text-accent);
+  /* A count of things waiting or new, beside a tab or a menu's link. */
+  --count-surface: var(--fill-accent);
+  --count-text: var(--bg-dark);
+  /* A list of suggestions under a field (the site's player search, admin's pick boxes): the chosen row in a gold wash, its detail brighter there. */
+  --suggestions-surface: var(--surface-well);
+  --suggestions-edge: var(--edge-accent);
+  --suggestions-glow: var(--accent-wash);
+  --suggestion-rule: var(--accent-wash-subtle);
+  --suggestion-text: var(--text-main);
+  --suggestion-name: var(--text-accent);
+  --suggestion-detail: var(--text-muted);
+  --suggestion-active-surface: var(--accent-wash);
+  --suggestion-active-text: var(--text-bright);
+  --suggestion-active-detail: var(--text-main);
+  --suggestion-active-glow: var(--accent-glow);
+  --suggestion-match-line: var(--text-accent);
+  --suggestions-hint-surface: var(--surface-code);
+  --suggestions-hint-text: var(--text-muted);
+  /* A bar of controls (format bar, view bar): the well, solid so a sticky bar hides what scrolls under it. */
+  --bar-surface: linear-gradient(var(--surface-well), var(--surface-well)), var(--bg-dark);
+  --bar-edge: var(--border-subtle);
+  /* A field's edge: visible, 3:1 or more, as a control's outline. */
+  --field-edge: var(--text-muted);
+  --scroll-edge: var(--shadow);
+  /* A status: a short state, outlined in its tone. */
+  --status-muted: var(--text-muted);
+  --status-gold: var(--text-accent);
+  --status-good: var(--win);
+  --status-warn: var(--draw);
+  --status-bad: var(--loss);
+  /* A notice of an outcome (OutcomeNotice): good or bad, its tone fading into the well. */
+  --notice-good-surface: linear-gradient(90deg, color-mix(in srgb, var(--green-deep) 28%, transparent), var(--brown-well) 60%), var(--brown-well);
+  --notice-bad-surface: linear-gradient(90deg, color-mix(in srgb, var(--red-deep) 30%, transparent), var(--brown-well) 60%), var(--brown-well);
+  /* A note in front of the reader (Note), and its warning tone. Notes, insets and formula boxes share the well's colour. */
+  --note-surface: var(--surface-well);
+  --note-edge: var(--edge-accent);
+  --note-title: var(--text-accent);
+  --note-warning-edge: var(--loss-edge);
+  --note-warning-title: var(--loss);
+  /* A box inside a panel or on the page (Inset): a group of content, a row of figures, a short line. */
+  --inset-surface: var(--surface-well);
+  --inset-edge: var(--border-subtle);
+  --inset-text: var(--text-muted);
+  --inset-figure: var(--text-main);
+  /* A tile in a grid (Tile), raised; a link tile takes a gold edge and glow under the mouse. */
+  --tile-surface: linear-gradient(145deg, var(--surface-card), var(--surface-well));
+  --tile-edge: var(--border-subtle);
+  --tile-hover-edge: var(--edge-accent);
+  --tile-hover-glow: var(--accent-wash);
+  /* A figure tile (MetricCard): on the tiles' surface, so every card in a grid is one surface; what it counts, the figure, a note under it. */
+  --metric-surface: var(--tile-surface);
+  --metric-edge: var(--tile-edge);
+  --metric-label: var(--text-muted);
+  --metric-figure: var(--text-main);
+  --metric-note: var(--text-muted);
+  /* A highlight (Highlight): one fact singled out, a gold stripe on the well. */
+  --highlight-surface: var(--surface-well);
+  --highlight-edge: var(--border-subtle);
+  --highlight-stripe: var(--edge-accent);
+  /* A formula's box, and a quotation in prose. */
+  --formula-surface: var(--surface-well);
+  --formula-edge: var(--accent-wash-strong);
+  --formula-stripe: var(--edge-accent);
+  --formula-text: var(--text-accent-pale);
+  --quote-edge: var(--edge-accent);
+  --quote-text: var(--text-soft);
+  /* An overlay above the page (Dialog, Sheet, the options drawer, the phone menu): the dim behind it, its frame, its head's title and its rules. */
+  --overlay-dim: var(--shadow);
+  --overlay-surface: var(--surface-sheet);
+  --overlay-edge: var(--edge-accent);
+  --overlay-shadow: var(--shadow-deep);
+  --overlay-title: var(--text-accent);
+  --overlay-rule: var(--border-subtle);
+  --overlay-aside: var(--text-muted);
+  /* A tab row's tabs (Segmented's tabs): resting, and the chosen one filled gold. */
+  --tab-surface: var(--brown-tab);
+  --tab-edge: var(--brown-tab-edge);
+  --tab-text: var(--text-soft);
+  /* Buttons: the gold action, the crimson one that cannot be undone, the quiet one, a bare icon, and an overlay's close. */
+  --button-surface: linear-gradient(180deg, var(--antique-top) 0%, var(--antique-bottom) 100%);
+  --button-hover-surface: linear-gradient(180deg, var(--antique-hover-top) 0%, var(--antique-hover-bottom) 100%);
+  --button-edge: var(--edge-accent);
+  --button-text: var(--text-main);
+  --button-hover-text: var(--text-accent);
+  --button-rim: var(--gold-wash-strong);
+  --button-hover-glow: var(--gold-wash-strong);
+  --button-hover-rim: color-mix(in srgb, var(--gold) 50%, transparent);
+  --button-danger-rim: color-mix(in srgb, var(--red) 35%, transparent);
+  --button-danger-hover-glow: color-mix(in srgb, var(--red) 40%, transparent);
+  --button-danger-hover-rim: color-mix(in srgb, var(--red-light) 50%, transparent);
+  --button-danger-surface: linear-gradient(180deg, var(--crimson-top) 0%, var(--crimson-bottom) 100%);
+  --button-danger-hover-surface: linear-gradient(180deg, var(--crimson-hover) 0%, var(--crimson) 100%);
+  --button-danger-edge: var(--loss-edge);
+  --button-danger-hover-edge: var(--loss-light);
+  --button-danger-text: var(--text-bright);
+  --button-quiet-surface: var(--surface-well);
+  --button-quiet-edge: var(--text-muted);
+  --button-quiet-text: var(--text-soft);
+  --button-quiet-hover-edge: var(--edge-accent);
+  --button-quiet-hover-text: var(--text-accent);
+  --button-icon-text: var(--text-soft);
+  --button-icon-hover-text: var(--text-accent);
+  --button-close-text: var(--text-accent);
+  /* A gold button pressed (a toggle that is on), and a button drawn as words in text, underlined as a link. */
+  --button-pressed-surface: var(--fill-accent);
+  --button-pressed-text: var(--bg-dark);
+  --button-text-link: var(--text-accent);
+  --button-text-link-hover: var(--text-accent-bright);
+  --button-text-underline: var(--link-underline);
 
   /* The site serves these families from public/fonts/fonts.css (scripts/fonts.mjs). */
   --font-heading: 'Cinzel', serif;
@@ -58,24 +456,15 @@
   --size-label: 0.75rem;
   --size-button: 0.9rem;
 
-  /* The few strengths of gold wash, shadow and border, and the darker surfaces. */
-  --gold-wash-faint: rgba(229, 169, 60, 0.15);
-  --gold-wash: rgba(229, 169, 60, 0.25);
-  --gold-wash-strong: rgba(229, 169, 60, 0.4);
-  --shadow-light: rgba(0, 0, 0, 0.3);
-  --shadow: rgba(0, 0, 0, 0.6);
-  --shadow-deep: rgba(0, 0, 0, 0.9);
-  --border-faint: rgba(74, 53, 37, 0.3);
-  --surface-card: rgba(28, 18, 12, 0.95);
-  --surface-well: rgba(20, 13, 9, 0.98);
-  --surface-field: rgba(14, 9, 6, 0.95);
-  /* The height of a text field, select or button in a row of them, so the row lines up. */
+  /* Buttons set the heights and fields follow: standard for forms and toolbars, compact for a button in a table row or list. */
   --control-height: 2.2rem;
+  --control-height-compact: 1.75rem;
 }
 
-/* Phones get upstream's 40px tap height for fields. */
+/* Phones: 44px, WCAG's enhanced target size; compact stays above its 24px minimum. */
 @media (max-width: 768px) {
   :root {
-    --control-height: 40px;
+    --control-height: 44px;
+    --control-height-compact: 2rem;
   }
 }

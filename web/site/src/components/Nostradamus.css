@@ -1,8 +1,4 @@
 /* Nostradamus pages: questions, choices, token stakes and polls, inside the blitz pages' cards. */
-.nostradamus-nudge {
-  border-left: 3px solid var(--accent-gold);
-  padding-left: 0.75rem;
-}
 .nostradamus-question {
   margin: 0 0 1.25rem;
   border: 0;
@@ -17,10 +13,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-.nostradamus-choice[aria-pressed='true'] {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
 }
 .nostradamus-stake {
   display: flex;

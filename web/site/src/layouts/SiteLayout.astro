@@ -7,9 +7,11 @@ import SiteHeader from '../components/SiteHeader.astro';
 interface Props {
   title: string;
   description: string;
+  /** The page's width: full (the default), or narrow for a long document such as the FAQ. */
+  width?: 'full' | 'narrow';
 }
 
-const { title, description } = Astro.props;
+const { title, description, width = 'full' } = Astro.props;
 const crumbs = breadcrumb(Astro.url.pathname);
 ---
 <html lang="en">
@@ -25,7 +27,7 @@ const crumbs = breadcrumb(Astro.url.pathname);
   <body>
     <SiteHeader />
 
-    <main>
+    <main class:list={[{ 'main-narrow': width === 'narrow' }]}>
       {crumbs.length > 0 && (
         <nav class="breadcrumb" aria-label="Breadcrumb">
           <ol>
@@ -122,6 +124,11 @@ const crumbs = breadcrumb(Astro.url.pathname);
     padding: 0 1.5rem;
   }
 
+  /* A long document's page: 1120px of content inside main's padding. */
+  main.main-narrow {
+    max-width: calc(1120px + 3rem);
+  }
+
   .site-footer {
     margin-top: auto;
     padding: 2rem 1.5rem;
@@ -141,19 +148,19 @@ const crumbs = breadcrumb(Astro.url.pathname);
 
   .footer-small {
     margin-top: 0.5rem;
-    color: #887864;
+    color: var(--text-muted);
     font-size: 0.8rem;
   }
 
   .footer-small a {
-    color: #887864;
+    color: var(--text-muted);
     /* Underlined, as the same colour as the text would not show they are links. */
     text-decoration: underline;
     text-underline-offset: 2px;
   }
 
   .footer-small a:hover {
-    color: var(--accent-gold);
+    color: var(--text-accent);
   }
 
   /* Phones only: there the bar is folded into the menu, so nothing else says where the page is. */
@@ -196,7 +203,7 @@ const crumbs = breadcrumb(Astro.url.pathname);
   }
 
   .breadcrumb a:hover {
-    color: var(--accent-gold);
+    color: var(--text-accent);
   }
 
   .breadcrumb [aria-current] {

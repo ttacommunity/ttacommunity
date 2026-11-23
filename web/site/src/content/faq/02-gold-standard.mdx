@@ -6,11 +6,10 @@ order: 2
 
 {/* Written by DANeo for the original ratings site. */}
 
-<div class="faq-card faq-card-bronze">
-  <div class="faq-eyebrow">GlickoD Engine</div>
-  <h3 class="c-amber">
-    <span>👑</span> The Full-Circle Journey: From Naive Glicko to WHR to GlickoD
-  </h3>
+import Panel from '../../components/Panel';
+import ScrollTable from '../../components/ScrollTable';
+
+<Panel icon="👑" title="The Full-Circle Journey: From Naive Glicko to WHR to GlickoD" subtitle="GlickoD Engine" stripe="bronze" holds="text">
   <p>
     The journey to the current GlickoD rating engine iteration involved several discoveries: Our starting observation was that standard Glicko-2, while effective overall, showed a <strong>steady overconfidence in high-probability predictions</strong>: when predicting a win chance of $X \ge 90\%$, the actual observed win rate in tournament play was closer to $\approx 89\%$.
   </p>
@@ -48,16 +47,13 @@ order: 2
   <p>
     Additionally, applying a <strong>gentle annual soft season reset</strong> (expanding RD by $\alpha \approx 1.45$ and regressing ratings toward tier anchors by $\lambda \approx 0.12$) improves forward predictive accuracy, counteracting inactive rating inflation and ensuring recent form is balanced with career skill.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>📐</span> Golden Ratio Multiplayer Information Decomposition
-  </h3>
+<Panel icon="📐" title="Golden Ratio Multiplayer Information Decomposition" stripe="bronze" holds="text">
   <p>
     In board games with $N \in \{2, 3, 4\}$ players, a single table is conventionally decomposed into $\binom{N}{2}$ pairwise matchups:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 \binom{2}{2} = 1 \text{ pair (2P)}, \quad \binom{3}{2} = 3 \text{ pairs (3P)}, \quad \binom{4}{2} = 6 \text{ pairs (4P)}
@@ -70,7 +66,7 @@ $$
   <p>
     DANeo establishes that information decomposition across competing entities naturally follows the <strong>Golden Ratio ($\phi \approx 1.61803398875$)</strong>, the fundamental mathematical constant governing self-similar recursive partitioning:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 W(N) = \phi^{N-2} \quad \text{(Total Effective 1v1 Match Equivalents)}
@@ -80,7 +76,7 @@ $$
   <p>
     Dividing the total effective information $W(N)$ equally across the $N - 1$ pairwise comparisons faced by each player yields the exact pairwise weighting factor $w_N$:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 w_N = \frac{\phi^{N-2}}{N - 1} \implies \begin{cases} w_2 = \dfrac{\phi^0}{1} = 1.0000 & \text{(2-Player: Pure Glicko-2)} \\[8pt] w_3 = \dfrac{\phi^1}{2} = \dfrac{\phi}{2} \approx 0.8090 & \text{(3-Player)} \\[8pt] w_4 = \dfrac{\phi^2}{3} = \dfrac{\phi + 1}{3} \approx 0.8727 & \text{(4-Player)} \end{cases}
@@ -99,7 +95,7 @@ $$
     <li><strong>Coulom Fractional Weighting ($w = \frac{1}{N-1}$):</strong> Yields $(N-1) \times \frac{1}{N-1} \equiv 1.0$ match equivalent per player across all formats. While mathematically clean, this under-rewards multiplayer play: dominating three opponents simultaneously in a 4-player game provides strictly richer statistical evidence than winning a 1v1 duel, yet Coulom values them identically.</li>
     <li>
 <span><strong>Golden Ratio Decomposition ($w_N = \frac{\phi^{N-2}}{N-1}$):</strong> Yields $W(N) = \phi^{N-2}$ effective 1v1 match equivalents per player:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 W(2) = 1.000 \text{ eq.}, \quad W(3) = \phi \approx 1.618 \text{ eq.}, \quad W(4) = \phi^2 = \phi + 1 \approx 2.618 \text{ eq.}
@@ -119,7 +115,7 @@ $$
   <p>
     When subtracting effective evidence $W(N) = \phi^{N-2}$ from the nominal pairwise comparisons faced by each player $(N - 1)$, we discover an invariant information-balancing property:
   </p>
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 \Delta(N) = (N - 1) - \phi^{N-2} \equiv \phi^{-2} = 2 - \phi \approx 0.381966 \quad \forall N \in \{3, 4\}
@@ -133,7 +129,7 @@ $$
   <ol class="faq-list ml-125">
     <li>
 <span><strong>The Golden Ratio Identity ($\phi^{-2} = 2 - \phi$):</strong><br /> By definition, $\phi^2 = \phi + 1$. Dividing both sides by $\phi^2$ gives $1 = \phi^{-1} + \phi^{-2}$, which implies $\phi^{-2} = 1 - \phi^{-1}$.<br /> Dividing $\phi^2 = \phi + 1$ by $\phi$ gives $\phi = 1 + \phi^{-1} \implies \phi^{-1} = \phi - 1$.<br /> Substituting $\phi^{-1}$ into $\phi^{-2}$:</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \phi^{-2} = 1 - (\phi - 1) = 2 - \phi \approx 2 - 1.618034 = 0.381966
@@ -143,7 +139,7 @@ $$
 </li>
     <li>
 <span><strong>For 3-Player Games ($N = 3$):</strong><br /> With $N = 3$, nominal faced comparisons are $3 - 1 = 2$, and effective evidence is $\phi^{3-2} = \phi^1 = \phi$.</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \Delta(3) = (3 - 1) - \phi^1 = 2 - \phi = \phi^{-2} \approx 0.381966
@@ -153,7 +149,7 @@ $$
 </li>
     <li>
 <span><strong>For 4-Player Games ($N = 4$):</strong><br /> With $N = 4$, nominal faced comparisons are $4 - 1 = 3$, and effective evidence is $\phi^{4-2} = \phi^2 = \phi + 1$.</span>
-<div class="faq-formula my-50">
+<div class="formula my-50">
 
 $$
 \Delta(4) = (4 - 1) - \phi^2 = 3 - (\phi + 1) = 2 - \phi = \phi^{-2} \approx 0.381966
@@ -173,12 +169,9 @@ $$
   <p>
     Because Through the Ages (and modern competitive board games) caps multiplayer formats strictly at 3-player and 4-player ($N \in \{3, 4\}$), the information discarded due to transitive table overlap is <em>perfectly invariant</em> across every multiplayer format in the game.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🔬</span> Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)
-  </h3>
+<Panel icon="🔬" title="Lever 1: 15-Game Re-Calibration (Eliminating Newcomer Bleed)" stripe="bronze" holds="text">
   <p>
     When players enter the tournament pool, they begin with a nominal 1500 rating and high uncertainty ($\mathrm{RD} = 350$). Because active veterans average $\approx 1521$ while the overall pool mean is $\approx 1471$, games involving uncalibrated newcomers generate severe network noise, false upsets, and the notorious "50% underconfidence droop" in standard Glicko.
   </p>
@@ -186,16 +179,13 @@ $$
     Under <strong>15-Game Re-Calibration</strong>, a player's first 15 games establish their emergent prior $R_{15}$ (players with under 15 career games who have been inactive for over a year are also finalized at their career total). In the UI, newcomers see their ratings update dynamically after every match accompanied by a provisional ⏳ indicator, while in the rating engine, opponent updates are computed against the calibrated prior to eliminate newcomer distortion.
   </p>
   <div class="mt-100">
-    <a class="btn-antique fs-92 no-underline" href="#recalibration-15">
+    <a class="btn-antique" href="#recalibration-15">
       <span>🔬</span> View Dedicated 15-Game Recalibration Tab &amp; Mathematical Derivation &raquo;
     </a>
   </div>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🎯</span> The Temperature Scaling Journey: Why GlickoD Retired Logit Compression
-  </h3>
+<Panel icon="🎯" title="The Temperature Scaling Journey: Why GlickoD Retired Logit Compression" stripe="bronze" holds="text">
   <p>
     One of the most instructive chapters in the development of GlickoD was the rise and subsequent retirement of <strong>Adaptive Temperature Scaling</strong> $T(P, N)$.
   </p>
@@ -227,8 +217,8 @@ $$
   <p>
     Comparing GlickoD with temperature scaling enabled versus completely disabled ($T \equiv 1.0$) demonstrates that removing temperature scaling achieves superior calibration across every metric:
   </p>
-  <div class="faq-table-wrap">
-    <table class="faq-table-framed">
+  <ScrollTable client:visible label="Confidence calibration">
+    <table class="leaderboard-table">
       <thead>
         <tr class="row-gold-strong">
           <th>Confidence Threshold</th>
@@ -240,49 +230,49 @@ $$
       </thead>
       <tbody>
         <tr>
-          <td class="bold c-white">&gt; 70% Confidence</td>
+          <td class="bold c-bright">&gt; 70% Confidence</td>
           <td class="c-muted">All Players</td>
-          <td class="stat">79.59% vs 80.21% (<span class="c-mint">+0.62%</span>)</td>
-          <td class="stat bold c-amber">79.93% vs 80.08% (<span class="c-mint">+0.15%</span>)</td>
-          <td class="fs-84 c-mint">Near-perfect alignment</td>
+          <td class="stat">79.59% vs 80.21% (<span class="c-good">+0.62%</span>)</td>
+          <td class="stat bold c-emphasis">79.93% vs 80.08% (<span class="c-good">+0.15%</span>)</td>
+          <td class="fs-84 c-good">Near-perfect alignment</td>
         </tr>
         <tr>
-          <td class="bold c-white">&gt; 80% Confidence</td>
+          <td class="bold c-bright">&gt; 80% Confidence</td>
           <td class="c-muted">All Players</td>
-          <td class="stat">86.48% vs 87.47% (<span class="c-mint">+0.99%</span>)</td>
-          <td class="stat bold c-amber">86.74% vs 87.05% (<span class="c-mint">+0.31%</span>)</td>
-          <td class="fs-84 c-mint">Error cut by 69%</td>
+          <td class="stat">86.48% vs 87.47% (<span class="c-good">+0.99%</span>)</td>
+          <td class="stat bold c-emphasis">86.74% vs 87.05% (<span class="c-good">+0.31%</span>)</td>
+          <td class="fs-84 c-good">Error cut by 69%</td>
         </tr>
         <tr>
-          <td class="bold c-white">&gt; 90% Confidence</td>
+          <td class="bold c-bright">&gt; 90% Confidence</td>
           <td class="c-muted">All Players</td>
-          <td class="stat">93.06% vs 93.76% (<span class="c-mint">+0.69%</span>)</td>
-          <td class="stat bold c-amber">93.23% vs 93.40% (<span class="c-mint">+0.17%</span>)</td>
-          <td class="fs-84 c-mint">Within 0.17% of reality</td>
+          <td class="stat">93.06% vs 93.76% (<span class="c-good">+0.69%</span>)</td>
+          <td class="stat bold c-emphasis">93.23% vs 93.40% (<span class="c-good">+0.17%</span>)</td>
+          <td class="fs-84 c-good">Within 0.17% of reality</td>
         </tr>
         <tr>
-          <td class="bold c-white">&gt; 90% Confidence</td>
-          <td class="c-amber semibold">Top 3% Elite</td>
-          <td class="stat">93.40% vs 96.50% (<span class="c-pink">+3.10%</span>)</td>
-          <td class="stat bold c-amber">93.61% vs 96.27% (<span class="c-mint">+2.66%</span>)</td>
-          <td class="fs-84 c-mint">Underconfidence reduced</td>
+          <td class="bold c-bright">&gt; 90% Confidence</td>
+          <td class="c-emphasis semibold">Top 3% Elite</td>
+          <td class="stat">93.40% vs 96.50% (<span class="c-bad">+3.10%</span>)</td>
+          <td class="stat bold c-emphasis">93.61% vs 96.27% (<span class="c-good">+2.66%</span>)</td>
+          <td class="fs-84 c-good">Underconfidence reduced</td>
         </tr>
         <tr>
-          <td class="bold c-white">&gt; 95% Confidence</td>
+          <td class="bold c-bright">&gt; 95% Confidence</td>
           <td class="c-muted">All Players</td>
-          <td class="stat">96.40% vs 96.90% (<span class="c-mint">+0.50%</span>)</td>
-          <td class="stat bold c-amber">96.50% vs 96.56% (<span class="c-mint">+0.06%</span>)</td>
-          <td class="fs-84 c-mint">Virtually 0 error</td>
+          <td class="stat">96.40% vs 96.90% (<span class="c-good">+0.50%</span>)</td>
+          <td class="stat bold c-emphasis">96.50% vs 96.56% (<span class="c-good">+0.06%</span>)</td>
+          <td class="fs-84 c-good">Virtually 0 error</td>
         </tr>
         <tr class="row-gold row-total">
-          <td class="bold c-amber" colspan="2">Overall Full-History ECE (Season Reset)</td>
-          <td class="stat c-pink">0.41%</td>
-          <td class="stat bold c-mint">0.24%</td>
-          <td class="fs-84 bold c-mint">All-Time Record ECE</td>
+          <td class="bold c-emphasis" colspan="2">Overall Full-History ECE (Season Reset)</td>
+          <td class="stat c-bad">0.41%</td>
+          <td class="stat bold c-good">0.24%</td>
+          <td class="fs-84 bold c-good">All-Time Record ECE</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
   <h4 class="faq-subhead-amber">
     The Final Architectural Verdict
@@ -293,17 +283,14 @@ $$
   <p>
     <strong>GlickoD operates with $T \equiv 1.0$ across all formats.</strong> Its calibration is anchored by its two core enhancements: Golden Ratio ($\phi$) multiplayer weighting and 15-game emergent prior recalibration.
   </p>
-</div>
+</Panel>
 
-    <div class="faq-card faq-card-bronze">
-  <h3 class="c-amber">
-    <span>🏆</span> Empirical Benchmark Scoreboard Across Formats
-  </h3>
+<Panel icon="🏆" title="Empirical Benchmark Scoreboard Across Formats" stripe="bronze" holds="text">
   <p>
     The table below documents the final match-time calibration metrics for <strong>GlickoD</strong> (<em>Custom Glicko2 implementation for Multiplayer Boardgaming by DANeo</em>) across all season reset modes on the full historical dataset (388,493 pairwise encounters):
   </p>
-  <div class="faq-table-wrap">
-    <table class="faq-table-framed-bright">
+  <ScrollTable client:visible label="Benchmark scoreboard">
+    <table class="leaderboard-table">
       <thead>
         <tr class="row-gold-strong">
           <th class="left">Model Configuration</th>
@@ -316,20 +303,20 @@ $$
       </thead>
       <tbody>
         <tr class="row-gold-bright">
-          <td class="left bold c-amber">👑 GlickoD (Continuous)</td>
-          <td class="heavy stat c-cream">0.2081</td>
-          <td class="heavy stat c-cream">0.6066</td>
-          <td class="heavy stat c-cream">0.34%</td>
-          <td class="heavy stat c-cream">66.12%</td>
-          <td class="left fs-84 c-wheat"><strong>All-Time Forecast Leader</strong> &bull; Lowest career forecast error ($0.2081$) with sub-0.35% ECE.</td>
+          <td class="left bold c-emphasis">👑 GlickoD (Continuous)</td>
+          <td class="heavy stat c-emphasis">0.2081</td>
+          <td class="heavy stat c-emphasis">0.6066</td>
+          <td class="heavy stat c-emphasis">0.34%</td>
+          <td class="heavy stat c-emphasis">66.12%</td>
+          <td class="left fs-84 c-emphasis"><strong>All-Time Forecast Leader</strong> &bull; Lowest career forecast error ($0.2081$) with sub-0.35% ECE.</td>
         </tr>
         <tr class="row-gold-mid">
-          <td class="left bold c-cream">👑 GlickoD (Season Reset)</td>
-          <td class="heavy stat c-amber">0.2081</td>
-          <td class="heavy stat c-amber">0.6065</td>
-          <td class="heavy stat c-mint">0.24%</td>
-          <td class="heavy stat c-amber">66.13%</td>
-          <td class="left fs-84 c-wheat"><strong>Peak Calibration Harmony</strong> &bull; All-time record lowest ECE ($0.24\%$) with annual season reset.</td>
+          <td class="left bold c-emphasis">👑 GlickoD (Season Reset)</td>
+          <td class="heavy stat c-emphasis">0.2081</td>
+          <td class="heavy stat c-emphasis">0.6065</td>
+          <td class="heavy stat c-good">0.24%</td>
+          <td class="heavy stat c-emphasis">66.13%</td>
+          <td class="left fs-84 c-emphasis"><strong>Peak Calibration Harmony</strong> &bull; All-time record lowest ECE ($0.24\%$) with annual season reset.</td>
         </tr>
         <tr>
           <td class="left semibold c-muted">G2 Adapt (Softer Standard)</td>
@@ -349,5 +336,5 @@ $$
         </tr>
       </tbody>
     </table>
-  </div>
-</div>
+  </ScrollTable>
+</Panel>

@@ -7,9 +7,11 @@ order: 5
 {/* Written by DANeo for the original ratings site. */}
 
 import FaqFigure from '../../components/FaqFigure.astro';
+import Panel from '../../components/Panel';
+import Note from '@ttac/shared/Note';
+import ScrollTable from '../../components/ScrollTable';
 
-<div class="faq-card">
-  <h3>Glicko-2 MP-Weighted: Multiplayer Weighting &amp; Fractional Game Variance</h3>
+<Panel title="Glicko-2 MP-Weighted: Multiplayer Weighting & Fractional Game Variance" holds="text">
   <div>
 
       <p>
@@ -26,7 +28,7 @@ import FaqFigure from '../../components/FaqFigure.astro';
     To restore statistical honesty, <a class="faq-link" href="https://www.remi-coulom.fr/WHR/" target="_blank" rel="noopener noreferrer">Coulom's fractional variance weighting</a> scales the match weight according to participant count:
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 w = \frac{1}{N - 1} \implies w_{2\text{p}} = 1.000, \quad w_{3\text{p}} = 0.500, \quad w_{4\text{p}} = 0.333
@@ -38,7 +40,7 @@ $$
     This fractional weight scales <strong>both</strong> the rating step discrepancy ($\Delta \mu$) and the variance accumulation ($v^{-1}$):
   </p>
 
-  <div class="faq-formula">
+  <div class="formula">
 
 $$
 v^{-1} = \sum_{j} w \cdot g(\phi_j)^2 E_j (1 - E_j), \quad \Delta \text{sum} = \sum_{j} w \cdot g(\phi_j) (s_j - E_j)
@@ -47,10 +49,9 @@ $$
 </div>
           </div>
 
-</div>
+</Panel>
 
-        <div class="faq-card faq-card-edge">
-  <h3 class="c-yellow" >Does fractional weighting effectively devalue multiplayer matches in the leaderboard?</h3>
+<Panel title="Does fractional weighting effectively devalue multiplayer matches in the leaderboard?" stripe="gold" holds="text">
   <div>
 
       <p>
@@ -63,7 +64,7 @@ $$
   <ul class="faq-list">
     <li>
 <span><strong>For an Individual Competitor:</strong> In a 4-player game, you play against $3$ opponents ($N-1$). Multiplying each pairwise comparison by $\frac{1}{3}$ yields:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 (N - 1) \times \frac{1}{N - 1} = 3 \times \frac{1}{3} = 1.0 \text{ unit of evidence per player}
@@ -77,7 +78,7 @@ $$
     </li>
     <li>
 <span><strong>Table-Level Information Conservation:</strong> Across all 4 participants, a 4-player game generates $\binom{4}{2} = 6$ pairs. At weight $1/3$, the total information generated across the entire table is:</span>
-<div class="faq-formula">
+<div class="formula">
 
 $$
 I_{\text{table}} = \binom{N}{2} \times \frac{1}{N-1} = \frac{N(N-1)}{2} \times \frac{1}{N-1} = \frac{N}{2} = 2.0 \text{ units}
@@ -92,11 +93,11 @@ $$
     Empirical Proof: Comparing Glicko-2 Standard vs. MP-Weighted Models
   </h4>
   <p>
-    Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-gold underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
+    Evaluating strictly on out-of-sample unseen games across <FaqFigure name="mp.0.matches" fallback="308,863" />+ walk-forward tournament matches (matching the live metrics on our <a class="c-emphasis underline" href="/ratings/analysis/">Model Analysis page</a>), we compare Standard unweighted Glicko-2 against MP-Weighted Glicko-2:
   </p>
 
-  <div class="faq-table-wrap">
-    <table>
+  <ScrollTable client:visible label="MP-weighting results">
+    <table class="leaderboard-table">
       <thead>
         <tr>
           <th class="left">Rating Model</th>
@@ -110,52 +111,52 @@ $$
       </thead>
       <tbody>
         <tr class="row-green">
-          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-          <td><span class="faq-chip c-mint">Continuous</span></td>
+          <td class="left bold c-good">Glicko-2 MP-Weighted</td>
+          <td><strong class="c-good">Continuous</strong></td>
           <td class="stat bold">$0.500$</td>
           <td class="stat bold">$0.333$</td>
-          <td class="stat heavy c-green"><FaqFigure name="mp.0.brier" fallback="0.2141" /></td>
-          <td class="stat heavy c-green"><FaqFigure name="mp.0.ece" fallback="1.15" />%</td>
-          <td class="left fs-84 c-green"><strong>Statistically Optimal</strong> &bull; Lowest forecast error and cleanest calibration without multiplayer inflation.</td>
+          <td class="stat heavy c-good"><FaqFigure name="mp.0.brier" fallback="0.2141" /></td>
+          <td class="stat heavy c-good"><FaqFigure name="mp.0.ece" fallback="1.15" />%</td>
+          <td class="left fs-84 c-good"><strong>Statistically Optimal</strong> &bull; Lowest forecast error and cleanest calibration without multiplayer inflation.</td>
         </tr>
         <tr>
-          <td class="left bold c-gold">Glicko-2 Standard</td>
-          <td><span class="faq-chip">Continuous</span></td>
+          <td class="left bold c-emphasis">Glicko-2 Standard</td>
+          <td><span class="semibold">Continuous</span></td>
           <td class="stat">$1.000$</td>
           <td class="stat">$1.000$</td>
-          <td class="stat heavy c-amber"><FaqFigure name="std.0.brier" fallback="0.2143" /></td>
-          <td class="stat heavy c-amber"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std.0.brier" fallback="0.2143" /></td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std.0.ece" fallback="1.47" />%</td>
           <td class="left fs-84 c-muted">Higher calibration error (+28% ECE) due to unscaled certainty inflation in 3p/4p games.</td>
         </tr>
         <tr class="row-green-faint">
-          <td class="left bold c-green">Glicko-2 MP-Weighted</td>
-          <td><span class="faq-chip c-mint">Soft Reset</span></td>
+          <td class="left bold c-good">Glicko-2 MP-Weighted</td>
+          <td><strong class="c-good">Soft Reset</strong></td>
           <td class="stat bold">$0.500$</td>
           <td class="stat bold">$0.333$</td>
-          <td class="stat heavy c-green"><FaqFigure name="daneo_softer.0.brier" fallback="0.2147" /></td>
-          <td class="stat heavy c-green"><FaqFigure name="daneo_softer.0.ece" fallback="0.93" />%</td>
-          <td class="left fs-84 c-green"><strong>Sub-1% Calibration</strong> &bull; Seasonal Golden Ratio reset paired with fractional MP evidence.</td>
+          <td class="stat heavy c-good"><FaqFigure name="daneo_softer.0.brier" fallback="0.2147" /></td>
+          <td class="stat heavy c-good"><FaqFigure name="daneo_softer.0.ece" fallback="0.93" />%</td>
+          <td class="left fs-84 c-good"><strong>Sub-1% Calibration</strong> &bull; Seasonal Golden Ratio reset paired with fractional MP evidence.</td>
         </tr>
         <tr>
-          <td class="left bold c-gold">Glicko-2 Standard</td>
-          <td><span class="faq-chip">Soft Reset</span></td>
+          <td class="left bold c-emphasis">Glicko-2 Standard</td>
+          <td><span class="semibold">Soft Reset</span></td>
           <td class="stat">$1.000$</td>
           <td class="stat">$1.000$</td>
-          <td class="stat heavy c-amber"><FaqFigure name="std_softer.0.brier" fallback="0.2150" /></td>
-          <td class="stat heavy c-amber"><FaqFigure name="std_softer.0.ece" fallback="1.05" />%</td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std_softer.0.brier" fallback="0.2150" /></td>
+          <td class="stat heavy c-emphasis"><FaqFigure name="std_softer.0.ece" fallback="1.05" />%</td>
           <td class="left fs-84 c-muted">Calibrated seasonal mobility, but trailing MP-weighted accuracy.</td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </ScrollTable>
 
-  <div class="faq-aside">
-    <strong class="c-gold">4-Player Match Impact (Strict Walk-Forward):</strong>
+  <Note>
+    <strong class="c-emphasis">4-Player Match Impact (Strict Walk-Forward):</strong>
     In 4-player games, where an unweighted engine credits each win with 3 full matches of evidence, Standard Glicko-2 exhibits an ECE of <strong><FaqFigure name="std.4.ece" fallback="3.24" />%</strong> (Brier <FaqFigure name="std.4.brier" fallback="0.2240" />). Glicko-2 MP-Weighted ($w = 1/3$) reduces this calibration error to <strong><FaqFigure name="mp.4.ece" fallback="1.96" />%</strong> (Brier <FaqFigure name="mp.4.brier" fallback="0.2224" />).
-  </div>
+  </Note>
   <p>
     The data is definitive: scaling by $\frac{1}{N-1}$ protects multiplayer players from artificial rating inflation and ensures that 2P, 3P, and 4P records compete on a completely fair statistical playing field. The analysis also clearly shows: The MP-Weighted model not only performs better on overall predictions, but also considerably better on the 3p and 4p exclusive pipe predictions as well. (See Model Analysis page for more details)
   </p>
           </div>
 
-</div>
+</Panel>

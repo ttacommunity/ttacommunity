@@ -1,12 +1,8 @@
 /* Admin's own rules; panels, the table and buttons are the shared theme's (rating-card, leaderboard-table, btn-antique). */
-.signed-in {
-  display: inline-block;
-  margin-bottom: 1.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-panel);
+/* Who is signed in, in the header beside Community Hub (in the menu on a phone). */
+.header-signed-in {
   color: var(--text-soft);
+  font-size: 0.85rem;
 }
 .rating-card.admin-card {
   min-width: 0;
@@ -38,42 +34,21 @@
 .row-error {
   color: var(--loss);
 }
-.rating-card.page-error {
-  max-width: 48rem;
-  border-left: 4px solid var(--loss-edge);
-}
-.page-error p {
-  margin: 0;
-  color: var(--text-main);
-}
-.admin-table input[type='checkbox'] {
-  width: 1.1rem;
-  height: 1.1rem;
-}
-.admin-table .btn-settings {
-  display: inline-block;
-  padding: 0.25rem 0.6rem;
-  font-size: 0.8rem;
-  white-space: nowrap;
-  text-decoration: none;
-}
-.tournaments-table .col-setting,
-.tournaments-table .col-seasons {
+.admin-table .col-setting,
+.admin-table .col-seasons {
   text-align: center;
 }
-.tournaments-table .yes {
+.admin-table .yes {
   color: var(--win);
 }
-.tournaments-table .no {
+.admin-table .no {
   color: var(--text-muted);
 }
+/* An admin table on a phone: the columns a page marks as wide hidden. */
 @media (max-width: 640px) {
-  .tournaments-table .col-seasons {
+  .admin-table .col-seasons,
+  .admin-table .run-wide {
     display: none;
-  }
-  .tournaments-table th,
-  .tournaments-table td {
-    padding-inline: 0.4rem;
   }
 }
 .settings-list {
@@ -87,26 +62,21 @@
 }
 .setting input[type='checkbox'] {
   flex: none;
-  width: 1.1rem;
-  height: 1.1rem;
   margin-top: 0.2rem;
 }
+/* A setting chosen from a list puts the list under its label when they do not fit side by side. */
+.setting:has(> select) {
+  flex-wrap: wrap;
+  align-items: center;
+}
 .regulations-text {
-  box-sizing: border-box;
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  background: var(--bg-dark);
-  color: var(--text-main);
-  font: inherit;
-  line-height: 1.4;
 }
 .season-notes h3 {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .season-notes + .season-notes {
   padding-top: 1rem;
@@ -122,21 +92,20 @@
   gap: 0.3rem;
 }
 .note-box label {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 .note-box textarea {
-  box-sizing: border-box;
   width: 100%;
-  font-family: var(--font-body);
 }
 .note-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
 }
-.note-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
+/* A table row's actions stay on one line; the table scrolls instead. */
+.admin-table .note-actions {
+  flex-wrap: nowrap;
 }
 .note-status {
   color: var(--text-muted);
@@ -165,14 +134,11 @@
   gap: 0.75rem;
   margin-top: 1rem;
 }
-.admin-add > .btn-antique {
-  height: var(--control-height);
-}
 .admin-add h3 {
   width: 100%;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .admin-add label {
   display: grid;
@@ -215,29 +181,6 @@
 .runs-actions {
   margin-bottom: 0.75rem;
 }
-.run-state {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-.run-shown {
-  border-color: var(--accent-gold);
-  color: var(--accent-gold);
-}
-.run-running {
-  border-color: var(--draw);
-  color: var(--draw);
-}
-.run-complete {
-  color: var(--win);
-}
-.run-failed {
-  border-color: var(--loss);
-  color: var(--loss);
-}
 .run-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -261,15 +204,6 @@
 .run-buttons button {
   white-space: nowrap;
 }
-@media (max-width: 640px) {
-  .runs-table .run-wide {
-    display: none;
-  }
-  .runs-table th,
-  .runs-table td {
-    padding-inline: 0.4rem;
-  }
-}
 .run-block {
   margin-block: 1rem;
 }
@@ -278,21 +212,10 @@
   margin: 0 0 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .run-stop {
   margin-top: 0.5rem;
-}
-.podium-box {
-  min-width: 0;
-  margin: 0.5rem 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-.podium-box legend {
-  color: var(--text-soft);
-  font-size: 0.85rem;
 }
 .podium-places {
   display: flex;
@@ -334,28 +257,6 @@
   gap: 0.4rem;
   margin: 0.5rem 0 0;
 }
-.badge-holder {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  color: var(--text-main);
-}
-.badge-take {
-  min-width: 1.5rem;
-  min-height: 1.5rem;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-soft);
-  cursor: pointer;
-}
-.badge-take:hover,
-.badge-take:focus-visible {
-  color: var(--loss);
-}
 .data-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
@@ -382,11 +283,6 @@
   color: var(--text-soft);
   font-size: 0.85rem;
 }
-.card-fields input,
-.card-fields textarea {
-  box-sizing: border-box;
-  font: inherit;
-}
 .card-fields #card-icon {
   width: 5rem;
 }
@@ -395,17 +291,6 @@
 }
 .card-fields .card-summary {
   flex: 1 1 100%;
-}
-.story-box {
-  min-width: 0;
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-}
-.story-box legend {
-  color: var(--text-soft);
-  font-size: 0.85rem;
 }
 .setting-counts {
   display: flex;
@@ -422,18 +307,45 @@
   color: var(--text-soft);
   font-size: 0.9rem;
 }
-.check-kinds {
+/* A group of related fields (FieldGroup): the box's place, and its legend as the group's title. */
+.field-group {
+  margin: 0.75rem 0 1rem;
+}
+.field-group-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.field-group-title {
+  margin-bottom: 0.5rem;
+  padding: 0;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+/* A list's "Show" filter (ShowFilter): its word beside the toggle group. */
+.show-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.25rem;
+  align-items: center;
+  gap: 0.5rem;
   margin: 0.75rem 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
-.check-kinds legend {
-  padding: 0 0.3rem;
-  color: var(--text-muted);
+.show-filter-label {
+  color: var(--text-soft);
+}
+/* Fields in a row (a sheet section's, a field group's): checkboxes side by side, and a field's label above the field, as on admin's pages. */
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem 1.25rem;
+}
+.field-row label:has(> .input-antique) {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
 }
 .feed-group {
   display: grid;
@@ -514,7 +426,7 @@
   gap: 0.6rem;
   margin: 0 0 0.6rem;
 }
-.stages-table .stage-note {
+.admin-table .stage-note {
   max-width: 28rem;
   white-space: pre-wrap;
 }
@@ -528,22 +440,18 @@
 }
 .round-block h3,
 .admin-subsection > h3,
-.settings-head h3 {
+.settings-head h3,
+.movies-add h3 {
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .setting-inline,
 .admin-add .setting-inline {
   display: flex;
   gap: 0.4rem;
   align-items: center;
-}
-.setting-inline input[type='checkbox'],
-.setting-inline input[type='radio'] {
-  width: 1.1rem;
-  height: 1.1rem;
 }
 .round-hint {
   margin-top: 0.5rem;
@@ -564,7 +472,7 @@
 .result-form h3 {
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .result-row {
   display: flex;
@@ -619,66 +527,15 @@
 .pick-box {
   position: relative;
 }
-.pick-options {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 1000;
-  min-width: 100%;
-  width: max-content;
-  max-width: min(26rem, calc(100vw - 2rem));
-  max-height: 20rem;
-  padding: 4px 0;
-  overflow-y: auto;
-  background: var(--surface-well);
-  border: 1.5px solid var(--accent-gold);
-  border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
-  font-family: var(--font-stats);
-}
-.pick-option {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.45rem 0.75rem;
-  color: var(--text-main);
-  cursor: pointer;
-}
-.pick-option.active {
-  background: rgba(212, 160, 23, 0.25);
-}
-.pick-option[aria-disabled='true'] {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-.pick-detail {
-  color: var(--text-muted);
-  white-space: nowrap;
-}
 .pick-note {
   align-self: center;
 }
 /* In a table row the list opens in the row, since the table's scroller would cut it off. */
-.admin-table .pick-options {
+.admin-table .suggestions {
   position: static;
   margin-top: 4px;
 }
-/* A field or button that cannot be used now looks it, and a button does not light up. */
-.admin-main .input-antique:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.admin-main .btn-antique:disabled,
-.admin-main .btn-antique:disabled:hover {
-  opacity: 0.45;
-  cursor: not-allowed;
-  background: linear-gradient(180deg, #2e1d13 0%, #170d08 100%);
-  border-color: var(--accent-gold);
-  box-shadow: none;
-  color: var(--text-main);
-  transform: none;
-}
-/* A note on when to use a control (InfoTip): an "i" beside it, the note opening under the row it is in. */
+/* A note on when to use a control (InfoTip): an ⓘ beside it, the note (the tooltip's box) opening under the row it is in. */
 .admin-add {
   position: relative;
 }
@@ -687,40 +544,12 @@
   align-items: center;
   gap: 0.5rem;
 }
-.info-tip-button {
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 1.5px solid var(--accent-gold);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--accent-gold);
-  font-family: var(--font-subheading);
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-}
-.info-tip-button[aria-expanded='true'],
-.info-tip-button:hover {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-}
 .info-tip-note {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: 20;
   max-width: min(32rem, 100%);
-  padding: 0.5rem 0.8rem;
-  background: rgba(18, 12, 8, 0.98);
-  border: 1px solid var(--accent-gold);
-  border-radius: 5px;
-  box-shadow: 0 6px 24px var(--shadow-deep);
-  color: var(--text-main);
-  font-family: var(--font-stats);
-  font-size: 0.8rem;
-  line-height: 1.4;
 }
 .member-search {
   margin-top: 0;
@@ -769,7 +598,7 @@
   margin: 1rem 0 0.4rem;
   font-family: var(--font-heading);
   font-size: 0.9rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .settings-forms h4:first-child {
   margin-top: 0.25rem;
@@ -784,21 +613,6 @@
   }
 }
 /* A count beside a tab or heading: the requests to be linked waiting for an answer. */
-.count-badge {
-  display: inline-block;
-  min-width: 1.25rem;
-  margin-left: 0.35rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-  font-family: var(--font-stats);
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.25rem;
-  text-align: center;
-  vertical-align: 0.1em;
-}
 
 
 
@@ -821,21 +635,14 @@
 }
 
 /* Admin Movies panel: creator intake well, tabular listings, and compact video thumbnails. */
-.movies-add-card {
+.movies-add {
   margin: 1rem 0 1.25rem;
-  padding: 0.9rem 1rem 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-well);
 }
-.movies-add-card h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 1rem;
-  color: var(--accent-gold);
+.movies-add h3 {
+  margin-top: 0;
 }
-.movies-add-card .admin-add {
-  margin-top: 0.65rem;
+.movies-add .admin-add {
+  margin-top: 0;
 }
 .movies-field-wide {
   flex: 1 1 18rem;
@@ -857,7 +664,7 @@
   margin: 0 0 0.6rem;
   font-family: var(--font-heading);
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .movies-creator-name {
   font-weight: 600;
@@ -880,21 +687,6 @@
 }
 .movies-date {
   white-space: nowrap;
-}
-.movies-status {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-.movies-status-visible {
-  color: var(--win);
-  border: 1px solid var(--win);
-}
-.movies-status-hidden {
-  color: var(--text-muted);
-  border: 1px solid var(--border-subtle);
 }
 .movies-run {
   display: flex;
@@ -919,10 +711,6 @@
 .multi-pick {
   position: relative;
 }
-.movies-filter-bar .input-antique {
-  box-sizing: border-box;
-  height: 2.5rem;
-}
 .multi-pick > summary {
   display: flex;
   align-items: center;
@@ -934,20 +722,13 @@
   content: "▾";
   margin-left: 0.4rem;
 }
+/* A multi-pick's list: the shared list's frame, its checkboxes in a column. */
 .multi-pick-options {
-  position: absolute;
-  z-index: 5;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  min-width: 100%;
-  max-height: 18rem;
-  overflow-y: auto;
-  margin: 0.25rem 0 0;
+  margin: 0;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--surface-sheet);
   white-space: nowrap;
 }
 .multi-pick-options label {
@@ -959,10 +740,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
-}
-.movies-status-failing {
-  color: var(--loss);
-  border: 1px solid var(--loss);
 }
 .movies-why {
   display: block;

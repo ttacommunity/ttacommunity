@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { shownZone, viewerZone } from '@ttac/shared/time';
 import { countryName } from '@ttac/shared/countries';
 import { fetchMyData, keptGroups, type KeptGroup } from '../lib/kept-data';
-import Sheet from '@ttac/shared/Sheet';
+import Sheet, { SheetSection } from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import './KeptData.css';
 import { useLoad } from './useLoad';
@@ -36,7 +36,7 @@ function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; sa
   return (
     <Sheet dialog={dialog} id="kept" title="Data we keep" opener={opener} onClose={onClose}>
       <div className="sheet-body">
-        <p className="kept-intro">
+        <p className="sheet-intro">
           Everything we keep about you, and when each is removed. Times are in {zone}. To have something corrected or removed sooner, write to
           privacy@ttacommunity.org.
         </p>
@@ -51,8 +51,7 @@ function KeptDialog({ apiUrl, savedZone, opener, onClose }: { apiUrl: string; sa
 
 function Group({ group }: { group: KeptGroup }) {
   return (
-    <section className="kept-group" aria-labelledby={`kept-${group.id}`}>
-      <h3 id={`kept-${group.id}`}>{group.heading}</h3>
+    <SheetSection title={group.heading}>
       {group.rule !== '' && <p className="kept-rule">{group.rule}</p>}
       {group.lists.length === 0 && group.empty !== '' && <p className="kept-rule">{group.empty}</p>}
       {group.lists.map((l) => (
@@ -72,6 +71,6 @@ function Group({ group }: { group: KeptGroup }) {
           </dl>
         </div>
       ))}
-    </section>
+    </SheetSection>
   );
 }

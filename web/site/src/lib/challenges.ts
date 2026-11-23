@@ -57,6 +57,13 @@ export function challengePicture(id: string): string {
   return `/img/challenges/${id}.jpg`;
 }
 
+const GROUP_PICTURES = new Set(['cheap', 'classic', 'epic', 'fate', 'immortals', 'impacts', 'kidnappers', 'mix', 'time_travellers', 'wonders']);
+
+/** groupPicture is the art behind a challenge group's panel, or undefined for a group with none. */
+export function groupPicture(group: string): string | undefined {
+  return GROUP_PICTURES.has(group) ? `/img/groups/${group}.jpg` : undefined;
+}
+
 /** challengeHref is the address of a challenge's page. */
 export function challengeHref(id: string): string {
   return `/challenges/${id}/`;
@@ -178,6 +185,12 @@ export function leader(a: number | undefined, b: number | undefined): 'a' | 'b' 
   if (a === undefined) return 'b';
   if (b === undefined) return 'a';
   return a > b ? 'a' : b > a ? 'b' : '';
+}
+
+/** standing says how mine compares with theirs: ahead by leader's rule (higher, or played when theirs is not), tied when both have the same figure above zero (zero is nothing played), else null. */
+export function standing(mine: number | undefined, theirs: number | undefined): 'ahead' | 'tied' | null {
+  if (mine !== undefined && mine > 0 && mine === theirs) return 'tied';
+  return leader(mine, theirs) === 'a' ? 'ahead' : null;
 }
 
 /** placingSeparators is what goes before each placing in a list: nothing, " & " joining a tie with the one before, or ", ". */

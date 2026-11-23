@@ -8,7 +8,7 @@ import NewerOlder from '@ttac/shared/NewerOlder';
 import PlayerPicker from './PlayerPicker';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
 
 /** TournamentGames lists one tournament's games for a run, with filters that follow its seasons and stages; pick chooses a season from outside. */
 export default function TournamentGames({
@@ -32,7 +32,7 @@ export default function TournamentGames({
   stageWord: string;
 }) {
   const [filter, setFilter] = useState<GamesFilter>({ page: 1 });
-  const panel = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLElement>(null);
   useEffect(() => {
     if (pick.n === 0) return;
     setFilter({ season: pick.season, page: 1 });
@@ -46,8 +46,7 @@ export default function TournamentGames({
   const narrow = (next: Partial<GamesFilter>) => setFilter((f) => ({ ...f, ...next, page: next.page ?? 1 }));
 
   return (
-    <div className="rating-card panel-card games-panel" ref={panel}>
-      <PanelHeader title="Games">{data !== null && <span className="panel-tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}</PanelHeader>
+    <Panel id="games" title="Games" ref={panel} aside={data !== null && <span className="tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}>
       <div className="games-filters">
         <label>
           <span>{seasonWord}</span>
@@ -104,6 +103,6 @@ export default function TournamentGames({
         empty="No games match these filters."
       />
       {data !== null && <NewerOlder page={data.page} pages={data.pages} onPage={(page) => narrow({ page })} />}
-    </div>
+    </Panel>
   );
 }

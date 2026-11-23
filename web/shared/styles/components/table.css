@@ -1,15 +1,56 @@
-/* The striped ratings table, upstream's .leaderboard-table and its cell styles. */
+/* The striped ratings table, upstream's .leaderboard-table and its cell styles, and ScrollTable's box. */
+.scroll-table {
+  min-width: 0;
+  margin-bottom: 1rem;
+}
+
+.scroll-table:last-child {
+  margin-bottom: 0;
+}
+
 .table-responsive {
   position: relative;
   width: 100%;
-  margin-bottom: 1rem;
   overflow-x: auto;
+}
+
+/* A shadow over each side with more of the table beyond it. */
+.scroll-table-box {
+  position: relative;
+}
+
+.scroll-table-box::before,
+.scroll-table-box::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 1.75rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.scroll-table-box::before {
+  left: 0;
+  background: linear-gradient(to right, var(--scroll-edge), transparent);
+}
+
+.scroll-table-box::after {
+  right: 0;
+  background: linear-gradient(to left, var(--scroll-edge), transparent);
+}
+
+.scroll-table-box.more-start::before,
+.scroll-table-box.more-end::after {
+  opacity: 1;
 }
 
 .scroll-hint {
   display: none;
-  margin-bottom: 0.35rem;
-  color: var(--accent-gold);
+  margin: 0 0 0.35rem;
+  color: var(--text-accent);
   font-family: var(--font-stats);
   font-size: 0.76rem;
   letter-spacing: 0.3px;
@@ -27,7 +68,7 @@
   padding: 0.85rem 1rem;
   background: var(--surface-card);
   border-bottom: 2px solid var(--border-subtle);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: var(--size-table-header);
   letter-spacing: 1px;
@@ -39,13 +80,23 @@
 }
 
 .leaderboard-table tbody tr:nth-child(odd) {
-  --row: rgba(16, 10, 6, 0.65);
+  --row: var(--row-odd);
   background: var(--row);
 }
 
 .leaderboard-table tbody tr:nth-child(even) {
-  --row: rgba(28, 18, 12, 0.4);
+  --row: var(--row-even);
   background: var(--row);
+}
+
+/* A row singled out for the reader (the models chosen, their own game): a gold wash, and a gold edge on its first cell. */
+.leaderboard-table tbody tr.row-chosen {
+  --row: var(--row-chosen);
+  background: var(--row);
+}
+
+.leaderboard-table tbody tr.row-chosen > :first-child {
+  box-shadow: inset 3px 0 0 var(--row-chosen-edge);
 }
 
 .leaderboard-table td,
@@ -57,15 +108,39 @@
   text-align: left;
 }
 
-.leaderboard-table tbody tr:hover td,
-.leaderboard-table tbody tr:hover th {
-  background: var(--gold-wash-faint);
+/* A column's place (SortHeader's align, alignClass): numbers sit at the end with their digits lined up. */
+.leaderboard-table .col-start {
+  text-align: left;
 }
 
-/* A column that stays in view while the table scrolls sideways. Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through. */
+.leaderboard-table .col-center {
+  text-align: center;
+}
+
+.leaderboard-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A short cell (a date, a season, a game's label) kept on one line, so a narrow table scrolls rather than breaking it word by word. */
+.leaderboard-table .cell-nowrap {
+  white-space: nowrap;
+}
+
+.leaderboard-table tbody tr:hover td,
+.leaderboard-table tbody tr:hover th {
+  background: var(--accent-wash-faint);
+}
+
+/* A column that stays in view while the table scrolls sideways (the first at left 0; a page sets a later one's left). Once its scroller (.scrolled-x) has moved, it takes its row's stripe on the page's colour, so the cells passing under it do not show through, and the last pinned column draws an edge. */
 .leaderboard-table .col-pinned {
   position: sticky;
+  left: 0;
   z-index: 4;
+}
+
+.scrolled-x .leaderboard-table .col-pinned:not(:has(+ .col-pinned)) {
+  box-shadow: 1px 0 3px var(--shadow);
 }
 
 .scrolled-x .leaderboard-table .col-pinned {
@@ -77,7 +152,7 @@
 }
 
 .scrolled-x .leaderboard-table tbody tr:hover .col-pinned {
-  background: linear-gradient(var(--gold-wash-faint), var(--gold-wash-faint)), linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
+  background: linear-gradient(var(--accent-wash-faint), var(--accent-wash-faint)), linear-gradient(var(--row, transparent), var(--row, transparent)), var(--bg-dark);
 }
 
 .leaderboard-table .rank-col {
@@ -88,30 +163,75 @@
 }
 
 .leaderboard-table .top-3-rank {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
+/* A player's name (PlayerLink): in the face and size of the text around it; in a table, the row's subject at the body's face and size. */
 .player-link,
 .player-name {
-  color: var(--text-main);
-  font-family: var(--font-body);
-  font-size: 1rem;
+  color: var(--player-name);
   font-weight: 600;
+  text-decoration: none;
   transition: color 0.2s;
 }
 
+:is(td, th) :is(.player-link, .player-name) {
+  font-family: var(--font-body);
+  font-size: 1rem;
+}
+
 .player-link:hover {
-  color: var(--accent-gold);
+  color: var(--player-name-hover);
   text-decoration: underline;
 }
 
+/* Where a player finished (PlayerLink's place): first, second and third in the medals' colours, last set back. */
+.player-place-1 {
+  color: var(--medal-gold);
+  font-weight: 700;
+  text-shadow: 0 0 10px var(--medal-gold-glow);
+}
+
+.player-place-2 {
+  color: var(--medal-silver);
+  text-shadow: 0 0 8px var(--medal-silver-glow);
+}
+
+.player-place-3 {
+  color: var(--medal-bronze);
+  text-shadow: 0 0 8px var(--medal-bronze-glow);
+}
+
+.player-place-last {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.player-place-1:hover,
+.player-place-2:hover {
+  color: var(--text-bright);
+}
+
+.player-place-3:hover {
+  color: var(--medal-bronze-light);
+}
+
+.player-place-last:hover {
+  color: var(--text-soft);
+}
+
+/* A name that is not the subject (PlayerLink's quiet), such as the other seats in a game between two players. */
+.player-quiet {
+  color: var(--text-muted);
+}
+
 .c-rating-val {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
 .rating-primary {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
   font-weight: 700;
 }
 
@@ -148,14 +268,5 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
-  }
-
-  .leaderboard-table .col-sticky-rank,
-  .leaderboard-table tbody tr:hover .col-sticky-rank {
-    position: sticky;
-    left: 0;
-    z-index: 4;
-    background: rgba(22, 14, 10, 0.98);
-    box-shadow: 1px 0 3px var(--shadow);
   }
 }

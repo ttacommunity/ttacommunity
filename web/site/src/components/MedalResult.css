@@ -1,0 +1,34 @@
+/* A tournament result (MedalResult): a medal in a badge of its colour, any other placement as plain text. */
+.medal-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px var(--shadow-light);
+}
+
+.medal-result-plain {
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.medal-result-gold {
+  background: var(--medal-gold-fill);
+  border: 1px solid var(--medal-gold-edge);
+  color: var(--medal-gold-text);
+  box-shadow: 0 0 8px var(--accent-wash-strong);
+}
+.medal-result-silver {
+  background: var(--medal-silver-fill);
+  border: 1px solid var(--medal-silver);
+  color: var(--medal-silver);
+}
+.medal-result-bronze {
+  background: var(--medal-bronze-fill);
+  border: 1px solid var(--medal-bronze);
+  color: var(--medal-bronze-text);
+}

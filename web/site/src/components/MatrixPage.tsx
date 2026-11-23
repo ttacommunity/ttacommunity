@@ -10,7 +10,7 @@ import {
 import * as show from '../lib/leaderboard-display';
 import { DEFAULT_VIEW } from '../lib/leaderboard-view';
 import { careerPeakYear, scoreYears } from '../lib/career';
-import { matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
+import { matrixHref, matrixParams, pageModel, parseMatrixView, profileHref, type MatrixView } from '../lib/player-view';
 import { achievementsHref } from '../lib/achievements';
 import { recall } from '../lib/remembered';
 import { browserStorage } from '@ttac/shared/storage';
@@ -22,9 +22,11 @@ import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import Message from './Message';
 import PlayerHeader from './PlayerHeader';
-import { TitleBadge, VideosButton } from './PlayerMarks';
+import { TitleBadge } from './PlayerMarks';
 import { useAddressView, type Address } from './useAddressView';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import PeakSeason from './PeakSeason';
 
 const ADDRESS: Address<MatrixView> = {
   parse: parseMatrixView,
@@ -71,112 +73,104 @@ export default function MatrixPage({ apiUrl }: { apiUrl: string }) {
         linkFormat={(f) => linkTo({ ...view, format: f })}
       />
 
-      {best !== null && (
-        <div className="peak-year-card">
-          <div className="peak-year-badge" aria-hidden="true">
-            👑
-          </div>
-          <div className="peak-year-body">
-            <div className="peak-year-kicker">Career Benchmark Evaluation</div>
-            <div className="peak-year-title">
-              Peak Career Season: <span className="peak-year-year">{best.year}</span>
-              {best.title !== null && <TitleBadge title={{ code: best.title }} long className="badge-small" />}
-            </div>
-            <div className="peak-year-text">
-              In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
-              <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
-              {best.peak_rating ? (
-                <>
-                  {' '}
-                  with a seasonal peak rating of <strong className="peak-year-rating">{best.peak_rating.toFixed(1)}</strong>
-                </>
-              ) : null}
-              {best.title !== null && (
-                <>
-                  {' '}
-                  competing in the <strong>{show.titleName(best.title)}</strong> division
-                </>
-              )}{' '}
-              (Composite Performance Index: <strong className="peak-year-score">{best.score.toFixed(1)} pts</strong>).
-            </div>
-          </div>
-        </div>
-      )}
+      <Panels>
+        {best !== null && (
+          <PeakSeason season={best} icon="👑" kicker="Career Benchmark Evaluation">
+            In {best.year}, <strong>{p.name}</strong> achieved a dominant <strong>{best.win_rate.toFixed(1)}% win rate</strong> across{' '}
+            <strong>{best.opponents} competitive opponents</strong> ({best.wins} wins, {best.losses} losses)
+            {best.peak_rating ? (
+              <>
+                {' '}
+                with a seasonal peak rating of <strong className="peak-year-rating">{best.peak_rating.toFixed(1)}</strong>
+              </>
+            ) : null}
+            {best.title !== null && (
+              <>
+                {' '}
+                competing in the <strong>{show.titleName(best.title)}</strong> division
+              </>
+            )}{' '}
+            (Composite Performance Index: <strong className="peak-year-rating">{best.score.toFixed(1)} pts</strong>).
+          </PeakSeason>
+        )}
 
-      <div className="rating-card matrix-card">
-        <PanelHeader icon="📅" title="Year-by-Year Career Breakdown" subtitle={`${years.length} Seasons Recorded • Format: ${formatName}`}>
-          <span className="matrix-card-note">
-            Hover on <strong>ℹ️ Score Index</strong> for composite formula details
-          </span>
-        </PanelHeader>
-        <ScrollTable hint="full career history">
-          <table className="leaderboard-table career-history-table">
-            <caption className="visually-hidden">Career by year, {formatName}</caption>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Division Tier</th>
-                <th>Season Opps</th>
-                <th>Season W-L-D</th>
-                <th>Season Win %</th>
-                <th>Peak Rating</th>
-                <th>Year-End Rating</th>
-                <th>Career Opps</th>
-                <th>Career Win %</th>
-                <th>
-                  Score Index
-                  <span
-                    className="score-info"
-                    data-tooltip="Composite Performance Index: Evaluates career seasons balancing win rate (wr × 2.0), match volume (wins × 1.5), peak rating bonus, and World Championship title prestige to objectively rank peak performance."
-                  >
-                    ℹ️
-                  </span>
-                </th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scoreYears(years, p.peak).map((y) => {
-                const isBest = best !== null && best.year === y.year;
-                const shown = isBest ? best.title : y.title;
-                return (
-                  <tr key={y.year} className={isBest ? 'peak-row' : undefined}>
-                    <td>
-                      <strong className="career-year">{y.year}</strong>
-                      {shown === 'WC' && <span className="badge-wc badge-tiny">WC</span>}
-                    </td>
-                    <td>{shown !== null ? <TitleBadge title={{ code: shown }} long className="badge-small" /> : <span className="career-none">-</span>}</td>
-                    <td>{y.opponents}</td>
-                    <td>
-                      <span className="wld-num win">{y.wins}</span> - <span className="wld-num loss">{y.losses}</span> -{' '}
-                      <span className="wld-num draw">{y.draws}</span>
-                    </td>
-                    <td>
-                      <strong>{y.win_rate.toFixed(1)}%</strong>
-                    </td>
-                    <td>
-                      <strong className="career-peak">{y.peak_rating ? y.peak_rating.toFixed(1) : '-'}</strong>
-                    </td>
-                    <td>{y.year_end_rating ? y.year_end_rating.toFixed(1) : '-'}</td>
-                    <td>{y.career_opponents}</td>
-                    <td>{y.career_win_rate.toFixed(1)}%</td>
-                    <td className="career-score">{y.score.toFixed(1)}</td>
-                    <td>
-                      {isBest ? (
-                        <span className="badge badge-peak-year">
-                          👑 Peak Career Year{shown !== null ? ` (${show.titleName(shown)})` : ''}
-                        </span>
-                      ) : (
-                        <span className="career-active">Active</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </ScrollTable>
-      </div>
+        <Panel
+          id="matrix-years"
+          icon="📅"
+          title="Year-by-Year Career Breakdown"
+          subtitle={
+            <>
+              {years.length} Seasons Recorded • Format: {formatName} • Hover on <strong>ℹ️ Score Index</strong> for composite formula details
+            </>
+          }
+        >
+          <ScrollTable label="Career by year">
+            <table className="leaderboard-table career-history-table">
+              <caption className="visually-hidden">Career by year, {formatName}</caption>
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Division Tier</th>
+                  <th>Season Opps</th>
+                  <th>Season W-L-D</th>
+                  <th>Season Win %</th>
+                  <th>Peak Rating</th>
+                  <th>Year-End Rating</th>
+                  <th>Career Opps</th>
+                  <th>Career Win %</th>
+                  <th>
+                    Score Index
+                    <span
+                      className="score-info"
+                      data-tooltip="Composite Performance Index: Evaluates career seasons balancing win rate (wr × 2.0), match volume (wins × 1.5), peak rating bonus, and World Championship title prestige to objectively rank peak performance."
+                    >
+                      ℹ️
+                    </span>
+                  </th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scoreYears(years, p.peak).map((y) => {
+                  const isBest = best !== null && best.year === y.year;
+                  const shown = isBest ? best.title : y.title;
+                  return (
+                    <tr key={y.year} className={isBest ? 'peak-row' : undefined}>
+                      <td>
+                        <strong className="career-year">{y.year}</strong>
+                        {shown === 'WC' && <TitleBadge title={{ code: 'WC' }} />}
+                      </td>
+                      <td>{shown !== null ? <TitleBadge title={{ code: shown }} long /> : <span className="career-none">-</span>}</td>
+                      <td>{y.opponents}</td>
+                      <td>
+                        <span className="wld-num win">{y.wins}</span> - <span className="wld-num loss">{y.losses}</span> -{' '}
+                        <span className="wld-num draw">{y.draws}</span>
+                      </td>
+                      <td>
+                        <strong>{y.win_rate.toFixed(1)}%</strong>
+                      </td>
+                      <td>
+                        <strong className="career-peak">{y.peak_rating ? y.peak_rating.toFixed(1) : '-'}</strong>
+                      </td>
+                      <td>{y.year_end_rating ? y.year_end_rating.toFixed(1) : '-'}</td>
+                      <td>{y.career_opponents}</td>
+                      <td>{y.career_win_rate.toFixed(1)}%</td>
+                      <td className="career-score">{y.score.toFixed(1)}</td>
+                      <td>
+                        {isBest ? (
+                          <span className="status status-gold">👑 Peak Career Year</span>
+                        ) : (
+                          <span className="career-active">Active</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollTable>
+        </Panel>
+      </Panels>
     </>
   );
 }
@@ -186,21 +180,14 @@ function Header({ player, view }: { player: Player; view: MatrixView }) {
   return (
     <PlayerHeader
       player={player}
-      back={{ href: profileHref(player.name, view), label: 'Return to Profile' }}
-      compact
+      back={{ href: profileHref(player.name, view), label: 'Player Profile' }}
       subtitle={
         <>
           Career Peak Year Evaluation • Format: <strong>{show.formatName(view.format)}</strong>
         </>
       }
-      links={
-        <>
-          <a href={achievementsHref(player.name)} className="btn-antique">
-            🏆 Achievements »
-          </a>
-          <VideosButton name={player.name} hasVideos={player.has_videos} className="btn-antique" />
-        </>
-      }
+      page="years"
+      hrefs={{ profile: profileHref(player.name, view), achievements: achievementsHref(player.name), years: matrixHref(player.name, view) }}
     />
   );
 }

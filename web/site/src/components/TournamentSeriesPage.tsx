@@ -15,18 +15,20 @@ import { circuitBox, circuitEra, circuitTitle, leaguePoints, seriesRecord, shows
 import { count } from '@ttac/shared/numbers';
 import Message from './Message';
 import { useLoad } from './useLoad';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 
 function WorldChampion() {
-  return <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />;
+  return <TitleBadge title={{ code: 'WC' }} />;
 }
 
 /** TitleMark shows the board's title in the site's title badges; WC only on the World Championship's board. */
 function TitleMark({ row, series }: { row: TrophyRow; series: string }) {
   if (series === 'worlds' && (row.title === 'WC' || row.world_champion)) return <WorldChampion />;
   if (row.title === 'WC') return null;
-  return row.title ? <TitleBadge title={{ code: row.title }} className="trophy-mark" /> : null;
+  return row.title ? <TitleBadge title={{ code: row.title }} /> : null;
 }
 
 /** TournamentSeriesPage loads the current run's results for a circuit, with its card, rules and stories as admin writes them. */
@@ -56,25 +58,26 @@ export default function TournamentSeriesPage({ apiUrl, slug }: { apiUrl: string;
         ]}
       />
 
-      {data !== null && data.members.length > 0 && (
-        <div className="rating-card panel-card series-members">
-          <PanelHeader icon={card.icon} title={`Tournaments in the ${name}`} />
-          <div className="series-members-list">
-            {data.members.map((m) => (
-              <a key={m.slug} href={catalogueHref(m.slug)} className="btn-antique">
-                {m.name} &rarr;
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-      <SeriesSections
-        content={{ slug, name }}
-        data={data}
-        waiting={waiting}
-        regulations={box === null ? null : <RegulationsPanel box={box} rated />}
-        stories={data?.stories ?? []}
-      />
+      <Panels>
+        {data !== null && data.members.length > 0 && (
+          <Panel id="series-members" icon={card.icon} title={`Tournaments in the ${name}`}>
+            <div className="series-members-list">
+              {data.members.map((m) => (
+                <a key={m.slug} href={catalogueHref(m.slug)} className="btn-antique">
+                  {m.name} &rarr;
+                </a>
+              ))}
+            </div>
+          </Panel>
+        )}
+        <SeriesSections
+          content={{ slug, name }}
+          data={data}
+          waiting={waiting}
+          regulations={box === null ? null : <RegulationsPanel box={box} rated />}
+          stories={data?.stories ?? []}
+        />
+      </Panels>
     </>
   );
 }
@@ -110,16 +113,18 @@ export function SeriesSections({
       <StoriesPanel stories={stories} />
 
       {(data === null || data.season_records.length > 0) && (
-        <div className="rating-card panel-card panel-records">
-          <PanelHeader icon="🏆" title={`Premier Division All-Time Seasonal Records (${content.name})`}>
-            <span className="panel-tag panel-tag-wide">Highest Seasonal League Points</span>
-          </PanelHeader>
+        <Panel
+          id="season-records"
+          icon="🏆"
+          title={`Premier Division All-Time Seasonal Records (${content.name})`}
+          aside={<span className="tag">Highest Seasonal League Points</span>}
+        >
           <p className="records-intro">
             All-time highest cumulative league points achieved in a single premier division season (4P: 6/3/1/0 pts; 3P: 5/2/0
             pts; 2P: 2/1/0 pts; ties split points equally). 9 Seasons have been played prior to the CGE official tournament page
             tracking, so to find the coressponding season there you need to subtract 9.
           </p>
-          <div className="trophy-table-container records-table">
+          <ScrollTable label="Season records">
             <table className="leaderboard-table trophy-table">
               <caption className="visually-hidden">The ten highest-scoring top-division seasons</caption>
               <thead>
@@ -150,7 +155,7 @@ export function SeriesSections({
                     <tr key={`${s.season} ${s.name}`}>
                       <td className="cell-rank">#{i + 1}</td>
                       <td>
-                        <PlayerLink name={s.name} className="trophy-player" /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
+                        <PlayerLink name={s.name} /> {showsWorldChampion(content.slug, s.world_champion) && <WorldChampion />}
                       </td>
                       <td className="cell-points">{leaguePoints(s.points)}</td>
                       <td className="cell-record">
@@ -165,8 +170,8 @@ export function SeriesSections({
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
+          </ScrollTable>
+        </Panel>
       )}
 
       <GameRecordsPanel

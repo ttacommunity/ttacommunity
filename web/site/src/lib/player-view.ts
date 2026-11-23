@@ -3,12 +3,11 @@ import { signed } from '@ttac/shared/numbers';
 import type { Format, Model, Player, PlayerHistory, PlayerRating, Rival } from '@ttac/shared/ratings';
 import { ENGINES, parseView, resetApplies, type Engine, type Remembered, type ResetMode, type Track } from './leaderboard-view';
 import { sortRows, type Sort, type SortColumns } from '@ttac/shared/sort';
+import { shownRows } from './show-all';
 
 /** Below this many games in a format an active player is provisional. */
 const PROVISIONAL_BELOW = 15;
 
-/** Rivals shown before "Show all". */
-export const RIVALS_SHOWN = 30;
 
 /** What the reader has chosen on a player's page, as upstream's query parameters carry it. */
 export interface PlayerView {
@@ -119,6 +118,7 @@ export type ChartTiers = 'on' | 'off';
 export interface ChartSeriesLine {
   key: string;
   label: string;
+  /** The role tokens of the line's colour and of the fill under it. */
   color: string;
   fill?: string;
   borderDash?: number[];
@@ -477,23 +477,23 @@ export function chartYBounds(
   return s ? { min: s.axisMin, max: s.axisMax } : null;
 }
 
-/** Rating tier definition with parchment-fitting colors. */
+/** A rating tier: its range, name and code, and the role tokens its band and top edge are drawn in. */
 export interface RatingTier {
   min: number;
   max: number;
   name: string;
   code: string;
-  color: string;
-  borderColor?: string;
+  band: string;
+  edge?: string;
 }
 
 export const RATING_TIERS: readonly RatingTier[] = [
-  { min: 0, max: 1399, name: 'Bronze', code: 'BRZ', color: 'rgba(100, 75, 55, 0.07)' },
-  { min: 1400, max: 1599, name: 'Silver', code: 'SLV', color: 'rgba(140, 150, 165, 0.09)' },
-  { min: 1600, max: 1799, name: 'Gold', code: 'GLD', color: 'rgba(212, 175, 55, 0.12)' },
-  { min: 1800, max: 1999, name: 'Master', code: 'MST', color: 'rgba(215, 120, 40, 0.14)', borderColor: 'rgba(215, 120, 40, 0.35)' },
-  { min: 2000, max: 2199, name: 'Grandmaster', code: 'GM', color: 'rgba(180, 70, 60, 0.15)', borderColor: 'rgba(180, 70, 60, 0.4)' },
-  { min: 2200, max: 3000, name: 'Supreme Grandmaster', code: 'SGM', color: 'rgba(160, 60, 170, 0.16)', borderColor: 'rgba(160, 60, 170, 0.45)' },
+  { min: 0, max: 1399, name: 'Bronze', code: 'BRZ', band: '--band-bronze' },
+  { min: 1400, max: 1599, name: 'Silver', code: 'SLV', band: '--band-silver' },
+  { min: 1600, max: 1799, name: 'Gold', code: 'GLD', band: '--band-gold' },
+  { min: 1800, max: 1999, name: 'Master', code: 'MST', band: '--band-master', edge: '--band-master-edge' },
+  { min: 2000, max: 2199, name: 'Grandmaster', code: 'GM', band: '--band-gm', edge: '--band-gm-edge' },
+  { min: 2200, max: 3000, name: 'Supreme Grandmaster', code: 'SGM', band: '--band-sgm', edge: '--band-sgm-edge' },
 ];
 
 
@@ -534,18 +534,7 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
 
       const engineName = engine === 'glicko2_daneo' ? '👑 GlickoD' : 'Glicko-2 Standard';
       const modeLabel = modes.length > 1 ? (m === 'softer' ? ' (Season Reset)' : ' (Continuous)') : '';
-      const baseColor =
-        engine === 'glicko2_daneo'
-          ? m === 'softer'
-            ? '#38bdf8'
-            : '#c084fc'
-          : '#e5a93c';
-      const baseFill =
-        engine === 'glicko2_daneo'
-          ? m === 'softer'
-            ? 'rgba(56, 189, 248, 0.12)'
-            : 'rgba(168, 85, 247, 0.12)'
-          : 'rgba(229, 169, 60, 0.1)';
+      const role = engine === 'glicko2_daneo' ? (m === 'softer' ? '--model-daneo-reset' : '--model-daneo') : '--model-std';
 
       for (const c of curves) {
         const curveLabel = curves.length > 1 ? (c === 'conservative' ? ' (C)' : ' (E)') : '';
@@ -553,8 +542,8 @@ export function chartData(history: PlayerHistory, mode: ChartMode, curve: ChartC
         lines.push({
           key: engine + '-' + m + '-' + c,
           label: engineName + modeLabel + curveLabel,
-          color: baseColor,
-          fill: isDashed ? 'transparent' : baseFill,
+          color: role,
+          fill: isDashed ? undefined : `${role}-wash`,
           borderDash: isDashed ? [5, 5] : undefined,
           curve: c,
           data: labels.map((d) => (c === 'conservative' ? atCRating.get(d) ?? null : atRating.get(d) ?? null)),
@@ -585,13 +574,13 @@ export interface RivalsView {
 }
 
 /**
- * visibleRivals applies upstream's rivals table: sorted by the chosen column, the first 30 unless expanded; a name
+ * visibleRivals applies upstream's rivals table: sorted by the chosen column, a long table's first rows unless expanded; a name
  * filter or a minimum shows every match.
  */
 export function visibleRivals(rivals: readonly Rival[], view: RivalsView): Rival[] {
   const sorted = sortRows(rivals, RIVAL_COLUMNS, view.sort);
   const filter = view.filter.trim().toLowerCase();
-  if (filter === '' && view.minGames <= 1) return view.expanded ? sorted : sorted.slice(0, RIVALS_SHOWN);
+  if (filter === '' && view.minGames <= 1) return shownRows(sorted, view.expanded);
   return sorted.filter((r) => r.games >= view.minGames && r.name.toLowerCase().includes(filter));
 }
 
@@ -629,8 +618,9 @@ export function matrixParams(view: MatrixView): URLSearchParams {
   return p;
 }
 
-/** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format. */
-export function matrixHref(name: string, view: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
+/** matrixHref returns the address of a player's matrix page in the player page's model, reset mode and format, or by name alone (the remembered choices) from a page with none. */
+export function matrixHref(name: string, view?: Pick<PlayerView, 'engine' | 'reset' | 'format'>): string {
+  if (view === undefined) return `/ratings/player/matrix/?${new URLSearchParams({ name })}`;
   return `/ratings/player/matrix/?${matrixParams({ name, engine: view.engine, reset: view.reset, format: view.format, year: null })}`;
 }
 

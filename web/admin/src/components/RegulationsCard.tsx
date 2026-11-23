@@ -33,7 +33,7 @@ export default function RegulationsCard({ t, onReload }: { t: AdminTournament; o
       </p>
       <textarea
         id="regulations-text"
-        className="regulations-text"
+        className="input-antique regulations-text"
         aria-labelledby="regulations-heading"
         value={text}
         maxLength={10000}

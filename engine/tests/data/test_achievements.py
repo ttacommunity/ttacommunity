@@ -241,7 +241,7 @@ def test_player_records_list_a_champions_seasons_as_upstream(records):
                "2 Gold, 0 Silver, 1 Bronze", "3 Medals", "gold",
                "Q&D Hall of Fame Medalist: 2x Gold, 0x Silver, 1x Bronze", "Career / All-Time", career=True),
         record(15, "TCL Round 31", "Tournament", "Main", "1 / 2", "80 pts", None,
-               "Competed in Main: 1 matches played, 1 victories (100.0% win rate)", "2024-01-02"),
+               "Competed in Main: 1 match played, 1 victory (100.0% win rate)", "2024-01-02"),
     ]  # fmt: skip
 
 
@@ -273,7 +273,7 @@ def test_player_records_rank_other_groups_by_wins_as_upstream(records):
         record(13, "Royal League", "Season 1", "Emperor", "2 / 8", "Silver Medal", "silver",
                "Royal League Emperor Division Runner-up (Season 1)", "2024-08-11"),
         record(16, "TCL Round 31", "Tournament", "Main", "2 / 2", "60 pts", None,
-               "Competed in Main: 1 matches played, 0 victories (0.0% win rate)", "2024-01-02"),
+               "Competed in Main: 1 match played, 0 victories (0.0% win rate)", "2024-01-02"),
         record(17, "International Championship", "Season 30", "Master 1", "1 / 4", "2W - 0L (100.0%)", None,
                "Competed in Master 1: 2 matches played, 2 victories (100.0% win rate)", "2025-08-14"),
     ]  # fmt: skip

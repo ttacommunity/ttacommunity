@@ -35,11 +35,11 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .brand:hover {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .brand img {
@@ -55,7 +55,7 @@
   font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 4px var(--shadow-deep);
 }
 
 .brand-subtitle {
@@ -93,12 +93,12 @@
 
 .section-name:hover,
 .section-name[aria-expanded='true'] {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .section-name.current {
-  border-bottom-color: var(--accent-gold);
-  color: var(--accent-gold);
+  border-bottom-color: var(--edge-accent);
+  color: var(--text-accent);
 }
 
 .caret {
@@ -123,12 +123,12 @@
 }
 
 .section-pages a:hover {
-  background: var(--gold-wash);
-  color: var(--accent-gold-light);
+  background: var(--accent-wash);
+  color: var(--text-accent-bright);
 }
 
 .section-pages a.current {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .page-label {
@@ -164,9 +164,9 @@
   align-items: center;
   height: var(--control-height);
   padding: 0 1rem;
-  border: 1px solid var(--accent-gold);
+  border: 1px solid var(--edge-accent);
   border-radius: 6px;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-subheading);
   font-size: 0.95rem;
   white-space: nowrap;
@@ -174,8 +174,8 @@
 
 .header-controls a:hover,
 .header-controls a.active {
-  background: var(--gold-wash);
-  color: var(--accent-gold-light);
+  background: var(--accent-wash);
+  color: var(--text-accent-bright);
 }
 
 @media (min-width: 821px) {
@@ -217,7 +217,7 @@
     background: var(--surface-well);
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 12px 32px var(--shadow);
   }
 }
 
@@ -231,7 +231,7 @@
   width: 44px;
   height: 44px;
   padding: 0.5rem;
-  background: rgba(43, 29, 20, 0.85);
+  background: var(--surface-panel);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   cursor: pointer;
@@ -239,15 +239,15 @@
 }
 
 .nav-toggle:hover {
-  border-color: var(--accent-gold);
-  background: rgba(229, 169, 60, 0.15);
+  border-color: var(--edge-accent);
+  background: var(--accent-wash-faint);
 }
 
 .hamburger-bar {
   display: block;
   width: 22px;
   height: 2px;
-  background: var(--accent-gold);
+  background: var(--fill-accent);
   border-radius: 2px;
   transition: transform 0.25s ease, opacity 0.25s ease;
 }
@@ -269,7 +269,7 @@
   position: fixed;
   inset: 0;
   z-index: 998;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-dim);
   backdrop-filter: blur(4px);
 }
 
@@ -322,9 +322,9 @@
     height: 100dvh;
     padding: 1.25rem 1rem;
     overflow-y: auto;
-    background: rgba(22, 14, 10, 0.98);
-    border-left: 2px solid var(--accent-gold);
-    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.9);
+    background: var(--overlay-surface);
+    border-left: 2px solid var(--overlay-edge);
+    box-shadow: -8px 0 30px var(--overlay-shadow);
     backdrop-filter: blur(12px);
   }
 
@@ -351,32 +351,12 @@
   }
 
   .nav-mobile-title {
-    color: var(--accent-gold);
+    color: var(--text-accent);
     font-family: var(--font-heading);
     font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: 0.8px;
     text-transform: uppercase;
-  }
-
-  .nav-close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0.25rem 0.5rem;
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-size: 1.3rem;
-    line-height: 1;
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-
-  .nav-close-btn:hover {
-    color: var(--loss);
   }
 
   .section-name {
@@ -391,7 +371,7 @@
   }
 
   .section-name.current {
-    border-left-color: var(--accent-gold);
+    border-left-color: var(--edge-accent);
   }
 
   .section-pages {
@@ -405,7 +385,7 @@
   }
 
   .section-pages a.current {
-    background: var(--gold-wash);
+    background: var(--accent-wash);
   }
 
   .page-description {

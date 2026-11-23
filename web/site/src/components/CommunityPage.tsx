@@ -1,5 +1,5 @@
 /** The community leaderboard page: standings, dynamic best-N highlights, and tournament or event columns. */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   communityEditions,
   communityLeaderboard,
@@ -24,12 +24,16 @@ import {
 } from '../lib/community';
 import './CommunityPage.css';
 import Segmented from '@ttac/shared/Segmented';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import MetricCard, { MetricGrid } from './MetricCard';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import Inset from '@ttac/shared/Inset';
+import Note from '@ttac/shared/Note';
 import PlayerLink from './PlayerLink';
 import Waiting from './Waiting';
 import Pager from './Pager';
+import ScrollTable from './ScrollTable';
 import { count } from '@ttac/shared/numbers';
 import { useLoad } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
@@ -68,18 +72,21 @@ function Hero({
   const info = data.info;
 
   return (
-    <>
-      <PageHeader title="Community Standard Leaderboard" subtitle={info.title || info.name} />
-      <div className="comm-hero">
-        <div className="maintainer-card">
-          <div className="maintainer-badge">{info.badge || '🛡️ Circuit Maintainer'}</div>
-          <div className="maintainer-desc">
-            This official leaderboard is curated and maintained by{' '}
-            <strong>
-              <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
-            </strong>{' '}
-            • {info.maintainer_note}
-          </div>
+    <Panel label="Leaderboard edition">
+      <div className="comm-edition">
+        <div className="comm-maintainer">
+          <Note>
+            <p>
+              <span className="tag">{info.badge || '🛡️ Circuit Maintainer'}</span>
+            </p>
+            <p>
+              This official leaderboard is curated and maintained by{' '}
+              <strong>
+                <PlayerLink name={info.maintainer}>{info.maintainer}</PlayerLink>
+              </strong>{' '}
+              • {info.maintainer_note}
+            </p>
+          </Note>
         </div>
         <div className="edition-selector-bar">
           <span className="edition-label">📅 Leaderboard Edition:</span>
@@ -93,22 +100,23 @@ function Hero({
         <MetricGrid>
           <MetricCard label="Ranked Competitors" value={count(data.rows.length)} tone="gold" />
           <MetricCard label={`Tracked Events (${data.categories.length} Tiers)`} value={events} tone="gold" />
-          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} className="comm-top-link" />} />
+          <MetricCard label={`#1 Rank (${whole(top?.points ?? 0)} pts)`} value={<PlayerLink name={top?.name ?? '—'} />} tone="gold" />
           <MetricCard
             label={info.wc_desc || 'Reigning World Champion'}
             value={
               info.wc ? (
-                <PlayerLink name={info.wc} className="comm-wc-link">
-                  <TitleBadge title={{ code: 'WC' }} className="comm-wc-badge" /> {info.wc}
+                <PlayerLink name={info.wc}>
+                  <TitleBadge title={{ code: 'WC' }} /> {info.wc}
                 </PlayerLink>
               ) : (
-                <span className="comm-muted">—</span>
+                '—'
               )
             }
+            tone={info.wc ? 'gold' : 'muted'}
           />
         </MetricGrid>
       </div>
-    </>
+    </Panel>
   );
 }
 
@@ -117,8 +125,7 @@ function Explainers({ data }: { data: LeaderboardData }) {
   const count = facts.counting;
   return (
     <div className="explainer-cards">
-      <div className="rating-card panel-card explainer-card">
-        <PanelHeader icon="📜" title={`The Best-${count} Point System`} />
+      <Panel id="best-rule" icon="📜" title={`The Best-${count} Point System`} stripe="gold" holds="text">
         <p>
           The Community Leaderboard ranks players by cumulative performance across the circuit. To reward
           peak mastery while preventing burnout, rankings operate on a strict <strong>Best-{count} Rule</strong>:
@@ -137,9 +144,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
             <span className="score-counting">gold boxes</span>, while dropped scores are faded.
           </li>
         </ul>
-      </div>
-      <div className="rating-card panel-card explainer-card">
-        <PanelHeader icon="🏆" title="Tracked Event Slots & Point Tiers" />
+      </Panel>
+      <Panel id="event-slots" icon="🏆" title="Tracked Event Slots & Point Tiers" stripe="gold" holds="text">
         <p>This edition covers {facts.slots} event slots in {facts.tiers} tiers:</p>
         <ul>
           {facts.lines.map((t) => (
@@ -151,33 +157,24 @@ function Explainers({ data }: { data: LeaderboardData }) {
             </li>
           ))}
         </ul>
-      </div>
+      </Panel>
     </div>
   );
 }
 
 function Controls({ view, slots, names }: { view: CommunityView; slots: number; names: SearchPlayer[] }) {
   return (
-    <div className="comm-controls">
+    <div className="view-bar comm-controls">
       <form method="get" action="/ratings/community/" className="comm-search-form">
         <input type="hidden" name="view" value={view.view} />
         <input type="hidden" name="edition" value={view.edition} />
-        <SearchBox players={names} value={view.search} name="q" inputClassName="comm-search-input" placeholder="Search competitor by name..." />
-        <button type="submit" className="btn-search-gold">
-          Search
-        </button>
+        <PlayerSearch players={names} value={view.search} name="q" />
         {view.search && (
-          <a href={href(view, { search: '' })} className="btn-clear-muted">
+          <a href={href(view, { search: '' })} className="btn-quiet">
             Clear
           </a>
         )}
       </form>
-      <div
-        className="cmb-hint-box"
-        title="Hold down your Center Mouse Button / Scroll-wheel and drag horizontally, or hold Shift while scrolling"
-      >
-        <span>🖱️</span> Scroll table with <strong>CMB</strong>
-      </div>
       <Segmented
         label="View"
         options={[
@@ -191,20 +188,16 @@ function Controls({ view, slots, names }: { view: CommunityView; slots: number; 
   );
 }
 
-function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[] }) {
+function Table({ data, view, rows, children }: { data: LeaderboardData; view: CommunityView; rows: CommunityRow[]; children?: ReactNode }) {
   const columns = data.categories.flatMap((c) => c.columns);
   const sheetOrder = columns.map((c) => c.id);
   const standard = view.view === 'standard';
   const count = data.counting_events ?? 8;
   const wcName = data.info.wc;
-  const [scrolled, setScrolled] = useState(false);
 
   return (
-    <div className={`rating-card table-wrapper${standard ? '' : ' expanded-view'}`}>
-      <div
-        className={scrolled ? 'table-responsive scrolled-x' : 'table-responsive'}
-        onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
-      >
+    <Panel label="Community leaderboard" size={standard ? 'full' : 'screen'}>
+      <ScrollTable label="Community leaderboard">
         <table className="leaderboard-table comm-table">
           <thead>
             <tr className="super-header">
@@ -257,7 +250,7 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
                     <td className={isTopThree(r.rank) ? 'col-pinned comm-pinned-rank rank-col top-3-rank' : 'col-pinned comm-pinned-rank rank-col'}>{rank(r.rank)}</td>
                     <td className="col-pinned comm-pinned-name text-left">
                       <Flag country={r.country} />{' '}
-                      <PlayerLink name={r.name} className="player-link comm-player" />
+                      <PlayerLink name={r.name} />
                     </td>
                     <td>
                       {mark === null ? <span className="comm-dash">-</span> : <TitleBadge title={{ code: mark }} />}
@@ -299,8 +292,9 @@ function Table({ data, view, rows }: { data: LeaderboardData; view: CommunityVie
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ScrollTable>
+      {children}
+    </Panel>
   );
 }
 
@@ -324,42 +318,43 @@ export default function CommunityPage({ apiUrl }: { apiUrl: string }) {
   const onPage = { ...view, page, edition: data.edition };
 
   return (
-    <div className="community-page">
-      <Hero data={data} editions={state.data.editions} view={onPage} />
-      <Explainers data={data} />
-      <Controls
-        view={onPage}
-        slots={editionFacts(data).slots}
-        names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
-      />
-      <div className="results-counter-card">
-        <div>
-          Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
-          <strong className="comm-count-total">{found.length}</strong> competitors
-          {view.search && <span className="comm-count-filter"> (filtered by &quot;{view.search}&quot;)</span>}
-        </div>
-        <div>
-          Mode:{' '}
-          <strong className="comm-mode">
-            {view.view === 'standard'
-              ? `Tournament Sums (${editionFacts(data).tournaments} Tournaments)`
-              : `All ${editionFacts(data).slots} Period Columns`}
-          </strong>
-        </div>
-      </div>
-      <div className="scroll-hint comm-scroll-hint">
-        <span>Swipe table horizontally for full community ranking ➔</span>
-      </div>
-      <Table data={data} view={onPage} rows={shown} />
-      {total > 1 && (
-        <Pager
-          page={page}
-          pages={total}
-          total={{ count: found.length, noun: 'competitors' }}
-          link={(p) => ({ href: href(onPage, { page: p }) })}
-          go={(p) => window.location.assign(href(onPage, { page: p }))}
+    <>
+      <PageHeader title="Community Standard Leaderboard" subtitle={data.info.title || data.info.name} />
+      <Panels>
+        <Hero data={data} editions={state.data.editions} view={onPage} />
+        <Explainers data={data} />
+        <Controls
+          view={onPage}
+          slots={editionFacts(data).slots}
+          names={data.rows.map((r) => ({ name: r.name, country: r.country }))}
         />
-      )}
-    </div>
+        <Inset form="figures">
+          <div>
+            Showing <strong className="comm-count-shown">{shown.length}</strong> of{' '}
+            <strong className="comm-count-total">{found.length}</strong> competitors
+            {view.search && <span className="comm-count-filter"> (filtered by &quot;{view.search}&quot;)</span>}
+          </div>
+          <div className="comm-results-mode">
+            Mode:{' '}
+            <strong className="comm-mode">
+              {view.view === 'standard'
+                ? `Tournament Sums (${editionFacts(data).tournaments} Tournaments)`
+                : `All ${editionFacts(data).slots} Period Columns`}
+            </strong>
+          </div>
+        </Inset>
+        <Table data={data} view={onPage} rows={shown}>
+          {total > 1 && (
+            <Pager
+              page={page}
+              pages={total}
+              total={{ count: found.length, noun: 'competitors' }}
+              link={(p) => ({ href: href(onPage, { page: p }) })}
+              go={(p) => window.location.assign(href(onPage, { page: p }))}
+            />
+          )}
+        </Table>
+      </Panels>
+    </>
   );
 }

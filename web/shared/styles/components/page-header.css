@@ -4,8 +4,8 @@
   overflow: hidden;
   margin-bottom: 2rem;
   padding: 2rem;
-  background: linear-gradient(135deg, rgba(32, 20, 13, 0.95), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
+  background: var(--page-header-surface);
+  border: 1.5px solid var(--page-header-edge);
   border-radius: 8px;
   box-shadow: 0 6px 24px var(--shadow);
 }
@@ -23,18 +23,18 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0 0 0.5rem;
-  color: var(--accent-gold);
+  color: var(--page-header-title);
   font-size: var(--size-page-title);
   font-weight: 800;
 }
 .page-header-subtitle {
   max-width: 800px;
-  color: var(--text-muted);
+  color: var(--page-header-text);
   font-size: 1.05rem;
   line-height: 1.6;
 }
 .page-header-subtitle a {
-  color: var(--accent-gold);
+  color: var(--page-header-link);
 }
 .page-header-media {
   display: flex;
@@ -42,7 +42,42 @@
   align-items: flex-start;
 }
 .page-header-text {
+  flex: 1;
   min-width: 0;
+}
+/* An emblem beside the text (PageHeader's emblem): the emoji large, in a framed square. */
+.page-header-emblem {
+  padding: 0.75rem;
+  border: 1px solid var(--accent-wash);
+  border-radius: 12px;
+  background: var(--shadow-light);
+  font-size: 3.2rem;
+  line-height: 1;
+}
+/* A header's tag (PageHeader's tag), top right with the title beside it: a tournament's tagline. */
+.page-header-tag {
+  position: relative;
+  z-index: 1;
+  float: right;
+  margin: 0 0 0.75rem 1rem;
+}
+/* Centred (a player's pages): the title in the heading face, everything under it centred; the back link stays left. */
+.page-header-centred {
+  text-align: center;
+}
+.page-header-centred .page-header-title {
+  justify-content: center;
+  margin: 0.2rem 0 0.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 1px;
+  text-shadow:
+    0 2px 4px var(--shadow-deep),
+    0 4px 14px var(--shadow-deep);
+}
+.page-header-centred .page-header-subtitle {
+  margin-inline: auto;
 }
 
 @media (max-width: 768px) {
@@ -61,5 +96,11 @@
 @media (max-width: 600px) {
   .page-header-media {
     flex-direction: column;
+  }
+  /* On a phone the tag sits on its own line above the title. */
+  .page-header-tag {
+    float: none;
+    display: inline-block;
+    margin: 0 0 0.75rem;
   }
 }

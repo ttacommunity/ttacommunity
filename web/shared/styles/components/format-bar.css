@@ -6,9 +6,14 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-bottom: 0.85rem;
+}
+
+/* Every bar of controls: one look. */
+.format-bar,
+.view-bar {
   padding: 0.5rem 0.75rem;
-  background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
+  background: var(--bar-surface);
+  border: 1px solid var(--bar-edge);
   border-radius: 6px;
 }
 
@@ -19,9 +24,17 @@
   align-items: center;
 }
 
+/* A stacked choice (Segmented's stacked): one option on each line. */
+.format-bar-group.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .format-btn {
   display: inline-flex;
   align-items: center;
+  min-height: var(--control-height);
+  box-sizing: border-box;
   padding: 0.4rem 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
@@ -36,27 +49,19 @@
 }
 
 .format-btn:hover {
-  border-color: var(--accent-gold);
+  border-color: var(--edge-accent);
   color: var(--text-main);
 }
 
 /* The chosen button: outlined in gold, so an icon or tag on it still reads. */
 .format-btn.active {
-  border-color: var(--accent-gold);
-  background: var(--gold-wash-faint);
-  color: var(--accent-gold);
+  border-color: var(--edge-accent);
+  background: var(--accent-wash-faint);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
 /* Marks the option a page starts with, such as "DEFAULT" beside a rating engine. */
-.default-tag {
-  padding: 1px 4px;
-  background: var(--gold-wash-faint);
-  border-radius: 3px;
-  color: var(--accent-gold);
-  font-size: 0.7rem;
-  font-weight: 700;
-}
 
 .format-bar-actions {
   display: flex;
@@ -82,5 +87,6 @@
 
   .format-bar-actions {
     width: 100%;
+    justify-content: flex-end;
   }
 }

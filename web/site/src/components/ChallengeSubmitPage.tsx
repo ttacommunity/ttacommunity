@@ -15,6 +15,9 @@ import Waiting from './Waiting';
 import Message from './Message';
 import { counted, plural } from '@ttac/shared/numbers';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 const SETS: SetId[] = ['original', 'expansion', 'mix'];
 
@@ -23,8 +26,11 @@ export default function ChallengeSubmitPage({ apiUrl, list }: { apiUrl: string; 
   const me = useLoad('me', () => sharedMe(apiUrl));
   return (
     <>
-      <Examples me={me.kind === 'ready' ? me.data : undefined} />
-      {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
+      <Intro me={me.kind === 'ready' ? me.data : undefined} />
+      <Panels>
+        <Examples />
+        {me.kind !== 'ready' ? <Waiting load={me} what="your account" /> : <Gate apiUrl={apiUrl} list={list} me={me.data} />}
+      </Panels>
     </>
   );
 }
@@ -87,8 +93,8 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
   };
 
   return (
-    <>
-      <div className="rating-card challenges-card">
+    <Panels>
+      <Panel label="Your submission">
         <p>
           Submitting as <strong>{name}</strong> · <a href={challengePlayerHref(name)}>your challenges page</a>
         </p>
@@ -96,13 +102,13 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           Discord link for every entry below without its own (optional, for verification)
           <input className="input-antique" type="url" placeholder="https://discord.com/channels/…" value={shared} onChange={(e) => setShared(e.target.value)} />
         </label>
-      </div>
+      </Panel>
 
       {reviewing ? (
         <Review apiUrl={apiUrl} name={name} list={list} chosen={chosen} mine={mine} entries={entries.data} records={records.data} />
       ) : (
         <>
-          <div className="challenges-bar">
+          <div className="view-bar challenges-bar">
             <Segmented
               label="Set"
               value={set}
@@ -113,8 +119,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           {challengeSets(list)
             .find((s) => s.id === set)
             ?.groups.map((g) => (
-              <fieldset key={g.id} className="rating-card challenges-card challenges-submit-group">
-                <legend className="rating-card-heading">{g.label}</legend>
+              <Panel key={g.id} id={`submit-${g.id}`} title={g.label}>
                 {g.challenges.map((c) => {
                   const row = rows[c.id] ?? { domination: '', proof: '' };
                   const best = mine.get(c.id);
@@ -147,12 +152,12 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
                     </div>
                   );
                 })}
-              </fieldset>
+              </Panel>
             ))}
         </>
       )}
 
-      <div className="challenges-bar challenges-submit-bar">
+      <div className="view-bar challenges-bar challenges-submit-bar">
         <div>
           {chosen.length === 0 && errors.length === 0
             ? 'Nothing entered yet.'
@@ -189,7 +194,7 @@ function Form({ apiUrl, list, name }: { apiUrl: string; list: ChallengeTile[]; n
           </button>
         )}
       </div>
-    </>
+    </Panels>
   );
 }
 
@@ -210,15 +215,12 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
   const record = new Map(records.challenges.flatMap((c) => (c.record === null ? [] : [[c.id, c.record] as const])));
   const newRecords = recordsBeaten(chosen, new Map([...record].map(([id, r]) => [id, r.domination])));
   return (
-    <section className="rating-card challenges-card" aria-labelledby="review">
-      <h2 id="review" className="rating-card-heading">
-        Check your entries
-      </h2>
+    <Panel id="review" title="Check your entries">
       <p>
         Saving <strong>{chosen.length}</strong> {plural(chosen.length, 'entry', 'entries')} as <strong>{name}</strong>.
         {newRecords > 0 && ` ★ ${counted(newRecords, 'beats a record', 'beat records')}.`}
       </p>
-      <div className="table-responsive">
+      <ScrollTable label="Your entries">
         <table className="leaderboard-table">
           <thead>
             <tr>
@@ -261,7 +263,7 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
                   </td>
                   <td>
                     {notes.map((n) => (
-                      <span key={n.text} className={`challenges-note ${n.kind}`}>
+                      <span key={n.text} className={`status status-${n.kind}`}>
                         {n.text}
                       </span>
                     ))}
@@ -271,60 +273,61 @@ function Review({ name, list, chosen, mine, entries, records }: ReviewProps) {
             })}
           </tbody>
         </table>
-      </div>
-    </section>
+      </ScrollTable>
+    </Panel>
   );
 }
 
-/** Examples introduces the page, with the visitor's first step when they have one, and shows what to post in Discord for a verified entry. */
-function Examples({ me }: { me: Me | null | undefined }) {
+/** Intro introduces the page, with the visitor's first step when they have one. */
+function Intro({ me }: { me: Me | null | undefined }) {
   return (
-    <>
-      <PageHeader
-        title="Submit domination"
-        subtitle={
-          <>
-            Enter your <strong>domination</strong> for any challenges you like: your final score minus the score of the second-place player. Fill in only the
-            ones you want to add or improve. <strong>To get an entry verified</strong>, post the screenshots below in the TtA Discord&apos;s challenge channel,
-            then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
-            the official highscores.
-          </>
-        }
-      >
-        <FirstStep me={me} />
-      </PageHeader>
-      <section className="rating-card challenges-card" aria-labelledby="examples">
-        <h2 id="examples" className="rating-card-heading">
-          What to post in Discord
-        </h2>
-        <div className="challenges-examples">
-          <figure>
-            <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">
-              <img src="/img/challenge-examples/result.jpg" alt="Example: the challenge results screen" width={1375} height={822} />
-            </a>
-            <figcaption>
-              <strong>1. Challenge results</strong>: the final scores, with your civilization behind. Domination here: 374 − 293 = <strong>81</strong>.
-            </figcaption>
-          </figure>
-          <figure>
-            <a href="/img/challenge-examples/stats.jpg" target="_blank" rel="noopener">
-              <img src="/img/challenge-examples/stats.jpg" alt="Example: the culture graph with every player's leaders and wonders" width={1373} height={866} />
-            </a>
-            <figcaption>
-              <strong>2. Statistics</strong>: the culture graph with every player&apos;s leaders and wonders.
-            </figcaption>
-          </figure>
-          <figure>
-            <div className="challenges-example-more" aria-hidden="true">
-              ?
-            </div>
-            <figcaption>
-              <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion! <strong>Setting a record?</strong> Then
-              please post many more, so others can marvel, discuss and learn how you did it.
-            </figcaption>
-          </figure>
-        </div>
-      </section>
-    </>
+    <PageHeader
+      title="Submit domination"
+      subtitle={
+        <>
+          Enter your <strong>domination</strong> for any challenges you like: your final score minus the score of the second-place player. Fill in only the
+          ones you want to add or improve. <strong>To get an entry verified</strong>, post the screenshots below in the TtA Discord&apos;s challenge channel,
+          then right-click the message → <em>Copy Message Link</em> and paste it here. Entries without a link count under &ldquo;All entries&rdquo;, not in
+          the official highscores.
+        </>
+      }
+    >
+      <FirstStep me={me} />
+    </PageHeader>
+  );
+}
+
+/** Examples shows what to post in Discord for a verified entry. */
+function Examples() {
+  return (
+    <Panel id="examples" title="What to post in Discord">
+      <div className="challenges-examples">
+        <figure>
+          <a href="/img/challenge-examples/result.jpg" target="_blank" rel="noopener">
+            <img src="/img/challenge-examples/result.jpg" alt="Example: the challenge results screen" width={1375} height={822} />
+          </a>
+          <figcaption>
+            <strong>1. Challenge results</strong>: the final scores, with your civilization behind. Domination here: 374 − 293 = <strong>81</strong>.
+          </figcaption>
+        </figure>
+        <figure>
+          <a href="/img/challenge-examples/stats.jpg" target="_blank" rel="noopener">
+            <img src="/img/challenge-examples/stats.jpg" alt="Example: the culture graph with every player's leaders and wonders" width={1373} height={866} />
+          </a>
+          <figcaption>
+            <strong>2. Statistics</strong>: the culture graph with every player&apos;s leaders and wonders.
+          </figcaption>
+        </figure>
+        <figure>
+          <div className="challenges-example-more" aria-hidden="true">
+            ?
+          </div>
+          <figcaption>
+            <strong>3. Anything else</strong>: post more if you like. The challenges live from discussion! <strong>Setting a record?</strong> Then
+            please post many more, so others can marvel, discuss and learn how you did it.
+          </figcaption>
+        </figure>
+      </div>
+    </Panel>
   );
 }

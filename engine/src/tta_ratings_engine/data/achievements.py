@@ -194,6 +194,11 @@ def _medal(place: int) -> str | None:
     return PLACES[place - 1] if place <= 3 else None
 
 
+def _counted(n: int, one: str, many: str) -> str:
+    """Return n with its noun, singular for one: "1 match", "2 matches"."""
+    return f"{n} {one if n == 1 else many}"
+
+
 def _pct(wins: int, games: int) -> float:
     return round(wins / max(1, games) * 100.0, 1)
 
@@ -474,7 +479,7 @@ def _campaign_rows(rows, keys, dates, group_of, group_standings, division_of):
                 continue
             row = {"player": p, "tournament": tournament, "season": season, "division": division,
                    "placement": f"{place} / {of}", "points": points, "medal": None,
-                   "details": f"Competed in {division}: {n} matches played, {w} victories ({pct}% win rate)",
+                   "details": f"Competed in {division}: {_counted(n, 'match', 'matches')} played, {_counted(w, 'victory', 'victories')} ({pct}% win rate)",
                    "finish_date": finish, "career": False, "series": league,
                    "series_division": league_division}  # fmt: skip
             if _cup_round(row):
@@ -598,7 +603,7 @@ def _one_row_per_cup(records):
         for i, (p, furthest, _, points, games, wins, finish) in enumerate(
             ranks, start=1
         ):
-            details = f"Advanced to Stage {furthest} • {games} matches played, {wins} victories ({_pct(wins, games)}% win rate)"
+            details = f"Advanced to Stage {furthest} • {_counted(games, 'match', 'matches')} played, {_counted(wins, 'victory', 'victories')} ({_pct(wins, games)}% win rate)"
             if survivors:
                 details += f" • Cumulative Score: {points:,g} pts"
             out.append({"player": p, "tournament": tournament, "season": year, "division": "Championship",

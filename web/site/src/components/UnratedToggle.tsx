@@ -1,15 +1,13 @@
 /** The player page's button that adds the run's unrated games to a panel, announced to screen readers when pressed. */
 import { useState } from 'react';
 
-/** UnratedToggle shows whether unrated games are included and flips it; `className` places it in its panel. */
+/** UnratedToggle shows whether unrated games are included and flips it. */
 export default function UnratedToggle({
   on,
   onChange,
-  className = '',
 }: {
   on: boolean;
   onChange: (next: boolean) => void;
-  className?: string;
 }) {
   const [said, setSaid] = useState('');
   const flip = () => {
@@ -20,7 +18,7 @@ export default function UnratedToggle({
     <>
       <button
         type="button"
-        className={`format-btn ${on ? 'active' : ''} ${className}`}
+        className={on ? 'format-btn active' : 'format-btn'}
         onClick={flip}
         title={on ? 'Showing all finished games, rated or not' : 'Showing rated games only'}
       >

@@ -240,7 +240,8 @@ agent runs them itself.
    explained in **What it does**. A migration, an `openapi.yaml` change
    and a change to what an existing page shows are always named. For each
    field, control or piece of UI you wrote, search `shared/` and the app's
-   `components/` and `lib/` for one that already does it, and use it; the
+   `components/` and `lib/` for one that already does it, by look and
+   purpose rather than name (see Web), and use it; the
    second hand-made copy of anything becomes a component
 5. **Walk the issue's "Done when"** line by line and say how each is met.
    If something is not done, write `Part of #<n>`, not `Closes #<n>`
@@ -341,21 +342,81 @@ agent runs them itself.
   app's `components/` for one that already does it, and use it; when you
   find a page's own copy of one, move it over. Used by one app: its
   `components/`. By both: `shared`
+- **A shared piece's options say what it does, never how it looks.** No
+  `className`, placeholder or width props: a page that could restyle or
+  reword a piece will, and the copies drift apart. `PlayerSearch` takes
+  search, fill or filter, and the type refuses anything else. A page's
+  CSS places a piece; it never reaches inside one (`.page .piece input`)
+- **Look for a piece by its look and purpose, never by its name.** A
+  search for one class finds one spelling: the same card is also
+  `rating-card account-card`, or drawn from scratch in a page's CSS. To
+  find every card, search the CSS for what draws one (a background, a
+  border or shadow, and a `border-radius`), then sort what you find by
+  what each is for: a panel, a header, a button, a badge, a bar
 - **Use the shared pieces as they look; never restyle one in a page.**
-  The site has one of each: page header (`PageHeader`), panel and its
-  header (`.rating-card` `.panel-card`, `PanelHeader`), table
-  (`.leaderboard-table`, straight on a card), button row (`Segmented`:
-  a choice, tabs or a filter), dialog and sheet (`Dialog`, `Sheet`),
-  drawer (`SideDrawer`), and admin's `AdminPage`, `AdminCard` and
-  `AdminTable`. `/design` shows them all. A page's CSS sets only its own
+  The site has one of each: page header (`PageHeader`; `emblem` for a
+  tournament's framed icon), panel and its header (`Panel`, `PanelHeader`;
+  `holds="text"` for text to read, in the reading look), table
+  (`.leaderboard-table`, straight on a card; `.row-chosen` for a row
+  singled out for the reader; its sortable headers `SortHeader`, or
+  `SortLink` where the sort is in the page's address), button row
+  (`Segmented`: a choice, tabs or a filter; `ToggleGroup` for several), bar of controls (`ViewBar`, `.view-bar`;
+  a group inside a bar has no box of its own; `stacked` in a drawer), a question (`Dialog`),
+  anything to read, choose or fill in above the page (`Sheet`: `holds` a
+  table or a video for the wide one, `actions` and `resets` in its
+  footer, `SheetSection` for its parts; from the bottom on a phone),
+  a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
+  a list of suggestions under a field (`.suggestions`, on both sites),
+  an expander (`<details>`: its `<summary>` is the shared look),
+  note (`Note`), box inside a panel (`Inset`: content, a row of figures, a short line,
+  or a row: an item with its figures or actions), a player's name (`PlayerLink`;
+  `place` where it stands for a result, `quiet` where it is not the subject),
+  tile in a grid (`Tile`; a link tile is all one link, or its title's
+  `TileLink` covers it; only what can be clicked moves under the mouse;
+  `playable` when its picture plays a video),
+  headline figure (`MetricCard` in a `MetricGrid`, `compact` for a
+  header's facts), a fact singled out (`Highlight`), formula box (`$$…$$`, or
+  `.formula` around several), buttons (`.btn-antique` for an action,
+  `.btn-danger` only for one that cannot be undone, `.btn-quiet` for
+  cancel, reset and paging, a bare `.btn-icon`, `.btn-close` in an
+  overlay's head; `.btn-compact` inside a
+  table row or list; `.btn-text` for a button inside a sentence or a
+  table cell; a toggle says it is on with `aria-pressed`), labels (`.tag` beside a title, `.tag-special` and
+  a division's level colour from `divisionTagClass`; `.pill` for a figure;
+  `.chip` for a removable filter, `.chip-out` when it excludes; `.status`
+  for a short state, in a tone from `statusClass`; `.count` for how
+  many wait or are new), and admin's `AdminPage`, `AdminCard` and
+  `AdminTable`. `/design` shows them all. Buttons set the heights
+  (`--control-height`, `--control-height-compact`) and a field beside a
+  button shares its height (`.input-antique`). A page's CSS sets only its own
   layout (widths, alignment, spacing): it never redefines a shared class
   or puts a shared piece in a box of its own colour. A look a piece
   lacks is a change to that piece, on `/design`, agreed with the
   maintainers, never a page's copy
-- **Colours come from the tokens** (`shared/styles/tokens.css`): new CSS
-  writes no hex or `rgba()` of its own, and a colour the tokens lack is a
-  new token. The raw colours older page CSS still has move to tokens
-  when that CSS is next changed
+- **`checks/shared-look.mjs` warns, never fails**, when a page's CSS
+  changes how a shared piece looks (a rule on a shared class or a form
+  control that sets more than layout); `scripts/ci.sh` and `ci.ps1` print
+  it. An agent shows each warning to the person and asks: make it an
+  option of the piece, or keep the rule, with its reason, in the
+  script's kept list. Never silence one without asking
+- **Every colour is a role**: a token in `shared/styles/tokens.css`
+  named for what it is for (`--player-name`, `--text-accent`,
+  `--medal-gold`, `--model-daneo`, `--tier-m`), never for how it looks.
+  The palette at the top of `tokens.css` (colours by look: `--gold`,
+  `--violet`) is used only by the roles below it. CSS, Astro,
+  TypeScript and MDX write no colour value, `color-mix()` or palette
+  token of their own; a colour the roles lack is a new role there.
+  `checks/colour-tokens.sh` fails CI otherwise, and on a token no file
+  defines. A chart reads its roles by name (`documentTokens('--model-std')`)
+- **A colour means one thing.** Before using a role for something new,
+  check what it already means: a meaning (a tier, a medal, a result, a
+  model) has its own role, so a mode can change it alone. Grand Slam
+  medals once took the win colours, and a colour-blind win colour
+  would have recoloured them
+- **Text meets WCAG AA** (4.5:1, 3:1 for large text) on the surfaces it
+  sits on. `shared/src/tokens.test.ts` checks each text role on its
+  surfaces: a new text role, or a role drawn on a new surface, adds its
+  pair there
 - Content pages are **MDX** in `src/content/`. Maths is TeX (`$…$`, `$$…$$`),
   rendered by KaTeX as MathML
 - Times are shown in the viewer's zone, labelled. The API sends UTC

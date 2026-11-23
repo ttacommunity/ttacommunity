@@ -1,10 +1,13 @@
 /** DANeo's Official Trophyboard & Hall of Fame panel, for any tournament: each medallist's podiums, or a ladder's wins. */
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { boardCells } from '../lib/tournament-series';
 import type { BoardEntry } from '../lib/trophyboard';
 import PlayerLink from './PlayerLink';
 import Message from './Message';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import ScrollTable from './ScrollTable';
+import ShowAll from './ShowAll';
+import { shownRows } from '../lib/show-all';
 
 /** TrophyboardPanel shows the board, or waiting while rows is null; mark adds a player's title, honours their titles column. */
 export default function TrophyboardPanel<R extends BoardEntry & { details?: string | null }>({
@@ -18,18 +21,16 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
   mark?: (row: R) => ReactNode;
   honours?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const board = boardCells(rows ?? []);
+  const shown = shownRows(rows ?? [], expanded);
   const span = 2 + board.headings.length + (honours ? 1 : 0);
   return (
-    <div className="rating-card panel-card">
-      <PanelHeader icon="🏅" title="Official Trophyboard & Hall of Fame">
-        <span className="panel-tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>
-      </PanelHeader>
+    <Panel id="trophyboard" icon="🏅" title="Official Trophyboard & Hall of Fame" aside={<span className="tag">{rows !== null ? `${rows.length} Competitors` : '…'}</span>}>
       <div className="trophy-sub">
         <span>Verified podium &amp; title records</span>
-        <span className="trophy-sub-hint">Scroll table ↕</span>
       </div>
-      <div className="trophy-table-container">
+      <ScrollTable label="Trophyboard">
         <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">Each medallist's podiums</caption>
           <thead>
@@ -52,11 +53,11 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
                 {rows === null ? waiting : 'No podiums recorded yet.'}
               </Message>
             ) : (
-              rows.map((b, i) => (
+              shown.map((b, i) => (
                 <tr key={b.name}>
                   <td className="cell-num">{i + 1}</td>
                   <td>
-                    <PlayerLink name={b.name} className="trophy-player" />{' '}
+                    <PlayerLink name={b.name} />{' '}
                     {mark?.(b)}
                   </td>
                   {board.rows[i]?.map((cell, j) => (
@@ -70,7 +71,8 @@ export default function TrophyboardPanel<R extends BoardEntry & { details?: stri
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ScrollTable>
+      <ShowAll total={rows?.length ?? 0} expanded={expanded} onToggle={() => setExpanded(!expanded)} />
+    </Panel>
   );
 }

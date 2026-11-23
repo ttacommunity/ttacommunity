@@ -88,7 +88,7 @@ export default function PickBox({ label, text, options, onText, onPick, onLeave,
           }}
           onKeyDown={onKeyDown}
         />
-        <div id={`${id}-list`} role="listbox" aria-label={label} className="pick-options" hidden={shown.length === 0}>
+        <div id={`${id}-list`} role="listbox" aria-label={label} className="suggestions" hidden={shown.length === 0}>
           {shown.map((o, i) => (
             <div
               key={o.key}
@@ -97,15 +97,15 @@ export default function PickBox({ label, text, options, onText, onPick, onLeave,
               tabIndex={-1}
               aria-selected={i === chosen}
               aria-disabled={o.disabled === true ? true : undefined}
-              className={i === chosen ? 'pick-option active' : 'pick-option'}
+              className={i === chosen ? 'suggestion active' : 'suggestion'}
               onMouseEnter={() => setActive(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
                 pick(o);
               }}
             >
-              <span className="pick-label">{o.label}</span>
-              {o.detail !== undefined && o.detail !== '' && <span className="pick-detail">{o.detail}</span>}
+              <span className="suggestion-name">{o.label}</span>
+              {o.detail !== undefined && o.detail !== '' && <span className="suggestion-detail">{o.detail}</span>}
             </div>
           ))}
         </div>

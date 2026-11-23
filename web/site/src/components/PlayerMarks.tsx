@@ -4,11 +4,11 @@ import { badgeHover, flagSrc, titleBadge } from '../lib/leaderboard-display';
 import { moviesHref } from '../lib/movies';
 
 /** TitleBadge shows a title in its colour: its code where room is short, its name when long, or a dash for none; the reason, else the name, on hover. */
-export function TitleBadge({ title, long = false, className }: { title: { code: TitleCode; reason?: string } | null; long?: boolean; className?: string }) {
+export function TitleBadge({ title, long = false }: { title: { code: TitleCode; reason?: string } | null; long?: boolean }) {
   const badge = titleBadge(title, long);
   if (badge === null) return <span className="badge-none">-</span>;
   return (
-    <span className={`badge badge-${badge.code.toLowerCase()}${className === undefined ? '' : ` ${className}`}`} title={badge.hover}>
+    <span className={`badge badge-${badge.code.toLowerCase()}`} title={badge.hover}>
       {badge.text}
     </span>
   );
@@ -49,11 +49,11 @@ export function VideosLink({ name, hasVideos }: { name: string; hasVideos: boole
   );
 }
 
-/** VideosButton is the "Movies »" link among a player page's buttons, in the button class given; drawn only when they have videos. */
-export function VideosButton({ name, hasVideos, className }: { name: string; hasVideos: boolean; className: string }) {
+/** VideosButton is the "Movies »" link among a player page's buttons, drawn as the site's button; drawn only when they have videos. */
+export function VideosButton({ name, hasVideos }: { name: string; hasVideos: boolean }) {
   if (!hasVideos) return null;
   return (
-    <a className={`${className} videos-button`} href={moviesHref(name)} title={`Videos by ${name}`}>
+    <a className="btn-antique videos-button" href={moviesHref(name)} title={`Videos by ${name}`}>
       <PlayIcon /> Movies »
     </a>
   );

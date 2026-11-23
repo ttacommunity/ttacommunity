@@ -24,6 +24,7 @@ import ZonePick from './ZonePick';
 import './AdminApp.css';
 import AdminTable from './AdminTable';
 import AdminCard from './AdminCard';
+import FieldGroup from './FieldGroup';
 
 type Game = components['schemas']['AdminNostradamusGame'];
 type Round = components['schemas']['NostradamusRound'];
@@ -266,18 +267,19 @@ function QuestionRow({ game, round, question: q, status, run }: { game: Game; ro
       )}
       {editing && <QuestionEditor title={`Edit ${q.label}`} start={questionFormFrom(q)} onSave={(f) => run(req.setNostradamusQuestion(game.slug, q.id, questionBody(f)), `Saved ${f.label.trim()}.`)} />}
       {(status === 'open' || status === 'awaiting') && fromChoices && (
-        <fieldset className="check-kinds">
-          <legend>Outcome {q.kind === 'set' ? `(the ${q.picks} that happened)` : '(tick more than one for a tie)'}</legend>
-          {q.choices.map((c) => (
-            <label key={c.label}>
-              <input type="checkbox" checked={ticked.includes(c.label)} onChange={() => setTicked(toggled(ticked, c.label, q.kind === 'set' ? q.picks : 0))} /> {c.label}
-            </label>
-          ))}
-          <button type="button" className="btn-antique" disabled={ticked.join(', ') === saved}
-            onClick={() => void run(req.setNostradamusOutcome(game.slug, q.id, ticked), `Saved the outcome of ${q.label}.`)}>
-            Save outcome
-          </button>
-        </fieldset>
+        <FieldGroup title={`Outcome ${q.kind === 'set' ? `(the ${q.picks} that happened)` : '(tick more than one for a tie)'}`}>
+          <div className="field-row">
+            {q.choices.map((c) => (
+              <label key={c.label}>
+                <input type="checkbox" checked={ticked.includes(c.label)} onChange={() => setTicked(toggled(ticked, c.label, q.kind === 'set' ? q.picks : 0))} /> {c.label}
+              </label>
+            ))}
+            <button type="button" className="btn-antique" disabled={ticked.join(', ') === saved}
+              onClick={() => void run(req.setNostradamusOutcome(game.slug, q.id, ticked), `Saved the outcome of ${q.label}.`)}>
+              Save outcome
+            </button>
+          </div>
+        </FieldGroup>
       )}
       {(status === 'open' || status === 'awaiting') && !fromChoices && (
         <div className="admin-add">

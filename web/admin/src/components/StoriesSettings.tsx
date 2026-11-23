@@ -8,6 +8,7 @@ import { useSave } from './useSave';
 import AdminCard from './AdminCard';
 import PeoplePick from './PeoplePick';
 import { playerChoices } from '../lib/person-form';
+import FieldGroup from './FieldGroup';
 
 type Story = AdminTournament['stories'][number];
 
@@ -29,8 +30,7 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
         shown in this order. With none, the page shows no stories section.
       </p>
       {list.map((st, i) => (
-        <fieldset key={i} className="story-box">
-          <legend>Story {i + 1}</legend>
+        <FieldGroup key={i} title={`Story ${i + 1}`}>
           <div className="card-fields">
             <PeoplePick label="Player" value={st.player} onChange={(text) => set(i, 'player', text)} choices={playerChoices} placeholder="" />
             <label>
@@ -69,7 +69,7 @@ export default function StoriesSettings({ t, onReload }: { t: AdminTournament; o
               Remove
             </button>
           </div>
-        </fieldset>
+        </FieldGroup>
       ))}
       <SaveBar save={saving}>
         <button type="button" className="btn-antique" onClick={() => setList(addedStory(list))} disabled={!canAddStory(list)}>

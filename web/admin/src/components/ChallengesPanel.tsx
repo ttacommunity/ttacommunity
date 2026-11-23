@@ -174,7 +174,7 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
             {e.proof_url !== null && (
               <button
                 type="button"
-                className={e.checked ? 'btn-antique challenge-toggle on' : 'btn-antique challenge-toggle'}
+                className="btn-antique"
                 aria-pressed={e.checked}
                 title={e.checked ? 'An admin has looked at the proof; press to undo' : 'Mark the proof as looked at'}
                 onClick={() => onChange({ checked: !e.checked })}
@@ -184,7 +184,7 @@ function EntryRow({ entry: e, zone, onChange }: { entry: AdminChallengeEntry; zo
             )}
             <button
               type="button"
-              className={e.bugged ? 'btn-antique challenge-toggle on' : 'btn-antique challenge-toggle'}
+              className="btn-antique"
               aria-pressed={e.bugged}
               title={e.bugged ? 'Made through a game bug, never counted; press to undo' : 'Mark as made through a game bug'}
               onClick={() => onChange({ bugged: !e.bugged })}

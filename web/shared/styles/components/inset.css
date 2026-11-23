@@ -1,0 +1,38 @@
+/* A box inside a panel or on the page (Inset): a well with a faint edge; figures in a row in the stats face; a short muted line. */
+.inset {
+  padding: 1rem 1.25rem;
+  background: var(--inset-surface);
+  border: 1px solid var(--inset-edge);
+  border-radius: 6px;
+}
+
+.inset-figures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 1.5rem;
+  padding: 0.6rem 1rem;
+  color: var(--inset-text);
+  font-family: var(--font-stats);
+  font-size: 0.9rem;
+}
+
+/* :where keeps a page's own figure colours (a win, a loss) ahead of the strip's. */
+:where(.inset-figures) strong {
+  color: var(--inset-figure);
+}
+
+.inset-line {
+  padding: 0.6rem 1rem;
+  color: var(--inset-text);
+  font-size: var(--size-body-short);
+  text-align: center;
+}
+
+.inset-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}

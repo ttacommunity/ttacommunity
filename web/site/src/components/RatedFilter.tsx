@@ -6,11 +6,9 @@ import { ratedFilterStatus, type GameRatingFilter } from '../lib/career';
 export default function RatedFilter({
   value,
   onChange,
-  className = '',
 }: {
   value: GameRatingFilter;
   onChange: (next: GameRatingFilter) => void;
-  className?: string;
 }) {
   const [said, setSaid] = useState('');
   const toggle = (key: keyof GameRatingFilter) => {
@@ -21,7 +19,7 @@ export default function RatedFilter({
 
   return (
     <>
-      <div className={`format-bar-group ${className}`} role="group" aria-label="Game rating filter">
+      <div className="format-bar-group" role="group" aria-label="Game rating filter">
         <button
           type="button"
           className={`format-btn rated-filter-btn ${value.rated ? 'active' : ''}`}

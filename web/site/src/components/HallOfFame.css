@@ -6,43 +6,15 @@
   flex-wrap: wrap;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--gold-wash-faint);
-}
-.stat-pill {
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--gold-wash);
-  padding: 0.4rem 0.9rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-}
-.stat-pill strong {
-  color: var(--accent-gold);
-  font-size: 1.05rem;
+  border-top: 1px solid var(--accent-wash-faint);
 }
 .series-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2.5rem;
 }
 .series-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid rgba(74, 53, 37, 0.6);
-  border-radius: 8px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  text-decoration: none;
-  color: inherit;
-  position: relative;
-  box-shadow: 0 4px 16px var(--shadow);
-}
-.series-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-gold);
-  box-shadow: 0 8px 24px var(--shadow), 0 0 14px var(--gold-wash);
+  flex: 1;
 }
 .series-card-top {
   display: flex;
@@ -53,17 +25,6 @@
 .series-icon {
   font-size: 2.4rem;
   line-height: 1;
-}
-.series-badge {
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  color: var(--accent-gold);
-  padding: 0.25rem 0.6rem;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 .series-name {
   font-size: 1.35rem;
@@ -84,7 +45,7 @@
   font-size: 0.82rem;
   color: var(--text-muted);
   padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-faint);
 }
 .series-meta-row:last-of-type {
   border-bottom: none;
@@ -99,52 +60,15 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 1rem;
-  border-top: 1px solid var(--gold-wash-faint);
+  border-top: 1px solid var(--accent-wash-faint);
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--accent-gold);
-}
-.series-cta span.arrow {
-  transition: transform 0.2s ease;
-}
-.series-card:hover .series-cta span.arrow {
-  transform: translateX(4px);
-}
-.podium-preview-card {
-  background: linear-gradient(145deg, var(--surface-card), var(--surface-well));
-  border: 1.5px solid var(--gold-wash);
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 6px 20px var(--shadow);
-}
-.podium-preview-title {
-  font-size: var(--size-card-title);
-  font-weight: 700;
-  color: var(--accent-gold);
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  color: var(--text-accent);
 }
 .champions-highlight-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
-}
-.champ-highlight-box {
-  background: rgba(16, 10, 6, 0.75);
-  border: 1px solid var(--gold-wash);
-  border-radius: 6px;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: border-color 0.2s, transform 0.2s;
-}
-.champ-highlight-box:hover {
-  border-color: var(--accent-gold);
-  transform: translateY(-2px);
 }
 .champ-highlight-avatar {
   font-size: 2rem;
@@ -153,22 +77,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gold-wash-faint);
-  border: 1px solid var(--gold-wash);
-  border-radius: 50%;
   flex-shrink: 0;
 }
 .champ-highlight-info {
   flex-grow: 1;
-}
-.champ-highlight-name {
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--text-bright);
-  text-decoration: none;
-}
-.champ-highlight-name:hover {
-  color: var(--accent-gold);
 }
 .champ-highlight-desc {
   font-size: 0.82rem;
@@ -177,12 +89,14 @@
   line-height: 1.35;
 }
 .wcs-podium-card {
+  display: flex;
   align-items: flex-start;
+  gap: 1rem;
 }
 .wcs-edition-title {
   font-weight: 800;
   font-size: 1.1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   margin-bottom: 0.5rem;
 }
 .wcs-podium-places {
@@ -195,22 +109,8 @@
   align-items: center;
   gap: 0.5rem;
 }
-.podium-runner-up,
-.podium-third {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-main);
-  text-decoration: none;
-}
-.podium-runner-up:hover,
-.podium-third:hover {
-  color: var(--accent-gold);
-}
 
 /* WCS & Circuit Analytics Section */
-.wcs-analytics-card {
-  margin-bottom: 2.5rem;
-}
 .wcs-grid-two {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -226,46 +126,28 @@
     margin-top: 1rem;
     padding-top: 1rem;
   }
-  .stat-pill {
-    font-size: 0.8rem;
-    padding: 0.35rem 0.65rem;
-  }
   .series-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
-  }
-  .series-card {
-    padding: 1.15rem;
-  }
-  .wcs-podium-card {
-    padding: 1rem;
   }
 }
 
 /* Upstream's inline styles, as classes. */
 .podium-intro {
-  margin-bottom: 1rem;
+  margin: 0 0 1rem;
   color: var(--text-muted);
   font-size: var(--size-body-short);
   line-height: 1.5;
 }
 
-
-
-
-
-
-
 .hof-two-col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2.5rem;
 }
 
-.hof-two-col > .wcs-analytics-card {
+.hof-two-col > .panel-card {
   min-width: 0;
-  margin-bottom: 0;
 }
 
 .wcs-table .col-rank-narrow {
@@ -276,39 +158,13 @@
   width: 50px;
 }
 
-.wcs-table .col-center {
-  text-align: center;
-}
-
 .wcs-table .col-right {
   text-align: right;
 }
 
 .wcs-table .cell-rank {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
-}
-
-.legend-player {
-  color: var(--text-main);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.board-player {
-  color: var(--text-bright);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.legend-mark {
-  margin-left: 0.3rem;
-  padding: 0.1rem 0.35rem;
-  font-size: 0.65rem;
-}
-
-.badge.legend-mark {
-  border-radius: 4px;
 }
 
 .wcs-table .cell-titles {
@@ -318,38 +174,28 @@
   text-align: center;
 }
 
-.wcs-table .cell-world {
-  color: var(--accent-gold);
-  font-weight: 700;
-  text-align: center;
-}
-
-.wcs-table .cell-international {
-  color: #81d4fa;
-  font-weight: 600;
-  text-align: center;
-}
-
-.wcs-table .cell-intermezzo {
-  color: #ffb74d;
-  font-weight: 600;
-  text-align: center;
-}
-
+/* Titles by league: the columns' headings name the league, so the counts are plain. */
+.wcs-table .cell-world,
+.wcs-table .cell-international,
+.wcs-table .cell-intermezzo,
 .wcs-table .cell-royal {
-  color: #ce93d8;
+  color: var(--text-main);
   font-weight: 600;
   text-align: center;
+}
+
+.wcs-table .cell-world {
+  font-weight: 700;
 }
 
 .wcs-table .cell-medals {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 600;
   text-align: right;
 }
 
 .wcs-table .cell-gold {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 800;
   text-align: center;
 }
@@ -377,7 +223,7 @@
 }
 
 .wcs-table .cell-rate {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
   text-align: center;
 }

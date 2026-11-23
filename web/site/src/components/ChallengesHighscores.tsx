@@ -3,11 +3,16 @@ import { useState } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import { challengeHighscores, type Challenge, type ChallengeScope } from '@ttac/shared/ratings';
 import { downloadUrls } from '../lib/challenge-download';
-import { challengeHref, challengePicture, challengeSets, formatMeasure, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
+import { challengeHref, challengePicture, challengeSets, formatMeasure, groupPicture, scopeLeaders, type Measure, type SetId } from '../lib/challenges';
 import { ChallengePlayerLink, Difficulty, MeasureSwitch, ProofMark, SetGrid, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
 import Waiting from './Waiting';
+import Panel from './Panel';
+import Panels from './Panels';
+import Inset from '@ttac/shared/Inset';
+import Tile, { TileLink } from './Tile';
 import PageHeader from '@ttac/shared/PageHeader';
+import ScrollTable from './ScrollTable';
 
 const SETS: { value: SetId; label: string }[] = [
   { value: 'original', label: 'Original' },
@@ -36,7 +41,7 @@ export default function ChallengesHighscores({ apiUrl }: { apiUrl: string }) {
         }
       />
 
-      <div className="challenges-bar">
+      <div className="view-bar challenges-bar">
         <div className="challenges-bar-group">
           <Segmented label="Set" value={set} onChange={setSet} options={SETS} />
           <Segmented
@@ -83,15 +88,15 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
   const totals = [...SETS.map((s) => ({ label: s.label, scope: scopeOf(s.value) })), { label: 'Everything', scope: scopeOf('all') }];
 
   return (
-    <>
+    <Panels>
       {setScope && (
-        <p className="challenges-set-totals">
+        <Inset form="figures">
           <TotalsLine scope={setScope} measure={measure} />
-        </p>
+        </Inset>
       )}
 
       {view === 'compact' ? (
-        <section className="rating-card challenges-card">
+        <Panel label="Challenges by group">
           <SetGrid
             groups={groups}
             label={(_cs, group) => {
@@ -119,28 +124,25 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
               </>
             )}
           />
-        </section>
+        </Panel>
       ) : (
         groups.map((g) => {
           const scope = scopeOf(set, g.id);
           return (
-            <section key={g.id} className="rating-card challenges-group" data-group={g.id} aria-labelledby={`group-${g.id}`}>
-              <div className="challenges-group-head">
-                <h2 id={`group-${g.id}`} className="rating-card-heading">
-                  {g.label}
-                </h2>
-                {scope && <TotalsLine scope={scope} measure={measure} />}
-              </div>
+            <Panel
+              key={g.id}
+              id={`group-${g.id}`}
+              title={g.label}
+              aside={scope && <TotalsLine scope={scope} measure={measure} />}
+              art={groupPicture(g.id)}
+            >
               <div className="challenges-cards">
                 {g.challenges.map((c) => (
-                  <div key={c.id} className="challenges-tile">
-                    <a href={challengeHref(c.id)} aria-label={c.name}>
-                      <img className="challenges-tile-img" src={challengePicture(c.id)} alt="" loading="lazy" width={340} height={284} />
-                    </a>
+                  <Tile key={c.id} picture={<img className="challenges-tile-img" src={challengePicture(c.id)} alt="" loading="lazy" width={340} height={284} />}>
                     <div className="challenges-tile-body">
-                      <a className="challenges-tile-title" href={challengeHref(c.id)}>
-                        {c.name}
-                      </a>
+                      <TileLink href={challengeHref(c.id)}>
+                        <span className="challenges-tile-title">{c.name}</span>
+                      </TileLink>
                       <div className="challenges-tile-meta">
                         {c.players}P <Difficulty value={c.difficulty} /> <span className="muted">{c.entrants} players</span>
                       </div>
@@ -148,24 +150,21 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
                         <Holder challenge={c} />
                       </div>
                     </div>
-                  </div>
+                  </Tile>
                 ))}
               </div>
-            </section>
+            </Panel>
           );
         })
       )}
 
-      <section className="rating-card challenges-card" aria-labelledby="challenges-totals">
-        <h2 id="challenges-totals" className="rating-card-heading">
-          Totals
-        </h2>
+      <Panel id="challenges-totals" title="Totals">
         <p className="challenges-lead">
           <strong>Pooled</strong> adds up the record of every challenge, as if all players formed one team. <strong>Best single player</strong> ranks players
           by{' '}
           {measure === 'rating' ? 'rating: each best as a percentage of the record, averaged over the challenges in scope.' : 'the sum of their own best dominations.'}
         </p>
-        <div className="table-responsive">
+        <ScrollTable label="Highscores">
           <table className="leaderboard-table">
             <caption className="visually-hidden">The pooled record and the best single player, for each set and all together</caption>
             <thead>
@@ -210,13 +209,10 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
               )}
             </tbody>
           </table>
-        </div>
-      </section>
+        </ScrollTable>
+      </Panel>
 
-      <section className="rating-card challenges-card" aria-labelledby="challenges-holders">
-        <h2 id="challenges-holders" className="rating-card-heading">
-          Most records held
-        </h2>
+      <Panel id="challenges-holders" title="Most records held">
         {holders.length === 0 ? (
           <p className="muted">No records yet.</p>
         ) : (
@@ -228,8 +224,8 @@ function Highscores({ challenges, scopes, holders, set, measure, view }: Props) 
             ))}
           </ol>
         )}
-      </section>
-    </>
+      </Panel>
+    </Panels>
   );
 }
 

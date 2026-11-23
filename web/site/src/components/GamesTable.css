@@ -34,29 +34,15 @@
   color: var(--text-main);
 }
 
-.trophy-table-container.games-table {
-  max-height: none;
-}
-
 .game-seats {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 0.9rem;
 }
 
-.game-seat a {
-  color: #f7dfa5;
-  font-weight: 600;
-  text-decoration: none;
-}
-
 .game-seat-name {
-  color: #f7dfa5;
+  color: var(--player-name);
   font-weight: 600;
-}
-
-.game-seat a:hover {
-  color: var(--accent-gold);
 }
 
 .game-outcome {
@@ -68,14 +54,11 @@
   opacity: 0.7;
 }
 
-/* The signed-in player's own blitz game: a gold edge, and a link to their report box. */
-.game-yours td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent-gold);
-}
+/* The signed-in player's own blitz game: a link to their report box (the row is singled out by the shared table). */
 .game-you {
   display: block;
   margin-top: 0.25rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.85rem;
 }
 
@@ -84,21 +67,15 @@
   margin-left: 0.5rem;
 }
 
-.games-player .search-form {
-  margin: 0;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 /* In a ViewBar's actions: the box alone, filling the line on a phone. */
 .games-player-inline {
   text-transform: none;
   letter-spacing: 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 820px) {
   .games-player-inline {
-    flex: 1;
+    flex: 1 1 100%;
   }
 }
 

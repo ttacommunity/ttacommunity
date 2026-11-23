@@ -4,13 +4,14 @@ import { getCollection, render } from 'astro:content';
 import SiteLayout from '../../../layouts/SiteLayout.astro';
 import '../../../components/FaqPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panels from '../../../components/Panels';
 
 const tabs = (await getCollection('faq')).sort((a, b) => a.data.order - b.data.order);
 if (tabs.length === 0) throw new Error('src/content/faq/ has no tabs');
 const sections = await Promise.all(tabs.map(async (t) => ({ ...t.data, Content: (await render(t)).Content })));
 // Upstream picks out its two GlickoD tabs in gold.
 ---
-<SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, conservative ratings, formats, titles and season resets.">
+<SiteLayout title="FAQ & Model Guide - Through the Ages Rating Engine" description="How the Through the Ages rating engines work: GlickoD, Glicko-2, conservative ratings, formats, titles and season resets." width="narrow">
   <div class="faq-container" data-api-url={PUBLIC_API_URL}>
     <PageHeader
       title="Frequently Asked Questions & Model Guide"
@@ -35,7 +36,9 @@ const sections = await Promise.all(tabs.map(async (t) => ({ ...t.data, Content: 
 
     {sections.map(({ tab, Content }, i) => (
       <div id={`faq-${tab}`} class:list={['faq-section', { active: i === 0 }]} role="tabpanel" aria-labelledby={`faq-tab-${tab}`}>
-        <Content />
+        <Panels>
+          <Content />
+        </Panels>
       </div>
     ))}
   </div>

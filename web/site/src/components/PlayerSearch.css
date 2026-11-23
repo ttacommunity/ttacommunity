@@ -1,0 +1,50 @@
+/* The player search: a field with its own suggestions under it, which every browser shows. It sets its own width and type, so no page changes its look. */
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.search-form,
+.search-input-wrapper {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Room at the right for the search icon inside the field. */
+.search-input-wrapper .input-antique {
+  width: 200px;
+  padding-right: calc(var(--control-height) + 0.25rem);
+}
+
+/* The search icon sits inside the field, at its right; a box that filters as you type draws it but it does nothing. */
+.search-submit {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+}
+
+.search-icon {
+  pointer-events: none;
+}
+
+/* A line of its own at the site's phone layout, the header's drawer included. */
+@media (max-width: 820px) {
+  .search-form {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .search-input-wrapper,
+  .search-input-wrapper .input-antique {
+    width: 100%;
+  }
+}

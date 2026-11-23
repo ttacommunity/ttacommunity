@@ -1,9 +1,4 @@
-/* Upstream's player page: player.html's styles, the base.html rules it uses, and its inline styles as classes. */
-.badge.badge-inline {
-  padding: 0.15rem 0.5rem;
-  font-size: 0.75rem;
-  vertical-align: middle;
-}
+
 
 .view-selectors {
   display: flex;
@@ -16,57 +11,27 @@
   margin-bottom: 0;
 }
 
-.chart-toggle-label {
-  margin-right: 0.25rem;
-  font-family: var(--font-heading);
-  font-size: 0.78rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
-}
-
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
 }
 
-.model-card {
-  padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  backdrop-filter: blur(4px);
-  transition:
-    transform 0.2s,
-    border-color 0.2s;
-}
-
-.model-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent-gold);
-}
-
-.model-card.active-card {
-  border: 1px solid var(--accent-gold);
-  box-shadow: 0 4px 15px var(--gold-wash);
-}
-
-.model-card h3 {
+.format-card-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
   font-family: var(--font-heading);
   font-size: var(--size-subheading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .rating-number {
   font-family: var(--font-stats);
   font-size: 2rem;
   font-weight: 700;
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 .rd-tag {
@@ -80,7 +45,7 @@
   justify-content: space-between;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(74, 53, 37, 0.5);
+  border-top: 1px solid var(--border-faint);
   font-family: var(--font-stats);
   font-size: 0.9rem;
 }
@@ -90,177 +55,19 @@
 }
 
 .c-rating-box strong {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .model-card-caption {
   margin-top: 0.4rem;
   font-size: 0.8rem;
-  color: #887864;
-}
-
-/* A format card is a link to that format. */
-.model-card.format-card {
-  display: block;
-  color: inherit;
-  text-decoration: none;
-  cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  color: var(--text-muted);
 }
 
 .format-card-none {
   font-size: 1.05rem;
   font-weight: normal;
   color: var(--text-muted);
-}
-
-/* GlickoD's card: upstream's gold gradient. */
-.model-card.card-daneo {
-  border: 1.5px solid var(--accent-gold-deep);
-  background: linear-gradient(135deg, rgba(46, 31, 20, 0.95) 0%, var(--surface-well) 100%);
-  box-shadow:
-    0 4px 18px rgba(0, 0, 0, 0.65),
-    inset 0 1px 0 var(--gold-wash);
-}
-
-.card-daneo h3 {
-  color: var(--accent-gold);
-}
-
-.card-daneo .badge-rank {
-  background: #332211;
-  color: var(--accent-gold);
-  border: 1.5px solid var(--accent-gold-deep);
-  font-weight: 700;
-}
-
-.card-daneo .rating-number {
-  color: var(--accent-gold-light);
-  font-weight: 800;
-}
-
-.card-daneo .rd-tag {
-  color: #c7a76d;
-}
-
-.card-daneo .c-rating-box {
-  border-top-color: rgba(184, 134, 11, 0.4);
-}
-
-.card-daneo .c-rating-box span {
-  color: #bfaea0;
-}
-
-.card-daneo .c-rating-box strong {
-  color: var(--accent-gold);
-}
-
-.card-daneo .model-card-caption {
-  color: var(--text-muted);
-}
-
-.chart-container {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.chart-head,
-.panel-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.chart-head {
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.chart-head h3 {
-  margin: 0 0 0.2rem;
-  font-family: var(--font-heading);
-  font-size: var(--size-subheading);
-  color: var(--accent-gold);
-}
-
-.chart-hint {
-  font-family: var(--font-stats);
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.chart-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.chart-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--shadow-light);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.chart-toggle .chart-toggle-label {
-  margin-right: 0.2rem;
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-.chart-toggle-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 0.25rem;
-  font-size: 0.72rem;
-  color: var(--accent-gold);
-  opacity: 0.8;
-  cursor: help;
-  user-select: none;
-}
-
-.chart-toggle-info:hover {
-  opacity: 1;
-}
-
-.chart-toggle .format-btn {
-  min-height: 28px;
-  padding: 0.2rem 0.6rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.chart-toggle .format-btn.active {
-  font-weight: 600;
-}
-
-@media (pointer: coarse), (max-width: 640px) {
-  .chart-toggle .format-btn {
-    min-height: 36px;
-    padding: 0.35rem 0.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  /* The curve switch's long buttons wrap inside it rather than widen the page. */
-  .chart-toggle {
-    flex-wrap: wrap;
-  }
 }
 
 .chart-container-inner {
@@ -289,49 +96,12 @@
 
 .chart-empty-title {
   font-size: 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .chart-empty-text {
   margin-top: 0.3rem;
   font-size: 0.85rem;
-}
-
-.tables-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.tables-grid .rating-card {
-  padding: 1.25rem;
-}
-
-.panel-head {
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.panel-head h3 {
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 1.1rem;
-  color: var(--accent-gold);
-}
-
-.panel-head-count {
-  font-size: 0.85rem;
-  font-weight: normal;
-  color: var(--text-muted);
-}
-
-.badge.badge-calibration {
-  padding: 0.25rem 0.6rem;
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
-  font-size: 0.8rem;
-  cursor: help;
 }
 
 .data-table .cell-date {
@@ -347,53 +117,6 @@
   padding: 1.5rem;
   text-align: center;
   color: var(--text-muted);
-}
-
-.badge.badge-seats {
-  background: rgba(74, 53, 37, 0.6);
-  color: var(--text-main);
-}
-
-.badge.badge-unrated {
-  margin-left: 0.35rem;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.unrated-toggle-end {
-  margin-left: auto;
-}
-
-.placement-badge {
-  display: inline-block;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  font-size: 0.8rem;
-  font-weight: 700;
-  line-height: 26px;
-  text-align: center;
-}
-
-.place-1 {
-  background: var(--accent-gold);
-  color: var(--bg-dark);
-}
-
-.place-2 {
-  background: var(--medal-silver);
-  color: #111;
-}
-
-.place-3 {
-  background: var(--medal-bronze);
-  color: var(--text-bright);
-}
-
-.place-4 {
-  background: var(--border-subtle);
-  color: #aaa;
 }
 
 .game-delta {
@@ -436,83 +159,27 @@
 
 .seat.seat-self {
   font-weight: bold;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .seat-score {
   color: var(--text-muted);
 }
 
-.seat .player-link,
-.h2h-scores .player-link {
-  color: var(--accent-gold);
-  text-decoration: none;
-}
-
-.seat .player-link:hover,
-.h2h-scores .player-link:hover {
-  text-decoration: underline;
-}
-
-.h2h-other .player-link {
-  color: inherit;
-}
-
-.rivals-controls select {
-  background: var(--surface-field);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  color: var(--text-main);
-  padding: 0.35rem 0.6rem;
-  font-size: 0.85rem;
-  height: var(--control-height);
-  box-sizing: border-box;
-}
-
-.rivals-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.rival-filter {
-  width: 180px;
-  height: var(--control-height);
-  box-sizing: border-box;
-}
-
-.sort-header.win,
-.sort-header.loss,
-.sort-header.draw {
-  padding: 2px 4px;
-  border-radius: 3px;
-}
-
-.sort-header.win,
 .wld-num.win {
   color: var(--win);
 }
 
-.sort-header.loss,
 .wld-num.loss {
   color: var(--loss);
 }
 
-.sort-header.draw,
 .wld-num.draw {
   color: var(--draw);
 }
 
 .wld-num {
   font-weight: 600;
-}
-
-.rival-name.player-link {
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #f7dfa5;
 }
 
 .rival-rate.good {
@@ -523,21 +190,7 @@
   color: var(--loss);
 }
 
-.rivals-expand {
-  margin-top: 0.85rem;
-  text-align: center;
-}
-
-.rivals-expand .btn-antique {
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
-}
-
 @media (max-width: 768px) {
-  .chart-container {
-    padding: 1rem 0.75rem;
-  }
-
   .chart-container-inner {
     height: 270px;
   }
@@ -549,31 +202,6 @@
 }
 
 /* The career box. */
-.rating-card.career-box {
-  margin-bottom: 2rem;
-  padding: 1.25rem 1.5rem;
-  border-left: 4px solid var(--accent-gold);
-}
-
-.career-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.6rem;
-}
-
-.career-head h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  color: var(--accent-gold);
-}
-
 .career-body {
   font-family: var(--font-body);
   font-size: 0.95rem;
@@ -585,213 +213,55 @@
   margin-bottom: 0.5rem;
 }
 
-.career-medals {
-  display: flex;
-  gap: 0.75rem;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-.career-medal-gold { color: var(--accent-gold); }
-.career-medal-silver { color: var(--medal-silver); }
-.career-medal-bronze { color: var(--medal-bronze); }
-
 .career-honor-roll {
   margin-bottom: 0.6rem;
   font-size: var(--size-body);
   font-weight: 500;
-  color: #fff3db;
-}
-
-/* Featured accolades, on the career box and the achievements page, as upstream's base.html. */
-.career-honors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0.6rem;
-  margin: 0.8rem 0 1rem 0;
-}
-.career-honor-badge {
-  background: rgba(18, 12, 8, 0.92);
-  border: 1px solid var(--accent-gold-deep);
-  border-left: 3px solid var(--accent-gold);
-  padding: 0.45rem 0.85rem;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  box-shadow: 0 2px 6px var(--shadow);
-}
-.honor-star {
-  color: var(--accent-gold);
-  font-size: 1rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.honor-text {
-  font-family: var(--font-subheading);
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #f7dfa5;
-  white-space: normal;
+  color: var(--text-main);
 }
 
 .career-peak-note {
   font-weight: 600;
-  color: var(--accent-gold);
-}
-
-.career-season {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin: 0.8rem 0;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, var(--gold-wash-faint) 0%, rgba(30, 20, 14, 0.8) 100%);
-  border: 1.5px solid var(--accent-gold);
-  border-radius: 6px;
-}
-
-.career-season-main {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.career-season-icon {
-  font-size: 1.8rem;
-}
-
-.career-season-title {
-  font-family: var(--font-heading);
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--accent-gold);
-}
-
-.badge.badge-season {
-  margin-left: 0.4rem;
-}
-
-.career-season-stats {
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-  color: var(--text-main);
+  color: var(--text-accent);
 }
 
 .career-season-peak {
-  color: var(--accent-gold);
-}
-
-.career-peaks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  margin: 0.6rem 0;
-  padding: 0.6rem 0.85rem;
-  background: rgba(18, 12, 8, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-radius: 4px;
-  font-family: var(--font-stats);
-  font-size: 0.85rem;
-}
-
-.career-peak-label,
-.career-peak-date {
-  color: var(--text-muted);
-}
-
-.career-peak-date {
-  font-size: 0.8rem;
-}
-
-.career-peak-rating {
-  color: var(--accent-gold);
-}
-
-.career-peak-rank {
-  margin-left: 0.2rem;
-  font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .career-notes {
   margin-top: 0.4rem;
   margin-left: 1.25rem;
   font-size: 0.9rem;
-  color: #d0c0b0;
+  color: var(--text-soft);
 }
 
 .career-notes li {
   margin-bottom: 0.25rem;
 }
 
-/* The Compare button and head-to-head popup. */
-.btn-h2h-compare {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.65rem;
-  background: rgba(142, 30, 29, 0.25);
-  border: 1px solid var(--accent-crimson);
-  border-radius: 4px;
-  color: var(--loss-light);
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-h2h-compare:hover {
-  background: var(--accent-crimson);
-  border-color: var(--accent-gold);
-  box-shadow: 0 2px 8px rgba(142, 30, 29, 0.6);
-  color: var(--text-bright);
-  transform: translateY(-1px);
-}
-
-.h2h-modal {
-  max-width: 900px;
-}
-
+/* Each group's label in one column, so the button groups start in line. */
 .h2h-toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  margin: 1rem 1.25rem 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1.5rem;
-  background: rgba(22, 14, 10, 0.9);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 0.5rem 1rem;
 }
 
-.h2h-toolbar-label {
-  font-family: var(--font-heading);
-  font-size: 0.78rem;
-  color: var(--accent-gold);
-  text-transform: uppercase;
-}
-
-.format-bar.h2h-formats {
-  gap: 0.3rem;
-  width: fit-content;
-  margin: 0;
+/* On a phone each label sits above its group. */
+@media (max-width: 768px) {
+  .h2h-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .h2h-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(18, 12, 8, 0.7);
-  border-bottom: 1px solid var(--border-subtle);
-  font-family: var(--font-stats);
-  font-size: 0.9rem;
+  margin: 1rem 1.25rem 0;
 }
 
 .h2h-total {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-win {
@@ -818,7 +288,7 @@
 
 .h2h-tournament {
   font-weight: 600;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-scores {
@@ -827,7 +297,7 @@
 
 .h2h-target {
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .h2h-other {
@@ -837,42 +307,11 @@
 .career-matrix-link {
   font-family: var(--font-heading);
   font-size: 0.82rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: underline;
 }
 
 /* Position & Turn Order Performance Styles */
-.position-seat-card {
-  margin: 1.5rem 0;
-  padding: 1.25rem 1.5rem;
-}
-
-.position-seat-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.position-head-title h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.25rem;
-  font-family: var(--font-heading);
-  font-size: 1.2rem;
-  color: var(--accent-gold);
-}
-
-.position-head-subtitle {
-  font-size: 0.88rem;
-  color: var(--text-muted);
-}
-
 .rated-filter-btn {
   height: var(--control-height);
   gap: 0.35rem;
@@ -880,15 +319,7 @@
 }
 
 .position-delta-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1.25rem;
   margin-bottom: 1.25rem;
-  padding: 0.85rem 1.25rem;
-  background: var(--surface-card-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
 }
 
 .position-banner-metric {
@@ -908,37 +339,6 @@
   font-size: 0.82rem;
 }
 
-.delta-tag {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 3px;
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.delta-pos {
-  color: var(--win);
-}
-
-.delta-tag.delta-pos {
-  background: color-mix(in srgb, var(--win) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--win) 30%, transparent);
-}
-
-.delta-neg {
-  color: var(--loss);
-}
-
-.delta-tag.delta-neg {
-  background: color-mix(in srgb, var(--loss) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--loss) 30%, transparent);
-}
-
-.delta-zero {
-  color: var(--text-muted);
-}
-
 .seat-delta-badge {
   display: inline-block;
   padding: 0.15rem 0.4rem;
@@ -948,7 +348,7 @@
 }
 
 .format-group-row td {
-  background: rgba(45, 30, 20, 0.5);
+  background: var(--row-group);
   border-top: 1.5px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
   padding: 0.6rem 0.75rem;
@@ -956,7 +356,7 @@
 
 .format-group-cell strong {
   font-family: var(--font-heading);
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-size: 0.95rem;
 }
 
@@ -976,38 +376,6 @@
   flex-wrap: wrap;
 }
 
-.place-rate-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: 3px;
-  font-family: var(--font-stats);
-  font-size: 0.78rem;
-  background: rgba(30, 20, 15, 0.6);
-  border: 1px solid var(--border-subtle);
-}
-
-.place-pill-1 {
-  border-color: color-mix(in srgb, var(--accent-gold) 50%, transparent);
-  color: var(--accent-gold);
-}
-
-.place-pill-2 {
-  border-color: color-mix(in srgb, var(--medal-silver) 50%, transparent);
-  color: var(--medal-silver);
-}
-
-.place-pill-3 {
-  border-color: color-mix(in srgb, var(--medal-bronze) 50%, transparent);
-  color: var(--medal-bronze);
-}
-
-.place-pill-4 {
-  border-color: rgba(148, 163, 184, 0.3);
-  color: #94a3b8;
-}
-
 .pill-place {
   font-weight: 700;
   opacity: 0.85;
@@ -1020,8 +388,4 @@
 .player-layout {
   position: relative;
   width: 100%;
-}
-
-.chart-container {
-  position: relative;
 }

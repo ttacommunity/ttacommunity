@@ -105,7 +105,7 @@ function Members({ g, all, onReload }: { g: TournamentBrief; all: readonly Admin
               all={all}
               caption={`What ${g.name} holds`}
               action={(t) => (
-                <a className="btn-antique btn-settings" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
+                <a className="btn-antique btn-compact" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
                   Settings
                 </a>
               )}

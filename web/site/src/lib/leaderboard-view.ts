@@ -367,6 +367,12 @@ export function nextSort(view: View, key: SortKey): { sort: SortKey; order: Orde
   return { sort: key, order: view.sort === key && view.order === first ? flipped : first };
 }
 
+/** sortWay says which way view sorts by column key, as aria-sort says it, or undefined when it sorts by another. */
+export function sortWay(view: View, key: SortKey): 'ascending' | 'descending' | undefined {
+  if (view.sort !== key) return undefined;
+  return view.order === 'desc' ? 'descending' : 'ascending';
+}
+
 /** page returns one page of rows: the page of the player jumped to, or the page asked for, within range. */
 export function page(rows: RankedRow[], asked: number, jumpTo: string | null) {
   const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));

@@ -81,16 +81,16 @@ export default function SignUpsPanel({ slug, season, shown, rounds, regions, onE
           <p className="season-summary">
             <span className="muted">{signUpsSummary(data.sign_ups, zone)}</span>{' '}
             {!data.sign_ups.open && (
-              <button type="button" className="btn-antique btn-settings" disabled={blocker !== ''} aria-expanded={closes !== null} onClick={() => setCloses(closes === null ? { day: '', time: '', zone } : null)}>
+              <button type="button" className="btn-antique" disabled={blocker !== ''} aria-expanded={closes !== null} onClick={() => setCloses(closes === null ? { day: '', time: '', zone } : null)}>
                 Open sign-ups
               </button>
             )}
             {data.sign_ups.open && (
               <>
-                <button type="button" className="btn-antique btn-settings" aria-expanded={closes !== null} onClick={() => setCloses(closes === null ? { day: '', time: '', zone } : null)}>
+                <button type="button" className="btn-antique" aria-expanded={closes !== null} onClick={() => setCloses(closes === null ? { day: '', time: '', zone } : null)}>
                   Change closing time
                 </button>{' '}
-                <button type="button" className="btn-antique btn-settings" onClick={(e) => void close(e.currentTarget)}>
+                <button type="button" className="btn-antique" onClick={(e) => void close(e.currentTarget)}>
                   Close sign-ups
                 </button>
               </>

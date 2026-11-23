@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function SeasonPick({ id, seasons, value, word, onChange }: Props) {
-  if (seasons.length <= 1) return <span className="panel-tag">{seasonName(value, word)}</span>;
+  if (seasons.length <= 1) return <span className="tag">{seasonName(value, word)}</span>;
   return (
     <label>
       <span className="visually-hidden">{word}</span>

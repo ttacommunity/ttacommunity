@@ -1,17 +1,5 @@
 /* Styles for the Seat Advantage / Turn Order analysis page. */
 
-.seat-groups-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.seat-parity-note {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
 .seat-col-order {
   width: 22%;
 }
@@ -32,24 +20,12 @@
 .seat-cell-rate {
   text-align: right;
   font-weight: 700;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .seat-cell-delta {
   text-align: right;
   font-weight: 600;
-}
-
-.seat-cell-delta.delta-pos {
-  color: var(--win);
-}
-
-.seat-cell-delta.delta-neg {
-  color: var(--loss);
-}
-
-.seat-cell-delta.delta-zero {
-  color: var(--text-muted);
 }
 
 .seat-place-count {

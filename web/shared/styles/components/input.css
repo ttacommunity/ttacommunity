@@ -2,7 +2,7 @@
 .input-antique {
   padding: 0.5rem 0.85rem;
   background: var(--surface-inset);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--field-edge);
   border-radius: 4px;
   color: var(--text-main);
   font-family: var(--font-body);
@@ -12,28 +12,56 @@
 
 .input-antique:focus {
   outline: none;
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 8px var(--gold-wash);
+  border-color: var(--edge-accent);
+  box-shadow: 0 0 8px var(--accent-wash);
 }
 
-/* A select has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
-select.input-antique {
+/* A select (or a summary that opens a list of choices) has no block padding: with it, the fixed height leaves less room than the line box and the text is clipped. */
+select.input-antique,
+summary.input-antique {
   padding-block: 0;
   cursor: pointer;
 }
 
 /* Text fields and selects share one height, so a row of them lines up neatly. */
 input.input-antique,
-select.input-antique {
+select.input-antique,
+summary.input-antique {
   height: var(--control-height);
   box-sizing: border-box;
+}
+
+/* A text box of several lines: as tall as its rows; its width is where the page puts it. */
+textarea.input-antique {
+  box-sizing: border-box;
+  line-height: 1.4;
+}
+
+/* A colour picker framed as a field, the browser's swatch inside. */
+input[type='color'].input-antique {
+  width: 4.5rem;
+  padding: 3px;
+  cursor: pointer;
+}
+
+/* A field that cannot be used now looks it, as a button does. */
+.input-antique:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Checkboxes, radios and progress bars in the site's gold. */
 input[type='checkbox'],
 input[type='radio'],
 progress {
-  accent-color: var(--accent-gold);
+  accent-color: var(--fill-accent);
+}
+
+/* One size for a checkbox or radio on both sites, larger than the browser's, so it is easy to see and hit. */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 /* A checkbox in a row of fields, centred on them. */
@@ -45,9 +73,3 @@ progress {
 }
 
 /* A box that narrows a table as you type, upstream's filters on the player and achievements pages. */
-.input-antique.filter-input {
-  padding: 0.4rem 0.8rem;
-  background: var(--surface-field);
-  color: var(--text-main);
-  font-size: 0.85rem;
-}

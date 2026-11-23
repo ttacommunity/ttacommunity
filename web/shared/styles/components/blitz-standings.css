@@ -1,8 +1,4 @@
 /* A blitz edition's standings (BlitzStandingsTable), on the site and in admin: numbers right-aligned, dropped players muted. */
-.blitz-standings .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 .blitz-dropped {
   color: var(--text-muted);
 }
@@ -18,6 +14,6 @@
   text-align: left;
 }
 .blitz-draw {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }

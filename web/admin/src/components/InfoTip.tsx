@@ -1,4 +1,4 @@
-/** A small "i" button beside a control that shows a short note on when to use it, for touch screens as well as a mouse. */
+/** A small ⓘ button beside a control that shows a short note on when to use it, for touch screens as well as a mouse. */
 import { useId, useState, type ReactNode } from 'react';
 
 /** InfoTip opens its note on a tap or Enter, and closes it on another, on Escape, or when focus leaves. */
@@ -9,7 +9,7 @@ export default function InfoTip({ label, children }: { label: string; children: 
     <span className="info-tip">
       <button
         type="button"
-        className="info-tip-button"
+        className="btn-icon btn-compact"
         aria-label={label}
         aria-expanded={open}
         aria-controls={id}
@@ -19,9 +19,9 @@ export default function InfoTip({ label, children }: { label: string; children: 
           if (e.key === 'Escape') setOpen(false);
         }}
       >
-        i
+        ⓘ
       </button>
-      <span id={id} role="note" className="info-tip-note" hidden={!open}>
+      <span id={id} role="note" className="tip-note info-tip-note" hidden={!open}>
         {children}
       </span>
     </span>

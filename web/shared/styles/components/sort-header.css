@@ -20,3 +20,23 @@
 .sort-on .sort-arrow {
   opacity: 1;
 }
+
+/* One of several buttons sharing a header (W - L - D), in its result's tone. */
+.sort-header-win,
+.sort-header-loss,
+.sort-header-draw {
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.sort-header-win {
+  color: var(--win);
+}
+
+.sort-header-loss {
+  color: var(--loss);
+}
+
+.sort-header-draw {
+  color: var(--draw);
+}

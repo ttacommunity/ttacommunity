@@ -14,18 +14,21 @@ import {
   REASONS,
   SHOWN_BY,
   STATUSES,
+  channelTone,
   UPLOADS,
   overrideChoice,
   overrideOf,
   videoPage,
   videosMatching,
   videoStatus,
+  videoTone,
   type AdminMoviesState,
   type AdminVideo,
   type AdminVideoChannel,
   type OverrideChoice,
   type VideoFilters,
 } from '../lib/admin-movies';
+import { statusClass } from '@ttac/shared/status';
 import { outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import { playerChoices } from '../lib/person-form';
 import Notice, { LoadNotice } from './Notice';
@@ -35,6 +38,7 @@ import NewerOlder from '@ttac/shared/NewerOlder';
 import MultiPick from './MultiPick';
 import RowSelect from './RowSelect';
 import PeoplePick from './PeoplePick';
+import Inset from '@ttac/shared/Inset';
 
 const POLL_MS = 5000;
 
@@ -189,37 +193,41 @@ export default function MoviesPanel() {
 
       <Notice outcome={shownAt(outcome, outcome?.at ?? '')} onClose={() => setOutcome(null)} />
 
-      <form onSubmit={addChannel} className="movies-add-card">
-        <h3>Add creator</h3>
-        <div className="admin-add">
-          <label className="movies-field-wide">
-            YouTube channel URL, @handle, or UC... ID
-            <input
-              className="input-antique"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              placeholder="https://www.youtube.com/@handle or @handle"
-            />
-          </label>
-          <label>
-            Creator display name
-            <input
-              className="input-antique"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Creator name"
-            />
-          </label>
-          <PeoplePick label="Linked TTA player (optional)" value={player} onChange={setPlayer} choices={playerChoices} />
-          <label className="setting movies-include-all">
-            <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
-            <span>Include all uploads (skip TTA filter)</span>
-          </label>
-          <button type="submit" className="btn-antique" disabled={busy}>
-            Add creator
-          </button>
-        </div>
-      </form>
+      <div className="movies-add">
+        <Inset>
+          <form onSubmit={addChannel}>
+            <h3>Add creator</h3>
+            <div className="admin-add">
+              <label className="movies-field-wide">
+                YouTube channel URL, @handle, or UC... ID
+                <input
+                  className="input-antique"
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  placeholder="https://www.youtube.com/@handle or @handle"
+                />
+              </label>
+              <label>
+                Creator display name
+                <input
+                  className="input-antique"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Creator name"
+                />
+              </label>
+              <PeoplePick label="Linked TTA player (optional)" value={player} onChange={setPlayer} choices={playerChoices} />
+              <label className="setting movies-include-all">
+                <input type="checkbox" checked={includeAll} onChange={(e) => setIncludeAll(e.target.checked)} />
+                <span>Include all uploads (skip TTA filter)</span>
+              </label>
+              <button type="submit" className="btn-antique" disabled={busy}>
+                Add creator
+              </button>
+            </div>
+          </form>
+        </Inset>
+      </div>
 
       {state.kind === 'loading' && <p className="muted">Loading creators…</p>}
       {state.kind === 'error' && <LoadNotice message={state.message} />}
@@ -230,7 +238,7 @@ export default function MoviesPanel() {
             {state.data.channels.length === 0 ? (
               <p className="muted">No creators added yet. Add a YouTube channel above to start indexing videos.</p>
             ) : (
-              <AdminTable caption="The YouTube creators indexed, each with its linked player, filter and subscription" className="movies-table">
+              <AdminTable caption="The YouTube creators indexed, each with its linked player, filter and subscription">
                 <thead>
                   <tr>
                     <th>Creator</th>
@@ -273,14 +281,14 @@ export default function MoviesPanel() {
                         {c.videos_found} found · {c.video_count} shown
                       </td>
                       <td>
-                        <span className={`movies-status movies-status-${{ ok: 'visible', waiting: 'hidden', failing: 'failing' }[status.kind]}`}>
+                        <span className={statusClass(channelTone(status.kind))}>
                           {status.text}
                         </span>
                       </td>
                       <td className="movies-actions">
                         <button
                           type="button"
-                          className="btn-settings"
+                          className="btn-antique btn-compact"
                           disabled={running || starting}
                           onClick={() => void startRun(c, `channel-${c.channel_id}`)}
                           title="Start the Movies job for this creator alone"
@@ -289,7 +297,7 @@ export default function MoviesPanel() {
                         </button>
                         <button
                           type="button"
-                          className="btn-settings"
+                          className="btn-antique btn-danger btn-compact"
                           onClick={(e) => void deleteChannel(c, e.currentTarget)}
                         >
                           Remove
@@ -347,7 +355,7 @@ export default function MoviesPanel() {
             {state.data.videos.length === 0 ? (
               <p className="muted">No videos yet. The Movies job fills them in when a creator is added, or on Run now.</p>
             ) : (
-              <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why" className="movies-table">
+              <AdminTable caption="The videos found, with each one's creator, date, whether the Movies page shows it and why">
                 <thead>
                   <tr>
                     <th>Video</th>
@@ -391,7 +399,7 @@ export default function MoviesPanel() {
                       <td>{v.creator_name}</td>
                       <td className="movies-date">{formatDate(v.published_at, zone)}</td>
                       <td>
-                        <span className={status.shown ? 'movies-status movies-status-visible' : 'movies-status movies-status-hidden'}>
+                        <span className={statusClass(videoTone(status.shown))}>
                           {status.shown ? 'Shown' : 'Not shown'}
                         </span>
                         <span className="muted movies-why">{status.why}</span>

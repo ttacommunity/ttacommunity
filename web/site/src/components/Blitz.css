@@ -11,25 +11,10 @@
   margin-top: 0.75rem;
 }
 
-/* An edition's panels, one under another. */
-.blitz-panels {
-  display: grid;
-  gap: 1.5rem;
-}
-
-/* Nostradamus's cards; Blitz's are the site's full-width Panel. */
-.blitz-card {
-  max-width: 56rem;
-  margin: 0 auto 1.5rem;
-  padding: 1.5rem 1.75rem;
-}
 .blitz-intro {
   margin: 0 0 1rem;
   color: var(--text-soft);
   line-height: 1.6;
-}
-.blitz-table-wrap {
-  overflow-x: auto;
 }
 .blitz-table caption {
   caption-side: top;
@@ -45,12 +30,8 @@
 .blitz-table thead th {
   white-space: nowrap;
 }
-.blitz-table .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 .blitz-table a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .blitz-round {
   margin-top: 1.25rem;
@@ -59,7 +40,7 @@
   margin-bottom: 0.5rem;
   font-family: var(--font-heading);
   font-size: 1.05rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 .blitz-flag {
   display: inline-block;
@@ -68,7 +49,7 @@
 }
 .blitz-champion {
   margin: 0 0 1rem;
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-family: var(--font-heading);
   font-size: 1.15rem;
 }
@@ -146,15 +127,4 @@
   padding: 0;
   list-style: none;
   color: var(--text-soft);
-}
-
-/* The "How ties are broken" button, a link in the standings' note. */
-.blitz-text-button {
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--accent-gold);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
 }

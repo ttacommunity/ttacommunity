@@ -1,0 +1,125 @@
+/* A tile in a grid (Tile): raised; a link tile, or a tile with a TileLink, lifts with a gold edge and glow under the mouse. */
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--tile-surface);
+  border: 1.5px solid var(--tile-edge);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px var(--shadow);
+  color: inherit;
+  text-decoration: none;
+}
+
+.tile-current {
+  border-color: var(--tile-hover-edge);
+}
+
+.tile-link,
+.tile:has(.tile-cover) {
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.tile-link:hover,
+.tile:has(.tile-cover):hover {
+  transform: translateY(-3px);
+  border-color: var(--tile-hover-edge);
+  box-shadow:
+    0 8px 24px var(--shadow),
+    0 0 14px var(--tile-hover-glow);
+}
+
+.tile-link:hover {
+  color: inherit;
+}
+
+/* A TileLink's click area covers the tile; the tile's other links and buttons sit above it. */
+.tile-cover {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tile-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.tile:has(.tile-cover) :is(a, button):not(.tile-cover) {
+  position: relative;
+  z-index: 1;
+}
+
+.tile-cover:focus-visible {
+  outline: none;
+}
+
+.tile:has(.tile-cover:focus-visible) {
+  outline: 2px solid var(--tile-hover-edge);
+  outline-offset: 2px;
+}
+
+.tile:has(> .tile-picture) {
+  overflow: hidden;
+}
+
+.tile-picture {
+  position: relative;
+  line-height: 0;
+}
+
+/* A picture that plays (Tile's playable): a ▶ in a round well over its bottom-left corner. */
+.tile-play {
+  position: absolute;
+  inset: auto auto 0.65rem 0.65rem;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-well);
+  color: var(--text-accent);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.tile-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+/* Under a picture the body is a caption. */
+.tile-picture + .tile-body {
+  padding: 0.6rem 0.75rem 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .tile-body {
+    padding: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-link,
+  .tile:has(.tile-cover) {
+    transition: none;
+  }
+
+  .tile-link:hover,
+  .tile:has(.tile-cover):hover {
+    transform: none;
+  }
+}

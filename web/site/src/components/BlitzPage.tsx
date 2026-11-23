@@ -6,7 +6,7 @@ import type { components } from '@ttac/shared/api';
 import { EDITION_COLUMNS, ENTRANT_COLUMNS, TIE_BREAKS, UNPLAYED_NOTE, editionHref, editionParams, formatLabel, lastTieBreak, reachedLabel, roundLine, scoringLine, startLabel, zoneLabel } from '@ttac/shared/blitz';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
 import { nextSort, type Sort } from '@ttac/shared/sort';
-import InfoDialog from '@ttac/shared/InfoDialog';
+import Sheet from '@ttac/shared/Sheet';
 import SubTabs, { useHash } from '@ttac/shared/SubTabs';
 import { hashTab } from '@ttac/shared/tabs';
 import { BLITZ_GAME_COLUMNS, asksToSignIn, blitzGames, knockoutRule, editionViews, notPlaying, pairingNotes, ratingText, resultsUpdated, roundOptions, splitRounds, type BlitzGamesFilter, type EditionView } from '../lib/blitz';
@@ -31,6 +31,8 @@ import { useFound, useKeptFound } from './useLoad';
 import PageHeader from '@ttac/shared/PageHeader';
 import Panel from './Panel';
 import PanelHeader from './PanelHeader';
+import Panels from './Panels';
+import ScrollTable from './ScrollTable';
 
 type BlitzRound = components['schemas']['BlitzRound'];
 type BlitzStanding = components['schemas']['BlitzStanding'];
@@ -72,7 +74,7 @@ function BlitzList({ apiUrl }: { apiUrl: string }) {
 function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
   const [rows, sort, sortBy] = useSort(editions, EDITION_COLUMNS);
   return (
-    <div className="blitz-table-wrap">
+    <ScrollTable label="Blitz tournaments">
       <table className="leaderboard-table blitz-table">
         <caption>Every blitz tournament, newest edition first</caption>
         <thead>
@@ -89,7 +91,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
             <SortHeader col="reached" sort={sort} onSort={sortBy}>
               Reached
             </SortHeader>
-            <SortHeader col="players" sort={sort} onSort={sortBy} className="num">
+            <SortHeader col="players" sort={sort} onSort={sortBy} align="end">
               Players
             </SortHeader>
           </tr>
@@ -108,7 +110,7 @@ function EditionsTable({ editions }: { editions: BlitzEditions['editions'] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollTable>
   );
 }
 
@@ -167,41 +169,41 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
         </button>
       </PageHeader>
       {howPaired !== null && <HowPairedDialog ed={ed} opener={howPaired.opener} at={howPaired.at} onClose={() => setHowPaired(null)} />}
-      <div className="blitz-panels">
-      <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
-      <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
-      {ed.rounds.length === 0 && !ed.sign_ups.taking && (
-        <Panel id="blitz-not-started" title="Pairing not started">
-          <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
-        </Panel>
-      )}
-      {knockout.length > 0 && (
-        <Panel id="blitz-knockout" title="Knockout">
-          {ed.champion !== null && (
-            <p className="blitz-champion">
-              Champion:{' '}
-              <span className="blitz-flag">
-                <Flag country={countryOf.get(ed.champion) ?? null} />
-              </span>
-              <strong>{ed.champion}</strong>
-            </p>
-          )}
-          <p className="blitz-intro">
-            The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
-            and the winners of neighbouring matches meet next, through to the final. {knockoutRule(knockout)}
-          </p>
-          {ed.bracket && (
+      <Panels>
+        <BlitzReport apiUrl={apiUrl} slug={slug} edition={edition} onChanged={() => setAsked((n) => n + 1)} onSeen={setMine} />
+        <SignUpBox apiUrl={apiUrl} tournament={slug} season={edition} signUps={ed.sign_ups} entered={ed.entrants.length} onChanged={() => setAsked((n) => n + 1)} />
+        {ed.rounds.length === 0 && !ed.sign_ups.taking && (
+          <Panel id="blitz-not-started" title="Pairing not started">
+            <p className="blitz-intro">Round 1&apos;s pairings, the results and the standings appear here once the organisers publish them.</p>
+          </Panel>
+        )}
+        {knockout.length > 0 && (
+          <Panel id="blitz-knockout" title="Knockout">
+            {ed.champion !== null && (
+              <p className="blitz-champion">
+                Champion:{' '}
+                <span className="blitz-flag">
+                  <Flag country={countryOf.get(ed.champion) ?? null} />
+                </span>
+                <strong>{ed.champion}</strong>
+              </p>
+            )}
             <p className="blitz-intro">
-              <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
+              The top {ed.format.knockout_size} after the Swiss rounds, seeded by the standings: the best seed meets the worst,
+              and the winners of neighbouring matches meet next, through to the final. {knockoutRule(knockout)}
             </p>
-          )}
-          <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
-        </Panel>
-      )}
-        <Panel label="Standings, pairings and players">
-          <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
-        </Panel>
-      </div>
+            {ed.bracket && (
+              <p className="blitz-intro">
+                <a href={bracketHref(ed.tournament, ed.edition)}>Go to bracket view</a>
+              </p>
+            )}
+            <KnockoutGames rounds={knockout} format={ed.format} you={yourRow(mine?.match ?? null)} reports={mine?.reports ?? []} />
+          </Panel>
+        )}
+          <Panel label="Standings, pairings and players">
+            <SubTabs label="Show" tabs={views.map((v) => ({ value: v, ...panels[v] }))} chosen={hashTab(views, hash)} onChoose={setHash} />
+          </Panel>
+      </Panels>
     </>
   );
 }
@@ -209,6 +211,7 @@ function EditionPage({ apiUrl, slug, edition }: { apiUrl: string; slug: string; 
 /** HowPairedDialog explains how the edition's rounds are paired (its settings, and the rules every method keeps) and how ties in the standings are broken; opened at the top, or at the ties (at). */
 function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener: HTMLElement; at: 'top' | 'ties'; onClose: () => void }) {
   const notes = pairingNotes(ed);
+  const box = useRef<HTMLDialogElement>(null);
   const ties = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (at === 'ties') {
@@ -217,33 +220,35 @@ function HowPairedDialog({ ed, opener, at, onClose }: { ed: BlitzEdition; opener
     }
   }, [at]);
   return (
-    <InfoDialog title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
-      {notes.methods.map((m) => (
-        <p key={m.when} className="site-dialog-text">
-          <strong>
-            {m.when}: {m.label}.
-          </strong>{' '}
-          {m.about}
-        </p>
-      ))}
-      {notes.rules.map((r) => (
-        <p key={r} className="site-dialog-text">
-          {r}
-        </p>
-      ))}
-      <p className="site-dialog-text" ref={ties} tabIndex={-1}>
-        <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
-        ones before leave them level:
-      </p>
-      <ol className="site-dialog-text blitz-paired-list">
-        {TIE_BREAKS.map((t) => (
-          <li key={t.label}>
-            <strong>{t.label}:</strong> {t.about}
-          </li>
+    <Sheet dialog={box} id="how-paired" title="How pairings and ties are calculated" opener={opener} onClose={onClose}>
+      <div className="sheet-body">
+        {notes.methods.map((m) => (
+          <p key={m.when} className="site-dialog-text">
+            <strong>
+              {m.when}: {m.label}.
+            </strong>{' '}
+            {m.about}
+          </p>
         ))}
-      </ol>
-      <p className="site-dialog-text">{UNPLAYED_NOTE}</p>
-    </InfoDialog>
+        {notes.rules.map((r) => (
+          <p key={r} className="site-dialog-text">
+            {r}
+          </p>
+        ))}
+        <p className="site-dialog-text" ref={ties} tabIndex={-1}>
+          <strong>How ties are broken.</strong> Players on the same points are separated by these steps, each only when the
+          ones before leave them level:
+        </p>
+        <ol className="site-dialog-text blitz-paired-list">
+          {TIE_BREAKS.map((t) => (
+            <li key={t.label}>
+              <strong>{t.label}:</strong> {t.about}
+            </li>
+          ))}
+        </ol>
+        <p className="site-dialog-text">{UNPLAYED_NOTE}</p>
+      </div>
+    </Sheet>
   );
 }
 
@@ -259,12 +264,12 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
           <label className="blitz-toggle">
             <input type="checkbox" checked={tieBreaks} onChange={(e) => setTieBreaks(e.target.checked)} /> Show tie-breaks
           </label>
-          <button type="button" className="blitz-text-button" onClick={onHow}>
+          <button type="button" className="btn-text" onClick={onHow}>
             How ties are broken
           </button>
         </span>
       </div>
-      <div className="blitz-table-wrap">
+      <ScrollTable label="Standings">
         <table className="leaderboard-table blitz-table blitz-standings">
           <caption>The standings after the results recorded so far</caption>
           <BlitzStandingsTable
@@ -278,7 +283,7 @@ function StandingsPanel({ standings, scoring, fixedBy, onHow }: { standings: Bli
             )}
           />
         </table>
-      </div>
+      </ScrollTable>
       {fixedBy !== null && standings.some((s) => s.place_from !== s.place_to) && (
         <p className="blitz-footnote">
           <span className="blitz-draw">*</span> Equal on every tie-break; ordered by {lastTieBreak(fixedBy)}.
@@ -296,7 +301,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
       <PanelHeader id="blitz-entrants" title="Players" />
       <p className="blitz-intro">{entrants.length} in. Ratings are the 2-player community rating of the current run; a dash means not rated yet.</p>
       {entrants.length > 0 && (
-        <div className="blitz-table-wrap">
+        <ScrollTable label="Players">
           <table className="leaderboard-table blitz-table">
             <caption>The players still in, in sign-up order</caption>
             <thead>
@@ -307,11 +312,11 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
                 <SortHeader col="zone" sort={sort} onSort={sortBy}>
                   Time zone
                 </SortHeader>
-                <SortHeader col="rating" sort={sort} onSort={sortBy} className="num">
+                <SortHeader col="rating" sort={sort} onSort={sortBy} align="end">
                   Rating
                 </SortHeader>
                 {start !== null && (
-                  <SortHeader col="start" sort={sort} onSort={sortBy} className="num">
+                  <SortHeader col="start" sort={sort} onSort={sortBy} align="end">
                     {start}
                   </SortHeader>
                 )}
@@ -333,7 +338,7 @@ function PlayersPanel({ entrants, start }: { entrants: BlitzEdition['entrants'];
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       )}
     </section>
   );
@@ -370,7 +375,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
   return (
     <section aria-labelledby="blitz-rounds">
       <PanelHeader id="blitz-rounds" title="Pairings and results">
-        <span className="panel-tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
+        <span className="tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </PanelHeader>
       {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
       <div className="games-filters">

@@ -170,6 +170,9 @@ if need corepack "the web workspace"; then
       fail "web/shared/api differs from the spec: run pnpm --filter @ttac/shared gen:api and commit it"
     run corepack pnpm lint
     run corepack pnpm check
+    # A page restyling a shared piece is a warning for the person to decide on (AGENTS.md, Web); it never fails.
+    run bash "$ROOT/checks/shared-look.test.sh"
+    node "$ROOT/checks/shared-look.mjs" "$ROOT/web"
   fi
   run corepack pnpm test
   if full; then
@@ -201,6 +204,8 @@ if full && area checks; then
   step "checks"
   run bash checks/comment-density.sh
   run bash checks/no-raw-html.sh
+  run bash checks/colour-tokens.test.sh
+  run bash checks/colour-tokens.sh
   run bash checks/secret-scan.test.sh
   run bash checks/secret-scan.sh --all
   if need kustomize "deploy/'s env values" && need yq "deploy/'s env values"; then

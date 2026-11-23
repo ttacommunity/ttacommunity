@@ -10,11 +10,14 @@ export default function AdminHeader({
   current,
   counts = {},
   siteUrl,
+  who,
 }: {
   tabs: typeof TABS;
   current: TabKey | null;
   counts?: Partial<Record<TabKey, number>>;
   siteUrl?: string;
+  /** Who is signed in, named beside Community Hub; none while it loads. */
+  who?: { name: string; role: string };
 }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
@@ -97,7 +100,7 @@ export default function AdminHeader({
         <div id="main-nav" className={open ? 'nav-drawer site-menu open' : 'nav-drawer site-menu'}>
           <div className="nav-mobile-header">
             <span className="nav-mobile-title">Menu</span>
-            <button type="button" className="nav-close-btn" aria-label="Close navigation" onClick={close}>
+            <button type="button" className="btn-icon nav-close-btn" aria-label="Close navigation" onClick={close}>
               ✕
             </button>
           </div>
@@ -160,6 +163,11 @@ export default function AdminHeader({
             </ul>
           </nav>
           <div className="header-controls">
+            {who !== undefined && (
+              <span className="header-signed-in">
+                Signed in as <strong>{who.name}</strong> ({who.role})
+              </span>
+            )}
             <a href={hub} onClick={close}>
               Community Hub
             </a>

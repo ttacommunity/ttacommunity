@@ -31,6 +31,7 @@ declare module 'chart.js' {
 import { chartTheme, documentTokens } from '../lib/chart-theme';
 import { drawTierBands, tierSpans } from '../lib/tier-bands';
 import type { PlayerHistory } from '@ttac/shared/ratings';
+import Panel from './Panel';
 import {
   chartData,
   chartTicks,
@@ -66,13 +67,13 @@ const tierBandsPlugin: Plugin<'line'> = {
     ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
     ctx.clip();
 
-    const look = { line: documentTokens('--border-faint'), text: documentTokens('--text-soft'), font: documentTokens('--font-heading') };
+    const look = { line: documentTokens('--border-faint'), text: documentTokens('--text-soft'), font: documentTokens('--font-heading'), read: documentTokens };
     drawTierBands(ctx, chartArea, (v) => yScale.getPixelForValue(v), 'y', tierSpans(axisMin, axisMax, warpY), look);
 
     // Visual compression break markers on the Y-axis border at focal boundaries
     if (hasLowerTail && fMin !== undefined && fMin > axisMin && fMin < axisMax) {
       const breakY = yScale.getPixelForValue(warpY(fMin));
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.65)';
+      ctx.strokeStyle = documentTokens('--chart-break');
       ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
       const x = chartArea.left;
@@ -86,7 +87,7 @@ const tierBandsPlugin: Plugin<'line'> = {
 
     if (hasUpperTail && fMax !== undefined && fMax > axisMin && fMax < axisMax) {
       const breakY = yScale.getPixelForValue(warpY(fMax));
-      ctx.strokeStyle = 'rgba(212, 175, 55, 0.65)';
+      ctx.strokeStyle = documentTokens('--chart-break');
       ctx.lineWidth = 1.5;
       ctx.setLineDash([]);
       const x = chartArea.left;
@@ -251,7 +252,7 @@ export default function RatingChart({
                 if (!ctx.tick) return 'transparent';
                 const rounded = Math.round(Number(ctx.tick.value) * 10) / 10;
                 const tick = tickMapRef.current.get(rounded);
-                return tick?.isYear ? 'rgba(243, 229, 200, 0.10)' : 'transparent';
+                return tick?.isYear ? documentTokens('--chart-grid-year') : 'transparent';
               },
               lineWidth: 1,
             },
@@ -278,8 +279,8 @@ export default function RatingChart({
                 if (!ctx.tick) return 'transparent';
                 const rounded = Math.round(Number(ctx.tick.value) * 10) / 10;
                 const tick = yTickMapRef.current.get(rounded);
-                if (tick?.isBreak) return 'rgba(212, 175, 55, 0.25)';
-                return tick?.isTier ? 'rgba(243, 229, 200, 0.12)' : 'rgba(243, 229, 200, 0.06)';
+                if (tick?.isBreak) return documentTokens('--chart-grid-break');
+                return documentTokens(tick?.isTier ? '--chart-grid-tier' : '--chart-grid');
               },
               lineWidth: 1,
             },
@@ -338,8 +339,8 @@ export default function RatingChart({
           rawY: p.y,
           date: p.date,
         })) as unknown as number[],
-      borderColor: line.color,
-      backgroundColor: line.fill ?? 'transparent',
+      borderColor: documentTokens(line.color),
+      backgroundColor: line.fill === undefined ? 'transparent' : documentTokens(line.fill),
       borderWidth: line.borderDash ? 2 : 2.5,
       borderDash: line.borderDash,
       pointRadius: 2,
@@ -352,13 +353,11 @@ export default function RatingChart({
   }, [data, scale, yScale, tiers, engines]);
 
   return (
-    <div className="chart-container">
-      <div className="chart-head">
-        <div>
-          <h3>Historical Rating Trajectory{years ? ` (${years[0]} - ${years[1]})` : ''}</h3>
-          <span className="chart-hint">Click legend items or use the top Options panel to customize display</span>
-        </div>
-      </div>
+    <Panel
+      id="rating-chart"
+      title={`Historical Rating Trajectory${years ? ` (${years[0]} - ${years[1]})` : ''}`}
+      subtitle="Click legend items or use the top Options panel to customize display"
+    >
       <div className="chart-container-inner" role={empty ? undefined : 'img'} aria-label={empty ? undefined : 'Rating history by model'}>
         {empty ? (
           <div className="chart-empty">
@@ -373,7 +372,6 @@ export default function RatingChart({
         )}
       </div>
       {data !== null && !empty && <p className="visually-hidden">{summary(data)}</p>}
-
-    </div>
+    </Panel>
   );
 }

@@ -11,6 +11,10 @@
 }
 
 .subpage-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  box-sizing: border-box;
   padding: 0.4rem 1rem;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -24,15 +28,15 @@
 }
 
 .subpage-btn:hover {
-  background: var(--gold-wash-faint);
+  background: var(--accent-wash-faint);
   color: var(--text-main);
 }
 
 .subpage-btn.active {
-  background: var(--accent-gold);
+  background: var(--fill-accent);
   color: var(--bg-dark);
   font-weight: 700;
-  box-shadow: 0 2px 6px var(--gold-wash-strong);
+  box-shadow: 0 2px 6px var(--accent-wash-strong);
 }
 
 @media (max-width: 768px) {

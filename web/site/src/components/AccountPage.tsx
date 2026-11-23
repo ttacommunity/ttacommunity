@@ -10,13 +10,15 @@ import { accountState, addWayInHref, addEmail, askToBeLinked, backLabel, backPat
 import { browserStorage } from '@ttac/shared/storage';
 import { sendEmailLink } from '../lib/email-sign-in';
 import KeptData from './KeptData';
-import SearchBox from './SearchBox';
+import PlayerSearch from './PlayerSearch';
 import usePlayerSearch from './usePlayerSearch';
 import Turnstile from './Turnstile';
 import Waiting from './Waiting';
 import './Account.css';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import Panel from './Panel';
+import Panels from './Panels';
 
 
 type Props = { apiUrl: string; turnstileSitekey: string };
@@ -66,24 +68,26 @@ export default function AccountPage({ apiUrl, turnstileSitekey }: Props) {
   return (
     <>
       <PageHeader title="Your account" subtitle="Sign in to take part in what the community runs, as the player you are on CGE." />
-      {notice !== null && (
-        <div className="rating-card account-card">
-          <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
-        </div>
-      )}
-      {load.kind !== 'ready' ? (
-        <Waiting load={load} what="your account" />
-      ) : (
-        <Account
-          apiUrl={apiUrl}
-          turnstileSitekey={turnstileSitekey}
-          me={load.data}
-          state={accountState(load.data)}
-          first={first}
-          back={back}
-          refresh={refresh}
-        />
-      )}
+      <Panels>
+        {notice !== null && (
+          <Panel label="Sign-in result" size="reading">
+            <OutcomeNotice kind={notice.kind} text={notice.text} onClose={() => setNotice(null)} />
+          </Panel>
+        )}
+        {load.kind !== 'ready' ? (
+          <Waiting load={load} what="your account" />
+        ) : (
+          <Account
+            apiUrl={apiUrl}
+            turnstileSitekey={turnstileSitekey}
+            me={load.data}
+            state={accountState(load.data)}
+            first={first}
+            back={back}
+            refresh={refresh}
+          />
+        )}
+      </Panels>
     </>
   );
 }
@@ -94,17 +98,14 @@ function Account({ apiUrl, turnstileSitekey, me, state, first, back, refresh }: 
   if (me === null || state.kind === 'signed-out') return <SignIn apiUrl={apiUrl} turnstileSitekey={turnstileSitekey} back={back} />;
   const who = signedInAs(me);
   return (
-    <section className="rating-card account-card" aria-labelledby="account-who">
-      <h2 id="account-who" className="rating-card-heading">
-        {first ? `Welcome, ${me.display_name || me.username}` : who.heading}
-      </h2>
+    <Panel id="account-who" title={first ? `Welcome, ${me.display_name || me.username}` : who.heading} size="reading">
       {who.detail !== '' && <p className="account-muted">{who.detail}</p>}
       {first && <p>You are signed in. Add your details now, or go back and add them any time from this page.</p>}
       {state.kind === 'linked' ? <Linked state={state} /> : <LinkStatus state={state} />}
       <Details apiUrl={apiUrl} me={me} state={state} back={back} refresh={refresh} />
       <WaysIn apiUrl={apiUrl} me={me} refresh={refresh} />
       <SignOut apiUrl={apiUrl} state={state} zone={me.zone} />
-    </section>
+    </Panel>
   );
 }
 
@@ -122,10 +123,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
   const returnTo = back ?? window.location.pathname;
   const [emailOpen, setEmailOpen] = useState(false);
   return (
-    <section className="rating-card account-card" aria-labelledby="account-sign-in">
-      <h2 id="account-sign-in" className="rating-card-heading">
-        Sign in or create an account
-      </h2>
+    <Panel id="account-sign-in" title="Sign in or create an account" size="reading">
       <ul className="account-ways">
         <li>
           <SignerLink signer="discord" href={signInHref(apiUrl, 'discord', returnTo)}>
@@ -169,7 +167,7 @@ function SignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turnstileS
         We only keep the minimal information needed for signing in and linking your account. For more about what we keep, see our{' '}
         <a href="/privacy/">privacy page</a>.
       </p>
-    </section>
+    </Panel>
   );
 }
 
@@ -195,7 +193,7 @@ function EmailSignIn({ apiUrl, turnstileSitekey, back }: { apiUrl: string; turns
     return (
       <div id="account-email-panel" className="account-email-panel" role="status">
         <p>
-          Check your inbox: a sign-in link is on its way to <strong>{sentTo}</strong>. It works once, within the hour.
+          Check your inbox: a sign-in link is on its way to <strong className="account-address">{sentTo}</strong>. It works once, within the hour.
         </p>
         <button type="button" className="btn-antique" onClick={() => setSentTo('')}>
           Send another
@@ -284,11 +282,10 @@ function Banned({ state }: { state: AccountState }) {
   const ban = banNotice(state);
   if (ban === null) return null;
   return (
-    <div className="account-ban">
-      <strong className="account-ban-heading">Banned</strong>
-      <span>You cannot be entered in the events we host. If you think that is a mistake, message the organisers.</span>
-      {ban.reason !== '' && <span>Reason: {ban.reason}</span>}
-    </div>
+    <Note title="Banned" tone="warning">
+      <p>You cannot be entered in the events we host. If you think that is a mistake, message the organisers.</p>
+      {ban.reason !== '' && <p>Reason: {ban.reason}</p>}
+    </Note>
   );
 }
 
@@ -354,12 +351,10 @@ function Details({ apiUrl, me, state, back, refresh }: DetailsProps) {
       {!linked && (
         <>
           <label htmlFor="account-tta-name">Your TTA username, as in the app</label>
-          <SearchBox
+          <PlayerSearch
             id="account-tta-name"
             players={players}
             value={draft.name}
-            placeholder=""
-            wide
             onChange={(name) => setDraft((d) => ({ ...d, name }))}
             onFocus={() => setSearching(true)}
           />

@@ -72,7 +72,7 @@ export default function DiscordBotPanel() {
                   </td>
                   <td>{commandSettings(c)}</td>
                   <td>
-                    <button type="button" className="btn-settings" onClick={(e) => setEditing({ command: c, opener: e.currentTarget })}>
+                    <button type="button" className="btn-antique btn-compact" onClick={(e) => setEditing({ command: c, opener: e.currentTarget })}>
                       Edit
                     </button>
                   </td>

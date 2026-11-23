@@ -4,7 +4,8 @@ import { cultureScore, opponentsLine, showsWorldChampion } from '../lib/tourname
 import PlayerLink from './PlayerLink';
 import { TitleBadge } from './PlayerMarks';
 import Message from './Message';
-import PanelHeader from './PanelHeader';
+import Panel from './Panel';
+import ScrollTable from './ScrollTable';
 
 /** GameRecordsPanel shows the games, or waiting while records is null, and nothing for a tournament with none. */
 export default function GameRecordsPanel({
@@ -22,12 +23,9 @@ export default function GameRecordsPanel({
 }) {
   if (records !== null && records.length === 0) return null;
   return (
-    <div className="rating-card panel-card panel-records">
-      <PanelHeader icon="📈" title={title}>
-        <span className="panel-tag panel-tag-wide">Top Single-Game Scores</span>
-      </PanelHeader>
+    <Panel id="game-records" icon="📈" title={title} aside={<span className="tag">Top Single-Game Scores</span>}>
       <p className="records-intro">{intro}</p>
-      <div className="trophy-table-container records-table">
+      <ScrollTable label="Game records">
         <table className="leaderboard-table trophy-table">
           <caption className="visually-hidden">The ten highest winning scores</caption>
           <thead>
@@ -56,8 +54,8 @@ export default function GameRecordsPanel({
                 <tr key={`${g.tournament} ${g.date} ${g.name}`}>
                   <td className="cell-rank">#{i + 1}</td>
                   <td>
-                    <PlayerLink name={g.name} className="trophy-player" />{' '}
-                    {showsWorldChampion(slug, g.world_champion) && <TitleBadge title={{ code: 'WC' }} className="trophy-mark" />}
+                    <PlayerLink name={g.name} />{' '}
+                    {showsWorldChampion(slug, g.world_champion) && <TitleBadge title={{ code: 'WC' }} />}
                   </td>
                   <td className="cell-points">{cultureScore(g.score)}</td>
                   <td className="cell-opponents">
@@ -70,7 +68,7 @@ export default function GameRecordsPanel({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </ScrollTable>
+    </Panel>
   );
 }

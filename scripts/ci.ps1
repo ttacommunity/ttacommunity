@@ -62,6 +62,9 @@ Run-Step web 'web: generate TS' { corepack pnpm --filter '@ttac/shared' gen:api 
 Unchanged 'web/shared/api' web/shared/api
 Run-Step web 'web: lint' { corepack pnpm lint }
 Run-Step web 'web: check' { corepack pnpm check }
+Run-Step . 'web: shared-look warning''s test' { & $bash checks/shared-look.test.sh }
+# A page restyling a shared piece is a warning for the person to decide on (AGENTS.md, Web); it never fails.
+node (Join-Path $root 'checks/shared-look.mjs') (Join-Path $root 'web')
 Run-Step web 'web: build' { corepack pnpm build }
 foreach ($site in 'site', 'admin') {
     $dist = Join-Path $root "web/$site/dist"
@@ -80,6 +83,8 @@ foreach ($site in 'site', 'admin') {
 
 Run-Step . 'checks: comment density' { & $bash checks/comment-density.sh }
 Run-Step . 'checks: raw HTML' { & $bash checks/no-raw-html.sh }
+Run-Step . 'checks: colour check''s test' { & $bash checks/colour-tokens.test.sh }
+Run-Step . 'checks: colours' { & $bash checks/colour-tokens.sh }
 Run-Step . 'checks: secret scan''s test' { & $bash checks/secret-scan.test.sh }
 Run-Step . 'checks: secrets' { & $bash checks/secret-scan.sh --all }
 Run-Step . 'checks: sign-off check''s test' { & $bash checks/dco.test.sh }

@@ -10,10 +10,15 @@ import Sheet from '@ttac/shared/Sheet';
 import Waiting from './Waiting';
 import RatedFilter from './RatedFilter';
 import CopyCode from '@ttac/shared/CopyCode';
+import Inset from '@ttac/shared/Inset';
+import GameType from './GameType';
+import Place from './Place';
 import { formatName } from '../lib/leaderboard-display';
 import { FORMATS } from '../lib/leaderboard-view';
 import { useLoad } from './useLoad';
 import { TRACKS } from '@ttac/shared/tracks';
+import './ViewBar.css';
+import ScrollTable from './ScrollTable';
 
 // Head-to-head offers every track but Pulse.
 const TRACK_OPTIONS = TRACKS.filter((t) => t.value !== 'pulse').map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }));
@@ -58,36 +63,40 @@ export default function VersusDialog({
   const b = state.kind === 'ready' ? state.data.other : other;
 
   return (
-    <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} className="h2h-modal">
-      <div className="h2h-toolbar">
-        <span className="h2h-toolbar-label">Match Format:</span>
-        <Segmented label="Match format" groupClass="format-bar h2h-formats" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
-        <Segmented label="Rating track" groupClass="format-bar h2h-formats" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
-        <RatedFilter value={ratingFilter} onChange={setRatingFilter} className="unrated-toggle-end" />
+    <Sheet dialog={dialog} id="h2h" title={`${a} vs ${b} - Exclusive History`} opener={opener} onClose={onClose} holds="table">
+      <div className="view-bar h2h-toolbar">
+        <span className="view-bar-label">Match format:</span>
+        <Segmented label="Match format" options={FORMAT_OPTIONS} value={format} onChange={setFormat} />
+        <span className="view-bar-label">Rating track:</span>
+        <Segmented label="Rating track" options={TRACK_OPTIONS} value={track} onChange={setTrack} />
+        <span className="view-bar-label">Games:</span>
+        <RatedFilter value={ratingFilter} onChange={setRatingFilter} />
       </div>
       <div className="h2h-stats">
-        {tally === null ? (
-          <span className="h2h-muted">Fetching exclusive game records...</span>
-        ) : (
-          <>
-            <div>
-              Total Mutual Games: <strong className="h2h-total">{tally.games}</strong>
-            </div>
-            <div>
-              <strong className="h2h-win">
-                {a} Wins: {tally.nameWins}
-              </strong>
-            </div>
-            <div>
-              <strong className="h2h-loss">
-                {b} Wins: {tally.otherWins}
-              </strong>
-            </div>
-            <div>
-              <strong className="h2h-draw">Draws / Splits: {tally.draws}</strong>
-            </div>
-          </>
-        )}
+        <Inset form="figures">
+          {tally === null ? (
+            <span className="h2h-muted">Fetching exclusive game records...</span>
+          ) : (
+            <>
+              <div>
+                Total Mutual Games: <strong className="h2h-total">{tally.games}</strong>
+              </div>
+              <div>
+                <strong className="h2h-win">
+                  {a} Wins: {tally.nameWins}
+                </strong>
+              </div>
+              <div>
+                <strong className="h2h-loss">
+                  {b} Wins: {tally.otherWins}
+                </strong>
+              </div>
+              <div>
+                <strong className="h2h-draw">Draws / Splits: {tally.draws}</strong>
+              </div>
+            </>
+          )}
+        </Inset>
       </div>
       <div className="sheet-body">
         <Waiting load={state} what="the match records" form="inline" />
@@ -95,54 +104,55 @@ export default function VersusDialog({
           <div className="h2h-message">{!ratingFilter.rated && !ratingFilter.unrated ? 'Select Rated or Unrated above to see shared matches.' : 'No direct encounters found for this player format and filter.'}</div>
         )}
         {tally !== null && tally.games > 0 && (
-          <table className="leaderboard-table data-table">
-            <caption className="visually-hidden">
-              Games {a} and {b} played together
-            </caption>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Tournament</th>
-                <th>Format</th>
-                <th>{a} Finish</th>
-                <th>{b} Finish</th>
-                <th>Table Scores</th>
-                <th>Replay</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tally.rows.map((m) => (
-                <tr key={m.match_id}>
-                  <td>{m.date}</td>
-                  <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
-                  <td>
-                    {m.player_count}p
-                    {!m.rated && <span className="badge badge-unrated">Unrated</span>}
-                  </td>
-                  <td>
-                    <span className={`placement-badge place-${m.name_place}`}>#{m.name_place}</span>
-                  </td>
-                  <td>
-                    <span className={`placement-badge place-${m.other_place}`}>#{m.other_place}</span>
-                  </td>
-                  <td className="h2h-scores">
-                    {m.seats.map((s, i) => (
-                      <span key={`${s.name}-${i}`}>
-                        <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
-                          <PlayerLink name={s.name} className="player-link" />
-                          : {s.score}
-                        </span>
-                        {i < m.seats.length - 1 ? ', ' : ''}
-                      </span>
-                    ))}
-                  </td>
-                  <td>
-                    <CopyCode code={m.replay_code} />
-                  </td>
+          <ScrollTable label="Matches">
+            <table className="leaderboard-table data-table">
+              <caption className="visually-hidden">
+                Games {a} and {b} played together
+              </caption>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tournament</th>
+                  <th>Format</th>
+                  <th>{a} Finish</th>
+                  <th>{b} Finish</th>
+                  <th>Table Scores</th>
+                  <th>Replay</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tally.rows.map((m) => (
+                  <tr key={m.match_id}>
+                    <td>{m.date}</td>
+                    <td className="h2h-tournament">{formatTournamentDisplay(m.tournament) || 'Competitive Match'}</td>
+                    <td>
+                      <GameType players={m.player_count} rated={m.rated} />
+                    </td>
+                    <td>
+                      <Place n={m.name_place} />
+                    </td>
+                    <td>
+                      <Place n={m.other_place} />
+                    </td>
+                    <td className="h2h-scores">
+                      {m.seats.map((s, i) => (
+                        <span key={`${s.name}-${i}`}>
+                          <span className={s.name === a || s.name === b ? 'h2h-target' : 'h2h-other'}>
+                            <PlayerLink name={s.name} quiet={s.name !== a && s.name !== b} />
+                            : {s.score}
+                          </span>
+                          {i < m.seats.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </td>
+                    <td>
+                      <CopyCode code={m.replay_code} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollTable>
         )}
       </div>
     </Sheet>

@@ -7,7 +7,7 @@ import OutcomeNotice from '@ttac/shared/OutcomeNotice';
 import { seemsSignedIn, type Done } from '../lib/account';
 import { closesLine, countLine, fetchMySignUp, signUp, signUpBox, withdraw, type MySignUp, type SignUpBox as Box, type SignUps } from '../lib/sign-up';
 import Panel from './Panel';
-import SearchBox, { type SearchPlayer } from './SearchBox';
+import PlayerSearch, { type SearchPlayer } from './PlayerSearch';
 import SignInNote from './SignInNote';
 import usePlayerSearch from './usePlayerSearch';
 import './SignUpBox.css';
@@ -84,7 +84,7 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
     void act(() => onGiveName(name));
   };
   return (
-    <Panel id="sign-up-heading" icon="✍️" title="Sign up" subtitle={count} className="sign-up-box">
+    <Panel id="sign-up-heading" icon="✍️" title="Sign up" subtitle={count}>
       {closes !== null && <p className="sign-up-closes">{closes}</p>}
       {box.kind === 'sign-in' && <SignInNote lead="Want to play?" to="sign up." />}
       {box.kind === 'enter' && (
@@ -96,7 +96,7 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
         <form className="sign-up-form" onSubmit={submit}>
           <label htmlFor="sign-up-name">Your TTA username, as in the app</label>
           <div className="sign-up-row">
-            <SearchBox id="sign-up-name" players={players} value={name} placeholder="" wide onChange={setName} onFocus={onSearch} />
+            <PlayerSearch id="sign-up-name" players={players} value={name} onChange={setName} onFocus={onSearch} />
             <button type="submit" className="btn-antique" disabled={busy}>
               Sign up
             </button>

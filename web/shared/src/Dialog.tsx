@@ -80,7 +80,7 @@ function Dialog({ question: q, opener, box, onDone }: { question: Question | Tex
           </p>
         )}
         <div className="site-dialog-buttons">
-          <button ref={controls.cancel} type="button" className="btn-antique" onClick={() => box.current?.close()}>
+          <button ref={controls.cancel} type="button" className="btn-quiet" onClick={() => box.current?.close()}>
             Cancel
           </button>
           <button ref={controls.action} type="submit" className={q.final === true ? 'btn-antique btn-danger' : 'btn-antique'}>

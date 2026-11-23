@@ -1,18 +1,18 @@
-/* The site's own dialog for warnings and questions (Dialog.tsx), framed like the head-to-head popup. */
+/* The site's own dialog for a warning or a question (Dialog.tsx), framed as a Sheet. */
 .site-dialog {
   width: min(32rem, calc(100% - 2rem));
   max-height: calc(100% - 2rem);
   margin: auto;
   padding: 1.25rem 1.5rem;
-  background: var(--surface-sheet);
-  border: 2px solid var(--accent-gold);
+  background: var(--overlay-surface);
+  border: 2px solid var(--overlay-edge);
   border-radius: 8px;
-  box-shadow: 0 8px 32px var(--shadow-deep);
+  box-shadow: 0 8px 32px var(--overlay-shadow);
   color: var(--text-main);
 }
 
 .site-dialog::backdrop {
-  background: var(--shadow);
+  background: var(--overlay-dim);
   backdrop-filter: blur(4px);
 }
 
@@ -21,7 +21,7 @@
   font-family: var(--font-heading);
   font-size: var(--size-card-title);
   line-height: 1.3;
-  color: var(--accent-gold);
+  color: var(--overlay-title);
 }
 
 .site-dialog-text {

@@ -1,0 +1,31 @@
+/* A finishing place (Place): a circle in the medal's colour for 1 to 3, quiet after. */
+.place-circle {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 26px;
+  text-align: center;
+}
+
+.place-circle-gold {
+  background: var(--medal-gold);
+  color: var(--text-on-fill);
+}
+
+.place-circle-silver {
+  background: var(--medal-silver);
+  color: var(--text-on-fill);
+}
+
+.place-circle-bronze {
+  background: var(--medal-bronze);
+  color: var(--text-on-fill);
+}
+
+.place-circle-other {
+  background: var(--border-subtle);
+  color: var(--text-soft);
+}

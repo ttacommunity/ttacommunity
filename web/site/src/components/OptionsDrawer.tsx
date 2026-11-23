@@ -85,13 +85,13 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
       <OptionsSection icon="🎯" title="Rating Track">
         <Segmented
           label="Rating track"
-          groupClass="format-bar-group stacked"
+          stacked
           options={TRACKS.map((t) => ({
             value: t.value,
             label: (
               <>
                 <span>{t.name}</span>
-                {t.value === DEFAULT_VIEW.ranking && <span className="default-tag">DEFAULT</span>}
+                {t.value === DEFAULT_VIEW.ranking && <span className="status">Default</span>}
               </>
             ),
             tooltip: defaultMinOpps(null, t.value) === 0 ? `${t.desc} (sets min opponents to 0)` : t.desc,
@@ -104,13 +104,13 @@ export default function OptionsDrawer({ view, titles, years, downloads, linkTo, 
       <OptionsSection icon="⚡" title="Rating Engine">
         <Segmented
           label="Rating engine"
-          groupClass="format-bar-group stacked"
+          stacked
           options={ENGINES.map((e) => ({
             value: e,
             label: (
               <>
                 <span>{engineName(e)}</span>
-                {e === DEFAULT_VIEW.engine && <span className="default-tag">DEFAULT</span>}
+                {e === DEFAULT_VIEW.engine && <span className="status">Default</span>}
               </>
             ),
             tooltip: engineTips[e],

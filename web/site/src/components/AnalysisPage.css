@@ -1,33 +1,5 @@
 /* Upstream's model analysis page (analysis.html), with its inline styles as classes. */
 
-/* The calibration page's bar, chart and ranked table, one under another. */
-.analysis-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.analysis-stack .view-bar {
-  margin-bottom: 0;
-}
-
-.graph-main-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.card-badges {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-/* The distribution card under the calibration page's stack. */
-.engine-spread {
-  margin-bottom: 2rem;
-}
-
 .hero-chart-container {
   position: relative;
   width: 100%;
@@ -69,19 +41,14 @@
 }
 
 .ranked-table td:last-child {
-  color: #cfc6b6;
+  color: var(--text-soft);
   font-size: var(--size-table-compact);
   line-height: 1.4;
   text-align: left;
 }
 
-.ranked-eval-row.active-highlight {
-  background: var(--gold-wash-faint) !important;
-  border-left: 3px solid var(--accent-gold);
-}
-
 .rank-cell {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   font-weight: 700;
 }
 
@@ -106,11 +73,11 @@
 }
 
 .ece-good { color: var(--win); }
-.ece-fair { color: var(--accent-gold); }
+.ece-fair { color: var(--text-accent); }
 .ece-poor { color: var(--loss); }
-.brier-cell { color: var(--accent-gold); }
-.logloss-cell { color: #81d4fa; }
-.ist-cell { color: #ce93d8; }
+.brier-cell,
+.logloss-cell,
+.ist-cell { color: var(--text-main); }
 
 .ist-cell strong {
   font-weight: 600;
@@ -122,7 +89,7 @@
 }
 
 .soll-up { color: var(--win); }
-.soll-down { color: #ffb74d; }
+.soll-down { color: var(--loss-light); }
 
 .score-badge {
   display: inline-block;
@@ -130,15 +97,15 @@
   background: var(--model-bg);
   border: 1px solid var(--model-color);
   border-radius: 4px;
-  color: var(--model-color);
+  color: var(--text-main);
   font-family: var(--font-stats);
   font-size: 0.92rem;
   font-weight: 700;
 }
 
-.model-glicko2_daneo { --model-color: #8b5cf6; --model-bg: rgba(139, 92, 246, 0.25); }
-.model-glicko2_daneo_softer { --model-color: #a855f7; --model-bg: rgba(168, 85, 247, 0.25); }
-.model-glicko2_std { --model-color: #ffca28; --model-bg: rgba(255, 202, 40, 0.2); }
+.model-glicko2_daneo { --model-color: var(--model-daneo); --model-bg: var(--model-daneo-tint); }
+.model-glicko2_daneo_softer { --model-color: var(--model-daneo-reset); --model-bg: var(--model-daneo-reset-tint); }
+.model-glicko2_std { --model-color: var(--model-std); --model-bg: var(--model-std-tint); }
 
 @media (max-width: 768px) {
   .hero-chart-container {
@@ -151,11 +118,6 @@
   /* Upstream's 450px minimum, but never wider than the screen. */
   grid-template-columns: repeat(auto-fit, minmax(min(450px, 100%), 1fr));
   gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.activity-countries {
-  margin-bottom: 2rem;
 }
 
 .activity-list {
@@ -164,21 +126,12 @@
   gap: 0.75rem;
 }
 
-.activity-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background: rgba(18, 12, 8, 0.7);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-}
-
-.activity-item strong {
+.activity-list strong {
   color: var(--text-main);
 }
 
-.activity-item > div > strong {
+.activity-name > strong,
+.activity-title > strong {
   font-size: 1.05rem;
 }
 
@@ -188,7 +141,7 @@
 }
 
 .activity-item-value {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
   font-family: var(--font-heading);
   font-size: 1.4rem;
   font-weight: 700;
@@ -204,13 +157,8 @@
   font-size: 1rem;
 }
 
-.activity-badge {
-  padding: 0.25rem 0.6rem;
-  font-size: 0.95rem;
-}
-
 .activity-item-value.activity-title-count {
-  color: var(--accent-gold);
+  color: var(--text-accent);
 }
 
 .activity-table th,
@@ -218,17 +166,13 @@
   text-align: center;
 }
 
-.activity-table .col-country {
-  text-align: left;
+.activity-table .activity-country {
+  font-weight: 600;
 }
 
 .activity-table .country-rank {
   color: var(--text-muted);
   font-weight: 700;
-}
-
-.activity-table .col-country {
-  font-weight: 600;
 }
 
 .country-flag {
@@ -242,7 +186,7 @@
   font-weight: 700;
 }
 
-.activity-table .avg-gm { color: var(--accent-gold); font-weight: 700; }
-.activity-table .avg-m { color: var(--accent-gold-light); font-weight: 600; }
-.activity-table .avg-p { color: var(--accent-gold); font-weight: 600; }
+.activity-table .avg-gm { color: var(--text-accent); font-weight: 700; }
+.activity-table .avg-m { color: var(--text-accent-bright); font-weight: 600; }
+.activity-table .avg-p { color: var(--text-accent); font-weight: 600; }
 .activity-table .avg-all { color: var(--text-main); }

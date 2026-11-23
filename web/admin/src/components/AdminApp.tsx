@@ -71,7 +71,7 @@ function Tournaments() {
           all={tournaments.data}
           caption={`Each top-level ${rated ? 'rated' : 'unrated'} tournament or group and its settings`}
           action={(t) => (
-            <a className="btn-antique btn-settings" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
+            <a className="btn-antique btn-compact" href={settingsHref(t.slug, t.is_group)} aria-label={`Settings for ${t.name}`}>
               Settings
             </a>
           )}

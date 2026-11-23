@@ -20,18 +20,27 @@ body {
 }
 
 a {
-  color: var(--accent-gold);
+  color: var(--text-accent);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
 a:hover {
-  color: var(--accent-gold-light);
+  color: var(--text-accent-bright);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-gold);
+  outline: 2px solid var(--edge-accent);
   outline-offset: 2px;
+}
+
+/* A quotation in prose (Markdown "> …"): a stripe and italics, no box. */
+blockquote {
+  margin: 1rem 0;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 3px solid var(--quote-edge);
+  color: var(--quote-text);
+  font-style: italic;
 }
 
 /* Secondary text: a hint, a note under a control, an empty list. */
@@ -46,4 +55,24 @@ a:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* An expander (details): its title in the body face, bold and cream, behind a gold marker; a summary drawn as a field (a multi-pick) keeps the field's look, and a heading inside the title is the title. */
+details > summary:not(.input-antique) {
+  cursor: pointer;
+  color: var(--disclosure-title);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+details > summary:not(.input-antique)::marker {
+  color: var(--disclosure-marker);
+}
+
+details > summary > :is(h2, h3, h4) {
+  display: inline;
+  margin: 0;
+  font: inherit;
+  color: inherit;
 }

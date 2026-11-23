@@ -35,7 +35,7 @@ export default function MultiPick<T extends string>({ label, options, ticked, on
       <span className="multi-pick-label">{label}</span>
       <details className="multi-pick" ref={ref}>
         <summary className="input-antique">{pickSummary(options, ticked, all, noun)}</summary>
-        <fieldset className="multi-pick-options">
+        <fieldset className="suggestions multi-pick-options">
           <legend className="visually-hidden">{label}</legend>
           {options.map((o) => (
             <label key={o.value}>
