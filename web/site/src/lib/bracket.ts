@@ -306,9 +306,9 @@ export function bracketParams(search: URLSearchParams): { slug: string | null; s
   return { slug: t !== null && isSlug(t) ? t : null, season: s !== null && s !== '' && s.length <= 64 ? s : null };
 }
 
-/** openingSeason is the season a bracket opens on: the one asked for when it has games, else the latest with games. */
-export function openingSeason(seasons: readonly { label: string; games: number }[], asked: string | null): string | null {
-  const played = seasons.filter((s) => s.games > 0);
+/** openingSeason is the season a bracket opens on: the one asked for when it has a bracket to draw, else the latest that has. */
+export function openingSeason(seasons: readonly { label: string; bracket: boolean }[], asked: string | null): string | null {
+  const played = seasons.filter((s) => s.bracket);
   if (asked !== null && played.some((s) => s.label === asked)) return asked;
   return played[played.length - 1]?.label ?? null;
 }

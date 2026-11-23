@@ -7001,6 +7001,8 @@ export interface components {
         };
         CatalogueSeason: components["schemas"]["SeasonSpan"] & {
             label: string;
+            /** @description A tournament shown as a bracket has one to draw for this season, from its games or a blitz edition's published knockout rounds */
+            bracket: boolean;
             /** @description Its winner is listed among the tournament's champions; false for one admin leaves out, such as a play-off */
             in_champions: boolean;
             /** @description A note shown beside the season, such as what a special season was, or null */

@@ -11524,10 +11524,13 @@ components:
       allOf:
         - $ref: "#/components/schemas/SeasonSpan"
         - type: object
-          required: [label, in_champions, stages, podium, cge_pages, note, organiser]
+          required: [label, in_champions, stages, podium, cge_pages, note, organiser, bracket]
           properties:
             label:
               type: string
+            bracket:
+              description: A tournament shown as a bracket has one to draw for this season, from its games or a blitz edition's published knockout rounds
+              type: boolean
             in_champions:
               description: Its winner is listed among the tournament's champions; false for one admin leaves out, such as a play-off
               type: boolean

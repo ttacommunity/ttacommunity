@@ -64,7 +64,7 @@ export default function BracketView({
   season: string;
   onSeason: (season: string) => void;
 }) {
-  const played = seasons.filter((s) => s.games > 0);
+  const played = seasons.filter((s) => s.bracket);
   const load = useLoad(JSON.stringify([run, slug, season]), () => seasonBracket(apiUrl, run, slug, season));
   const [chosen, setChosen] = useState<View | null>(null);
   const [entrant, setEntrant] = useState<number | null>(null);

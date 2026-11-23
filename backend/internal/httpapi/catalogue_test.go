@@ -94,7 +94,7 @@ func TestCatalogueEmptyIsAnArray(t *testing.T) {
 func TestCatalogueTournament(t *testing.T) {
 	finished, _ := time.Parse(time.DateOnly, "2025-02-24")
 	f := &fakeCatalogue{tournament: store.CatalogueTournament{Slug: "wimbledon", Name: "Wimbledon", Seasons: []store.CatalogueSeason{{
-		Label: "2024", InChampions: true, Span: span(632, 128, "2024-07-01", "2025-02-24"),
+		Label: "2024", InChampions: true, Bracket: true, Span: span(632, 128, "2024-07-01", "2025-02-24"),
 		Stages: []store.CatalogueStage{{Label: "Stage 7", Span: span(5, 2, "2025-02-03", "2025-02-24"), Note: "Played at the club."}},
 		Podium: []store.PodiumPlace{{Place: 1, Name: "sora", Finished: finished, Source: "CGE /tournaments/detail/4991/7"}},
 		CGE:    []store.CGELink{{Tournament: 4991}, {Tournament: 19, Season: 20}},
@@ -117,6 +117,7 @@ func TestCatalogueTournament(t *testing.T) {
 	wantJSON(t, body, "seasons.0", `{"label":"2024","first_game":"2024-07-01","last_game":"2025-02-24","games":632,"players":128,
 		"note":"The first held in two halves.", "organiser":"Ember_Wolf",
 		"cge_pages":["https://account.czechgames.com/tournaments/detail/4991","https://account.czechgames.com/tournaments/detail/19/20"]}`)
+	wantJSON(t, body, "seasons.0.bracket", `true`)
 	wantJSON(t, body, "seasons.0.podium", `[{"final":"","finished":"2025-02-24","name":"sora","place":1,"source":"CGE /tournaments/detail/4991/7"}]`)
 	wantJSON(t, body, "seasons.0.stages", `[{"first_game":"2025-02-03","games":5,"label":"Stage 7","last_game":"2025-02-24",
 		"note":"Played at the club.","players":2}]`)

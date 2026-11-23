@@ -3164,6 +3164,9 @@ type CatalogueGames struct {
 
 // CatalogueSeason defines model for CatalogueSeason.
 type CatalogueSeason struct {
+	// Bracket A tournament shown as a bracket has one to draw for this season, from its games or a blitz edition's published knockout rounds
+	Bracket bool `json:"bracket"`
+
 	// CgePages The CGE pages the season's games come from, if any
 	CgePages  []string            `json:"cge_pages"`
 	FirstGame *openapi_types.Date `json:"first_game"`

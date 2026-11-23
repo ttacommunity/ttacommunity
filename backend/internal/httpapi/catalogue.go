@@ -115,7 +115,7 @@ func (s *server) GetCatalogueTournament(ctx context.Context, req GetCatalogueTou
 	}
 	for _, season := range t.Seasons {
 		out := CatalogueSeason{
-			Label: season.Label, InChampions: season.InChampions, Games: season.Span.Games, Players: season.Span.Players,
+			Label: season.Label, Bracket: season.Bracket, InChampions: season.InChampions, Games: season.Span.Games, Players: season.Span.Players,
 			Stages: make([]CatalogueStage, 0, len(season.Stages)), Podium: make([]PodiumPlace, 0, len(season.Podium)),
 			CgePages: make([]string, 0, len(season.CGE)),
 		}

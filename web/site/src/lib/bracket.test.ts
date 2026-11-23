@@ -405,18 +405,22 @@ describe('bracketHref and bracketParams', () => {
 });
 
 describe('openingSeason', () => {
-  const seasons = [{ label: '2024', games: 127 }, { label: '2025', games: 127 }, { label: '2026', games: 0 }];
+  const seasons = [
+    { label: '2024', bracket: true },
+    { label: '2025', bracket: true },
+    { label: '2026', bracket: false },
+  ];
   it.each([
     ['the season asked for', '2024', '2024'],
-    ['the latest with games when none is asked for', null, '2025'],
-    ['the latest with games for a season without any', '2026', '2025'],
-    ['the latest with games for a season it does not have', '1999', '2025'],
+    ['the latest with a bracket when none is asked for', null, '2025'],
+    ['the latest with a bracket for a season without one', '2026', '2025'],
+    ['the latest with a bracket for a season it does not have', '1999', '2025'],
   ])('opens %s', (_name, asked, want) => {
     expect(openingSeason(seasons, asked)).toBe(want);
   });
 
-  it('opens nothing for a tournament without games', () => {
-    expect(openingSeason([{ label: '2026', games: 0 }], null)).toBeNull();
+  it('opens nothing for a tournament without a bracket to draw', () => {
+    expect(openingSeason([{ label: '2026', bracket: false }], null)).toBeNull();
   });
 });
 
