@@ -29,6 +29,7 @@ import PageHeader from '@ttac/shared/PageHeader';
 import SubpageNav from '../components/SubpageNav.astro';
 import Panel from '../components/Panel';
 import Panels from '../components/Panels';
+import DesignSection from '../components/DesignSection.astro';
 import HomeHeader from '../components/HomeHeader.astro';
 import PanelHeader from '../components/PanelHeader';
 import SeasonPick from '../components/SeasonPick';
@@ -97,440 +98,486 @@ const rows = [
   <PageHeader title="Design system" subtitle="Upstream's look, taken from its CSS. Sample data only." />
 
   <div class="design">
-
-    <h2>Colours</h2>
-    <ul class="swatches">
-      {colours.map((c) => (
-        <li>
-          <span class:list={['swatch', `swatch-${c}`]}></span>
-          <code>--{c}</code>
-        </li>
-      ))}
-    </ul>
-
-    <h2>Fonts</h2>
-    <ul class="fonts">
-      {fonts.map(([token, name]) => (
-        <li class={`font-${token}`}>
-          <code>--font-{token}</code> {name}: Through the Ages, 1234.56
-        </li>
-      ))}
-    </ul>
-
-    <h2>Format bar</h2>
-    <div class="format-bar">
-      <Segmented label="Format" options={formats} value={0} onChange={() => {}} />
-      <label>
-        <span class="visually-hidden">Rating engine</span>
-        <select class="input-antique">
-          <option>GlickoD</option>
-          <option>Glicko-2 Standard · Season Reset</option>
-        </select>
-      </label>
-      <div class="format-bar-actions">
-        <PlayerSearchSamples client:only="react" />
-        <button type="button" class="btn-antique">Options</button>
-      </div>
-    </div>
-
-    <h2>Player search</h2>
-    <p>Every player search and filter is this one box, <code>PlayerSearch</code>: its options say what it does (search, fill a field, filter), never how it looks or what it says.</p>
-    <PlayerSearchSamples client:only="react" />
-
-    <h2>Button rows</h2>
-    <p>A choice sets what a page shows (above); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>
-    <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
-    <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
-
-    <h2>Toggle group</h2>
-    <ToggleGroup label="Sample toggles" all="All" options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set(['one'])} onChange={() => {}} />
-
-    <h2>View bar</h2>
-    <ViewBar>
-      <FormatPick value={0} onChange={() => {}} what="the sample" />
-    </ViewBar>
-
-    <h2>Headline figures</h2>
-    <MetricGrid>
-      <MetricCard label="Sample count" value="1,234" note="A note under it" tone="win" />
-      <MetricCard label="Sample share" value="56.7%" note="Muted" tone="muted" />
-      <MetricCard label="Sample total" value="890" tone="gold" />
-      <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
-    </MetricGrid>
-    <FigureSamples />
-
-    <h2>Headline figures: compact, a page header's facts</h2>
-    <MetricGrid compact>
-      <MetricCard label="Active history" value="2021 – 2026" tone="gold" />
-      <MetricCard label="Seasons" value="7" tone="gold" />
-      <MetricCard label="Schedule" value="Annual (Every Year)" tone="gold" words />
-    </MetricGrid>
-
-    <h2>Tiles</h2>
-    <TileSamples />
-
-    <h2>Highlights</h2>
-    <HighlightSamples />
-
-    <h2>Mean ratings</h2>
-    <MeanBadges>
-      <MeanBadge engine="glicko2_daneo" mean={1450.25} active={1540} />
-      <MeanBadge engine="glicko2_std" mean={1460} />
-    </MeanBadges>
-
-    <h2>Badges</h2>
-    <p class="design-row">
-      <span class="badge badge-format">All Formats</span>
-      <span class="badge badge-mode">Continuous (Career)</span>
-    </p>
-    <p class="design-row">
-      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, reason: `Sample ${code} reason` }} />)}
-      <TitleBadge title={null} />
-    </p>
-    <p class="design-row">
-      {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code }} long />)}
-    </p>
-
-    <h2>Flags</h2>
-    <p class="design-row">
-      <Flag country="PL" />
-      <Flag country="US" />
-      <Flag country="ES" />
-      <Flag country={null} />
-    </p>
-
-    <h2>Videos link</h2>
-    <p class="design-row">
-      Invented Caster <VideosLink name="Invented Caster" hasVideos />
-    </p>
-    <p class="design-row design-buttons">
-      <VideosButton name="Invented Caster" hasVideos />
-    </p>
-
-    <h2>Text to copy</h2>
-    <p>A replay code, or an image's address: the button copies it, and ticks.</p>
-    <CopyCode client:only="react" code="ABC123XY" />
-    <CopyCode client:only="react" code="https://assets.ttacommunity.org/sample-0123456789ab.png" what="address" />
-
-    <h2>Images</h2>
-    <p>Stored images, each small with its address to copy; admin adds a column of actions.</p>
-    <AssetsTable
-      client:only="react"
-      zone="UTC"
-      caption="Sample images"
-      images={[{ key: 'sample-0123456789ab.png', url: '/favicon.png', size: 12500, uploaded: '2026-11-21T10:30:00Z' }]}
-    />
-
-    <h2>Buttons</h2>
-    <p class="design-row design-buttons">
-      <button type="button" class="btn-antique">An action</button>
-      <button type="button" class="btn-antique btn-danger">One that cannot be undone</button>
-      <button type="button" class="btn-quiet">A quiet one: cancel, reset, close</button>
-      <button type="button" class="btn-icon" aria-label="An icon">✕</button>
-      <button type="button" class="btn-close" aria-label="Close an overlay">×</button>
-      <button type="button" class="btn-antique" disabled>Not now</button>
-    </p>
-    <p class="design-row design-buttons">
-      <input class="input-antique" type="text" aria-label="A field beside buttons" placeholder="A field, at the same height" />
-      <button type="button" class="btn-antique">Search</button>
-      <button type="button" class="btn-quiet">Clear</button>
-    </p>
-    <p class="design-row design-buttons">
-      <span>In a table row or list:</span>
-      <button type="button" class="btn-antique btn-compact">Compare</button>
-      <button type="button" class="btn-quiet btn-compact">Reveal</button>
-      <button type="button" class="btn-icon btn-compact" aria-label="Copy">📋</button>
-    </p>
-    <p class="design-row design-buttons">
-      <span>A toggle, on and off:</span>
-      <button type="button" class="btn-antique" aria-pressed="true">Checked</button>
-      <button type="button" class="btn-antique" aria-pressed="false">Bug</button>
-    </p>
-    <p class="design-row">
-      <span>A button inside text: the standings after the results so far. <button type="button" class="btn-text">How ties are broken</button></span>
-    </p>
-
-    <h2>Labels</h2>
-    <p class="design-row design-buttons">
-      <span class="tag">A tag</span>
-      <span class="tag tag-special">Something special</span>
-      {['Grandmaster', 'Master', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze', 'Wood'].map((d) => <span class={divisionTagClass(d, 'international')}>{d}</span>)}
-    </p>
-    <p class="design-row design-buttons">
-      {['Emperor', 'King', 'Prince', 'Duke', 'Marquess', 'Count', 'Viscount', 'Baron'].map((d) => <span class={divisionTagClass(d, 'royal_league')}>{d}</span>)}
-    </p>
-    <p class="design-row design-buttons">
-      <span class="pill">Active Players: <strong>3,695</strong></span>
-      <span class="pill pill-win">77.5%</span>
-      <span class="pill pill-loss">-15.7% vs Format</span>
-      <span class="pill pill-gold">1: 9</span>
-      <span class="pill pill-silver">2: 4</span>
-      <span class="pill pill-bronze">3: 2</span>
-    </p>
-    <p class="design-row design-buttons">
-      <span class="chip">Search: "invented" <a class="chip-remove" href="/design/" aria-label="Clear search terms">✕</a></span>
-      <span class="chip chip-out">Excluded: "sample" <a class="chip-remove" href="/design/" aria-label="Remove exclusion">✕</a></span>
-      <button type="button" class="btn-quiet btn-compact">Clear Filters</button>
-    </p>
-    <p class="design-row design-buttons">
-      <span class="status">Retired</span>
-      <span class="status status-gold">Active</span>
-      <span class="status status-good">First entry</span>
-      <span class="status status-warn">Counts as 0</span>
-      <span class="status status-bad">bug</span>
-    </p>
-    <p class="design-row design-buttons">
-      <span>A count beside a link:</span>
-      <a href="/design/">Videos<span class="count">3</span></a>
-    </p>
-
-    <h2>A game in a table: its type, a place, a medal</h2>
-    <p class="design-row">
-      <GameType players={4} rated={true} />
-      <GameType players={2} rated={false} />
-      <Place n={1} />
-      <Place n={2} />
-      <Place n={3} />
-      <Place n={4} />
-      <MedalResult r={{ ...sampleResult, placement: '1 / 16', medal: 'gold' }} />
-      <MedalResult r={sampleResult} />
-    </p>
-
-    <h2>A list of suggestions</h2>
-    <div class="design-suggestions">
-      <input class="input-antique" type="text" aria-label="A search field" value="Sam" readonly />
-      <div class="suggestions">
-        <div role="listbox" aria-label="Sample suggestions">
-          <div role="option" aria-selected="true" class="suggestion active"><span class="suggestion-label"><span class="suggestion-name"><span class="suggestion-match">Sam</span>ple Player One</span></span><span class="suggestion-detail">The one chosen</span></div>
-          <div role="option" aria-selected="false" class="suggestion"><span class="suggestion-label"><span class="suggestion-name"><span class="suggestion-match">Sam</span>ple Player Two</span></span><span class="suggestion-detail">A detail</span></div>
-        </div>
-        <div class="suggestions-hint" aria-hidden="true"><span>&uarr;&darr; navigate</span><span>&crarr; select</span><span>ESC close</span></div>
-      </div>
-    </div>
-
-    <h2>A player's game result</h2>
-    <div class="report-row">
-      <GameSeatFields form={{ ...emptyGameForm('2026-09-01', 'Unknown'), b_outcome: 'resigned' }} who="b" name="Sample Player Two" onChange={() => {}} />
-    </div>
-
-    <h2>Dialog</h2>
-    <DialogSamples client:only="react" />
-
-    <h2>Options drawer</h2>
-    <OptionsSample client:only="react" />
-
-    <h2>Page header</h2>
-    <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
-
-    <h2>Page header with a tag</h2>
-    <PageHeader tag="Annual sample" emblem="🏆" title="Sample tournament" subtitle="A tournament's header carries its tagline at the top right, and its icon as an emblem beside the title." />
-
-    <h2>Home header</h2>
-    <p>The home page's own header, the one page header that is not the page header below; the live figures go in its slot.</p>
-    <HomeHeader />
-
-    <h2>Page header: centred</h2>
-    <PageHeader centred title="Sample player" subtitle="A player's pages: centred, the name in the heading face." back={{ href: '/design/', label: 'Back to a list' }} />
-
-    <h2>Panel</h2>
-    <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
-      <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
-    </Panel>
-
-    <h2>Panels</h2>
     <Panels>
-      <Panel id="design-panels-1" title="First panel">
-        <p>A page's panels go in Panels, one under another; its gap is the only space between them.</p>
-      </Panel>
-      <Panel id="design-panels-2" title="Second panel">
-        <p>A row of panels side by side sits in it as one item.</p>
-      </Panel>
-    </Panels>
 
-    <h2>Panel stripe: commentary</h2>
-    <Panels>
-      <Panel id="design-stripe-gold" icon="📜" title="A summary or guide" stripe="gold">
-        <p>A stripe marks a panel of commentary about the data: what a table means, a player's career in words. Data panels (tables, charts, lists) have none.</p>
-      </Panel>
-      <Panel id="design-stripe-green" title="A finding" stripe="green">
-        <p>Green for a finding the data shows.</p>
-      </Panel>
-      <Panel id="design-stripe-bronze" title="A deep dive" stripe="bronze">
-        <p>Bronze for a deep dive, as the FAQ's.</p>
-      </Panel>
-    </Panels>
-
-    <h2>Panel size: reading</h2>
-    <Panel id="design-reading" title="A form or prose" size="reading">
-      <p>A panel read top to bottom, such as a sign-in form or the terms, sits centred at about 70 characters a line. Tables, charts and lists take the full width, the default; a table with more columns than the page is wide takes the screen's width (size screen).</p>
-    </Panel>
-
-    <h2>Panel of text to read</h2>
-    <Panel id="design-text" title="A document" size="reading" holds="text">
-      <p>Text to read, such as the FAQ, the methodology or the terms, in the reading look: its paragraphs, lists and headings.</p>
-      <h3>A heading inside it</h3>
-      <ul>
-        <li>A list item.</li>
-        <li>Another, with <code>code</code> in it.</li>
-      </ul>
-    </Panel>
-
-    <h2>Panel picture</h2>
-    <Panel id="design-art" title="A panel with a picture" art="/img/groups/classic.jpg">
-      <p>A picture shown faintly behind the panel, such as a challenge group's art.</p>
-    </Panel>
-
-    <h2>Panel header</h2>
-    <PanelHeader icon="🏅" title="Sample panel">
-      <span class="tag">12 rows</span>
-    </PanelHeader>
-    <PanelHeader title="Sample panel with seasons">
-      <SeasonPick id="design-season" seasons={[{ label: '2025' }, { label: '2026' }]} value="2026" word="Season" onChange={() => {}} />
-    </PanelHeader>
-    <PanelHeader title="Sample panel with a line under it" subtitle="What the panel shows, in a sentence." />
-
-    <h2>Sub-page tabs</h2>
-    <SubpageNav label="Sample pages" tabs={[{ label: 'This page', href: '/design/', current: true }, { label: 'Another page', href: '/design/' }, { label: 'Not built yet' }]}>
-      <a href="/design/" class="btn-antique">An action</a>
-    </SubpageNav>
-
-    <h2>Notes</h2>
-    <Note>A note in front of the reader, such as what to do before taking part.</Note>
-    <Note title="A note with a title">
-      <p>The title sits on its own line; the text can run to several paragraphs.</p>
-      <p>A second paragraph.</p>
-    </Note>
-    <Note title="Banned" tone="warning">
-      <p>A warning: something that stops the reader, such as a ban.</p>
-    </Note>
-    <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
-
-    <h2>Action outcomes</h2>
-    <OutcomeNotice kind="done" text="What an action did, beside it." scroll={false} />
-    <OutcomeNotice kind="refused" text="Why the action was refused." scroll={false} />
-
-    <h2>Boxes inside a panel</h2>
-    <div class="design-stack">
-      <Inset>A group of content, such as a worked example.</Inset>
-      <Inset form="figures">
-        <span>Games <strong>118</strong></span>
-        <span>Average culture <strong>234.9</strong></span>
-        <span>Best seat <strong>4P Seat 2</strong></span>
-      </Inset>
-      <Inset form="line">A short line, such as an empty list.</Inset>
-      <Inset form="row">
-        <span>An item of a list</span>
-        <strong>1,234</strong>
-      </Inset>
-    </div>
-
-    <h2>An expander</h2>
-    <details>
-      <summary>All 10 sample submissions</summary>
-      <p>What opens under it: a table, a list, a form.</p>
-    </details>
-
-    <h2>A player's name</h2>
-    <p class="design-row">
-      <PlayerLink name="Invented Player" />
-      <PlayerLink name="First Place" place={1} />
-      <PlayerLink name="Second Place" place={2} />
-      <PlayerLink name="Third Place" place={3} />
-      <PlayerLink name="Last Place" place="last" />
-      <PlayerLink name="Not The Subject" quiet />
-    </p>
-
-    <h2>Prose</h2>
-    <blockquote>“A quotation in the site’s prose: Markdown’s quote in MDX.”</blockquote>
-    <div class="formula"><Tex client:only="react" tex={String.raw`C = \mathrm{Rating} - 3 \times \mathrm{RD}`} /></div>
-
-    <h2>Sign-up box</h2>
-    <SignUpSamples client:only="react" />
-
-    <h2>Messages</h2>
-    <Message>A message where a page's content would be, such as nothing found.</Message>
-    <Message form="inline">The same, as a line in a panel.</Message>
-
-    <h2>Filters</h2>
-    <p class="design-row">
-      <TitleSelect id="design-title" titles={['GM', 'M', 'P']} value={null} onChange={() => {}} />
-    </p>
-    <p class="design-row">
-      <MinOppsField id="design-min-opps" value={30} onApply={() => {}} />
-    </p>
-
-    <h2>Tooltip</h2>
-    <p class="design-row">
-      <span data-tooltip="Upstream's hover tooltip, in a gold-edged box.">Hover over this text</span>
-    </p>
-
-    <h2>Table</h2>
-    <p>Every table sits in <code>ScrollTable</code>: wider than its box, it scrolls sideways, shades the side with more, and on a phone says so. Numbers sit at the end (<code>num</code>). A row singled out for the reader (<code>row-chosen</code>) has a gold wash and edge, as the second row here.</p>
-    <p class="design-row">
-      <span>A sortable column's header, as a button (<code>SortHeader</code>, <code>SortButton</code>) or, where the sort is in the page's address, a link (<code>SortLink</code>):</span>
-      <SortButton col="rank" sort={{ col: 'rank', desc: false }} onSort={() => {}}>Rank</SortButton>
-      <SortButton col="name" sort={null} onSort={() => {}}>Player</SortButton>
-      <SortLink link={{ href: '/design/', onClick: () => {} }} way="descending">Rating</SortLink>
-    </p>
-    <ScrollTable client:visible label="Sample leaderboard">
-      <table class="leaderboard-table">
-        <caption class="visually-hidden">Sample leaderboard</caption>
-        <thead>
-          <tr>
-            <th scope="col"><span data-tooltip="Current competitive ranking.">Rank</span></th>
-            <th scope="col">Flag</th>
-            <th scope="col">Player</th>
-            <th scope="col">Title</th>
-            <th scope="col">C-Rating</th>
-            <th scope="col">Rating ± RD</th>
-            <th scope="col">Opps</th>
-            <th scope="col">W-L-D</th>
-            <th scope="col">Win %</th>
-            <th scope="col"><span data-tooltip="Date of the most recent match.">Last Played</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p, i) => (
-            <tr class:list={[{ 'row-chosen': i === 1 }]}>
-              <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
-              <td><Flag country={p.country} /></td>
-              <th scope="row"><span class="player-name">{p.name}</span></th>
-              <td><TitleBadge title={p.title === null ? null : { code: p.title, reason: 'Sample reason' }} /></td>
-              <td><span class="c-rating-val">{p.c}</span></td>
-              <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
-              <td>{p.opps}</td>
-              <td>
-                <span class="wld-win">{p.w}</span> - <span class="wld-loss">{p.l}</span> - <span class="wld-draw">{p.d}</span>
-              </td>
-              <td><strong>{p.pct}</strong></td>
-              <td class="last-played">{p.last}</td>
-            </tr>
+      <DesignSection title="Colours">
+        <ul class="swatches">
+          {colours.map((c) => (
+            <li>
+              <span class:list={['swatch', `swatch-${c}`]}></span>
+              <code>--{c}</code>
+            </li>
           ))}
-        </tbody>
-      </table>
-    </ScrollTable>
+        </ul>
+      </DesignSection>
 
-    <h2>Long table</h2>
-    <p>A long table shows its first 10 rows and a Show all button (<code>ShowAll</code>, <code>shownRows</code>).</p>
-    <ShowAllSample client:only="react" />
+      <DesignSection title="Fonts">
+        <ul class="fonts">
+          {fonts.map(([token, name]) => (
+            <li class={`font-${token}`}>
+              <code>--font-{token}</code> {name}: Through the Ages, 1234.56
+            </li>
+          ))}
+        </ul>
+      </DesignSection>
 
-    <NewerOlder page={2} pages={5} onPage={() => {}} />
+      <DesignSection title="Format bar" onPage>
+        <div class="format-bar">
+          <Segmented label="Format" options={formats} value={0} onChange={() => {}} />
+          <label>
+            <span class="visually-hidden">Rating engine</span>
+            <select class="input-antique">
+              <option>GlickoD</option>
+              <option>Glicko-2 Standard · Season Reset</option>
+            </select>
+          </label>
+          <div class="format-bar-actions">
+            <PlayerSearchSamples client:only="react" />
+            <button type="button" class="btn-antique">Options</button>
+          </div>
+        </div>
+      </DesignSection>
+
+      <DesignSection title="Player search">
+        <p slot="about">Every player search and filter is this one box, <code>PlayerSearch</code>: its options say what it does (search, fill a field, filter), never how it looks or what it says.</p>
+        <PlayerSearchSamples client:only="react" />
+      </DesignSection>
+
+      <DesignSection title="Button rows">
+        <p slot="about">A choice sets what a page shows (the format bar); tabs choose a part of a page; a filter picks one of many. All wrap on a phone.</p>
+        <Segmented label="Sample tabs" look="tabs" options={[{ value: 'seasons', label: 'Seasons' }, { value: 'highlights', label: 'Highlights' }]} value="seasons" onChange={() => {}} />
+        <Segmented label="Sample filter" look="filter" options={[{ value: 'all', label: 'All' }, { value: 'majors', label: 'Majors' }, { value: 'ladders', label: 'Ladders' }]} value="all" onChange={() => {}} />
+      </DesignSection>
+
+      <DesignSection title="Toggle group">
+        <ToggleGroup label="Sample toggles" all="All" options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set(['one'])} onChange={() => {}} />
+      </DesignSection>
+
+      <DesignSection title="View bar">
+        <ViewBar>
+          <FormatPick value={0} onChange={() => {}} what="the sample" />
+        </ViewBar>
+      </DesignSection>
+
+      <DesignSection title="Headline figures">
+        <MetricGrid>
+          <MetricCard label="Sample count" value="1,234" note="A note under it" tone="win" />
+          <MetricCard label="Sample share" value="56.7%" note="Muted" tone="muted" />
+          <MetricCard label="Sample total" value="890" tone="gold" />
+          <MetricCard label="Sample players" value="42" note="Sky" tone="sky" />
+        </MetricGrid>
+        <FigureSamples />
+      </DesignSection>
+
+      <DesignSection title="Headline figures: compact, a page header's facts">
+        <MetricGrid compact>
+          <MetricCard label="Active history" value="2021 – 2026" tone="gold" />
+          <MetricCard label="Seasons" value="7" tone="gold" />
+          <MetricCard label="Schedule" value="Annual (Every Year)" tone="gold" words />
+        </MetricGrid>
+      </DesignSection>
+
+      <DesignSection title="Tiles">
+        <TileSamples />
+      </DesignSection>
+
+      <DesignSection title="Highlights">
+        <HighlightSamples />
+      </DesignSection>
+
+      <DesignSection title="Mean ratings">
+        <MeanBadges>
+          <MeanBadge engine="glicko2_daneo" mean={1450.25} active={1540} />
+          <MeanBadge engine="glicko2_std" mean={1460} />
+        </MeanBadges>
+      </DesignSection>
+
+      <DesignSection title="Badges">
+        <p class="design-row">
+          <span class="badge badge-format">All Formats</span>
+          <span class="badge badge-mode">Continuous (Career)</span>
+        </p>
+        <p class="design-row">
+          {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code, reason: `Sample ${code} reason` }} />)}
+          <TitleBadge title={null} />
+        </p>
+        <p class="design-row">
+          {titleCodeValues.map((code: TitleCode) => <TitleBadge title={{ code }} long />)}
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Flags">
+        <p class="design-row">
+          <Flag country="PL" />
+          <Flag country="US" />
+          <Flag country="ES" />
+          <Flag country={null} />
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Videos link">
+        <p class="design-row">
+          Invented Caster <VideosLink name="Invented Caster" hasVideos />
+        </p>
+        <p class="design-row">
+          <VideosButton name="Invented Caster" hasVideos />
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Text to copy">
+        <p slot="about">A replay code, or an image's address: the button copies it, and ticks.</p>
+        <CopyCode client:only="react" code="ABC123XY" />
+        <CopyCode client:only="react" code="https://assets.ttacommunity.org/sample-0123456789ab.png" what="address" />
+      </DesignSection>
+
+      <DesignSection title="Images">
+        <p slot="about">Stored images, each small with its address to copy; admin adds a column of actions.</p>
+        <AssetsTable
+          client:only="react"
+          zone="UTC"
+          caption="Sample images"
+          images={[{ key: 'sample-0123456789ab.png', url: '/favicon.png', size: 12500, uploaded: '2026-11-21T10:30:00Z' }]}
+        />
+      </DesignSection>
+
+      <DesignSection title="Buttons">
+        <p class="design-row">
+          <button type="button" class="btn-antique">An action</button>
+          <button type="button" class="btn-antique btn-danger">One that cannot be undone</button>
+          <button type="button" class="btn-quiet">A quiet one: cancel, reset, close</button>
+          <button type="button" class="btn-icon" aria-label="An icon">✕</button>
+          <button type="button" class="btn-close" aria-label="Close an overlay">×</button>
+          <button type="button" class="btn-antique" disabled>Not now</button>
+        </p>
+        <p class="design-row">
+          <input class="input-antique" type="text" aria-label="A field beside buttons" placeholder="A field, at the same height" />
+          <button type="button" class="btn-antique">Search</button>
+          <button type="button" class="btn-quiet">Clear</button>
+        </p>
+        <p class="design-row">
+          <span>In a table row or list:</span>
+          <button type="button" class="btn-antique btn-compact">Compare</button>
+          <button type="button" class="btn-quiet btn-compact">Reveal</button>
+          <button type="button" class="btn-icon btn-compact" aria-label="Copy">📋</button>
+        </p>
+        <p class="design-row">
+          <span>A toggle, on and off:</span>
+          <button type="button" class="btn-antique" aria-pressed="true">Checked</button>
+          <button type="button" class="btn-antique" aria-pressed="false">Bug</button>
+        </p>
+        <p class="design-row">
+          <span>A button inside text: the standings after the results so far. <button type="button" class="btn-text">How ties are broken</button></span>
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Labels">
+        <p class="design-row">
+          <span class="tag">A tag</span>
+          <span class="tag tag-special">Something special</span>
+          {['Grandmaster', 'Master', 'Diamond', 'Platinum', 'Gold', 'Silver', 'Bronze', 'Wood'].map((d) => <span class={divisionTagClass(d, 'international')}>{d}</span>)}
+        </p>
+        <p class="design-row">
+          {['Emperor', 'King', 'Prince', 'Duke', 'Marquess', 'Count', 'Viscount', 'Baron'].map((d) => <span class={divisionTagClass(d, 'royal_league')}>{d}</span>)}
+        </p>
+        <p class="design-row">
+          <span class="pill">Active Players: <strong>3,695</strong></span>
+          <span class="pill pill-win">77.5%</span>
+          <span class="pill pill-loss">-15.7% vs Format</span>
+          <span class="pill pill-gold">1: 9</span>
+          <span class="pill pill-silver">2: 4</span>
+          <span class="pill pill-bronze">3: 2</span>
+        </p>
+        <p class="design-row">
+          <span class="chip">Search: "invented" <a class="chip-remove" href="/design/" aria-label="Clear search terms">✕</a></span>
+          <span class="chip chip-out">Excluded: "sample" <a class="chip-remove" href="/design/" aria-label="Remove exclusion">✕</a></span>
+          <button type="button" class="btn-quiet btn-compact">Clear Filters</button>
+        </p>
+        <p class="design-row">
+          <span class="status">Retired</span>
+          <span class="status status-gold">Active</span>
+          <span class="status status-good">First entry</span>
+          <span class="status status-warn">Counts as 0</span>
+          <span class="status status-bad">bug</span>
+        </p>
+        <p class="design-row">
+          <span>A count beside a link:</span>
+          <a href="/design/">Videos<span class="count">3</span></a>
+        </p>
+      </DesignSection>
+
+      <DesignSection title="A game in a table: its type, a place, a medal">
+        <p class="design-row">
+          <GameType players={4} rated={true} />
+          <GameType players={2} rated={false} />
+          <Place n={1} />
+          <Place n={2} />
+          <Place n={3} />
+          <Place n={4} />
+          <MedalResult r={{ ...sampleResult, placement: '1 / 16', medal: 'gold' }} />
+          <MedalResult r={sampleResult} />
+        </p>
+      </DesignSection>
+
+      <DesignSection title="A list of suggestions">
+        <div class="design-suggestions">
+          <input class="input-antique" type="text" aria-label="A search field" value="Sam" readonly />
+          <div class="suggestions">
+            <div role="listbox" aria-label="Sample suggestions">
+              <div role="option" aria-selected="true" class="suggestion active"><span class="suggestion-label"><span class="suggestion-name"><span class="suggestion-match">Sam</span>ple Player One</span></span><span class="suggestion-detail">The one chosen</span></div>
+              <div role="option" aria-selected="false" class="suggestion"><span class="suggestion-label"><span class="suggestion-name"><span class="suggestion-match">Sam</span>ple Player Two</span></span><span class="suggestion-detail">A detail</span></div>
+            </div>
+            <div class="suggestions-hint" aria-hidden="true"><span>&uarr;&darr; navigate</span><span>&crarr; select</span><span>ESC close</span></div>
+          </div>
+        </div>
+      </DesignSection>
+
+      <DesignSection title="A player's game result">
+        <div class="report-row">
+          <GameSeatFields form={{ ...emptyGameForm('2026-09-01', 'Unknown'), b_outcome: 'resigned' }} who="b" name="Sample Player Two" onChange={() => {}} />
+        </div>
+      </DesignSection>
+
+      <DesignSection title="Dialog">
+        <DialogSamples client:only="react" />
+      </DesignSection>
+
+      <DesignSection title="Options drawer">
+        <OptionsSample client:only="react" />
+      </DesignSection>
+
+      <DesignSection title="Page header" onPage>
+        <PageHeader icon="📜" title="Sample page" subtitle="What the page holds, in a sentence or two." back={{ href: '/design/', label: 'Back to a list' }} />
+      </DesignSection>
+
+      <DesignSection title="Page header with a tag" onPage>
+        <PageHeader tag="Annual sample" emblem="🏆" title="Sample tournament" subtitle="A tournament's header carries its tagline at the top right, and its icon as an emblem beside the title." />
+      </DesignSection>
+
+      <DesignSection title="Home header" onPage>
+        <p slot="about">The home page's own header, the one page header that is not the page header below; the live figures go in its slot.</p>
+        <HomeHeader />
+      </DesignSection>
+
+      <DesignSection title="Page header: centred" onPage>
+        <PageHeader centred title="Sample player" subtitle="A player's pages: centred, the name in the heading face." back={{ href: '/design/', label: 'Back to a list' }} />
+      </DesignSection>
+
+      <DesignSection title="Panel" onPage>
+        <Panel id="design-panel" icon="🏅" title="Sample panel" subtitle="What the panel shows, in a sentence.">
+          <p>A page's panel: the card, full width, with its header. Its content goes here.</p>
+        </Panel>
+      </DesignSection>
+
+      <DesignSection title="Panels" onPage>
+        <Panels>
+          <Panel id="design-panels-1" title="First panel">
+            <p>A page's panels go in Panels, one under another; its gap is the only space between them.</p>
+          </Panel>
+          <Panel id="design-panels-2" title="Second panel">
+            <p>A row of panels side by side sits in it as one item.</p>
+          </Panel>
+        </Panels>
+      </DesignSection>
+
+      <DesignSection title="Panel stripe: commentary" onPage>
+        <Panels>
+          <Panel id="design-stripe-gold" icon="📜" title="A summary or guide" stripe="gold">
+            <p>A stripe marks a panel of commentary about the data: what a table means, a player's career in words. Data panels (tables, charts, lists) have none.</p>
+          </Panel>
+          <Panel id="design-stripe-green" title="A finding" stripe="green">
+            <p>Green for a finding the data shows.</p>
+          </Panel>
+          <Panel id="design-stripe-bronze" title="A deep dive" stripe="bronze">
+            <p>Bronze for a deep dive, as the FAQ's.</p>
+          </Panel>
+        </Panels>
+      </DesignSection>
+
+      <DesignSection title="Panel size: reading" onPage>
+        <Panel id="design-reading" title="A form or prose" size="reading">
+          <p>A panel read top to bottom, such as a sign-in form or the terms, sits centred at about 70 characters a line. Tables, charts and lists take the full width, the default; a table with more columns than the page is wide takes the screen's width (size screen).</p>
+        </Panel>
+      </DesignSection>
+
+      <DesignSection title="Panel of text to read" onPage>
+        <Panel id="design-text" title="A document" size="reading" holds="text">
+          <p>Text to read, such as the FAQ, the methodology or the terms, in the reading look: its paragraphs, lists and headings.</p>
+          <h3>A heading inside it</h3>
+          <ul>
+            <li>A list item.</li>
+            <li>Another, with <code>code</code> in it.</li>
+          </ul>
+        </Panel>
+      </DesignSection>
+
+      <DesignSection title="Panel picture" onPage>
+        <Panel id="design-art" title="A panel with a picture" art="/img/groups/classic.jpg">
+          <p>A picture shown faintly behind the panel, such as a challenge group's art.</p>
+        </Panel>
+      </DesignSection>
+
+      <DesignSection title="Panel header">
+        <PanelHeader icon="🏅" title="Sample panel">
+          <span class="tag">12 rows</span>
+        </PanelHeader>
+        <PanelHeader title="Sample panel with seasons">
+          <SeasonPick id="design-season" seasons={[{ label: '2025' }, { label: '2026' }]} value="2026" word="Season" onChange={() => {}} />
+        </PanelHeader>
+        <PanelHeader title="Sample panel with a line under it" subtitle="What the panel shows, in a sentence." />
+      </DesignSection>
+
+      <DesignSection title="Sub-page tabs" onPage>
+        <SubpageNav label="Sample pages" tabs={[{ label: 'This page', href: '/design/', current: true }, { label: 'Another page', href: '/design/' }, { label: 'Not built yet' }]}>
+          <a href="/design/" class="btn-antique">An action</a>
+        </SubpageNav>
+      </DesignSection>
+
+      <DesignSection title="Notes">
+        <Note>A note in front of the reader, such as what to do before taking part.</Note>
+        <Note title="A note with a title">
+          <p>The title sits on its own line; the text can run to several paragraphs.</p>
+          <p>A second paragraph.</p>
+        </Note>
+        <Note title="Banned" tone="warning">
+          <p>A warning: something that stops the reader, such as a ban.</p>
+        </Note>
+        <SignInNote client:only="react" lead="Playing in this tournament?" to="report your game’s result." />
+      </DesignSection>
+
+      <DesignSection title="Action outcomes">
+        <OutcomeNotice kind="done" text="What an action did, beside it." scroll={false} />
+        <OutcomeNotice kind="refused" text="Why the action was refused." scroll={false} />
+      </DesignSection>
+
+      <DesignSection title="Boxes inside a panel">
+        <Inset>A group of content, such as a worked example.</Inset>
+        <Inset form="figures">
+          <span>Games <strong>118</strong></span>
+          <span>Average culture <strong>234.9</strong></span>
+          <span>Best seat <strong>4P Seat 2</strong></span>
+        </Inset>
+        <Inset form="line">A short line, such as an empty list.</Inset>
+        <Inset form="row">
+          <span>An item of a list</span>
+          <strong>1,234</strong>
+        </Inset>
+      </DesignSection>
+
+      <DesignSection title="An expander">
+        <details>
+          <summary>All 10 sample submissions</summary>
+          <p>What opens under it: a table, a list, a form.</p>
+        </details>
+      </DesignSection>
+
+      <DesignSection title="A player's name">
+        <p class="design-row">
+          <PlayerLink name="Invented Player" />
+          <PlayerLink name="First Place" place={1} />
+          <PlayerLink name="Second Place" place={2} />
+          <PlayerLink name="Third Place" place={3} />
+          <PlayerLink name="Last Place" place="last" />
+          <PlayerLink name="Not The Subject" quiet />
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Prose">
+        <blockquote>“A quotation in the site’s prose: Markdown’s quote in MDX.”</blockquote>
+        <div class="formula"><Tex client:only="react" tex={String.raw`C = \mathrm{Rating} - 3 \times \mathrm{RD}`} /></div>
+      </DesignSection>
+
+      <DesignSection title="Sign-up box" onPage>
+        <SignUpSamples client:only="react" />
+      </DesignSection>
+
+      <DesignSection title="Message where a page's content would be" onPage>
+        <Message>A message where a page's content would be, such as nothing found.</Message>
+      </DesignSection>
+
+      <DesignSection title="Message in a panel">
+        <Message form="inline">The same, as a line in a panel.</Message>
+      </DesignSection>
+
+      <DesignSection title="Filters">
+        <p class="design-row">
+          <TitleSelect id="design-title" titles={['GM', 'M', 'P']} value={null} onChange={() => {}} />
+        </p>
+        <p class="design-row">
+          <MinOppsField id="design-min-opps" value={30} onApply={() => {}} />
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Tooltip">
+        <p class="design-row">
+          <span data-tooltip="Upstream's hover tooltip, in a gold-edged box.">Hover over this text</span>
+        </p>
+      </DesignSection>
+
+      <DesignSection title="Table">
+        <p slot="about">Every table sits in <code>ScrollTable</code>: wider than its box, it scrolls sideways, shades the side with more, and on a phone says so. Numbers sit at the end (<code>num</code>). A row singled out for the reader (<code>row-chosen</code>) has a gold wash and edge, as the second row here.</p>
+        <p class="design-row">
+          <span>A sortable column's header, as a button (<code>SortHeader</code>, <code>SortButton</code>) or, where the sort is in the page's address, a link (<code>SortLink</code>):</span>
+          <SortButton col="rank" sort={{ col: 'rank', desc: false }} onSort={() => {}}>Rank</SortButton>
+          <SortButton col="name" sort={null} onSort={() => {}}>Player</SortButton>
+          <SortLink link={{ href: '/design/', onClick: () => {} }} way="descending">Rating</SortLink>
+        </p>
+        <ScrollTable client:visible label="Sample leaderboard">
+          <table class="leaderboard-table">
+            <caption class="visually-hidden">Sample leaderboard</caption>
+            <thead>
+              <tr>
+                <th scope="col"><span data-tooltip="Current competitive ranking.">Rank</span></th>
+                <th scope="col">Flag</th>
+                <th scope="col">Player</th>
+                <th scope="col">Title</th>
+                <th scope="col">C-Rating</th>
+                <th scope="col">Rating ± RD</th>
+                <th scope="col">Opps</th>
+                <th scope="col">W-L-D</th>
+                <th scope="col">Win %</th>
+                <th scope="col"><span data-tooltip="Date of the most recent match.">Last Played</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((p, i) => (
+                <tr class:list={[{ 'row-chosen': i === 1 }]}>
+                  <td class:list={['rank-col', { 'top-3-rank': p.rank <= 3 }]}>#{p.rank}</td>
+                  <td><Flag country={p.country} /></td>
+                  <th scope="row"><span class="player-name">{p.name}</span></th>
+                  <td><TitleBadge title={p.title === null ? null : { code: p.title, reason: 'Sample reason' }} /></td>
+                  <td><span class="c-rating-val">{p.c}</span></td>
+                  <td><span class="rating-primary">{p.r}</span> <span class="rating-rd">{p.rd}</span></td>
+                  <td>{p.opps}</td>
+                  <td>
+                    <span class="wld-win">{p.w}</span> - <span class="wld-loss">{p.l}</span> - <span class="wld-draw">{p.d}</span>
+                  </td>
+                  <td><strong>{p.pct}</strong></td>
+                  <td class="last-played">{p.last}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ScrollTable>
+      </DesignSection>
+
+      <DesignSection title="Long table">
+        <p slot="about">A long table shows its first 10 rows and a Show all button (<code>ShowAll</code>, <code>shownRows</code>).</p>
+        <ShowAllSample client:only="react" />
+      </DesignSection>
+
+      <DesignSection title="Newer and older">
+        <NewerOlder page={2} pages={5} onPage={() => {}} />
+      </DesignSection>
+
+    </Panels>
   </div>
 </SiteLayout>
 
 <style>
-  .design > h2 {
-    margin: 1.75rem 0 0.6rem;
-    color: var(--text-accent);
-    font-family: var(--font-subheading);
-    font-size: 1.1rem;
-  }
-
   .design-suggestions {
     position: relative;
     max-width: 20rem;
     height: 9.5rem;
-    padding-top: 1rem;
   }
 
   .design-row {
@@ -538,11 +585,9 @@ const rows = [
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
-    padding: 1.5rem 0 0.5rem;
     font-family: var(--font-stats);
   }
 
-  .design-stack,
   .design :global(.design-stack) {
     display: grid;
     gap: 0.75rem;
@@ -561,17 +606,11 @@ const rows = [
     object-fit: cover;
   }
 
-  .design :global(.metric-grid + .metric-grid) {
-    margin-top: 1.25rem;
-  }
-
-  .design-row.design-buttons,
   .design :global(.dialog-samples) {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
-    padding: 0.5rem 0;
   }
 
   .swatches {

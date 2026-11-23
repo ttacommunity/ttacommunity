@@ -1,5 +1,6 @@
 /** The sign-up box on /design, in each state a player sees it in, with buttons that do nothing. */
 import { SignUpPanel } from './SignUpBox';
+import Panels from './Panels';
 import type { SignUpBox } from '../lib/sign-up';
 
 const nothing = async () => null;
@@ -14,10 +15,10 @@ const SAMPLES: { box: SignUpBox; count: string; closes: string | null }[] = [
 
 export default function SignUpSamples() {
   return (
-    <>
+    <Panels>
       {SAMPLES.map((s) => (
         <SignUpPanel key={s.box.kind} box={s.box} count={s.count} closes={s.closes} onEnter={nothing} onGiveName={nothing} onWithdraw={nothing} players={[]} onSearch={() => undefined} />
       ))}
-    </>
+    </Panels>
   );
 }

@@ -84,7 +84,7 @@ export function SignUpPanel({ box, count, closes, onEnter, onGiveName, onWithdra
     void act(() => onGiveName(name));
   };
   return (
-    <Panel id="sign-up-heading" icon="✍️" title="Sign up" subtitle={count}>
+    <Panel icon="✍️" title="Sign up" subtitle={count}>
       {closes !== null && <p className="sign-up-closes">{closes}</p>}
       {box.kind === 'sign-in' && <SignInNote lead="Want to play?" to="sign up." />}
       {box.kind === 'enter' && (
