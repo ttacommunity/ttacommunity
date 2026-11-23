@@ -64,6 +64,11 @@
   flex: none;
   margin-top: 0.2rem;
 }
+/* A setting chosen from a list puts the list under its label when they do not fit side by side. */
+.setting:has(> select) {
+  flex-wrap: wrap;
+  align-items: center;
+}
 .regulations-text {
   width: 100%;
 }
@@ -94,8 +99,13 @@
 }
 .note-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+}
+/* A table row's actions stay on one line; the table scrolls instead. */
+.admin-table .note-actions {
+  flex-wrap: nowrap;
 }
 .note-status {
   color: var(--text-muted);
