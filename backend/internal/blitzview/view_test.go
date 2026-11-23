@@ -42,6 +42,13 @@ func match(a, b int64, result string) store.BlitzMatch {
 	return m
 }
 
+// thirdPlace is match a v b, the third-place match, with the result.
+func thirdPlace(a, b int64, result string) store.BlitzMatch {
+	m := match(a, b, result)
+	m.ThirdPlace = true
+	return m
+}
+
 func TestRound(t *testing.T) {
 	deadline := time.Date(2026, 3, 8, 18, 0, 0, 0, time.UTC)
 	swiss := round(2, "swiss", false, match(1, 2, ""), match(3, 0, "a"))
@@ -58,6 +65,8 @@ func TestRound(t *testing.T) {
 			store.BlitzNews{Title: "Round 2", Games: [][2]blitz.Person{{ann, {Name: "Bob"}}}, Byes: []blitz.Person{{Name: "Cid"}}, Deadline: &deadline}, true},
 		{"a knockout round named by its stage", edition(1, 2, round(1, "swiss", false), round(2, "knockout", false, match(4, 1, ""))), 2,
 			store.BlitzNews{Title: "Round 2 · Final", Games: [][2]blitz.Person{{{Name: "Dee"}, ann}}}, true},
+		{"a final round with its third-place match apart", edition(1, 4, round(1, "swiss", false), round(2, "knockout", false), round(3, "knockout", false, match(1, 3, ""), thirdPlace(4, 2, ""))), 3,
+			store.BlitzNews{Title: "Round 3 · Final", Games: [][2]blitz.Person{{ann, {Name: "Cid"}}}, ThirdPlace: &[2]blitz.Person{{Name: "Dee"}, {Name: "Bob"}}}, true},
 		{"a draft round", edition(3, 0, round(1, "swiss", true, match(1, 2, ""))), 1, store.BlitzNews{}, false},
 		{"no such round", edition(3, 0, round(1, "swiss", false, match(1, 2, ""))), 2, store.BlitzNews{}, false},
 	}
@@ -99,6 +108,10 @@ func TestPodium(t *testing.T) {
 			places([]string{"Cid"}, []string{"Ann"}, []string{"Dee", "Bob"}), true},
 		{"a knockout of two: no third", edition(2, 2, append(swiss, round(3, "knockout", false, match(1, 3, "a")))...),
 			places([]string{"Ann"}, []string{"Cid"}), true},
+		{"a third-place match won: its winner third", edition(2, 4, append(swiss, semis, round(4, "knockout", false, match(1, 3, "b"), thirdPlace(4, 2, "b")))...),
+			places([]string{"Cid"}, []string{"Ann"}, []string{"Bob"}), true},
+		{"a final won, its third-place match not", edition(2, 4, append(swiss, semis, round(4, "knockout", false, match(1, 3, "b"), thirdPlace(4, 2, "")))...), nil, false},
+		{"a third-place match won, the final not", edition(2, 4, append(swiss, semis, round(4, "knockout", false, match(1, 3, ""), thirdPlace(4, 2, "a")))...), nil, false},
 		{"a final not yet won", edition(2, 4, append(swiss, semis, round(4, "knockout", false, match(1, 3, "")))...), nil, false},
 		{"a final still a draft", edition(2, 4, append(swiss, semis, round(4, "knockout", true, match(1, 3, "a")))...), nil, false},
 		{"the Swiss rounds only, when a knockout follows", edition(2, 4, swiss...), nil, false},
@@ -171,6 +184,24 @@ func TestReminder(t *testing.T) {
 				t.Errorf("Reminder = %+v, %v, want %+v, %v", got, ok, tt.want, tt.ok)
 			}
 		})
+	}
+}
+
+func TestAReminderNamesTheThirdPlaceMatchApart(t *testing.T) {
+	final := round(3, "knockout", false, match(1, 3, "a"), thirdPlace(4, 2, ""))
+	got, ok := Reminder(edition(1, 4, round(1, "swiss", false), round(2, "knockout", false), final), 3)
+	want := store.BlitzNews{Title: "Round 3 · Final", ThirdPlace: &[2]blitz.Person{{Name: "Dee"}, {Name: "Bob"}}}
+	if !ok || !reflect.DeepEqual(got, want) {
+		t.Errorf("Reminder = %+v, %v; want %+v: only the third-place match still to play", got, ok, want)
+	}
+}
+
+func TestAThirdPlaceGamesThreadIsTitledByItsStage(t *testing.T) {
+	withID := func(id int64, m store.BlitzMatch) store.BlitzMatch { m.ID = id; return m }
+	final := round(3, "knockout", false, withID(7, match(1, 3, "")), withID(8, thirdPlace(4, 2, "")))
+	_, games := ThreadsByMatch(edition(1, 4, round(1, "swiss", false), round(2, "knockout", false), final), 3)
+	if games[8].Title != "Round 3 · Third-place match" || games[7].Title != "" {
+		t.Errorf("the titles = %q and %q, want the final's by its round and game, the third-place match's %q", games[7].Title, games[8].Title, "Round 3 · Third-place match")
 	}
 }
 

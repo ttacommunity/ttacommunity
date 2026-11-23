@@ -140,7 +140,7 @@
   font-size: 1rem;
   color: var(--text-accent);
 }
-.admin-add label {
+.admin-add label:not(.check-inline) {
   display: grid;
   gap: 0.25rem;
   color: var(--text-soft);

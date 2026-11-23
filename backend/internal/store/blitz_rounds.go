@@ -22,12 +22,14 @@ import (
 // entry in ReportedBy, and Report says where it stands (reported, confirmed, flagged or resolved; "" for none), with
 // the opponent's FlagReason.
 type BlitzMatch struct {
-	ID         int64
-	A          int64
-	B          *int64
-	Slot       *int
-	SeedA      *int
-	SeedB      *int
+	ID    int64
+	A     int64
+	B     *int64
+	Slot  *int
+	SeedA *int
+	SeedB *int
+	// ThirdPlace marks the final round's match between the semi-finals' losers.
+	ThirdPlace bool
 	Result     string
 	GameID     *int64
 	Game       *BlitzGame
@@ -148,17 +150,17 @@ func blitzRounds(ctx context.Context, db conn, public bool, slug, edition string
 		return nil, fmt.Errorf("reading %s %s's games: %w", slug, edition, err)
 	}
 	matches, err := db.Query(ctx, `
-		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, coalesce(m.result, ''), m.ruling, m.decided_at, m.games, m.proposed_by
+		SELECT m.round_id, m.match_id, m.entry_a, m.entry_b, m.slot, m.seed_a, m.seed_b, m.third_place, coalesce(m.result, ''), m.ruling, m.decided_at, m.games, m.proposed_by
 		FROM blitz_matches m WHERE m.round_id = ANY($1) ORDER BY m.match_id`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s %s's matches: %w", slug, edition, err)
 	}
 	var roundID int64
 	var m BlitzMatch
-	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.Result, &m.Ruling, &m.DecidedAt,
+	if _, err := pgx.ForEachRow(matches, []any{&roundID, &m.ID, &m.A, &m.B, &m.Slot, &m.SeedA, &m.SeedB, &m.ThirdPlace, &m.Result, &m.Ruling, &m.DecidedAt,
 		&m.BestOf, &m.ProposedBy}, func() error {
 		i := slices.IndexFunc(rounds, func(r BlitzRound) bool { return r.ID == roundID })
-		got := BlitzMatch{ID: m.ID, A: m.A, Result: m.Result, Ruling: m.Ruling, BestOf: m.BestOf, Games: games[m.ID]}
+		got := BlitzMatch{ID: m.ID, A: m.A, ThirdPlace: m.ThirdPlace, Result: m.Result, Ruling: m.Ruling, BestOf: m.BestOf, Games: games[m.ID]}
 		if got.Games == nil {
 			got.Games = []BlitzMatchGame{}
 		}
@@ -341,11 +343,11 @@ func insertBlitzMatches(ctx context.Context, tx pgx.Tx, roundID int64, matches [
 	out := make([]BlitzMatch, 0, len(matches))
 	for _, m := range matches {
 		var id int64
-		if err := tx.QueryRow(ctx, "INSERT INTO blitz_matches (round_id, entry_a, entry_b, slot, seed_a, seed_b) VALUES ($1, $2, $3, $4, $5, $6) RETURNING match_id",
-			roundID, m.A, m.B, m.Slot, m.SeedA, m.SeedB).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, "INSERT INTO blitz_matches (round_id, entry_a, entry_b, slot, seed_a, seed_b, third_place) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING match_id",
+			roundID, m.A, m.B, m.Slot, m.SeedA, m.SeedB, m.ThirdPlace).Scan(&id); err != nil {
 			return nil, fmt.Errorf("adding a match to round %d: %w", roundID, err)
 		}
-		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB, BestOf: 1, Games: []BlitzMatchGame{}})
+		out = append(out, BlitzMatch{ID: id, A: m.A, B: m.B, Slot: m.Slot, SeedA: m.SeedA, SeedB: m.SeedB, ThirdPlace: m.ThirdPlace, BestOf: 1, Games: []BlitzMatchGame{}})
 	}
 	return out, nil
 }

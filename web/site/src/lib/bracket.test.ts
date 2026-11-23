@@ -26,6 +26,8 @@ import {
   road,
   seatView,
   seedLabel,
+  thirdPlaceSeat,
+  thirdInTree,
   type BracketView,
   type ViewRound,
 } from './bracket';
@@ -403,18 +405,22 @@ describe('bracketHref and bracketParams', () => {
 });
 
 describe('openingSeason', () => {
-  const seasons = [{ label: '2024', games: 127 }, { label: '2025', games: 127 }, { label: '2026', games: 0 }];
+  const seasons = [
+    { label: '2024', bracket: true },
+    { label: '2025', bracket: true },
+    { label: '2026', bracket: false },
+  ];
   it.each([
     ['the season asked for', '2024', '2024'],
-    ['the latest with games when none is asked for', null, '2025'],
-    ['the latest with games for a season without any', '2026', '2025'],
-    ['the latest with games for a season it does not have', '1999', '2025'],
+    ['the latest with a bracket when none is asked for', null, '2025'],
+    ['the latest with a bracket for a season without one', '2026', '2025'],
+    ['the latest with a bracket for a season it does not have', '1999', '2025'],
   ])('opens %s', (_name, asked, want) => {
     expect(openingSeason(seasons, asked)).toBe(want);
   });
 
-  it('opens nothing for a tournament without games', () => {
-    expect(openingSeason([{ label: '2026', games: 0 }], null)).toBeNull();
+  it('opens nothing for a tournament without a bracket to draw', () => {
+    expect(openingSeason([{ label: '2026', bracket: false }], null)).toBeNull();
   });
 });
 
@@ -482,6 +488,42 @@ describe('a blitz knockout', () => {
   });
 });
 
+describe('a third-place match', () => {
+  const third = (state: BracketGroup['state']): BracketGroup => ({ name: 'third-place match', number: 1, state, seats: [seat(2, 'Bob', state === 'played' ? 1 : 0), seat(4, 'Dee', state === 'played' ? 2 : 0)] });
+
+  it.each([
+    ['its winner, third', 'played' as const, 0, { through: true, out: false, to: '3rd place' }],
+    ['its loser, out', 'played' as const, 1, { through: false, out: true, to: '' }],
+    ['a player before it is played', 'prepared' as const, 0, { through: false, out: false, to: '' }],
+  ])('shows %s', (_name, state, i, want) => {
+    const group = third(state);
+    expect(thirdPlaceSeat(group, at(group.seats, i))).toMatchObject(want);
+  });
+
+  it.each([
+    ['ends with its result', 'played' as const, 4, 'Fourth place'],
+    ['ends with it still to play', 'prepared' as const, 2, 'To play'],
+  ])("a player's road %s", (_name, state, entrant, want) => {
+    const steps = road(bracketRounds(blitz), entrant, third(state));
+    expect(steps.map((s) => [s.label, s.result]).at(-1)).toEqual(['Third-place match', want]);
+  });
+
+  it.each([
+    ['a tree from the semi-finals to the final', { start: 1, end: 2, joined: [true, false] }, null, true],
+    ['a tree of every round', { start: 0, end: 2, joined: [false, true, false] }, null, true],
+    ['a tree that stops before the final', { start: 0, end: 1, joined: [false, false] }, null, false],
+    ['a tree whose semi-finals are not joined to the final', { start: 1, end: 2, joined: [false, false] }, null, false],
+    ['a tree squashed by a search', { start: 1, end: 2, joined: [true, false] }, new Set(['1/1']), false],
+    ['no tree', null, null, false],
+  ])('is drawn under the final in %s', (_name, tree, kept, want) => {
+    expect(thirdInTree(bracketRounds(blitz), tree, kept)).toBe(want);
+  });
+
+  it("leaves it out of a road it is not on", () => {
+    expect(road(bracketRounds(blitz), 1, third('played')).map((s) => s.label)).not.toContain('Third-place match');
+  });
+});
+
 describe('labels elsewhere', () => {
   const rounds = bracketRounds(whole);
   it.each([
@@ -504,7 +546,7 @@ describe('bracketCard', () => {
     tournament: 'grand_blitz',
     name: 'Grand Blitz',
     edition,
-    format: { swiss_rounds: 8, knockout_size: 8 },
+    format: { swiss_rounds: 8, knockout_size: 8, third_place: false },
     entrants: 20,
     round: 3,
     champion: null,

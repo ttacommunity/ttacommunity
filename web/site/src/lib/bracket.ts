@@ -156,6 +156,20 @@ export function seatView(rounds: ViewRound[], r: number, group: BracketGroup, se
   };
 }
 
+/** thirdPlaceSeat says how a seat of a blitz knockout's third-place match shows: once played, its winner through to third place and its loser out. */
+export function thirdPlaceSeat(group: BracketGroup, seat: BracketSeat): SeatView {
+  const won = group.state === 'played' && group.seats[0]?.entrant === seat.entrant;
+  return { through: won, out: group.state === 'played' && !won, to: won ? '3rd place' : '', points: '' };
+}
+
+/** thirdInTree says whether a tree draws a blitz knockout's third-place match under its final, fed by lines from the
+ * semi-finals' losers: when it runs from the semi-finals, joined, to the final, and no search squashes it. */
+export function thirdInTree(rounds: ViewRound[], tree: { start: number; end: number; joined: boolean[] } | null, kept: Set<string> | null): boolean {
+  const last = rounds.length - 1;
+  if (tree === null || kept !== null || tree.end !== last || tree.start >= last) return false;
+  return tree.joined[last - 1 - tree.start] === true;
+}
+
 /** pointsText writes points as a whole number or to one place, with a true minus sign. */
 function pointsText(points: number): string {
   const text = Number.isInteger(points) ? String(Math.abs(points)) : Math.abs(points).toFixed(1);
@@ -165,8 +179,8 @@ function pointsText(points: number): string {
 /** RoadStep is one group of a player's road: the round (final when it has one group), the group and its label, the player's seat and how it went. */
 export type RoadStep = { round: string; final: boolean; group: BracketGroup; label: string; seat: BracketSeat; result: string };
 
-/** road follows a player (by entrant) through the rounds they played, with each result. */
-export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
+/** road follows a player (by entrant) through the rounds they played, with each result, and then any third-place match they play. */
+export function road(rounds: ViewRound[], entrant: number, thirdPlace: BracketGroup | null = null): RoadStep[] {
   const steps: RoadStep[] = [];
   rounds.forEach((r, i) => {
     for (const g of r.groups) {
@@ -186,6 +200,12 @@ export function road(rounds: ViewRound[], entrant: number): RoadStep[] {
       steps.push({ round: r.name, final, group: g, label, seat: s, result });
     }
   });
+  const s = thirdPlace?.seats.find((x) => x.entrant === entrant);
+  if (thirdPlace != null && s !== undefined) {
+    const played = thirdPlace.state === 'played';
+    const result = played ? (thirdPlaceSeat(thirdPlace, s).through ? 'Third place' : 'Fourth place') : thirdPlace.state === 'running' ? 'Being played' : 'To play';
+    steps.push({ round: rounds.at(-1)?.name ?? '', final: false, group: thirdPlace, label: 'Third-place match', seat: s, result });
+  }
   return steps;
 }
 
@@ -286,9 +306,9 @@ export function bracketParams(search: URLSearchParams): { slug: string | null; s
   return { slug: t !== null && isSlug(t) ? t : null, season: s !== null && s !== '' && s.length <= 64 ? s : null };
 }
 
-/** openingSeason is the season a bracket opens on: the one asked for when it has games, else the latest with games. */
-export function openingSeason(seasons: readonly { label: string; games: number }[], asked: string | null): string | null {
-  const played = seasons.filter((s) => s.games > 0);
+/** openingSeason is the season a bracket opens on: the one asked for when it has a bracket to draw, else the latest that has. */
+export function openingSeason(seasons: readonly { label: string; bracket: boolean }[], asked: string | null): string | null {
+  const played = seasons.filter((s) => s.bracket);
   if (asked !== null && played.some((s) => s.label === asked)) return asked;
   return played[played.length - 1]?.label ?? null;
 }

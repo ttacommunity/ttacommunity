@@ -116,6 +116,9 @@ func TestSeasonBracketRefusesATournamentNotShownAsABracket(t *testing.T) {
 			if err != nil || got.Bracket {
 				t.Errorf("CatalogueTournament(wimbledon).Bracket = %v, %v; want false", got.Bracket, err)
 			}
+			if s := seasonOf(got, "2024"); s == nil || s.Bracket {
+				t.Errorf("wimbledon 2024 = %+v; want no bracket to draw", s)
+			}
 			view, err := r.Catalogue(ctx, run)
 			if err != nil || len(view.Tournaments) != 1 || view.Tournaments[0].Bracket {
 				t.Errorf("Catalogue's wimbledon = %+v, %v; want it, not a bracket", view.Tournaments, err)
@@ -129,6 +132,52 @@ func TestCatalogueTournamentSaysItIsShownAsABracket(t *testing.T) {
 	got, err := r.CatalogueTournament(context.Background(), run, "wimbledon")
 	if err != nil || !got.Bracket {
 		t.Errorf("CatalogueTournament(wimbledon).Bracket = %v, %v; want true", got.Bracket, err)
+	}
+	if s := seasonOf(got, "2024"); s == nil || !s.Bracket {
+		t.Errorf("wimbledon 2024 = %+v; want a bracket to draw, from its games", s)
+	}
+}
+
+// seasonOf returns t's season labelled label, or nil.
+func seasonOf(t CatalogueTournament, label string) *CatalogueSeason {
+	for i := range t.Seasons {
+		if t.Seasons[i].Label == label {
+			return &t.Seasons[i]
+		}
+	}
+	return nil
+}
+
+func TestABlitzSeasonHasABracketOncePublishedKnockoutRoundsDecideIt(t *testing.T) {
+	run, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	drawn := func(when string) bool {
+		t.Helper()
+		got, err := r.CatalogueTournament(ctx, run, "us_open")
+		if err != nil {
+			t.Fatalf("CatalogueTournament %s: %v", when, err)
+		}
+		s := seasonOf(got, "2026")
+		if s == nil {
+			t.Fatalf("CatalogueTournament %s: no season 2026 in %+v", when, got.Seasons)
+		}
+		return s.Bracket
+	}
+	if drawn("before the knockout") {
+		t.Errorf("before the knockout: Bracket = true, want false")
+	}
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{ko(ids[0], ids[1], 0, 1, 4), ko(ids[2], ids[3], 1, 2, 3)}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(semi-finals): %v", err)
+	}
+	if drawn("with the semi-finals a draft") {
+		t.Errorf("with the semi-finals a draft: Bracket = true, want false")
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(semi-finals): %v", err)
+	}
+	if !drawn("with the semi-finals published and no game recorded") {
+		t.Errorf("with the semi-finals published and no game recorded: Bracket = false, want true")
 	}
 }
 
@@ -275,6 +324,53 @@ func TestSeasonBracketGivesABlitzKnockoutItsQualifiersAndMatches(t *testing.T) {
 	}
 	if !got.Rounds[0].Qualifiers || got.Rounds[1].Qualifiers {
 		t.Errorf("Qualifiers = %v, %v; want only the first round", got.Rounds[0].Qualifiers, got.Rounds[1].Qualifiers)
+	}
+}
+
+func TestSeasonBracketShowsTheThirdPlaceMatchBesideTheFinal(t *testing.T) {
+	run, a, r, ids := blitzBracketFixture(t)
+	ctx := context.Background()
+	ann, bob, cy, dee := ids[0], ids[1], ids[2], ids[3]
+	semi, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 2, Matches: []BlitzMatch{ko(ann, bob, 0, 1, 4), ko(cy, dee, 1, 2, 3)}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(semi-finals): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", semi.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(semi-finals): %v", err)
+	}
+	for _, m := range semi.Matches {
+		if err := a.RecordBlitzRuling(ctx, "us_open", "2026", m.ID, "a", "ruled"); err != nil {
+			t.Fatalf("RecordBlitzRuling(semi-finals): %v", err)
+		}
+	}
+	third := ko(bob, dee, 1, 4, 3)
+	third.ThirdPlace = true
+	final, err := a.AddBlitzRound(ctx, "us_open", "2026", BlitzRound{Kind: "knockout", Seed: 3, Matches: []BlitzMatch{ko(ann, cy, 0, 1, 2), third}})
+	if err != nil {
+		t.Fatalf("AddBlitzRound(final): %v", err)
+	}
+	if err := a.PublishBlitzRound(ctx, "us_open", "2026", final.ID); err != nil {
+		t.Fatalf("PublishBlitzRound(final): %v", err)
+	}
+	if err := a.RecordBlitzRuling(ctx, "us_open", "2026", final.Matches[1].ID, "b", "ruled"); err != nil {
+		t.Fatalf("RecordBlitzRuling(third place): %v", err)
+	}
+
+	got, err := r.SeasonBracket(ctx, run, "us_open", "2026")
+	if err != nil {
+		t.Fatalf("SeasonBracket: %v", err)
+	}
+	lines := bracketLines(got)
+	want := []string{
+		"Round 2|match 1 1|played: 1 Ann#1 1 - →1; 2 Bob#4 2 - →0;",
+		"Round 2|match 2 2|played: 3 Cy#2 1 - →1; 4 Dee#3 2 - →0;",
+		"Round 3|match 1 1|prepared: 1 Ann#1 0 - →0; 3 Cy#2 0 - →0;",
+	}
+	if diff := cmp.Diff(want, lines[len(lines)-3:]); diff != "" {
+		t.Errorf("the semi-finals and the final (-want +got):\n%s", diff)
+	}
+	if g := got.ThirdPlace; g == nil || g.State != "played" || len(g.Seats) != 2 || g.Seats[0].Name != "Dee" || g.Seats[0].Place != 1 || g.Seats[1].Name != "Bob" {
+		t.Errorf("the third-place match = %+v, want Dee's win over Bob, apart from the rounds", g)
 	}
 }
 

@@ -54,7 +54,7 @@ func (s *server) adminBlitzRound(r store.BlitzRound, ed store.BlitzEdition, rate
 		out.Deadline = &BlitzDeadline{At: *r.Deadline, Zone: r.DeadlineZone}
 	}
 	for i, m := range r.Matches {
-		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, Result: blitzResult(m),
+		am := AdminBlitzMatch{Id: m.ID, A: m.A, B: m.B, Slot: m.Slot, ASeed: m.SeedA, BSeed: m.SeedB, ThirdPlace: m.ThirdPlace, Result: blitzResult(m),
 			Ruling: m.Ruling, DecidedAt: m.DecidedAt, BestOf: m.BestOf, ProposedBy: m.ProposedBy, Games: make([]AdminBlitzMatchGame, len(m.Games))}
 		for j, g := range m.Games {
 			am.Games[j] = AdminBlitzMatchGame{Number: g.Number, Result: BlitzGameResult(g.Result), Game: apiGame(g.Game),
@@ -258,8 +258,9 @@ func nextPairing(ed store.BlitzEdition, swissMade int) (method, order string) {
 var errNoKnockout = errors.New("cannot pair the knockout")
 
 // nextKnockout pairs the knockout's next round: the top of the Swiss standings, best seed against worst, when it
-// has none yet; else the winners of its latest round, neighbouring slots meeting. Each match carries its slot and
-// its players' seeds, their places in the Swiss standings when the knockout began.
+// has none yet; else the winners of its latest round, neighbouring slots meeting, and for the final, when the format
+// has a third-place match, the semi-finals' losers in slot 1. Each match carries its slot and its players' seeds,
+// their places in the Swiss standings when the knockout began.
 func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 	var last *store.BlitzRound
 	for i := range ed.Rounds {
@@ -269,6 +270,7 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 	}
 	var pairs [][2]int64
 	var err error
+	thirdPlace := false
 	seedOf := map[int64]int{}
 	if last == nil {
 		size := ed.Format.KnockoutSize
@@ -289,14 +291,19 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 			names[e.ID] = e.Name
 		}
 		matches := slices.SortedFunc(slices.Values(last.Matches), func(a, b store.BlitzMatch) int { return cmp.Compare(*a.Slot, *b.Slot) })
-		var winners []int64
+		var winners, losers []int64
 		var open []string
 		for _, m := range matches {
-			if w, ok := blitz.Winner(blitzview.Played(last.Number, m)); ok {
-				winners = append(winners, w)
-				seedOf[m.A], seedOf[*m.B] = *m.SeedA, *m.SeedB
-			} else {
+			played := blitzview.Played(last.Number, m)
+			w, ok := blitz.Winner(played)
+			if !ok {
 				open = append(open, names[m.A]+" v "+names[*m.B])
+				continue
+			}
+			if !m.ThirdPlace {
+				l, _ := blitz.Loser(played)
+				winners, losers = append(winners, w), append(losers, l)
+				seedOf[m.A], seedOf[*m.B] = *m.SeedA, *m.SeedB
 			}
 		}
 		if len(open) > 0 {
@@ -306,13 +313,16 @@ func nextKnockout(ed store.BlitzEdition) ([]store.BlitzMatch, error) {
 			return nil, store.ErrBlitzFinished
 		}
 		pairs, err = blitz.NextKnockout(winners)
+		if thirdPlace = len(winners) == 2 && ed.Format.ThirdPlace; thirdPlace {
+			pairs = append(pairs, [2]int64{losers[0], losers[1]})
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errNoKnockout, err)
 	}
 	out := make([]store.BlitzMatch, len(pairs))
 	for i, p := range pairs {
-		out[i] = store.BlitzMatch{A: p[0], B: new(p[1]), Slot: new(i), SeedA: new(seedOf[p[0]]), SeedB: new(seedOf[p[1]])}
+		out[i] = store.BlitzMatch{A: p[0], B: new(p[1]), Slot: new(i), SeedA: new(seedOf[p[0]]), SeedB: new(seedOf[p[1]]), ThirdPlace: thirdPlace && i == 1}
 	}
 	return out, nil
 }

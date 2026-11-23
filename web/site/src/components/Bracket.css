@@ -184,6 +184,7 @@ button.bracket-name:focus-visible {
   grid-auto-rows: 1fr;
   column-gap: 40px;
   min-width: max-content;
+  position: relative;
 }
 .bracket-col {
   display: grid;
@@ -285,6 +286,31 @@ button.bracket-name:focus-visible {
   .bracket-rounds-narrow {
     display: flex;
   }
+}
+
+/* A blitz knockout's third-place match under the final, and the dashed lines to it from the semi-finals' losers. */
+.bracket-third {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 0;
+}
+.bracket-third-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.bracket-third-bar,
+.bracket-third-stub {
+  position: absolute;
+  border: 0 dashed var(--text-muted);
+}
+.bracket-third-bar {
+  border-left-width: 3px;
+  border-bottom-width: 3px;
+}
+.bracket-third-stub {
+  border-top-width: 3px;
 }
 
 /* A player's road. */

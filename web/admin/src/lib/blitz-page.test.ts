@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows, pairingFields } from './blitz-page';
+import { ADMIN_EDITION_COLUMNS, ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, formatLocks, pointsChanged, pointsForm, pointsFrom, pointsSummary, settingsRows, pairingFields } from './blitz-page';
 import { sortRows } from '@ttac/shared/sort';
 import { formatLabel, pairingSummary } from '@ttac/shared/blitz';
 import { organisersSummary, threadTextSummary } from './blitz-deadlines';
@@ -70,7 +70,7 @@ describe('settingsRows', () => {
   it('sums up the format, points, pairing, organisers and thread text, in that order', () => {
     const points = { win: 1, draw: 0.5, loss: 0, forfeit_win: 1, forfeit_loss: 0, bye: 1, skip: 0 };
     const pairing = { first: 'dutch', later: 'rating', first_order: 'rating', later_order: 'rating' } as const;
-    const ed = { format: { swiss_rounds: 8, knockout_size: 8 }, points, fide_points: true, pairing, organisers: [{ name: 'Carol' }], thread_text: { edited: true } };
+    const ed = { format: { swiss_rounds: 8, knockout_size: 8, third_place: false }, points, fide_points: true, pairing, organisers: [{ name: 'Carol' }], thread_text: { edited: true } };
     expect(settingsRows(ed)).toEqual([
       { key: 'Format', value: formatLabel(ed.format) },
       { key: 'Points', value: pointsSummary(points, true) },
@@ -95,8 +95,20 @@ describe('ADMIN_ENTRANT_COLUMNS', () => {
   });
 });
 
+describe('formatLocks', () => {
+  const format = { swiss_rounds: 6, knockout_size: 4, third_place: false };
+  const swiss = { number: 6, kind: 'swiss' as const };
+  it.each([
+    ['during the Swiss rounds, nothing', [swiss], { rounds: false, thirdPlace: false }],
+    ['once the semi-finals are paired, the rounds', [swiss, { number: 7, kind: 'knockout' as const }], { rounds: true, thirdPlace: false }],
+    ['once the final is paired, the third-place match too', [swiss, { number: 7, kind: 'knockout' as const }, { number: 8, kind: 'knockout' as const }], { rounds: true, thirdPlace: true }],
+  ])('locks %s', (_, rounds, want) => {
+    expect(formatLocks({ format, rounds })).toEqual(want);
+  });
+});
+
 describe('ADMIN_EDITION_COLUMNS', () => {
-  const ed = (name: string, dropped: number) => ({ name, edition: '2026', format: { swiss_rounds: 6, knockout_size: 8 }, round: null, champion: null, entrants: 10, dropped });
+  const ed = (name: string, dropped: number) => ({ name, edition: '2026', format: { swiss_rounds: 6, knockout_size: 8, third_place: false }, round: null, champion: null, entrants: 10, dropped });
   it('sorts the editions by players dropped, the most first', () => {
     expect(sortRows([ed('a', 1), ed('b', 3)], ADMIN_EDITION_COLUMNS, { col: 'dropped', desc: true }).map((r) => r.name)).toEqual(['b', 'a']);
   });

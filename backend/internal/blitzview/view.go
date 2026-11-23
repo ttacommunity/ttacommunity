@@ -73,8 +73,8 @@ func published(ed store.BlitzEdition, number int) (store.BlitzRound, bool) {
 	return ed.Rounds[i], true
 }
 
-// Round is published round number's news: its title, its games and byes in the order made, and its deadline; false
-// when the edition has no such round published.
+// Round is published round number's news: its title, its games and byes in the order made, its third-place match
+// apart, and its deadline; false when the edition has no such round published.
 func Round(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 	r, ok := published(ed, number)
 	if !ok {
@@ -83,8 +83,12 @@ func Round(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 	who := people(ed)
 	news := store.BlitzNews{Title: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: r.Deadline}
 	for _, m := range r.Matches {
-		if m.B == nil {
+		switch {
+		case m.B == nil:
 			news.Byes = append(news.Byes, who[m.A])
+			continue
+		case m.ThirdPlace:
+			news.ThirdPlace = &[2]blitz.Person{who[m.A], who[*m.B]}
 			continue
 		}
 		news.Games = append(news.Games, [2]blitz.Person{who[m.A], who[*m.B]})
@@ -93,24 +97,42 @@ func Round(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 }
 
 // Podium is a finished edition's top three, and false while it is not finished. With a knockout, it is finished
-// once its final has a winner: the champion, the final's loser, and the semi-finals' losers sharing third. Without
-// one, once every game of its last Swiss round has a result: the standings' first three places, shared as they share
-// them.
+// once its final, and any third-place match, has a winner: the champion, the final's loser, and the third-place
+// match's winner, else the semi-finals' losers sharing third. Without one, once every game of its last Swiss round
+// has a result: the standings' first three places, shared as they share them.
 func Podium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 	if ed.Format.KnockoutSize == 0 {
 		return swissPodium(ed)
 	}
 	who := people(ed)
-	final := ed.Format.SwissRounds + knockoutRounds(ed.Format.KnockoutSize)
+	final := ed.Format.SwissRounds + blitz.KnockoutRounds(ed.Format.KnockoutSize)
 	r, ok := published(ed, final)
-	if !ok || len(r.Matches) != 1 {
+	if !ok {
 		return nil, false
 	}
-	winner, loser, ok := decided(r.Matches[0])
+	var finals, third []store.BlitzMatch
+	for _, m := range r.Matches {
+		if m.ThirdPlace {
+			third = append(third, m)
+		} else {
+			finals = append(finals, m)
+		}
+	}
+	if len(finals) != 1 || len(third) > 1 {
+		return nil, false
+	}
+	winner, loser, ok := decided(finals[0])
 	if !ok {
 		return nil, false
 	}
 	podium := []store.BlitzPlace{{Place: 1, People: []blitz.Person{who[winner]}}, {Place: 2, People: []blitz.Person{who[loser]}}}
+	if len(third) == 1 {
+		bronze, _, ok := decided(third[0])
+		if !ok {
+			return nil, false
+		}
+		return append(podium, store.BlitzPlace{Place: 3, People: []blitz.Person{who[bronze]}}), true
+	}
 	if semis, ok := published(ed, final-1); ok && semis.Kind == "knockout" {
 		var third []blitz.Person
 		for _, m := range semis.Matches {
@@ -123,15 +145,6 @@ func Podium(ed store.BlitzEdition) ([]store.BlitzPlace, bool) {
 		}
 	}
 	return podium, true
-}
-
-// knockoutRounds is how many rounds a knockout of size players takes: 3 for 8.
-func knockoutRounds(size int) int {
-	n := 0
-	for ; size > 1; size >>= 1 {
-		n++
-	}
-	return n
 }
 
 // decided returns a knockout match's winner and loser, and false while it has neither.
@@ -179,11 +192,15 @@ func Reminder(ed store.BlitzEdition, number int) (store.BlitzNews, bool) {
 	who := people(ed)
 	news := store.BlitzNews{Title: blitz.RoundTitle(r.Number, ed.Format.SwissRounds, ed.Format.KnockoutSize), Deadline: r.Deadline}
 	for _, m := range r.Matches {
-		if m.B != nil && m.Result == "" {
+		switch {
+		case m.B == nil || m.Result != "":
+		case m.ThirdPlace:
+			news.ThirdPlace = &[2]blitz.Person{who[m.A], who[*m.B]}
+		default:
 			news.Games = append(news.Games, [2]blitz.Person{who[m.A], who[*m.B]})
 		}
 	}
-	if len(news.Games) == 0 {
+	if len(news.Games) == 0 && news.ThirdPlace == nil {
 		return store.BlitzNews{}, false
 	}
 	return news, true
@@ -215,7 +232,11 @@ func Threads(ed store.BlitzEdition, r store.BlitzRound) blitz.Threads {
 			t.Byes = append(t.Byes, who[m.A])
 			continue
 		}
-		t.Games = append(t.Games, blitz.ThreadGame{Number: i + 1, A: who[m.A], B: who[*m.B]})
+		g := blitz.ThreadGame{Number: i + 1, A: who[m.A], B: who[*m.B]}
+		if m.ThirdPlace {
+			g.Title = blitz.ThirdPlaceTitle(r.Number)
+		}
+		t.Games = append(t.Games, g)
 	}
 	return t
 }

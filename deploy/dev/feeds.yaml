@@ -48,7 +48,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: feeds
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-7bbe0161@sha256:c25960f3731e52c5221d35ea5219cc98d377bb60a252129fe075044b27f60c6a
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-285c0760@sha256:2cac177043601ff2399d17e70894ad5c22c12d574170fd008b8a312a3a90bfbb
               args: [feeds]
               env:
                 - name: RATINGS_ADMIN_DATABASE_URL

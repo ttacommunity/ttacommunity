@@ -77,12 +77,17 @@ func (f *fakeAdmins) blitzRow() store.BlitzEditionRow {
 	return row
 }
 
-// finalWinner is the winner of a published knockout round of one match, the final.
+// finalWinner is the winner of a published knockout round of one match beside any third-place match, the final,
+// once any third-place match has a winner too.
 func finalWinner(r store.BlitzRound) (int64, bool) {
-	if r.Kind != "knockout" || r.PublishedAt == nil || len(r.Matches) != 1 || r.Matches[0].B == nil {
+	matches := slices.DeleteFunc(slices.Clone(r.Matches), func(m store.BlitzMatch) bool { return m.ThirdPlace })
+	if r.Kind != "knockout" || r.PublishedAt == nil || len(matches) != 1 || matches[0].B == nil {
 		return 0, false
 	}
-	switch m := r.Matches[0]; m.Result {
+	if slices.ContainsFunc(r.Matches, func(m store.BlitzMatch) bool { return m.ThirdPlace && m.Result != "a" && m.Result != "b" }) {
+		return 0, false
+	}
+	switch m := matches[0]; m.Result {
 	case "a":
 		return m.A, true
 	case "b":
@@ -116,8 +121,13 @@ func (f *fakeAdmins) SetBlitzFormat(_ context.Context, slug, edition string, for
 	if format.KnockoutSize == 3 {
 		return store.ErrBadBlitzFormat
 	}
-	if slices.ContainsFunc(f.rounds, func(r store.BlitzRound) bool { return r.Kind == "knockout" }) {
+	rounds := format.SwissRounds != f.format.SwissRounds || format.KnockoutSize != f.format.KnockoutSize
+	if rounds && slices.ContainsFunc(f.rounds, func(r store.BlitzRound) bool { return r.Kind == "knockout" }) {
 		return store.ErrBlitzFormatLocked
+	}
+	final := f.format.SwissRounds + blitz.KnockoutRounds(f.format.KnockoutSize)
+	if format.ThirdPlace != f.format.ThirdPlace && slices.ContainsFunc(f.rounds, func(r store.BlitzRound) bool { return r.Kind == "knockout" && r.Number >= final }) {
+		return store.ErrBlitzThirdPlaceLocked
 	}
 	f.format = format
 	f.notes = append(f.notes, fmt.Sprintf("format %d/%d", format.SwissRounds, format.KnockoutSize))

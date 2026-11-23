@@ -10,10 +10,12 @@ import (
 	"unicode/utf8"
 )
 
-// ThreadGame is one game of a round, numbered as the site's games table numbers it, and its two players.
+// ThreadGame is one game of a round, numbered as the site's games table numbers it, and its two players. Title names
+// a game by its own stage, as ThirdPlaceTitle does; "" names it by its round and number.
 type ThreadGame struct {
 	Number int
 	A, B   Person
+	Title  string
 }
 
 // ThreadText is what an edition's thread messages say, each part optional. Message welcomes a game's players: any
@@ -75,6 +77,11 @@ func RoundTitle(round, swissRounds, knockoutSize int) string {
 	return title + " · " + stage
 }
 
+// ThirdPlaceTitle names the third-place match of round: "Round 8 · Third-place match".
+func ThirdPlaceTitle(round int) string {
+	return fmt.Sprintf("Round %d · Third-place match", round)
+}
+
 // organiser writes an organiser as "Carol (@carol)", by user id when known, the placeholder in the brackets without
 // either.
 func organiser(p Person) string {
@@ -102,10 +109,13 @@ func moderators(organisers []Person) string {
 	return "the moderators " + strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
 }
 
-// threadTitle names a game's thread, "Round 3 · Game 1 · Ann vs Bob", shortening the longer name, with …, until
-// it fits Discord's limit.
+// threadTitle names a game's thread, "Round 3 · Game 1 · Ann vs Bob" or by the game's own title, "Round 8 ·
+// Third-place match · Cy vs Dee", shortening the longer name, with …, until it fits Discord's limit.
 func threadTitle(round string, g ThreadGame) string {
 	head := fmt.Sprintf("%s · Game %d · ", round, g.Number)
+	if g.Title != "" {
+		head = g.Title + " · "
+	}
 	room := threadTitleMax - utf8.RuneCountInString(head) - len(" vs ")
 	a, b := []rune(g.A.Name), []rune(g.B.Name)
 	cutA, cutB := false, false

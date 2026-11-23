@@ -249,6 +249,14 @@ func TestGameThreadIsTheBlockThreadsTextWritesForIt(t *testing.T) {
 	}
 }
 
+func TestAThirdPlaceGamesThreadIsTitledByItsStage(t *testing.T) {
+	threads := oneGame(blitz.Person{Name: "Cy"}, blitz.Person{Name: "Dee"}, blitz.DefaultThreadText)
+	threads.Round, threads.Games[0].Number, threads.Games[0].Title = "Round 8 · Final", 2, blitz.ThirdPlaceTitle(8)
+	if title, _ := blitz.GameThread(threads, threads.Games[0], nil); title != "Round 8 · Third-place match · Cy vs Dee" {
+		t.Errorf("title = %q, want the round and stage, then the players", title)
+	}
+}
+
 func TestGameThreadAsksTheOrganisersToAddWhomTheBotCouldNotFind(t *testing.T) {
 	ann := blitz.Person{Name: "Ann", Discord: "ann_plays"}
 	bob := blitz.Person{Name: "Bob", DiscordID: "100000000000000002"}

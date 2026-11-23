@@ -14,9 +14,11 @@ import (
 	"ttacommunity/backend/internal/blitz"
 )
 
-// BlitzFormat is how an edition runs: Swiss rounds, then a knockout of that many players (0 for none).
+// BlitzFormat is how an edition runs: Swiss rounds, then a knockout of that many players (0 for none), and whether
+// the semi-finals' losers play for third (a knockout of 4 or more only).
 type BlitzFormat struct {
 	SwissRounds, KnockoutSize int
+	ThirdPlace                bool
 }
 
 // DefaultBlitzFormat is an edition's format until admin sets one: the US Open's.
@@ -112,6 +114,9 @@ var ErrBadBlitzFormat = errors.New("a blitz format is 1 to 30 Swiss rounds and a
 // ErrBlitzFormatLocked means the format cannot change once the knockout has a round.
 var ErrBlitzFormatLocked = errors.New("the format cannot change once the knockout has started")
 
+// ErrBlitzThirdPlaceLocked means the third-place match cannot be turned on or off once the final round is paired.
+var ErrBlitzThirdPlaceLocked = errors.New("the third-place match cannot change once the final is paired")
+
 // ErrBlitzPointsLocked means the points cannot change once the knockout has a round.
 var ErrBlitzPointsLocked = errors.New("the points cannot change once the knockout has started")
 
@@ -131,12 +136,13 @@ func (e *BlitzEntrantExistsError) Error() string {
 var blitzStatuses = []string{"active", "dropped"}
 
 // blitzChampionOf is the username of the winner of edition t's published final, the knockout round with one
-// match, or null while it has none.
+// match beside any third-place match, or null until both have a winner.
 const blitzChampionOf = `(SELECT mm.tta_name FROM blitz_rounds r JOIN blitz_matches m ON m.round_id = r.round_id
 	JOIN blitz_entries x ON x.entry_id = CASE m.result WHEN 'a' THEN m.entry_a ELSE m.entry_b END
 	JOIN members mm ON mm.member_id = x.member_id
-	WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL AND m.result IN ('a', 'b')
-	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.match_id <> m.match_id))`
+	WHERE r.tournament_id = t.tournament_id AND r.kind = 'knockout' AND r.published_at IS NOT NULL AND m.result IN ('a', 'b') AND NOT m.third_place
+	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.match_id <> m.match_id AND NOT o.third_place)
+	  AND NOT EXISTS (SELECT 1 FROM blitz_matches o WHERE o.round_id = r.round_id AND o.third_place AND o.result IS DISTINCT FROM 'a' AND o.result IS DISTINCT FROM 'b'))`
 
 // blitzChampion returns the edition's champion, nil while its final has no winner.
 func blitzChampion(ctx context.Context, tx pgx.Tx, edID int64) (*string, error) {
@@ -152,7 +158,7 @@ func blitzChampion(ctx context.Context, tx pgx.Tx, edID int64) (*string, error) 
 func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition string) ([]BlitzEditionRow, error) {
 	fide := blitz.FIDEScoring
 	rows, err := db.Query(ctx, `
-		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5),
+		SELECT s.slug, s.name, t.label, coalesce(e.swiss_rounds, $4), coalesce(e.knockout_size, $5), coalesce(e.third_place, false),
 		       coalesce(e.points_win, $6), coalesce(e.points_draw, $7), coalesce(e.points_loss, $8), coalesce(e.points_forfeit_win, $9),
 		       coalesce(e.points_forfeit_loss, $10), coalesce(e.points_bye, $11), coalesce(e.points_skip, $12),
 		       coalesce(e.pairing_first, $13), coalesce(e.pairing_later, $14), coalesce(e.pairing_first_order, $15),
@@ -179,7 +185,7 @@ func blitzEditionRows(ctx context.Context, db conn, public bool, slug, edition s
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (BlitzEditionRow, error) {
 		var r BlitzEditionRow
 		p := &r.Points
-		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
+		return r, row.Scan(&r.Slug, &r.Name, &r.Edition, &r.Format.SwissRounds, &r.Format.KnockoutSize, &r.Format.ThirdPlace, &p.Win, &p.Draw, &p.Loss, &p.ForfeitWin,
 			&p.ForfeitLoss, &p.Bye, &p.Skip, &r.Pairing.First, &r.Pairing.Later, &r.Pairing.FirstOrder, &r.Pairing.LaterOrder, &r.RanksFixedBy, &r.Entrants, &r.Dropped, &r.Round, &r.PairedRound, &r.Flagged, &r.Champion, &r.Knockout, &r.Bracket, &r.Shown,
 			&r.SignUps.Open, &r.SignUps.ClosesAt, &r.SignUps.Taking, &r.SignUps.Waiting)
 	})
@@ -300,21 +306,34 @@ func blitzEditionID(ctx context.Context, tx pgx.Tx, slug, edition string) (int64
 	return id, nil
 }
 
-// SetBlitzFormat sets an edition's format until its knockout has a round, or returns ErrBadBlitzFormat,
-// ErrBlitzFormatLocked or ErrNoBlitzEdition.
+// SetBlitzFormat sets an edition's format: its rounds until its knockout has a round, its third-place match until its
+// final round has been paired. It returns ErrBadBlitzFormat, ErrBlitzFormatLocked, ErrBlitzThirdPlaceLocked or
+// ErrNoBlitzEdition.
 func (a *AdminStore) SetBlitzFormat(ctx context.Context, slug, edition string, f BlitzFormat) error {
 	if f.SwissRounds < 1 || f.SwissRounds > 30 || !slices.Contains([]int{0, 2, 4, 8, 16, 32}, f.KnockoutSize) {
 		return ErrBadBlitzFormat
 	}
 	return a.inBlitzEdition(ctx, slug, edition, func(tx pgx.Tx, id int64) error {
+		var was BlitzFormat
+		var final bool
+		if err := tx.QueryRow(ctx, "SELECT swiss_rounds, knockout_size, third_place FROM blitz_editions WHERE tournament_id = $1 FOR UPDATE",
+			id).Scan(&was.SwissRounds, &was.KnockoutSize, &was.ThirdPlace); err != nil {
+			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM blitz_rounds WHERE tournament_id = $1 AND kind = 'knockout' AND number >= $2)`,
+			id, was.SwissRounds+blitz.KnockoutRounds(was.KnockoutSize)).Scan(&final); err != nil {
+			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
+		}
 		switch started, err := knockoutStarted(ctx, tx, id); {
 		case err != nil:
 			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
-		case started:
+		case started && (f.SwissRounds != was.SwissRounds || f.KnockoutSize != was.KnockoutSize):
 			return ErrBlitzFormatLocked
+		case final && f.ThirdPlace != was.ThirdPlace:
+			return ErrBlitzThirdPlaceLocked
 		}
-		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET swiss_rounds = $2, knockout_size = $3 WHERE tournament_id = $1",
-			id, f.SwissRounds, f.KnockoutSize); err != nil {
+		if _, err := tx.Exec(ctx, "UPDATE blitz_editions SET swiss_rounds = $2, knockout_size = $3, third_place = $4 WHERE tournament_id = $1",
+			id, f.SwissRounds, f.KnockoutSize, f.ThirdPlace); err != nil {
 			return fmt.Errorf("setting %s %s's format: %w", slug, edition, err)
 		}
 		return nil

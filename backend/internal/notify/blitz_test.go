@@ -48,6 +48,8 @@ func TestARoundPublishedIsTextOfItsTitleDeadlineAndPairings(t *testing.T) {
 			round(store.BlitzNews{Title: "Round 3", Games: [][2]players.Person{game(ann, p[0])}}), []string{"100000000000000061"}},
 		{"a bye signed in with Discord: tagged", title + "**Pairings**\nBob vs Cid\nBye: Ann\\_1 (<@100000000000000061>)",
 			round(store.BlitzNews{Title: "Round 3", Games: [][2]players.Person{game(p[0], p[1])}, Byes: []players.Person{ann}}), []string{"100000000000000061"}},
+		{"a final with its third-place match, its players tagged", title + "**Pairings**\nBob vs Cid\nThird-place match: Ann\\_1 (<@100000000000000061>) vs Dee",
+			round(store.BlitzNews{Title: "Round 3", Games: [][2]players.Person{game(p[0], p[1])}, ThirdPlace: &[2]players.Person{ann, p[2]}}), []string{"100000000000000061"}},
 		{"paired again", "**[US Open 2026 · Round 9 · Final, paired again](<" + edition + ">)**\n**Pairings**\nBob vs Cid",
 			round(store.BlitzNews{Title: "Round 9 · Final", Games: [][2]players.Person{game(p[0], p[1])}, Again: true}), nil},
 	}

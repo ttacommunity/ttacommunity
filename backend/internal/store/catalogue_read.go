@@ -92,6 +92,9 @@ type CatalogueSeason struct {
 	Note        string
 	// Organiser is who organised it: as admin set it, else its latest CGE tournament's organiser.
 	Organiser string
+	// Bracket is whether a tournament shown as a bracket has one to draw for it: from its games, or a blitz
+	// edition's published knockout rounds.
+	Bracket bool
 }
 
 // leadingNumber is the number a season label starts with.
@@ -668,10 +671,44 @@ func (r *RatingsReader) seasonsWithPodiums(ctx context.Context, run int64, slugs
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading kinds: %w", err)
 	}
+	if err := r.addBrackets(ctx, slugs, got); err != nil {
+		return nil, nil, err
+	}
 	if err := r.addPodiums(ctx, run, slugs, got); err != nil {
 		return nil, nil, err
 	}
 	return got, ids, nil
+}
+
+// addBrackets marks each season of a tournament in got shown as a bracket that has one to draw: one with games,
+// or a blitz edition with a published knockout round, decided by games or by rulings.
+func (r *RatingsReader) addBrackets(ctx context.Context, slugs []string, got map[string]*CatalogueTournament) error {
+	knockouts := map[string]map[string]bool{}
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT t.slug, se.label FROM series t JOIN tournaments se USING (series_id)
+		JOIN blitz_rounds r ON r.tournament_id = se.tournament_id
+		WHERE t.slug = ANY($1) AND t.blitz AND r.kind = 'knockout' AND r.published_at IS NOT NULL`, slugs)
+	if err != nil {
+		return fmt.Errorf("reading blitz knockouts: %w", err)
+	}
+	var slug, label string
+	_, err = pgx.ForEachRow(rows, []any{&slug, &label}, func() error {
+		if knockouts[slug] == nil {
+			knockouts[slug] = map[string]bool{}
+		}
+		knockouts[slug][label] = true
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading blitz knockouts: %w", err)
+	}
+	for slug, t := range got {
+		for i := range t.Seasons {
+			s := &t.Seasons[i]
+			s.Bracket = t.Bracket && (s.Span.Games > 0 || knockouts[slug][s.Label])
+		}
+	}
+	return nil
 }
 
 // newSeason returns a season with its label and span, before its stages, podium and CGE pages are added.

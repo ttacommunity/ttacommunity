@@ -50,7 +50,7 @@ describe('admin requests', () => {
     ["resetting a round's results", req.resetBlitzRound('us_open', '2026', 101), '/api/blitz/us_open/2026/rounds/101/results', 'DELETE', undefined],
     ['resetting an edition', req.resetBlitzEdition('us_open', '2026'), '/api/blitz/us_open/2026/reset', 'POST', undefined],
     ['replacing a knockout player', req.replaceBlitzPlayer('us_open', '2026', 102, 1020, { out: 7, in: 11 }), '/api/blitz/us_open/2026/rounds/102/matches/1020/replacement', 'PUT', { out: 7, in: 11 }],
-    ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4 }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4 }],
+    ['a blitz format', req.setBlitzFormat('us_open', '2026', { swiss_rounds: 6, knockout_size: 4, third_place: true }), '/api/blitz/us_open/2026', 'PATCH', { swiss_rounds: 6, knockout_size: 4, third_place: true }],
     ["an edition's points", req.setBlitzPoints('us_open', '2026', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }), '/api/blitz/us_open/2026/points', 'PUT', { win: 3, draw: 1, loss: 0, forfeit_win: 3, forfeit_loss: 0, bye: 3, skip: 0 }],
     ["FIDE's points again", req.resetBlitzPoints('us_open', '2026'), '/api/blitz/us_open/2026/points', 'DELETE', undefined],
     ["an edition's pairing", req.setBlitzPairing('us_open', '2026', { first: 'dutch', later: 'dutch-timezone', first_order: 'lot', later_order: 'lot' }), '/api/blitz/us_open/2026/pairing', 'PUT', { first: 'dutch', later: 'dutch-timezone', first_order: 'lot', later_order: 'lot' }],

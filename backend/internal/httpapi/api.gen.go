@@ -1695,7 +1695,10 @@ type AdminBlitzMatch struct {
 	Ruling string `json:"ruling"`
 
 	// Slot A knockout match's place in the bracket, from 0; the winners of slots 2k and 2k+1 meet in slot k next. Null in a Swiss round
-	Slot           *int `json:"slot"`
+	Slot *int `json:"slot"`
+
+	// ThirdPlace Whether it is the final round's match between the semi-finals' losers
+	ThirdPlace     bool `json:"third_place"`
 	ZoneGapMinutes int  `json:"zone_gap_minutes"`
 }
 
@@ -2592,6 +2595,9 @@ type BlitzFormat struct {
 	// KnockoutSize 0, 2, 4, 8, 16 or 32
 	KnockoutSize int `json:"knockout_size"`
 	SwissRounds  int `json:"swiss_rounds"`
+
+	// ThirdPlace Whether the semi-finals' losers play a third-place match beside the final; a knockout of 4 or more only. It changes until the final round is paired
+	ThirdPlace bool `json:"third_place"`
 }
 
 // BlitzGameRecord A played game, with the share code, each side as the match names them (with their turn), and when it finished
@@ -2770,6 +2776,9 @@ type BlitzPublicMatch struct {
 
 	// Ruled Whether the result is the organisers' ruling rather than the game's outcome
 	Ruled bool `json:"ruled"`
+
+	// ThirdPlace Whether it is the final round's match between the semi-finals' losers
+	ThirdPlace bool `json:"third_place"`
 }
 
 // BlitzReplacement Who drops out of a knockout match, and who takes their place, by entrant id
@@ -3155,6 +3164,9 @@ type CatalogueGames struct {
 
 // CatalogueSeason defines model for CatalogueSeason.
 type CatalogueSeason struct {
+	// Bracket A tournament shown as a bracket has one to draw for this season, from its games or a blitz edition's published knockout rounds
+	Bracket bool `json:"bracket"`
+
 	// CgePages The CGE pages the season's games come from, if any
 	CgePages  []string            `json:"cge_pages"`
 	FirstGame *openapi_types.Date `json:"first_game"`
@@ -5478,6 +5490,9 @@ type SeasonBracket struct {
 	RunId  int64          `json:"run_id"`
 	Season string         `json:"season"`
 	Slug   string         `json:"slug"`
+
+	// ThirdPlace A blitz knockout's third-place match, between the semi-finals' losers, once paired; absent otherwise. Not in rounds, whose last stage is the final
+	ThirdPlace *BracketGroup `json:"third_place,omitempty"`
 }
 
 // SeasonChange defines model for SeasonChange.

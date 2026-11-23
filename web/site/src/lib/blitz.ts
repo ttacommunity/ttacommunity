@@ -1,6 +1,6 @@
 /** The Blitz section's decisions: how a rating reads, which rounds are the pairings and which the bracket, an edition's tabs, its games as table rows, who sat a round out, and when results last changed. */
 import type { components } from '@ttac/shared/api';
-import { bestOfScore, pointsText, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods, methodText, orderLabel, ranksFixedBy, roundLine, type PairingOrder } from '@ttac/shared/blitz';
+import { bestOfScore, pointsText, matchTitle, resultTag, roundTitle, seededName, turnMark, type BlitzFormat, type PairingMethod, type PairingMethods, methodText, orderLabel, ranksFixedBy, roundLine, type PairingOrder } from '@ttac/shared/blitz';
 import { formatInstant } from '@ttac/shared/time';
 import { outcomeNote } from './catalogue-view';
 import { pageOf, type GameRow, type GameSeat, type GamesColumn } from './games-table';
@@ -118,7 +118,7 @@ function blitzRow(round: number, n: number, m: BlitzMatch, game: BlitzGame | nul
   return {
     key: bestOf ? `${round}-${n}-${game.number}` : `${round}-${n}`,
     date: g === null ? '' : day.format(new Date(g.finished_at)),
-    context: roundTitle(round, format),
+    context: matchTitle(round, format, m),
     where: `Game ${n}`,
     tag: [bestOf ? bestOfTag(m, game) : resultTag({ ...m, game: g }), reportTag(report)].filter((t) => t !== '').join(' · '),
     unplayed: m.b === null || (m.result !== null && g === null),
