@@ -265,6 +265,53 @@ dev admin. **Anyone with that URL is that admin on your local database**
 until the tunnel stops, so share it with the one person testing and stop it
 after.
 
+### Let someone sign in as a test player: one tunnel
+
+The steps above keep every dev sign-in off, so nobody can sign in through
+them: the site and the API are two tunnel addresses, and a browser treats
+each `*.trycloudflare.com` address as its own site, so the API's session
+cookie would not reach the site anyway. To let someone try what a signed-in
+player does (report a game, answer best of 3), `scripts/share-player.sh`
+puts both behind **one** address with `backend/cmd/shareproxy`: `/v1/*`
+goes to the API, everything else to the site build, and admin routes are
+refused. "Sign in with Discord" signs the visitor straight in as an
+invented player (`DISCORD_DEV_USER`); the proxy tells the API that requests
+from the tunnel come from the local site, and points its redirects back at
+the tunnel.
+
+**Anyone with the URL is signed in as that player**, on your local database.
+Keep the URL to the people testing, and stop everything when they are done.
+
+It needs `cloudflared` (Windows: `winget install --id Cloudflare.cloudflared`;
+macOS: `brew install cloudflared`). `scripts/dev.sh` or `scripts\dev.ps1` can
+keep running beside it.
+
+```powershell
+scripts\share-player.ps1
+```
+
+```bash
+scripts/share-player.sh
+```
+
+It opens the tunnel, then runs:
+
+- a second API on port 8090, with the Discord dev sign-in on as
+  `local_player` and admin's, Microsoft's and Google's off. Email's, if
+  `.env` has it, prints its sign-in links in your terminal, so a visitor
+  cannot finish one
+- the site, built against the tunnel's URL, on port 4323
+- the proxy, on port 4325, where the tunnel points
+
+Then it checks through the tunnel that a page and the API answer and admin
+is refused, and prints the URL only if they do. Ctrl-C stops all of it. To
+make the invented player someone in a tournament, sign in once through the
+tunnel, then link the account in admin's Members tab like any other.
+
+The same warnings hold as above: another site build overwrites this one, and
+the preview sends no `public/_headers`. Admin is shown through its own
+tunnel, as above.
+
 ### The Discord bot
 
 The api answers our Discord slash commands at
