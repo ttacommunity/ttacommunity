@@ -71,16 +71,25 @@ import Panel from '../../components/Panel';
 
 </Panel>
 
-<Panel title="Tournament Rating Eligibility Policy (Glicko-Eligible Tournaments)" holds="text">
+<Panel title="Which Tournaments Count Towards Ratings" holds="text">
   <div>
 
-      <p>
-    Some community tournaments (such as fast-paced Swiss <em>Quick &amp; Dirty</em> cups or exhibition events) have unorthodox tiebreakers or differing turn clocks that the community prefers not to factor into official ratings.
+  <p>A tournament's games count towards ratings when:</p>
+  <ul class="faq-list">
+    <li>its players are told before it starts that its games will be rated;</li>
+    <li>it is played to win, not a fun event with its own goals or rules (such as Squid Game or Olympians);</li>
+    <li>every game rewards each better finish: 1st beats 2nd, 2nd beats 3rd, 3rd beats 4th. A format that scores places alike, such as the Australian Open (1st = 2nd, 3rd = 4th), does not count.</li>
+  </ul>
+  <p>
+    An organiser who wants their tournament rated can ask for it before the tournament starts.
+  </p>
+  <p>
+    Some tournaments that meet these are still left out, such as fast-paced Swiss <em>Quick &amp; Dirty</em> cups and exhibition events, whose unusual tiebreakers or turn clocks the community prefers to keep out of ratings.
   </p>
   <ul class="faq-list">
-    <li>Every completed tournament match is preserved in the comprehensive match ledger.</li>
-    <li>Tournaments marked as <strong>non-Glicko eligible</strong> remain fully visible on player match histories and are included in the rolling <em>Community Leaderboard</em>.</li>
-    <li>The Glicko-2 rating engines strictly filter on <code>WHERE glicko_eligible = 1</code>, ensuring exhibition matches never distort official competitive skill ratings.</li>
+    <li>Games from tournaments that are not rated are kept: they stay in players' match histories.</li>
+    <li>Whether a tournament counts on the <em>Community Leaderboard</em> is set on its own, apart from ratings.</li>
+    <li>The rating engines read only the games of rated tournaments.</li>
   </ul>
           </div>
 
