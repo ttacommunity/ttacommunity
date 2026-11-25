@@ -14,20 +14,30 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// ErrBadPodium means a podium has nobody, a place outside 1-3 or twice, a player twice, or a blank name.
-var ErrBadPodium = errors.New("a podium is 1st to 3rd, each place and player once")
+// ErrBadPodium means a podium has nobody, a place outside 1-3, a player twice, a blank name, or a place taken
+// that players sharing a place above leave empty (two share first: there is no second).
+var ErrBadPodium = errors.New("a podium is 1st to 3rd, each player once; players sharing a place leave the next ones empty")
 
-// SetPodium replaces a season's podium with the one given, which the site shows over a recorded or derived
-// one, with the note on its first place. It returns ErrNoTournament, ErrBadPodium, or ErrNoPlayer for a name that is
-// no player's.
+// SetPodium replaces a season's podium with the one given, which the site and the next run show over a recorded or
+// derived one, with the note on its first place. Players may share a place. It returns ErrNoTournament, ErrBadPodium,
+// or ErrNoPlayer for a name that is no player's.
 func (a *AdminStore) SetPodium(ctx context.Context, slug, season string, podium []PodiumEntry, note string) error {
-	places, names := map[int]bool{}, map[string]bool{}
+	names := map[string]bool{}
 	for _, e := range podium {
 		name := strings.TrimSpace(e.Name)
-		if e.Place < 1 || e.Place > 3 || places[e.Place] || name == "" || names[name] {
+		if e.Place < 1 || e.Place > 3 || name == "" || names[name] {
 			return ErrBadPodium
 		}
-		places[e.Place], names[name] = true, true
+		names[name] = true
+		above := 0
+		for _, o := range podium {
+			if o.Place < e.Place {
+				above++
+			}
+		}
+		if e.Place <= above {
+			return ErrBadPodium
+		}
 	}
 	if len(podium) == 0 {
 		return ErrBadPodium

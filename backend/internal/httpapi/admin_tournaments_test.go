@@ -110,6 +110,18 @@ func TestAnOrganiserSetsAndClearsASeasonsPodium(t *testing.T) {
 	}
 }
 
+func TestASharedPlaceReachesTheStore(t *testing.T) {
+	f := &fakeAdmins{}
+	rec := adminDo(t, f, http.MethodPatch, "/v1/admin/tournaments/worlds/seasons/2025", "https://ttac-admin.example",
+		`{"podium": {"podium": [{"place": 1, "name": "a"}, {"place": 2, "name": "b"}, {"place": 2, "name": "c"}, {"place": 2, "name": "d"}], "note": ""}}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("PATCH a shared second place = %d %s, want 204", rec.Code, rec.Body)
+	}
+	if want := "podium 2025 [{1 a} {2 b} {2 c} {2 d}] "; strings.Join(f.notes, "|") != want {
+		t.Errorf("changes = %q, want %q", f.notes, want)
+	}
+}
+
 func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 	const site = "https://ttac-admin.example"
 	tests := []struct {
@@ -121,7 +133,7 @@ func TestPodiumChangesAreRefusedWhenTheyShouldBe(t *testing.T) {
 		{"not a podium", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "twice"}], "note": ""}}`, http.StatusBadRequest},
 		{"no such player", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "ghost"}], "note": ""}}`, http.StatusBadRequest},
 		{"nobody on it", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [], "note": ""}}`, http.StatusBadRequest},
-		{"four places", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}, {"place": 2, "name": "b"}, {"place": 3, "name": "c"}, {"place": 4, "name": "d"}], "note": ""}}`, http.StatusBadRequest},
+		{"nine on it", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [` + strings.Repeat(`{"place": 3, "name": "a"}, `, 8) + `{"place": 3, "name": "a"}], "note": ""}}`, http.StatusBadRequest},
 		{"a long note", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": "` + strings.Repeat("x", 501) + `"}}`, http.StatusBadRequest},
 		{"set and cleared at once", "/v1/admin/tournaments/worlds/seasons/2025", site, `{"podium": {"podium": [{"place": 1, "name": "a"}], "note": ""}, "clear_podium": true}`, http.StatusBadRequest},
 		{"clearing no such season", "/v1/admin/tournaments/worlds/seasons/1999", site, `{"clear_podium": true}`, http.StatusNotFound},

@@ -7777,9 +7777,12 @@ components:
       required: [podium, note]
       properties:
         podium:
+          description: |
+            1st to 3rd, each player once. Players may share a place, and leave the places they take empty:
+            two sharing 1st leave no 2nd. The site and the next run show it over the recorded or derived podium.
           type: array
           minItems: 1
-          maxItems: 3
+          maxItems: 8
           items:
             $ref: "#/components/schemas/PodiumEntry"
         note:

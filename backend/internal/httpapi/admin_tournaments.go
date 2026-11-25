@@ -202,8 +202,8 @@ func seasonChange(season string, b *SeasonChange) (store.SeasonChange, string) {
 		return store.SeasonChange{}, "a season's label is at most 64 characters"
 	case b.Podium != nil && b.ClearPodium != nil && *b.ClearPodium:
 		return store.SeasonChange{}, "set a podium or clear it, not both"
-	case b.Podium != nil && (len(b.Podium.Podium) == 0 || len(b.Podium.Podium) > 3 || len(b.Podium.Note) > 500):
-		return store.SeasonChange{}, "a podium has one to three places and a note of at most 500 characters"
+	case b.Podium != nil && (len(b.Podium.Podium) == 0 || len(b.Podium.Podium) > 8 || len(b.Podium.Note) > 500):
+		return store.SeasonChange{}, "a podium has one to eight players and a note of at most 500 characters"
 	case b.Note != nil && len(*b.Note) > 2000:
 		return store.SeasonChange{}, "a note is at most 2,000 characters"
 	case b.Organiser != nil && len(strings.TrimSpace(*b.Organiser)) > 100:

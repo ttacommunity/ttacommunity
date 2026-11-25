@@ -330,7 +330,7 @@ func (a *AdminStore) addGames(ctx context.Context, ts []AdminTournament, slug st
 // addPodiums puts each podium set in admin on its season.
 func (a *AdminStore) addPodiums(ctx context.Context, ts []AdminTournament) error {
 	rows, err := a.pool.Query(ctx, `SELECT o.tournament, o.season, o.place, p.name, o.note FROM tournament_podium_overrides o
-		JOIN players p USING (player_id) ORDER BY o.place`)
+		JOIN players p USING (player_id) ORDER BY o.place, p.name`)
 	if err != nil {
 		return fmt.Errorf("reading podiums for admin: %w", err)
 	}

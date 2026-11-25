@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"ttacommunity/backend/internal/tournamentcsv"
 )
@@ -102,6 +103,24 @@ func TestSetPodiumReplacesASeasonsPodiumAndClearPodiumRemovesIt(t *testing.T) {
 	}
 }
 
+func TestSetPodiumKeepsASharedPlace(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	placedOn(t, pool, map[string]time.Time{"Worlds 2025 Stage 1 - Upper 1 game 1": day("2025-03-01")})
+	addPlayers(t, pool, "alder440", "kittiwake", "Eider", "birch550")
+	a := NewAdminStore(asAdminLogin(t, pool))
+
+	shared := []PodiumEntry{{Place: 1, Name: "birch550"}, {Place: 2, Name: "kittiwake"}, {Place: 2, Name: "alder440"}, {Place: 2, Name: "Eider"}}
+	if err := a.SetPodium(ctx, "worlds", "2025", shared, "Three level on every tiebreak"); err != nil {
+		t.Fatalf("SetPodium: %v", err)
+	}
+	want := []PodiumEntry{{Place: 1, Name: "birch550"}, {Place: 2, Name: "alder440"}, {Place: 2, Name: "Eider"}, {Place: 2, Name: "kittiwake"}}
+	byPlaceAndName := cmpopts.SortSlices(func(x, y PodiumEntry) bool { return x.Place < y.Place || x.Place == y.Place && x.Name < y.Name })
+	if diff := cmp.Diff(want, adminTournament(t, a, "worlds").Seasons[0].Podium, byPlaceAndName); diff != "" {
+		t.Errorf("podium (-want +got):\n%s", diff)
+	}
+}
+
 func TestSetPodiumRefusesWhatIsNotAPodium(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()
@@ -115,7 +134,8 @@ func TestSetPodiumRefusesWhatIsNotAPodium(t *testing.T) {
 		{"no such season", "worlds", "1999", []PodiumEntry{{Place: 1, Name: "a"}}, ErrNoTournament},
 		{"no such tournament", "nope", "2025", []PodiumEntry{{Place: 1, Name: "a"}}, ErrNoTournament},
 		{"nobody", "worlds", "2025", nil, ErrBadPodium},
-		{"a place twice", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 1, Name: "b"}}, ErrBadPodium},
+		{"a shared first place, then second", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 1, Name: "b"}, {Place: 2, Name: "c"}}, ErrBadPodium},
+		{"a three-way second place, then third", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 2, Name: "b"}, {Place: 2, Name: "c"}, {Place: 2, Name: "d"}, {Place: 3, Name: "e"}}, ErrBadPodium},
 		{"a player twice", "worlds", "2025", []PodiumEntry{{Place: 1, Name: "a"}, {Place: 2, Name: "a"}}, ErrBadPodium},
 		{"fourth place", "worlds", "2025", []PodiumEntry{{Place: 4, Name: "a"}}, ErrBadPodium},
 		{"no name", "worlds", "2025", []PodiumEntry{{Place: 1, Name: " "}}, ErrBadPodium},

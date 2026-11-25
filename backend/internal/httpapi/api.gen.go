@@ -5267,7 +5267,10 @@ type PodiumPlace struct {
 // PodiumSetting defines model for PodiumSetting.
 type PodiumSetting struct {
 	// Note Why, or where the placing comes from
-	Note   string        `json:"note"`
+	Note string `json:"note"`
+
+	// Podium 1st to 3rd, each player once. Players may share a place, and leave the places they take empty:
+	// two sharing 1st leave no 2nd. The site and the next run show it over the recorded or derived podium.
 	Podium []PodiumEntry `json:"podium"`
 }
 

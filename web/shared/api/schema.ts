@@ -4866,6 +4866,10 @@ export interface components {
             new_season?: string;
         };
         PodiumSetting: {
+            /**
+             * @description 1st to 3rd, each player once. Players may share a place, and leave the places they take empty:
+             *     two sharing 1st leave no 2nd. The site and the next run show it over the recorded or derived podium.
+             */
             podium: components["schemas"]["PodiumEntry"][];
             /** @description Why, or where the placing comes from */
             note: string;
