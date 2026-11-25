@@ -25,6 +25,11 @@ export function sharePlace(places: Places, i: number): Places {
   return places.map((names, j) => (j === i ? [...names, ''] : names));
 }
 
+/** unsharePlace removes box k of the place at index i; a place's first box (k 0) stays. */
+export function unsharePlace(places: Places, i: number, k: number): Places {
+  return places.map((names, j) => (j === i && k > 0 ? names.filter((_, m) => m !== k) : names));
+}
+
 /** Origin is where the boxes' names come from: set by hand, recorded, a final stage's games, or nowhere. */
 export type Origin = 'admin' | 'recorded' | 'final_stage' | 'none';
 

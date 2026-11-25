@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { podiumNames, podiumNoteStart, podiumRequest, podiumStart, sharePlace } from './podium';
+import { podiumNames, podiumNoteStart, podiumRequest, podiumStart, sharePlace, unsharePlace } from './podium';
 
 describe('podiumRequest', () => {
   it.each([
@@ -31,6 +31,15 @@ describe('podiumStart', () => {
     ['else nothing', [], [], '', [[''], [''], ['']], 'none'],
   ] as const)('starts from %s', (_, saved, suggested, from, names, origin) => {
     expect(podiumStart([...saved], [...suggested], from)).toEqual({ names, origin });
+  });
+});
+
+describe('unsharePlace', () => {
+  it.each([
+    ['removes that box of the place, leaving the others', [['alder440'], ['birch550', 'cedar660', 'elm770'], ['']], 1, 1, [['alder440'], ['birch550', 'elm770'], ['']]],
+    ["keeps a place's first box", [['alder440'], ['birch550', 'cedar660'], ['']], 1, 0, [['alder440'], ['birch550', 'cedar660'], ['']]],
+  ] as const)('%s', (_, places, i, k, want) => {
+    expect(unsharePlace(places.map((p) => [...p]), i, k)).toEqual(want);
   });
 });
 

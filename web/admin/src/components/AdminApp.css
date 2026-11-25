@@ -236,6 +236,13 @@
   align-content: start;
   justify-items: start;
 }
+.podium-name {
+  display: flex;
+  gap: 0.25rem;
+}
+.podium-name > button {
+  align-self: flex-end;
+}
 .podium-places label {
   display: grid;
   gap: 0.25rem;
