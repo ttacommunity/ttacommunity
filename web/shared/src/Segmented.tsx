@@ -5,6 +5,8 @@ import { buttonClass, groupClass, type Look } from './segmented-look';
 export interface Option<T> {
   value: T;
   label: ReactNode;
+  /** A shorter label, shown in its place on a phone. */
+  short?: string;
   /** Shown on hover through the site's tooltip. */
   tooltip?: string;
   title?: string;
@@ -19,6 +21,8 @@ interface Props<T> {
   look?: Look;
   /** One option on each line, for a narrow column such as the options drawer. */
   stacked?: boolean;
+  /** On a phone, the options share the bar's width equally, two to a row, under the prefix. */
+  fill?: boolean;
   /** Shown before the buttons, such as "Format:". */
   prefix?: ReactNode;
   /** Each option as a link (a page address), or else as a button calling onChange. */
@@ -27,16 +31,25 @@ interface Props<T> {
 }
 
 /** Segmented shows each option as a button or link, with the chosen one pressed. */
-export default function Segmented<T extends string | number>({ label, options, value, look = 'choice', stacked = false, prefix, link, onChange }: Props<T>) {
+export default function Segmented<T extends string | number>({ label, options, value, look = 'choice', stacked = false, fill = false, prefix, link, onChange }: Props<T>) {
   return (
-    <div role="group" aria-label={label} className={groupClass(look, stacked)}>
+    <div role="group" aria-label={label} className={groupClass(look, stacked, fill)}>
       {prefix}
       {options.map((o) => {
         const chosen = o.value === value;
         const className = buttonClass(look, chosen);
+        const label =
+          o.short === undefined ? (
+            o.label
+          ) : (
+            <>
+              <span className="label-full">{o.label}</span>
+              <span className="label-short">{o.short}</span>
+            </>
+          );
         return link !== undefined ? (
           <a key={o.value} {...link(o.value)} className={className} aria-current={chosen ? 'true' : undefined} data-tooltip={o.tooltip} title={o.title}>
-            {o.label}
+            {label}
           </a>
         ) : (
           <button
@@ -48,7 +61,7 @@ export default function Segmented<T extends string | number>({ label, options, v
             title={o.title}
             onClick={() => onChange?.(o.value)}
           >
-            {o.label}
+            {label}
           </button>
         );
       })}

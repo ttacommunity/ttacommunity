@@ -1,7 +1,7 @@
 /** CGE's standings tables checked against our games: the totals, and each player who differs. */
 import { useState } from 'react';
+import * as req from '../lib/admin-requests';
 import { count } from '@ttac/shared/numbers';
-import { adminRequest } from '../lib/admin-api';
 import { DEFAULT_KINDS, checkSummary, differenceRows, type Kind, type StandingsCheck } from '../lib/standings-check';
 import SaveBar from './SaveBar';
 import { useSave } from './useSave';
@@ -15,7 +15,7 @@ export default function StandingsCheckPanel() {
   const saving = useSave();
   const [shown, setShown] = useState<ReadonlySet<Kind>>(DEFAULT_KINDS);
   const run = async () => {
-    const r = await saving.run(() => adminRequest<StandingsCheck>('/api/standings-check', {}), { done: '', working: 'Checking every stage…' });
+    const r = await saving.run(() => req.send<StandingsCheck>(req.standingsCheck), { done: '', working: 'Checking every stage…' });
     if (r?.ok) setCheck(r.data);
   };
   const summary = check === null ? null : checkSummary(check);

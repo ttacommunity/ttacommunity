@@ -2,26 +2,15 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
-import { adminRequest } from '../lib/admin-api';
-import { newEdition } from '../lib/community-editions';
+import { newEdition, type EditionFieldValues } from '../lib/community-editions';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
+import EditionFields from './EditionFields';
 
 type CommunityEditionItem = components['schemas']['CommunityEditionItem'];
 
-interface EditFormState {
-  name: string;
-  title: string;
-  short_name: string;
-  badge: string;
-  maintainer: string;
-  maintainer_note: string;
-  year: number;
-  counting_events: number;
-  visible: boolean;
-  sort_order: number;
-}
+type EditFormState = EditionFieldValues & { visible: boolean };
 
 /** EditionRow renders an edition's fields with inline editing and save button, and what became of the last change to it. */
 function EditionRow({
@@ -98,82 +87,7 @@ function EditionRow({
       </p>
       {editing && (
         <form className="admin-add" onSubmit={(e) => void save(e)}>
-          <label>
-            Name
-            <input
-              className="input-antique"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            Short Name
-            <input
-              className="input-antique"
-              value={form.short_name}
-              onChange={(e) => setForm({ ...form, short_name: e.target.value })}
-            />
-          </label>
-          <label className="title-reason">
-            Title
-            <input
-              className="input-antique"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Badge
-            <input
-              className="input-antique"
-              value={form.badge}
-              onChange={(e) => setForm({ ...form, badge: e.target.value })}
-            />
-          </label>
-          <label>
-            Maintainer
-            <input
-              className="input-antique"
-              value={form.maintainer}
-              onChange={(e) => setForm({ ...form, maintainer: e.target.value })}
-            />
-          </label>
-          <label className="title-reason">
-            Maintainer Note
-            <input
-              className="input-antique"
-              value={form.maintainer_note}
-              onChange={(e) => setForm({ ...form, maintainer_note: e.target.value })}
-            />
-          </label>
-          <label>
-            Year
-            <input
-              type="number"
-              className="input-antique"
-              value={form.year}
-              onChange={(e) => setForm({ ...form, year: parseInt(e.target.value, 10) || 0 })}
-            />
-          </label>
-          <label>
-            Counting Events
-            <input
-              type="number"
-              className="input-antique"
-              value={form.counting_events}
-              onChange={(e) => setForm({ ...form, counting_events: parseInt(e.target.value, 10) || 8 })}
-            />
-          </label>
-          <label>
-            Sort Order
-            <input
-              type="number"
-              className="input-antique"
-              value={form.sort_order}
-              onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value, 10) || 0 })}
-            />
-          </label>
+          <EditionFields value={form} onChange={setForm} />
           <button type="submit" className="btn-antique">
             Save edition
           </button>
@@ -192,7 +106,7 @@ export default function CommunityPanel() {
   const [newForm, setNewForm] = useState<CommunityEditionItem>(newEdition([], new Date().getFullYear()));
 
   const load = async () => {
-    const r = await adminRequest<CommunityEditionItem[]>('/api/community/editions', {});
+    const r = await req.send<CommunityEditionItem[]>(req.communityEditions);
     if (r.ok) {
       setList(r.data);
     } else {
@@ -246,82 +160,7 @@ export default function CommunityPanel() {
               required
             />
           </label>
-          <label>
-            Name
-            <input
-              className="input-antique"
-              value={newForm.name}
-              onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            Short Name
-            <input
-              className="input-antique"
-              value={newForm.short_name}
-              onChange={(e) => setNewForm({ ...newForm, short_name: e.target.value })}
-            />
-          </label>
-          <label className="title-reason">
-            Title
-            <input
-              className="input-antique"
-              value={newForm.title}
-              onChange={(e) => setNewForm({ ...newForm, title: e.target.value })}
-            />
-          </label>
-          <label>
-            Badge
-            <input
-              className="input-antique"
-              value={newForm.badge}
-              onChange={(e) => setNewForm({ ...newForm, badge: e.target.value })}
-            />
-          </label>
-          <label>
-            Maintainer
-            <input
-              className="input-antique"
-              value={newForm.maintainer}
-              onChange={(e) => setNewForm({ ...newForm, maintainer: e.target.value })}
-            />
-          </label>
-          <label className="title-reason">
-            Maintainer Note
-            <input
-              className="input-antique"
-              value={newForm.maintainer_note}
-              onChange={(e) => setNewForm({ ...newForm, maintainer_note: e.target.value })}
-            />
-          </label>
-          <label>
-            Year
-            <input
-              type="number"
-              className="input-antique"
-              value={newForm.year}
-              onChange={(e) => setNewForm({ ...newForm, year: parseInt(e.target.value, 10) || 0 })}
-            />
-          </label>
-          <label>
-            Counting Events
-            <input
-              type="number"
-              className="input-antique"
-              value={newForm.counting_events}
-              onChange={(e) => setNewForm({ ...newForm, counting_events: parseInt(e.target.value, 10) || 8 })}
-            />
-          </label>
-          <label>
-            Sort Order
-            <input
-              type="number"
-              className="input-antique"
-              value={newForm.sort_order}
-              onChange={(e) => setNewForm({ ...newForm, sort_order: parseInt(e.target.value, 10) || 0 })}
-            />
-          </label>
+          <EditionFields value={newForm} onChange={setNewForm} />
           <button type="submit" className="btn-antique" disabled={!newForm.slug || !newForm.name}>
             Create edition
           </button>

@@ -24,9 +24,9 @@ export function engineNote(model: Model): string {
   return engineNotes[model.replace(/_softer$/, '')] ?? '';
 }
 
-/** RESET_MODES are the season reset modes in upstream's order, with its names and descriptions. */
-export const RESET_MODES: readonly { value: ResetMode; name: string; desc: string }[] = [
-  { value: 'continuous', name: 'Continuous (Career)', desc: 'Standard uninterrupted career rating trajectory across all tournament history' },
+/** RESET_MODES are the season reset modes in upstream's order, with its names (a shorter one for a phone where it is long) and descriptions. */
+export const RESET_MODES: readonly { value: ResetMode; name: string; short?: string; desc: string }[] = [
+  { value: 'continuous', name: 'Continuous (Career)', short: 'Continuous', desc: 'Standard uninterrupted career rating trajectory across all tournament history' },
   { value: 'softer', name: 'Season Reset', desc: 'Gentle annual reset balancing career achievement with current season form' },
 ];
 

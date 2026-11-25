@@ -154,7 +154,7 @@ export default function Leaderboard({ apiUrl }: { apiUrl: string }) {
       <Panels>
         <Panel label="Leaderboard">
           <div className="format-bar">
-            <Segmented label="Format" options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
+            <Segmented label="Format" fill options={formatOptions} value={view.format} onChange={(format) => go({ ...view, format, page: 1 })} />
             <div className="format-bar-actions">
               <PlayerSearch players={players} value={view.search} onSearch={(term) => go({ ...view, search: term, page: 1 })} />
               <OptionsToggle

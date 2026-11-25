@@ -61,7 +61,10 @@
   font-weight: 700;
 }
 
-/* Marks the option a page starts with, such as "DEFAULT" beside a rating engine. */
+/* An option's shorter label, shown on a phone in place of its full one. */
+.label-short {
+  display: none;
+}
 
 .format-bar-actions {
   display: flex;
@@ -88,5 +91,28 @@
   .format-bar-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  /* A filling choice: its prefix on a line of its own, its options equal, two to a row. */
+  .format-bar-group.fill {
+    width: 100%;
+  }
+
+  .format-bar-group.fill > :not(.format-btn) {
+    flex-basis: 100%;
+  }
+
+  .format-bar-group.fill > .format-btn {
+    flex: 1 1 40%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .label-full {
+    display: none;
+  }
+
+  .label-short {
+    display: inline;
   }
 }

@@ -5,7 +5,7 @@ import { catalogueGameRow, plural, seasonName, stageName } from '../lib/catalogu
 import { gamesTag } from '../lib/games-table';
 import GamesTable from './GamesTable';
 import NewerOlder from '@ttac/shared/NewerOlder';
-import PlayerPicker from './PlayerPicker';
+import GamesFilterBar from './GamesFilterBar';
 import Waiting from './Waiting';
 import { useLoad } from './useLoad';
 import Panel from './Panel';
@@ -47,7 +47,7 @@ export default function TournamentGames({
 
   return (
     <Panel id="games" title="Games" ref={panel} aside={data !== null && <span className="tag">{gamesTag(data.total, data.coded, filter.coded === true)}</span>}>
-      <div className="games-filters">
+      <GamesFilterBar players={players} player={filter.player ?? ''} onPlayer={(player) => narrow({ player })} coded={filter.coded === true} onCoded={(coded) => narrow({ coded })}>
         <label>
           <span>{seasonWord}</span>
           <select className="input-antique" id="games-season" value={filter.season ?? ''} onChange={(e) => narrow({ season: e.target.value, stage: '', group: '' })}>
@@ -85,12 +85,7 @@ export default function TournamentGames({
             </select>
           </label>
         )}
-        <PlayerPicker players={players} value={filter.player ?? ''} onPick={(player) => narrow({ player })} />
-        <label className="games-coded check-inline">
-          <input id="games-coded" type="checkbox" checked={filter.coded === true} onChange={(e) => narrow({ coded: e.target.checked })} />
-          <span>Only games with a replay code</span>
-        </label>
-      </div>
+      </GamesFilterBar>
       <p className="records-intro">
         Replay codes come from CGE's tournament pages, so not every game has one: older games and those we have not matched to CGE yet show none. Click a code to
         copy it.

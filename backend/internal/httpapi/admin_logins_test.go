@@ -16,7 +16,7 @@ import (
 // account; request 99 and account 99 do not exist.
 func (f *fakeAdmins) Accounts(context.Context) ([]store.AccountRow, error) {
 	ann := int64(3)
-	at := time.Date(2026, 10, 18, 23, 0, 0, 0, time.FixedZone("UTC+11", 11*60*60))
+	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	return []store.AccountRow{
 		{ID: 2, Logins: []store.AccountLogin{{Provider: "discord", Username: "player_two", SignedInAt: at}}, SignedInAt: at,
 			Request: &store.PendingRequest{ID: 20, Name: "Bob", Country: "NZ", Zone: "Pacific/Auckland", MemberEmail: "", RequestedAt: at.Add(time.Minute)}},

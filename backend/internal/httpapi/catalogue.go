@@ -298,5 +298,5 @@ func optionalDate(t *time.Time) *openapi_types.Date {
 	if t == nil {
 		return nil
 	}
-	return &openapi_types.Date{Time: t.UTC()}
+	return &openapi_types.Date{Time: *t}
 }

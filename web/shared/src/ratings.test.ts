@@ -11,6 +11,7 @@ import {
   nostradamusEditions,
   nostradamusGame,
   isSlug,
+  tournamentParam,
   RatingsApiError,
   seasonBracket,
   siteVisits,
@@ -72,6 +73,22 @@ describe('isSlug', () => {
     ['nothing', '', false],
   ])('says whether %s is one', (_name, s, want) => {
     expect(isSlug(s)).toBe(want);
+  });
+});
+
+describe('tournamentParam', () => {
+  it.each([
+    ['a tournament', 't=slow_burn', 'slow_burn'],
+    ['a tournament beside other settings', 't=quick_and_dirty&open=settings', 'quick_and_dirty'],
+    ['no address', '', null],
+    ['an empty tournament', 't=', null],
+    ['capitals', 't=Wimbledon', null],
+    ['a leading digit', 't=9cup', null],
+    ['a slash', 't=a%2Fb', null],
+    ['a path', 't=../me', null],
+    ['65 characters', `t=${'a'.repeat(65)}`, null],
+  ])('reads %s', (_name, search, want) => {
+    expect(tournamentParam(new URLSearchParams(search))).toBe(want);
   });
 });
 

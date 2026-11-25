@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   check:
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 10 # it takes 1; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     env:

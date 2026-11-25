@@ -23,11 +23,7 @@ func nostradamusEditions(editions []store.NostradamusEdition) NostradamusEdition
 	body := NostradamusEditions{Editions: make([]NostradamusEdition, len(editions))}
 	for i, e := range editions {
 		body.Editions[i] = NostradamusEdition{Slug: e.Slug, Name: e.Name, Series: e.Series, Tournament: e.Tournament, Finished: e.Finished,
-			MarkedFinished: e.MarkedFinished, TournamentFinished: e.TournamentFinished}
-		if e.OpenUntil != nil {
-			until := e.OpenUntil.UTC()
-			body.Editions[i].OpenUntil = &until
-		}
+			MarkedFinished: e.MarkedFinished, TournamentFinished: e.TournamentFinished, OpenUntil: e.OpenUntil}
 	}
 	return body
 }
@@ -52,11 +48,7 @@ func nostradamusRounds(rounds []store.NostradamusRound) []NostradamusRound {
 			}
 		}
 		out[i] = NostradamusRound{Id: r.ID, Label: r.Label, Name: r.Name, TokensMin: r.TokensMin, TokensMax: r.TokensMax, TokenPoints: r.TokenPoints, Zone: r.Zone,
-			Published: r.PublishedAt != nil, Closed: r.ClosedAt != nil, Questions: questions}
-		if r.ClosesAt != nil {
-			closes := r.ClosesAt.UTC()
-			out[i].ClosesAt = &closes
-		}
+			Published: r.PublishedAt != nil, Closed: r.ClosedAt != nil, Questions: questions, ClosesAt: r.ClosesAt}
 	}
 	return out
 }

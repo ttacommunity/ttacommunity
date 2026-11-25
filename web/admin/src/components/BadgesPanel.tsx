@@ -4,7 +4,6 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
-import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
@@ -110,7 +109,7 @@ export default function BadgesPanel() {
   const [form, setForm] = useState({ label: '', description: '' });
 
   const load = async () => {
-    const r = await adminRequest<AdminBadge[]>('/api/badges', {});
+    const r = await req.send<AdminBadge[]>(req.badges);
     if (r.ok) setList(r.data);
     else setOutcome(loadFailure(r.message, 'badges'));
   };

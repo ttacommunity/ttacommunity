@@ -3,7 +3,7 @@ import { isDiscordId } from '../lib/admin-edits';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
-import { adminRequest, type AdminPerson } from '../lib/admin-api';
+import { type AdminPerson } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
 import AdminCard from './AdminCard';
@@ -24,7 +24,7 @@ export default function AdminList({ myName }: { myName: string }) {
   const [form, setForm] = useState({ id: '', name: '', role: 'organiser' as Role });
 
   const load = async () => {
-    const r = await adminRequest<AdminPerson[]>('/api/admins', {});
+    const r = await req.send<AdminPerson[]>(req.admins);
     if (r.ok) setPeople(r.data);
     else setOutcome(loadFailure(r.message, 'admins'));
   };

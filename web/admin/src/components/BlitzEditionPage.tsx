@@ -9,7 +9,7 @@ import { hashTab } from '@ttac/shared/tabs';
 import { ENTRANT_COLUMNS, FIRST_METHODS, LATER_METHODS, ORDERS, PAIRING_METHODS, TIE_BREAKS, UNPLAYED_NOTE, bestOfScore, editionParams, fixedByLabel, formatLabel, lastTieBreak, pairingSummary, offsetLabel, ranksFixedBy, resultSummary, roundLine, roundShown, roundSummary, roundTitle, scoringLine, seededName, startLabel, methodText, turnOrder, type PairingMethod } from '@ttac/shared/blitz';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminDownload, adminRequest, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
+import { adminDownload, firstError, type AdminBlitzEdition, type AdminMe, type BlitzEntrantIds, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { ADMIN_ENTRANT_COLUMNS, editionFormatWarnings, formatAdvice, formatLocks, pairingFields, pointsChanged, pointsForm, pointsFrom, settingsRows, type AdminBlitzEntrant, type PointsForm } from '../lib/blitz-page';
 import { emptyGameForm, gameRecordFrom, type BlitzStanding, type GameForm } from '@ttac/shared/game-form';
@@ -61,15 +61,15 @@ export default function BlitzEditionPage() {
       setEd({ kind: 'error', message: 'This address names no blitz edition. Go back to the Blitz tab.' });
       return;
     }
-    const r = await adminRequest<AdminBlitzEdition>(`/api/blitz/${named.slug}/${encodeURIComponent(named.edition)}`, {});
+    const r = await req.send<AdminBlitzEdition>(req.blitzEdition(named.slug, named.edition));
     setEd(loadOf(r));
   };
   useEffect(() => {
-    void adminRequest<AdminMe>('/api/me', {}).then((r) =>
+    void req.send<AdminMe>(req.me).then((r) =>
       setMe(loadOf(r)),
     );
-    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
-    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
+    void req.send<Region[]>(req.regions).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
+    void req.send<string[]>(req.countries).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
     void load();
   }, []);
   const error = firstError(me, ed);
@@ -927,7 +927,7 @@ function AddEntrantPanel({ at, ed, regions, countries, onReload, outcome, say }:
         know of them fills in; anything you add or change is saved on them.
       </p>
       <PersonForm
-        searchBase={`/api/blitz/${at.slug}/${encodeURIComponent(at.edition)}/candidates`}
+        searchBase={req.blitzCandidates(at.slug, at.edition)}
         taken={{ entered: ed.entrants.flatMap((e) => [e.name, e.player]).filter((n) => n !== ''), membersTaken: false }}
         regions={regions}
         countries={countries}
@@ -1566,7 +1566,7 @@ function ReplaceForm({ at, round, match, out, ed, nameOf, onDone, onCancel }: Re
   const [typed, setTyped] = useState('');
   const [picked, setPicked] = useState<PersonChoice | null>(null);
   const [refusal, setRefusal] = useState<Outcome | null>(null);
-  const found = usePeopleSearch(`/api/blitz/${at.slug}/${encodeURIComponent(at.edition)}/candidates`, typed, picked !== null, ed);
+  const found = usePeopleSearch(req.blitzCandidates(at.slug, at.edition), typed, picked !== null, ed);
   const inRound = new Set(round.matches.flatMap((m) => (m.b === null ? [m.a] : [m.a, m.b])));
   const outsiders = ed.entrants.filter((e) => e.status === 'active' && !inRound.has(e.id)).map((e) => ({ id: e.id, name: e.name }));
   const entered = ed.entrants.flatMap((e) => [e.name, e.player]).filter((n) => n !== '');

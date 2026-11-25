@@ -376,7 +376,7 @@ func (f *fakeAdmins) SetSeasonInCommunity(_ context.Context, slug, season string
 func (f *fakeAdmins) AuditLog(_ context.Context, filter store.AuditFilter, page int) (store.AuditPage, error) {
 	f.logAsked, f.logPage = &filter, page
 	return store.AuditPage{Page: page, Pages: 3, Total: 101, Actions: []string{"badge.add"}, Entries: []store.AuditEntry{
-		{ID: 7, At: time.Date(2026, 10, 28, 12, 13, 0, 0, time.FixedZone("AEDT", 11*60*60)), Admin: "Owner", Action: "badge.add", Target: "Gold", Detail: []byte(`{"label": "Gold"}`)},
+		{ID: 7, At: time.Date(2026, 10, 28, 1, 13, 0, 0, time.UTC), Admin: "Owner", Action: "badge.add", Target: "Gold", Detail: []byte(`{"label": "Gold"}`)},
 	}}, nil
 }
 

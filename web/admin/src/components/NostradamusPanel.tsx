@@ -2,7 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
+import { type AdminTournament, type AdminTournamentRow } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { gameHref, gameSlug, seriesChoices } from '../lib/nostradamus-admin';
 import { outcomeOf, shownAt, type Outcome } from '../lib/outcome';
@@ -25,18 +25,18 @@ export default function NostradamusPanel() {
   const [seriesText, setSeriesText] = useState('');
   const [seasons, setSeasons] = useState<string[]>([]);
   const load = async () => {
-    const r = await adminRequest<Editions>('/api/nostradamus', {});
+    const r = await req.send<Editions>(req.nostradamusGames);
     setGames(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   useEffect(() => {
     void load();
-    void adminRequest<AdminTournamentRow[]>('/api/tournaments', {}).then((r) => r.ok && setSeries(r.data));
+    void req.send<AdminTournamentRow[]>(req.tournaments).then((r) => r.ok && setSeries(r.data));
   }, []);
   const pickSeries = async (slug: string, name: string) => {
     setSeriesText(name);
     setDraft((d) => ({ ...d, series: slug, tournament: '' }));
     setSeasons([]);
-    const r = await adminRequest<AdminTournament>(`/api/tournaments/${encodeURIComponent(slug)}`, {});
+    const r = await req.send<AdminTournament>(req.adminTournament(slug));
     if (r.ok) setSeasons(r.data.seasons.map((x) => x.label).reverse());
   };
   const slug = draft.slug.trim() === '' ? gameSlug(draft.name) : draft.slug.trim();

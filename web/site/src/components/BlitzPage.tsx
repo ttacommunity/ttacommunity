@@ -20,7 +20,7 @@ import { gamesTag, type GamesColumn } from '../lib/games-table';
 import GamesTable from './GamesTable';
 import NewerOlder from '@ttac/shared/NewerOlder';
 import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
-import PlayerPicker from './PlayerPicker';
+import GamesFilterBar from './GamesFilterBar';
 import { catalogueHref } from '../lib/catalogue-view';
 import { bracketHref } from '../lib/bracket';
 import { Flag } from './PlayerMarks';
@@ -378,7 +378,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
         <span className="tag">{gamesTag(games.games, games.coded, filter.coded)}</span>
       </PanelHeader>
       {signIn && <SignInNote lead="Playing in this tournament?" to="report your game’s result." />}
-      <div className="games-filters">
+      <GamesFilterBar players={ed.entrants.map((e) => e.name)} player={filter.player} onPlayer={(player) => narrow({ player })} coded={filter.coded} onCoded={(coded) => narrow({ coded })}>
         <label>
           <span>Round</span>
           <select className="input-antique" id="games-round" value={filter.round ?? ''} onChange={(e) => narrow({ round: e.target.value === '' ? null : Number(e.target.value) })}>
@@ -390,12 +390,7 @@ function PairingsPanel({ ed, swiss, you, reports, signIn }: { ed: BlitzEdition; 
             ))}
           </select>
         </label>
-        <PlayerPicker players={ed.entrants.map((e) => e.name)} value={filter.player} onPick={(player) => narrow({ player })} />
-        <label className="games-coded check-inline">
-          <input id="games-coded" type="checkbox" checked={filter.coded} onChange={(e) => narrow({ coded: e.target.checked })} />
-          <span>Only games with a replay code</span>
-        </label>
-      </div>
+      </GamesFilterBar>
       <p className="records-intro">
         Who plays whom and how each game went, ratings beside the names. Opponents arrange their games through the official{' '}
         <a href={TTA_DISCORD}>TTA Discord</a>. Dates are on your clocks ({zone}). Click a

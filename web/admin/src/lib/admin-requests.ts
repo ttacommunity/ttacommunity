@@ -1,15 +1,18 @@
-/** Every change admin sends: each a path and the method and body adminRequest takes, names in paths escaped. */
+/** Every request admin sends: each a path and the method and body adminRequest takes, names in paths escaped. */
 import type { components } from '@ttac/shared/api';
 import { adminRequest, type AdminResult, type RankingTrack } from './admin-api';
+import { auditQuery, type AuditView } from './audit-log';
+import type { View as ChallengeView } from './challenge-entries';
 
 type Schemas = components['schemas'];
-type Method = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type SeasonFlag = 'rated' | 'champions' | 'community' | 'here';
 
-/** Request is one change: where it goes, and how. */
+/** Request is one request: where it goes, and how. */
 export type Request = { path: string; init: { method: Method; json?: unknown; file?: Blob } };
 
 const to = (path: string, method: Method, json?: unknown): Request => ({ path, init: { method, json } });
+const get = (path: string): Request => ({ path, init: { method: 'GET' } });
 const tournament = (slug: string) => `/api/tournaments/${slug}`;
 const season = (slug: string, label: string) => `${tournament(slug)}/seasons/${encodeURIComponent(label)}`;
 type Badge = Pick<Schemas['AdminBadge'], 'id' | 'label' | 'description' | 'players'>;
@@ -18,6 +21,15 @@ type Badge = Pick<Schemas['AdminBadge'], 'id' | 'label' | 'description' | 'playe
 export function send<T>(r: Request): Promise<AdminResult<T>> {
   return adminRequest<T>(r.path, r.init);
 }
+
+/** me is who is signed in to admin, and their role. */
+export const me = get('/api/me');
+/** tournaments lists every tournament and group. */
+export const tournaments = get('/api/tournaments');
+/** adminTournament is one tournament or group, with its seasons. */
+export const adminTournament = (slug: string) => get(tournament(slug));
+/** signUps lists a season's sign-ups. */
+export const signUps = (slug: string, label: string) => get(`${season(slug, label)}/sign-ups`);
 
 /** setTournament changes the settings given. */
 export const setTournament = (slug: string, patch: Schemas['TournamentSettings']) => to(tournament(slug), 'PATCH', patch);
@@ -74,6 +86,20 @@ export const setSeasonFlag = (slug: string, label: string, flag: SeasonFlag, on:
   to(season(slug, label), 'PATCH', { [FLAGS[flag]]: on });
 
 const blitz = (slug: string, edition: string) => `/api/blitz/${slug}/${encodeURIComponent(edition)}`;
+/** blitzEditions lists every blitz edition. */
+export const blitzEditions = get('/api/blitz');
+/** blitzEdition is one blitz edition, its entrants and rounds. */
+export const blitzEdition = (slug: string, edition: string) => get(blitz(slug, edition));
+/** everyone is where every person is searched. */
+export const everyone = '/api/people';
+/** blitzCandidates is where the people an edition can enter are searched. */
+export const blitzCandidates = (slug: string, edition: string) => `${blitz(slug, edition)}/candidates`;
+/** searchPeople asks where (everyone, or an edition's candidates) for the people text finds. */
+export const searchPeople = (where: string, text: string) => get(`${where}?q=${encodeURIComponent(text)}`);
+/** regions lists the regions a person can be from. */
+export const regions = get('/api/regions');
+/** countries lists the countries a person can be from. */
+export const countries = get('/api/countries');
 /** addBlitzEntrants adds entrants to an edition, all or none. */
 export const addBlitzEntrants = (slug: string, edition: string, entrants: Schemas['NewBlitzEntrant'][]) =>
   to(`${blitz(slug, edition)}/entrants`, 'POST', { entrants });
@@ -144,6 +170,59 @@ export const keepBlitzReport = (slug: string, edition: string, round: number, ma
 /** recordBlitzRuling decides a match by the organisers' ruling. */
 export const recordBlitzRuling = (slug: string, edition: string, round: number, match: number, ruling: Schemas['BlitzRuling']) =>
   to(`${blitz(slug, edition)}/rounds/${round}/matches/${match}/ruling`, 'PUT', ruling);
+
+/** members lists the community's members. */
+export const members = get('/api/members');
+/** accounts lists the players' accounts. */
+export const accounts = get('/api/accounts');
+/** admins lists the admins and organisers. */
+export const admins = get('/api/admins');
+/** badges lists the badges and who holds each. */
+export const badges = get('/api/badges');
+/** titles lists the titles set by hand. */
+export const titles = get('/api/titles');
+/** auditPage is a page of the audit log for view, its days taken in zone, or null when its from day is after its to day. */
+export function auditPage(view: AuditView, zone: string): Request | null {
+  const query = auditQuery(view, zone);
+  return query === null ? null : get(`/api/audit${query}`);
+}
+/** notificationEndpoints lists the webhooks notifications post to. */
+export const notificationEndpoints = get('/api/notification-endpoints');
+/** twitchFeeds lists the Twitch streamers notified of. */
+export const twitchFeeds = get('/api/twitch-feeds');
+/** rssFeeds lists the RSS feeds notified of. */
+export const rssFeeds = get('/api/rss-feeds');
+/** youtubeFeeds lists the YouTube Live feed, when added. */
+export const youtubeFeeds = get('/api/youtube-feeds');
+/** discordBot is the Discord bot's state and its commands. */
+export const discordBot = get('/api/discord-bot');
+/** dataSummary counts what the database holds. */
+export const dataSummary = get('/api/data');
+/** exportPath is where every input table downloads, as a zip. */
+export const exportPath = '/api/export';
+/** standingsCheck compares every stage's standings with its games. */
+export const standingsCheck = get('/api/standings-check');
+
+/** challengeEntries lists a view's challenge entries. */
+export const challengeEntries = (view: ChallengeView) => get(view === 'all' ? '/api/challenges/entries' : `/api/challenges/entries?view=${view}`);
+/** setChallengeEntry changes a challenge entry. */
+export const setChallengeEntry = (id: number, change: Schemas['AdminChallengeEntryChange']) => to(`/api/challenges/entries/${id}`, 'PATCH', change);
+/** mergeChallengeNames moves every entry under a name to the member of a TTA username. */
+export const mergeChallengeNames = (name: string, member: string) => to('/api/challenges/names', 'POST', { from: name, to: member });
+
+const channel = (id: string) => `/api/movies/channels/${encodeURIComponent(id)}`;
+/** movieChannels is Movies' creators and their videos. */
+export const movieChannels = get('/api/movies/channels');
+/** startMoviesRun starts the Movies job for a creator's channel, or for every creator when null. */
+export const startMoviesRun = (channelId: string | null) => to('/api/movies/run', 'POST', channelId === null ? {} : { channel: channelId });
+/** addMovieChannel adds a creator to Movies. */
+export const addMovieChannel = (body: Schemas['NewVideoChannel']) => to('/api/movies/channels', 'POST', body);
+/** setMovieChannelIncludeAll sets whether every upload of a creator counts, or only those the TTA filter passes. */
+export const setMovieChannelIncludeAll = (id: string, includeAll: boolean) => to(channel(id), 'PATCH', { include_all: includeAll });
+/** removeMovieChannel removes a creator and their fetched videos. */
+export const removeMovieChannel = (id: string) => to(channel(id), 'DELETE');
+/** setVideoOverride shows a video (true) or keeps it off (false) whatever its verdict, or leaves it to its verdict (null). */
+export const setVideoOverride = (id: string, override: boolean | null) => to(`/api/movies/videos/${encodeURIComponent(id)}`, 'PATCH', { override });
 
 /** addMember adds a member of the community. */
 export const addMember = (member: Schemas['NewMember']) => to('/api/members', 'POST', member);
@@ -218,6 +297,10 @@ export const setTitle = (player: string, title: string, reason: string) =>
 /** clearTitle removes a title set by hand. */
 export const clearTitle = (player: string) => to(`/api/titles/${encodeURIComponent(player.trim())}`, 'DELETE');
 
+/** runs lists the rating runs. */
+export const runs = get('/api/runs');
+/** runChanges is how a run's results differ from the published run's. */
+export const runChanges = (run: number) => get(`/api/runs/${run}/changes`);
 /** startRun starts a rating run. */
 export const startRun = (ranking: RankingTrack = 'community') => to('/api/runs', 'POST', { ranking });
 /** stopRun stops run, which must be the one going. */
@@ -229,6 +312,8 @@ export const protectRun = (run: number, on: boolean) => to(`/api/runs/${run}`, '
 /** deleteRun deletes a run and its results. */
 export const deleteRun = (run: number) => to(`/api/runs/${run}`, 'DELETE');
 
+/** communityEditions lists the community leaderboard's editions. */
+export const communityEditions = get('/api/community/editions');
 /** createCommunityEdition makes a new community leaderboard edition. */
 export const createCommunityEdition = (body: Schemas['CommunityEditionItem']) =>
   to('/api/community/editions', 'POST', body);
@@ -237,6 +322,12 @@ export const setCommunityEdition = (slug: string, patch: Schemas['CommunityEditi
   to(`/api/community/editions/${encodeURIComponent(slug)}`, 'PATCH', patch);
 
 const nostradamus = (slug: string) => `/api/nostradamus/${encodeURIComponent(slug)}`;
+/** nostradamusGames lists the Nostradamus games. */
+export const nostradamusGames = get('/api/nostradamus');
+/** nostradamusGame is one Nostradamus game, its rounds and participants. */
+export const nostradamusGame = (slug: string) => get(nostradamus(slug));
+/** nostradamusAnswers is everyone's answers to a round. */
+export const nostradamusAnswers = (slug: string, round: number) => get(`${nostradamus(slug)}/rounds/${round}/answers`);
 /** addNostradamusGame makes a Nostradamus game over a tournament. */
 export const addNostradamusGame = (body: Schemas['AdminNostradamusEditionNew']) => to('/api/nostradamus', 'POST', body);
 /** setNostradamusFinished marks a game finished, or running again. */
@@ -276,6 +367,8 @@ export const linkNostradamusParticipant = (slug: string, id: number, member: str
 
 /** ImageBucket is a bucket images are kept in. */
 export type ImageBucket = Schemas['ImageBucket'];
+/** images lists a bucket's images. */
+export const images = (bucket: ImageBucket) => get(`/api/images/${bucket}`);
 /** uploadImage sends file to bucket under name, trimmed, or the file's own name when that is empty; the API checks and names it. */
 export const uploadImage = (bucket: ImageBucket, file: File, name: string): Request => ({
   path: `/api/images/${bucket}?name=${encodeURIComponent(name.trim() || file.name)}`,

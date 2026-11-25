@@ -4,7 +4,7 @@ import { offsetLabel } from '@ttac/shared/blitz';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
+import { type AdminAccount, type AdminMe, type AdminMember, type MemberAdded, type MemberChange, loadOf } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { countryNames, type Country } from '@ttac/shared/countries';
 import { DEFAULT_STATUSES, MEMBER_STATUSES, membersMatching, membersWithStatus, type MemberStatus } from '../lib/member-filter';
@@ -60,13 +60,13 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
   const listed = members.kind === 'ready' ? membersWithStatus(members.data, statuses, new Set(signIns.byMember.keys())) : [];
   const shown = membersMatching(listed, search);
   const load = async () => {
-    const r = await adminRequest<AdminMember[]>('/api/members', {});
+    const r = await req.send<AdminMember[]>(req.members);
     setMembers(loadOf(r));
   };
   useEffect(() => {
     void load();
-    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'add member'))));
-    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'add member'))));
+    void req.send<Region[]>(req.regions).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'add member'))));
+    void req.send<string[]>(req.countries).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'add member'))));
   }, []);
   // after reloads what answering a request or unlinking changes: the sign-ins, and a member added or given details.
   const after = async () => {
@@ -145,7 +145,7 @@ export default function MembersPanel({ role, accounts, reloadAccounts }: Props) 
       <WaitingRequests accounts={accounts} waiting={signIns.waiting} outcome={outcome} say={setOutcome} after={after} />
       <div className="admin-subsection">
         <h3>Add a member</h3>
-        <PersonForm searchBase="/api/people" taken={{ entered: [], membersTaken: true }} regions={regions} countries={countries} submitLabel="Add" onSubmit={add} refresh={members} />
+        <PersonForm searchBase={req.everyone} taken={{ entered: [], membersTaken: true }} regions={regions} countries={countries} submitLabel="Add" onSubmit={add} refresh={members} />
         <Notice outcome={shownAt(outcome, 'add member')} onClose={close} />
       </div>
       <div className="admin-subsection">

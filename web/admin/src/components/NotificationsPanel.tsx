@@ -4,7 +4,6 @@ import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
-import { adminRequest } from '../lib/admin-api';
 import { endpointStatus, subscriptions } from '../lib/notification-endpoints';
 import { feedGroups, feedRows, KIND_LABELS, pauseRequest, removeRequest, resumedText, type FeedRow, type Feeds } from '../lib/feeds';
 import { loadFailure, outcomeOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
@@ -125,10 +124,10 @@ export default function NotificationsPanel() {
 
   const load = async () => {
     const [endpoints, twitch, rss, youtube] = await Promise.all([
-      adminRequest<Endpoint[]>('/api/notification-endpoints', {}),
-      adminRequest<TwitchFeed[]>('/api/twitch-feeds', {}),
-      adminRequest<RSSFeed[]>('/api/rss-feeds', {}),
-      adminRequest<YouTubeFeed[]>('/api/youtube-feeds', {}),
+      req.send<Endpoint[]>(req.notificationEndpoints),
+      req.send<TwitchFeed[]>(req.twitchFeeds),
+      req.send<RSSFeed[]>(req.rssFeeds),
+      req.send<YouTubeFeed[]>(req.youtubeFeeds),
     ]);
     if (endpoints.ok) setList(endpoints.data);
     else setOutcome(loadFailure(endpoints.message, 'endpoints'));

@@ -202,7 +202,7 @@ func TestASignUpFromAnotherOriginIsRefused(t *testing.T) {
 }
 
 func TestTheEditionSaysWhetherItTakesSignUps(t *testing.T) {
-	closes := time.Date(2026, 11, 1, 12, 0, 0, 0, time.FixedZone("AEDT", 11*3600))
+	closes := time.Date(2026, 11, 1, 1, 0, 0, 0, time.UTC)
 	ed := reportsEdition(func(ed *store.BlitzEdition, _ *store.BlitzMatch) {
 		ed.SignUps = store.SignUps{Open: true, ClosesAt: &closes, Taking: true, Waiting: 2}
 	})

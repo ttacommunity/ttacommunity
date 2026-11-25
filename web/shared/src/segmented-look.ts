@@ -6,9 +6,9 @@ export type Look = 'choice' | 'tabs' | 'filter';
 const GROUP: Record<Look, string> = { choice: 'format-bar-group', tabs: 'ach-tabs', filter: 'year-pills' };
 const BUTTON: Record<Look, string> = { choice: 'format-btn', tabs: 'records-tab-btn', filter: 'year-pill' };
 
-/** groupClass returns a group's classes in the look asked for; stacked puts one option on each line, for a narrow column such as the options drawer. */
-export function groupClass(look: Look, stacked: boolean): string {
-  return stacked ? `${GROUP[look]} stacked` : GROUP[look];
+/** groupClass returns a group's classes in the look asked for; stacked puts one option on each line, for a narrow column such as the options drawer; fill shares a bar's width among the options on a phone, two to a row. */
+export function groupClass(look: Look, stacked: boolean, fill = false): string {
+  return [GROUP[look], stacked ? 'stacked' : '', fill ? 'fill' : ''].filter((c) => c !== '').join(' ');
 }
 
 /** buttonClass returns an option's classes in the look asked for, pressed when chosen. */

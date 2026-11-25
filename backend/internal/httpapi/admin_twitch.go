@@ -40,7 +40,7 @@ func twitchFeedOut(f store.TwitchFeed) TwitchFeed {
 		subs[i] = TwitchSubscriptionState{Type: s.Type, Status: s.Status}
 	}
 	return TwitchFeed{Id: f.ID, Login: f.Login, DisplayName: f.DisplayName, UserId: f.UserID, Paused: f.Paused,
-		Subscriptions: subs, CreatedAt: f.CreatedAt.UTC()}
+		Subscriptions: subs, CreatedAt: f.CreatedAt}
 }
 
 func (s *server) GetAdminTwitchFeeds(ctx context.Context, _ GetAdminTwitchFeedsRequestObject) (GetAdminTwitchFeedsResponseObject, error) {

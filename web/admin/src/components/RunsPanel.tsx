@@ -4,7 +4,7 @@ import { useDialog } from '@ttac/shared/Dialog';
 import { count, signed } from '@ttac/shared/numbers';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
-import { adminRequest, type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
+import { type AdminRun, type RankingTrack, type RunChanges, type StartedRun } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refusalOf, refused, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { LoadNotice, NoticeRow } from './Notice';
 import { awaitStartedRun, canDelete, changesSummary, keepPolling, parseProgress, publishVerb, runGoing, runLabel, runSize, runTone, shownRuns } from '../lib/runs-view';
@@ -41,7 +41,7 @@ function Changes({ run }: { run: number }) {
   const [c, setC] = useState<RunChanges | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {
-    void adminRequest<RunChanges>(`/api/runs/${run}/changes`, {}).then((r) => (r.ok ? setC(r.data) : setMessage(r.message)));
+    void req.send<RunChanges>(req.runChanges(run)).then((r) => (r.ok ? setC(r.data) : setMessage(r.message)));
   }, [run]);
   if (message !== '') return <LoadNotice message={message} />;
   if (c === null) return <p className="muted">Comparing…</p>;
@@ -101,7 +101,7 @@ export default function RunsPanel() {
   const [track, setTrack] = useState<RankingTrack>('community');
 
   const load = async () => {
-    const r = await adminRequest<AdminRun[]>('/api/runs', {});
+    const r = await req.send<AdminRun[]>(req.runs);
     if (r.ok) setRuns(r.data);
     else setOutcome(loadFailure(r.message, 'runs'));
   };

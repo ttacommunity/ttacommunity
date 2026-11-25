@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditBy, auditPath, auditSummary, dayStart, defaultView, detailText } from './audit-log';
+import { actionChoices, auditBy, auditQuery, auditSummary, dayStart, defaultView, detailText, searchOf, viewFromSearch } from './audit-log';
 
 describe('audit log', () => {
   it.each([
@@ -26,17 +26,17 @@ describe('audit log', () => {
     [
       'the default week',
       { action: '', text: '', from: '2026-10-22', to: '2026-10-28', page: 1 },
-      '/api/audit?from=2026-10-21T13%3A00%3A00.000Z&to=2026-10-28T13%3A00%3A00.000Z&page=1',
+      '?from=2026-10-21T13%3A00%3A00.000Z&to=2026-10-28T13%3A00%3A00.000Z&page=1',
     ],
     [
       'an action, a search and a page',
       { action: 'member.set', text: ' discord ', from: '2026-10-28', to: '2026-10-28', page: 3 },
-      '/api/audit?action=member.set&q=discord&from=2026-10-27T13%3A00%3A00.000Z&to=2026-10-28T13%3A00%3A00.000Z&page=3',
+      '?action=member.set&q=discord&from=2026-10-27T13%3A00%3A00.000Z&to=2026-10-28T13%3A00%3A00.000Z&page=3',
     ],
-    ['no days at all', { action: '', text: '', from: '', to: '', page: 1 }, '/api/audit?page=1'],
+    ['no days at all', { action: '', text: '', from: '', to: '', page: 1 }, '?page=1'],
     ['a from day after the to day', { action: '', text: '', from: '2026-10-28', to: '2026-10-27', page: 1 }, null],
   ])('asks for %s', (_, view, want) => {
-    expect(auditPath(view, 'Australia/Sydney')).toBe(want);
+    expect(auditQuery(view, 'Australia/Sydney')).toBe(want);
   });
 
   it.each([
@@ -64,5 +64,47 @@ describe('audit log', () => {
     [{ total: 12, page: 1, pages: 1 }, '12 entries'],
   ])('sums up %o as %s', (page, want) => {
     expect(auditSummary(page)).toBe(want);
+  });
+
+  const now = new Date('2026-10-28T01:13:00Z');
+  const week = { action: '', text: '', from: '2026-10-22', to: '2026-10-28', page: 1 };
+
+  it.each([
+    ['no filters', '', week],
+    ['every filter', '?action=member.set&q=discord&from=2026-10-01&to=2026-10-02&page=3', { action: 'member.set', text: 'discord', from: '2026-10-01', to: '2026-10-02', page: 3 }],
+    ['open days', '?from=&to=', { ...week, from: '', to: '' }],
+    ['an unknown action, kept to show no entries', '?action=no.such', { ...week, action: 'no.such' }],
+    ['a page past the last, kept for the API to bring back', '?page=40', { ...week, page: 40 }],
+    ['days that are not days', '?from=yesterday&to=2026-02-30', week],
+    ['pages that are not pages', '?page=0', week],
+    ['a negative page', '?page=-2', week],
+    ['a page with a fraction', '?page=1.5', week],
+  ])('reads %s from the address', (_, search, want) => {
+    expect(viewFromSearch(new URLSearchParams(search), now, 'Australia/Sydney')).toEqual(want);
+  });
+
+  it.each([
+    ['the default week', week, '?from=2026-10-22&to=2026-10-28'],
+    ['every filter', { action: 'member.set', text: ' discord ', from: '2026-10-01', to: '2026-10-02', page: 3 }, '?action=member.set&q=discord&from=2026-10-01&to=2026-10-02&page=3'],
+    ['open days', { ...week, from: '', to: '' }, '?from=&to='],
+  ])('writes %s to the address', (_, view, want) => {
+    expect(searchOf(view)).toBe(want);
+  });
+
+  it.each([
+    ['the last seven days', week],
+    ['every filter', { action: 'member.set', text: 'discord', from: '2026-10-01', to: '2026-10-02', page: 3 }],
+    ['open days', { ...week, from: '', to: '' }],
+  ])('reads back %s as written', (_, view) => {
+    expect(viewFromSearch(new URLSearchParams(searchOf(view)), now, 'Australia/Sydney')).toEqual(view);
+  });
+
+  it.each([
+    ['all actions, before the log answers', undefined, '', []],
+    ['the chosen action, before the log answers', undefined, 'member.set', ['member.set']],
+    ['the log\'s actions', ['badge.add', 'member.set'], 'member.set', ['badge.add', 'member.set']],
+    ['an action the log has none of, first', ['badge.add'], 'no.such', ['no.such', 'badge.add']],
+  ])('lists %s to choose from', (_, actions, chosen, want) => {
+    expect(actionChoices(actions, chosen)).toEqual(want);
   });
 });

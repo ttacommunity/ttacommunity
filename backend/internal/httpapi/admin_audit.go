@@ -50,7 +50,7 @@ func (s *server) GetAdminAudit(ctx context.Context, req GetAdminAuditRequestObje
 	}
 	entries := make([]AdminAuditEntry, len(log.Entries))
 	for i, e := range log.Entries {
-		entries[i] = AdminAuditEntry{Id: e.ID, At: e.At.UTC(), Admin: e.Admin, ByPlayer: e.ByPlayer, Action: e.Action, Target: e.Target, Detail: string(e.Detail)}
+		entries[i] = AdminAuditEntry{Id: e.ID, At: e.At, Admin: e.Admin, ByPlayer: e.ByPlayer, Action: e.Action, Target: e.Target, Detail: string(e.Detail)}
 	}
 	body := AdminAuditPage{Page: log.Page, Pages: log.Pages, Total: log.Total, Actions: log.Actions, Entries: entries}
 	return GetAdminAudit200JSONResponse{Body: body, Headers: GetAdminAudit200ResponseHeaders{CacheControl: cacheNone}}, nil

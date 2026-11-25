@@ -7,7 +7,7 @@ import { hashTab } from '@ttac/shared/tabs';
 import type { components } from '@ttac/shared/api';
 import type { Load } from '@ttac/shared/load';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
-import { adminRequest, firstError, type AdminMe } from '../lib/admin-api';
+import { firstError, type AdminMe } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import { closeBlocker, emptyQuestionForm, outcomeText, outcomeValues, questionBody, questionFormFrom, countOrNone, roundLabel, roundStatus, tokensText, toggled, withChoice, type QuestionForm } from '../lib/nostradamus-admin';
 import { deadlineForm, type DeadlineForm } from '../lib/blitz-deadlines';
@@ -50,13 +50,13 @@ export default function NostradamusGamePage() {
       setGame({ kind: 'error', message: 'This address names no Nostradamus game. Go back to the Nostradamus tab.' });
       return;
     }
-    const r = await adminRequest<Game>(`/api/nostradamus/${encodeURIComponent(slug)}`, {});
+    const r = await req.send<Game>(req.nostradamusGame(slug));
     setGame(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   useEffect(() => {
-    void adminRequest<AdminMe>('/api/me', {}).then((r) => setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }));
-    void adminRequest<Region[]>('/api/regions', {}).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
-    void adminRequest<string[]>('/api/countries', {}).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
+    void req.send<AdminMe>(req.me).then((r) => setMe(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message }));
+    void req.send<Region[]>(req.regions).then((r) => (r.ok ? setRegions(r.data) : setOutcome(loadFailure(r.message, 'page'))));
+    void req.send<string[]>(req.countries).then((r) => (r.ok ? setCountries(countryNames(r.data)) : setOutcome(loadFailure(r.message, 'page'))));
     void load();
   }, []);
   const error = firstError(me, game);
@@ -407,7 +407,7 @@ function AnswersView({ game, round, run }: { game: Game; round: Round; run: (r: 
   const [answers, setAnswers] = useState<Load<Answers> | null>(null);
   const load = async () => {
     setAnswers({ kind: 'loading' });
-    const r = await adminRequest<Answers>(`/api/nostradamus/${encodeURIComponent(game.slug)}/rounds/${round.id}/answers`, {});
+    const r = await req.send<Answers>(req.nostradamusAnswers(game.slug, round.id));
     setAnswers(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   const labelOf = (id: number) => round.questions.find((q) => q.id === id)?.label ?? String(id);
@@ -542,7 +542,7 @@ function MembersTab({ game, regions, countries, onReload, outcome, say }: Props 
           Search the members and the players the ratings know, or add someone new by their username as on CGE. What we know of them fills in; anything you add or change is saved on them. They play at once.
         </p>
         <PersonForm
-          searchBase="/api/people"
+          searchBase={req.everyone}
           taken={{ entered: game.participants.flatMap((p) => [p.name, p.member ?? '']).filter((n) => n !== ''), membersTaken: false }}
           regions={regions}
           countries={countries}

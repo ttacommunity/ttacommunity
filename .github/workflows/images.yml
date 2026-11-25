@@ -31,7 +31,7 @@ env:
 
 jobs:
   api:
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 15 # a build takes 4; a step killed at the runner's memory limit otherwise waits for hours
     container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')
@@ -66,7 +66,7 @@ jobs:
           echo "load image $ref" | tee -a "$GITHUB_STEP_SUMMARY"
 
   engine:
-    runs-on: ${{ vars.RUNNER_AMD64 || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     container: docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'images')

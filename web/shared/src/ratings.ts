@@ -119,6 +119,12 @@ export function isSlug(s: string): boolean {
   return /^[a-z][a-z0-9_]{0,63}$/.test(s);
 }
 
+/** tournamentParam returns the tournament an address names (?t=), or null for none or one the API would refuse. */
+export function tournamentParam(search: URLSearchParams): string | null {
+  const t = search.get('t');
+  return t !== null && isSlug(t) ? t : null;
+}
+
 /** An error response from the API, carrying its status and message. */
 export class RatingsApiError extends Error {
   constructor(

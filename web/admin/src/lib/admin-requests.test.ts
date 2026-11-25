@@ -120,8 +120,42 @@ describe('admin requests', () => {
     ['a new bot', req.addNostradamusParticipant('wc-2031', { name: 'Seed', bot_rule: 'seed' }), '/api/nostradamus/wc-2031/participants', 'POST', { name: 'Seed', bot_rule: 'seed' }],
     ['a participant accepted', req.setNostradamusStatus('wc-2031', 8, 'accepted'), '/api/nostradamus/wc-2031/participants/8/status', 'PUT', { status: 'accepted' }],
     ['a participant linked, trimmed', req.linkNostradamusParticipant('wc-2031', 8, ' Ann '), '/api/nostradamus/wc-2031/participants/8/member', 'PUT', { member: 'Ann' }],
+    // Challenges
+    ['a change to an entry', req.setChallengeEntry(7, { hidden: true }), '/api/challenges/entries/7', 'PATCH', { hidden: true }],
+    ["a name's entries moved", req.mergeChallengeNames('Ann B', 'ann_b'), '/api/challenges/names', 'POST', { from: 'Ann B', to: 'ann_b' }],
+    // Movies
+    ['the Movies job for every creator', req.startMoviesRun(null), '/api/movies/run', 'POST', {}],
+    ['the Movies job for one creator', req.startMoviesRun('UC100000000000000001'), '/api/movies/run', 'POST', { channel: 'UC100000000000000001' }],
+    ['a new creator', req.addMovieChannel({ channel: '@someone', name: 'Someone', include_all: false }), '/api/movies/channels', 'POST', { channel: '@someone', name: 'Someone', include_all: false }],
+    ["a creator's uploads all counted, to a channel to escape", req.setMovieChannelIncludeAll('UC1/2', true), '/api/movies/channels/UC1%2F2', 'PATCH', { include_all: true }],
+    ['removing a creator, to a channel to escape', req.removeMovieChannel('UC1/2'), '/api/movies/channels/UC1%2F2', 'DELETE', undefined],
+    ['a video shown, to a video to escape', req.setVideoOverride('a b', true), '/api/movies/videos/a%20b', 'PATCH', { override: true }],
+    ['a video left to its verdict', req.setVideoOverride('abc', null), '/api/movies/videos/abc', 'PATCH', { override: null }],
   ])('sends %s', (_, got, path, method, json) => {
     expect(got).toEqual({ path, init: { method, json } });
+  });
+});
+
+describe('admin reads', () => {
+  it.each([
+    ['a tournament', req.adminTournament('worlds'), '/api/tournaments/worlds'],
+    ["a season's sign-ups, to a season to escape", req.signUps('us_open', '2027 B'), '/api/tournaments/us_open/seasons/2027%20B/sign-ups'],
+    ['a blitz edition, to an edition to escape', req.blitzEdition('us_open', 'Season 1'), '/api/blitz/us_open/Season%201'],
+    ['a Nostradamus game, to a game to escape', req.nostradamusGame('wc 2031'), '/api/nostradamus/wc%202031'],
+    ["a round's answers", req.nostradamusAnswers('wc-2031', 4), '/api/nostradamus/wc-2031/rounds/4/answers'],
+    ["a run's changes", req.runChanges(12), '/api/runs/12/changes'],
+    ["a bucket's images", req.images('assets'), '/api/images/assets'],
+    ['every challenge entry', req.challengeEntries('all'), '/api/challenges/entries'],
+    ['a view of the challenge entries', req.challengeEntries('flagged'), '/api/challenges/entries?view=flagged'],
+    ['everyone, searched, the text escaped', req.searchPeople(req.everyone, 'Ann B&c'), '/api/people?q=Ann%20B%26c'],
+    ['an audit page', req.auditPage({ action: '', text: '', from: '', to: '', page: 2 }, 'UTC'), '/api/audit?page=2'],
+    ["an edition's candidates, searched", req.searchPeople(req.blitzCandidates('us_open', 'Season 1'), 'an'), '/api/blitz/us_open/Season%201/candidates?q=an'],
+  ])('asks for %s', (_, got, path) => {
+    expect(got).toEqual({ path, init: { method: 'GET' } });
+  });
+
+  it('asks for no audit page when its days are the wrong way round', () => {
+    expect(req.auditPage({ action: '', text: '', from: '2026-11-20', to: '2026-11-19', page: 1 }, 'UTC')).toBeNull();
   });
 });
 

@@ -333,7 +333,7 @@ func (s *server) GetCurrentRun(ctx context.Context, req GetCurrentRunRequestObje
 		return &openapi_types.Date{Time: *t}
 	}
 	return GetCurrentRun200JSONResponse{
-		Body: Run{RunId: run.ID, PublishedAt: run.PublishedAt.UTC(), EngineVersion: run.EngineVersion, FinishedAt: inUTC(run.FinishedAt),
+		Body: Run{RunId: run.ID, PublishedAt: run.PublishedAt, EngineVersion: run.EngineVersion, FinishedAt: run.FinishedAt,
 			Games: run.Games, Players: run.Players, FirstGame: date(run.FirstGame), LastGame: date(run.LastGame)},
 		Headers: GetCurrentRun200ResponseHeaders{CacheControl: cacheCurrent},
 	}, nil

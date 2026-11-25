@@ -3,7 +3,6 @@ import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import type { components } from '@ttac/shared/api';
 import { useDialog } from '@ttac/shared/Dialog';
 import * as req from '../lib/admin-requests';
-import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, shownAt, type Outcome } from '../lib/outcome';
 import Notice, { NoticeRow } from './Notice';
 import { ADMIN_TITLES, titleLabel, type AdminTitle } from '../lib/titles';
@@ -20,7 +19,7 @@ export default function TitlesPanel() {
   const [form, setForm] = useState({ name: '', title: 'GM' as AdminTitle, reason: '' });
 
   const load = async () => {
-    const r = await adminRequest<TitleOverride[]>('/api/titles', {});
+    const r = await req.send<TitleOverride[]>(req.titles);
     if (r.ok) setList(r.data);
     else setOutcome(loadFailure(r.message, 'titles'));
   };

@@ -1,5 +1,6 @@
 /** A member or rated player picked from admin's people search as you type their name. */
 import { useState } from 'react';
+import * as req from '../lib/admin-requests';
 import type { Candidate } from '../lib/person-form';
 import { linkChoices } from '../lib/person-form';
 import PickBox, { type PickOption } from './PickBox';
@@ -24,7 +25,7 @@ type Props = {
 /** PeoplePick asks the people search once typing pauses, and not for the name already picked or first shown. */
 export default function PeoplePick({ label, value, onChange, onPick, choices = linkChoices, refresh, placeholder = 'Search a TTA username', disabled, hideLabel }: Props) {
   const [picked, setPicked] = useState(value);
-  const found = usePeopleSearch('/api/people', value, value === picked, refresh);
+  const found = usePeopleSearch(req.everyone, value, value === picked, refresh);
   return (
     <PickBox
       label={label}
