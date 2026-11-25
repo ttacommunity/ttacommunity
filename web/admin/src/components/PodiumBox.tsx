@@ -1,7 +1,7 @@
 /** A season's podium, set by hand or removed. */
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
-import { podiumNoteStart, podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
+import { podiumNoteStart, podiumRequest, podiumStart, sharePlace, type PodiumEntry } from '../lib/podium';
 import { fieldId } from '../lib/tournament-page';
 import { ordinal } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
@@ -63,9 +63,16 @@ export default function PodiumBox({
     >
       <div className="podium-places">
         {PLACES.map((label, i) => (
-          <PeoplePick key={label} label={label} value={names[i]} choices={playerChoices} placeholder=""
-            onChange={(text) => setNames(names.map((n, j) => (j === i ? text : n)))}
-          />
+          <div key={label} className="podium-place">
+            {names[i].map((name, k) => (
+              <PeoplePick key={k} label={k === 0 ? label : `${label}, shared`} value={name} choices={playerChoices} placeholder=""
+                onChange={(text) => setNames(names.map((ns, j) => (j === i ? ns.map((n, m) => (m === k ? text : n)) : ns)))}
+              />
+            ))}
+            <button type="button" className="btn-quiet btn-compact" onClick={() => setNames(sharePlace(names, i))}>
+              Shared {label}
+            </button>
+          </div>
         ))}
         <label className="podium-note">
           Why, or where it comes from
