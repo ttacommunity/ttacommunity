@@ -1424,21 +1424,27 @@ def medals_and_records(conn, run_id):
 
 
 @pytest.mark.parametrize(
-    ("state", "dated", "finished"),
+    ("left", "state", "dated", "finished"),
     [
-        ("running", False, False),
-        ("prepared", False, False),
-        ("never_played", False, True),
-        ("running", True, True),
+        pytest.param(gm(7), "running", False, False, id="top division running"),
+        pytest.param(gm(7), "prepared", False, False, id="top division prepared"),
+        pytest.param(gm(7), "never_played", False, True, id="never played"),
+        pytest.param(gm(7), "running", True, True, id="recorded finish date"),
+        pytest.param("International S30 - Master 1 game 1", "running", False, False,
+                     id="lower division running"),
+        pytest.param("International S30 - Master 1 game 1", "running", True, True,
+                     id="lower division running, recorded finish date"),
+        pytest.param("International S30 - Master 1 game 1", "played", False, True,
+                     id="nothing left"),
     ],
-)
-def test_a_seasons_results_wait_for_its_top_division_to_finish(
-    conn, add_match, run_id, state, dated, finished
+)  # fmt: skip
+def test_a_seasons_results_wait_for_all_its_games(
+    conn, add_match, run_id, left, state, dated, finished
 ):
     for n in range(1, 7):
         add_match(("ann", 90), ("bob", 80), ("cat", 70), ("dan", 60), tournament=gm(n))
     add_match(
-        ("ann", 0), ("bob", 0), ("cat", 0), ("dan", 0), tournament=gm(7), state=state
+        ("eve", 0), ("fay", 0), ("gus", 0), ("hal", 0), tournament=left, state=state
     )
     if dated:
         conn.execute(
@@ -1457,12 +1463,32 @@ def test_a_seasons_results_wait_for_its_top_division_to_finish(
         )
     else:
         assert got == ({}, {}, 0)
-    assert len(standings(conn, run_id, 30)) == 4
+    top = [p for p, _, _ in standings(conn, run_id, 30)][:4]
+    assert top == ["ann", "bob", "cat", "dan"]
     flags = conn.execute(
         "SELECT DISTINCT finished FROM tournament_standings WHERE run_id = %s",
         (run_id,),
     ).fetchall()
     assert [r["finished"] for r in flags] == [finished]
+
+
+def test_a_season_waits_for_a_lower_divisions_playoff(conn, add_match, run_id):
+    for n in range(1, 4):
+        add_match(("ann", 90), ("bob", 80), tournament=rl(n))
+    add_match(
+        ("cat", 0),
+        ("dan", 0),
+        tournament="RL_tb_s09 - Knight 1 game 1",
+        state="running",
+    )
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    flags = conn.execute(
+        "SELECT DISTINCT finished FROM tournament_standings WHERE run_id = %s AND series = 'royal_league'",
+        (run_id,),
+    ).fetchall()
+    assert [r["finished"] for r in flags] == [False]
 
 
 def test_a_season_waits_for_a_game_only_the_catalogue_places(conn, add_match, run_id):

@@ -525,16 +525,16 @@ def classify(rows, recorded, corrections, series_rules):
 
 
 def seasons_in_progress(unplayed, series_rules, dates) -> set[tuple[str, int]]:
-    """Returns the (series, season)s whose top division still has a game to play and that have no finish date.
+    """Returns the league (series, season)s with a game still to play, in any division or playoff, and no finish date.
 
     unplayed are the classified games CGE has prepared or is running; dates map (series, season) to a recorded
-    finish date. A game never played is not waited for.
+    finish date. A game never played, or not yet created, is not waited for.
     """
     return {
         (g["series"], g["season"])
         for g in unplayed
         if g["season"] is not None
-        and g["division"] in series_rules[g["series"]].top_divisions
+        and series_rules[g["series"]].top_divisions
         and (g["series"], g["season"]) not in dates
     }
 
