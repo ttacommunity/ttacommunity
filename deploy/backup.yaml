@@ -49,7 +49,7 @@ spec:
           # load writes the encrypted file to /backup; only then does rclone put it in the bucket. Each holds one credential.
           initContainers:
             - name: backup
-              image: ghcr.io/ttacommunity/ttacommunity/load:sha-7e09e320@sha256:7edcea90587cf191f0f1846e4a7d9e530f44665146c6555f0cafc3ff604133c5
+              image: ghcr.io/ttacommunity/ttacommunity/load:sha-ce4a0ef8@sha256:08120d33c1890a334f28244d6e92ca461c141c1117f1d01e7c0e988311f5ca59
               args: [backup-to, /backup]
               env:
                 - name: RATINGS_DATABASE_URL
