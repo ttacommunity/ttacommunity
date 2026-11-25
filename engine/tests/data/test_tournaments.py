@@ -780,6 +780,54 @@ def test_royal_league_boards_score_medals_and_order_by_first_medal(
     }
 
 
+@pytest.fixture
+def set_in_admin(conn):
+    """Returns a function that sets a season's podium as admin does: (place, player name) pairs."""
+
+    def add(series, season, *placed):
+        for place, name in placed:
+            conn.execute(
+                "INSERT INTO tournament_podium_overrides (tournament, season, place, player_id, note) "
+                "SELECT %s, %s, %s, player_id, '' FROM players WHERE name = %s",
+                (series, str(season), place, name),
+            )
+        conn.commit()
+
+    return add
+
+
+@pytest.mark.parametrize(
+    ("recorded", "admin", "want"),
+    [
+        pytest.param(
+            [],
+            [(1, "ann"), (2, "bob"), (2, "cat"), (2, "dan")],
+            {"ann": (1, 0, 0), "bob": (0, 1, 0), "cat": (0, 1, 0), "dan": (0, 1, 0)},
+            id="a shared second place gives each player a silver",
+        ),
+        pytest.param(
+            ["bob", "cat", "dan"],
+            [(1, "dan"), (2, "ann")],
+            {"dan": (1, 0, 0), "ann": (0, 1, 0)},
+            id="admin's podium replaces a recorded one",
+        ),
+    ],
+)
+def test_a_podium_set_in_admin_makes_a_league_seasons_podium(
+    conn, add_match, run_id, place, set_in_admin, recorded, admin, want
+):
+    add_match(("ann", 90), ("bob", 90), tournament=rl(1))
+    add_match(("cat", 90), ("dan", 90), tournament=rl(2))
+    if recorded:
+        place("royal_league", 9, "Emperor", *recorded)
+    set_in_admin("royal_league", 9, *admin)
+
+    derive_tournaments(conn=conn, run_id=run_id)
+
+    got = boards(conn, run_id, "royal_league")
+    assert {name: medals[:3] for name, medals in got.items()} == want
+
+
 def test_tiebreak_games_stay_out_of_standings_but_in_records(conn, add_match, run_id):
     regular = add_match(("ann", 90), ("bob", 80), tournament=rl(1))
     tiebreak = add_match(

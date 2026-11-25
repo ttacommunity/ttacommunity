@@ -690,6 +690,39 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
         ]
 
 
+def _admin_league_podiums(conn, official, derived, rules):
+    """Puts each league season's podium set in admin into official, over its recorded placements: in the season's top
+    division, each player with their points in its standings. Players set in admin on one place share it."""
+    leagues = [s for s, r in rules.items() if r.podium == "top_divisions"]
+    set_in_admin = defaultdict(list)
+    for r in conn.execute(
+        "SELECT o.tournament AS series, o.season::int AS season, o.place, o.player_id, p.name "
+        "FROM tournament_podium_overrides o JOIN players p USING (player_id) "
+        "WHERE o.tournament = ANY(%s) AND o.season ~ '^[0-9]+$' ORDER BY o.place, p.name",
+        (leagues,),
+    ).fetchall():
+        set_in_admin[(r["series"], r["season"])].append(r)
+    for (series, season), placed in set_in_admin.items():
+        top = rules[series].top_divisions
+        held = [
+            k
+            for k in {**derived, **official}
+            if k[:2] == (series, season) and k[2] in top
+        ]
+        division = min(k[2] for k in held) if held else min(top)
+        for k in held:
+            official.pop(k, None)
+        points = {
+            s["player"]: s["points"]
+            for s in derived.get((series, season, division), [])
+        }
+        official[(series, season, division)] = [
+            {"series": series, "season": season, "division": division, "place": r["place"],
+             "player": (p := Player(r["name"], r["player_id"])), "points": points.get(p)}
+            for r in placed
+        ]  # fmt: skip
+
+
 def _board_rows(run_id, boards):
     """Returns board rows to insert, each board numbered in its given order."""
     return [
@@ -902,6 +935,7 @@ def derive_tournaments(
             for k, v in derived.items()
             if k[:2] not in in_progress and rules[k[0]].podium == "top_divisions"
         }
+        _admin_league_podiums(conn, official, derived, rules)
         worlds = holder(conn, "worlds")
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
         for k in [k for k in official if rules[k[0]].podium == "none"]:
