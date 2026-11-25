@@ -45,7 +45,7 @@ func (s *server) GetAdminDiscordBot(ctx context.Context, _ GetAdminDiscordBotReq
 	if err != nil {
 		return nil, err
 	}
-	out := DiscordBot{RegisteredAt: inUTC(reg.At), Registered: reg.Commands, Commands: make([]DiscordBotCommand, len(list))}
+	out := DiscordBot{RegisteredAt: reg.At, Registered: reg.Commands, Commands: make([]DiscordBotCommand, len(list))}
 	if out.Registered == nil {
 		out.Registered = []string{}
 	}

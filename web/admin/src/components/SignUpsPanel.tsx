@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { viewerZone } from '@ttac/shared/time';
-import { adminRequest } from '../lib/admin-api';
 import * as req from '../lib/admin-requests';
 import type { DeadlineForm } from '../lib/blitz-deadlines';
 import { outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
@@ -34,7 +33,7 @@ export default function SignUpsPanel({ slug, season, shown, rounds, regions, onE
   const [closes, setCloses] = useState<DeadlineForm | null>(null);
   const zone = viewerZone();
   const load = useCallback(async () => {
-    const r = await adminRequest<AdminSignUps>(`/api/tournaments/${slug}/seasons/${encodeURIComponent(season)}/sign-ups`, {});
+    const r = await req.send<AdminSignUps>(req.signUps(slug, season));
     if (r.ok) setData(r.data);
     else setOutcome(refused(r.message, 'sign-ups'));
   }, [slug, season]);

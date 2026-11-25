@@ -23,12 +23,12 @@ export default function LeagueRulesCard({ t, onChange }: { t: AdminTournament; o
     <AdminCard id="league-rules-heading" title="League rules">
       <p className="muted">Titles and season records use them from the next engine run. Only admins change them.</p>
       <div className="settings-list">
-        <div className="setting league-tiers-setting">
+        <div className="setting">
           <label htmlFor="league-tiers">
             <strong>Divisions and titles</strong>
             <span className="muted"> · For titles, not the champions table: highest first, each with its title tier from 1 (GM) to 7 (W), such as Emperor 1, King 2</span>
           </label>{' '}
-          <input className="input-antique league-tiers-input" id="league-tiers" value={tiers} maxLength={600} onChange={(e) => setTiers(e.target.value)} />{' '}
+          <input className="input-antique" id="league-tiers" value={tiers} maxLength={600} onChange={(e) => setTiers(e.target.value)} />{' '}
           <button
             type="button"
             className="btn-antique"

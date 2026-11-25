@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entriesMatching, entriesPath, viewLabel } from './challenge-entries';
-
-describe('entriesPath', () => {
-  it.each([
-    ['every entry', 'all', '/api/challenges/entries'],
-    ['a view', 'flagged', '/api/challenges/entries?view=flagged'],
-  ] as const)('asks for %s', (_name, view, want) => {
-    expect(entriesPath(view)).toBe(want);
-  });
-});
+import { entriesMatching, viewLabel } from './challenge-entries';
 
 describe('entriesMatching', () => {
   const entry = (id: number, player: string, challenge: string, challenge_name: string) => ({ id, player, challenge, challenge_name });

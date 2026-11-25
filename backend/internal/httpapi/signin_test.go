@@ -298,7 +298,7 @@ func TestMeAnswersTheSiteAboutItsSession(t *testing.T) {
 	linked := sessionFor(f, "linked", store.Account{ID: 8, Provider: "discord", Username: "player_one", DisplayName: "Player One",
 		Member:  &store.LinkedMember{ID: 3, Name: "ann", Player: "Ann"},
 		Country: "NZ", Zone: "Pacific/Auckland", Banned: true, BanReason: "Left games unfinished",
-		Request:   &store.LinkRequest{Name: "ann", Status: "approved", RequestedAt: time.Date(2026, 10, 18, 23, 0, 0, 0, time.FixedZone("UTC+11", 11*60*60))},
+		Request:   &store.LinkRequest{Name: "ann", Status: "approved", RequestedAt: time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)},
 		AdminRole: org})
 	tests := []struct {
 		name     string
@@ -498,7 +498,7 @@ func TestMeShowsNoMemberOrRequestAsNull(t *testing.T) {
 func TestMyDataAnswersWithEverythingKept(t *testing.T) {
 	f := newFakeSignIns()
 	// The store's times come in the server's zone; the api answers in UTC.
-	at := time.Date(2026, 10, 18, 23, 0, 0, 0, time.FixedZone("AEDT", 11*60*60))
+	at := time.Date(2026, 10, 18, 12, 0, 0, 0, time.UTC)
 	later, cge := at.Add(time.Hour), 501
 	f.kept = store.KeptData{
 		Account: store.KeptAccount{CreatedAt: at, LinkedHow: "approved", LinkedAt: &later, AutoLink: true},

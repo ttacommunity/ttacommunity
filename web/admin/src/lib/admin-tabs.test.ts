@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
+import { flaggedReports, groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -62,6 +62,14 @@ describe('admin tabs', () => {
     ['none waiting', 0, 0, {}],
   ] as const)('counts on the tabs: %s', (_name, waiting, flagged, want) => {
     expect(tabCounts(waiting, flagged)).toEqual(want);
+  });
+
+  it.each([
+    ['no editions', [], 0],
+    ['none flagged', [{ flagged: 0 }, { flagged: 0 }], 0],
+    ['reports across editions', [{ flagged: 2 }, { flagged: 0 }, { flagged: 3 }], 5],
+  ] as const)('counts the flagged reports: %s', (_name, editions, want) => {
+    expect(flaggedReports(editions)).toBe(want);
   });
 
   it.each([

@@ -16,7 +16,7 @@ import (
 
 // signUpsOf is a tournament's sign-ups as the API sends them.
 func signUpsOf(s store.SignUps) SignUps {
-	return SignUps{Open: s.Open, ClosesAt: inUTC(s.ClosesAt), Taking: s.Taking, Waiting: s.Waiting}
+	return SignUps{Open: s.Open, ClosesAt: s.ClosesAt, Taking: s.Taking, Waiting: s.Waiting}
 }
 
 // signUpRefusal is the status and message for a player's refused sign-up or withdrawal; 0 for an error that is not
@@ -155,7 +155,7 @@ func (s *server) GetAdminSignUps(ctx context.Context, req GetAdminSignUpsRequest
 	}
 	body := AdminSignUps{SignUps: signUpsOf(state), Pending: make([]AdminPendingSignUp, len(pending))}
 	for i, p := range pending {
-		body.Pending[i] = AdminPendingSignUp{Id: p.ID, Account: p.Account, Name: p.Name, SignedUpAt: p.SignedUpAt.UTC(), Linked: nullableText(p.Linked)}
+		body.Pending[i] = AdminPendingSignUp{Id: p.ID, Account: p.Account, Name: p.Name, SignedUpAt: p.SignedUpAt, Linked: nullableText(p.Linked)}
 		if p.Request != 0 {
 			body.Pending[i].Request = new(p.Request)
 		}

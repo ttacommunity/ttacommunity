@@ -7,7 +7,6 @@ import type { StoredImage } from '@ttac/shared/ratings';
 import { viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
 import { siteUrlFor } from '../lib/admin-tabs';
-import { adminRequest } from '../lib/admin-api';
 import { loadFailure, outcomeOf, refused, shownAt, type Outcome } from '../lib/outcome';
 import Notice from './Notice';
 import AdminCard from './AdminCard';
@@ -25,7 +24,7 @@ export default function ImagesPanel() {
   const zone = viewerZone();
 
   const load = async () => {
-    const r = await adminRequest<StoredImage[]>(`/api/images/${BUCKET}`, {});
+    const r = await req.send<StoredImage[]>(req.images(BUCKET));
     if (r.ok) setList(r.data);
     else setOutcome(loadFailure(r.message, 'images'));
   };

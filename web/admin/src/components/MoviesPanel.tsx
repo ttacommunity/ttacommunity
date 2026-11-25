@@ -1,10 +1,10 @@
 /** Admin Movies panel: manage YouTube creator channels and see their subscriptions, and override a video's
  * verdict. */
 import { useEffect, useState, type FormEvent } from 'react';
+import * as req from '../lib/admin-requests';
 import { useDialog } from '@ttac/shared/Dialog';
 import type { Load } from '@ttac/shared/load';
 import { clockOrUtc, formatDate, formatInstant, todayIn, viewerZone } from '@ttac/shared/time';
-import { adminRequest } from '../lib/admin-api';
 import {
   buildNewChannelBody,
   channelStatus,
@@ -60,7 +60,7 @@ export default function MoviesPanel() {
   const dialog = useDialog();
 
   const reload = async () => {
-    const r = await adminRequest<AdminMoviesState>('/api/movies/channels', {});
+    const r = await req.send<AdminMoviesState>(req.movieChannels);
     setState(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
 
@@ -78,7 +78,7 @@ export default function MoviesPanel() {
   /** startRun starts the Movies job for c, or every creator when null, and says so under key. */
   const startRun = async (c: AdminVideoChannel | null, key: string, before = '') => {
     setStarting(true);
-    const r = await adminRequest<unknown>('/api/movies/run', { method: 'POST', json: c === null ? {} : { channel: c.channel_id } });
+    const r = await req.send<unknown>(req.startMoviesRun(c === null ? null : c.channel_id));
     setStarting(false);
     if (!r.ok) {
       setOutcome(refused(`${before}The Movies job did not start: ${r.message}`, key));
@@ -97,10 +97,7 @@ export default function MoviesPanel() {
       return;
     }
     setBusy(true);
-    const r = await adminRequest<AdminVideoChannel>('/api/movies/channels', {
-      method: 'POST',
-      json: parsed.body,
-    });
+    const r = await req.send<AdminVideoChannel>(req.addMovieChannel(parsed.body));
     setBusy(false);
     if (!r.ok) {
       setOutcome(outcomeOf(r, '', 'movies-add'));
@@ -117,10 +114,7 @@ export default function MoviesPanel() {
   const saveIncludeAll = async (c: AdminVideoChannel, includeAll: boolean) => {
     setOutcome(null);
     setStarting(true);
-    const r = await adminRequest<unknown>(`/api/movies/channels/${encodeURIComponent(c.channel_id)}`, {
-      method: 'PATCH',
-      json: { include_all: includeAll },
-    });
+    const r = await req.send<unknown>(req.setMovieChannelIncludeAll(c.channel_id, includeAll));
     if (!r.ok) {
       setStarting(false);
       setOutcome(outcomeOf(r, '', `channel-${c.channel_id}`));
@@ -141,9 +135,7 @@ export default function MoviesPanel() {
     );
     if (!sure) return;
     setOutcome(null);
-    const r = await adminRequest<unknown>(`/api/movies/channels/${encodeURIComponent(c.channel_id)}`, {
-      method: 'DELETE',
-    });
+    const r = await req.send<unknown>(req.removeMovieChannel(c.channel_id));
     if (!r.ok) {
       setOutcome(outcomeOf(r, '', `channel-${c.channel_id}`));
       return;
@@ -154,10 +146,7 @@ export default function MoviesPanel() {
 
   const overrideVideo = async (v: AdminVideo, choice: OverrideChoice) => {
     setOutcome(null);
-    const r = await adminRequest<unknown>(`/api/movies/videos/${encodeURIComponent(v.video_id)}`, {
-      method: 'PATCH',
-      json: { override: overrideOf(choice) },
-    });
+    const r = await req.send<unknown>(req.setVideoOverride(v.video_id, overrideOf(choice)));
     if (!r.ok) {
       setOutcome(outcomeOf(r, '', `video-${v.video_id}`));
       return;

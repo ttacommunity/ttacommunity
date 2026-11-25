@@ -2,8 +2,10 @@
 import { useEffect, useState } from 'react';
 import { isCircuit } from '@ttac/shared/circuits';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, loadOf } from '../lib/admin-api';
-import { renamedFrom, slugParam, tournamentLoad } from '../lib/tournament-page';
+import { firstError, type AdminMe, type AdminTournament, type AdminTournamentRow, loadOf } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
+import { tournamentParam } from '@ttac/shared/ratings';
+import { renamedFrom, tournamentLoad } from '../lib/tournament-page';
 import AdminPage from './AdminPage';
 import GroupPage from './GroupPage';
 import RelatedCard from './RelatedCard';
@@ -24,20 +26,20 @@ export default function TournamentSettings() {
   const [t, setT] = useState<Load<AdminTournament>>({ kind: 'loading' });
   const [all, setAll] = useState<AdminTournamentRow[]>([]);
   const load = async () => {
-    const slug = slugParam(new URLSearchParams(window.location.search));
+    const slug = tournamentParam(new URLSearchParams(window.location.search));
     if (slug === null) {
       setT({ kind: 'error', message: 'This address names no tournament. Go back to the list.' });
       return;
     }
     const [one, rows] = await Promise.all([
-      adminRequest<AdminTournament>(`/api/tournaments/${encodeURIComponent(slug)}`, {}),
-      adminRequest<AdminTournamentRow[]>('/api/tournaments', {}),
+      req.send<AdminTournament>(req.adminTournament(slug)),
+      req.send<AdminTournamentRow[]>(req.tournaments),
     ]);
     if (rows.ok) setAll(rows.data);
     setT(tournamentLoad(slug, one, rows));
   };
   useEffect(() => {
-    void adminRequest<AdminMe>('/api/me', {}).then((r) =>
+    void req.send<AdminMe>(req.me).then((r) =>
       setMe(loadOf(r)),
     );
     void load();

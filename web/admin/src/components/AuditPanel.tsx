@@ -3,31 +3,46 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
 import NewerOlder from '@ttac/shared/NewerOlder';
-import { adminRequest, type AdminAuditPage, loadOf } from '../lib/admin-api';
-import { auditBy, auditPath, auditSummary, defaultView, detailText, type AuditView } from '../lib/audit-log';
+import { type AdminAuditPage, loadOf } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
+import { actionChoices, auditBy, auditSummary, detailText, searchOf, viewFromSearch, type AuditView } from '../lib/audit-log';
 import { Loading } from './Notice';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
 
-/** AuditPanel opens on the last seven days in the viewer's zone; a new filter goes back to page 1. */
+/** AuditPanel opens on the view in the address, else the last seven days in the viewer's zone, and keeps the address on what it shows; a new filter goes back to page 1. */
 export default function AuditPanel() {
   const zone = viewerZone();
-  const [view, setView] = useState<AuditView>(() => defaultView(new Date(), zone));
-  const [text, setText] = useState('');
+  const [view, setView] = useState<AuditView>(() => viewFromSearch(new URLSearchParams(window.location.search), new Date(), zone));
+  const [text, setText] = useState(view.text);
   const [log, setLog] = useState<Load<AdminAuditPage>>({ kind: 'loading' });
-  const path = auditPath(view, zone);
+  const audit = req.auditPage(view, zone);
+  const path = audit?.path ?? null;
 
   useEffect(() => {
-    if (path === null) return;
+    if (audit === null) return;
     let live = true;
     setLog({ kind: 'loading' });
-    void adminRequest<AdminAuditPage>(path, {}).then((r) => {
+    void req.send<AdminAuditPage>(audit).then((r) => {
       if (live) setLog(loadOf(r));
     });
     return () => {
       live = false;
     };
-  }, [path]);
+  }, [path]); // a read is named by its path
+
+  const answered = log.kind === 'ready' ? log.data.page : view.page;
+  useEffect(() => {
+    const { pathname, hash } = window.location;
+    window.history.replaceState(null, '', `${pathname}${searchOf({ ...view, page: answered })}${hash}`);
+  }, [view, answered]);
+  useEffect(
+    () => () => {
+      const { pathname, hash } = window.location;
+      window.history.replaceState(null, '', `${pathname}${hash}`); // another tab's address carries no audit filters
+    },
+    [],
+  );
 
   const filter = (change: Partial<AuditView>) => setView({ ...view, ...change, page: 1 });
   const search = (e: FormEvent) => {
@@ -47,7 +62,7 @@ export default function AuditPanel() {
           Action
           <select className="input-antique" value={view.action} onChange={(e) => filter({ action: e.target.value })}>
             <option value="">All actions</option>
-            {(page?.actions ?? (view.action === '' ? [] : [view.action])).map((a) => (
+            {actionChoices(page?.actions, view.action).map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>

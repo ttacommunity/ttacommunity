@@ -7,8 +7,9 @@ describe('groupClass', () => {
     { name: 'tabs are the records tabs', look: 'tabs' as const, stacked: false, want: 'ach-tabs' },
     { name: 'a filter is the year pills', look: 'filter' as const, stacked: false, want: 'year-pills' },
     { name: 'a stacked choice puts one option on each line', look: 'choice' as const, stacked: true, want: 'format-bar-group stacked' },
-  ])('$name', ({ look, stacked, want }) => {
-    expect(groupClass(look, stacked)).toBe(want);
+    { name: 'a filling choice shares its bar on a phone', look: 'choice' as const, fill: true, want: 'format-bar-group fill' },
+  ])('$name', ({ look, stacked = false, fill = false, want }) => {
+    expect(groupClass(look, stacked, fill)).toBe(want);
   });
 });
 

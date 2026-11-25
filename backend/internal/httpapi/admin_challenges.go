@@ -29,7 +29,7 @@ var challengeViews = []struct {
 func adminChallengeEntry(e store.AdminChallengeEntry, flags []string) AdminChallengeEntry {
 	return AdminChallengeEntry{Id: e.ID, Challenge: e.Challenge, ChallengeName: e.ChallengeName, Player: e.Player, Member: e.Member,
 		EnteredAs: e.EnteredAs, Account: e.Account, Domination: e.Domination, ProofUrl: nullableText(e.ProofURL),
-		EnteredAt: e.At.UTC(), Source: AdminChallengeEntrySource(e.Source), Hidden: e.Hidden, HiddenReason: e.HiddenReason,
+		EnteredAt: e.At, Source: AdminChallengeEntrySource(e.Source), Hidden: e.Hidden, HiddenReason: e.HiddenReason,
 		Bugged: e.Bugged, Checked: e.Checked, Flags: append([]string{}, flags...)}
 }
 

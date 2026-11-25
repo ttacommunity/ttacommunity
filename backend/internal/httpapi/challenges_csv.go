@@ -63,7 +63,7 @@ func (s *server) GetChallengeEntriesCsv(ctx context.Context, _ GetChallengeEntri
 // challengeCSVRow writes one entry's row, its name guarded against spreadsheet formulas.
 func challengeCSVRow(e store.ChallengeEntry, c store.ChallengeRow) []string {
 	return []string{
-		strconv.FormatInt(e.ID, 10), e.At.UTC().Format(time.RFC3339), text(e.Player), c.Set, c.Group, c.ID, text(c.Name),
+		strconv.FormatInt(e.ID, 10), e.At.Format(time.RFC3339), text(e.Player), c.Set, c.Group, c.ID, text(c.Name),
 		strconv.Itoa(c.Players), strconv.Itoa(e.Domination), yesNo(e.ProofURL != ""), e.ProofURL, yesNo(e.Bugged),
 	}
 }

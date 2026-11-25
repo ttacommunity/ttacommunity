@@ -1,13 +1,7 @@
 /** The Tournaments page: which tournament the address asks for, its links, how its figures are written, and its games as table rows. */
 import { count } from '@ttac/shared/numbers';
-import { isSlug, type CatalogueGame } from '@ttac/shared/ratings';
+import type { CatalogueGame } from '@ttac/shared/ratings';
 import type { GameRow } from './games-table';
-
-/** tournamentParam returns the tournament the address names (?t=), or null for none or one the API would refuse. */
-export function tournamentParam(search: URLSearchParams): string | null {
-  const t = search.get('t');
-  return t !== null && isSlug(t) ? t : null;
-}
 
 /** catalogueHref returns the address of the Tournaments list, or of one tournament. */
 export function catalogueHref(slug?: string): string {

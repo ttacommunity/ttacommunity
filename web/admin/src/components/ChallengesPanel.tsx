@@ -4,8 +4,9 @@ import type { components } from '@ttac/shared/api';
 import Segmented from '@ttac/shared/Segmented';
 import { formatTime, viewerZone } from '@ttac/shared/time';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, loadOf } from '../lib/admin-api';
-import { entriesMatching, entriesPath, viewLabel, type View } from '../lib/challenge-entries';
+import { loadOf } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
+import { entriesMatching, viewLabel, type View } from '../lib/challenge-entries';
 import { LoadNotice, Loading } from './Notice';
 import './ChallengesPanel.css';
 import { counted } from '@ttac/shared/numbers';
@@ -27,7 +28,7 @@ export default function ChallengesPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [entries, setEntries] = useState<Load<AdminChallengeEntries>>({ kind: 'loading' });
   useEffect(() => {
-    void adminRequest<AdminChallengeEntries>(entriesPath(view), {}).then((r) =>
+    void req.send<AdminChallengeEntries>(req.challengeEntries(view)).then((r) =>
       setEntries(loadOf(r)),
     );
   }, [view, round]);
@@ -36,7 +37,7 @@ export default function ChallengesPanel() {
 
   /** change sends a change to entry id and reloads, saying what went wrong if it was refused. */
   const change = async (id: number, c: Change) => {
-    const r = await adminRequest<null>(`/api/challenges/entries/${id}`, { method: 'PATCH', json: c });
+    const r = await req.send<null>(req.setChallengeEntry(id, c));
     setStatus(r.ok ? null : r.message);
     setRound((n) => n + 1);
   };
@@ -213,7 +214,7 @@ function MergeNames({ onMerged }: { onMerged: () => void }) {
   const [to, setTo] = useState('');
   const saving = useSave();
   const merge = async () => {
-    const r = await saving.run(() => adminRequest<Merged>('/api/challenges/names', { method: 'POST', json: { from, to } }), {
+    const r = await saving.run(() => req.send<Merged>(req.mergeChallengeNames(from, to)), {
       done: (d) => `Moved ${counted(d.moved, 'entry', 'entries')} to the member ${to.trim()}.`,
       working: 'Merging…',
     });

@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"ttacommunity/backend/internal/store"
 )
@@ -26,7 +25,7 @@ func (s *server) GetMe(ctx context.Context, _ GetMeRequestObject) (GetMeResponse
 	}
 	if l.Request != nil {
 		me.Request = &MyLinkRequest{Name: l.Request.Name, Status: RequestStatus(l.Request.Status), Reason: l.Request.Reason,
-			RequestedAt: l.Request.RequestedAt.UTC()}
+			RequestedAt: l.Request.RequestedAt}
 	}
 	if l.AdminRole != "" {
 		role := Role(l.AdminRole)
@@ -46,7 +45,7 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 	}
 	a := k.Account
 	d := MyData{
-		Account: MyDataAccount{CreatedAt: a.CreatedAt.UTC(), Country: nullableText(a.Country), Zone: nullableText(a.Zone), LinkedAt: inUTC(a.LinkedAt), AutoLink: a.AutoLink},
+		Account: MyDataAccount{CreatedAt: a.CreatedAt, Country: nullableText(a.Country), Zone: nullableText(a.Zone), LinkedAt: a.LinkedAt, AutoLink: a.AutoLink},
 		Logins:  make([]MyDataLogin, len(k.Logins)), Requests: make([]MyDataRequest, len(k.Requests)), SignUps: make([]MyDataSignUp, len(k.SignUps)),
 		Sessions: make([]MyDataSession, len(k.Sessions)), EmailLinks: make([]MyDataEmailLink, len(k.EmailLinks)),
 	}
@@ -56,35 +55,26 @@ func (s *server) GetMyData(ctx context.Context, _ GetMyDataRequestObject) (GetMy
 	}
 	for i, l := range k.Logins {
 		d.Logins[i] = MyDataLogin{Provider: LoginProvider(l.Provider), Id: l.Subject, Username: l.Username, DisplayName: l.DisplayName,
-			Email: l.Email, CreatedAt: l.CreatedAt.UTC(), SignedInAt: l.SignedInAt.UTC()}
+			Email: l.Email, CreatedAt: l.CreatedAt, SignedInAt: l.SignedInAt}
 	}
 	if m := k.Member; m != nil {
 		d.Member = &MyDataMember{Name: m.Name, CgeUser: m.CGEUser, Player: m.Player, DiscordName: m.DiscordName, Email: m.Email, EmailCleared: k.MemberEmailCleared,
-			Country: nullableText(m.Country), Zone: m.Zone, Banned: m.Banned, BanReason: m.BanReason, BannedAt: inUTC(m.BannedAt), CreatedAt: m.CreatedAt.UTC()}
+			Country: nullableText(m.Country), Zone: m.Zone, Banned: m.Banned, BanReason: m.BanReason, BannedAt: m.BannedAt, CreatedAt: m.CreatedAt}
 	}
 	for i, r := range k.Requests {
-		d.Requests[i] = MyDataRequest{Name: r.Name, Status: RequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt.UTC(), DecidedAt: inUTC(r.DecidedAt)}
+		d.Requests[i] = MyDataRequest{Name: r.Name, Status: RequestStatus(r.Status), Reason: r.Reason, RequestedAt: r.RequestedAt, DecidedAt: r.DecidedAt}
 	}
 	for i, u := range k.SignUps {
-		d.SignUps[i] = MyDataSignUp{Tournament: u.Tournament, Name: u.Name, SignedUpAt: u.SignedUpAt.UTC()}
+		d.SignUps[i] = MyDataSignUp{Tournament: u.Tournament, Name: u.Name, SignedUpAt: u.SignedUpAt}
 	}
 	for i, x := range k.Sessions {
-		d.Sessions[i] = MyDataSession{Provider: LoginProvider(x.Provider), CreatedAt: x.CreatedAt.UTC(), EndsAt: x.Ends.UTC(), ThisBrowser: x.ThisBrowser}
+		d.Sessions[i] = MyDataSession{Provider: LoginProvider(x.Provider), CreatedAt: x.CreatedAt, EndsAt: x.Ends, ThisBrowser: x.ThisBrowser}
 	}
 	for i, l := range k.EmailLinks {
-		d.EmailLinks[i] = MyDataEmailLink{Address: l.Address, ReturnPath: l.ReturnPath, CreatedAt: l.CreatedAt.UTC(), ExpiresAt: l.ExpiresAt.UTC(),
-			UsedAt: inUTC(l.UsedAt), KeptUntil: l.KeptUntil.UTC()}
+		d.EmailLinks[i] = MyDataEmailLink{Address: l.Address, ReturnPath: l.ReturnPath, CreatedAt: l.CreatedAt, ExpiresAt: l.ExpiresAt,
+			UsedAt: l.UsedAt, KeptUntil: l.KeptUntil}
 	}
 	return GetMyData200JSONResponse{Body: d, Headers: GetMyData200ResponseHeaders{CacheControl: cacheNone}}, nil
-}
-
-// inUTC is t in UTC, or nil for nil.
-func inUTC(t *time.Time) *time.Time {
-	if t == nil {
-		return nil
-	}
-	u := t.UTC()
-	return &u
 }
 
 func (s *server) DeleteMe(ctx context.Context, _ DeleteMeRequestObject) (DeleteMeResponseObject, error) {

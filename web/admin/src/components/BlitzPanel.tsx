@@ -1,8 +1,7 @@
 /** The Blitz tab: every edition of every series marked Blitz, with how far it has got and its entrant counts, each opening its page. */
-import { useEffect, useState } from 'react';
 import { formatLabel, reachedLabel } from '@ttac/shared/blitz';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminBlitzEditionRow, loadOf } from '../lib/admin-api';
+import type { AdminBlitzEditionRow } from '../lib/admin-api';
 import { editionHref } from '@ttac/shared/blitz';
 import { ADMIN_EDITION_COLUMNS } from '../lib/blitz-page';
 import SortHeader, { useSort } from '@ttac/shared/SortHeader';
@@ -11,13 +10,8 @@ import Count from './Count';
 import AdminCard from './AdminCard';
 import AdminTable from './AdminTable';
 
-export default function BlitzPanel() {
-  const [rows, setRows] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
-  useEffect(() => {
-    void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((r) =>
-      setRows(loadOf(r)),
-    );
-  }, []);
+/** BlitzPanel lists editions, the blitz editions admin loaded once for this tab and its count. */
+export default function BlitzPanel({ editions: rows }: { editions: Load<AdminBlitzEditionRow[]> }) {
   return (
     <AdminCard id="blitz-heading" title="Blitz tournaments">
       <p className="muted">

@@ -38,7 +38,7 @@ func blitzResult(m store.BlitzMatch) *BlitzResult {
 
 // apiGame is a played game as the API sends it.
 func apiGame(g store.BlitzGame) BlitzPlayedGame {
-	return BlitzPlayedGame{ShareCode: g.ShareCode, FinishedAt: g.Finished.UTC(),
+	return BlitzPlayedGame{ShareCode: g.ShareCode, FinishedAt: g.Finished,
 		ACulture: g.A.Culture, AOutcome: SeatOutcome(g.A.Outcome), ATurn: turnOf(g.A),
 		BCulture: g.B.Culture, BOutcome: SeatOutcome(g.B.Outcome), BTurn: turnOf(g.B)}
 }
@@ -189,7 +189,7 @@ func (s *server) GetBlitzEdition(ctx context.Context, req GetBlitzEditionRequest
 			pm := BlitzPublicMatch{A: a.Name, ARating: rating(a), Result: blitzResult(m), Ruled: m.Ruling != "",
 				BestOf: m.BestOf, Games: publicGames(m)}
 			if m.DecidedAt != nil && (body.ResultsUpdatedAt == nil || m.DecidedAt.After(*body.ResultsUpdatedAt)) {
-				body.ResultsUpdatedAt = new(m.DecidedAt.UTC())
+				body.ResultsUpdatedAt = new(*m.DecidedAt)
 			}
 			pm.ASeed, pm.BSeed, pm.ThirdPlace = m.SeedA, m.SeedB, m.ThirdPlace
 			if m.B != nil {

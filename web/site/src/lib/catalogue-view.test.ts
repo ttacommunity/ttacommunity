@@ -1,18 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { count } from '@ttac/shared/numbers';
 import type { CatalogueGame } from '@ttac/shared/ratings';
-import { catalogueGameRow, catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, tournamentParam, seasonDates, activeYears, regulationsBox } from './catalogue-view';
-
-describe('tournamentParam', () => {
-  it('takes a slug from the address', () => {
-    expect(tournamentParam(new URLSearchParams('t=slow_burn'))).toBe('slow_burn');
-  });
-  it('gives null for no slug or one the API would refuse', () => {
-    for (const q of ['', 't=', 't=Wimbledon', 't=9cup', 't=a%2Fb', `t=${'a'.repeat(65)}`]) {
-      expect(tournamentParam(new URLSearchParams(q)), q).toBeNull();
-    }
-  });
-});
+import { catalogueGameRow, catalogueHref, cgeYears, entryRows, hasPodiums, gameStateLabel, gameWhere, outcomeNote, placeLabel, placeNames, plural, podiumCard, seasonName, shownName, spanYears, stageName, seasonDates, activeYears, regulationsBox } from './catalogue-view';
 
 describe('catalogueHref', () => {
   it('links the list, or one tournament', () => {

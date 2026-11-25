@@ -1,6 +1,5 @@
 /** A tournament's settings page in admin: its address, and the settings it edits. */
 import type { Load } from '@ttac/shared/load';
-import { isSlug } from '@ttac/shared/ratings';
 import type { AdminResult, AdminTournament, AdminTournamentRow } from './admin-api';
 import { trackName } from '@ttac/shared/tracks';
 
@@ -24,12 +23,6 @@ export function settingsHref(slug: string, settings = false): string {
 /** opensSettings says whether the address asks for a group's settings open. */
 export function opensSettings(search: URLSearchParams): boolean {
   return search.get('open') === 'settings';
-}
-
-/** slugParam returns the tournament the address names (?t=), or null for none or one the API would refuse. */
-export function slugParam(search: URLSearchParams): string | null {
-  const t = search.get('t');
-  return t !== null && isSlug(t) ? t : null;
 }
 
 /** toggledCounts turns a player count's rating on or off, or gives null where that would leave none rated. */

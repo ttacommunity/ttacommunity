@@ -2,8 +2,9 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import Segmented from '@ttac/shared/Segmented';
 import type { Load } from '@ttac/shared/load';
-import { adminRequest, type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, loadOf } from '../lib/admin-api';
-import { panelsFor, tabCounts, tabFrom, type Panel, type TabKey } from '../lib/admin-tabs';
+import { type AdminAccount, type AdminBlitzEditionRow, type AdminMe, type AdminTournamentRow, loadOf } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
+import { flaggedReports, panelsFor, tabCounts, tabFrom, type Panel, type TabKey } from '../lib/admin-tabs';
 import { signInGroups } from '../lib/sign-ins';
 import { listed } from '../lib/tournament-groups';
 import { settingsHref } from '../lib/tournament-page';
@@ -36,7 +37,7 @@ function Tournaments() {
   const [making, setMaking] = useState(false);
   const [rated, setRated] = useState(true);
   useEffect(() => {
-    void adminRequest<AdminTournamentRow[]>('/api/tournaments', {}).then((r) =>
+    void req.send<AdminTournamentRow[]>(req.tournaments).then((r) =>
       setTournaments(loadOf(r)),
     );
   }, []);
@@ -84,15 +85,15 @@ function Tournaments() {
 /** SignIns are players' sign-ins, loaded once for the Members tab and the count beside it. */
 type SignIns = { accounts: Load<AdminAccount[]>; reload: () => Promise<void> };
 
-/** panel draws one of admin's panels; myName and role are who is signed in, for the admin and members lists. */
-function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns): ReactNode {
+/** panel draws one of admin's panels; myName and role are who is signed in, for the admin and members lists; blitz is the editions, loaded once for the Blitz tab and its count. */
+function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns, blitz: Load<AdminBlitzEditionRow[]>): ReactNode {
   switch (p) {
     case 'tournaments':
       return <Tournaments />;
     case 'community':
       return <CommunityPanel />;
     case 'blitz':
-      return <BlitzPanel />;
+      return <BlitzPanel editions={blitz} />;
     case 'nostradamus':
       return <NostradamusPanel />;
     case 'challenges':
@@ -132,18 +133,18 @@ export default function AdminApp() {
   const [tab, setTab] = useState<TabKey>('tournaments');
   const [accounts, setAccounts] = useState<Load<AdminAccount[]>>({ kind: 'loading' });
   const reloadAccounts = async () => {
-    const r = await adminRequest<AdminAccount[]>('/api/accounts', {});
+    const r = await req.send<AdminAccount[]>(req.accounts);
     setAccounts(loadOf(r));
   };
   const waiting = accounts.kind === 'ready' ? signInGroups(accounts.data).waiting.length : 0;
-  // flagged counts the players' reports waiting for an organiser, across every blitz edition, for the Blitz tab.
-  const [flagged, setFlagged] = useState(0);
+  const [blitz, setBlitz] = useState<Load<AdminBlitzEditionRow[]>>({ kind: 'loading' });
+  const flagged = blitz.kind === 'ready' ? flaggedReports(blitz.data) : 0;
   useEffect(() => {
-    void adminRequest<AdminMe>('/api/me', {}).then((r) => {
+    void req.send<AdminMe>(req.me).then((r) => {
       setMe(loadOf(r));
       if (!r.ok) return;
       void reloadAccounts();
-      void adminRequest<AdminBlitzEditionRow[]>('/api/blitz', {}).then((b) => b.ok && setFlagged(b.data.reduce((n, e) => n + e.flagged, 0)));
+      void req.send<AdminBlitzEditionRow[]>(req.blitzEditions).then((b) => setBlitz(loadOf(b)));
       const follow = () => setTab(tabFrom(window.location.hash, r.data.role));
       follow();
       window.addEventListener('hashchange', follow);
@@ -153,7 +154,7 @@ export default function AdminApp() {
   return (
     <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} loading={me.kind === 'loading'} error={me.kind === 'error' ? me.message : null}>
       {me.kind === 'ready' &&
-        panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts })}</Fragment>)}
+        panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts }, blitz)}</Fragment>)}
     </AdminPage>
   );
 }

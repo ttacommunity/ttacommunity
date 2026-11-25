@@ -1,4 +1,4 @@
-/** The audit log tab's decisions: the days it shows (the last week by default, in the viewer's zone), the request for them, who made each change and its detail as text. */
+/** The audit log tab's decisions: the days it shows (the last week by default, in the viewer's zone), the query for them, who made each change and its detail as text. */
 import { count } from '@ttac/shared/numbers';
 import { todayIn } from '@ttac/shared/time';
 
@@ -41,8 +41,47 @@ export function defaultView(now: Date, zone: string): AuditView {
   return { action: '', text: '', from: addDays(to, -6), to, page: 1 };
 }
 
-/** auditPath returns the request for view, its days taken in zone, or null when its from day is after its to day. */
-export function auditPath(view: AuditView, zone: string): string | null {
+/** isDay says whether s is a real day written YYYY-MM-DD. */
+function isDay(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && addDays(s, 0) === s;
+}
+
+/** viewFromSearch reads the tab's view from its address: a missing or bad day, or a page that is not a positive whole number, is the default's; an empty day is open. */
+export function viewFromSearch(search: URLSearchParams, now: Date, zone: string): AuditView {
+  const base = defaultView(now, zone);
+  const day = (name: 'from' | 'to') => {
+    const v = search.get(name);
+    return v !== null && (v === '' || isDay(v)) ? v : base[name];
+  };
+  const page = search.get('page') ?? '';
+  return {
+    action: search.get('action') ?? '',
+    text: search.get('q') ?? '',
+    from: day('from'),
+    to: day('to'),
+    page: /^[1-9]\d*$/.test(page) ? Number(page) : 1,
+  };
+}
+
+/** searchOf writes view as the tab's address: its days always (empty when open), its action, search and page only when set. */
+export function searchOf(view: AuditView): string {
+  const q = new URLSearchParams();
+  if (view.action !== '') q.set('action', view.action);
+  if (view.text.trim() !== '') q.set('q', view.text.trim());
+  q.set('from', view.from);
+  q.set('to', view.to);
+  if (view.page > 1) q.set('page', String(view.page));
+  return `?${q}`;
+}
+
+/** actionChoices are the actions to choose from: the log's, with the chosen one first when the log has none of it. */
+export function actionChoices(actions: string[] | undefined, chosen: string): string[] {
+  const list = actions ?? [];
+  return chosen === '' || list.includes(chosen) ? list : [chosen, ...list];
+}
+
+/** auditQuery returns the query asking for view, its days taken in zone, or null when its from day is after its to day. */
+export function auditQuery(view: AuditView, zone: string): string | null {
   if (view.from !== '' && view.to !== '' && view.from > view.to) return null;
   const q = new URLSearchParams();
   if (view.action !== '') q.set('action', view.action);
@@ -50,7 +89,7 @@ export function auditPath(view: AuditView, zone: string): string | null {
   if (view.from !== '') q.set('from', dayStart(view.from, zone));
   if (view.to !== '') q.set('to', dayStart(addDays(view.to, 1), zone));
   q.set('page', String(view.page));
-  return `/api/audit?${q}`;
+  return `?${q}`;
 }
 
 /** detailFields returns detail's fields when it is a JSON object, else null. */

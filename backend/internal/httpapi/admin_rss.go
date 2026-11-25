@@ -17,7 +17,7 @@ const onlyAdminsRSS = "only admins manage RSS feeds"
 
 // rssFeedOut is a feed as the API sends it.
 func rssFeedOut(f store.RSSFeed) RSSFeed {
-	out := RSSFeed{Id: f.ID, Url: f.URL, Title: f.Title, Paused: f.Paused, CheckedAt: inUTC(f.CheckedAt), LastItemAt: inUTC(f.LastItemAt), LastErrorAt: inUTC(f.LastErrorAt)}
+	out := RSSFeed{Id: f.ID, Url: f.URL, Title: f.Title, Paused: f.Paused, CheckedAt: f.CheckedAt, LastItemAt: f.LastItemAt, LastErrorAt: f.LastErrorAt}
 	if f.LastError != "" {
 		out.LastError = &f.LastError
 	}

@@ -58,6 +58,7 @@ func (f *fakeAdmins) SetBlitzMatchBestOf(_ context.Context, slug, edition string
 }
 
 func (f *fakeAdmins) RecordBlitzGame(_ context.Context, slug, edition string, id int64, number int, g store.BlitzGame) error {
+	g.Finished = g.Finished.UTC() // as the database reads it back
 	m, err := f.findMatch(slug, edition, id)
 	if err != nil {
 		return err

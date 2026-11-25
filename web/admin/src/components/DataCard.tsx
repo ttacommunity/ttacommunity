@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import { count, counted } from '@ttac/shared/numbers';
 import { formatDay, formatInstant, viewerZone } from '@ttac/shared/time';
-import { adminDownload, adminRequest, exportFileName } from '../lib/admin-api';
+import { adminDownload, exportFileName } from '../lib/admin-api';
+import * as req from '../lib/admin-requests';
 import { sizeText } from '@ttac/shared/numbers';
 import { LoadNotice } from './Notice';
 import SaveBar from './SaveBar';
@@ -20,7 +21,7 @@ export default function DataCard() {
   const saving = useSave();
   const takeExport = async () => {
     const done = 'Downloaded. The load job restores it: load restore <folder> (unzipped).';
-    const r = await saving.run(() => adminDownload('/api/export'), { done, working: 'Preparing the download…' });
+    const r = await saving.run(() => adminDownload(req.exportPath), { done, working: 'Preparing the download…' });
     if (!r?.ok) return;
     const url = URL.createObjectURL(r.data);
     const a = document.createElement('a');
@@ -30,7 +31,7 @@ export default function DataCard() {
     URL.revokeObjectURL(url);
   };
   useEffect(() => {
-    void adminRequest<DataSummary>('/api/data', {}).then((r) => (r.ok ? setD(r.data) : setMessage(r.message)));
+    void req.send<DataSummary>(req.dataSummary).then((r) => (r.ok ? setD(r.data) : setMessage(r.message)));
   }, []);
 
   return (

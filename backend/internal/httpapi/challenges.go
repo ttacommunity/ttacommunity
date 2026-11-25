@@ -58,7 +58,7 @@ func newestFirst(a, b challenges.Entry) int {
 }
 
 func challengeBest(b challenges.Best) ChallengeBest {
-	return ChallengeBest{Player: b.Name, Domination: b.Domination, ProofUrl: nullableText(b.ProofURL), EnteredAt: b.At.UTC(), Rank: b.Rank}
+	return ChallengeBest{Player: b.Name, Domination: b.Domination, ProofUrl: nullableText(b.ProofURL), EnteredAt: b.At, Rank: b.Rank}
 }
 
 func scopePlayers(ps []challenges.ScopePlayer) []ChallengeScopePlayer {
@@ -150,12 +150,12 @@ func (s *server) GetChallengeBoard(ctx context.Context, req GetChallengeBoardReq
 	}
 	for _, st := range challenges.Steps(mine, verified) {
 		body.History = append(body.History, ChallengeRecordStep{Player: st.Name, Domination: st.Domination, ProofUrl: nullableText(st.ProofURL),
-			EnteredAt: st.At.UTC(), Gain: st.Gain})
+			EnteredAt: st.At, Gain: st.Gain})
 	}
 	slices.SortFunc(mine, newestFirst)
 	for _, e := range mine {
 		body.Entries = append(body.Entries, ChallengeSubmission{Player: e.Name, Domination: e.Domination, ProofUrl: nullableText(e.ProofURL),
-			EnteredAt: e.At.UTC(), Bugged: e.Bugged})
+			EnteredAt: e.At, Bugged: e.Bugged})
 	}
 	return GetChallengeBoard200JSONResponse{Body: body, Headers: GetChallengeBoard200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }
@@ -166,7 +166,7 @@ func figures[T int | float64](byset map[string]T) ChallengeSetFigures {
 
 func challengeSummary(p *challenges.Summary) ChallengePlayerSummary {
 	return ChallengePlayerSummary{Player: p.Name, Played: p.Played, Verified: p.Verified, Records: p.Records, Total: p.Total,
-		Totals: figures(p.Totals), Rating: float32(p.Rating), Ratings: figures(p.Ratings), LastEntry: p.LastEntry.UTC()}
+		Totals: figures(p.Totals), Rating: float32(p.Rating), Ratings: figures(p.Ratings), LastEntry: p.LastEntry}
 }
 
 func (s *server) GetChallengePlayers(ctx context.Context, req GetChallengePlayersRequestObject) (GetChallengePlayersResponseObject, error) {
@@ -244,7 +244,7 @@ func (s *server) GetChallengePlayer(ctx context.Context, req GetChallengePlayerR
 	slices.SortFunc(theirs, newestFirst)
 	for _, e := range theirs[:min(10, len(theirs))] {
 		body.Recent = append(body.Recent, ChallengePlayerEntry{Challenge: e.Challenge, Domination: e.Domination, ProofUrl: nullableText(e.ProofURL),
-			EnteredAt: e.At.UTC(), Bugged: e.Bugged})
+			EnteredAt: e.At, Bugged: e.Bugged})
 	}
 	return GetChallengePlayer200JSONResponse{Body: body, Headers: GetChallengePlayer200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }
@@ -278,7 +278,7 @@ func (s *server) GetChallengeEntries(ctx context.Context, _ GetChallengeEntriesR
 	body := ChallengeEntries{Entries: make([]ChallengeEntry, len(stored))}
 	for i, e := range stored {
 		body.Entries[i] = ChallengeEntry{Id: e.ID, Challenge: e.Challenge, Player: e.Player, Domination: e.Domination,
-			ProofUrl: nullableText(e.ProofURL), EnteredAt: e.At.UTC(), Bugged: e.Bugged}
+			ProofUrl: nullableText(e.ProofURL), EnteredAt: e.At, Bugged: e.Bugged}
 	}
 	return GetChallengeEntries200JSONResponse{Body: body, Headers: GetChallengeEntries200ResponseHeaders{CacheControl: cacheCurrent}}, nil
 }

@@ -23,7 +23,7 @@ func (s *server) GetMovies(ctx context.Context, _ GetMoviesRequestObject) (GetMo
 			CreatorName:   v.CreatorName,
 			CreatorPlayer: v.CreatorPlayer,
 			Title:         v.Title,
-			PublishedAt:   v.PublishedAt.UTC(),
+			PublishedAt:   v.PublishedAt,
 			ThumbnailUrl:  v.ThumbnailURL,
 		}
 	}

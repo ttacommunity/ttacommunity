@@ -33,7 +33,7 @@ func endpointOut(e store.NotificationEndpoint) NotificationEndpoint {
 	out := NotificationEndpoint{Id: e.ID, Name: e.Name, Kind: NotificationEndpointKind(e.Kind), WebhookId: e.WebhookID(), ChannelId: e.ChannelID, Format: NotificationFormat(e.Format), Events: events, Feeds: feeds, FeedOptions: opts, Prefix: e.Prefix,
 		Paused: e.Paused, Forum: e.Forum, Username: e.Username, AvatarUrl: e.AvatarURL, RoleId: e.RoleID, ThreadId: e.ThreadID, BlitzReminderHours: e.BlitzReminderHours,
 		Colour: e.Look.Colour, Text: FeedItemText(e.Look.Text), Image: e.Look.Image,
-		LastSentAt: inUTC(e.LastSentAt), LastErrorAt: inUTC(e.LastErrorAt)}
+		LastSentAt: e.LastSentAt, LastErrorAt: e.LastErrorAt}
 	if e.LastError != "" {
 		out.LastError = &e.LastError
 	}

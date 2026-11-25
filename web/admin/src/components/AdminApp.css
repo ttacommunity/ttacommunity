@@ -53,6 +53,7 @@
 }
 .settings-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
 }
 .setting {
@@ -64,10 +65,26 @@
   flex: none;
   margin-top: 0.2rem;
 }
-/* A setting chosen from a list puts the list under its label when they do not fit side by side. */
-.setting:has(> select) {
+/* A setting typed in or chosen from a list has its field under its label: a box fills the row beside its button, a list is as wide as its choices. */
+.setting:has(> select),
+.setting:has(> input:not([type='checkbox'])) {
   flex-wrap: wrap;
   align-items: center;
+}
+.setting:has(> select) > label,
+.setting:has(> input:not([type='checkbox'])) > label {
+  flex-basis: 100%;
+}
+.setting > input:not([type='checkbox']) {
+  flex: 1;
+  min-width: 0;
+}
+/* A box for a number is short, as the points boxes are. */
+.setting > input[inputmode] {
+  flex: 0 1 auto;
+}
+.setting > select {
+  max-width: 100%;
 }
 .regulations-text {
   width: 100%;
@@ -168,16 +185,6 @@
   width: 6rem;
 }
 /* A league's divisions: the label above, the box the rest of the line beside its Save. */
-.league-tiers-setting {
-  flex-wrap: wrap;
-}
-.league-tiers-setting label {
-  flex-basis: 100%;
-}
-.league-tiers-input {
-  flex: 1;
-  min-width: 0;
-}
 .runs-actions {
   margin-bottom: 0.75rem;
 }
@@ -295,6 +302,7 @@
 .setting-counts {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 0.5rem 1.25rem;
   margin: 0.25rem 0 0;
   padding: 0;
@@ -302,6 +310,11 @@
 }
 .setting-counts legend {
   margin-bottom: 0.4rem;
+}
+.setting-counts > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 .season-rated {
   color: var(--text-soft);
@@ -363,6 +376,7 @@
 }
 .new-group {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   margin: 0.8rem 0;
   padding: 0.8rem;

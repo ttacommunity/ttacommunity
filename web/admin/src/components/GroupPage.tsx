@@ -7,7 +7,7 @@ import { candidatesFor, groupChange, membersOf } from '../lib/tournament-groups'
 import { opensSettings, settingsHref } from '../lib/tournament-page';
 import MoveButton from './MoveButton';
 import Notice from './Notice';
-import { GROUP_KINDS } from './NewGroupForm';
+import GroupFields from './GroupFields';
 import TournamentTable from './TournamentTable';
 import SaveBar, { SaveStatus } from './SaveBar';
 import { useSave, type Save } from './useSave';
@@ -37,20 +37,7 @@ function GroupSettings({ g, all, saving, onReload }: { g: TournamentBrief; all: 
     >
       {shown && (
         <>
-          <div className="setting">
-            <label htmlFor="group-name">Name</label>{' '}
-            <input className="input-antique" id="group-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="setting">
-            <label htmlFor="group-kind">It holds</label>{' '}
-            <select className="input-antique" id="group-kind" value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
-              {GROUP_KINDS.map((k) => (
-                <option key={k.kind} value={k.kind}>
-                  {k.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <GroupFields name={name} kind={kind} onName={setName} onKind={setKind} />
           <div className="note-box">
             <label htmlFor="group-description">Description</label>
             <textarea className="input-antique" id="group-description" value={description} maxLength={2000} rows={2} onChange={(e) => setDescription(e.target.value)} />

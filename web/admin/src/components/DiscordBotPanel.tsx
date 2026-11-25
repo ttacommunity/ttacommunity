@@ -4,7 +4,6 @@ import type { components } from '@ttac/shared/api';
 import type { Load } from '@ttac/shared/load';
 import { formatInstant, viewerZone } from '@ttac/shared/time';
 import * as req from '../lib/admin-requests';
-import { adminRequest } from '../lib/admin-api';
 import { STATES, commandSettings, registration } from '../lib/discord-bot';
 import { outcomeOf, shownAt, succeeded, type Outcome } from '../lib/outcome';
 import Notice, { Loading } from './Notice';
@@ -23,7 +22,7 @@ export default function DiscordBotPanel() {
   const zone = viewerZone();
   const when = (iso: string) => formatInstant(iso, zone);
   const load = async () => {
-    const r = await adminRequest<Bot>('/api/discord-bot', {});
+    const r = await req.send<Bot>(req.discordBot);
     setBot(r.ok ? { kind: 'ready', data: r.data } : { kind: 'error', message: r.message });
   };
   useEffect(() => {

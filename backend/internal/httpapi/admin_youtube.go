@@ -13,7 +13,7 @@ const onlyAdminsYouTube = "only admins manage the YouTube Live feed"
 
 // youtubeFeedOut is the YouTube feed as the API sends it.
 func youtubeFeedOut(f store.YouTubeFeed) YouTubeFeed {
-	return YouTubeFeed{Id: f.ID, Paused: f.Paused, Channels: f.Channels, Waiting: f.Waiting, Live: f.Live, CreatedAt: f.CreatedAt.UTC()}
+	return YouTubeFeed{Id: f.ID, Paused: f.Paused, Channels: f.Channels, Waiting: f.Waiting, Live: f.Live, CreatedAt: f.CreatedAt}
 }
 
 func (s *server) GetAdminYouTubeFeeds(ctx context.Context, _ GetAdminYouTubeFeedsRequestObject) (GetAdminYouTubeFeedsResponseObject, error) {
@@ -46,7 +46,7 @@ func (s *server) PostAdminYouTubeFeed(ctx context.Context, _ PostAdminYouTubeFee
 	if s.movieHub == nil {
 		return PostAdminYouTubeFeed503JSONResponse{unavailable503("YouTube's push is not set up here: MOVIES_HUB_SECRET is not set")}, nil
 	}
-	f := store.YouTubeFeed{CreatedAt: s.now()}
+	f := store.YouTubeFeed{CreatedAt: s.now().UTC()}
 	err = s.admins.Change(ctx, func(tx Admins) error {
 		var err error
 		if f.ID, err = tx.AddYouTubeFeed(ctx, f.CreatedAt); err != nil {

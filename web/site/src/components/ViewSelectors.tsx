@@ -36,7 +36,8 @@ export default function ViewSelectors({
         <Segmented
           label="Reset mode"
           prefix={<span className="view-bar-label">Reset Mode:</span>}
-          options={show.RESET_MODES.map((m) => ({ value: m.value, label: m.name, tooltip: m.desc }))}
+          fill
+          options={show.RESET_MODES.map((m) => ({ value: m.value, label: m.name, short: m.short, tooltip: m.desc }))}
           value={reset}
           link={linkReset}
         />
@@ -46,6 +47,7 @@ export default function ViewSelectors({
           <Segmented
             label="Rating track"
             prefix={<span className="view-bar-label">Track:</span>}
+            fill
             options={TRACKS.map((t) => ({ value: t.value, label: t.name, tooltip: t.desc }))}
             value={ranking}
             link={linkRanking}

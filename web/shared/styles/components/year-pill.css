@@ -44,3 +44,11 @@
   line-height: 1;
 }
 
+
+/* On a phone, a pill is as tall as a button, to be easy to tap. */
+@media (max-width: 768px) {
+  .year-pill {
+    min-height: var(--control-height);
+    box-sizing: border-box;
+  }
+}
