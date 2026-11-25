@@ -1,7 +1,7 @@
 /** A season's podium, set by hand or removed. */
 import { useState } from 'react';
 import * as req from '../lib/admin-requests';
-import { podiumNoteStart, podiumRequest, podiumStart, type PodiumEntry } from '../lib/podium';
+import { podiumNames, podiumNoteStart, podiumRequest, podiumStart, sharePlace, unsharePlace, type PodiumEntry } from '../lib/podium';
 import { fieldId } from '../lib/tournament-page';
 import { ordinal } from '@ttac/shared/numbers';
 import SaveBar from './SaveBar';
@@ -47,11 +47,19 @@ export default function PodiumBox({
     const body = podiumRequest(names, note);
     if (body === null) return;
     const r = await saving.run(() => req.send(req.setPodium(slug, season, body)), { done: 'Saved. Titles follow at the next run.' });
-    if (r?.ok) await onReload();
+    if (r?.ok) {
+      setNames(podiumNames(body.podium));
+      await onReload();
+    }
   };
   const clear = async () => {
     const r = await saving.run(() => req.send(req.clearPodium(slug, season)), { done: 'Removed. The recorded or derived podium shows again.', working: 'Removing…' });
-    if (r?.ok) await onReload();
+    if (r?.ok) {
+      const fresh = podiumStart([], suggested, suggestedFrom);
+      setNames(fresh.names);
+      setNote(podiumNoteStart('', fresh.origin));
+      await onReload();
+    }
   };
   return (
     <FieldGroup
@@ -63,9 +71,23 @@ export default function PodiumBox({
     >
       <div className="podium-places">
         {PLACES.map((label, i) => (
-          <PeoplePick key={label} label={label} value={names[i]} choices={playerChoices} placeholder=""
-            onChange={(text) => setNames(names.map((n, j) => (j === i ? text : n)))}
-          />
+          <div key={label} className="podium-place">
+            {names[i].map((name, k) => (
+              <div key={k} className="podium-name">
+                <PeoplePick label={k === 0 ? label : `${label}, shared`} value={name} choices={playerChoices} placeholder=""
+                  onChange={(text) => setNames(names.map((ns, j) => (j === i ? ns.map((n, m) => (m === k ? text : n)) : ns)))}
+                />
+                {k > 0 && (
+                  <button type="button" className="btn-icon btn-compact" aria-label={`Remove this shared ${label}`} onClick={() => setNames(unsharePlace(names, i, k))}>
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" className="btn-quiet btn-compact" onClick={() => setNames(sharePlace(names, i))}>
+              Shared {label}
+            </button>
+          </div>
         ))}
         <label className="podium-note">
           Why, or where it comes from

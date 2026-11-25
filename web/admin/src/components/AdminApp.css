@@ -227,7 +227,21 @@
 .podium-places {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.5rem 0.75rem;
+}
+.podium-place {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  justify-items: start;
+}
+.podium-name {
+  display: flex;
+  gap: 0.25rem;
+}
+.podium-name > button {
+  align-self: flex-end;
 }
 .podium-places label {
   display: grid;

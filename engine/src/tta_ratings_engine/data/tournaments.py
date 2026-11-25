@@ -346,25 +346,31 @@ def _points_among(games, among) -> dict[Player, float]:
     return points
 
 
-def _duel_order(t, games, playoffs):
+def _duel_order(t, games, playoffs, consulted=None):
     """Returns a Royal League group's places, each its players, by the league's rule: points, then the points from
     the games among the tied players, again for each smaller set still tied, then their playoff games. Players still
-    level share a place, in name order. A playoff splits a tie only when every tied player played in it."""
+    level share a place, in name order. A playoff splits a tie only when every tied player played in it. The indices
+    of the playoffs a tie went to are added to consulted, when given."""
 
     def split(tied):
         if len(tied) == 1:
             return [tied]
         among = set(tied)
-        played = {
-            s.player
-            for seats in playoffs
+        parts = _by_points(tied, _points_among(games, among))
+        if len(parts) > 1:
+            return [place for part in parts for place in split(part)]
+        within = [
+            i
+            for i, seats in enumerate(playoffs)
             if all(s.player in among for s in seats)
-            for s in seats
-        }
-        for source in (games, playoffs if played == among else []):
-            parts = _by_points(tied, _points_among(source, among))
-            if len(parts) > 1:
-                return [place for part in parts for place in split(part)]
+        ]
+        if {s.player for i in within for s in playoffs[i]} != among:
+            return [tied]
+        if consulted is not None:
+            consulted.update(within)
+        parts = _by_points(tied, _points_among([playoffs[i] for i in within], among))
+        if len(parts) > 1:
+            return [place for part in parts for place in split(part)]
         return [tied]
 
     return [
@@ -372,6 +378,33 @@ def _duel_order(t, games, playoffs):
         for level in _by_points(t["points"], t["points"])
         for place in split(level)
     ]
+
+
+def stray_playoffs(
+    games: list[list[Seat]], playoffs: Sequence[list[Seat]]
+) -> list[tuple[int, str]]:
+    """Returns the Royal League playoffs, as (index in playoffs, reason), whose players all played in this group
+    but which split no tie in it. The reason is not_level (not level on points), not_all_tied (some of the tied
+    players did not play it) or already_split (the games among them split them first)."""
+    t = _tally(games)
+    consulted: set[int] = set()
+    place_of = {
+        p: at
+        for at, place in enumerate(_duel_order(t, games, playoffs, consulted))
+        for p in place
+    }
+    stray = []
+    for i, seats in enumerate(playoffs):
+        players = {s.player for s in seats}
+        if i in consulted or not players <= place_of.keys():
+            continue
+        if len({t["points"][p] for p in players}) > 1:
+            stray.append((i, "not_level"))
+        elif len({place_of[p] for p in players}) == 1:
+            stray.append((i, "not_all_tied"))
+        else:
+            stray.append((i, "already_split"))
+    return stray
 
 
 def rank_group(
@@ -657,6 +690,39 @@ def _worlds_podiums(conn, run_id, official, standing_rows, final, worlds):
         ]
 
 
+def _admin_league_podiums(conn, official, derived, rules):
+    """Puts each league season's podium set in admin into official, over its recorded placements: in the season's top
+    division, each player with their points in its standings. Players set in admin on one place share it."""
+    leagues = [s for s, r in rules.items() if r.podium == "top_divisions"]
+    set_in_admin = defaultdict(list)
+    for r in conn.execute(
+        "SELECT o.tournament AS series, o.season::int AS season, o.place, o.player_id, p.name "
+        "FROM tournament_podium_overrides o JOIN players p USING (player_id) "
+        "WHERE o.tournament = ANY(%s) AND o.season ~ '^[0-9]+$' ORDER BY o.place, p.name",
+        (leagues,),
+    ).fetchall():
+        set_in_admin[(r["series"], r["season"])].append(r)
+    for (series, season), placed in set_in_admin.items():
+        top = rules[series].top_divisions
+        held = [
+            k
+            for k in {**derived, **official}
+            if k[:2] == (series, season) and k[2] in top
+        ]
+        division = min(k[2] for k in held) if held else min(top)
+        for k in held:
+            official.pop(k, None)
+        points = {
+            s["player"]: s["points"]
+            for s in derived.get((series, season, division), [])
+        }
+        official[(series, season, division)] = [
+            {"series": series, "season": season, "division": division, "place": r["place"],
+             "player": (p := Player(r["name"], r["player_id"])), "points": points.get(p)}
+            for r in placed
+        ]  # fmt: skip
+
+
 def _board_rows(run_id, boards):
     """Returns board rows to insert, each board numbered in its given order."""
     return [
@@ -749,11 +815,12 @@ def _finish_dates(classified, by_id, in_progress, recorded_dates):
 
 def _groups_and_records(classified, by_id, rules, in_progress):
     """Returns each group's games' seats, by (series, season, division, group), each series' games
-    that count for its seasonal records (finished seasons, no tiebreaks), and each season's playoff games' seats,
-    by (series, season)."""
+    that count for its seasonal records (finished seasons, no tiebreaks), and each season's playoff games' seats
+    and their match ids, by (series, season)."""
     groups = defaultdict(list)
     records = defaultdict(list)
     playoffs = defaultdict(list)
+    playoff_ids = defaultdict(list)
     for g in classified:
         r = by_id[g["match_id"]]
         if (
@@ -769,7 +836,8 @@ def _groups_and_records(classified, by_id, rules, in_progress):
             groups[key].append(seats_of(r))
         if g["tiebreak"] and g["season"] is not None:
             playoffs[(g["series"], g["season"])].append(seats_of(r))
-    return groups, records, playoffs
+            playoff_ids[(g["series"], g["season"])].append(g["match_id"])
+    return groups, records, playoffs, playoff_ids
 
 
 def _standings(run_id, groups, playoffs, rules, in_progress):
@@ -811,12 +879,35 @@ def _boards(conn, rows, finished, official, rules, worlds):
     return boards
 
 
-def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
+STRAY_REASONS = {
+    "not_level": "its players are not level on points",
+    "not_all_tied": "some of the tied players did not play it",
+    "already_split": "the games among its players already split them",
+}
+
+
+def _log_stray_playoffs(groups, playoffs, playoff_ids, rules, log):
+    """Logs, by match id and never by player, each Royal League playoff of one group that splits no tie in it."""
+    for (series, season, _, group), games in sorted(
+        groups.items(), key=lambda kv: tuple(str(k) for k in kv[0])
+    ):
+        if not rules[series].duel:
+            continue
+        for i, reason in stray_playoffs(games, playoffs[(series, season)]):
+            log(
+                f"{series} season {season}, {group}: playoff game {playoff_ids[(series, season)][i]} "
+                f"splits no tie: {STRAY_REASONS[reason]}"
+            )
+
+
+def derive_tournaments(
+    *, conn: DictConnection, run_id: int, log: Callable[[str], None] = print
+) -> None:
     """Replaces the run's tournament games, standings, boards, seasonal records
     and each player's achievements and records.
 
     In one committed transaction. Raises RunNotRunning unless the run is running, and SeriesRulesMissing
-    when a series has no settings to score it with.
+    when a series has no settings to score it with. log takes each line reporting a playoff that splits no tie.
     """
     with conn.transaction():
         require_running(conn, run_id)
@@ -831,9 +922,10 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             facts.dates,
         )
         dates = _finish_dates(classified, by_id, in_progress, facts.dates)
-        groups, records, playoffs = _groups_and_records(
+        groups, records, playoffs, playoff_ids = _groups_and_records(
             classified, by_id, rules, in_progress
         )
+        _log_stray_playoffs(groups, playoffs, playoff_ids, rules, log)
         standing_rows, derived = _standings(
             run_id, groups, playoffs, rules, in_progress
         )
@@ -843,6 +935,7 @@ def derive_tournaments(*, conn: DictConnection, run_id: int) -> None:
             for k, v in derived.items()
             if k[:2] not in in_progress and rules[k[0]].podium == "top_divisions"
         }
+        _admin_league_podiums(conn, official, derived, rules)
         worlds = holder(conn, "worlds")
         _worlds_podiums(conn, run_id, official, standing_rows, final, worlds)
         for k in [k for k in official if rules[k[0]].podium == "none"]:
