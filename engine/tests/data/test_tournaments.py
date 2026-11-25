@@ -14,6 +14,7 @@ from tta_ratings_engine.data.tournaments import (
     parse_international,
     parse_royal_league,
     rank_group,
+    stray_playoffs,
 )
 
 
@@ -319,6 +320,70 @@ def test_royal_league_ties_go_to_the_games_among_the_tied_then_their_playoffs(
     got = rank_group(games, SERIES["royal_league"], playoffs)
 
     assert [(r["player"], r["place"]) for r in got] == want
+
+
+@pytest.mark.parametrize(
+    ("games", "playoffs", "want"),
+    [
+        pytest.param(
+            [beat("ann", "bob"), beat("ann", "cat"), beat("bob", "cat")],
+            [beat("cat", "bob")],
+            [(0, "not_level")],
+            id="a playoff among players not level on points",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), drew("ann", "cat"), drew("bob", "cat")],
+            [beat("bob", "cat")],
+            [(0, "not_all_tied")],
+            id="a playoff some of the tied players did not play",
+        ),
+        pytest.param(
+            [beat("ann", "bob"), beat("bob", "cat")],
+            [beat("bob", "ann")],
+            [(0, "already_split")],
+            id="a playoff between players the games among them already split",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), beat("ann", "cat"), beat("bob", "cat")],
+            [beat("bob", "ann")],
+            [],
+            id="a playoff that splits a tie",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), drew("ann", "cat"), drew("bob", "cat")],
+            [drew("ann", "bob"), drew("ann", "cat"), drew("bob", "cat")],
+            [],
+            id="a playoff every tied player played, though it leaves them level",
+        ),
+        pytest.param(
+            [drew("ann", "bob"), beat("ann", "cat"), beat("bob", "cat")],
+            [beat("ann", "zed")],
+            [],
+            id="a playoff across groups",
+        ),
+    ],
+)
+def test_stray_playoffs_are_those_of_the_group_that_split_no_tie(games, playoffs, want):
+    assert stray_playoffs(games, playoffs) == want
+
+
+def test_derive_logs_a_playoff_that_splits_no_tie_without_naming_its_players(
+    conn, add_match, run_id
+):
+    group = "Marquess 5"
+    add_match(("ann", 90), ("bob", 90), tournament=rl(1, 1, group))
+    add_match(("ann", 90), ("cat", 90), tournament=rl(2, 1, group))
+    add_match(("bob", 90), ("cat", 90), tournament=rl(3, 1, group))
+    stray = add_match(
+        ("bob", 300), ("cat", 80), tournament=f"RL_tb_s01 - {group} pl.1-3 game 1"
+    )
+    logged: list[str] = []
+
+    derive_tournaments(conn=conn, run_id=run_id, log=logged.append)
+
+    assert len(logged) == 1, logged
+    assert str(stray) in logged[0], logged
+    assert not any(name in logged[0] for name in ("ann", "bob", "cat")), logged
 
 
 def test_a_final_tie_the_rules_cannot_split_gives_no_podium():
