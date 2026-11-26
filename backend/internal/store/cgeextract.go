@@ -213,8 +213,8 @@ func completeGames(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract
 }
 
 // planRemoved finds our games the changes file removes: of a session it removes and has no row of, not of a season
-// run on this site (here), and matched to none of the extract's games. With a full extract it lists in Missing our
-// games of a tournament it holds that it lacks, which are kept.
+// run on this site (here), matched to none of the extract's games, and not changed in admin. With a full extract it
+// lists in Missing our games of a tournament it holds that it lacks, which are kept.
 func planRemoved(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, here []int, plan *CGEPlan) error {
 	present, removed := map[int]bool{}, map[int]bool{}
 	for _, s := range x.Seats {
@@ -232,7 +232,7 @@ func planRemoved(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, 
 		tournaments = []int{}
 	}
 	rows, err := pool.Query(ctx, `
-		SELECT g.game_id, g.state = 'played', g.cge_session = ANY($2) FROM games g
+		SELECT g.game_id, g.state = 'played', g.cge_session = ANY($2), `+changedInAdmin("g.game_id")+` FROM games g
 		JOIN groups gr USING (group_id) JOIN stages st USING (stage_id) JOIN tournaments t USING (tournament_id)
 		WHERE g.cge_session IS NOT NULL AND NOT t.run_here AND NOT coalesce(gr.cge_tournament, st.cge_tournament) = ANY($4)
 		  AND (g.cge_session = ANY($2) OR coalesce(gr.cge_tournament, st.cge_tournament) = ANY($3))
@@ -243,10 +243,10 @@ func planRemoved(ctx context.Context, pool *pgxpool.Pool, x cgeextract.Extract, 
 		return err
 	}
 	var id int64
-	var played, gone bool
-	_, err = pgx.ForEachRow(rows, []any{&id, &played, &gone}, func() error {
+	var played, gone, changed bool
+	_, err = pgx.ForEachRow(rows, []any{&id, &played, &gone, &changed}, func() error {
 		switch _, matched := plan.Matching.Matched[id]; {
-		case matched:
+		case matched, changed:
 		case gone:
 			plan.Removed = append(plan.Removed, id)
 			if played {

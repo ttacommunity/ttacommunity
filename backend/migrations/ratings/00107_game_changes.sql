@@ -26,7 +26,8 @@ GRANT SELECT ON game_changes TO ratings_backup;
 
 -- +goose StatementBegin
 -- undo_game_change undoes a change: the game it added is deleted with its rows in every run, and the game it removed
--- or replaced gets back its earlier state. A game added and since changed again is refused (that change first).
+-- or replaced gets back its earlier state. Refused when the game it added has been changed again (that change first)
+-- or matched by an extract since, which would add it back.
 CREATE FUNCTION undo_game_change(id bigint) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path TO public, pg_temp
@@ -41,7 +42,10 @@ BEGIN
         RAISE EXCEPTION 'no game change %', id USING ERRCODE = 'no_data_found';
     END IF;
     IF c.added_game_id IS NOT NULL THEN
-        SELECT g.batch_id, g.group_id INTO batch, grp FROM games g WHERE g.game_id = c.added_game_id;
+        SELECT g.batch_id, g.group_id INTO batch, grp FROM games g WHERE g.game_id = c.added_game_id AND g.cge_session IS NULL;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'an extract has matched game %', c.added_game_id USING ERRCODE = 'object_in_use';
+        END IF;
         DELETE FROM tournament_games WHERE match_id = c.added_game_id;
         DELETE FROM pairwise_matches WHERE match_id = c.added_game_id;
         DELETE FROM games WHERE game_id = c.added_game_id;

@@ -41,6 +41,9 @@ var ErrBadGameEntry = errors.New("a game needs a code, a date and 2 to 4 differe
 // ErrNoGameChange means no change has that id.
 var ErrNoGameChange = errors.New("no such game change")
 
+// ErrAddedGameLoaded means a CGE extract has since matched the game the change added: undone, the next load would add it back.
+var ErrAddedGameLoaded = errors.New("a CGE extract has matched the game it added since, so the next load would add it back")
+
 // ErrChangedSince means the game a change added has since been changed: that change is undone first.
 var ErrChangedSince = errors.New("the game it added has been changed since: undo that change first")
 
@@ -189,6 +192,8 @@ func (a *AdminStore) UndoGameChange(ctx context.Context, id int64) error {
 	switch {
 	case errors.As(err, &pg) && pg.Code == "P0002":
 		return ErrNoGameChange
+	case errors.As(err, &pg) && pg.Code == "55006":
+		return ErrAddedGameLoaded
 	case errors.As(err, &pg) && pg.ConstraintName == "game_changes_game_id_fkey":
 		return ErrChangedSince
 	case errors.As(err, &pg) && pg.ConstraintName == "games_group_number":
@@ -317,4 +322,14 @@ func insertChange(ctx context.Context, tx pgx.Tx, action string, game *int64, ea
 	err := tx.QueryRow(ctx, `INSERT INTO game_changes (action, game_id, earlier_state, added_game_id, reason)
 		VALUES ($1, $2, $3, $4, $5) RETURNING change_id`, action, game, earlier, added, reason).Scan(&id)
 	return id, err
+}
+
+// addedInAdmin is SQL true when the game named by column (such as "g.game_id") was added by a change in admin.
+func addedInAdmin(column string) string {
+	return "EXISTS (SELECT FROM game_changes c WHERE c.added_game_id = " + column + ")"
+}
+
+// changedInAdmin is SQL true when a change in admin names the game in column: added, removed or replaced.
+func changedInAdmin(column string) string {
+	return "EXISTS (SELECT FROM game_changes c WHERE " + column + " IN (c.game_id, c.added_game_id))"
 }

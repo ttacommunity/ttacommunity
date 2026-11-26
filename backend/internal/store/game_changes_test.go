@@ -5,11 +5,14 @@ package store
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
+
+	"ttacommunity/backend/internal/cgeextract"
 )
 
 // changeFixture is a group of two played games, coded AAAAAAAA and BBBBBBBB, and the players a new game seats.
@@ -234,6 +237,59 @@ func TestChangedGamesAreNotCountedAsNeverPlayed(t *testing.T) {
 	}
 	if d.Games != 1 || d.NeverPlayed != 0 {
 		t.Errorf("summary = %d played, %d never played; want 1 played (the replacement), 0 never played", d.Games, d.NeverPlayed)
+	}
+}
+
+func TestApplyCGEExtractKeepsWhatAdminChanged(t *testing.T) {
+	ctx := context.Background()
+	pool := migrated(t)
+	placedOn(t, pool, map[string]time.Time{"Intermezzo S24 - Bronze 1 game 1": day("2024-01-02"), "Intermezzo S24 - Bronze 1 game 2": day("2024-01-09")})
+	setSeats(t, pool, "%game 1", Seat{"ann", 200}, Seat{"bob", 150})
+	setSeats(t, pool, "%game 2", Seat{"cy", 120}, Seat{"dee", 90})
+	setShareCode(t, pool, "Intermezzo S24 - Bronze 1 game 1", "CODEAAAA")
+	setShareCode(t, pool, "Intermezzo S24 - Bronze 1 game 2", "CODEBBBB")
+	a := NewAdminStore(asAdminLogin(t, pool))
+	entry := GameEntry{Code: "CODENEWW", Date: day("2024-01-05"), Seats: []GameSeatEntry{
+		{Player: "ann", Place: 1, Outcome: "finished", Score: 180}, {Player: "bob", Place: 2, Outcome: "finished", Score: 170}}}
+	replaced, err := a.ReplaceGame(ctx, "CODEAAAA", entry, "Timed out")
+	if err != nil {
+		t.Fatalf("ReplaceGame: %v", err)
+	}
+	if _, err := a.RemoveGame(ctx, "CODEBBBB", "Not a tournament game"); err != nil {
+		t.Fatalf("RemoveGame: %v", err)
+	}
+
+	cancelled := extractOf(19, 100, "CODEAAAA", cgeGone(1, "ann"), cgeGone(2, "bob"))
+	for i := range cancelled {
+		cancelled[i].State = "cancelled"
+	}
+	other := extractOf(19, 102, "CODENEWW", cgeDone(1, "ann", 1, 180), cgeDone(2, "bob", 2, 170))
+	for i := range other {
+		other[i].GroupID, other[i].GroupName = 72, "Bronze 3"
+	}
+	kept := extractOf(19, 101, "CODEBBBB", cgeDone(3, "cy", 1, 120), cgeDone(4, "dee", 2, 90))
+	tournaments := map[int]cgeextract.Tournament{19: {ID: 19, Name: "Intermezzo Championship"}}
+	for _, x := range []cgeextract.Extract{
+		{Seats: slices.Concat(cancelled, other, kept), Tournaments: tournaments},
+		{Seats: kept, Removed: slices.Concat(cancelled, other), Tournaments: tournaments},
+	} {
+		plan, err := PlanCGEExtract(ctx, pool, x, nil)
+		if err != nil {
+			t.Fatalf("PlanCGEExtract: %v", err)
+		}
+		if _, err := ApplyCGEExtract(ctx, pool, plan, CGEInput{Extract: x}); err != nil {
+			t.Fatalf("ApplyCGEExtract: %v", err)
+		}
+	}
+
+	got := rowsOf(t, pool, `SELECT g.share_code || ' ' || g.state || ' ' || coalesce(gr.name, '-') || ' ' || coalesce(gr.cge_group::text, '-')
+		FROM games g LEFT JOIN groups gr USING (group_id) ORDER BY 1`)
+	want := []string{"CODEAAAA replaced Bronze 1 70", "CODEBBBB removed Bronze 1 70", "CODENEWW played Bronze 1 70"}
+	if !slices.Equal(got, want) {
+		t.Errorf("games = %q, want %q: each change kept, the replacement in its original's group, nothing CGE removed deleted", got, want)
+	}
+	if err := a.UndoGameChange(ctx, replaced); !errors.Is(err, ErrAddedGameLoaded) {
+		t.Errorf("UndoGameChange of a replacement an extract has matched = %v, want %v", err, ErrAddedGameLoaded)
 	}
 }
 
