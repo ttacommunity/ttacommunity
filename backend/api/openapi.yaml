@@ -985,8 +985,8 @@ paths:
       tags: [tournaments]
       summary: One page of a tournament's games
       description: |
-        The tournament's games, newest first, 50 to a page, never-played ones
-        included and marked. Narrowed by season, stage and group (as the
+        The tournament's games, newest first, 50 to a page, never-played,
+        removed and replaced ones included and marked. Narrowed by season, stage and group (as the
         catalogue labels them; an empty value does not narrow), and to games
         with a replay code. A page past the last gives the last. A hidden
         tournament is not found. Cached for five minutes.
@@ -10003,9 +10003,9 @@ components:
       type: string
       enum: [top_divisions, final_stage, recorded, none]
     GameState:
-      description: A game's state
+      description: A game's state. Removed and replaced games are kept in admin and never rated
       type: string
-      enum: [played, never_played, unconfirmed, running, prepared]
+      enum: [played, never_played, unconfirmed, running, prepared, replaced, removed]
     SeatTier:
       description: A seat analysis' group of players, by rating
       type: string

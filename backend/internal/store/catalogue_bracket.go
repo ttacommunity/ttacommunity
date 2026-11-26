@@ -32,7 +32,7 @@ type BracketRound struct {
 
 // BracketGroup is one group of a round. Number is n for a group named "group n", else its place in the round; State
 // is its game's (played, running, prepared, never_played or unconfirmed), the least advanced where it has several, never-played
-// games aside unless all are.
+// games aside unless all are; removed and replaced games are left out.
 type BracketGroup struct {
 	Name   string
 	Number int
@@ -89,7 +89,7 @@ func (r *RatingsReader) SeasonBracket(ctx context.Context, run int64, slug, seas
 		JOIN stages st USING (stage_id)
 		JOIN tournaments s ON s.tournament_id = st.tournament_id
 		JOIN series t ON t.series_id = s.series_id
-		WHERE t.slug = $1 AND s.label = $2 AND `+shownAsBracket+`
+		WHERE t.slug = $1 AND s.label = $2 AND `+shownAsBracket+` AND m.state NOT IN ('replaced', 'removed')
 		  AND (t.visible OR EXISTS (SELECT 1 FROM ranking_series rt WHERE rt.series_id = t.series_id))
 		ORDER BY min(m.date) OVER (PARTITION BY st.stage_id), st.label, m.game_number NULLS LAST, m.game_id`, slug, season)
 	if err != nil {

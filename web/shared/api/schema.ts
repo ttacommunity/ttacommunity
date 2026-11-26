@@ -688,8 +688,8 @@ export interface paths {
         };
         /**
          * One page of a tournament's games
-         * @description The tournament's games, newest first, 50 to a page, never-played ones
-         *     included and marked. Narrowed by season, stage and group (as the
+         * @description The tournament's games, newest first, 50 to a page, never-played,
+         *     removed and replaced ones included and marked. Narrowed by season, stage and group (as the
          *     catalogue labels them; an empty value does not narrow), and to games
          *     with a replay code. A page past the last gives the last. A hidden
          *     tournament is not found. Cached for five minutes.
@@ -6139,10 +6139,10 @@ export interface components {
          */
         PodiumSource: "top_divisions" | "final_stage" | "recorded" | "none";
         /**
-         * @description A game's state
+         * @description A game's state. Removed and replaced games are kept in admin and never rated
          * @enum {string}
          */
-        GameState: "played" | "never_played" | "unconfirmed" | "running" | "prepared";
+        GameState: "played" | "never_played" | "unconfirmed" | "running" | "prepared" | "replaced" | "removed";
         /**
          * @description A seat analysis' group of players, by rating
          * @enum {string}
@@ -14295,7 +14295,7 @@ export const entrantStatusValues: ReadonlyArray<FlattenedDeepRequired<components
 export const roundKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RoundKind"]> = ["swiss", "knockout"];
 export const ranksFixedByValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RanksFixedBy"]> = ["rating", "lot"];
 export const podiumSourceValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["PodiumSource"]> = ["top_divisions", "final_stage", "recorded", "none"];
-export const gameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameState"]> = ["played", "never_played", "unconfirmed", "running", "prepared"];
+export const gameStateValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameState"]> = ["played", "never_played", "unconfirmed", "running", "prepared", "replaced", "removed"];
 export const seatTierValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["SeatTier"]> = ["all", "grandmaster", "master", "advanced", "intermediate", "beginner"];
 export const matchSideValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MatchSide"]> = ["a", "b"];
 export const requestStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["RequestStatus"]> = ["pending", "approved", "refused"];

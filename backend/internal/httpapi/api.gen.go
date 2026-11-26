@@ -627,6 +627,8 @@ const (
 	GameStateNeverPlayed GameState = "never_played"
 	GameStatePlayed      GameState = "played"
 	GameStatePrepared    GameState = "prepared"
+	GameStateRemoved     GameState = "removed"
+	GameStateReplaced    GameState = "replaced"
 	GameStateRunning     GameState = "running"
 	GameStateUnconfirmed GameState = "unconfirmed"
 )
@@ -639,6 +641,10 @@ func (e GameState) Valid() bool {
 	case GameStatePlayed:
 		return true
 	case GameStatePrepared:
+		return true
+	case GameStateRemoved:
+		return true
+	case GameStateReplaced:
 		return true
 	case GameStateRunning:
 		return true
@@ -4007,7 +4013,7 @@ type GameSpan struct {
 	Players   int                `json:"players"`
 }
 
-// GameState A game's state
+// GameState A game's state. Removed and replaced games are kept in admin and never rated
 type GameState string
 
 // HallOfFame defines model for HallOfFame.

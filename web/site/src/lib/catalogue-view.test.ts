@@ -145,6 +145,8 @@ describe('gameStateLabel', () => {
     ['a rated game, unmarked', 'played', true, ''],
     ['a game never played', 'never_played', false, 'Never played'],
     ['an unconfirmed result', 'unconfirmed', false, 'Unconfirmed result, not rated'],
+    ['a game replaced by another', 'replaced', false, 'Replaced, not rated'],
+    ['a game removed in admin', 'removed', false, 'Removed, not rated'],
     ['a played game its tournament, season or player count leaves unrated', 'played', false, 'Not rated'],
   ])('labels %s', (_name, state, rated, want) => {
     expect(gameStateLabel(state, rated)).toBe(want);

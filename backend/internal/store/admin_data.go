@@ -28,7 +28,7 @@ func (a *AdminStore) DataSummary(ctx context.Context) (DataSummary, error) {
 	var d DataSummary
 	err := a.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE state = 'played'),
-		       count(*) FILTER (WHERE state <> 'played'),
+		       count(*) FILTER (WHERE state NOT IN ('played', 'replaced', 'removed')),
 		       count(*) FILTER (WHERE group_id IS NULL),
 		       (SELECT count(*) FROM players),
 		       max(date) FILTER (WHERE state = 'played'),
