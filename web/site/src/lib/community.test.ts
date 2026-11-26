@@ -95,9 +95,20 @@ describe('editionFacts', () => {
 
   it("lists each tier with its own columns and points", () => {
     const tiers = editionFacts(sampleLayout).lines;
-    expect(tiers[0]).toEqual({ name: 'World Championship', codes: 'wrld', maxPts: count(2500), each: false });
-    expect(tiers[1]).toEqual({ name: 'International Championship', codes: 'ic_24–27', maxPts: count(1000), each: true });
-    expect(tiers[2]).toEqual({ name: 'Invitational Cups', codes: 'eif, qd', maxPts: `600–${count(1000)}`, each: true });
+    expect(tiers[0]).toEqual({ name: 'World Championship', events: '', maxPts: count(2500), each: false });
+    expect(tiers[1]).toEqual({ name: 'International Championship', events: 'seasons 24–27', maxPts: count(1000), each: true });
+    expect(tiers[2]).toEqual({ name: 'Invitational Cups', events: 'Eiffel, Quick Draw', maxPts: `600–${count(1000)}`, each: true });
+  });
+
+  it.each([
+    ['nothing for one event named as its tier', 'Royal League', [['rl', 'Royal League']], ''],
+    ['one season', 'Royal League', [['rl_05', 'Royal League Season 5']], 'season 5'],
+    ['a run of seasons', 'Royal League', [['rl_05', 'R5'], ['rl_06', 'R6'], ['rl_08', 'R8']], 'seasons 5–8'],
+    ['named events by name', 'Ladders', [['sl', 'Sodium Ladder'], ['ml', 'Mercurial Ladder']], 'Sodium Ladder, Mercurial Ladder'],
+  ] as const)('names a tier’s events: %s', (_name, category, cols, want) => {
+    const columns = cols.map(([id, name]) => ({ id, name, short: id, max_pts: 1000 }));
+    const layout = { ...sampleLayout, categories: [{ category, badge_class: 'b', columns }] };
+    expect(editionFacts(layout).lines[0]?.events).toBe(want);
   });
 
   it('gives no maximum for a tier with a column whose maximum is unknown', () => {

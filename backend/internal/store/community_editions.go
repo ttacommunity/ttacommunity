@@ -309,7 +309,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-gm",
 			prefix:     "ic",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("International Season %s", s), fmt.Sprintf("IC %s", s), ""
 			},
 		},
@@ -318,7 +318,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-m",
 			prefix:     "im",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("Intermezzo Season %s", s), fmt.Sprintf("IM %s", s), ""
 			},
 		},
@@ -327,7 +327,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-p",
 			prefix:     "rl",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("Royal League Season %s", s), fmt.Sprintf("RL %s", s), ""
 			},
 		},
@@ -554,6 +554,15 @@ func codeMatches(code, event string) bool {
 	season, ok := strings.CutPrefix(event, prefix+"_")
 	_, err := strconv.Atoi(season)
 	return ok && season != "" && err == nil
+}
+
+// seasonNumber is the season in an event code such as "rl_05", without leading zeros ("5").
+func seasonNumber(code string) string {
+	_, s, _ := strings.Cut(code, "_")
+	if n, err := strconv.Atoi(s); err == nil {
+		return strconv.Itoa(n)
+	}
+	return s
 }
 
 func formatRangeDesc(prefix string, cols []string) string {

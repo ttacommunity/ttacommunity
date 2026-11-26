@@ -76,12 +76,17 @@ export function titleMark(row: CommunityRow, wcName = ''): CommunityRow['title']
   return row.title;
 }
 
-/** codesOf writes a tier's column codes: a run of one series' seasons as "ic_24–27", others listed. */
-function codesOf(ids: string[]): string {
-  const parts = ids.map((id) => /^([a-z]+)_(\d+)$/.exec(id));
-  const series = parts[0]?.[1];
-  if (ids.length > 1 && parts.every((m) => m !== null && m[1] === series)) return `${ids[0]}–${parts.at(-1)?.[2]}`;
-  return ids.join(', ');
+/** eventsOf names a tier's events: one series' seasons as "seasons 24–27", others by name, and nothing for a
+ * single event named as its tier. */
+function eventsOf(category: string, columns: Pick<EventColumn, 'id' | 'name'>[]): string {
+  const seasons = columns.map((c) => /^([a-z]+)_(\d+)$/.exec(c.id));
+  const series = seasons[0]?.[1];
+  if (seasons.every((m) => m !== null && m[1] === series)) {
+    const [first, last] = [Number(seasons[0]?.[2]), Number(seasons.at(-1)?.[2])];
+    return first === last ? `season ${first}` : `seasons ${first}–${last}`;
+  }
+  if (columns.length === 1 && columns[0]?.name === category) return '';
+  return columns.map((c) => c.name).join(', ');
 }
 
 /** columnTitle names an event's column, with the most points it gives when that is known. */
@@ -108,7 +113,7 @@ export function editionFacts(data: Pick<CommunityLeaderboard, 'categories' | 'su
       const [lo, hi] = [Math.min(...known), Math.max(...known)];
       return {
         name: c.category,
-        codes: codesOf(c.columns.map((x) => x.id)),
+        events: eventsOf(c.category, c.columns),
         maxPts: known.length < max.length ? null : lo === hi ? count(hi) : `${count(lo)}–${count(hi)}`,
         each: c.columns.length > 1,
       };

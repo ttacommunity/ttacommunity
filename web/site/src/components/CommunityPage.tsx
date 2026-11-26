@@ -150,9 +150,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
         <ul>
           {facts.lines.map((t) => (
             <li key={t.name}>
-              <strong>
-                {t.name} (<code>{t.codes}</code>)
-              </strong>
+              <strong>{t.name}</strong>
+              {t.events && ` – ${t.events}`}
               {t.maxPts !== null && `: ${t.maxPts} pts max${t.each ? ' each' : ''}`}
             </li>
           ))}
