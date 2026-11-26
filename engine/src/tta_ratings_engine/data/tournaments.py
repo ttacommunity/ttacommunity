@@ -539,6 +539,18 @@ def seasons_in_progress(unplayed, series_rules, dates) -> set[tuple[str, int]]:
     }
 
 
+def podiums_pending(unplayed, series_rules, dates) -> set[tuple[str, int]]:
+    """Returns the seasons_in_progress whose podium can still change: a game left in a top division, or in a
+    playoff naming no division."""
+    deciding = [
+        g
+        for g in unplayed
+        if g["division"] in series_rules[g["series"]].top_divisions
+        or (g["tiebreak"] and g["division"] is None)
+    ]
+    return seasons_in_progress(deciding, series_rules, dates)
+
+
 def season_records(rows, rules: Series):
     """Returns the premier seasonal records: one per player and season.
 
@@ -813,9 +825,9 @@ def _finish_dates(classified, by_id, in_progress, recorded_dates):
     return dates
 
 
-def _groups_and_records(classified, by_id, rules, in_progress):
+def _groups_and_records(classified, by_id, rules, pending):
     """Returns each group's games' seats, by (series, season, division, group), each series' games
-    that count for its seasonal records (finished seasons, no tiebreaks), and each season's playoff games' seats
+    that count for its seasonal records (seasons whose podium is decided, no tiebreaks), and each season's playoff games' seats
     and their match ids, by (series, season)."""
     groups = defaultdict(list)
     records = defaultdict(list)
@@ -828,7 +840,7 @@ def _groups_and_records(classified, by_id, rules, in_progress):
             and g["season"] is not None
             and not g["tiebreak"]
             and rules[g["series"]].season_records
-            and (g["series"], g["season"]) not in in_progress
+            and (g["series"], g["season"]) not in pending
         ):
             records[g["series"]].append({**r, **g})
         if g["division"] is not None and not g["tiebreak"]:
@@ -840,16 +852,16 @@ def _groups_and_records(classified, by_id, rules, in_progress):
     return groups, records, playoffs, playoff_ids
 
 
-def _standings(run_id, groups, playoffs, rules, in_progress):
+def _standings(run_id, groups, playoffs, rules, pending):
     """Returns each group's standing rows to insert, its ties split by its season's playoffs, each saying if its
-    season is finished (not in in_progress), and the standings by (series, season, division)."""
+    season's podium is decided (not in pending), and the standings by (series, season, division)."""
     standing_rows = []
     derived = defaultdict(list)
     for (series, season, division, group), games in groups.items():
         for s in rank_group(games, rules[series], playoffs[(series, season)]):
             standing_rows.append(
                 (run_id, series, season, division, group, s["player"],
-                 s["place"], s["points"], s["games"], s["placings"], (series, season) not in in_progress)
+                 s["place"], s["points"], s["games"], s["placings"], (series, season) not in pending)
             )  # fmt: skip
             derived[(series, season, division)].append(s)
     return standing_rows, derived
@@ -916,24 +928,20 @@ def derive_tournaments(
         rows, official = facts.rows, facts.official
         classified = classify(rows, facts.recorded, facts.corrections, rules)
         by_id = {r["match_id"]: r for r in rows}
-        in_progress = seasons_in_progress(
-            classify(facts.unplayed, facts.recorded, facts.corrections, rules),
-            rules,
-            facts.dates,
-        )
+        unplayed = classify(facts.unplayed, facts.recorded, facts.corrections, rules)
+        in_progress = seasons_in_progress(unplayed, rules, facts.dates)
+        pending = podiums_pending(unplayed, rules, facts.dates)
         dates = _finish_dates(classified, by_id, in_progress, facts.dates)
         groups, records, playoffs, playoff_ids = _groups_and_records(
-            classified, by_id, rules, in_progress
+            classified, by_id, rules, pending
         )
         _log_stray_playoffs(groups, playoffs, playoff_ids, rules, log)
-        standing_rows, derived = _standings(
-            run_id, groups, playoffs, rules, in_progress
-        )
-        # A season still being played shows its standings, but no podium yet.
+        standing_rows, derived = _standings(run_id, groups, playoffs, rules, pending)
+        # A season whose podium can still change shows its standings, but no podium yet.
         finished = {
             k: v
             for k, v in derived.items()
-            if k[:2] not in in_progress and rules[k[0]].podium == "top_divisions"
+            if k[:2] not in pending and rules[k[0]].podium == "top_divisions"
         }
         _admin_league_podiums(conn, official, derived, rules)
         worlds = holder(conn, "worlds")
