@@ -43,8 +43,16 @@ describe('adminApiPath', () => {
     expect(adminApiPath(new URL('https://a.example/api/tournaments/worlds?x=1'))).toBe('/v1/admin/tournaments/worlds?x=1');
   });
 
+  it.each([
+    ['a season label with spaces and brackets', '/api/tournaments/premier/seasons/First%20Edition%20(2023)/rated', '/v1/admin/tournaments/premier/seasons/First%20Edition%20(2023)/rated'],
+    ['a name with an apostrophe', "/api/titles/O'Brien", "/v1/admin/titles/O'Brien"],
+    ['a name outside ASCII', '/api/titles/J%C3%BCrgen', '/v1/admin/titles/J%C3%BCrgen'],
+  ])('passes %s through still encoded', (_name, path, want) => {
+    expect(adminApiPath(new URL(`https://a.example${path}`))).toBe(want);
+  });
+
   it('refuses anything that is not a plain admin path', () => {
-    for (const p of ['/api', '/api/', '/me', '/api/%2e%2e/runs', '/api/a%2Fb', '/api//me']) {
+    for (const p of ['/api', '/api/', '/me', '/api/%2e%2e/runs', '/api/a%2Fb', '/api/a%5Cb', '/api//me', '/api/a%00b', '/api/a%zzb', '/api/me/']) {
       expect(adminApiPath(new URL(`https://a.example${p}`)), p).toBeNull();
     }
   });
