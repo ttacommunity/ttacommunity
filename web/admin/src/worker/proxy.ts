@@ -15,12 +15,25 @@ export function apiOriginFor(host: string, adminHost: string | undefined, apiOri
   return apiOrigin.startsWith('https://') ? apiOrigin : null;
 }
 
-const PLAIN_PATH = /^\/api\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_.-]+)*$/;
+const FIRST = /^[A-Za-z0-9_-]+$/;
 
-/** adminApiPath returns the API path for an /api request (with its query), or null for anything else. */
+/** plainSegment reports whether one encoded path segment decodes to a name: no slash, backslash, control character or dot segment. */
+function plainSegment(encoded: string): boolean {
+  let name: string;
+  try {
+    name = decodeURIComponent(encoded);
+  } catch {
+    return false;
+  }
+  return name !== '' && name !== '.' && name !== '..' && !/[/\\\p{Cc}]/u.test(name);
+}
+
+/** adminApiPath returns the API path for an /api request (with its query), still encoded, or null for anything else. */
 export function adminApiPath(url: URL): string | null {
-  if (!PLAIN_PATH.test(url.pathname) || url.pathname.includes('..')) return null;
-  return `/v1/admin/${url.pathname.slice('/api/'.length)}${url.search}`;
+  if (!url.pathname.startsWith('/api/')) return null;
+  const segments = url.pathname.slice('/api/'.length).split('/');
+  if (!FIRST.test(segments[0] ?? '') || !segments.every(plainSegment)) return null;
+  return `/v1/admin/${segments.join('/')}${url.search}`;
 }
 
 function bytes(part: string): Uint8Array<ArrayBuffer> {
