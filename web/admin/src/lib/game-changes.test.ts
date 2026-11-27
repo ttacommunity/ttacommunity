@@ -5,7 +5,6 @@ import {
   emptyEntry,
   entryFrom,
   foundLine,
-  gameChoices,
   groupChoices,
   undoText,
   withoutSeat,
@@ -114,17 +113,13 @@ describe('game changes', () => {
     expect(undoText(action)).toContain(want);
   });
 
-  it("names a season's groups by stage, and a group's games by number, day and state", () => {
+  it("names a season's groups by stage and group", () => {
     expect(groupChoices([
       { label: '', groups: [{ id: 5, name: 'Bronze 1', games: 2, next_number: 3 }] },
       { label: 'Final', groups: [{ id: 6, name: '', games: 0, next_number: 1 }] },
     ])).toEqual([
       { id: 5, label: 'Bronze 1 (2 games)', next: 3 },
       { id: 6, label: 'Final (0 games)', next: 1 },
-    ]);
-    expect(gameChoices([original, { ...original, id: 4, number: null, state: 'removed', name: 'A game' }])).toEqual([
-      { id: 3, label: 'Game 1, 2024-09-16 (AAAAAAAA)' },
-      { id: 4, label: 'A game, 2024-09-16 (AAAAAAAA), removed' },
     ]);
   });
 

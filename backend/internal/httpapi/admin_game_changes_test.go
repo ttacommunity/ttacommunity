@@ -11,7 +11,7 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// The fake's game changes: game 404 and group 404 do not exist, game 409 is already changed, and an entry coded
+// The fake's game changes: only AAAAAAAA is found by code, game 404 and group 404 do not exist, game 409 is already changed, and an entry coded
 // HELD, BAD or seating Nobody is refused; undoing change 404 finds none, 409 was matched by an extract, 410 changed since.
 
 func (f *fakeAdmins) GameChanges(context.Context) ([]store.GameChange, error) {
@@ -87,11 +87,13 @@ func (f *fakeAdmins) UndoGameChange(_ context.Context, id int64) error {
 	return nil
 }
 
-func (f *fakeAdmins) ChangeableGames(_ context.Context, filter store.GameFilter) ([]store.ChangeableGame, error) {
-	f.notes = append(f.notes, fmt.Sprintf("games %+v", filter))
+func (f *fakeAdmins) GameByCode(_ context.Context, code string) (store.ChangeableGame, error) {
+	if code != "AAAAAAAA" {
+		return store.ChangeableGame{}, store.ErrNoGame
+	}
 	first := 1
-	return []store.ChangeableGame{{ID: 3, Name: "Bronze 1 game 1", Date: time.Date(2024, 9, 16, 0, 0, 0, 0, time.UTC), State: "played",
-		Group: 5, Number: &first, Seats: []store.GameSeatEntry{{Player: "Player One", Place: 1, Outcome: "finished", Score: 120}, {Player: "Player Two", Place: 2}}}}, nil
+	return store.ChangeableGame{ID: 3, Name: "Bronze 1 game 1", Code: code, Date: time.Date(2024, 9, 16, 0, 0, 0, 0, time.UTC), State: "played",
+		Group: 5, Number: &first, Seats: []store.GameSeatEntry{{Player: "Player One", Place: 1, Outcome: "finished", Score: 120}, {Player: "Player Two", Place: 2}}}, nil
 }
 
 func (f *fakeAdmins) SeasonGroups(_ context.Context, slug, season string) ([]store.SeasonStage, error) {
@@ -138,20 +140,14 @@ func TestAdminGameChanges(t *testing.T) {
 		"game": {"code": "AAAAAAAA", "state": "replaced", "date": "2024-09-16"}, "added": {"id": 9, "code": "NEWGAME1"}}`)
 }
 
-func TestAdminFindsGamesAndGroupsToChange(t *testing.T) {
+func TestAdminFindsAGameAndGroupsToChange(t *testing.T) {
 	f := &fakeAdmins{}
-	rec := adminDo(t, f, http.MethodGet, "/v1/admin/games?code=AAAAAAAA", "", "")
+	rec := adminDo(t, f, http.MethodGet, "/v1/admin/games/AAAAAAAA", "", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET games by code = %d %s, want 200", rec.Code, rec.Body)
+		t.Fatalf("GET game by code = %d %s, want 200", rec.Code, rec.Body)
 	}
-	wantJSON(t, rec.Body.Bytes(), "0", `{"id": 3, "code": "", "group": 5, "number": 1,
+	wantJSON(t, rec.Body.Bytes(), "", `{"id": 3, "code": "AAAAAAAA", "group": 5, "number": 1,
 		"seats": [{"player": "Player One", "place": 1, "outcome": "finished", "score": 120}, {"player": "Player Two", "outcome": null}]}`)
-	if rec := adminDo(t, f, http.MethodGet, "/v1/admin/games?group=5", "", ""); rec.Code != http.StatusOK {
-		t.Fatalf("GET games by group = %d %s, want 200", rec.Code, rec.Body)
-	}
-	if got, want := strings.Join(f.notes, "|"), "games {Code:AAAAAAAA Group:0}|games {Code: Group:5}"; got != want {
-		t.Errorf("asked = %q, want %q", got, want)
-	}
 
 	rec = adminDo(t, f, http.MethodGet, "/v1/admin/tournaments/intermezzo/seasons/24/groups", "", "")
 	if rec.Code != http.StatusOK {
@@ -187,8 +183,7 @@ func TestAdminRefusesAGameChangeItCannotMake(t *testing.T) {
 		{"undo an addition an extract matched", http.MethodDelete, "/v1/admin/game-changes/409", site, "", http.StatusConflict},
 		{"undo an addition changed since", http.MethodDelete, "/v1/admin/game-changes/410", site, "", http.StatusConflict},
 		{"undo from another site", http.MethodDelete, "/v1/admin/game-changes/12", "https://evil.example", "", http.StatusForbidden},
-		{"games by neither code nor group", http.MethodGet, "/v1/admin/games", "", "", http.StatusBadRequest},
-		{"games by both code and group", http.MethodGet, "/v1/admin/games?code=AAAAAAAA&group=5", "", "", http.StatusBadRequest},
+		{"a game no one holds", http.MethodGet, "/v1/admin/games/ZZZZZZZZ", "", "", http.StatusNotFound},
 		{"groups of an unknown season", http.MethodGet, "/v1/admin/tournaments/intermezzo/seasons/99/groups", "", "", http.StatusNotFound},
 	}
 	for _, tt := range tests {

@@ -3858,48 +3858,36 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
-  /v1/admin/games:
+  /v1/admin/games/{code}:
     get:
-      operationId: getAdminGames
+      operationId: getAdminGame
       tags: [admin]
-      summary: The game with a replay code, or a group's games, to remove or replace (admins and organisers)
-      description: |
-        Give code for the one game with it, or group for every game of the
-        group by number, for a game with no code. Removed and replaced games
-        are included, marked by their state.
+      summary: The game with a replay code, to remove or replace (admins and organisers)
+      description: Its state shows whether it is already removed or replaced.
       parameters:
         - name: code
-          in: query
-          required: false
+          in: path
+          required: true
           schema:
             type: string
             minLength: 1
             maxLength: 64
-        - name: group
-          in: query
-          required: false
-          schema:
-            type: integer
-            format: int64
-            minimum: 1
       responses:
         "200":
-          description: The games, none when nothing matches
+          description: The game, with its seats
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ChangeableGame"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                $ref: "#/components/schemas/ChangeableGame"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/movies/channels:
     get:
       operationId: getAdminMovieChannels
@@ -7938,7 +7926,7 @@ components:
         name:
           type: string
         code:
-          description: Its replay code; empty for none
+          description: Its replay code
           type: string
         date:
           type: string

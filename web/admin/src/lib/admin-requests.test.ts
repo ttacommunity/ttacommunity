@@ -37,8 +37,7 @@ describe('admin requests', () => {
     // Game changes
     ['a game change', req.makeGameChange({ action: 'remove', game: 3, reason: 'Not a tournament game' }), '/api/game-changes', 'POST', { action: 'remove', game: 3, reason: 'Not a tournament game' }],
     ['undoing a game change', req.undoGameChange(7), '/api/game-changes/7', 'DELETE', undefined],
-    ['a game by its code, trimmed and escaped', req.gameByCode(' AB&CD '), '/api/games?code=AB%26CD', 'GET', undefined],
-    ["a group's games", req.gamesOfGroup(5), '/api/games?group=5', 'GET', undefined],
+    ['a game by its code, trimmed and escaped', req.gameByCode(' AB/CD '), '/api/games/AB%2FCD', 'GET', undefined],
     ["a season's groups, to escape", req.seasonGroups('intermezzo', '24 B'), '/api/tournaments/intermezzo/seasons/24%20B/groups', 'GET', undefined],
     // Blitz tournaments
     ['entrants to add, to an edition to escape', req.addBlitzEntrants('us_open', 'Season 1', [{ name: 'a', discord_name: 'b', zone: 'UTC' }]), '/api/blitz/us_open/Season%201/entrants', 'POST', { entrants: [{ name: 'a', discord_name: 'b', zone: 'UTC' }] }],

@@ -351,7 +351,7 @@ func TestGameChangesNameWhoMadeThem(t *testing.T) {
 	}
 }
 
-func TestChangeableGamesFindAGameByCodeOrItsGroup(t *testing.T) {
+func TestGameByCodeFindsTheGameWithItsSeats(t *testing.T) {
 	ctx := context.Background()
 	pool, a := changeFixture(t)
 	setSeats(t, pool, "%Bronze 1 game 1", Seat{"Player One", 200}, Seat{"Player Two", 150})
@@ -360,32 +360,21 @@ func TestChangeableGamesFindAGameByCodeOrItsGroup(t *testing.T) {
 		t.Fatalf("RemoveGame: %v", err)
 	}
 
-	byCode, err := a.ChangeableGames(ctx, GameFilter{Code: " AAAAAAAA "})
-	if err != nil || len(byCode) != 1 {
-		t.Fatalf("ChangeableGames by code = %+v, %v; want game 1", byCode, err)
+	g, err := a.GameByCode(ctx, " AAAAAAAA ")
+	if err != nil {
+		t.Fatalf("GameByCode: %v", err)
 	}
-	g := byCode[0]
 	if g.ID != idOf(t, pool, "AAAAAAAA") || g.Group != *group || g.Number == nil || *g.Number != 1 || g.State != "played" {
 		t.Errorf("game = %+v, want game 1 of group %d, played", g, *group)
 	}
 	if len(g.Seats) != 2 || g.Seats[0].Player != "Player One" || g.Seats[0].Place != 1 || g.Seats[1].Player != "Player Two" {
 		t.Errorf("seats = %+v, want Player One first, then Player Two", g.Seats)
 	}
-
-	byGroup, err := a.ChangeableGames(ctx, GameFilter{Group: *group})
-	if err != nil {
-		t.Fatalf("ChangeableGames by group: %v", err)
+	if removed, err := a.GameByCode(ctx, "BBBBBBBB"); err != nil || removed.State != "removed" {
+		t.Errorf("GameByCode of a removed game = %+v, %v; want it, removed", removed, err)
 	}
-	var states []string
-	for _, g := range byGroup {
-		states = append(states, g.Code+" "+g.State)
-	}
-	if want := []string{"AAAAAAAA played", "BBBBBBBB removed"}; !slices.Equal(states, want) {
-		t.Errorf("group's games = %q, want %q", states, want)
-	}
-
-	if none, err := a.ChangeableGames(ctx, GameFilter{Code: "ZZZZZZZZ"}); err != nil || len(none) != 0 {
-		t.Errorf("ChangeableGames by an unknown code = %+v, %v; want none", none, err)
+	if _, err := a.GameByCode(ctx, "ZZZZZZZZ"); !errors.Is(err, ErrNoGame) {
+		t.Errorf("GameByCode of an unknown code = %v, want %v", err, ErrNoGame)
 	}
 }
 

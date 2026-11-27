@@ -132,14 +132,6 @@ export function groupChoices(stages: readonly SeasonStage[]): { id: number; labe
   );
 }
 
-/** gameChoices are a group's games to remove or replace, by number (or name), day and code, and state when not played. */
-export function gameChoices(games: readonly ChangeableGame[]): { id: number; label: string }[] {
-  return games.map((g) => {
-    const state = g.state === 'played' ? '' : `, ${spaced(g.state)}`;
-    return { id: g.id, label: `${g.number === null ? g.name : `Game ${g.number}`}, ${g.date} (${g.code === '' ? 'no code' : g.code})${state}` };
-  });
-}
-
 
 /** foundLine says what a game found is: its day, state, and each player in place order with how they ended and their culture. */
 export function foundLine(g: ChangeableGame): string {

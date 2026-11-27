@@ -207,9 +207,7 @@ export const makeGameChange = (body: Schemas['GameChangeRequest']) => to('/api/g
 /** undoGameChange undoes a change. */
 export const undoGameChange = (id: number) => to(`/api/game-changes/${id}`, 'DELETE');
 /** gameByCode finds the game with a replay code, trimmed. */
-export const gameByCode = (code: string) => get(`/api/games?code=${encodeURIComponent(code.trim())}`);
-/** gamesOfGroup lists a group's games, for a game with no code. */
-export const gamesOfGroup = (group: number) => get(`/api/games?group=${group}`);
+export const gameByCode = (code: string) => get(`/api/games/${encodeURIComponent(code.trim())}`);
 /** seasonGroups lists a season's stages and groups, to add a game to. */
 export const seasonGroups = (slug: string, label: string) => get(`${season(slug, label)}/groups`);
 /** standingsCheck compares every stage's standings with its games. */

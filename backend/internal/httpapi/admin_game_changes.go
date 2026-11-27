@@ -12,7 +12,7 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// GameChangeAdmin is the games changed in admin: listed, made (returning the change's id) and undone, and the games
+// GameChangeAdmin is the games changed in admin: listed, made (returning the change's id) and undone, and the game
 // and groups a change can name.
 type GameChangeAdmin interface {
 	GameChanges(ctx context.Context) ([]store.GameChange, error)
@@ -20,7 +20,7 @@ type GameChangeAdmin interface {
 	RemoveGame(ctx context.Context, game int64, reason string) (int64, error)
 	ReplaceGame(ctx context.Context, game int64, g store.GameEntry, reason string) (int64, error)
 	UndoGameChange(ctx context.Context, id int64) error
-	ChangeableGames(ctx context.Context, f store.GameFilter) ([]store.ChangeableGame, error)
+	GameByCode(ctx context.Context, code string) (store.ChangeableGame, error)
 	SeasonGroups(ctx context.Context, slug, season string) ([]store.SeasonStage, error)
 }
 
@@ -129,38 +129,27 @@ func (s *server) DeleteAdminGameChange(ctx context.Context, req DeleteAdminGameC
 	return DeleteAdminGameChange204Response{}, nil
 }
 
-func (s *server) GetAdminGames(ctx context.Context, req GetAdminGamesRequestObject) (GetAdminGamesResponseObject, error) {
-	var f store.GameFilter
-	if req.Params.Code != nil {
-		f.Code = *req.Params.Code
+func (s *server) GetAdminGame(ctx context.Context, req GetAdminGameRequestObject) (GetAdminGameResponseObject, error) {
+	g, err := s.admins.GameByCode(ctx, req.Code)
+	if errors.Is(err, store.ErrNoGame) {
+		return GetAdminGame404JSONResponse{notFound404("no game we hold has that code")}, nil
 	}
-	if req.Params.Group != nil {
-		f.Group = *req.Params.Group
-	}
-	if (f.Code == "") == (f.Group == 0) {
-		return GetAdminGames400JSONResponse{badRequest400("give a code or a group")}, nil
-	}
-	list, err := s.admins.ChangeableGames(ctx, f)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ChangeableGame, len(list))
-	for i, g := range list {
-		c := ChangeableGame{Id: g.ID, Name: g.Name, Code: g.Code, Date: openapi_types.Date{Time: g.Date}, State: GameState(g.State),
-			Number: g.Number, Seats: make([]ChangeableSeat, len(g.Seats))}
-		if g.Group != 0 {
-			c.Group = &g.Group
-		}
-		for j, st := range g.Seats {
-			c.Seats[j] = ChangeableSeat{Player: st.Player, Place: st.Place, Score: st.Score}
-			if st.Outcome != "" {
-				o := SeatOutcome(st.Outcome)
-				c.Seats[j].Outcome = &o
-			}
-		}
-		out[i] = c
+	out := ChangeableGame{Id: g.ID, Name: g.Name, Code: g.Code, Date: openapi_types.Date{Time: g.Date}, State: GameState(g.State),
+		Number: g.Number, Seats: make([]ChangeableSeat, len(g.Seats))}
+	if g.Group != 0 {
+		out.Group = &g.Group
 	}
-	return GetAdminGames200JSONResponse{Body: out, Headers: GetAdminGames200ResponseHeaders{CacheControl: cacheNone}}, nil
+	for i, st := range g.Seats {
+		out.Seats[i] = ChangeableSeat{Player: st.Player, Place: st.Place, Score: st.Score}
+		if st.Outcome != "" {
+			o := SeatOutcome(st.Outcome)
+			out.Seats[i].Outcome = &o
+		}
+	}
+	return GetAdminGame200JSONResponse{Body: out, Headers: GetAdminGame200ResponseHeaders{CacheControl: cacheNone}}, nil
 }
 
 func (s *server) GetAdminSeasonGroups(ctx context.Context, req GetAdminSeasonGroupsRequestObject) (GetAdminSeasonGroupsResponseObject, error) {

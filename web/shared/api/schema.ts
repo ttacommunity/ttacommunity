@@ -2710,7 +2710,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/admin/games": {
+    "/v1/admin/games/{code}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2718,12 +2718,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The game with a replay code, or a group's games, to remove or replace (admins and organisers)
-         * @description Give code for the one game with it, or group for every game of the
-         *     group by number, for a game with no code. Removed and replaced games
-         *     are included, marked by their state.
+         * The game with a replay code, to remove or replace (admins and organisers)
+         * @description Its state shows whether it is already removed or replaced.
          */
-        get: operations["getAdminGames"];
+        get: operations["getAdminGame"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4952,7 +4950,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
-            /** @description Its replay code; empty for none */
+            /** @description Its replay code */
             code: string;
             /** Format: date */
             date: string;
@@ -11982,31 +11980,30 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
-    getAdminGames: {
+    getAdminGame: {
         parameters: {
-            query?: {
-                code?: string;
-                group?: number;
-            };
+            query?: never;
             header?: never;
-            path?: never;
+            path: {
+                code: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The games, none when nothing matches */
+            /** @description The game, with its seats */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChangeableGame"][];
+                    "application/json": components["schemas"]["ChangeableGame"];
                 };
             };
-            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getAdminMovieChannels: {

@@ -3541,7 +3541,7 @@ type Champion struct {
 
 // ChangeableGame defines model for ChangeableGame.
 type ChangeableGame struct {
-	// Code Its replay code; empty for none
+	// Code Its replay code
 	Code string             `json:"code"`
 	Date openapi_types.Date `json:"date"`
 
@@ -6467,12 +6467,6 @@ type GetAdminChallengeEntriesParams struct {
 	View *AdminChallengeView `form:"view,omitempty" json:"view,omitempty"`
 }
 
-// GetAdminGamesParams defines parameters for GetAdminGames.
-type GetAdminGamesParams struct {
-	Code  *string `form:"code,omitempty" json:"code,omitempty"`
-	Group *int64  `form:"group,omitempty" json:"group,omitempty"`
-}
-
 // PostAdminImageParams defines parameters for PostAdminImage.
 type PostAdminImageParams struct {
 	// Name The file's name, which the image's key starts with
@@ -7175,9 +7169,9 @@ type ServerInterface interface {
 	// DeleteAdminGameChange Undo a game change (admins and organisers)
 	// (DELETE /v1/admin/game-changes/{change})
 	DeleteAdminGameChange(w http.ResponseWriter, r *http.Request, change int64)
-	// GetAdminGames The game with a replay code, or a group's games, to remove or replace (admins and organisers)
-	// (GET /v1/admin/games)
-	GetAdminGames(w http.ResponseWriter, r *http.Request, params GetAdminGamesParams)
+	// GetAdminGame The game with a replay code, to remove or replace (admins and organisers)
+	// (GET /v1/admin/games/{code})
+	GetAdminGame(w http.ResponseWriter, r *http.Request, code string)
 	// GetAdminImages The images in a bucket, newest first
 	// (GET /v1/admin/images/{bucket})
 	GetAdminImages(w http.ResponseWriter, r *http.Request, bucket ImageBucketName)
@@ -9626,43 +9620,23 @@ func (siw *ServerInterfaceWrapper) DeleteAdminGameChange(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
-// GetAdminGames operation middleware
-func (siw *ServerInterfaceWrapper) GetAdminGames(w http.ResponseWriter, r *http.Request) {
+// GetAdminGame operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminGame(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetAdminGamesParams
+	// ------------- Path parameter "code" -------------
+	var code string
 
-	// ------------- Optional query parameter "code" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindStyledParameterWithOptions("simple", "code", r.PathValue("code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
-		}
-		return
-	}
-
-	// ------------- Optional query parameter "group" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "group", r.URL.Query(), &params.Group, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "group"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
-		}
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAdminGames(w, r, params)
+		siw.Handler.GetAdminGame(w, r, code)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15137,7 +15111,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/game-changes", wrapper.GetAdminGameChanges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/game-changes", wrapper.PostAdminGameChange)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/game-changes/{change}", wrapper.DeleteAdminGameChange)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/games", wrapper.GetAdminGames)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/games/{code}", wrapper.GetAdminGame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.GetAdminMovieChannels)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.PostAdminMovieChannel)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/movies/channels/{channelId}", wrapper.DeleteAdminMovieChannel)
@@ -19908,24 +19882,24 @@ func (response DeleteAdminGameChange409JSONResponse) VisitDeleteAdminGameChangeR
 	return err
 }
 
-type GetAdminGamesRequestObject struct {
-	Params GetAdminGamesParams
+type GetAdminGameRequestObject struct {
+	Code string `json:"code"`
 }
 
-type GetAdminGamesResponseObject interface {
-	VisitGetAdminGamesResponse(w http.ResponseWriter) error
+type GetAdminGameResponseObject interface {
+	VisitGetAdminGameResponse(w http.ResponseWriter) error
 }
 
-type GetAdminGames200ResponseHeaders struct {
+type GetAdminGame200ResponseHeaders struct {
 	CacheControl string
 }
 
-type GetAdminGames200JSONResponse struct {
-	Body    []ChangeableGame
-	Headers GetAdminGames200ResponseHeaders
+type GetAdminGame200JSONResponse struct {
+	Body    ChangeableGame
+	Headers GetAdminGame200ResponseHeaders
 }
 
-func (response GetAdminGames200JSONResponse) VisitGetAdminGamesResponse(w http.ResponseWriter) error {
+func (response GetAdminGame200JSONResponse) VisitGetAdminGameResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -19938,24 +19912,9 @@ func (response GetAdminGames200JSONResponse) VisitGetAdminGamesResponse(w http.R
 	return err
 }
 
-type GetAdminGames400JSONResponse struct{ BadRequestJSONResponse }
+type GetAdminGame401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response GetAdminGames400JSONResponse) VisitGetAdminGamesResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAdminGames401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetAdminGames401JSONResponse) VisitGetAdminGamesResponse(w http.ResponseWriter) error {
+func (response GetAdminGame401JSONResponse) VisitGetAdminGameResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -19968,9 +19927,9 @@ func (response GetAdminGames401JSONResponse) VisitGetAdminGamesResponse(w http.R
 	return err
 }
 
-type GetAdminGames403JSONResponse struct{ ForbiddenJSONResponse }
+type GetAdminGame403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response GetAdminGames403JSONResponse) VisitGetAdminGamesResponse(w http.ResponseWriter) error {
+func (response GetAdminGame403JSONResponse) VisitGetAdminGameResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -19979,6 +19938,21 @@ func (response GetAdminGames403JSONResponse) VisitGetAdminGamesResponse(w http.R
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminGame404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminGame404JSONResponse) VisitGetAdminGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -31066,9 +31040,9 @@ type StrictServerInterface interface {
 	// DeleteAdminGameChange Undo a game change (admins and organisers)
 	// (DELETE /v1/admin/game-changes/{change})
 	DeleteAdminGameChange(ctx context.Context, request DeleteAdminGameChangeRequestObject) (DeleteAdminGameChangeResponseObject, error)
-	// GetAdminGames The game with a replay code, or a group's games, to remove or replace (admins and organisers)
-	// (GET /v1/admin/games)
-	GetAdminGames(ctx context.Context, request GetAdminGamesRequestObject) (GetAdminGamesResponseObject, error)
+	// GetAdminGame The game with a replay code, to remove or replace (admins and organisers)
+	// (GET /v1/admin/games/{code})
+	GetAdminGame(ctx context.Context, request GetAdminGameRequestObject) (GetAdminGameResponseObject, error)
 	// GetAdminImages The images in a bucket, newest first
 	// (GET /v1/admin/images/{bucket})
 	GetAdminImages(ctx context.Context, request GetAdminImagesRequestObject) (GetAdminImagesResponseObject, error)
@@ -33340,25 +33314,25 @@ func (sh *strictHandler) DeleteAdminGameChange(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// GetAdminGames operation middleware
-func (sh *strictHandler) GetAdminGames(w http.ResponseWriter, r *http.Request, params GetAdminGamesParams) {
-	var request GetAdminGamesRequestObject
+// GetAdminGame operation middleware
+func (sh *strictHandler) GetAdminGame(w http.ResponseWriter, r *http.Request, code string) {
+	var request GetAdminGameRequestObject
 
-	request.Params = params
+	request.Code = code
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAdminGames(ctx, request.(GetAdminGamesRequestObject))
+		return sh.ssi.GetAdminGame(ctx, request.(GetAdminGameRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAdminGames")
+		handler = middleware(handler, "GetAdminGame")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAdminGamesResponseObject); ok {
-		if err := validResponse.VisitGetAdminGamesResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetAdminGameResponseObject); ok {
+		if err := validResponse.VisitGetAdminGameResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
