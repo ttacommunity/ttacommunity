@@ -2695,10 +2695,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Edit a game change, making it again as given (admins and organisers)
+         * @description The change is undone and the one given made in its place, keeping
+         *     its id, all or nothing: refused as undoing it would be, or as making
+         *     the new change would be. Audited. The Origin must be the admin site.
+         */
+        put: operations["putAdminGameChange"];
         post?: never;
         /**
-         * Undo a game change (admins and organisers)
+         * Delete a game change, undoing it (admins and organisers)
          * @description The game it added is deleted and the game it removed or replaced
          *     gets back its earlier state. Refused when the game it added has been
          *     changed since or matched by a CGE extract, or the game's number has
@@ -8389,6 +8395,7 @@ export interface components {
         AccountId: number;
         LinkRequestId: number;
         MemberId: number;
+        AdminGameChangeId: number;
         AdminBadgeId: number;
         AdminNotificationEndpointId: number;
         AdminRSSFeedId: number;
@@ -11956,12 +11963,41 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    putAdminGameChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change: components["parameters"]["AdminGameChangeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     deleteAdminGameChange: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                change: number;
+                change: components["parameters"]["AdminGameChangeId"];
             };
             cookie?: never;
         };

@@ -413,3 +413,81 @@ func TestSeasonGroupsGiveEachGroupItsNextNumber(t *testing.T) {
 		t.Errorf("SeasonGroups of an unknown season = %v, want %v", err, ErrNoTournament)
 	}
 }
+
+func TestEditGameChangeRemakesItAsTheSameChange(t *testing.T) {
+	ctx := context.Background()
+	pool, a := changeFixture(t)
+	gameA, gameB := idOf(t, pool, "AAAAAAAA"), idOf(t, pool, "BBBBBBBB")
+	_, _, group, _ := gameByCode(t, pool, "AAAAAAAA")
+	only := func(want string) {
+		t.Helper()
+		changes, err := a.GameChanges(ctx)
+		if err != nil || len(changes) != 1 {
+			t.Fatalf("GameChanges = %+v, %v; want one change", changes, err)
+		}
+		c := changes[0]
+		got := c.Action + " " + c.Reason
+		if c.Game != nil {
+			got += " game " + c.Game.Code + " " + c.Game.State
+		}
+		if c.Added != nil {
+			got += " added " + c.Added.Code
+		}
+		if got != want {
+			t.Errorf("change = %q, want %q", got, want)
+		}
+	}
+	id, err := a.ReplaceGame(ctx, gameA, newEntry("NEWGAME001"), "Timed out")
+	if err != nil {
+		t.Fatalf("ReplaceGame: %v", err)
+	}
+
+	steps := []struct {
+		name string
+		edit NewGameChange
+		want string
+	}{
+		{"a new replacement", NewGameChange{Action: "replace", Game: gameA, Entry: newEntry("NEWGAME002"), Reason: "Timed out, replayed"},
+			"replace Timed out, replayed game AAAAAAAA replaced added NEWGAME002"},
+		{"a removal of another game", NewGameChange{Action: "remove", Game: gameB, Reason: "Not a tournament game"},
+			"remove Not a tournament game game BBBBBBBB removed"},
+		{"an addition", NewGameChange{Action: "add", Group: *group, Entry: newEntry("NEWGAME003"), Reason: "Missing"},
+			"add Missing added NEWGAME003"},
+	}
+	for _, s := range steps {
+		if err := a.EditGameChange(ctx, id, s.edit); err != nil {
+			t.Fatalf("EditGameChange to %s: %v", s.name, err)
+		}
+		only(s.want)
+		if changes, _ := a.GameChanges(ctx); changes[0].ID != id {
+			t.Errorf("edited to %s, id = %d, want %d", s.name, changes[0].ID, id)
+		}
+	}
+	for code, want := range map[string]string{"AAAAAAAA": "played", "BBBBBBBB": "played"} {
+		if state, _, _, _ := gameByCode(t, pool, code); state != want {
+			t.Errorf("%s once the change is an addition = %q, want %q", code, state, want)
+		}
+	}
+	for _, code := range []string{"NEWGAME001", "NEWGAME002"} {
+		if n := gameCount(t, pool, code); n != 0 {
+			t.Errorf("games coded %s once edited away = %d, want 0", code, n)
+		}
+	}
+	if state, name, _, number := gameByCode(t, pool, "NEWGAME003"); state != "played" || name != "Intermezzo S24 - Bronze 1 game 3" || *number != 3 {
+		t.Errorf("added game = %s %q number %d, want played \"Intermezzo S24 - Bronze 1 game 3\" number 3", state, name, *number)
+	}
+
+	if err := a.EditGameChange(ctx, id, NewGameChange{Action: "replace", Game: gameA, Entry: newEntry("BBBBBBBB"), Reason: "Again"}); !errors.Is(err, ErrCodeHeld) {
+		t.Errorf("EditGameChange to a code we hold = %v, want %v", err, ErrCodeHeld)
+	}
+	only("add Missing added NEWGAME003")
+	if err := a.EditGameChange(ctx, 999999, NewGameChange{Action: "remove", Game: gameB, Reason: "A reason"}); !errors.Is(err, ErrNoGameChange) {
+		t.Errorf("EditGameChange of an unknown change = %v, want %v", err, ErrNoGameChange)
+	}
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "NEWGAME003"), "Not played after all"); err != nil {
+		t.Fatalf("RemoveGame of the added game: %v", err)
+	}
+	if err := a.EditGameChange(ctx, id, NewGameChange{Action: "remove", Game: gameB, Reason: "A reason"}); !errors.Is(err, ErrChangedSince) {
+		t.Errorf("EditGameChange of an addition removed since = %v, want %v", err, ErrChangedSince)
+	}
+}

@@ -100,14 +100,14 @@ function gameLabel(g: Named | null): string {
   return g === null ? '' : `${g.name} (${g.code === '' ? 'no code' : g.code})`;
 }
 
-/** ChangeRow is one change as the table shows it, with what undoing it does. */
-export type ChangeRow = { id: number; when: string; action: string; game: string; added: string; reason: string; by: string; undo: string };
+/** ChangeRow is one change as the table shows it, with what deleting it does, and the change itself. */
+export type ChangeRow = { id: number; when: string; action: string; game: string; added: string; reason: string; by: string; undo: string; change: GameChange };
 
 /** changeRows are the changes as the table shows them, in the order given; when writes an instant. */
 export function changeRows(changes: readonly GameChange[], when: (iso: string) => string): ChangeRow[] {
   return changes.map((c) => ({
     id: c.id, when: when(c.at), action: ACTIONS.find((a) => a.value === c.action)?.label ?? c.action,
-    game: gameLabel(c.game), added: gameLabel(c.added), reason: c.reason, by: c.by === '' ? 'not known' : c.by, undo: undoText(c.action),
+    game: gameLabel(c.game), added: gameLabel(c.added), reason: c.reason, by: c.by === '' ? 'not known' : c.by, undo: undoText(c.action), change: c,
   }));
 }
 
@@ -137,4 +137,19 @@ export function groupChoices(stages: readonly SeasonStage[]): { id: number; labe
 export function foundLine(g: ChangeableGame): string {
   const seats = g.seats.map((s) => `${s.place}. ${s.player} (${s.outcome === null ? 'not known' : spaced(s.outcome)}, ${s.score})`).join('; ');
   return `${g.date}, ${spaced(g.state)}: ${seats === '' ? 'no players' : seats}`;
+}
+
+/** PickedGroup is the group a game is added to: its id, the number a game added gets, and its name where known (an edit's). */
+export type PickedGroup = { id: number; next: number; label?: string };
+
+/** ChangeForm is the change sheet's form: the action, the game found to remove or replace, the group to add to, the new game and the reason. */
+export type ChangeForm = { action: Action; found: ChangeableGame | null; group: PickedGroup | null; entry: EntryForm; reason: string };
+
+/** editStart is the form for editing change c, given its original and added games as they are now (null for none): the new game as it is, code and number kept, or one ready from the original's players. */
+export function editStart(c: GameChange, original: ChangeableGame | null, added: ChangeableGame | null): ChangeForm {
+  const entry = added !== null ? { ...entryFrom(added), code: added.code, number: added.number === null ? '' : String(added.number) } : original !== null ? entryFrom(original) : emptyEntry();
+  const group = c.action === 'add' && added !== null && added.group !== null
+    ? { id: added.group, next: added.number ?? 1, label: added.name.replace(/ game \d+$/, '') }
+    : null;
+  return { action: c.action, found: original, group, entry, reason: c.reason };
 }

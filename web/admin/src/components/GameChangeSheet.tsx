@@ -1,18 +1,20 @@
-/** The sheet that changes a game: add one to a group, remove one, or replace one with a new game, each with its reason. */
+/** The sheet that changes a game: add one to a group, remove one, or replace one with a new game, each with its reason; or edits a change, making it again as the form then says. */
 import { useRef, useState, type FormEvent } from 'react';
 import Sheet, { SheetSection } from '@ttac/shared/Sheet';
 import Segmented from '@ttac/shared/Segmented';
 import * as req from '../lib/admin-requests';
-import { ACTIONS, changeBody, emptyEntry, entryFrom, type Action, type ChangeableGame, type EntryForm } from '../lib/game-changes';
+import { ACTIONS, changeBody, emptyEntry, entryFrom, type Action, type ChangeableGame, type ChangeForm, type EntryForm, type PickedGroup } from '../lib/game-changes';
 import { refused, type Outcome } from '../lib/outcome';
 import GameEntryFields from './GameEntryFields';
 import GameFind from './GameFind';
-import GroupPick, { type Group } from './GroupPick';
+import GroupPick from './GroupPick';
 import Notice from './Notice';
 
 interface Props {
   opener: HTMLElement;
-  /** Runs once the change is made, with what to say about it. */
+  /** The change to edit, with its id and the form it starts from; a new change when left out. */
+  editing?: { id: number; form: ChangeForm };
+  /** Runs once the change is made or saved, with what to say about it. */
   onSaved: (message: string) => void;
   onClose: () => void;
 }
@@ -23,15 +25,16 @@ const DONE: Record<Action, string> = {
   replace: 'Replaced the game. The new game is rated from the next run.',
 };
 
-export default function GameChangeSheet({ opener, onSaved, onClose }: Props) {
+export default function GameChangeSheet({ opener, editing, onSaved, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [action, setAction] = useState<Action>('add');
-  const [found, setFound] = useState<ChangeableGame | null>(null);
-  const [group, setGroup] = useState<Group | null>(null);
-  const [entry, setEntry] = useState<EntryForm>(emptyEntry());
-  const [reason, setReason] = useState('');
+  const start = editing?.form;
+  const [action, setAction] = useState<Action>(start?.action ?? 'add');
+  const [found, setFound] = useState<ChangeableGame | null>(start?.found ?? null);
+  const [group, setGroup] = useState<PickedGroup | null>(start?.group ?? null);
+  const [entry, setEntry] = useState<EntryForm>(start?.entry ?? emptyEntry());
+  const [reason, setReason] = useState(start?.reason ?? '');
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const id = 'game-change';
+  const id = editing === undefined ? 'game-change' : `game-change-${editing.id}`;
   const failed = (message: string) => setOutcome(refused(message, id));
   const find = (g: ChangeableGame | null) => {
     setFound(g);
@@ -42,9 +45,9 @@ export default function GameChangeSheet({ opener, onSaved, onClose }: Props) {
     e.preventDefault();
     const b = changeBody(action, { game: found?.id, group: group?.id, entry, reason });
     if (!b.ok) return failed(b.message);
-    const r = await req.send(req.makeGameChange(b.body));
+    const r = await req.send(editing === undefined ? req.makeGameChange(b.body) : req.editGameChange(editing.id, b.body));
     if (!r.ok) return failed(r.message);
-    onSaved(DONE[action]);
+    onSaved(editing === undefined ? DONE[action] : 'Saved the change. Ratings move at the next run.');
     dialog.current?.close();
   };
 
@@ -52,7 +55,7 @@ export default function GameChangeSheet({ opener, onSaved, onClose }: Props) {
     <Sheet
       dialog={dialog}
       id={id}
-      title="Change a game"
+      title={editing === undefined ? 'Change a game' : 'Edit a game change'}
       opener={opener}
       onClose={onClose}
       actions={
@@ -61,7 +64,7 @@ export default function GameChangeSheet({ opener, onSaved, onClose }: Props) {
             Cancel
           </button>
           <button type="submit" form={`${id}-form`} className="btn-antique">
-            {ACTIONS.find((a) => a.value === action)?.label}
+            {editing === undefined ? ACTIONS.find((a) => a.value === action)?.label : 'Save'}
           </button>
         </>
       }
@@ -70,7 +73,7 @@ export default function GameChangeSheet({ opener, onSaved, onClose }: Props) {
         <Segmented<Action> label="Change" options={ACTIONS} value={action} onChange={setAction} />
         {action === 'add' ? (
           <SheetSection title="Where">
-            <GroupPick onPick={setGroup} onFailed={failed} />
+            <GroupPick current={group?.label} onPick={setGroup} onFailed={failed} />
           </SheetSection>
         ) : (
           <SheetSection title={action === 'remove' ? 'The game to remove' : 'The game to replace'}>

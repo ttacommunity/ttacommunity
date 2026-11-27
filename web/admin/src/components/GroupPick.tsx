@@ -2,23 +2,22 @@
 import { useEffect, useState } from 'react';
 import type { components } from '@ttac/shared/api';
 import * as req from '../lib/admin-requests';
-import { groupChoices } from '../lib/game-changes';
+import { groupChoices, type PickedGroup } from '../lib/game-changes';
 
 type Row = components['schemas']['AdminTournamentRow'];
 type Tournament = components['schemas']['AdminTournament'];
 type Stage = components['schemas']['SeasonStage'];
 
-/** Group is the group picked, with the number a game added to it gets. */
-export type Group = { id: number; next: number };
-
 interface Props {
+  /** current names the group a game is in now, when editing one, which stands until another is picked. */
+  current?: string;
   /** onPick is given the group picked, or null while none is. */
-  onPick: (group: Group | null) => void;
+  onPick: (group: PickedGroup | null) => void;
   /** onFailed is given why a list could not be loaded. */
   onFailed: (message: string) => void;
 }
 
-export default function GroupPick({ onPick, onFailed }: Props) {
+export default function GroupPick({ current, onPick, onFailed }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [slug, setSlug] = useState('');
   const [seasons, setSeasons] = useState<string[]>([]);
@@ -58,6 +57,8 @@ export default function GroupPick({ onPick, onFailed }: Props) {
   };
 
   return (
+    <>
+    {current !== undefined && <p className="muted">In {current}. To move it, choose another group.</p>}
     <div className="field-row">
       <label>
         Tournament
@@ -93,5 +94,6 @@ export default function GroupPick({ onPick, onFailed }: Props) {
         </select>
       </label>
     </div>
+    </>
   );
 }

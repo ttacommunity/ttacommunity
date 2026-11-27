@@ -3830,23 +3830,46 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
   /v1/admin/game-changes/{change}:
+    put:
+      operationId: putAdminGameChange
+      tags: [admin]
+      summary: Edit a game change, making it again as given (admins and organisers)
+      description: |
+        The change is undone and the one given made in its place, keeping
+        its id, all or nothing: refused as undoing it would be, or as making
+        the new change would be. Audited. The Origin must be the admin site.
+      parameters:
+        - $ref: "#/components/parameters/AdminGameChangeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameChangeRequest"
+      responses:
+        "204":
+          description: Saved
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
     delete:
       operationId: deleteAdminGameChange
       tags: [admin]
-      summary: Undo a game change (admins and organisers)
+      summary: Delete a game change, undoing it (admins and organisers)
       description: |
         The game it added is deleted and the game it removed or replaced
         gets back its earlier state. Refused when the game it added has been
         changed since or matched by a CGE extract, or the game's number has
         been used again. Audited. The Origin must be the admin site.
       parameters:
-        - name: change
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-            minimum: 1
+        - $ref: "#/components/parameters/AdminGameChangeId"
       responses:
         "204":
           description: Undone
@@ -6464,6 +6487,14 @@ components:
         minimum: 1
     MemberId:
       name: member
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    AdminGameChangeId:
+      name: change
       in: path
       required: true
       schema:

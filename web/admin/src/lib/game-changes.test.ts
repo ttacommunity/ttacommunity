@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   changeBody,
   changeRows,
+  editStart,
   emptyEntry,
   entryFrom,
   foundLine,
@@ -126,5 +127,39 @@ describe('game changes', () => {
   it('says what the game found is: its day, state and players in place order', () => {
     expect(foundLine(original)).toBe('2024-09-16, played: 1. Player One (finished, 120); 2. Player Two (not known, 0)');
     expect(foundLine({ ...original, state: 'never_played', seats: [] })).toBe('2024-09-16, never played: no players');
+  });
+
+  const replacement: ChangeableGame = {
+    id: 9, name: 'Intermezzo S24 - Bronze 1 game 1', code: 'NEWGAME1', date: '2024-09-20', state: 'played', group: 5, number: 1,
+    seats: [{ player: 'Player Two', place: 1, outcome: 'finished', score: 90 }, { player: 'Player One', place: 2, outcome: 'resigned', score: 0 }],
+  };
+  const change = (action: Action): GameChange => ({
+    id: 7, action, reason: 'Timed out', at: '2026-11-20T01:00:00Z', by: '',
+    game: action === 'add' ? null : { id: 3, name: original.name, code: 'AAAAAAAA', state: 'replaced', date: '2024-09-16' },
+    added: action === 'remove' ? null : { id: 9, name: replacement.name, code: 'NEWGAME1', state: 'played', date: '2024-09-20' },
+  });
+
+  it('starts editing a replacement from the original found and the new game as it is, code kept', () => {
+    const f = editStart(change('replace'), original, replacement);
+    expect(f.action).toBe('replace');
+    expect(f.found?.id).toBe(3);
+    expect(f.reason).toBe('Timed out');
+    expect(f.entry.code).toBe('NEWGAME1');
+    expect(f.entry.seats.map((s) => [s.player, s.place, s.outcome])).toEqual([['Player Two', '1', 'finished'], ['Player One', '2', 'resigned']]);
+  });
+
+  it('starts editing an addition in the group it is in, with its number', () => {
+    const f = editStart(change('add'), null, replacement);
+    expect(f.found).toBeNull();
+    expect(f.group).toEqual({ id: 5, next: 1, label: 'Intermezzo S24 - Bronze 1' });
+    expect(f.entry.number).toBe('1');
+  });
+
+  it('starts editing a removal from the game removed, with a new game ready from its players', () => {
+    const f = editStart(change('remove'), original, null);
+    expect(f.found?.id).toBe(3);
+    expect(f.group).toBeNull();
+    expect(f.entry.code).toBe('');
+    expect(f.entry.seats.map((s) => s.player)).toEqual(['Player One', 'Player Two']);
   });
 });

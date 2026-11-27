@@ -93,7 +93,7 @@ func (a *AdminStore) GameChanges(ctx context.Context) ([]GameChange, error) {
 		FROM game_changes c LEFT JOIN games g ON g.game_id = c.game_id LEFT JOIN games n ON n.game_id = c.added_game_id
 		LEFT JOIN (SELECT DISTINCT ON (u.target) u.target, ad.name
 		           FROM admin_audit u JOIN admins ad ON ad.discord_id = u.discord_id
-		           WHERE u.action IN ('game.add', 'game.remove', 'game.replace')
+		           WHERE u.action IN ('game.add', 'game.remove', 'game.replace', 'game.edit')
 		           ORDER BY u.target, u.at DESC) w ON w.target = c.change_id::text
 		ORDER BY c.at DESC, c.change_id DESC`)
 	if err != nil {
@@ -123,46 +123,28 @@ func (a *AdminStore) GameChanges(ctx context.Context) ([]GameChange, error) {
 	return got, nil
 }
 
+// NewGameChange is a change to make, or to remake an existing one as: its action (add, remove or replace), the game
+// it removes or replaces, the group it adds to, the new game for add and replace, and its reason.
+type NewGameChange struct {
+	Action string
+	Game   int64
+	Group  int64
+	Entry  GameEntry
+	Reason string
+}
+
 // AddGame adds the game to the group, named and numbered as its next game unless the entry gives a number, and
 // returns the change's id.
 func (a *AdminStore) AddGame(ctx context.Context, group int64, g GameEntry, reason string) (int64, error) {
 	return a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
-		if err := tx.QueryRow(ctx, "SELECT group_id FROM groups WHERE group_id = $1", group).Scan(&group); errors.Is(err, pgx.ErrNoRows) {
-			return 0, ErrNoGroup
-		} else if err != nil {
-			return 0, err
-		}
-		number := g.Number
-		if number == 0 {
-			if err := tx.QueryRow(ctx, "SELECT coalesce(max(game_number), 0) + 1 FROM games WHERE group_id = $1", group).Scan(&number); err != nil {
-				return 0, err
-			}
-		}
-		prefix, err := addedPrefix(ctx, tx, group)
-		if err != nil {
-			return 0, err
-		}
-		added, err := insertGame(ctx, tx, g, fmt.Sprintf("%s game %d", prefix, number), &group, &number)
-		if err != nil {
-			return 0, err
-		}
-		return insertChange(ctx, tx, "add", nil, nil, &added, reason)
+		return makeChange(ctx, tx, nil, NewGameChange{Action: "add", Group: group, Entry: g, Reason: reason})
 	})
 }
 
 // RemoveGame takes the game out of play, kept as removed, and returns the change's id.
 func (a *AdminStore) RemoveGame(ctx context.Context, game int64, reason string) (int64, error) {
 	return a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
-		state, err := gameToChange(ctx, tx, game)
-		if err != nil {
-			return 0, err
-		}
-		id, err := insertChange(ctx, tx, "remove", &game, &state, nil, reason)
-		if err != nil {
-			return 0, err
-		}
-		_, err = tx.Exec(ctx, "UPDATE games SET state = 'removed' WHERE game_id = $1", game)
-		return id, err
+		return makeChange(ctx, tx, nil, NewGameChange{Action: "remove", Game: game, Reason: reason})
 	})
 }
 
@@ -170,43 +152,94 @@ func (a *AdminStore) RemoveGame(ctx context.Context, game int64, reason string) 
 // entry's number is not used), and returns the change's id.
 func (a *AdminStore) ReplaceGame(ctx context.Context, game int64, g GameEntry, reason string) (int64, error) {
 	return a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
-		state, err := gameToChange(ctx, tx, game)
-		if err != nil {
-			return 0, err
-		}
-		var name string
-		var group *int64
-		var number *int
-		if err := tx.QueryRow(ctx, "UPDATE games SET state = 'replaced' WHERE game_id = $1 RETURNING name, group_id, game_number", game).
-			Scan(&name, &group, &number); err != nil {
-			return 0, err
-		}
-		added, err := insertGame(ctx, tx, g, name, group, number)
-		if err != nil {
-			return 0, err
-		}
-		return insertChange(ctx, tx, "replace", &game, &state, &added, reason)
+		return makeChange(ctx, tx, nil, NewGameChange{Action: "replace", Game: game, Entry: g, Reason: reason})
 	})
 }
 
+// EditGameChange undoes the change and makes c in its place, keeping its id, all or nothing. It refuses as
+// UndoGameChange does, and as making c would.
+func (a *AdminStore) EditGameChange(ctx context.Context, id int64, c NewGameChange) error {
+	_, err := a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
+		if _, err := tx.Exec(ctx, "SELECT undo_game_change($1)", id); err != nil {
+			return 0, err
+		}
+		return makeChange(ctx, tx, &id, c)
+	})
+	return err
+}
+
 // UndoGameChange undoes the change: the game it added is deleted, and the game it removed or replaced gets back its
-// earlier state. It returns ErrNoGameChange, ErrChangedSince, or ErrNumberHeld when the game's number has been used again.
+// earlier state. It returns ErrNoGameChange, ErrAddedGameLoaded, ErrChangedSince, or ErrNumberHeld when the game's
+// number has been used again.
 func (a *AdminStore) UndoGameChange(ctx context.Context, id int64) error {
-	_, err := a.pool.Exec(ctx, "SELECT undo_game_change($1)", id)
-	var pg *pgconn.PgError
-	switch {
-	case errors.As(err, &pg) && pg.Code == "P0002":
-		return ErrNoGameChange
-	case errors.As(err, &pg) && pg.Code == "55006":
-		return ErrAddedGameLoaded
-	case errors.As(err, &pg) && pg.ConstraintName == "game_changes_game_id_fkey":
-		return ErrChangedSince
-	case errors.As(err, &pg) && pg.ConstraintName == "games_group_number":
-		return ErrNumberHeld
-	case err != nil:
-		return fmt.Errorf("undoing game change %d: %w", id, err)
+	_, err := a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
+		_, err := tx.Exec(ctx, "SELECT undo_game_change($1)", id)
+		return id, err
+	})
+	return err
+}
+
+// makeChange makes c, with the change id given (nil for the next), and returns its id.
+func makeChange(ctx context.Context, tx pgx.Tx, id *int64, c NewGameChange) (int64, error) {
+	switch c.Action {
+	case "add":
+		return addToGroup(ctx, tx, id, c)
+	case "remove", "replace":
+		return changeGame(ctx, tx, id, c)
 	}
-	return nil
+	return 0, ErrBadGameEntry
+}
+
+// addToGroup adds c's game to its group, named and numbered as the group's next unless the entry gives a number.
+func addToGroup(ctx context.Context, tx pgx.Tx, id *int64, c NewGameChange) (int64, error) {
+	group := c.Group
+	if err := tx.QueryRow(ctx, "SELECT group_id FROM groups WHERE group_id = $1", group).Scan(&group); errors.Is(err, pgx.ErrNoRows) {
+		return 0, ErrNoGroup
+	} else if err != nil {
+		return 0, err
+	}
+	number := c.Entry.Number
+	if number == 0 {
+		if err := tx.QueryRow(ctx, "SELECT coalesce(max(game_number), 0) + 1 FROM games WHERE group_id = $1", group).Scan(&number); err != nil {
+			return 0, err
+		}
+	}
+	prefix, err := addedPrefix(ctx, tx, group)
+	if err != nil {
+		return 0, err
+	}
+	added, err := insertGame(ctx, tx, c.Entry, fmt.Sprintf("%s game %d", prefix, number), &group, &number)
+	if err != nil {
+		return 0, err
+	}
+	return insertChange(ctx, tx, id, "add", nil, nil, &added, c.Reason)
+}
+
+// changeGame removes c's game, or replaces it with c's new game in its group, with its name and number.
+func changeGame(ctx context.Context, tx pgx.Tx, id *int64, c NewGameChange) (int64, error) {
+	game := c.Game
+	state, err := gameToChange(ctx, tx, game)
+	if err != nil {
+		return 0, err
+	}
+	if c.Action == "remove" {
+		if _, err := tx.Exec(ctx, "UPDATE games SET state = 'removed' WHERE game_id = $1", game); err != nil {
+			return 0, err
+		}
+		return insertChange(ctx, tx, id, "remove", &game, &state, nil, c.Reason)
+	}
+	var name string
+	var group *int64
+	var number *int
+	if err := tx.QueryRow(ctx, "UPDATE games SET state = 'replaced' WHERE game_id = $1 RETURNING name, group_id, game_number", game).
+		Scan(&name, &group, &number); err != nil {
+		return 0, err
+	}
+	added, err := insertGame(ctx, tx, c.Entry, name, group, number)
+	if err != nil {
+		return 0, err
+	}
+	return insertChange(ctx, tx, id, "replace", &game, &state, &added, c.Reason)
 }
 
 // changeGames runs change in a transaction, turning the database's refusals into the store's errors.
@@ -221,6 +254,12 @@ func (a *AdminStore) changeGames(ctx context.Context, change func(pgx.Tx) (int64
 		return id, err // nil, or one of the store's errors
 	}
 	switch {
+	case pg.Code == "P0002":
+		return 0, ErrNoGameChange
+	case pg.Code == "55006":
+		return 0, ErrAddedGameLoaded
+	case pg.ConstraintName == "game_changes_game_id_fkey":
+		return 0, ErrChangedSince
 	case pg.ConstraintName == "games_share_code_key":
 		return 0, ErrCodeHeld
 	case pg.ConstraintName == "games_group_number":
@@ -315,16 +354,21 @@ func insertGame(ctx context.Context, tx pgx.Tx, g GameEntry, name string, group 
 	return game, nil
 }
 
-// insertChange records a change and returns its id.
-func insertChange(ctx context.Context, tx pgx.Tx, action string, game *int64, earlier *string, added *int64, reason string) (int64, error) {
+// insertChange records a change, with the id given (nil for the next, as an edit keeps its own), and returns its id.
+func insertChange(ctx context.Context, tx pgx.Tx, id *int64, action string, game *int64, earlier *string, added *int64, reason string) (int64, error) {
 	reason = strings.TrimSpace(reason)
 	if reason == "" || utf8.RuneCountInString(reason) > 1000 {
 		return 0, ErrBadGameEntry
 	}
-	var id int64
-	err := tx.QueryRow(ctx, `INSERT INTO game_changes (action, game_id, earlier_state, added_game_id, reason)
-		VALUES ($1, $2, $3, $4, $5) RETURNING change_id`, action, game, earlier, added, reason).Scan(&id)
-	return id, err
+	var out int64
+	if id == nil {
+		err := tx.QueryRow(ctx, `INSERT INTO game_changes (action, game_id, earlier_state, added_game_id, reason)
+			VALUES ($1, $2, $3, $4, $5) RETURNING change_id`, action, game, earlier, added, reason).Scan(&out)
+		return out, err
+	}
+	err := tx.QueryRow(ctx, `INSERT INTO game_changes (change_id, action, game_id, earlier_state, added_game_id, reason)
+		OVERRIDING SYSTEM VALUE VALUES ($1, $2, $3, $4, $5, $6) RETURNING change_id`, *id, action, game, earlier, added, reason).Scan(&out)
+	return out, err
 }
 
 // addedInAdmin is SQL true when the game named by column (such as "g.game_id") was added by a change in admin.

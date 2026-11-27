@@ -204,7 +204,9 @@ export const exportPath = '/api/export';
 export const gameChanges = get('/api/game-changes');
 /** makeGameChange adds, removes or replaces a game. */
 export const makeGameChange = (body: Schemas['GameChangeRequest']) => to('/api/game-changes', 'POST', body);
-/** undoGameChange undoes a change. */
+/** editGameChange makes a change again as given, keeping its id. */
+export const editGameChange = (id: number, body: Schemas['GameChangeRequest']) => to(`/api/game-changes/${id}`, 'PUT', body);
+/** undoGameChange deletes a change, undoing it. */
 export const undoGameChange = (id: number) => to(`/api/game-changes/${id}`, 'DELETE');
 /** gameByCode finds the game with a replay code, trimmed. */
 export const gameByCode = (code: string) => get(`/api/games/${encodeURIComponent(code.trim())}`);

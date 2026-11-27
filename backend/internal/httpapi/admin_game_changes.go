@@ -1,10 +1,11 @@
-// Admin's game changes: adding a game to a group, removing or replacing a game, undoing a change, and finding the
+// Admin's game changes: adding a game to a group, removing or replacing a game, editing or undoing a change, and finding the
 // games and groups a change names.
 package httpapi
 
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strconv"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -12,7 +13,7 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-// GameChangeAdmin is the games changed in admin: listed, made (returning the change's id) and undone, and the game
+// GameChangeAdmin is the games changed in admin: listed, made (returning the change's id), edited and undone, and the game
 // and groups a change can name.
 type GameChangeAdmin interface {
 	GameChanges(ctx context.Context) ([]store.GameChange, error)
@@ -20,6 +21,7 @@ type GameChangeAdmin interface {
 	RemoveGame(ctx context.Context, game int64, reason string) (int64, error)
 	ReplaceGame(ctx context.Context, game int64, g store.GameEntry, reason string) (int64, error)
 	UndoGameChange(ctx context.Context, id int64) error
+	EditGameChange(ctx context.Context, id int64, c store.NewGameChange) error
 	GameByCode(ctx context.Context, code string) (store.ChangeableGame, error)
 	SeasonGroups(ctx context.Context, slug, season string) ([]store.SeasonStage, error)
 }
@@ -55,31 +57,91 @@ func (s *server) PostAdminGameChange(ctx context.Context, req PostAdminGameChang
 	var id int64
 	err := s.admins.Change(ctx, func(tx Admins) error {
 		var err error
+		c := newGameChange(*b)
 		switch b.Action {
 		case GameChangeAdd:
-			id, err = tx.AddGame(ctx, *b.Group, gameEntry(*b.Entry), b.Reason)
+			id, err = tx.AddGame(ctx, c.Group, c.Entry, c.Reason)
 		case GameChangeRemove:
-			id, err = tx.RemoveGame(ctx, *b.Game, b.Reason)
+			id, err = tx.RemoveGame(ctx, c.Game, c.Reason)
 		case GameChangeReplace:
-			id, err = tx.ReplaceGame(ctx, *b.Game, gameEntry(*b.Entry), b.Reason)
+			id, err = tx.ReplaceGame(ctx, c.Game, c.Entry, c.Reason)
 		}
 		if err != nil {
 			return err
 		}
 		return tx.Audit(ctx, a.DiscordID, "game."+string(b.Action), strconv.FormatInt(id, 10), b)
 	})
-	switch {
-	case errors.Is(err, store.ErrBadGameEntry), errors.Is(err, store.ErrUnknownPlayer):
+	switch changeRefusal(err) {
+	case http.StatusBadRequest:
 		return PostAdminGameChange400JSONResponse{badRequest400(err.Error())}, nil
-	case errors.Is(err, store.ErrNoGame), errors.Is(err, store.ErrNoGroup):
+	case http.StatusNotFound:
 		return PostAdminGameChange404JSONResponse{notFound404(err.Error())}, nil
-	case errors.Is(err, store.ErrGameChanged), errors.Is(err, store.ErrCodeHeld), errors.Is(err, store.ErrNumberHeld):
+	case http.StatusConflict:
 		return PostAdminGameChange409JSONResponse{conflict409(err.Error())}, nil
-	case err != nil:
+	}
+	if err != nil {
 		return nil, err
 	}
 	return PostAdminGameChange201JSONResponse{Body: CreatedGameChange{Id: id},
 		Headers: PostAdminGameChange201ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PutAdminGameChange(ctx context.Context, req PutAdminGameChangeRequestObject) (PutAdminGameChangeResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	b := req.Body
+	if b == nil || !gameChangeComplete(*b) {
+		return PutAdminGameChange400JSONResponse{badRequest400("add takes a group and an entry, remove a game, replace a game and an entry")}, nil
+	}
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.EditGameChange(ctx, req.Change, newGameChange(*b)); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "game.edit", strconv.FormatInt(req.Change, 10), b)
+	})
+	switch changeRefusal(err) {
+	case http.StatusBadRequest:
+		return PutAdminGameChange400JSONResponse{badRequest400(err.Error())}, nil
+	case http.StatusNotFound:
+		return PutAdminGameChange404JSONResponse{notFound404(err.Error())}, nil
+	case http.StatusConflict:
+		return PutAdminGameChange409JSONResponse{conflict409(err.Error())}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return PutAdminGameChange204Response{}, nil
+}
+
+// changeRefusal is the status a refused game change answers with, or 0 for an error that is no refusal (or none).
+func changeRefusal(err error) int {
+	switch {
+	case errors.Is(err, store.ErrBadGameEntry), errors.Is(err, store.ErrUnknownPlayer):
+		return http.StatusBadRequest
+	case errors.Is(err, store.ErrNoGame), errors.Is(err, store.ErrNoGroup), errors.Is(err, store.ErrNoGameChange):
+		return http.StatusNotFound
+	case errors.Is(err, store.ErrGameChanged), errors.Is(err, store.ErrCodeHeld), errors.Is(err, store.ErrNumberHeld),
+		errors.Is(err, store.ErrAddedGameLoaded), errors.Is(err, store.ErrChangedSince):
+		return http.StatusConflict
+	}
+	return 0
+}
+
+// newGameChange is the store's form of a complete request.
+func newGameChange(b GameChangeRequest) store.NewGameChange {
+	c := store.NewGameChange{Action: string(b.Action), Reason: b.Reason}
+	if b.Game != nil {
+		c.Game = *b.Game
+	}
+	if b.Group != nil {
+		c.Group = *b.Group
+	}
+	if b.Entry != nil {
+		c.Entry = gameEntry(*b.Entry)
+	}
+	return c
 }
 
 // gameChangeComplete reports whether the request gives what its action takes, and nothing another action takes.
@@ -118,12 +180,13 @@ func (s *server) DeleteAdminGameChange(ctx context.Context, req DeleteAdminGameC
 		}
 		return tx.Audit(ctx, a.DiscordID, "game.undo", strconv.FormatInt(req.Change, 10), map[string]any{})
 	})
-	switch {
-	case errors.Is(err, store.ErrNoGameChange):
+	switch changeRefusal(err) {
+	case http.StatusNotFound:
 		return DeleteAdminGameChange404JSONResponse{notFound404(err.Error())}, nil
-	case errors.Is(err, store.ErrAddedGameLoaded), errors.Is(err, store.ErrChangedSince), errors.Is(err, store.ErrNumberHeld):
+	case http.StatusConflict:
 		return DeleteAdminGameChange409JSONResponse{conflict409(err.Error())}, nil
-	case err != nil:
+	}
+	if err != nil {
 		return nil, err
 	}
 	return DeleteAdminGameChange204Response{}, nil

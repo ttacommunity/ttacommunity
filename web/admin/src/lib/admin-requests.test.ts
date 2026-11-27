@@ -37,6 +37,7 @@ describe('admin requests', () => {
     // Game changes
     ['a game change', req.makeGameChange({ action: 'remove', game: 3, reason: 'Not a tournament game' }), '/api/game-changes', 'POST', { action: 'remove', game: 3, reason: 'Not a tournament game' }],
     ['undoing a game change', req.undoGameChange(7), '/api/game-changes/7', 'DELETE', undefined],
+    ['editing a game change', req.editGameChange(7, { action: 'remove', game: 3, reason: 'Played twice' }), '/api/game-changes/7', 'PUT', { action: 'remove', game: 3, reason: 'Played twice' }],
     ['a game by its code, trimmed and escaped', req.gameByCode(' AB/CD '), '/api/games/AB%2FCD', 'GET', undefined],
     ["a season's groups, to escape", req.seasonGroups('intermezzo', '24 B'), '/api/tournaments/intermezzo/seasons/24%20B/groups', 'GET', undefined],
     // Blitz tournaments

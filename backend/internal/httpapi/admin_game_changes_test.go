@@ -74,6 +74,27 @@ func (f *fakeAdmins) ReplaceGame(_ context.Context, game int64, g store.GameEntr
 	return 13, nil
 }
 
+func (f *fakeAdmins) EditGameChange(ctx context.Context, id int64, c store.NewGameChange) error {
+	if err := f.UndoGameChange(ctx, id); err != nil {
+		return err
+	}
+	f.notes = f.notes[:len(f.notes)-1]
+	var err error
+	switch c.Action {
+	case "add":
+		_, err = f.AddGame(ctx, c.Group, c.Entry, c.Reason)
+	case "remove":
+		_, err = f.RemoveGame(ctx, c.Game, c.Reason)
+	case "replace":
+		_, err = f.ReplaceGame(ctx, c.Game, c.Entry, c.Reason)
+	}
+	if err != nil {
+		return err
+	}
+	f.notes[len(f.notes)-1] = fmt.Sprintf("edit %d to %s", id, f.notes[len(f.notes)-1])
+	return nil
+}
+
 func (f *fakeAdmins) UndoGameChange(_ context.Context, id int64) error {
 	switch id {
 	case 404:
@@ -123,12 +144,15 @@ func TestAdminGameChanges(t *testing.T) {
 	if rec := adminDo(t, f, http.MethodDelete, "/v1/admin/game-changes/12", site, ""); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE = %d %s, want 204", rec.Code, rec.Body)
 	}
+	if rec := adminDo(t, f, http.MethodPut, "/v1/admin/game-changes/13", site, `{"action": "remove", "game": 5, "reason": "Played twice"}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("PUT = %d %s, want 204", rec.Code, rec.Body)
+	}
 	want := "add NEWGAME1 2024-09-20 #4 to 5: [{Player:Player One Place:1 Outcome:finished Score:120} {Player:Player Two Place:2 Outcome:timed_out Score:0}] (Played outside the tournament)" +
-		"|remove 3 (Not a tournament game)|replace 4 by NEWGAME2 (Timed out)|undo 12"
+		"|remove 3 (Not a tournament game)|replace 4 by NEWGAME2 (Timed out)|undo 12|edit 13 to remove 5 (Played twice)"
 	if got := strings.Join(f.notes, "|"); got != want {
 		t.Errorf("changes = %q, want %q", got, want)
 	}
-	if got, want := strings.Join(f.audits, "|"), org+" game.add 11|"+org+" game.remove 12|"+org+" game.replace 13|"+org+" game.undo 12"; got != want {
+	if got, want := strings.Join(f.audits, "|"), org+" game.add 11|"+org+" game.remove 12|"+org+" game.replace 13|"+org+" game.undo 12|"+org+" game.edit 13"; got != want {
 		t.Errorf("audits = %q, want %q", got, want)
 	}
 
@@ -183,6 +207,12 @@ func TestAdminRefusesAGameChangeItCannotMake(t *testing.T) {
 		{"undo an addition an extract matched", http.MethodDelete, "/v1/admin/game-changes/409", site, "", http.StatusConflict},
 		{"undo an addition changed since", http.MethodDelete, "/v1/admin/game-changes/410", site, "", http.StatusConflict},
 		{"undo from another site", http.MethodDelete, "/v1/admin/game-changes/12", "https://evil.example", "", http.StatusForbidden},
+		{"edit an unknown change", http.MethodPut, "/v1/admin/game-changes/404", site, `{"action": "remove", "game": 3, "reason": "A reason"}`, http.StatusNotFound},
+		{"edit an addition an extract matched", http.MethodPut, "/v1/admin/game-changes/409", site, `{"action": "remove", "game": 3, "reason": "A reason"}`, http.StatusConflict},
+		{"edit to what its action does not take", http.MethodPut, "/v1/admin/game-changes/12", site, `{"action": "remove", "reason": "A reason"}`, http.StatusBadRequest},
+		{"edit to a game we do not hold", http.MethodPut, "/v1/admin/game-changes/12", site, `{"action": "remove", "game": 404, "reason": "A reason"}`, http.StatusNotFound},
+		{"edit to a code we hold", http.MethodPut, "/v1/admin/game-changes/12", site, `{"action": "add", "group": 5, "reason": "A reason", ` + fmt.Sprintf(entry, "HELD", "Player One") + `}`, http.StatusConflict},
+		{"edit from another site", http.MethodPut, "/v1/admin/game-changes/12", "https://evil.example", `{"action": "remove", "game": 3, "reason": "A reason"}`, http.StatusForbidden},
 		{"a game no one holds", http.MethodGet, "/v1/admin/games/ZZZZZZZZ", "", "", http.StatusNotFound},
 		{"groups of an unknown season", http.MethodGet, "/v1/admin/tournaments/intermezzo/seasons/99/groups", "", "", http.StatusNotFound},
 	}

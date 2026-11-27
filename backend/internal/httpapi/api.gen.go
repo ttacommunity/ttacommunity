@@ -6320,6 +6320,9 @@ type AccountId = int64
 // AdminBadgeId defines model for AdminBadgeId.
 type AdminBadgeId = int64
 
+// AdminGameChangeId defines model for AdminGameChangeId.
+type AdminGameChangeId = int64
+
 // AdminNotificationEndpointId defines model for AdminNotificationEndpointId.
 type AdminNotificationEndpointId = int64
 
@@ -6840,6 +6843,9 @@ type PutAdminDiscordCommandJSONRequestBody = DiscordCommandSetting
 // PostAdminGameChangeJSONRequestBody defines body for PostAdminGameChange for application/json ContentType.
 type PostAdminGameChangeJSONRequestBody = GameChangeRequest
 
+// PutAdminGameChangeJSONRequestBody defines body for PutAdminGameChange for application/json ContentType.
+type PutAdminGameChangeJSONRequestBody = GameChangeRequest
+
 // PutAdminLinkRefusalJSONRequestBody defines body for PutAdminLinkRefusal for application/json ContentType.
 type PutAdminLinkRefusalJSONRequestBody = LinkRefusal
 
@@ -7166,9 +7172,12 @@ type ServerInterface interface {
 	// PostAdminGameChange Add a game to a group, or remove or replace a game (admins and organisers)
 	// (POST /v1/admin/game-changes)
 	PostAdminGameChange(w http.ResponseWriter, r *http.Request)
-	// DeleteAdminGameChange Undo a game change (admins and organisers)
+	// DeleteAdminGameChange Delete a game change, undoing it (admins and organisers)
 	// (DELETE /v1/admin/game-changes/{change})
-	DeleteAdminGameChange(w http.ResponseWriter, r *http.Request, change int64)
+	DeleteAdminGameChange(w http.ResponseWriter, r *http.Request, change AdminGameChangeId)
+	// PutAdminGameChange Edit a game change, making it again as given (admins and organisers)
+	// (PUT /v1/admin/game-changes/{change})
+	PutAdminGameChange(w http.ResponseWriter, r *http.Request, change AdminGameChangeId)
 	// GetAdminGame The game with a replay code, to remove or replace (admins and organisers)
 	// (GET /v1/admin/games/{code})
 	GetAdminGame(w http.ResponseWriter, r *http.Request, code string)
@@ -9601,7 +9610,7 @@ func (siw *ServerInterfaceWrapper) DeleteAdminGameChange(w http.ResponseWriter, 
 	_ = err
 
 	// ------------- Path parameter "change" -------------
-	var change int64
+	var change AdminGameChangeId
 
 	err = runtime.BindStyledParameterWithOptions("simple", "change", r.PathValue("change"), &change, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
 	if err != nil {
@@ -9611,6 +9620,32 @@ func (siw *ServerInterfaceWrapper) DeleteAdminGameChange(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteAdminGameChange(w, r, change)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminGameChange operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminGameChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "change" -------------
+	var change AdminGameChangeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "change", r.PathValue("change"), &change, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "change", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminGameChange(w, r, change)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -15111,6 +15146,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/game-changes", wrapper.GetAdminGameChanges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/game-changes", wrapper.PostAdminGameChange)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/v1/admin/game-changes/{change}", wrapper.DeleteAdminGameChange)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/v1/admin/game-changes/{change}", wrapper.PutAdminGameChange)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/games/{code}", wrapper.GetAdminGame)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.GetAdminMovieChannels)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/v1/admin/movies/channels", wrapper.PostAdminMovieChannel)
@@ -19807,7 +19843,7 @@ func (response PostAdminGameChange409JSONResponse) VisitPostAdminGameChangeRespo
 }
 
 type DeleteAdminGameChangeRequestObject struct {
-	Change int64 `json:"change"`
+	Change AdminGameChangeId `json:"change"`
 }
 
 type DeleteAdminGameChangeResponseObject interface {
@@ -19870,6 +19906,98 @@ func (response DeleteAdminGameChange404JSONResponse) VisitDeleteAdminGameChangeR
 type DeleteAdminGameChange409JSONResponse struct{ ConflictJSONResponse }
 
 func (response DeleteAdminGameChange409JSONResponse) VisitDeleteAdminGameChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGameChangeRequestObject struct {
+	Change AdminGameChangeId `json:"change"`
+	Body   *PutAdminGameChangeJSONRequestBody
+}
+
+type PutAdminGameChangeResponseObject interface {
+	VisitPutAdminGameChangeResponse(w http.ResponseWriter) error
+}
+
+type PutAdminGameChange204Response struct {
+}
+
+func (response PutAdminGameChange204Response) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutAdminGameChange400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PutAdminGameChange400JSONResponse) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGameChange401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutAdminGameChange401JSONResponse) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGameChange403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutAdminGameChange403JSONResponse) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGameChange404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutAdminGameChange404JSONResponse) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminGameChange409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutAdminGameChange409JSONResponse) VisitPutAdminGameChangeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -31037,9 +31165,12 @@ type StrictServerInterface interface {
 	// PostAdminGameChange Add a game to a group, or remove or replace a game (admins and organisers)
 	// (POST /v1/admin/game-changes)
 	PostAdminGameChange(ctx context.Context, request PostAdminGameChangeRequestObject) (PostAdminGameChangeResponseObject, error)
-	// DeleteAdminGameChange Undo a game change (admins and organisers)
+	// DeleteAdminGameChange Delete a game change, undoing it (admins and organisers)
 	// (DELETE /v1/admin/game-changes/{change})
 	DeleteAdminGameChange(ctx context.Context, request DeleteAdminGameChangeRequestObject) (DeleteAdminGameChangeResponseObject, error)
+	// PutAdminGameChange Edit a game change, making it again as given (admins and organisers)
+	// (PUT /v1/admin/game-changes/{change})
+	PutAdminGameChange(ctx context.Context, request PutAdminGameChangeRequestObject) (PutAdminGameChangeResponseObject, error)
 	// GetAdminGame The game with a replay code, to remove or replace (admins and organisers)
 	// (GET /v1/admin/games/{code})
 	GetAdminGame(ctx context.Context, request GetAdminGameRequestObject) (GetAdminGameResponseObject, error)
@@ -33289,7 +33420,7 @@ func (sh *strictHandler) PostAdminGameChange(w http.ResponseWriter, r *http.Requ
 }
 
 // DeleteAdminGameChange operation middleware
-func (sh *strictHandler) DeleteAdminGameChange(w http.ResponseWriter, r *http.Request, change int64) {
+func (sh *strictHandler) DeleteAdminGameChange(w http.ResponseWriter, r *http.Request, change AdminGameChangeId) {
 	var request DeleteAdminGameChangeRequestObject
 
 	request.Change = change
@@ -33307,6 +33438,39 @@ func (sh *strictHandler) DeleteAdminGameChange(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeleteAdminGameChangeResponseObject); ok {
 		if err := validResponse.VisitDeleteAdminGameChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminGameChange operation middleware
+func (sh *strictHandler) PutAdminGameChange(w http.ResponseWriter, r *http.Request, change AdminGameChangeId) {
+	var request PutAdminGameChangeRequestObject
+
+	request.Change = change
+
+	var body PutAdminGameChangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminGameChange(ctx, request.(PutAdminGameChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminGameChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminGameChangeResponseObject); ok {
+		if err := validResponse.VisitPutAdminGameChangeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
