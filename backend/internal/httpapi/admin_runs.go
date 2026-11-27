@@ -292,12 +292,6 @@ func (s *server) DeleteAdminRun(ctx context.Context, req DeleteAdminRunRequestOb
 	case err != nil:
 		return nil, err
 	}
-	go func(run int64) {
-		ctx, cancel := context.WithTimeout(context.Background(), deleteRunTimeout)
-		defer cancel()
-		if err := s.admins.DeleteRun(ctx, run); err != nil {
-			s.log.Error("deleting a run failed; it stays marked, to delete again", "run", run, "err", err)
-		}
-	}(req.Run)
+	go deleteInBackground(s.admins, req.Run, s.log)
 	return DeleteAdminRun202Response{}, nil
 }

@@ -210,3 +210,68 @@ func TestTheAdminLoginDeletesARunOnlyThroughItsGuards(t *testing.T) {
 		t.Errorf("CheckLimits after migration 49 = %v, want the admin login still limited", err)
 	}
 }
+
+func TestDeleteRunThatMustWaitForALockSaysItIsBusyAndKeepsTheRunMarked(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	cfg := asAdminLogin(t, pool).Config().Copy()
+	setRole := cfg.AfterConnect
+	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+		if err := setRole(ctx, c); err != nil {
+			return err
+		}
+		_, err := c.Exec(ctx, "SET lock_timeout = '200ms'")
+		return err
+	}
+	impatient, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatalf("opening an admin pool that waits 200 ms for a lock: %v", err)
+	}
+	t.Cleanup(impatient.Close)
+	a := NewAdminStore(impatient)
+	run := addRun(t, pool, "complete", time.Time{})
+	if err := a.StartDeleteRun(ctx, run, false); err != nil {
+		t.Fatalf("StartDeleteRun: %v", err)
+	}
+
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := holder.Exec(ctx, "SELECT 1 FROM rating_runs WHERE run_id = $1 FOR UPDATE", run); err != nil {
+		t.Fatalf("locking the run: %v", err)
+	}
+	if err := a.DeleteRun(ctx, run); !errors.Is(err, ErrRunBusy) {
+		t.Errorf("DeleteRun while the run is locked = %v, want %v", err, ErrRunBusy)
+	}
+	if marked, err := a.RunsMarkedForDeletion(ctx); err != nil || len(marked) != 1 || marked[0] != run {
+		t.Errorf("RunsMarkedForDeletion after a busy delete = %v, %v; want [%d]", marked, err, run)
+	}
+	if err := holder.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DeleteRun(ctx, run); err != nil {
+		t.Errorf("DeleteRun once the lock is gone = %v, want nil", err)
+	}
+}
+
+func TestRunsMarkedForDeletionListsThemOldestFirst(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	a := NewAdminStore(asAdminLogin(t, pool))
+	first := addRun(t, pool, "complete", time.Time{})
+	addRun(t, pool, "complete", time.Time{})
+	third := addRun(t, pool, "complete", time.Time{})
+	for _, run := range []int64{third, first} {
+		if err := a.StartDeleteRun(ctx, run, false); err != nil {
+			t.Fatalf("StartDeleteRun(%d): %v", run, err)
+		}
+	}
+	marked, err := a.RunsMarkedForDeletion(ctx)
+	if err != nil {
+		t.Fatalf("RunsMarkedForDeletion: %v", err)
+	}
+	if len(marked) != 2 || marked[0] != first || marked[1] != third {
+		t.Errorf("RunsMarkedForDeletion = %v, want [%d %d]", marked, first, third)
+	}
+}

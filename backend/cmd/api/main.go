@@ -177,6 +177,7 @@ func main() {
 	}
 	log.Info("api listening", "addr", ln.Addr().String())
 	serveMetrics(ctx, os.Getenv("METRICS_ADDR"), reg, log)
+	go httpapi.FinishDeletes(ctx, admins, log)
 	if err := httpapi.Serve(ctx, ln, httpapi.NewMux(ratings, admins, signIns, discord, hub, twitchHub, visits, images, log, reg, time.Now), log); err != nil {
 		log.Error("api stopped", "err", err)
 		os.Exit(1)
