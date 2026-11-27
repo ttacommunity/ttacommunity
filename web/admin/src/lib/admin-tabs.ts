@@ -51,11 +51,11 @@ export function tabFrom(hash: string, role: Role): TabKey {
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
 
-export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'runs' | 'standings' | 'movies' | 'images' | 'titles' | 'badges' | 'admins' | 'notifications' | 'bot' | 'audit';
+export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'games' | 'runs' | 'standings' | 'movies' | 'images' | 'titles' | 'badges' | 'admins' | 'notifications' | 'bot' | 'audit';
 
 /** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. */
 export function panelsFor(tab: TabKey, role: Role): Panel[] {
-  if (tab === 'data') return role === 'admin' ? ['data', 'runs', 'standings'] : ['data', 'standings'];
+  if (tab === 'data') return role === 'admin' ? ['data', 'games', 'runs', 'standings'] : ['data', 'games', 'standings'];
   if (tab === 'titles') return ['titles', 'badges'];
   return [tab];
 }

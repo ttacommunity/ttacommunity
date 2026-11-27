@@ -39,8 +39,8 @@ describe('admin tabs', () => {
   it.each([
     ['community', 'admin', ['community']],
     ['community', 'organiser', ['community']],
-    ['data', 'admin', ['data', 'runs', 'standings']],
-    ['data', 'organiser', ['data', 'standings']],
+    ['data', 'admin', ['data', 'games', 'runs', 'standings']],
+    ['data', 'organiser', ['data', 'games', 'standings']],
     ['titles', 'admin', ['titles', 'badges']],
     ['tournaments', 'organiser', ['tournaments']],
     ['blitz', 'organiser', ['blitz']],

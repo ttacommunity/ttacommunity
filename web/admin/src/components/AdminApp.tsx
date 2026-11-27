@@ -16,6 +16,7 @@ import AdminList from './AdminList';
 import RunsPanel from './RunsPanel';
 import DataCard from './DataCard';
 import StandingsCheckPanel from './StandingsCheckPanel';
+import GameChangesPanel from './GameChangesPanel';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import NotificationsPanel from './NotificationsPanel';
@@ -102,6 +103,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <MembersPanel role={role} accounts={signIns.accounts} reloadAccounts={signIns.reload} />;
     case 'data':
       return <DataCard />;
+    case 'games':
+      return <GameChangesPanel />;
     case 'runs':
       return <RunsPanel />;
     case 'standings':
