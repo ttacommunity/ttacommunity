@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flaggedReports, groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
+import { dataTabFrom, dataTabs, flaggedReports, groupsFor, panelsFor, siteUrlFor, tabCounts, tabFrom, tabsFor, TABS } from './admin-tabs';
 
 describe('admin tabs', () => {
   it.each([
@@ -32,6 +32,8 @@ describe('admin tabs', () => {
     ['#signins', 'organiser', 'members'],
     ['#images', 'organiser', 'images'],
     ['#images', 'admin', 'images'],
+    ['#games', 'organiser', 'data'],
+    ['#standings', 'admin', 'data'],
   ] as const)('opens %s for an %s on %s', (hash, role, want) => {
     expect(tabFrom(hash, role)).toBe(want);
   });
@@ -39,7 +41,7 @@ describe('admin tabs', () => {
   it.each([
     ['community', 'admin', ['community']],
     ['community', 'organiser', ['community']],
-    ['data', 'admin', ['data', 'games', 'runs', 'standings']],
+    ['data', 'admin', ['data', 'runs', 'games', 'standings']],
     ['data', 'organiser', ['data', 'games', 'standings']],
     ['titles', 'admin', ['titles', 'badges']],
     ['tournaments', 'organiser', ['tournaments']],
@@ -53,6 +55,24 @@ describe('admin tabs', () => {
     ['images', 'organiser', ['images']],
   ] as const)('shows the %s tab to an %s as its panels', (tab, role, want) => {
     expect(panelsFor(tab, role)).toEqual(want);
+  });
+
+  it.each([
+    ['admin', [['data', 'Summary'], ['runs', 'Runs'], ['games', 'Games'], ['standings', 'Standings check']]],
+    ['organiser', [['data', 'Summary'], ['games', 'Games'], ['standings', 'Standings check']]],
+  ] as const)("names the data tab's sub tabs %s sees, each with its address", (role, want) => {
+    expect(dataTabs(role).map((t) => [t.hash, t.label])).toEqual(want);
+  });
+
+  it.each([
+    ['#games', 'admin', 'games'],
+    ['#runs', 'admin', 'runs'],
+    ['#standings', 'organiser', 'standings'],
+    ['#runs', 'organiser', 'data'],
+    ['#data', 'admin', 'data'],
+    ['', 'admin', 'data'],
+  ] as const)('opens %s for an %s on the data sub tab %s', (hash, role, want) => {
+    expect(dataTabFrom(hash, role)).toBe(want);
   });
 
   it.each([
