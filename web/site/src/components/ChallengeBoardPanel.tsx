@@ -1,7 +1,9 @@
 /** A challenge's board: its ranking, the history of its record with a chart, the entries that do not count, and every submission. */
 import { useState } from 'react';
 import { formatDate, viewerZone } from '@ttac/shared/time';
-import { challengeBoard, type ChallengeBoard, type ChallengeRecordStep } from '@ttac/shared/ratings';
+import SortHeader, { useSort } from '@ttac/shared/SortHeader';
+import type { SortColumns } from '@ttac/shared/sort';
+import { challengeBoard, type ChallengeBest, type ChallengeBoard, type ChallengeRecordStep, type ChallengeSubmission } from '@ttac/shared/ratings';
 import { CHART, notCounted, recordChart } from '../lib/record-chart';
 import { BugTag, ChallengePlayerLink, ProofLink, useChoice, VerifiedSwitch } from './ChallengeParts';
 import { useKeptLoad } from './useLoad';
@@ -9,6 +11,26 @@ import Waiting from './Waiting';
 import Panel from './Panel';
 import Panels from './Panels';
 import ScrollTable from './ScrollTable';
+
+const RANKING_COLUMNS: SortColumns<ChallengeBest, 'rank' | 'player' | 'domination' | 'date'> = {
+  rank: { value: (b) => b.rank, first: 'asc' },
+  player: { value: (b) => b.player, first: 'asc' },
+  domination: { value: (b) => b.domination, first: 'desc' },
+  date: { value: (b) => b.entered_at, first: 'desc' },
+};
+
+const ENTRY_COLUMNS: SortColumns<ChallengeSubmission, 'player' | 'domination' | 'date'> = {
+  player: { value: (e) => e.player, first: 'asc' },
+  domination: { value: (e) => e.domination, first: 'desc' },
+  date: { value: (e) => e.entered_at, first: 'desc' },
+};
+
+const HISTORY_COLUMNS: SortColumns<ChallengeRecordStep, 'date' | 'player' | 'domination' | 'gain'> = {
+  date: { value: (s) => s.entered_at, first: 'desc' },
+  player: { value: (s) => s.player, first: 'asc' },
+  domination: { value: (s) => s.domination, first: 'desc' },
+  gain: { value: (s) => s.gain, first: 'desc' },
+};
 
 /** ChallengeBoardPanel loads the board of challenge id for the chosen entries and shows it. */
 export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id: string }) {
@@ -33,7 +55,9 @@ export default function ChallengeBoardPanel({ apiUrl, id }: { apiUrl: string; id
 }
 
 function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOnly: boolean; day: (instant: string) => string }) {
-  const bugged = notCounted(board.entries, verifiedOnly);
+  const [ranking, rankingSort, onRankingSort] = useSort(board.ranking, RANKING_COLUMNS);
+  const [bugged, buggedSort, onBuggedSort] = useSort(notCounted(board.entries, verifiedOnly), ENTRY_COLUMNS);
+  const [entries, entriesSort, onEntriesSort] = useSort(board.entries, ENTRY_COLUMNS);
   return (
     <Panels>
       <Panel label="Ranking">
@@ -44,19 +68,23 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
             <table className="leaderboard-table">
               <thead>
                 <tr>
-                  <th scope="col" className="num">
+                  <SortHeader col="rank" sort={rankingSort} onSort={onRankingSort} align="end">
                     #
-                  </th>
-                  <th scope="col">Player</th>
-                  <th scope="col" className="num" title="Your final score minus the second-place player's score">
-                    Domination
-                  </th>
+                  </SortHeader>
+                  <SortHeader col="player" sort={rankingSort} onSort={onRankingSort}>
+                    Player
+                  </SortHeader>
+                  <SortHeader col="domination" sort={rankingSort} onSort={onRankingSort} align="end">
+                    <span data-tooltip="Your final score minus the second-place player's score">Domination</span>
+                  </SortHeader>
                   <th scope="col">Proof</th>
-                  <th scope="col">Date</th>
+                  <SortHeader col="date" sort={rankingSort} onSort={onRankingSort}>
+                    Date
+                  </SortHeader>
                 </tr>
               </thead>
               <tbody>
-                {board.ranking.map((b) => (
+                {ranking.map((b) => (
                   <tr key={b.player} className={b.rank === 1 ? 'challenges-first' : undefined}>
                     <td className="num">{b.rank}</td>
                     <td>
@@ -87,10 +115,16 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
               <caption className="visually-hidden">Entries made through a game bug, not counted</caption>
               <thead>
                 <tr>
-                  <th scope="col">Player</th>
-                  <th scope="col">Domination</th>
+                  <SortHeader col="player" sort={buggedSort} onSort={onBuggedSort}>
+                    Player
+                  </SortHeader>
+                  <SortHeader col="domination" sort={buggedSort} onSort={onBuggedSort} align="end">
+                    Domination
+                  </SortHeader>
                   <th scope="col">Proof</th>
-                  <th scope="col">Date</th>
+                  <SortHeader col="date" sort={buggedSort} onSort={onBuggedSort}>
+                    Date
+                  </SortHeader>
                 </tr>
               </thead>
               <tbody>
@@ -124,14 +158,20 @@ function Board({ board, verifiedOnly, day }: { board: ChallengeBoard; verifiedOn
                 <caption className="visually-hidden">Every submission for the challenge, as entered</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Date</th>
-                    <th scope="col">Player</th>
-                    <th scope="col">Domination</th>
+                    <SortHeader col="date" sort={entriesSort} onSort={onEntriesSort}>
+                      Date
+                    </SortHeader>
+                    <SortHeader col="player" sort={entriesSort} onSort={onEntriesSort}>
+                      Player
+                    </SortHeader>
+                    <SortHeader col="domination" sort={entriesSort} onSort={onEntriesSort} align="end">
+                      Domination
+                    </SortHeader>
                     <th scope="col">Proof</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {board.entries.map((e, i) => (
+                  {entries.map((e, i) => (
                     <tr key={i}>
                       <td className="muted">{day(e.entered_at)}</td>
                       <td>
@@ -162,6 +202,7 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
   const chart = recordChart(steps, Date.now());
   const active = hover === null ? null : { step: steps[hover], at: chart.points[hover] };
   const tipLeft = active !== null && active.at.x > CHART.width - 200;
+  const [rows, sort, onSort] = useSort([...steps].reverse(), HISTORY_COLUMNS);
 
   return (
     <Panel id="record-history" title="Record history">
@@ -205,19 +246,23 @@ function RecordHistory({ steps, day }: { steps: ChallengeRecordStep[]; day: (ins
         <table className="leaderboard-table">
           <thead>
             <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Record holder</th>
-              <th scope="col" className="num">
+              <SortHeader col="date" sort={sort} onSort={onSort}>
+                Date
+              </SortHeader>
+              <SortHeader col="player" sort={sort} onSort={onSort}>
+                Record holder
+              </SortHeader>
+              <SortHeader col="domination" sort={sort} onSort={onSort} align="end">
                 Domination
-              </th>
-              <th scope="col" className="num">
+              </SortHeader>
+              <SortHeader col="gain" sort={sort} onSort={onSort} align="end">
                 Improvement
-              </th>
+              </SortHeader>
               <th scope="col">Proof</th>
             </tr>
           </thead>
           <tbody>
-            {[...steps].reverse().map((s) => (
+            {rows.map((s) => (
               <tr key={`${s.entered_at}-${s.domination}`}>
                 <td className="muted">{day(s.entered_at)}</td>
                 <td>
