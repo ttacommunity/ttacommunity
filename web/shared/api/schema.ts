@@ -2663,6 +2663,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/game-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every game added, removed or replaced in admin, newest first (admins and organisers) */
+        get: operations["getAdminGameChanges"];
+        put?: never;
+        /**
+         * Add a game to a group, or remove or replace a game (admins and organisers)
+         * @description Add needs group and entry, remove needs game, and replace needs game
+         *     and entry. A removed or replaced game is kept, never rated; the game
+         *     replacing one takes its name, group and number. Every later CGE
+         *     extract keeps the change. Audited. The Origin must be the admin site.
+         */
+        post: operations["postAdminGameChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/game-changes/{change}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Undo a game change (admins and organisers)
+         * @description The game it added is deleted and the game it removed or replaced
+         *     gets back its earlier state. Refused when the game it added has been
+         *     changed since or matched by a CGE extract, or the game's number has
+         *     been used again. Audited. The Origin must be the admin site.
+         */
+        delete: operations["deleteAdminGameChange"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The game with a replay code, or a group's games, to remove or replace (admins and organisers)
+         * @description Give code for the one game with it, or group for every game of the
+         *     group by number, for a game with no code. Removed and replaced games
+         *     are included, marked by their state.
+         */
+        get: operations["getAdminGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/movies/channels": {
         parameters: {
             query?: never;
@@ -3227,6 +3296,23 @@ export interface paths {
          *     The Origin must be the admin site.
          */
         post: operations["postAdminSignUpAccept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/tournaments/{tournament}/seasons/{season}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A season's stages and their groups, to add a game to (admins and organisers) */
+        get: operations["getAdminSeasonGroups"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4794,6 +4880,117 @@ export interface components {
             has_games: boolean;
             note: string;
             stages: components["schemas"]["AdminStage"][];
+        };
+        GameChange: {
+            /** Format: int64 */
+            id: number;
+            action: components["schemas"]["GameChangeAction"];
+            /** @description The game removed or replaced, as it is now; null for add */
+            game: components["schemas"]["ChangedGame"] | null;
+            /** @description The game added, as it is now; null for remove */
+            added: components["schemas"]["ChangedGame"] | null;
+            reason: string;
+            /** Format: date-time */
+            at: string;
+            /** @description Who made it, as admin names them; empty when not known */
+            by: string;
+        };
+        /** @enum {string} */
+        GameChangeAction: "add" | "remove" | "replace";
+        ChangedGame: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description Its replay code; empty for none */
+            code: string;
+            state: components["schemas"]["GameState"];
+            /** Format: date */
+            date: string;
+        };
+        GameChangeRequest: {
+            action: components["schemas"]["GameChangeAction"];
+            /** @description Why, shown in admin only */
+            reason: string;
+            /**
+             * Format: int64
+             * @description The game to remove or replace, by id
+             */
+            game?: number;
+            /**
+             * Format: int64
+             * @description The group to add the game to, by id
+             */
+            group?: number;
+            entry?: components["schemas"]["GameEntry"];
+        };
+        /** @description A game typed in admin, played by players we hold */
+        GameEntry: {
+            /** @description Its replay code */
+            code: string;
+            /** Format: date */
+            date: string;
+            /** @description Its number in the group, for add; the group's next when left out */
+            number?: number;
+            seats: components["schemas"]["GameEntrySeat"][];
+        };
+        GameEntrySeat: {
+            /** @description A player we hold, by name in any case */
+            player: string;
+            place: number;
+            outcome: components["schemas"]["SeatOutcome"];
+            /**
+             * Format: double
+             * @description Culture; 0 unless finished
+             */
+            score: number;
+        };
+        CreatedGameChange: {
+            /** Format: int64 */
+            id: number;
+        };
+        ChangeableGame: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description Its replay code; empty for none */
+            code: string;
+            /** Format: date */
+            date: string;
+            state: components["schemas"]["GameState"];
+            /**
+             * Format: int64
+             * @description Its group's id; null for none
+             */
+            group: number | null;
+            /** @description Its number in its group; null for none */
+            number: number | null;
+            /** @description First place first */
+            seats: components["schemas"]["ChangeableSeat"][];
+        };
+        ChangeableSeat: {
+            player: string;
+            place: number;
+            /** @description Null where CGE's seats are not known */
+            outcome: components["schemas"]["SeatOutcome"] | null;
+            /**
+             * Format: double
+             * @description Culture
+             */
+            score: number;
+        };
+        SeasonStage: {
+            /** @description Empty for a season's only stage */
+            label: string;
+            groups: components["schemas"]["SeasonGroup"][];
+        };
+        SeasonGroup: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description Its games in play (not removed or replaced) */
+            games: number;
+            /** @description The number a game added to it gets */
+            next_number: number;
         };
         AdminStage: {
             /** @description Its number (CGE's, else the last number in its label), 0 for none */
@@ -11708,6 +11905,110 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    getAdminGameChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes, newest first */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameChange"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    postAdminGameChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GameChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Made */
+            201: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedGameChange"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteAdminGameChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAdminGames: {
+        parameters: {
+            query?: {
+                code?: string;
+                group?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The games, none when nothing matches */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeableGame"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     getAdminMovieChannels: {
         parameters: {
             query?: never;
@@ -12845,6 +13146,35 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getAdminSeasonGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tournament's slug */
+                tournament: components["parameters"]["AdminTournamentSlug"];
+                /** @description The season's label, as admin lists it */
+                season: components["parameters"]["AdminSeasonLabel"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stages in order, each with its groups */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["CacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonStage"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     postAdminSeason: {
@@ -14273,6 +14603,7 @@ export const feedOptionMatchValues: ReadonlyArray<FlattenedDeepRequired<componen
 export const feedItemTextValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["FeedItemText"]> = ["full", "short", "none"];
 export const adminTitleValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminTitle"]> = ["SGM", "WCS", "WCB", "GM", "M", "P", "G", "S", "B", "W", ""];
 export const adminSeasonSuggested_fromValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["AdminSeason"]["suggested_from"]> = ["recorded", "final_stage", ""];
+export const gameChangeActionValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["GameChangeAction"]> = ["add", "remove", "replace"];
 export const tournamentKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["TournamentKind"]> = ["league", "cup", "ladder", "series", "group"];
 export const challengeScopeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["ChallengeScope"]["set"]> = ["original", "expansion", "mix", "all"];
 export const challengeSetValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["Challenge"]["set"]> = ["original", "expansion", "mix"];

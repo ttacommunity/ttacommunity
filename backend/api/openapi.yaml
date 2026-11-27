@@ -3773,6 +3773,133 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /v1/admin/game-changes:
+    get:
+      operationId: getAdminGameChanges
+      tags: [admin]
+      summary: Every game added, removed or replaced in admin, newest first (admins and organisers)
+      responses:
+        "200":
+          description: The changes, newest first
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GameChange"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postAdminGameChange
+      tags: [admin]
+      summary: Add a game to a group, or remove or replace a game (admins and organisers)
+      description: |
+        Add needs group and entry, remove needs game, and replace needs game
+        and entry. A removed or replaced game is kept, never rated; the game
+        replacing one takes its name, group and number. Every later CGE
+        extract keeps the change. Audited. The Origin must be the admin site.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameChangeRequest"
+      responses:
+        "201":
+          description: Made
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedGameChange"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/game-changes/{change}:
+    delete:
+      operationId: deleteAdminGameChange
+      tags: [admin]
+      summary: Undo a game change (admins and organisers)
+      description: |
+        The game it added is deleted and the game it removed or replaced
+        gets back its earlier state. Refused when the game it added has been
+        changed since or matched by a CGE extract, or the game's number has
+        been used again. Audited. The Origin must be the admin site.
+      parameters:
+        - name: change
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "204":
+          description: Undone
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/admin/games:
+    get:
+      operationId: getAdminGames
+      tags: [admin]
+      summary: The game with a replay code, or a group's games, to remove or replace (admins and organisers)
+      description: |
+        Give code for the one game with it, or group for every game of the
+        group by number, for a game with no code. Removed and replaced games
+        are included, marked by their state.
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        "200":
+          description: The games, none when nothing matches
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChangeableGame"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/movies/channels:
     get:
       operationId: getAdminMovieChannels
@@ -4847,6 +4974,32 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+  /v1/admin/tournaments/{tournament}/seasons/{season}/groups:
+    get:
+      operationId: getAdminSeasonGroups
+      tags: [admin]
+      summary: A season's stages and their groups, to add a game to (admins and organisers)
+      parameters:
+        - $ref: "#/components/parameters/AdminTournamentSlug"
+        - $ref: "#/components/parameters/AdminSeasonLabel"
+      responses:
+        "200":
+          description: The stages in order, each with its groups
+          headers:
+            Cache-Control:
+              $ref: "#/components/headers/CacheControl"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SeasonStage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/admin/tournaments/{tournament}/seasons:
     post:
       operationId: postAdminSeason
@@ -7654,6 +7807,201 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminStage"
+    GameChange:
+      type: object
+      required: [id, action, game, added, reason, at, by]
+      properties:
+        id:
+          type: integer
+          format: int64
+        action:
+          $ref: "#/components/schemas/GameChangeAction"
+        game:
+          description: The game removed or replaced, as it is now; null for add
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ChangedGame"
+        added:
+          description: The game added, as it is now; null for remove
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ChangedGame"
+        reason:
+          type: string
+        at:
+          type: string
+          format: date-time
+        by:
+          description: Who made it, as admin names them; empty when not known
+          type: string
+    GameChangeAction:
+      type: string
+      enum: [add, remove, replace]
+      x-enum-varnames: [GameChangeAdd, GameChangeRemove, GameChangeReplace]
+    ChangedGame:
+      type: object
+      required: [id, name, code, state, date]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        code:
+          description: Its replay code; empty for none
+          type: string
+        state:
+          $ref: "#/components/schemas/GameState"
+        date:
+          type: string
+          format: date
+    GameChangeRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action:
+          $ref: "#/components/schemas/GameChangeAction"
+        reason:
+          description: Why, shown in admin only
+          type: string
+          minLength: 1
+          maxLength: 1000
+        game:
+          description: The game to remove or replace, by id
+          type: integer
+          format: int64
+          minimum: 1
+        group:
+          description: The group to add the game to, by id
+          type: integer
+          format: int64
+          minimum: 1
+        entry:
+          $ref: "#/components/schemas/GameEntry"
+    GameEntry:
+      description: A game typed in admin, played by players we hold
+      type: object
+      required: [code, date, seats]
+      properties:
+        code:
+          description: Its replay code
+          type: string
+          minLength: 1
+          maxLength: 64
+        date:
+          type: string
+          format: date
+        number:
+          description: Its number in the group, for add; the group's next when left out
+          type: integer
+          minimum: 1
+        seats:
+          type: array
+          minItems: 2
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/GameEntrySeat"
+    GameEntrySeat:
+      type: object
+      required: [player, place, outcome, score]
+      properties:
+        player:
+          description: A player we hold, by name in any case
+          type: string
+          minLength: 1
+          maxLength: 64
+        place:
+          type: integer
+          minimum: 1
+          maximum: 4
+        outcome:
+          $ref: "#/components/schemas/SeatOutcome"
+        score:
+          description: Culture; 0 unless finished
+          type: number
+          format: double
+          minimum: 0
+    CreatedGameChange:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: integer
+          format: int64
+    ChangeableGame:
+      type: object
+      required: [id, name, code, date, state, group, number, seats]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        code:
+          description: Its replay code; empty for none
+          type: string
+        date:
+          type: string
+          format: date
+        state:
+          $ref: "#/components/schemas/GameState"
+        group:
+          description: Its group's id; null for none
+          type: integer
+          format: int64
+          nullable: true
+        number:
+          description: Its number in its group; null for none
+          type: integer
+          nullable: true
+        seats:
+          description: First place first
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeableSeat"
+    ChangeableSeat:
+      type: object
+      required: [player, place, outcome, score]
+      properties:
+        player:
+          type: string
+        place:
+          type: integer
+        outcome:
+          description: Null where CGE's seats are not known
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/SeatOutcome"
+        score:
+          description: Culture
+          type: number
+          format: double
+    SeasonStage:
+      type: object
+      required: [label, groups]
+      properties:
+        label:
+          description: Empty for a season's only stage
+          type: string
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonGroup"
+    SeasonGroup:
+      type: object
+      required: [id, name, games, next_number]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        games:
+          description: Its games in play (not removed or replaced)
+          type: integer
+        next_number:
+          description: The number a game added to it gets
+          type: integer
     AdminStage:
       type: object
       required: [label, original_name, note, number, games, finished, players]

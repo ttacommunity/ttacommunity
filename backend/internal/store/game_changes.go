@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// ErrNoGame means no game we hold has the share code.
-var ErrNoGame = errors.New("no game we hold has that code")
+// ErrNoGame means we hold no such game.
+var ErrNoGame = errors.New("no such game")
 
 // ErrGameChanged means the game is already removed or replaced.
 var ErrGameChanged = errors.New("that game is already removed or replaced")
@@ -64,7 +64,7 @@ type GameSeatEntry struct {
 }
 
 // GameChange is one change made in admin: add, remove or replace, the game removed or replaced (nil for add), the
-// game added (nil for remove), its reason and when it was made.
+// game added (nil for remove), its reason, when it was made and by whom (as admin names them, "" when unknown).
 type GameChange struct {
 	ID     int64
 	Action string
@@ -72,6 +72,7 @@ type GameChange struct {
 	Added  *ChangedGame
 	Reason string
 	At     time.Time
+	By     string
 }
 
 // ChangedGame is a game a change names, as it is now.
@@ -86,10 +87,14 @@ type ChangedGame struct {
 // GameChanges returns every change made in admin, newest first.
 func (a *AdminStore) GameChanges(ctx context.Context) ([]GameChange, error) {
 	rows, err := a.pool.Query(ctx, `
-		SELECT c.change_id, c.action, c.reason, c.at,
+		SELECT c.change_id, c.action, c.reason, c.at, coalesce(w.name, ''),
 		       g.game_id, g.name, coalesce(g.share_code, ''), g.state, g.date,
 		       n.game_id, n.name, coalesce(n.share_code, ''), n.state, n.date
 		FROM game_changes c LEFT JOIN games g ON g.game_id = c.game_id LEFT JOIN games n ON n.game_id = c.added_game_id
+		LEFT JOIN (SELECT DISTINCT ON (u.target) u.target, ad.name
+		           FROM admin_audit u JOIN admins ad ON ad.discord_id = u.discord_id
+		           WHERE u.action IN ('game.add', 'game.remove', 'game.replace')
+		           ORDER BY u.target, u.at DESC) w ON w.target = c.change_id::text
 		ORDER BY c.at DESC, c.change_id DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("reading game changes: %w", err)
@@ -100,7 +105,7 @@ func (a *AdminStore) GameChanges(ctx context.Context) ([]GameChange, error) {
 		var gID, nID *int64
 		var gName, gCode, gState, nName, nCode, nState *string
 		var gDate, nDate *time.Time
-		if err := rows.Scan(&c.ID, &c.Action, &c.Reason, &c.At, &gID, &gName, &gCode, &gState, &gDate,
+		if err := rows.Scan(&c.ID, &c.Action, &c.Reason, &c.At, &c.By, &gID, &gName, &gCode, &gState, &gDate,
 			&nID, &nName, &nCode, &nState, &nDate); err != nil {
 			return nil, fmt.Errorf("reading game changes: %w", err)
 		}
@@ -145,10 +150,10 @@ func (a *AdminStore) AddGame(ctx context.Context, group int64, g GameEntry, reas
 	})
 }
 
-// RemoveGame takes the game with the share code out of play, kept as removed, and returns the change's id.
-func (a *AdminStore) RemoveGame(ctx context.Context, code, reason string) (int64, error) {
+// RemoveGame takes the game out of play, kept as removed, and returns the change's id.
+func (a *AdminStore) RemoveGame(ctx context.Context, game int64, reason string) (int64, error) {
 	return a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
-		game, state, err := gameToChange(ctx, tx, code)
+		state, err := gameToChange(ctx, tx, game)
 		if err != nil {
 			return 0, err
 		}
@@ -161,11 +166,11 @@ func (a *AdminStore) RemoveGame(ctx context.Context, code, reason string) (int64
 	})
 }
 
-// ReplaceGame keeps the game with the share code as replaced and adds the new one in its group, with its name and
-// game number (the entry's number is not used), and returns the change's id.
-func (a *AdminStore) ReplaceGame(ctx context.Context, code string, g GameEntry, reason string) (int64, error) {
+// ReplaceGame keeps the game as replaced and adds the new one in its group, with its name and game number (the
+// entry's number is not used), and returns the change's id.
+func (a *AdminStore) ReplaceGame(ctx context.Context, game int64, g GameEntry, reason string) (int64, error) {
 	return a.changeGames(ctx, func(tx pgx.Tx) (int64, error) {
-		game, state, err := gameToChange(ctx, tx, code)
+		state, err := gameToChange(ctx, tx, game)
 		if err != nil {
 			return 0, err
 		}
@@ -228,21 +233,19 @@ func (a *AdminStore) changeGames(ctx context.Context, change func(pgx.Tx) (int64
 	return 0, fmt.Errorf("changing games: %w", err)
 }
 
-// gameToChange returns the id and state of the game with the share code, locked, refusing one already removed or
-// replaced.
-func gameToChange(ctx context.Context, tx pgx.Tx, code string) (int64, string, error) {
-	var id int64
+// gameToChange returns the game's state, locking it, and refuses one already removed or replaced.
+func gameToChange(ctx context.Context, tx pgx.Tx, game int64) (string, error) {
 	var state string
-	err := tx.QueryRow(ctx, "SELECT game_id, state FROM games WHERE share_code = $1 FOR UPDATE", strings.TrimSpace(code)).Scan(&id, &state)
+	err := tx.QueryRow(ctx, "SELECT state FROM games WHERE game_id = $1 FOR UPDATE", game).Scan(&state)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		return 0, "", ErrNoGame
+		return "", ErrNoGame
 	case err != nil:
-		return 0, "", err
+		return "", err
 	case state == "removed" || state == "replaced":
-		return 0, "", ErrGameChanged
+		return "", ErrGameChanged
 	}
-	return id, state, nil
+	return state, nil
 }
 
 // addedPrefix returns how a game added to the group is named before " game N": as the load names one, else from

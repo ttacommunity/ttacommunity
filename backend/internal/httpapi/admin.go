@@ -28,6 +28,7 @@ type Admins interface {
 	TeamAdmin
 	TournamentAdmin
 	DataAdmin
+	GameChangeAdmin
 	BadgeAdmin
 	RunAdmin
 	CommunityAdmin

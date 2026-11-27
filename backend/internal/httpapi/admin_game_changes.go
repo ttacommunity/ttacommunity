@@ -1,0 +1,182 @@
+// Admin's game changes: adding a game to a group, removing or replacing a game, undoing a change, and finding the
+// games and groups a change names.
+package httpapi
+
+import (
+	"context"
+	"errors"
+	"strconv"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
+	"ttacommunity/backend/internal/store"
+)
+
+// GameChangeAdmin is the games changed in admin: listed, made (returning the change's id) and undone, and the games
+// and groups a change can name.
+type GameChangeAdmin interface {
+	GameChanges(ctx context.Context) ([]store.GameChange, error)
+	AddGame(ctx context.Context, group int64, g store.GameEntry, reason string) (int64, error)
+	RemoveGame(ctx context.Context, game int64, reason string) (int64, error)
+	ReplaceGame(ctx context.Context, game int64, g store.GameEntry, reason string) (int64, error)
+	UndoGameChange(ctx context.Context, id int64) error
+	ChangeableGames(ctx context.Context, f store.GameFilter) ([]store.ChangeableGame, error)
+	SeasonGroups(ctx context.Context, slug, season string) ([]store.SeasonStage, error)
+}
+
+func (s *server) GetAdminGameChanges(ctx context.Context, _ GetAdminGameChangesRequestObject) (GetAdminGameChangesResponseObject, error) {
+	list, err := s.admins.GameChanges(ctx)
+	if err != nil {
+		return nil, err
+	}
+	changed := func(g *store.ChangedGame) *ChangedGame {
+		if g == nil {
+			return nil
+		}
+		return &ChangedGame{Id: g.ID, Name: g.Name, Code: g.Code, State: GameState(g.State), Date: openapi_types.Date{Time: g.Date}}
+	}
+	out := make([]GameChange, len(list))
+	for i, c := range list {
+		out[i] = GameChange{Id: c.ID, Action: GameChangeAction(c.Action), Game: changed(c.Game), Added: changed(c.Added),
+			Reason: c.Reason, At: c.At, By: c.By}
+	}
+	return GetAdminGameChanges200JSONResponse{Body: out, Headers: GetAdminGameChanges200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) PostAdminGameChange(ctx context.Context, req PostAdminGameChangeRequestObject) (PostAdminGameChangeResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	b := req.Body
+	if b == nil || !gameChangeComplete(*b) {
+		return PostAdminGameChange400JSONResponse{badRequest400("add takes a group and an entry, remove a game, replace a game and an entry")}, nil
+	}
+	var id int64
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		var err error
+		switch b.Action {
+		case GameChangeAdd:
+			id, err = tx.AddGame(ctx, *b.Group, gameEntry(*b.Entry), b.Reason)
+		case GameChangeRemove:
+			id, err = tx.RemoveGame(ctx, *b.Game, b.Reason)
+		case GameChangeReplace:
+			id, err = tx.ReplaceGame(ctx, *b.Game, gameEntry(*b.Entry), b.Reason)
+		}
+		if err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "game."+string(b.Action), strconv.FormatInt(id, 10), b)
+	})
+	switch {
+	case errors.Is(err, store.ErrBadGameEntry), errors.Is(err, store.ErrUnknownPlayer):
+		return PostAdminGameChange400JSONResponse{badRequest400(err.Error())}, nil
+	case errors.Is(err, store.ErrNoGame), errors.Is(err, store.ErrNoGroup):
+		return PostAdminGameChange404JSONResponse{notFound404(err.Error())}, nil
+	case errors.Is(err, store.ErrGameChanged), errors.Is(err, store.ErrCodeHeld), errors.Is(err, store.ErrNumberHeld):
+		return PostAdminGameChange409JSONResponse{conflict409(err.Error())}, nil
+	case err != nil:
+		return nil, err
+	}
+	return PostAdminGameChange201JSONResponse{Body: CreatedGameChange{Id: id},
+		Headers: PostAdminGameChange201ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+// gameChangeComplete reports whether the request gives what its action takes, and nothing another action takes.
+func gameChangeComplete(b GameChangeRequest) bool {
+	switch b.Action {
+	case GameChangeAdd:
+		return b.Group != nil && b.Entry != nil && b.Game == nil
+	case GameChangeRemove:
+		return b.Game != nil && b.Entry == nil && b.Group == nil
+	case GameChangeReplace:
+		return b.Game != nil && b.Entry != nil && b.Group == nil
+	}
+	return false
+}
+
+// gameEntry is the store's form of a game typed in admin.
+func gameEntry(e GameEntry) store.GameEntry {
+	g := store.GameEntry{Code: e.Code, Date: e.Date.Time, Seats: make([]store.GameSeatEntry, len(e.Seats))}
+	if e.Number != nil {
+		g.Number = *e.Number
+	}
+	for i, s := range e.Seats {
+		g.Seats[i] = store.GameSeatEntry{Player: s.Player, Place: s.Place, Outcome: string(s.Outcome), Score: s.Score}
+	}
+	return g
+}
+
+func (s *server) DeleteAdminGameChange(ctx context.Context, req DeleteAdminGameChangeRequestObject) (DeleteAdminGameChangeResponseObject, error) {
+	a, ok := adminFrom(ctx)
+	if !ok {
+		return nil, errors.New("admin route reached without the gate")
+	}
+	err := s.admins.Change(ctx, func(tx Admins) error {
+		if err := tx.UndoGameChange(ctx, req.Change); err != nil {
+			return err
+		}
+		return tx.Audit(ctx, a.DiscordID, "game.undo", strconv.FormatInt(req.Change, 10), map[string]any{})
+	})
+	switch {
+	case errors.Is(err, store.ErrNoGameChange):
+		return DeleteAdminGameChange404JSONResponse{notFound404(err.Error())}, nil
+	case errors.Is(err, store.ErrAddedGameLoaded), errors.Is(err, store.ErrChangedSince), errors.Is(err, store.ErrNumberHeld):
+		return DeleteAdminGameChange409JSONResponse{conflict409(err.Error())}, nil
+	case err != nil:
+		return nil, err
+	}
+	return DeleteAdminGameChange204Response{}, nil
+}
+
+func (s *server) GetAdminGames(ctx context.Context, req GetAdminGamesRequestObject) (GetAdminGamesResponseObject, error) {
+	var f store.GameFilter
+	if req.Params.Code != nil {
+		f.Code = *req.Params.Code
+	}
+	if req.Params.Group != nil {
+		f.Group = *req.Params.Group
+	}
+	if (f.Code == "") == (f.Group == 0) {
+		return GetAdminGames400JSONResponse{badRequest400("give a code or a group")}, nil
+	}
+	list, err := s.admins.ChangeableGames(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ChangeableGame, len(list))
+	for i, g := range list {
+		c := ChangeableGame{Id: g.ID, Name: g.Name, Code: g.Code, Date: openapi_types.Date{Time: g.Date}, State: GameState(g.State),
+			Number: g.Number, Seats: make([]ChangeableSeat, len(g.Seats))}
+		if g.Group != 0 {
+			c.Group = &g.Group
+		}
+		for j, st := range g.Seats {
+			c.Seats[j] = ChangeableSeat{Player: st.Player, Place: st.Place, Score: st.Score}
+			if st.Outcome != "" {
+				o := SeatOutcome(st.Outcome)
+				c.Seats[j].Outcome = &o
+			}
+		}
+		out[i] = c
+	}
+	return GetAdminGames200JSONResponse{Body: out, Headers: GetAdminGames200ResponseHeaders{CacheControl: cacheNone}}, nil
+}
+
+func (s *server) GetAdminSeasonGroups(ctx context.Context, req GetAdminSeasonGroupsRequestObject) (GetAdminSeasonGroupsResponseObject, error) {
+	stages, err := s.admins.SeasonGroups(ctx, req.Tournament, req.Season)
+	if errors.Is(err, store.ErrNoTournament) {
+		return GetAdminSeasonGroups404JSONResponse{notFound404("no such season, or it has no group")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SeasonStage, len(stages))
+	for i, st := range stages {
+		out[i] = SeasonStage{Label: st.Label, Groups: make([]SeasonGroup, len(st.Groups))}
+		for j, g := range st.Groups {
+			out[i].Groups[j] = SeasonGroup{Id: g.ID, Name: g.Name, Games: g.Games, NextNumber: g.NextNumber}
+		}
+	}
+	return GetAdminSeasonGroups200JSONResponse{Body: out, Headers: GetAdminSeasonGroups200ResponseHeaders{CacheControl: cacheNone}}, nil
+}

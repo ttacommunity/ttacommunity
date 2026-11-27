@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -50,6 +51,16 @@ func gameByCode(t *testing.T, pool *pgxpool.Pool, code string) (state, name stri
 	return state, name, group, number
 }
 
+// idOf returns the id of the game coded code.
+func idOf(t *testing.T, pool *pgxpool.Pool, code string) int64 {
+	t.Helper()
+	var id int64
+	if err := pool.QueryRow(context.Background(), "SELECT game_id FROM games WHERE share_code = $1", code).Scan(&id); err != nil {
+		t.Fatalf("finding game %s: %v", code, err)
+	}
+	return id
+}
+
 func gameCount(t *testing.T, pool *pgxpool.Pool, code string) int {
 	t.Helper()
 	var n int
@@ -64,7 +75,7 @@ func TestReplaceGameKeepsTheOriginalAndPutsTheNewGameInItsPlace(t *testing.T) {
 	pool, a := changeFixture(t)
 	_, origName, origGroup, origNumber := gameByCode(t, pool, "AAAAAAAA")
 
-	id, err := a.ReplaceGame(ctx, "AAAAAAAA", newEntry("NEWGAME001"), "The players timed out")
+	id, err := a.ReplaceGame(ctx, idOf(t, pool, "AAAAAAAA"), newEntry("NEWGAME001"), "The players timed out")
 	if err != nil {
 		t.Fatalf("ReplaceGame: %v", err)
 	}
@@ -121,7 +132,7 @@ func TestRemoveGameKeepsItAndUndoGivesBackItsEarlierState(t *testing.T) {
 	pool, a := changeFixture(t)
 	setGameState(t, pool, "Intermezzo S24 - Bronze 1 game 2", "never_played")
 
-	id, err := a.RemoveGame(ctx, "BBBBBBBB", "Not a tournament game")
+	id, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game")
 	if err != nil {
 		t.Fatalf("RemoveGame: %v", err)
 	}
@@ -145,27 +156,25 @@ func TestGameChangesRefuseBadInput(t *testing.T) {
 	}
 	tests := []struct {
 		name  string
-		code  string
 		entry GameEntry
 		want  error
 	}{
-		{"an unknown original", "ZZZZZZZZ", newEntry("NEWGAME001"), ErrNoGame},
-		{"a code we hold", "AAAAAAAA", newEntry("BBBBBBBB"), ErrCodeHeld},
-		{"no code", "AAAAAAAA", newEntry(" "), ErrBadGameEntry},
-		{"no date", "AAAAAAAA", with(func(e *GameEntry) { e.Date = time.Time{} }), ErrBadGameEntry},
-		{"one seat", "AAAAAAAA", with(func(e *GameEntry) { e.Seats = e.Seats[:1] }), ErrBadGameEntry},
-		{"a player twice", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[1].Player = "player one" }), ErrBadGameEntry},
-		{"an unknown player", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[1].Player = "Nobody Here" }), ErrUnknownPlayer},
-		{"a fifth place", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[1].Place = 5 }), ErrBadGameEntry},
-		{"an unknown outcome", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[1].Outcome = "left" }), ErrBadGameEntry},
-		{"culture after a timeout", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[1].Score = 40 }), ErrBadGameEntry},
-		{"negative culture", "AAAAAAAA", with(func(e *GameEntry) { e.Seats[0].Score = -1 }), ErrBadGameEntry},
+		{"a code we hold", newEntry("BBBBBBBB"), ErrCodeHeld},
+		{"no code", newEntry(" "), ErrBadGameEntry},
+		{"no date", with(func(e *GameEntry) { e.Date = time.Time{} }), ErrBadGameEntry},
+		{"one seat", with(func(e *GameEntry) { e.Seats = e.Seats[:1] }), ErrBadGameEntry},
+		{"a player twice", with(func(e *GameEntry) { e.Seats[1].Player = "player one" }), ErrBadGameEntry},
+		{"an unknown player", with(func(e *GameEntry) { e.Seats[1].Player = "Nobody Here" }), ErrUnknownPlayer},
+		{"a fifth place", with(func(e *GameEntry) { e.Seats[1].Place = 5 }), ErrBadGameEntry},
+		{"an unknown outcome", with(func(e *GameEntry) { e.Seats[1].Outcome = "left" }), ErrBadGameEntry},
+		{"culture after a timeout", with(func(e *GameEntry) { e.Seats[1].Score = 40 }), ErrBadGameEntry},
+		{"negative culture", with(func(e *GameEntry) { e.Seats[0].Score = -1 }), ErrBadGameEntry},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pool, a := changeFixture(t)
-			if _, err := a.ReplaceGame(ctx, tt.code, tt.entry, "A reason"); !errors.Is(err, tt.want) {
-				t.Errorf("ReplaceGame(%s) = %v, want %v", tt.code, err, tt.want)
+			if _, err := a.ReplaceGame(ctx, idOf(t, pool, "AAAAAAAA"), tt.entry, "A reason"); !errors.Is(err, tt.want) {
+				t.Errorf("ReplaceGame(%+v) = %v, want %v", tt.entry, err, tt.want)
 			}
 			if state, _, _, _ := gameByCode(t, pool, "AAAAAAAA"); state != "played" {
 				t.Errorf("original's state after a refusal = %q, want played", state)
@@ -179,8 +188,11 @@ func TestGameChangesRefuseWhatCannotBeDone(t *testing.T) {
 	pool, a := changeFixture(t)
 	_, _, group, _ := gameByCode(t, pool, "AAAAAAAA")
 
-	if _, err := a.RemoveGame(ctx, "AAAAAAAA", " "); !errors.Is(err, ErrBadGameEntry) {
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "AAAAAAAA"), " "); !errors.Is(err, ErrBadGameEntry) {
 		t.Errorf("RemoveGame without a reason = %v, want %v", err, ErrBadGameEntry)
+	}
+	if _, err := a.RemoveGame(ctx, 999999, "A reason"); !errors.Is(err, ErrNoGame) {
+		t.Errorf("RemoveGame of an unknown game = %v, want %v", err, ErrNoGame)
 	}
 	if _, err := a.AddGame(ctx, 999999, newEntry("NEWGAME001"), "A reason"); !errors.Is(err, ErrNoGroup) {
 		t.Errorf("AddGame to an unknown group = %v, want %v", err, ErrNoGroup)
@@ -190,14 +202,14 @@ func TestGameChangesRefuseWhatCannotBeDone(t *testing.T) {
 	if _, err := a.AddGame(ctx, *group, numbered, "A reason"); !errors.Is(err, ErrNumberHeld) {
 		t.Errorf("AddGame with game 2's number = %v, want %v", err, ErrNumberHeld)
 	}
-	removed, err := a.RemoveGame(ctx, "BBBBBBBB", "Not a tournament game")
+	removed, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game")
 	if err != nil {
 		t.Fatalf("RemoveGame: %v", err)
 	}
-	if _, err := a.RemoveGame(ctx, "BBBBBBBB", "Again"); !errors.Is(err, ErrGameChanged) {
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Again"); !errors.Is(err, ErrGameChanged) {
 		t.Errorf("RemoveGame of a removed game = %v, want %v", err, ErrGameChanged)
 	}
-	if _, err := a.ReplaceGame(ctx, "BBBBBBBB", newEntry("NEWGAME002"), "Again"); !errors.Is(err, ErrGameChanged) {
+	if _, err := a.ReplaceGame(ctx, idOf(t, pool, "BBBBBBBB"), newEntry("NEWGAME002"), "Again"); !errors.Is(err, ErrGameChanged) {
 		t.Errorf("ReplaceGame of a removed game = %v, want %v", err, ErrGameChanged)
 	}
 	if _, err := a.AddGame(ctx, *group, numbered, "Game 2 again"); err != nil {
@@ -207,11 +219,11 @@ func TestGameChangesRefuseWhatCannotBeDone(t *testing.T) {
 		t.Errorf("UndoGameChange of a removal whose number is used again = %v, want %v", err, ErrNumberHeld)
 	}
 
-	replaced, err := a.ReplaceGame(ctx, "AAAAAAAA", newEntry("NEWGAME003"), "Timed out")
+	replaced, err := a.ReplaceGame(ctx, idOf(t, pool, "AAAAAAAA"), newEntry("NEWGAME003"), "Timed out")
 	if err != nil {
 		t.Fatalf("ReplaceGame: %v", err)
 	}
-	if _, err := a.RemoveGame(ctx, "NEWGAME003", "Timed out too"); err != nil {
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "NEWGAME003"), "Timed out too"); err != nil {
 		t.Fatalf("RemoveGame of the replacement: %v", err)
 	}
 	if err := a.UndoGameChange(ctx, replaced); !errors.Is(err, ErrChangedSince) {
@@ -224,11 +236,11 @@ func TestGameChangesRefuseWhatCannotBeDone(t *testing.T) {
 
 func TestChangedGamesAreNotCountedAsNeverPlayed(t *testing.T) {
 	ctx := context.Background()
-	_, a := changeFixture(t)
-	if _, err := a.ReplaceGame(ctx, "AAAAAAAA", newEntry("NEWGAME001"), "Timed out"); err != nil {
+	pool, a := changeFixture(t)
+	if _, err := a.ReplaceGame(ctx, idOf(t, pool, "AAAAAAAA"), newEntry("NEWGAME001"), "Timed out"); err != nil {
 		t.Fatalf("ReplaceGame: %v", err)
 	}
-	if _, err := a.RemoveGame(ctx, "BBBBBBBB", "Not a tournament game"); err != nil {
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game"); err != nil {
 		t.Fatalf("RemoveGame: %v", err)
 	}
 	d, err := a.DataSummary(ctx)
@@ -251,11 +263,11 @@ func TestApplyCGEExtractKeepsWhatAdminChanged(t *testing.T) {
 	a := NewAdminStore(asAdminLogin(t, pool))
 	entry := GameEntry{Code: "CODENEWW", Date: day("2024-01-05"), Seats: []GameSeatEntry{
 		{Player: "ann", Place: 1, Outcome: "finished", Score: 180}, {Player: "bob", Place: 2, Outcome: "finished", Score: 170}}}
-	replaced, err := a.ReplaceGame(ctx, "CODEAAAA", entry, "Timed out")
+	replaced, err := a.ReplaceGame(ctx, idOf(t, pool, "CODEAAAA"), entry, "Timed out")
 	if err != nil {
 		t.Fatalf("ReplaceGame: %v", err)
 	}
-	if _, err := a.RemoveGame(ctx, "CODEBBBB", "Not a tournament game"); err != nil {
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "CODEBBBB"), "Not a tournament game"); err != nil {
 		t.Fatalf("RemoveGame: %v", err)
 	}
 
@@ -296,7 +308,7 @@ func TestApplyCGEExtractKeepsWhatAdminChanged(t *testing.T) {
 func TestMigration107IsRefusedGoingDownWhileAGameIsChanged(t *testing.T) {
 	ctx := context.Background()
 	pool, a := changeFixture(t)
-	id, err := a.RemoveGame(ctx, "BBBBBBBB", "Not a tournament game")
+	id, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game")
 	if err != nil {
 		t.Fatalf("RemoveGame: %v", err)
 	}
@@ -308,4 +320,107 @@ func TestMigration107IsRefusedGoingDownWhileAGameIsChanged(t *testing.T) {
 	}
 	migrateTo(t, pool, 106, true)
 	migrateTo(t, pool, 107, false)
+}
+
+func TestGameChangesNameWhoMadeThem(t *testing.T) {
+	ctx := context.Background()
+	pool, a := changeFixture(t)
+	if _, err := pool.Exec(ctx, `INSERT INTO admins (discord_id, name, role) VALUES ('100000000000000001', 'An Organiser', 'organiser')`); err != nil {
+		t.Fatalf("adding an admin: %v", err)
+	}
+	removed, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game")
+	if err != nil {
+		t.Fatalf("RemoveGame: %v", err)
+	}
+	if err := a.Audit(ctx, "100000000000000001", "game.remove", strconv.FormatInt(removed, 10), map[string]any{}); err != nil {
+		t.Fatalf("Audit: %v", err)
+	}
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "AAAAAAAA"), "Made by the load job"); err != nil {
+		t.Fatalf("RemoveGame: %v", err)
+	}
+	changes, err := a.GameChanges(ctx)
+	if err != nil {
+		t.Fatalf("GameChanges: %v", err)
+	}
+	got := map[string]string{}
+	for _, c := range changes {
+		got[c.Game.Code] = c.By
+	}
+	if got["BBBBBBBB"] != "An Organiser" || got["AAAAAAAA"] != "" {
+		t.Errorf("made by = %q, want BBBBBBBB by An Organiser and AAAAAAAA by no one", got)
+	}
+}
+
+func TestChangeableGamesFindAGameByCodeOrItsGroup(t *testing.T) {
+	ctx := context.Background()
+	pool, a := changeFixture(t)
+	setSeats(t, pool, "%Bronze 1 game 1", Seat{"Player One", 200}, Seat{"Player Two", 150})
+	_, _, group, _ := gameByCode(t, pool, "AAAAAAAA")
+	if _, err := a.RemoveGame(ctx, idOf(t, pool, "BBBBBBBB"), "Not a tournament game"); err != nil {
+		t.Fatalf("RemoveGame: %v", err)
+	}
+
+	byCode, err := a.ChangeableGames(ctx, GameFilter{Code: " AAAAAAAA "})
+	if err != nil || len(byCode) != 1 {
+		t.Fatalf("ChangeableGames by code = %+v, %v; want game 1", byCode, err)
+	}
+	g := byCode[0]
+	if g.ID != idOf(t, pool, "AAAAAAAA") || g.Group != *group || g.Number == nil || *g.Number != 1 || g.State != "played" {
+		t.Errorf("game = %+v, want game 1 of group %d, played", g, *group)
+	}
+	if len(g.Seats) != 2 || g.Seats[0].Player != "Player One" || g.Seats[0].Place != 1 || g.Seats[1].Player != "Player Two" {
+		t.Errorf("seats = %+v, want Player One first, then Player Two", g.Seats)
+	}
+
+	byGroup, err := a.ChangeableGames(ctx, GameFilter{Group: *group})
+	if err != nil {
+		t.Fatalf("ChangeableGames by group: %v", err)
+	}
+	var states []string
+	for _, g := range byGroup {
+		states = append(states, g.Code+" "+g.State)
+	}
+	if want := []string{"AAAAAAAA played", "BBBBBBBB removed"}; !slices.Equal(states, want) {
+		t.Errorf("group's games = %q, want %q", states, want)
+	}
+
+	if none, err := a.ChangeableGames(ctx, GameFilter{Code: "ZZZZZZZZ"}); err != nil || len(none) != 0 {
+		t.Errorf("ChangeableGames by an unknown code = %+v, %v; want none", none, err)
+	}
+}
+
+func TestSeasonGroupsGiveEachGroupItsNextNumber(t *testing.T) {
+	ctx := context.Background()
+	pool, a := changeFixture(t)
+	var slug, season, stage, name string
+	_, _, group, _ := gameByCode(t, pool, "AAAAAAAA")
+	if err := pool.QueryRow(ctx, `
+		SELECT t.slug, se.label, st.label, gr.name
+		FROM groups gr JOIN stages st USING (stage_id) JOIN tournaments se USING (tournament_id) JOIN series t USING (series_id)
+		WHERE gr.group_id = $1`, *group).Scan(&slug, &season, &stage, &name); err != nil {
+		t.Fatalf("finding the group: %v", err)
+	}
+
+	stages, err := a.SeasonGroups(ctx, slug, season)
+	if err != nil {
+		t.Fatalf("SeasonGroups(%s, %s): %v", slug, season, err)
+	}
+	var found *SeasonGroup
+	for _, st := range stages {
+		for i, g := range st.Groups {
+			if g.ID == *group {
+				if st.Label != stage {
+					t.Errorf("group's stage = %q, want %q", st.Label, stage)
+				}
+				found = &st.Groups[i]
+			}
+		}
+	}
+	if found == nil || found.Name != name || found.Games != 2 || found.NextNumber != 3 {
+		t.Errorf("group = %+v, want %q with 2 games, next number 3", found, name)
+	}
+
+	if _, err := a.SeasonGroups(ctx, slug, "no such season"); !errors.Is(err, ErrNoTournament) {
+		t.Errorf("SeasonGroups of an unknown season = %v, want %v", err, ErrNoTournament)
+	}
 }
