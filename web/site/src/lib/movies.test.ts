@@ -7,7 +7,9 @@ import {
   moviesHref,
   moviesParams,
   moviesView,
-  withCreator,
+  nothingFound,
+  withCreators,
+  withSearch,
   youtubeEmbedUrl,
   youtubeWatchUrl,
   type MovieCreator,
@@ -45,7 +47,7 @@ const creators: MovieCreator[] = [
   { channel_id: 'UC4', name: 'No Player', player: null, videos: 0 },
 ];
 
-const start: MoviesView = { creators: [], player: '', sort: 'newest', page: 1 };
+const start: MoviesView = { creators: [], player: '', search: '', sort: 'newest', page: 1 };
 
 describe('moviesView', () => {
   it.each<[string, string, MoviesView]>([
@@ -53,6 +55,7 @@ describe('moviesView', () => {
     ['a player', '?player=Ann', { ...start, player: 'Ann' }],
     ['several creators', '?creator=UC1&creator=UC3', { ...start, creators: ['UC1', 'UC3'] }],
     ['a sort and a page', '?sort=title&page=3', { ...start, sort: 'title', page: 3 }],
+    ['a search', '?q=us+open', { ...start, search: 'us open' }],
     ['an unknown sort', '?sort=views', start],
     ['a page that is not a number', '?page=two', start],
     ['page zero', '?page=0', start],
@@ -68,12 +71,13 @@ describe('moviesParams', () => {
     ['a player', { ...start, player: 'Ann' }, 'player=Ann'],
     ['each creator', { ...start, creators: ['UC1', 'UC3'] }, 'creator=UC1&creator=UC3'],
     ['a sort and a page', { ...start, sort: 'oldest', page: 2 }, 'sort=oldest&page=2'],
+    ['a search', { ...start, search: 'us open' }, 'q=us+open'],
   ])('writes %s', (_name, view, want) => {
     expect(moviesParams(view).toString()).toBe(want);
   });
 
   it('reads back what it writes', () => {
-    const view: MoviesView = { creators: ['UC2'], player: '', sort: 'creator', page: 4 };
+    const view: MoviesView = { creators: ['UC2'], player: '', search: 'final', sort: 'creator', page: 4 };
     expect(moviesView(`?${moviesParams(view)}`)).toEqual(view);
   });
 });
@@ -89,14 +93,36 @@ describe('chosenCreators', () => {
   });
 });
 
-describe('withCreator', () => {
+describe('withCreators', () => {
+  it.each<[string, MoviesView, string[], MoviesView]>([
+    ['chooses the creators given', start, ['UC3'], { ...start, creators: ['UC3'] }],
+    ['none for every creator', { ...start, creators: ['UC1'] }, [], start],
+    ["replaces a player's choice", { ...start, player: 'Ann' }, ['UC1', 'UC3'], { ...start, creators: ['UC1', 'UC3'] }],
+    ['goes back to the first page, keeping the search and sort', { ...start, search: 'final', sort: 'title', page: 5 }, ['UC1'], { ...start, search: 'final', sort: 'title', creators: ['UC1'] }],
+  ])('%s', (_name, view, chosen, want) => {
+    expect(withCreators(view, new Set(chosen))).toEqual(want);
+  });
+});
+
+describe('withSearch', () => {
   it.each<[string, MoviesView, string, MoviesView]>([
-    ['adds a creator', start, 'UC3', { ...start, creators: ['UC3'] }],
-    ['removes a chosen creator', { ...start, creators: ['UC1', 'UC3'] }, 'UC1', { ...start, creators: ['UC3'] }],
-    ["turns a player's choice into their channels", { ...start, player: 'Ann' }, 'UC3', { ...start, creators: ['UC1', 'UC2', 'UC3'] }],
-    ['goes back to the first page', { ...start, page: 5 }, 'UC1', { ...start, creators: ['UC1'] }],
-  ])('%s', (_name, view, channel, want) => {
-    expect(withCreator(view, creators, channel)).toEqual(want);
+    ['searches the words typed, trimmed', start, '  us open ', { ...start, search: 'us open' }],
+    ['goes back to the first page', { ...start, page: 3 }, 'final', { ...start, search: 'final' }],
+    ['keeps the creators and sort', { ...start, creators: ['UC1'], sort: 'title' }, 'final', { ...start, creators: ['UC1'], sort: 'title', search: 'final' }],
+    ['clears the search when nothing is typed', { ...start, search: 'final' }, ' ', start],
+  ])('%s', (_name, view, typed, want) => {
+    expect(withSearch(view, typed)).toEqual(want);
+  });
+});
+
+describe('nothingFound', () => {
+  it.each<[string, MoviesView, string]>([
+    ['every creator', start, 'No videos yet.'],
+    ['chosen creators', { ...start, creators: ['UC1'] }, 'No videos from the chosen creators yet.'],
+    ['a search', { ...start, search: 'final' }, 'No video titles hold “final”.'],
+    ['a search among chosen creators', { ...start, search: 'final', creators: ['UC1'] }, 'No video titles from the chosen creators hold “final”.'],
+  ])('says so for %s', (_name, view, want) => {
+    expect(nothingFound(view)).toBe(want);
   });
 });
 

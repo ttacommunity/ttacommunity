@@ -1923,10 +1923,11 @@ paths:
       summary: One page of TTA community YouTube videos, 24 to a page, and every creator
       description: |
         The videos the Movies page shows, from the creators named by
-        `creator` or `player` (every creator when neither is given), in the
-        order `sort` names. Each creator carries the count of all their
-        shown videos. A page past the last gives the last; a creator or
-        player with no linked channel is a 404.
+        `creator` or `player` (every creator when neither is given) and
+        whose title holds `q`, in the order `sort` names. Each creator
+        carries the count of all their shown videos the search finds. A
+        page past the last gives the last; a creator or player with no
+        linked channel is a 404.
       parameters:
         - name: page
           in: query
@@ -1956,6 +1957,13 @@ paths:
           schema:
             type: string
             maxLength: 200
+        - name: q
+          in: query
+          required: false
+          description: Words a title holds, in any case; each creator's count is then of their videos it finds
+          schema:
+            type: string
+            maxLength: 100
       responses:
         "200":
           description: One page of community videos and every creator
@@ -13151,7 +13159,7 @@ components:
           nullable: true
         videos:
           type: integer
-          description: All of the creator's videos the Movies page shows
+          description: All of the creator's videos the Movies page shows, under the search when there is one
     MovieVideo:
       type: object
       required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url]

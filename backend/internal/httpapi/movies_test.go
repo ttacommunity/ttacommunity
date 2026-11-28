@@ -321,6 +321,9 @@ func TestMoviesPassesTheQueryToTheStore(t *testing.T) {
 		{"several creators", "/v1/movies?creator=UC0000000000000000000001&creator=UC0000000000000000000002",
 			store.MoviesQuery{Page: 1, Channels: []string{"UC0000000000000000000001", "UC0000000000000000000002"}}},
 		{"a player", "/v1/movies?player=Alice", store.MoviesQuery{Page: 1, Player: "Alice"}},
+		{"a search, trimmed", "/v1/movies?q=%20us%20open%20", store.MoviesQuery{Page: 1, Search: "us open"}},
+		{"a blank search is no search", "/v1/movies?q=%20", store.MoviesQuery{Page: 1}},
+		{"a search of 100 letters, of two bytes each", "/v1/movies?q=" + strings.Repeat("%C3%A9", 100), store.MoviesQuery{Page: 1, Search: strings.Repeat("é", 100)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -348,6 +351,7 @@ func TestMoviesRefusesABadQuery(t *testing.T) {
 		{"too many creators", tooMany},
 		{"a blank player", "/v1/movies?player=%20"},
 		{"a player name too long", "/v1/movies?player=" + strings.Repeat("a", 201)},
+		{"a search too long", "/v1/movies?q=" + strings.Repeat("a", 101)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

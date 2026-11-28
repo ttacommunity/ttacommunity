@@ -4,6 +4,7 @@ import SiteLayout from '../layouts/SiteLayout.astro';
 import '../components/Blitz.css';
 import Segmented from '@ttac/shared/Segmented';
 import ToggleGroup from '@ttac/shared/ToggleGroup';
+import TitleSearch from '../components/TitleSearch';
 import MetricCard, { MetricGrid } from '../components/MetricCard';
 import MeanBadge, { MeanBadges } from '../components/MeanBadge';
 import ViewBar, { FormatPick } from '../components/ViewBar';
@@ -158,7 +159,14 @@ const rows = [
       </DesignSection>
 
       <DesignSection title="Toggle group">
+        <p slot="about">Several values on or off. With <code>noneMeansAll</code>, a filter where choosing none shows everything: All is pressed while none is chosen, and a value pressed then is chosen alone.</p>
         <ToggleGroup label="Sample toggles" all="All" options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set(['one'])} onChange={() => {}} />
+        <ToggleGroup label="Sample filter where none means all" all="All" noneMeansAll options={[{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]} chosen={new Set<string>()} onChange={() => {}} />
+      </DesignSection>
+
+      <DesignSection title="Title search">
+        <p slot="about">A search the API answers, <code>TitleSearch</code>: it searches when submitted, never per keystroke, and emptying it clears the search.</p>
+        <TitleSearch label="Sample search" value="" onSearch={() => {}} />
       </DesignSection>
 
       <DesignSection title="View bar">

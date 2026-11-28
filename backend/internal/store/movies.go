@@ -38,10 +38,11 @@ type MovieVideo struct {
 }
 
 // MoviesQuery picks a page of the Movies feed: the creators' channels or a player's (all when both are empty),
-// the sort (newest, oldest, title or creator; newest when empty) and the page.
+// words their titles hold (any title when empty), the sort (newest, oldest, title or creator; newest when empty) and the page.
 type MoviesQuery struct {
 	Channels []string
 	Player   string
+	Search   string
 	Sort     string
 	Page     int
 }
@@ -65,7 +66,8 @@ var movieOrders = map[string]string{
 	"creator": "lower(vc.name), vc.channel_id, v.published_at DESC, v.video_id",
 }
 
-// Movies returns every creator, with their count of shown videos, and one page of the chosen creators' videos.
+// Movies returns every creator, with their count of shown videos the search finds, and one page of the chosen
+// creators' videos it finds.
 // It returns ErrNoChannel when a channel is not linked or the player has none.
 func (s *RatingsReader) Movies(ctx context.Context, q MoviesQuery) (MoviesFeed, error) {
 	order, ok := movieOrders[q.Sort]
@@ -74,10 +76,11 @@ func (s *RatingsReader) Movies(ctx context.Context, q MoviesQuery) (MoviesFeed, 
 	}
 	cRows, err := s.pool.Query(ctx, `
 		SELECT vc.channel_id, vc.name, p.name,
-		       (SELECT count(*) FROM videos v WHERE v.channel_id = vc.channel_id AND coalesce(v.tta_override, v.is_tta))::int
+		       (SELECT count(*) FROM videos v WHERE v.channel_id = vc.channel_id AND coalesce(v.tta_override, v.is_tta)
+		          AND ($1 = '' OR strpos(lower(v.title), lower($1)) > 0))::int
 		FROM video_channels vc
 		LEFT JOIN players p ON p.player_id = vc.player_id
-		ORDER BY lower(vc.name), vc.channel_id`)
+		ORDER BY lower(vc.name), vc.channel_id`, q.Search)
 	if err != nil {
 		return MoviesFeed{}, fmt.Errorf("reading movie creators: %w", err)
 	}
@@ -105,8 +108,9 @@ func (s *RatingsReader) Movies(ctx context.Context, q MoviesQuery) (MoviesFeed, 
 		JOIN video_channels vc USING (channel_id)
 		LEFT JOIN players p ON p.player_id = vc.player_id
 		WHERE coalesce(v.tta_override, v.is_tta) AND ($1::text[] IS NULL OR v.channel_id = ANY($1))
+		  AND ($2 = '' OR strpos(lower(v.title), lower($2)) > 0)
 		ORDER BY `+order+`
-		LIMIT $2 OFFSET $3`, chosen, moviesPerPage, (feed.Page-1)*moviesPerPage)
+		LIMIT $3 OFFSET $4`, chosen, q.Search, moviesPerPage, (feed.Page-1)*moviesPerPage)
 	if err != nil {
 		return MoviesFeed{}, fmt.Errorf("reading movie videos: %w", err)
 	}

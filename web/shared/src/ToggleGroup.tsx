@@ -1,24 +1,25 @@
 /** A row of buttons each turning one value on or off, as Segmented's choice look; an optional first button turns them all on or off. */
 import type { Option } from './Segmented';
-import { toggledAll, toggledSet } from './toggle';
+import { allButton, toggledSet } from './toggle';
 
 interface Props<T> {
   label: string;
   options: Option<T>[];
   chosen: ReadonlySet<T>;
-  /** The label of a first button choosing every value, or none when all are chosen. */
+  /** The label of a first button choosing every value, or none when all are chosen (with noneMeansAll, it clears the choice). */
   all?: string;
+  /** Choosing none shows everything: the first button is pressed while none is chosen, and an option pressed then is chosen alone. */
+  noneMeansAll?: boolean;
   onChange: (chosen: Set<T>) => void;
 }
 
 /** ToggleGroup shows each option as a button, pressed while its value is chosen. */
-export default function ToggleGroup<T extends string | number>({ label, options, chosen, all, onChange }: Props<T>) {
-  const every = options.map((o) => o.value);
-  const allChosen = every.every((v) => chosen.has(v));
+export default function ToggleGroup<T extends string | number>({ label, options, chosen, all, noneMeansAll = false, onChange }: Props<T>) {
+  const everyOne = allButton(chosen, options.map((o) => o.value), noneMeansAll);
   return (
     <div role="group" aria-label={label} className="format-bar-group">
       {all !== undefined && (
-        <button type="button" className={allChosen ? 'format-btn active' : 'format-btn'} aria-pressed={allChosen} onClick={() => onChange(toggledAll(chosen, every))}>
+        <button type="button" className={everyOne.pressed ? 'format-btn active' : 'format-btn'} aria-pressed={everyOne.pressed} onClick={() => onChange(everyOne.next)}>
           {all}
         </button>
       )}

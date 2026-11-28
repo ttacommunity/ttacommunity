@@ -16,3 +16,9 @@ export function toggledSet<T>(items: ReadonlySet<T>, item: T): Set<T> {
 export function toggledAll<T>(chosen: ReadonlySet<T>, every: readonly T[]): Set<T> {
   return every.every((v) => chosen.has(v)) ? new Set() : new Set(every);
 }
+
+/** allButton is an "All" button's state: whether it is pressed, and the choice it makes; where none means all, it clears the choice. */
+export function allButton<T>(chosen: ReadonlySet<T>, every: readonly T[], noneMeansAll: boolean): { pressed: boolean; next: Set<T> } {
+  if (noneMeansAll) return { pressed: chosen.size === 0, next: new Set() };
+  return { pressed: every.every((v) => chosen.has(v)), next: toggledAll(chosen, every) };
+}

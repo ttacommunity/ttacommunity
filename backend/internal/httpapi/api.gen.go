@@ -4446,7 +4446,7 @@ type MovieCreator struct {
 	Name      string  `json:"name"`
 	Player    *string `json:"player,omitempty"`
 
-	// Videos All of the creator's videos the Movies page shows
+	// Videos All of the creator's videos the Movies page shows, under the search when there is one
 	Videos int `json:"videos"`
 }
 
@@ -6605,6 +6605,9 @@ type GetMoviesParams struct {
 
 	// Player A player's name, in any case, for every channel linked to them
 	Player *string `form:"player,omitempty" json:"player,omitempty"`
+
+	// Q Words a title holds, in any case; each creator's count is then of their videos it finds
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
 
 // ConfirmMovieHubParams defines parameters for ConfirmMovieHub.
@@ -13088,6 +13091,19 @@ func (siw *ServerInterfaceWrapper) GetMovies(w http.ResponseWriter, r *http.Requ
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "player"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
 		}
 		return
 	}

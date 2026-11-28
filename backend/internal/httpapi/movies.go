@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"ttacommunity/backend/internal/movies"
 	"ttacommunity/backend/internal/store"
@@ -39,9 +40,15 @@ func moviesQuery(p GetMoviesParams) (store.MoviesQuery, string) {
 	}
 	if p.Player != nil {
 		q.Player = strings.TrimSpace(*p.Player)
-		if q.Player == "" || len(*p.Player) > 200 {
+		if q.Player == "" || utf8.RuneCountInString(*p.Player) > 200 {
 			return q, "bad parameter: player"
 		}
+	}
+	if p.Q != nil {
+		if utf8.RuneCountInString(*p.Q) > 100 {
+			return q, "bad parameter: q"
+		}
+		q.Search = strings.TrimSpace(*p.Q)
 	}
 	return q, ""
 }

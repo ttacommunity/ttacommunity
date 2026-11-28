@@ -1397,10 +1397,11 @@ export interface paths {
         /**
          * One page of TTA community YouTube videos, 24 to a page, and every creator
          * @description The videos the Movies page shows, from the creators named by
-         *     `creator` or `player` (every creator when neither is given), in the
-         *     order `sort` names. Each creator carries the count of all their
-         *     shown videos. A page past the last gives the last; a creator or
-         *     player with no linked channel is a 404.
+         *     `creator` or `player` (every creator when neither is given) and
+         *     whose title holds `q`, in the order `sort` names. Each creator
+         *     carries the count of all their shown videos the search finds. A
+         *     page past the last gives the last; a creator or player with no
+         *     linked channel is a 404.
          */
         get: operations["getMovies"];
         put?: never;
@@ -7917,7 +7918,7 @@ export interface components {
             channel_id: string;
             name: string;
             player?: string | null;
-            /** @description All of the creator's videos the Movies page shows */
+            /** @description All of the creator's videos the Movies page shows, under the search when there is one */
             videos: number;
         };
         MovieVideo: {
@@ -10135,6 +10136,8 @@ export interface operations {
                 creator?: string[];
                 /** @description A player's name, in any case, for every channel linked to them */
                 player?: string;
+                /** @description Words a title holds, in any case; each creator's count is then of their videos it finds */
+                q?: string;
             };
             header?: never;
             path?: never;

@@ -1,4 +1,4 @@
-/** The public Movies page: YouTube thumbnail cards a page at a time, loading the next as you reach the bottom; a creator filter, a sort, and a nocookie player in a sheet. */
+/** The public Movies page: YouTube thumbnail cards a page at a time, loading the next as you reach the bottom; a title search, a sort, creators in an options drawer, and a nocookie player in a sheet. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { browserStorage } from '@ttac/shared/storage';
 import { count } from '@ttac/shared/numbers';
@@ -6,12 +6,13 @@ import { seemsSignedIn } from '../lib/account';
 import {
   addPage,
   chosenCreators,
-  everyVideo,
   formatMovieDate,
   movieSorts,
   moviesParams,
   moviesView,
-  withCreator,
+  nothingFound,
+  withCreators,
+  withSearch,
   youtubeEmbedUrl,
   youtubeWatchUrl,
   type MovieCreator,
@@ -24,7 +25,10 @@ import PageHeader from '@ttac/shared/PageHeader';
 import Segmented from '@ttac/shared/Segmented';
 import Sheet from '@ttac/shared/Sheet';
 import Message from './Message';
+import MoviesOptionsDrawer from './MoviesOptionsDrawer';
+import { OptionsToggle } from './SideDrawer';
 import Tile, { TileLink } from './Tile';
+import TitleSearch from './TitleSearch';
 import ViewBar from './ViewBar';
 
 type ListState =
@@ -55,6 +59,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
   const [view, setView] = useState<MoviesView>(() => moviesView(window.location.search));
   const [list, setList] = useState<ListState>({ kind: 'loading' });
   const [active, setActive] = useState<{ video: MovieVideo; opener: HTMLElement } | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const request = useRef(0);
   const bottom = useRef<HTMLAnchorElement>(null);
 
@@ -135,35 +140,23 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
     <div className="movies-page">
       <MoviesHero />
 
-      {creators.length > 0 && (
-        <ViewBar>
-          <div className="format-bar-group" role="group" aria-label="Filter by creator">
-            <span className="view-bar-label">Creator:</span>
-            <button
-              type="button"
-              className={chosen.size === 0 ? 'format-btn active' : 'format-btn'}
-              aria-pressed={chosen.size === 0}
-              onClick={() => show({ ...view, creators: [], player: '', page: 1 })}
-            >
-              All creators ({count(everyVideo(creators))})
-            </button>
-            {creators.map((c) => {
-              const on = chosen.has(c.channel_id);
-              return (
-                <button
-                  key={c.channel_id}
-                  type="button"
-                  className={on ? 'format-btn active' : 'format-btn'}
-                  aria-pressed={on}
-                  onClick={() => show(withCreator(view, creators, c.channel_id))}
-                >
-                  {c.name} ({count(c.videos)})
-                </button>
-              );
-            })}
-          </div>
-          <Segmented label="Sort videos" prefix={<span className="view-bar-label">Sort:</span>} options={[...movieSorts]} value={view.sort} onChange={(sort) => show({ ...view, sort, page: 1 })} />
-        </ViewBar>
+      <ViewBar
+        actions={
+          <OptionsToggle title="Which creators' videos to show" active={chosen.size > 0} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+        }
+      >
+        <TitleSearch label="Search video titles" value={view.search} onSearch={(text) => show(withSearch(view, text))} />
+        <Segmented label="Sort videos" prefix={<span className="view-bar-label">Sort:</span>} options={[...movieSorts]} value={view.sort} onChange={(sort) => show({ ...view, sort, page: 1 })} />
+      </ViewBar>
+      {optionsOpen && (
+        <MoviesOptionsDrawer
+          creators={creators}
+          chosen={chosen}
+          total={list.total}
+          setChosen={(next) => show(withCreators(view, next))}
+          onReset={() => show(withCreators(view, new Set()))}
+          onClose={() => setOptionsOpen(false)}
+        />
       )}
 
       {list.first > 1 && (
@@ -173,7 +166,7 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       )}
 
       {videos.length === 0 ? (
-        <Message>No videos from the chosen creators yet.</Message>
+        <Message>{nothingFound(view)}</Message>
       ) : (
         <div className="movies-grid">
           {videos.map((v) => (

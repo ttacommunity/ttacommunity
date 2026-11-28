@@ -63,6 +63,9 @@ func TestMoviesPagesSortsAndFilters(t *testing.T) {
 		{"by creator, then newest", MoviesQuery{Sort: "creator"}, 1, 2, 32, 24, "alice000030"},
 		{"one creator", MoviesQuery{Channels: []string{bobChannel}}, 1, 1, 2, 2, "bob00000001"},
 		{"a player's channels, in any case", MoviesQuery{Player: "aLiCe"}, 1, 2, 30, 24, "alice000030"},
+		{"a title search, in any case", MoviesQuery{Search: "zEBRA"}, 1, 1, 1, 1, "bob00000002"},
+		{"a search and a creator", MoviesQuery{Search: "game 2", Channels: []string{aliceChannel}}, 1, 1, 10, 10, "alice000029"},
+		{"a search for a wildcard is literal", MoviesQuery{Search: "%"}, 1, 1, 0, 0, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,6 +78,9 @@ func TestMoviesPagesSortsAndFilters(t *testing.T) {
 			}
 			if len(feed.Videos) != tt.wantOnPage {
 				t.Fatalf("got %d videos on the page, want %d", len(feed.Videos), tt.wantOnPage)
+			}
+			if tt.wantOnPage == 0 {
+				return
 			}
 			if got := feed.Videos[0].VideoID; got != tt.wantFirst {
 				t.Errorf("got first = %q, want %q", got, tt.wantFirst)
@@ -95,6 +101,21 @@ func TestMoviesCountsEveryVideoOfEachCreator(t *testing.T) {
 	}
 	if got[aliceChannel] != 30 || got[bobChannel] != 2 {
 		t.Errorf("got counts %v, want Alice 30 and Bob 2", got)
+	}
+}
+
+func TestMoviesCountsWhatTheSearchFinds(t *testing.T) {
+	pub := moviesFixture(t)
+	feed, err := pub.Movies(context.Background(), MoviesQuery{Search: "strategy"})
+	if err != nil {
+		t.Fatalf("Movies: %v", err)
+	}
+	got := map[string]int{}
+	for _, c := range feed.Creators {
+		got[c.ChannelID] = c.Videos
+	}
+	if got[aliceChannel] != 0 || got[bobChannel] != 1 || len(feed.Creators) != 2 {
+		t.Errorf("got counts %v, want both creators, Alice 0 and Bob 1", got)
 	}
 }
 

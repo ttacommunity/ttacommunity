@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toggled, toggledAll, toggledSet } from './toggle';
+import { allButton, toggled, toggledAll, toggledSet } from './toggle';
 
 describe('toggled', () => {
   it.each([
@@ -33,5 +33,17 @@ describe('toggledAll', () => {
     ['clears the choice when every value is chosen', ['c', 'a', 'b'], []],
   ])('%s', (_, chosen, want) => {
     expect([...toggledAll(new Set(chosen), ['a', 'b', 'c'])]).toEqual(want);
+  });
+});
+
+describe('allButton', () => {
+  it.each<[string, string[], boolean, { pressed: boolean; next: string[] }]>([
+    ['is pressed when every value is chosen', ['a', 'b', 'c'], false, { pressed: true, next: [] }],
+    ['chooses every value when some are chosen', ['a'], false, { pressed: false, next: ['a', 'b', 'c'] }],
+    ['is pressed when none is chosen and none means all', [], true, { pressed: true, next: [] }],
+    ['clears the choice when none means all', ['a'], true, { pressed: false, next: [] }],
+  ])('%s', (_, chosen, noneMeansAll, want) => {
+    const got = allButton(new Set(chosen), ['a', 'b', 'c'], noneMeansAll);
+    expect({ pressed: got.pressed, next: [...got.next] }).toEqual(want);
   });
 });
