@@ -17,6 +17,7 @@ import {
   editionToShow,
   matchesSearch,
   parseCommunityView,
+  summaryTitle,
   titleMark,
   tournamentSums,
   whole,
@@ -150,9 +151,8 @@ function Explainers({ data }: { data: LeaderboardData }) {
         <ul>
           {facts.lines.map((t) => (
             <li key={t.name}>
-              <strong>
-                {t.name} (<code>{t.codes}</code>)
-              </strong>
+              <strong>{t.name}</strong>
+              {t.events && ` – ${t.events}`}
               {t.maxPts !== null && `: ${t.maxPts} pts max${t.each ? ' each' : ''}`}
             </li>
           ))}
@@ -222,7 +222,7 @@ function Table({ data, view, rows, children }: { data: LeaderboardData; view: Co
               <th>Tourneys</th>
               {standard
                 ? data.summary.map((t) => (
-                    <th key={t.id} title={`${t.name} (${t.desc})`}>
+                    <th key={t.id} title={summaryTitle(t)}>
                       {t.short}
                     </th>
                   ))

@@ -152,6 +152,53 @@ func TestCommunityLeaderboardLayoutHasAColumnForEachEventItsRowsScored(t *testin
 	}
 }
 
+func TestCommunityLeaderboardLayoutNamesASeasonByItsNumber(t *testing.T) {
+	pool := migrated(t)
+	ctx := context.Background()
+	run := publishedRun(t, pool)
+	addEdition(t, pool, "e25", 2025, "ann", "rl_05", 300.0)
+
+	got, err := NewRatingsReader(asReader(t, pool)).CommunityLeaderboardLayout(ctx, run, "e25")
+	if err != nil {
+		t.Fatalf("CommunityLeaderboardLayout: %v", err)
+	}
+	col := got.Categories[0].Columns[0]
+	if col.Name != "Royal League Season 5" || col.Short != "RL 5" {
+		t.Errorf("rl_05 = %q, %q, want %q, %q", col.Name, col.Short, "Royal League Season 5", "RL 5")
+	}
+}
+
+func TestCommunityLeaderboardLayoutDescribesALeaguesSeasonsByNumber(t *testing.T) {
+	tests := []struct {
+		name   string
+		events []string
+		want   string
+	}{
+		{"one season", []string{"rl_05"}, "Season 5"},
+		{"several seasons", []string{"rl_05", "rl_06", "rl_08"}, "Sum of 3 seasons, 5–8"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool := migrated(t)
+			ctx := context.Background()
+			run := publishedRun(t, pool)
+			var scores []any
+			for _, ev := range tt.events {
+				scores = append(scores, "ann", ev, 300.0)
+			}
+			addEdition(t, pool, "e25", 2025, scores...)
+
+			got, err := NewRatingsReader(asReader(t, pool)).CommunityLeaderboardLayout(ctx, run, "e25")
+			if err != nil {
+				t.Fatalf("CommunityLeaderboardLayout: %v", err)
+			}
+			if desc := got.Summary[0].Desc; desc != tt.want {
+				t.Errorf("Royal League's summary of %v = %q, want %q", tt.events, desc, tt.want)
+			}
+		})
+	}
+}
+
 func TestCommunityLeaderboardLayoutTakesEachMaximumFromItsPointsTable(t *testing.T) {
 	pool := migrated(t)
 	ctx := context.Background()

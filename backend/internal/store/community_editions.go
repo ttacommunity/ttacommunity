@@ -309,7 +309,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-gm",
 			prefix:     "ic",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("International Season %s", s), fmt.Sprintf("IC %s", s), ""
 			},
 		},
@@ -318,7 +318,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-m",
 			prefix:     "im",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("Intermezzo Season %s", s), fmt.Sprintf("IM %s", s), ""
 			},
 		},
@@ -327,7 +327,7 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			badgeClass: "badge-p",
 			prefix:     "rl",
 			nameFmt: func(code string) (string, string, string) {
-				_, s, _ := strings.Cut(code, "_")
+				s := seasonNumber(code)
 				return fmt.Sprintf("Royal League Season %s", s), fmt.Sprintf("RL %s", s), ""
 			},
 		},
@@ -427,13 +427,13 @@ func (r *RatingsReader) CommunityLeaderboardLayout(ctx context.Context, run int6
 			return worldsDesc(layout.Info.WC)
 		}},
 		{"ic", "International (4P)", "International (4P)", "badge-gm", func(cols []string) string {
-			return formatRangeDesc("International", cols)
+			return seasonsDesc(cols)
 		}},
 		{"im", "Intermezzo (3P)", "Intermezzo (3P)", "badge-m", func(cols []string) string {
-			return formatRangeDesc("Intermezzo", cols)
+			return seasonsDesc(cols)
 		}},
 		{"rl", "Royal League", "Royal League", "badge-p", func(cols []string) string {
-			return formatRangeDesc("Royal League", cols)
+			return seasonsDesc(cols)
 		}},
 		{"wmbl", "Wimbledon Open", "Wimbledon", "badge-g", func(cols []string) string { return "Grand Slam knockout cup" }},
 		{"aus", "Australian Open", "Aussie Open", "badge-g", func(cols []string) string { return "Premier Grand Slam open event" }},
@@ -556,7 +556,17 @@ func codeMatches(code, event string) bool {
 	return ok && season != "" && err == nil
 }
 
-func formatRangeDesc(prefix string, cols []string) string {
+// seasonNumber is the season in an event code such as "rl_05", without leading zeros ("5").
+func seasonNumber(code string) string {
+	_, s, _ := strings.Cut(code, "_")
+	if n, err := strconv.Atoi(s); err == nil {
+		return strconv.Itoa(n)
+	}
+	return s
+}
+
+// seasonsDesc describes a league's summed seasons by number: "Season 5", "Sum of 4 seasons, 5–8", or "" for none.
+func seasonsDesc(cols []string) string {
 	var nums []int
 	re := regexp.MustCompile(`_(\d+)$`)
 	for _, c := range cols {
@@ -567,13 +577,13 @@ func formatRangeDesc(prefix string, cols []string) string {
 		}
 	}
 	if len(nums) == 0 {
-		return prefix
+		return ""
 	}
 	slices.Sort(nums)
 	if len(nums) == 1 {
-		return fmt.Sprintf("%s Season %d", prefix, nums[0])
+		return fmt.Sprintf("Season %d", nums[0])
 	}
-	return fmt.Sprintf("Sum of %d seasons (S%02d–S%02d)", len(nums), nums[0], nums[len(nums)-1])
+	return fmt.Sprintf("Sum of %d seasons, %d–%d", len(nums), nums[0], nums[len(nums)-1])
 }
 
 // CommunityEditionSlugs returns every community edition's slug, visible or not:
