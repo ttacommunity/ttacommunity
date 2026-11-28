@@ -582,7 +582,7 @@ func formatRangeDesc(prefix string, cols []string) string {
 	if len(nums) == 1 {
 		return fmt.Sprintf("%s Season %d", prefix, nums[0])
 	}
-	return fmt.Sprintf("Sum of %d seasons (S%02d–S%02d)", len(nums), nums[0], nums[len(nums)-1])
+	return fmt.Sprintf("Sum of %d seasons (%d–%d)", len(nums), nums[0], nums[len(nums)-1])
 }
 
 // CommunityEditionSlugs returns every community edition's slug, visible or not:
