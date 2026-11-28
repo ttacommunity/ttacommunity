@@ -174,8 +174,8 @@ func TestCommunityLeaderboardLayoutDescribesALeaguesSeasonsByNumber(t *testing.T
 		events []string
 		want   string
 	}{
-		{"one season", []string{"rl_05"}, "Royal League Season 5"},
-		{"several seasons", []string{"rl_05", "rl_06", "rl_08"}, "Sum of 3 seasons (5–8)"},
+		{"one season", []string{"rl_05"}, "Season 5"},
+		{"several seasons", []string{"rl_05", "rl_06", "rl_08"}, "Sum of 3 seasons, 5–8"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
