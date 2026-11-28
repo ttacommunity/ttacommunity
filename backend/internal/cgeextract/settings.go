@@ -63,7 +63,7 @@ type ConfirmedPairs struct {
 	Refused []Refusal
 }
 
-// ReadConfirmedPairs reads a CSV of share_code, game_id and reason.
+// ReadConfirmedPairs reads a CSV of share_code, game_id and reason, each code in capitals as games store them.
 func ReadConfirmedPairs(file string, r io.Reader) (ConfirmedPairs, error) {
 	got := ConfirmedPairs{Pairs: map[string]int64{}}
 	err := readRows(file, r, []string{"share_code", "game_id", "reason"}, func(line int, f func(string) string) {
@@ -72,7 +72,7 @@ func ReadConfirmedPairs(file string, r io.Reader) (ConfirmedPairs, error) {
 			got.Refused = append(got.Refused, Refusal{Line: line, Reason: BadID})
 			return
 		}
-		got.Pairs[f("share_code")] = id
+		got.Pairs[strings.ToUpper(f("share_code"))] = id
 	})
 	return got, err
 }

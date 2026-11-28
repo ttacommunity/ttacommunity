@@ -185,3 +185,24 @@ func placesBreakTheRules(seats []Seat, places []int) string {
 	}
 	return ""
 }
+
+func TestReadPutsShareCodesInCapitals(t *testing.T) {
+	tests := []struct{ name, code, want string }{
+		{"capitals", "ABCDEFGH", "ABCDEFGH"},
+		{"lower case", "abcdefgh", "ABCDEFGH"},
+		{"mixed case", "Vipafibuma", "VIPAFIBUMA"},
+		{"none", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			line := strings.Replace(row(5, 1, "ann", "1", "181.0", "finished"), ",ABCDEFGH,", ","+tt.code+",", 1)
+			got, err := Read("x.csv", strings.NewReader(header+line))
+			if err != nil || len(got.Seats) != 1 {
+				t.Fatalf("Read = %d seats, %v; want one", len(got.Seats), err)
+			}
+			if got.Seats[0].ShareCode != tt.want {
+				t.Errorf("share code %q read as %q, want %q", tt.code, got.Seats[0].ShareCode, tt.want)
+			}
+		})
+	}
+}

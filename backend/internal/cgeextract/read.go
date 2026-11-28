@@ -78,8 +78,8 @@ var statuses = map[string]string{"finished": Finished, "resigned": Resigned, "ti
 
 // Read reads the extract named file. A row that does not fit is refused with its reason; a seat seen on an
 // earlier line (the same game and player) is refused as a duplicate. A seat CGE holds no account for (player 0,
-// no name) is kept, with no player. It returns an error only for a file it cannot read or whose header is not
-// Header.
+// no name) is kept, with no player. Share codes are read in capitals, as games store them. It returns an error
+// only for a file it cannot read or whose header is not Header.
 func Read(file string, r io.Reader) (Extract, error) {
 	got, err := readExtract(file, r, Header, func(rec []string) ([]string, string) { return rec, "new" })
 	got.Full = err == nil
@@ -254,7 +254,7 @@ func parse(rec []string) (Seat, Tournament, Stage, Reason) {
 	seat := Seat{
 		TournamentID: ids["tournament_id"], StageID: ids["stage_id"], StageNumber: ids["stage_number"],
 		GroupID: ids["group_id"], SessionID: ids["session_id"], TournamentName: f("tournament_name"),
-		GroupName: f("group_name"), ShareCode: f("share_code"), State: f("session_state"),
+		GroupName: f("group_name"), ShareCode: strings.ToUpper(f("share_code")), State: f("session_state"),
 		StartedAt: times["started_at"], FinishedAt: times["finished_at"], Speed: f("speed"), Timer: f("timer"),
 		PlayerID: ids["player_id"], PlayerName: name, Banned: banned, StartingPosition: ids["starting_position"],
 		PlayersInGame: ids["players_in_game"], Standing: standing, Score: score, FinishStatus: status,
