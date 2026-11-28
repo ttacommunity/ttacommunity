@@ -17,6 +17,7 @@ import {
   editionToShow,
   matchesSearch,
   parseCommunityView,
+  summaryTitle,
   titleMark,
   tournamentSums,
   whole,
@@ -221,7 +222,7 @@ function Table({ data, view, rows, children }: { data: LeaderboardData; view: Co
               <th>Tourneys</th>
               {standard
                 ? data.summary.map((t) => (
-                    <th key={t.id} title={`${t.name} (${t.desc})`}>
+                    <th key={t.id} title={summaryTitle(t)}>
                       {t.short}
                     </th>
                   ))

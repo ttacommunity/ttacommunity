@@ -94,6 +94,13 @@ export function columnTitle(c: EventColumn): string {
   return c.max_pts === null ? c.name : `${c.name} (Max: ${c.max_pts} pts)`;
 }
 
+/** summaryTitle names a tournament's summed column with its description, or its description alone when that
+ * starts with its name. */
+export function summaryTitle(t: Pick<CommunityLeaderboard['summary'][number], 'name' | 'desc'>): string {
+  if (t.desc === '') return t.name;
+  return t.desc.startsWith(t.name) ? t.desc : `${t.name}: ${t.desc}`;
+}
+
 /** editionLabel is an edition's label in the edition picker: its short name, else its name. */
 export function editionLabel(e: Pick<CommunityEditionItem, 'name' | 'short_name'>): string {
   return e.short_name || e.name;

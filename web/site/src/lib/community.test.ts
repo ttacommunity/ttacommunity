@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { count } from '@ttac/shared/numbers';
 import type { CommunityLeaderboard, CommunityRow } from '@ttac/shared/ratings';
-import { columnTitle, countingColumns, editionFacts, editionLabel, editionToShow, parseCommunityView, titleMark, tournamentSums } from './community';
+import { columnTitle, countingColumns, editionFacts, editionLabel, editionToShow, parseCommunityView, summaryTitle, titleMark, tournamentSums } from './community';
 
 const row = (r: Partial<CommunityRow>): CommunityRow => ({
   rank: 1, name: 'ann', country: null, title: null, points: 0, events: 0, scores: {}, ...r,
@@ -126,6 +126,16 @@ describe('columnTitle', () => {
     ['an unknown one', null, 'World Championship'],
   ] as const)('names the column with %s', (_, max, want) => {
     expect(columnTitle({ id: 'wrld', name: 'World Championship', short: 'WC', max_pts: max })).toBe(want);
+  });
+});
+
+describe('summaryTitle', () => {
+  it.each([
+    ['its description after its name', 'Royal League', 'Sum of 4 seasons, 5–8', 'Royal League: Sum of 4 seasons, 5–8'],
+    ['a description that starts with its name alone', 'World Championship', 'World Championship (won by ann)', 'World Championship (won by ann)'],
+    ['its name alone without a description', 'Royal League', '', 'Royal League'],
+  ] as const)('gives %s', (_, name, desc, want) => {
+    expect(summaryTitle({ name, desc })).toBe(want);
   });
 });
 
