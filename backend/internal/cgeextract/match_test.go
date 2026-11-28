@@ -213,12 +213,12 @@ func TestMatchTakesAConfirmedPairBeforeAnythingElse(t *testing.T) {
 }
 
 func TestReadConfirmedPairs(t *testing.T) {
-	got, err := ReadConfirmedPairs("p.csv", strings.NewReader("share_code,game_id,reason\nCODEAAAA,12,r\nCODEBBBB,x,r\n"))
+	got, err := ReadConfirmedPairs("p.csv", strings.NewReader("share_code,game_id,reason\nCODEAAAA,12,r\nCODEBBBB,x,r\ncodecccc,13,r\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Pairs) != 1 || got.Pairs["CODEAAAA"] != 12 || len(got.Refused) != 1 || got.Refused[0].Line != 3 {
-		t.Errorf("pairs %v, refused %+v; want CODEAAAA→12 and line 3 refused", got.Pairs, got.Refused)
+	if len(got.Pairs) != 2 || got.Pairs["CODEAAAA"] != 12 || got.Pairs["CODECCCC"] != 13 || len(got.Refused) != 1 || got.Refused[0].Line != 3 {
+		t.Errorf("pairs %v, refused %+v; want CODEAAAA→12, codecccc in capitals →13, and line 3 refused", got.Pairs, got.Refused)
 	}
 }
 

@@ -1,5 +1,6 @@
 /** Finds the game a change removes or replaces by its replay code, and shows the game found, with its players. */
-import { useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
+import GameCodeField from '@ttac/shared/GameCodeField';
 import * as req from '../lib/admin-requests';
 import { foundLine, type ChangeableGame } from '../lib/game-changes';
 
@@ -19,19 +20,11 @@ export default function GameFind({ found, onFound, onFailed }: Props) {
     if (r.ok) onFound(r.data);
     else onFailed(r.message);
   };
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    void find();
-  };
 
   return (
     <>
       <div className="field-row">
-        <label>
-          Its replay code
-          <input className="input-antique" value={code} maxLength={64} onChange={(e) => setCode(e.target.value)} onKeyDown={onKeyDown} />
-        </label>
+        <GameCodeField label="Its replay code" value={code} onChange={setCode} onEnter={() => void find()} />
         <button type="button" className="btn-antique" disabled={code.trim() === ''} onClick={() => void find()}>
           Find
         </button>

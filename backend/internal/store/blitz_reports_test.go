@@ -226,9 +226,11 @@ func TestReportsAreRefused(t *testing.T) {
 		if err := a.RecordBlitzGame(context.Background(), "us_open", "2026", matches[1], 1, reported("TAKEN")); err != nil {
 			t.Fatalf("RecordBlitzGame(Cy v Dee): %v", err)
 		}
-		var taken *BlitzShareCodeError
-		if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, reported("TAKEN"), reportsAt); !errors.As(err, &taken) {
-			t.Errorf("ReportBlitzGame = %v, want a *BlitzShareCodeError", err)
+		for _, code := range []string{"TAKEN", "taken"} {
+			var taken *BlitzShareCodeError
+			if err := p.ReportBlitzGame(context.Background(), tokenHash("ann"), "us_open", "2026", matches[0], 1, reported(code), reportsAt); !errors.As(err, &taken) {
+				t.Errorf("ReportBlitzGame(%q) = %v, want a *BlitzShareCodeError", code, err)
+			}
 		}
 	})
 }

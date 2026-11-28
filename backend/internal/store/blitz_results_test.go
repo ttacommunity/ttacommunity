@@ -222,6 +222,7 @@ func TestBlitzGamesThatCannotBeRecorded(t *testing.T) {
 		{"an unknown match", 999, game, ErrNoBlitzMatch},
 		{"a bye", bye.ID, game, ErrBlitzBye},
 		{"a code already on another game", matches[1], BlitzGame{ShareCode: "ABCD1234", A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}, &BlitzShareCodeError{}},
+		{"a code already on another game, typed in lower case", matches[1], BlitzGame{ShareCode: "abcd1234", A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}, &BlitzShareCodeError{}},
 		{"a code over 32 characters", matches[1], BlitzGame{ShareCode: strings.Repeat("X", 33), A: finished(180, 1), B: finished(170, 2), Finished: finishedAt}, ErrBadBlitzGame},
 		{"an outcome that is not finished, resigned or timed out", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(180, 1), B: BlitzSide{Outcome: "lost", Turn: 2}, Finished: finishedAt}, ErrBadBlitzGame},
 		{"a negative culture", matches[1], BlitzGame{ShareCode: "EFGH5678", A: finished(-1, 1), B: finished(170, 2), Finished: finishedAt}, ErrBadBlitzGame},

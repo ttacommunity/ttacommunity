@@ -1,4 +1,5 @@
 /** The new game's fields in a game change: its replay code, day, number in its group (for an addition), and 2 to 4 seats, each a player the ratings know with their place, outcome and culture. */
+import GameCodeField from '@ttac/shared/GameCodeField';
 import { playerChoices } from '../lib/person-form';
 import { OUTCOMES, withoutSeat, withSeat, type EntryForm, type SeatForm, type SeatOutcome } from '../lib/game-changes';
 import PeoplePick from './PeoplePick';
@@ -17,10 +18,7 @@ export default function GameEntryFields({ entry, onChange, next }: Props) {
   return (
     <>
       <div className="field-row">
-        <label>
-          Replay code
-          <input className="input-antique" value={entry.code} maxLength={64} required onChange={(e) => onChange({ ...entry, code: e.target.value })} />
-        </label>
+        <GameCodeField label="Replay code" value={entry.code} required onChange={(code) => onChange({ ...entry, code })} />
         <label>
           Day played
           <input className="input-antique" type="date" value={entry.date} required onChange={(e) => onChange({ ...entry, date: e.target.value })} />

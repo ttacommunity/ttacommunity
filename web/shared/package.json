@@ -42,6 +42,7 @@
     "./PageHeader": "./src/PageHeader.tsx",
     "./NewerOlder": "./src/NewerOlder.tsx",
     "./GameSeatFields": "./src/GameSeatFields.tsx",
+    "./GameCodeField": "./src/GameCodeField.tsx",
     "./BlitzStandingsTable": "./src/BlitzStandingsTable.tsx"
   },
   "devDependencies": {

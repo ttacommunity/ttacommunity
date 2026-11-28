@@ -366,6 +366,7 @@ agent runs them itself.
   table or a video for the wide one, `actions` and `resets` in its
   footer, `SheetSection` for its parts; from the bottom on a phone),
   a page's options (`SideDrawer`), player search and filter (`PlayerSearch`),
+  a game's share or replay code, shown in capitals as typed (`GameCodeField`),
   a list of suggestions under a field (`.suggestions`, on both sites),
   an expander (`<details>`: its `<summary>` is the shared look),
   note (`Note`), box inside a panel (`Inset`: content, a row of figures, a short line,

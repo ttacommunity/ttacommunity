@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -39,7 +38,7 @@ type SeasonGroup struct {
 	NextNumber int
 }
 
-// GameByCode returns the game with the replay code, with its seats, or ErrNoGame.
+// GameByCode returns the game with the replay code, typed in any case, with its seats, or ErrNoGame.
 func (a *AdminStore) GameByCode(ctx context.Context, code string) (ChangeableGame, error) {
 	var g ChangeableGame
 	var players, outcomes []string
@@ -53,7 +52,7 @@ func (a *AdminStore) GameByCode(ctx context.Context, code string) (ChangeableGam
 		       coalesce(array_agg(s.culture ORDER BY s.place, s.seat) FILTER (WHERE s.seat IS NOT NULL), '{}')
 		FROM games g LEFT JOIN seats s USING (game_id) LEFT JOIN players p USING (player_id)
 		WHERE g.share_code = $1
-		GROUP BY g.game_id`, strings.TrimSpace(code)).Scan(&g.ID, &g.Name, &g.Code, &g.Date, &g.State, &g.Group, &g.Number,
+		GROUP BY g.game_id`, typedCode(code)).Scan(&g.ID, &g.Name, &g.Code, &g.Date, &g.State, &g.Group, &g.Number,
 		&players, &places, &outcomes, &cultures)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ChangeableGame{}, ErrNoGame
