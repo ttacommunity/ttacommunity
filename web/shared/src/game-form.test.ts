@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chooseTurn, emptyGameForm, gameRecordFrom, type GameForm } from './game-form';
+import { chooseTurn, emptyGameForm, gameRecordFrom, typedCode, type GameForm } from './game-form';
 
 const form: GameForm = {
   share_code: ' ABCD1234 ',
@@ -69,5 +69,17 @@ describe('chooseTurn', () => {
   ] as const)('%s', (_name, [a, b], who, turn, want) => {
     const f = chooseTurn({ ...form, a_turn: a, b_turn: b }, who, turn);
     expect([f.a_turn, f.b_turn]).toEqual(want);
+  });
+});
+
+describe('typedCode', () => {
+  it.each([
+    ['lower case shows in capitals', 'vipafibuma', 'VIPAFIBUMA'],
+    ['mixed case', 'ZesoDefema', 'ZESODEFEMA'],
+    ['capitals stay', 'JUZACIKEMA', 'JUZACIKEMA'],
+    ['spaces stay while typing', ' ab ', ' AB '],
+    ['nothing typed', '', ''],
+  ])('%s', (_name, typed, want) => {
+    expect(typedCode(typed)).toBe(want);
   });
 });

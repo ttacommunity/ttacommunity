@@ -70,3 +70,8 @@ export function gameRecordFrom(f: GameForm, { codeRequired = false } = {}): { ok
     body: { share_code, a: { culture: a, outcome: f.a_outcome, turn: f.a_turn }, b: { culture: b, outcome: f.b_outcome, turn: f.b_turn }, finished_on: f.finished_on, finished_time: f.finished_time, zone: f.zone.trim() },
   };
 }
+
+/** typedCode returns a game's share or replay code as typed, in capitals, as games are stored and shown. */
+export function typedCode(typed: string): string {
+  return typed.toUpperCase();
+}

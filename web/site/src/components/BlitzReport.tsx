@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useDialog } from '@ttac/shared/Dialog';
 import { turnOrder } from '@ttac/shared/blitz';
 import { gameRecordFrom, type GameForm } from '@ttac/shared/game-form';
+import GameCodeField from '@ttac/shared/GameCodeField';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import { todayIn } from '@ttac/shared/time';
 import { seemsSignedIn, sharedMe } from '../lib/account';
@@ -140,10 +141,7 @@ export default function BlitzReport({ apiUrl, slug, edition, onChanged, onSeen }
       {form !== null && (
         <form className="report-form" onSubmit={(e) => void submit(e)}>
           <div className="report-row">
-            <label>
-              Share code
-              <input className="input-antique" value={form.share_code} maxLength={32} required onChange={(e) => setForm({ ...form, share_code: e.target.value })} />
-            </label>
+            <GameCodeField label="Share code" value={form.share_code} required onChange={(share_code) => setForm({ ...form, share_code })} />
             <label>
               Finished on
               <input className="input-antique" type="date" value={form.finished_on} onChange={(e) => setForm({ ...form, finished_on: e.target.value })} />

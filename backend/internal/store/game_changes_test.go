@@ -370,6 +370,9 @@ func TestGameByCodeFindsTheGameWithItsSeats(t *testing.T) {
 	if len(g.Seats) != 2 || g.Seats[0].Player != "Player One" || g.Seats[0].Place != 1 || g.Seats[1].Player != "Player Two" {
 		t.Errorf("seats = %+v, want Player One first, then Player Two", g.Seats)
 	}
+	if typed, err := a.GameByCode(ctx, "aaaaaaaa"); err != nil || typed.ID != g.ID {
+		t.Errorf("GameByCode in lower case = %+v, %v; want game %d", typed, err, g.ID)
+	}
 	if removed, err := a.GameByCode(ctx, "BBBBBBBB"); err != nil || removed.State != "removed" {
 		t.Errorf("GameByCode of a removed game = %+v, %v; want it, removed", removed, err)
 	}

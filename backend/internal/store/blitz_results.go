@@ -77,10 +77,10 @@ const resolvesReports = "UPDATE blitz_match_games SET report = 'resolved' WHERE 
 
 var blitzOutcomes = []string{"finished", "resigned", "timed_out"}
 
-// validBlitzGame trims the share code ("" for none) and reports whether the game is within bounds, its players'
-// turns 1 to N, each once.
+// validBlitzGame trims the share code and puts it in capitals ("" for none), and reports whether the game is within
+// bounds, its players' turns 1 to N, each once.
 func validBlitzGame(g *BlitzGame) bool {
-	g.ShareCode = strings.TrimSpace(g.ShareCode)
+	g.ShareCode = typedCode(g.ShareCode)
 	if utf8.RuneCountInString(g.ShareCode) > 32 || g.Finished.IsZero() {
 		return false
 	}

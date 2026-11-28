@@ -32,6 +32,7 @@ import './AdminApp.css';
 import { plural } from '@ttac/shared/numbers';
 import Note from '@ttac/shared/Note';
 import PageHeader from '@ttac/shared/PageHeader';
+import GameCodeField from '@ttac/shared/GameCodeField';
 import GameSeatFields from '@ttac/shared/GameSeatFields';
 import BlitzStandingsTable from '@ttac/shared/BlitzStandingsTable';
 import AdminTable from './AdminTable';
@@ -1495,10 +1496,7 @@ function ResultForm({ at, round, match, start, nameOf, regions, zone, onZone, on
             </div>
           )}
           <div className="result-row">
-            <label>
-              Share code, if any
-              <input className="input-antique" value={game.share_code} maxLength={32} onChange={(e) => setGame({ ...game, share_code: e.target.value })} />
-            </label>
+            <GameCodeField label="Share code, if any" value={game.share_code} onChange={(share_code) => setGame({ ...game, share_code })} />
           </div>
           <div className="result-row">
             <label>
