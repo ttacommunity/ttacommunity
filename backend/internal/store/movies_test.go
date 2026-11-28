@@ -34,7 +34,7 @@ func TestMoviesChannelsFeedAndOverride(t *testing.T) {
 		}
 	}
 
-	feed, err := pub.Movies(ctx)
+	feed, err := pub.Movies(ctx, MoviesQuery{})
 	if err != nil {
 		t.Fatalf("Movies: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestMoviesChannelsFeedAndOverride(t *testing.T) {
 	if err := a.SetMovieVideoOverride(ctx, "vid00000001", &off); err != nil {
 		t.Fatalf("SetMovieVideoOverride: %v", err)
 	}
-	feed, err = pub.Movies(ctx)
+	feed, err = pub.Movies(ctx, MoviesQuery{})
 	if err != nil {
 		t.Fatalf("Movies after the override: %v", err)
 	}

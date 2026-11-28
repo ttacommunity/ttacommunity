@@ -32,7 +32,7 @@ type DiscordReads interface {
 
 // MovieReads are movies.go's reads: active YouTube creators and non-hidden videos.
 type MovieReads interface {
-	Movies(ctx context.Context) (store.MoviesFeed, error)
+	Movies(ctx context.Context, q store.MoviesQuery) (store.MoviesFeed, error)
 }
 
 // ChallengeReads are challenges.go's reads: the challenges, every entry not hidden, and the weekly challenge.

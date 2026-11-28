@@ -1,79 +1,122 @@
-/** The public Movies page: chronological YouTube thumbnail cards, a creator filter, and a nocookie player in a sheet. */
-import { useEffect, useRef, useState } from 'react';
+/** The public Movies page: YouTube thumbnail cards a page at a time, loading the next as you reach the bottom; a title search, a sort, creators in an options drawer, and a nocookie player in a sheet. */
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { browserStorage } from '@ttac/shared/storage';
+import { count } from '@ttac/shared/numbers';
 import { seemsSignedIn } from '../lib/account';
 import {
-  creatorVideoCounts,
-  creatorsOfPlayer,
-  filterVideosByCreators,
+  addPage,
+  chosenCreators,
   formatMovieDate,
+  movieSorts,
+  moviesParams,
+  moviesView,
+  nothingFound,
+  withCreators,
+  withSearch,
   youtubeEmbedUrl,
   youtubeWatchUrl,
+  type MovieCreator,
   type MoviesFeed,
+  type MoviesView,
   type MovieVideo,
 } from '../lib/movies';
 import './MoviesPage.css';
 import PageHeader from '@ttac/shared/PageHeader';
+import Segmented from '@ttac/shared/Segmented';
 import Sheet from '@ttac/shared/Sheet';
 import Message from './Message';
+import MoviesOptionsDrawer from './MoviesOptionsDrawer';
+import { OptionsToggle } from './SideDrawer';
 import Tile, { TileLink } from './Tile';
+import TitleSearch from './TitleSearch';
 import ViewBar from './ViewBar';
 
-type FeedState =
+type ListState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready'; data: MoviesFeed };
+  | { kind: 'ready'; creators: MovieCreator[]; pages: number; total: number; videos: MovieVideo[]; first: number; last: number; more: 'idle' | 'loading' | 'error' };
 
 function MoviesHero() {
-  return (
-    <PageHeader title="Movies" subtitle="Recent Through the Ages videos from community creators, newest first." />
-  );
+  return <PageHeader title="Movies" subtitle="Through the Ages videos from community creators." />;
+}
+
+/** address is the page's own address for a view. */
+function address(view: MoviesView): string {
+  const q = moviesParams(view).toString();
+  return q === '' ? window.location.pathname : `?${q}`;
+}
+
+/** getMovies fetches one page of the feed for a view. */
+async function getMovies(apiUrl: string, view: MoviesView): Promise<MoviesFeed> {
+  const q = moviesParams(view).toString();
+  const r = await fetch(`${apiUrl}/v1/movies${q === '' ? '' : `?${q}`}`);
+  if (r.status === 404) throw new Error('No videos from that creator.');
+  if (!r.ok) throw new Error(`Failed to load videos (${r.status})`);
+  return (await r.json()) as MoviesFeed;
 }
 
 export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
-  const [state, setState] = useState<FeedState>({ kind: 'loading' });
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [view, setView] = useState<MoviesView>(() => moviesView(window.location.search));
+  const [list, setList] = useState<ListState>({ kind: 'loading' });
   const [active, setActive] = useState<{ video: MovieVideo; opener: HTMLElement } | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const request = useRef(0);
+  const bottom = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch(`${apiUrl}/v1/movies`)
-      .then(async (r) => {
-        if (!r.ok) throw new Error(`Failed to load videos (${r.status})`);
-        return (await r.json()) as MoviesFeed;
-      })
-      .then((data) => {
-        if (cancelled) return;
-        setSelected(creatorsOfPlayer(data.creators, window.location.search));
-        setState({ kind: 'ready', data });
+    const id = ++request.current;
+    setList({ kind: 'loading' });
+    getMovies(apiUrl, view)
+      .then((feed) => {
+        if (id !== request.current) return;
+        setList({ kind: 'ready', creators: feed.creators, pages: feed.pages, total: feed.total, videos: feed.videos, first: feed.page, last: feed.page, more: 'idle' });
       })
       .catch((err: unknown) => {
-        if (!cancelled) setState({ kind: 'error', message: err instanceof Error ? err.message : 'Could not load videos' });
+        if (id === request.current) setList({ kind: 'error', message: err instanceof Error ? err.message : 'Could not load videos' });
       });
+  }, [apiUrl, view]);
 
-    if (seemsSignedIn(browserStorage())) {
-      fetch(`${apiUrl}/v1/me/movies/seen`, { method: 'POST', credentials: 'include' })
-        .then((r) => {
-          if (r.ok) window.dispatchEvent(new Event('ttac:movies-seen'));
-        })
-        .catch(() => undefined);
-    }
-
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    if (!seemsSignedIn(browserStorage())) return;
+    fetch(`${apiUrl}/v1/me/movies/seen`, { method: 'POST', credentials: 'include' })
+      .then((r) => {
+        if (r.ok) window.dispatchEvent(new Event('ttac:movies-seen'));
+      })
+      .catch(() => undefined);
   }, [apiUrl]);
 
-  const toggleCreator = (channelId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(channelId)) next.delete(channelId);
-      else next.add(channelId);
-      return next;
-    });
+  const show = (next: MoviesView) => {
+    window.history.replaceState(null, '', address(next));
+    setView(next);
   };
 
-  if (state.kind === 'loading') {
+  const loadMore = useCallback(() => {
+    if (list.kind !== 'ready' || list.more === 'loading' || list.last >= list.pages) return;
+    const id = request.current;
+    const next = { ...view, page: list.last + 1 };
+    setList({ ...list, more: 'loading' });
+    getMovies(apiUrl, next)
+      .then((feed) => {
+        if (id !== request.current) return;
+        setList((l) => (l.kind === 'ready' ? { ...l, creators: feed.creators, pages: feed.pages, total: feed.total, videos: addPage(l.videos, feed.videos), last: feed.page, more: 'idle' } : l));
+        window.history.replaceState(null, '', address({ ...view, page: feed.page }));
+      })
+      .catch(() => {
+        if (id === request.current) setList((l) => (l.kind === 'ready' ? { ...l, more: 'error' } : l));
+      });
+  }, [apiUrl, view, list]);
+
+  useEffect(() => {
+    const el = bottom.current;
+    if (el === null || list.kind !== 'ready' || list.more !== 'idle') return;
+    const seen = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMore();
+    }, { rootMargin: '600px 0px' });
+    seen.observe(el);
+    return () => seen.disconnect();
+  }, [loadMore, list]);
+
+  if (list.kind === 'loading') {
     return (
       <div className="movies-page">
         <MoviesHero />
@@ -81,59 +124,52 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
       </div>
     );
   }
-  if (state.kind === 'error') {
+  if (list.kind === 'error') {
     return (
       <div className="movies-page">
         <MoviesHero />
-        <Message role="alert">{state.message}</Message>
+        <Message role="alert">{list.message}</Message>
       </div>
     );
   }
 
-  const { creators, videos } = state.data;
-  const counts = creatorVideoCounts(videos);
-  const visible = filterVideosByCreators(videos, selected);
+  const { creators, videos } = list;
+  const chosen = chosenCreators(view, creators);
 
   return (
     <div className="movies-page">
       <MoviesHero />
 
-      {creators.length > 0 && (
-        <ViewBar>
-          <div className="format-bar-group" role="group" aria-label="Filter by creator">
-            <span className="view-bar-label">Creator:</span>
-            <button
-              type="button"
-              className={selected.size === 0 ? 'format-btn active' : 'format-btn'}
-              aria-pressed={selected.size === 0}
-              onClick={() => setSelected(new Set())}
-            >
-              All creators ({videos.length})
-            </button>
-            {creators.map((c) => {
-              const on = selected.has(c.channel_id);
-              const count = counts.get(c.channel_id) ?? 0;
-              return (
-                <button
-                  key={c.channel_id}
-                  type="button"
-                  className={on ? 'format-btn active' : 'format-btn'}
-                  aria-pressed={on}
-                  onClick={() => toggleCreator(c.channel_id)}
-                >
-                  {c.name} ({count})
-                </button>
-              );
-            })}
-          </div>
-        </ViewBar>
+      <ViewBar
+        actions={
+          <OptionsToggle title="Which creators' videos to show" active={chosen.size > 0} open={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} />
+        }
+      >
+        <TitleSearch label="Search video titles" value={view.search} onSearch={(text) => show(withSearch(view, text))} />
+        <Segmented label="Sort videos" prefix={<span className="view-bar-label">Sort:</span>} options={[...movieSorts]} value={view.sort} onChange={(sort) => show({ ...view, sort, page: 1 })} />
+      </ViewBar>
+      {optionsOpen && (
+        <MoviesOptionsDrawer
+          creators={creators}
+          chosen={chosen}
+          total={list.total}
+          setChosen={(next) => show(withCreators(view, next))}
+          onReset={() => show(withCreators(view, new Set()))}
+          onClose={() => setOptionsOpen(false)}
+        />
       )}
 
-      {visible.length === 0 ? (
-        <Message>No videos match the selected creators yet.</Message>
+      {list.first > 1 && (
+        <p className="movies-earlier">
+          <a href={address({ ...view, page: list.first - 1 })}>‹ Page {count(list.first - 1)}</a>
+        </p>
+      )}
+
+      {videos.length === 0 ? (
+        <Message>{nothingFound(view)}</Message>
       ) : (
         <div className="movies-grid">
-          {visible.map((v) => (
+          {videos.map((v) => (
             <Tile
               key={v.video_id}
               playable
@@ -167,6 +203,26 @@ export default function MoviesPage({ apiUrl }: { apiUrl: string }) {
             </Tile>
           ))}
         </div>
+      )}
+
+      <p className="movies-more" role="status">
+        {list.total > 0 && `Showing ${count(videos.length)} of ${count(list.total)} videos`}
+        {list.more === 'loading' && ' · Loading more…'}
+      </p>
+      {list.last < list.pages && (
+        <p className="movies-more">
+          <a
+            ref={bottom}
+            className="btn-quiet"
+            href={address({ ...view, page: list.last + 1 })}
+            onClick={(e) => {
+              e.preventDefault();
+              loadMore();
+            }}
+          >
+            {list.more === 'error' ? 'Could not load more videos: try again' : 'More videos'}
+          </a>
+        </p>
       )}
 
       {active !== null && <MoviePlayer video={active.video} opener={active.opener} onClose={() => setActive(null)} />}

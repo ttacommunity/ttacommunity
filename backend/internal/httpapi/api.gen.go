@@ -772,6 +772,30 @@ func (e Model) Valid() bool {
 	}
 }
 
+// Defines values for MovieSort.
+const (
+	MovieSortCreator MovieSort = "creator"
+	MovieSortNewest  MovieSort = "newest"
+	MovieSortOldest  MovieSort = "oldest"
+	MovieSortTitle   MovieSort = "title"
+)
+
+// Valid indicates whether the value is a known member of the MovieSort enum.
+func (e MovieSort) Valid() bool {
+	switch e {
+	case MovieSortCreator:
+		return true
+	case MovieSortNewest:
+		return true
+	case MovieSortOldest:
+		return true
+	case MovieSortTitle:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MyBlitzGameActions.
 const (
 	Confirm MyBlitzGameActions = "confirm"
@@ -4421,7 +4445,13 @@ type MovieCreator struct {
 	ChannelId string  `json:"channel_id"`
 	Name      string  `json:"name"`
 	Player    *string `json:"player,omitempty"`
+
+	// Videos All of the creator's videos the Movies page shows, under the search when there is one
+	Videos int `json:"videos"`
 }
+
+// MovieSort Newest or oldest first, by title, or by creator and then newest first
+type MovieSort string
 
 // MovieVideo defines model for MovieVideo.
 type MovieVideo struct {
@@ -4437,7 +4467,12 @@ type MovieVideo struct {
 // MoviesFeed defines model for MoviesFeed.
 type MoviesFeed struct {
 	Creators []MovieCreator `json:"creators"`
-	Videos   []MovieVideo   `json:"videos"`
+	Page     int            `json:"page"`
+	Pages    int            `json:"pages"`
+
+	// Total The videos from the chosen creators, on every page
+	Total  int          `json:"total"`
+	Videos []MovieVideo `json:"videos"`
 }
 
 // MyBlitz defines model for MyBlitz.
@@ -6560,6 +6595,21 @@ type GetChallengeBoardParams struct {
 	Verified *ChallengeVerified `form:"verified,omitempty" json:"verified,omitempty"`
 }
 
+// GetMoviesParams defines parameters for GetMovies.
+type GetMoviesParams struct {
+	Page *int       `form:"page,omitempty" json:"page,omitempty"`
+	Sort *MovieSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Creator A linked channel's id; repeat it for several creators
+	Creator *[]string `form:"creator,omitempty" json:"creator,omitempty"`
+
+	// Player A player's name, in any case, for every channel linked to them
+	Player *string `form:"player,omitempty" json:"player,omitempty"`
+
+	// Q Words a title holds, in any case; each creator's count is then of their videos it finds
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
 // ConfirmMovieHubParams defines parameters for ConfirmMovieHub.
 type ConfirmMovieHubParams struct {
 	HubMode         string `form:"hub.mode" json:"hub.mode"`
@@ -7547,9 +7597,9 @@ type ServerInterface interface {
 	// PutMySignUp Sign up for a tournament
 	// (PUT /v1/me/sign-ups/{tournament}/{season})
 	PutMySignUp(w http.ResponseWriter, r *http.Request, tournament AdminTournamentSlug, season AdminSeasonLabel)
-	// GetMovies Recent TTA community YouTube videos and their creators
+	// GetMovies One page of TTA community YouTube videos, 24 to a page, and every creator
 	// (GET /v1/movies)
-	GetMovies(w http.ResponseWriter, r *http.Request)
+	GetMovies(w http.ResponseWriter, r *http.Request, params GetMoviesParams)
 	// ConfirmMovieHub YouTube's hub checks a subscription request we made
 	// (GET /v1/movies/hub)
 	ConfirmMovieHub(w http.ResponseWriter, r *http.Request, params ConfirmMovieHubParams)
@@ -12987,8 +13037,79 @@ func (siw *ServerInterfaceWrapper) PutMySignUp(w http.ResponseWriter, r *http.Re
 // GetMovies operation middleware
 func (siw *ServerInterfaceWrapper) GetMovies(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMoviesParams
+
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", r.URL.Query(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "page"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "page", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "creator" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "creator", r.URL.Query(), &params.Creator, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "creator"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "creator", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "player" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "player", r.URL.Query(), &params.Player, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "player"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "player", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetMovies(w, r)
+		siw.Handler.GetMovies(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28787,6 +28908,7 @@ func (response PutMySignUp409JSONResponse) VisitPutMySignUpResponse(w http.Respo
 }
 
 type GetMoviesRequestObject struct {
+	Params GetMoviesParams
 }
 
 type GetMoviesResponseObject interface {
@@ -28811,6 +28933,36 @@ func (response GetMovies200JSONResponse) VisitGetMoviesResponse(w http.ResponseW
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMovies400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetMovies400JSONResponse) VisitGetMoviesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMovies404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetMovies404JSONResponse) VisitGetMoviesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -31540,7 +31692,7 @@ type StrictServerInterface interface {
 	// PutMySignUp Sign up for a tournament
 	// (PUT /v1/me/sign-ups/{tournament}/{season})
 	PutMySignUp(ctx context.Context, request PutMySignUpRequestObject) (PutMySignUpResponseObject, error)
-	// GetMovies Recent TTA community YouTube videos and their creators
+	// GetMovies One page of TTA community YouTube videos, 24 to a page, and every creator
 	// (GET /v1/movies)
 	GetMovies(ctx context.Context, request GetMoviesRequestObject) (GetMoviesResponseObject, error)
 	// ConfirmMovieHub YouTube's hub checks a subscription request we made
@@ -36983,8 +37135,10 @@ func (sh *strictHandler) PutMySignUp(w http.ResponseWriter, r *http.Request, tou
 }
 
 // GetMovies operation middleware
-func (sh *strictHandler) GetMovies(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetMovies(w http.ResponseWriter, r *http.Request, params GetMoviesParams) {
 	var request GetMoviesRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetMovies(ctx, request.(GetMoviesRequestObject))

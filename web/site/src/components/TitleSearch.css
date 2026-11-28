@@ -1,0 +1,13 @@
+/* A search box beside its button, sharing its height; it fills a phone's width. */
+.title-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+
+.title-search input {
+  flex: 1;
+  min-width: 0;
+}

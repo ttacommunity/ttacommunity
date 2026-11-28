@@ -80,3 +80,12 @@
   font-size: 0.9rem;
   text-align: right;
 }
+
+.movies-earlier {
+  margin: 0 0 1rem;
+}
+
+.movies-more {
+  margin: 1.25rem 0 0;
+  text-align: center;
+}

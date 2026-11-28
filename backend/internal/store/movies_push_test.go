@@ -40,7 +40,7 @@ func pushed(title string, tta bool) PushedVideo {
 
 func shownTitles(t *testing.T, r *RatingsReader) []string {
 	t.Helper()
-	feed, err := r.Movies(context.Background())
+	feed, err := r.Movies(context.Background(), MoviesQuery{})
 	if err != nil {
 		t.Fatalf("Movies: %v", err)
 	}
