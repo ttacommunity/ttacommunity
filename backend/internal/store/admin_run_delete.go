@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // The reasons a run cannot be deleted.
@@ -16,6 +17,9 @@ var (
 	ErrRunCurrent     = errors.New("the run is the one the site shows")
 	ErrRunRunning     = errors.New("the run is still running")
 	ErrRunNotDeleting = errors.New("the run is not marked for deletion")
+	// ErrRunBusy means the delete met a lock it could not take, such as the engine's while it writes a new run:
+	// the run stays marked, to delete again.
+	ErrRunBusy = errors.New("the run's tables are busy; it stays marked, to delete again")
 )
 
 // SetRunProtected protects a run from deletion, or stops protecting it. Protecting a run marked for
@@ -50,7 +54,8 @@ func (a *AdminStore) StartDeleteRun(ctx context.Context, run int64, engineGoing 
 
 // DeleteRun removes a run marked for deletion, and every result of it, in one transaction. It checks
 // again, as the run may have been protected or published since it was marked; a run that can no longer
-// go is unmarked. It returns ErrRunNotDeleting, ErrRunProtected or ErrRunCurrent.
+// go is unmarked. It returns ErrRunNotDeleting, ErrRunProtected, ErrRunCurrent, or ErrRunBusy when it
+// deadlocked or could not take a lock.
 func (a *AdminStore) DeleteRun(ctx context.Context, run int64) error {
 	err := pgx.BeginFunc(ctx, a.pool, func(tx pgx.Tx) error {
 		var deleting bool
@@ -69,12 +74,29 @@ func (a *AdminStore) DeleteRun(ctx context.Context, run int64) error {
 		}
 		return nil
 	})
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) && (pg.Code == "40P01" || pg.Code == "55P03") {
+		return ErrRunBusy
+	}
 	if errors.Is(err, ErrRunProtected) || errors.Is(err, ErrRunCurrent) {
 		if _, uerr := a.pool.Exec(ctx, "UPDATE rating_runs SET deleting = false WHERE run_id = $1", run); uerr != nil {
 			return errors.Join(err, fmt.Errorf("unmarking run %d: %w", run, uerr))
 		}
 	}
 	return err
+}
+
+// RunsMarkedForDeletion returns the runs marked for deletion and not yet deleted, oldest first.
+func (a *AdminStore) RunsMarkedForDeletion(ctx context.Context) ([]int64, error) {
+	rows, err := a.pool.Query(ctx, "SELECT run_id FROM rating_runs WHERE deleting ORDER BY run_id")
+	if err != nil {
+		return nil, fmt.Errorf("listing runs marked for deletion: %w", err)
+	}
+	runs, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil {
+		return nil, fmt.Errorf("listing runs marked for deletion: %w", err)
+	}
+	return runs, nil
 }
 
 // deletable returns why a run cannot be deleted, or nil.

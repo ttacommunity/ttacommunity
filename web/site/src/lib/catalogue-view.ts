@@ -136,11 +136,13 @@ export function entryRows(t: { first_game: string; last_game: string; seasons: n
   ];
 }
 
-/** gameStateLabel marks a game left out of the ratings: never played, an unconfirmed result, or a played game its
- * tournament, season or player count leaves out (not rated); "" for a rated game. */
+/** gameStateLabel marks a game left out of the ratings: never played, an unconfirmed result, replaced, removed, or a
+ * played game its tournament, season or player count leaves out (not rated); "" for a rated game. */
 export function gameStateLabel(state: string, rated: boolean): string {
   if (state === 'never_played') return 'Never played';
   if (state === 'unconfirmed') return 'Unconfirmed result, not rated';
+  if (state === 'replaced') return 'Replaced, not rated';
+  if (state === 'removed') return 'Removed, not rated';
   return rated ? '' : 'Not rated';
 }
 

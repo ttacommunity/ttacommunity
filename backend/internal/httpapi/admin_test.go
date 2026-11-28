@@ -196,6 +196,8 @@ func (f *fakeAdmins) DeleteRun(_ context.Context, run int64) error {
 	return nil
 }
 
+func (*fakeAdmins) RunsMarkedForDeletion(context.Context) ([]int64, error) { return nil, nil }
+
 func (*fakeAdmins) Tournament(_ context.Context, slug string) (store.AdminTournament, error) {
 	if slug != "worlds" {
 		return store.AdminTournament{}, store.ErrNoTournament

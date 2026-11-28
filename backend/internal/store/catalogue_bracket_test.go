@@ -236,6 +236,8 @@ func TestSeasonBracketGivesAGroupTheStateOfItsGamesNeverPlayedAside(t *testing.T
 		{"every game never played", []string{"never_played", "never_played"}, "never_played"},
 		{"one unconfirmed, the others played", []string{"played", "unconfirmed", "played"}, "unconfirmed"},
 		{"one unconfirmed, one never played", []string{"never_played", "unconfirmed"}, "unconfirmed"},
+		{"one replaced, one played", []string{"replaced", "played"}, "played"},
+		{"one removed, one prepared", []string{"removed", "prepared"}, "prepared"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			run, r := finalFixture(t, tt.states...)

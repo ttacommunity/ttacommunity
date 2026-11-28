@@ -43,21 +43,42 @@ export function tabsFor(role: Role): typeof TABS {
 }
 
 // Tabs folded into others: their old addresses open where they went.
-const MOVED: Record<string, string> = { '#runs': '#data', '#signins': '#members' };
+const MOVED: Record<string, string> = { '#runs': '#data', '#games': '#data', '#standings': '#data', '#signins': '#members' };
 
-/** tabFrom returns the tab the address's hash names, when role sees it, else Tournaments; #runs opens Data and #signins Members, where they went. */
+/** tabFrom returns the tab the address's hash names, when role sees it, else Tournaments; #runs, #games and #standings open Data (dataTabFrom picks the sub tab) and #signins Members, where they went. */
 export function tabFrom(hash: string, role: Role): TabKey {
   const named = MOVED[hash] ?? hash;
   return tabsFor(role).find((t) => `#${t.key}` === named)?.key ?? 'tournaments';
 }
 
-export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'runs' | 'standings' | 'movies' | 'images' | 'titles' | 'badges' | 'admins' | 'notifications' | 'bot' | 'audit';
+export type Panel = 'tournaments' | 'community' | 'blitz' | 'nostradamus' | 'challenges' | 'members' | 'data' | 'games' | 'runs' | 'standings' | 'movies' | 'images' | 'titles' | 'badges' | 'admins' | 'notifications' | 'bot' | 'audit';
 
-/** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. */
+/** panelsFor returns the panels a tab shows role, in order: rating runs only to an admin. Data shows its panels as sub tabs (dataTabs). */
 export function panelsFor(tab: TabKey, role: Role): Panel[] {
-  if (tab === 'data') return role === 'admin' ? ['data', 'runs', 'standings'] : ['data', 'standings'];
+  if (tab === 'data') return role === 'admin' ? ['data', 'runs', 'games', 'standings'] : ['data', 'games', 'standings'];
   if (tab === 'titles') return ['titles', 'badges'];
   return [tab];
+}
+
+/** DATA_TABS name each of Data's panels as a sub tab, with the address (hash) that opens it. */
+const DATA_TABS: Partial<Record<Panel, { hash: string; label: string }>> = {
+  data: { hash: 'data', label: 'Summary' },
+  runs: { hash: 'runs', label: 'Runs' },
+  games: { hash: 'games', label: 'Games' },
+  standings: { hash: 'standings', label: 'Standings check' },
+};
+
+/** dataTabs are the Data tab's sub tabs role sees, in order, each its panel, label and address. */
+export function dataTabs(role: Role): { panel: Panel; hash: string; label: string }[] {
+  return panelsFor('data', role).flatMap((p) => {
+    const t = DATA_TABS[p];
+    return t === undefined ? [] : [{ panel: p, ...t }];
+  });
+}
+
+/** dataTabFrom returns the Data sub tab the address's hash names, when role sees it, else the summary. */
+export function dataTabFrom(hash: string, role: Role): Panel {
+  return dataTabs(role).find((t) => `#${t.hash}` === hash)?.panel ?? 'data';
 }
 
 /** tabCounts are the numbers beside tabs, when there are any: on Members, the requests to be linked waiting for an answer; on Blitz, the players' reports flagged for an organiser. */

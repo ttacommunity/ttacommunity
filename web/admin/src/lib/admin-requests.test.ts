@@ -34,6 +34,12 @@ describe('admin requests', () => {
     ['a season among the champions', req.setSeasonFlag('worlds', '2024', 'champions', true), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_champions: true }],
     ['a season in the community leaderboard', req.setSeasonFlag('worlds', '2024', 'community', false), '/api/tournaments/worlds/seasons/2024', 'PATCH', { in_community: false }],
     ['a season run on this site', req.setSeasonFlag('us_open', '2026', 'here', true), '/api/tournaments/us_open/seasons/2026', 'PATCH', { run_here: true }],
+    // Game changes
+    ['a game change', req.makeGameChange({ action: 'remove', game: 3, reason: 'Not a tournament game' }), '/api/game-changes', 'POST', { action: 'remove', game: 3, reason: 'Not a tournament game' }],
+    ['undoing a game change', req.undoGameChange(7), '/api/game-changes/7', 'DELETE', undefined],
+    ['editing a game change', req.editGameChange(7, { action: 'remove', game: 3, reason: 'Played twice' }), '/api/game-changes/7', 'PUT', { action: 'remove', game: 3, reason: 'Played twice' }],
+    ['a game by its code, trimmed and escaped', req.gameByCode(' AB/CD '), '/api/games/AB%2FCD', 'GET', undefined],
+    ["a season's groups, to escape", req.seasonGroups('intermezzo', '24 B'), '/api/tournaments/intermezzo/seasons/24%20B/groups', 'GET', undefined],
     // Blitz tournaments
     ['entrants to add, to an edition to escape', req.addBlitzEntrants('us_open', 'Season 1', [{ name: 'a', discord_name: 'b', zone: 'UTC' }]), '/api/blitz/us_open/Season%201/entrants', 'POST', { entrants: [{ name: 'a', discord_name: 'b', zone: 'UTC' }] }],
     ['an entrant dropped', req.setBlitzEntrant('us_open', '2026', 7, { status: 'dropped' }), '/api/blitz/us_open/2026/entrants/7', 'PATCH', { status: 'dropped' }],

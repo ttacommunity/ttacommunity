@@ -200,6 +200,18 @@ export const discordBot = get('/api/discord-bot');
 export const dataSummary = get('/api/data');
 /** exportPath is where every input table downloads, as a zip. */
 export const exportPath = '/api/export';
+/** gameChanges lists every game added, removed or replaced in admin, newest first. */
+export const gameChanges = get('/api/game-changes');
+/** makeGameChange adds, removes or replaces a game. */
+export const makeGameChange = (body: Schemas['GameChangeRequest']) => to('/api/game-changes', 'POST', body);
+/** editGameChange makes a change again as given, keeping its id. */
+export const editGameChange = (id: number, body: Schemas['GameChangeRequest']) => to(`/api/game-changes/${id}`, 'PUT', body);
+/** undoGameChange deletes a change, undoing it. */
+export const undoGameChange = (id: number) => to(`/api/game-changes/${id}`, 'DELETE');
+/** gameByCode finds the game with a replay code, trimmed. */
+export const gameByCode = (code: string) => get(`/api/games/${encodeURIComponent(code.trim())}`);
+/** seasonGroups lists a season's stages and groups, to add a game to. */
+export const seasonGroups = (slug: string, label: string) => get(`${season(slug, label)}/groups`);
 /** standingsCheck compares every stage's standings with its games. */
 export const standingsCheck = get('/api/standings-check');
 

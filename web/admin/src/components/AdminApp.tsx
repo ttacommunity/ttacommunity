@@ -16,6 +16,8 @@ import AdminList from './AdminList';
 import RunsPanel from './RunsPanel';
 import DataCard from './DataCard';
 import StandingsCheckPanel from './StandingsCheckPanel';
+import GameChangesPanel from './GameChangesPanel';
+import DataTabs from './DataTabs';
 import TitlesPanel from './TitlesPanel';
 import BadgesPanel from './BadgesPanel';
 import NotificationsPanel from './NotificationsPanel';
@@ -102,6 +104,8 @@ function panel(p: Panel, myName: string, role: AdminMe['role'], signIns: SignIns
       return <MembersPanel role={role} accounts={signIns.accounts} reloadAccounts={signIns.reload} />;
     case 'data':
       return <DataCard />;
+    case 'games':
+      return <GameChangesPanel />;
     case 'runs':
       return <RunsPanel />;
     case 'standings':
@@ -153,7 +157,11 @@ export default function AdminApp() {
 
   return (
     <AdminPage me={me} current={me.kind === 'ready' ? tab : null} counts={tabCounts(waiting, flagged)} loading={me.kind === 'loading'} error={me.kind === 'error' ? me.message : null}>
+      {me.kind === 'ready' && tab === 'data' && (
+        <DataTabs role={me.data.role} render={(p) => panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts }, blitz)} />
+      )}
       {me.kind === 'ready' &&
+        tab !== 'data' &&
         panelsFor(tab, me.data.role).map((p) => <Fragment key={p}>{panel(p, me.data.name, me.data.role, { accounts, reload: reloadAccounts }, blitz)}</Fragment>)}
     </AdminPage>
   );

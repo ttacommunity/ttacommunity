@@ -42,7 +42,7 @@ var ErrUnlistedTable = errors.New("the input tables differ from the export's lis
 var ExportTables = slices.Concat([]string{
 	"import_batches", "data_loads", "players", "player_accounts", "player_names", "members",
 	"series", "tournaments", "stages", "groups", "group_members", "settings",
-	"games", "seats",
+	"games", "seats", "game_changes",
 	"rankings", "ranking_series", "cge_tournaments", "cge_tournament_moderators", "cge_standings",
 	"community_editions", "community_points", "community_quarters", "community_ladders", "community_scores", "community_standings",
 	"tournament_career_honours", "tournament_cup_podiums", "tournament_finish_dates",

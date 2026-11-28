@@ -198,13 +198,14 @@ func stageExtract(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, _ *
 
 // removeCopies deletes each game an earlier CGE load added whose session the pairs file now gives to another
 // game of ours: its seats go with it, its group when that leaves it empty, and its rows in every run's
-// per-game tables (the runs themselves stay).
+// per-game tables (the runs themselves stay). A game changed in admin is kept.
 func removeCopies(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, got *CGEApplied) error {
 	for i, q := range []string{
 		`CREATE TEMPORARY TABLE x_copies ON COMMIT DROP AS
 		 SELECT g.game_id, g.group_id FROM games g
 		 JOIN x_seats x ON x.share_code = g.share_code AND x.idx = 0 JOIN x_match m ON m.session = x.session
-		 WHERE g.game_id <> m.game_id AND g.source_file IN ('` + extractFile + `', '` + scrapeFile + `')`,
+		 WHERE g.game_id <> m.game_id AND g.source_file IN ('` + extractFile + `', '` + scrapeFile + `')
+		   AND NOT ` + changedInAdmin("g.game_id"),
 		`DELETE FROM pairwise_matches WHERE match_id IN (SELECT game_id FROM x_copies)`,
 		`DELETE FROM tournament_games WHERE match_id IN (SELECT game_id FROM x_copies)`,
 		`DELETE FROM games WHERE game_id IN (SELECT game_id FROM x_copies)`,
@@ -386,7 +387,8 @@ func followAccounts(ctx context.Context, tx pgx.Tx, _ CGEPlan, _ CGEInput, _ *CG
 const cgeCulture = `CASE x.outcome WHEN 'finished' THEN x.score ELSE 0 END`
 
 // writeMatched writes CGE's facts on our matched games and seats, drops our seats of players CGE removed, adds the
-// seats only CGE holds, and moves each matched game into our group for its CGE group (moveMatched).
+// seats only CGE holds, and moves each matched game into our group for its CGE group (moveMatched). A game removed
+// or replaced in admin keeps its state, and one added there keeps its group.
 func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
 	tag, err := tx.Exec(ctx, `
 		DELETE FROM seats s USING x_pairs p JOIN x_seats x USING (session, idx)
@@ -400,7 +402,8 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 		        finished_at = x.finished_at, speed = x.speed, timer = x.timer, cge_players_in_game = x.players_in_game,
 		        date = coalesce((x.finished_at AT TIME ZONE 'UTC')::date, g.date),
 		        cge_finished = coalesce((x.finished_at AT TIME ZONE 'UTC')::date, g.cge_finished),
-		        state = CASE WHEN x.state = 'cancelled' THEN 'never_played'
+		        state = CASE WHEN g.state IN ('replaced', 'removed') THEN g.state
+		                     WHEN x.state = 'cancelled' THEN 'never_played'
 		                     WHEN g.state IN ('prepared', 'running') THEN x.our_state ELSE g.state END
 		 FROM x_match m JOIN x_seats x ON x.session = m.session AND x.idx = 0
 		 WHERE g.game_id = m.game_id`,
@@ -436,7 +439,7 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 		WITH pairs AS (
 			SELECT DISTINCT x.group_id AS cge_group, x.group_name, g.group_id
 			FROM x_match m JOIN games g USING (game_id) JOIN x_seats x ON x.session = m.session AND x.idx = 0
-			WHERE g.group_id IS NOT NULL),
+			WHERE g.group_id IS NOT NULL AND NOT `+addedInAdmin("g.game_id")+`),
 		one AS (
 			SELECT cge_group, min(group_id) AS group_id FROM pairs GROUP BY cge_group HAVING count(*) = 1)
 		UPDATE groups gr SET cge_group = o.cge_group FROM one o JOIN pairs p USING (cge_group)
@@ -460,12 +463,12 @@ func writeMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got
 }
 
 // moveMatched moves each matched game that is not in our group for its CGE group into it (placeGroup's, made when
-// there is none), and deletes the groups that leaves empty.
+// there is none), and deletes the groups that leaves empty. A game added in admin stays in its group.
 func moveMatched(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, got *CGEApplied) error {
 	rows, err := tx.Query(ctx, `
 		SELECT m.game_id, m.session FROM x_match m JOIN games g USING (game_id)
 		JOIN x_seats x ON x.session = m.session AND x.idx = 0 LEFT JOIN groups gr ON gr.group_id = g.group_id
-		WHERE gr.cge_group IS DISTINCT FROM x.group_id ORDER BY m.session`)
+		WHERE gr.cge_group IS DISTINCT FROM x.group_id AND NOT `+addedInAdmin("g.game_id")+` ORDER BY m.session`)
 	if err != nil {
 		return err
 	}

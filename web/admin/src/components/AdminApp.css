@@ -23,7 +23,8 @@
 .admin-card-head .rating-card-heading {
   margin-bottom: 0;
 }
-.admin-card > .muted {
+.admin-card > .muted,
+.admin-tab-section > .muted {
   margin-bottom: 1rem;
 }
 @media (max-width: 600px) {
@@ -468,6 +469,7 @@
 }
 .round-block h3,
 .admin-subsection > h3,
+.admin-subsection > .admin-card-head > h3,
 .settings-head h3,
 .movies-add h3 {
   margin-bottom: 0.5rem;

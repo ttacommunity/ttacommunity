@@ -298,17 +298,31 @@ func stageFor(ctx context.Context, tx pgx.Tx, plan CGEPlan, in CGEInput, g cgeex
 // else as its stage's games with its group's name, else its CGE tournament, stage and group. stages caches each
 // stage's first game name (nil for none).
 func groupPrefix(ctx context.Context, tx pgx.Tx, group int64, g cgeextract.Game, stages map[int64]*string) (string, error) {
+	prefix, ok, err := heldPrefix(ctx, tx, group, g.GroupName, stages)
+	if err != nil || ok {
+		return prefix, err
+	}
+	name := fmt.Sprintf("%s Stage %d", g.Seats[0].TournamentName, g.StageNumber)
+	if g.GroupName != "" {
+		name += " - " + g.GroupName
+	}
+	return name, nil
+}
+
+// heldPrefix returns how a group's games are named before " game N" from the games we hold: as its games are,
+// else as its stage's games with the group's name (groupName). ok is false when its stage has no games.
+func heldPrefix(ctx context.Context, tx pgx.Tx, group int64, groupName string, stages map[int64]*string) (string, bool, error) {
 	var sibling string
 	err := tx.QueryRow(ctx, `SELECT name FROM games WHERE group_id = $1 ORDER BY game_id LIMIT 1`, group).Scan(&sibling)
 	if err == nil {
-		return trailingGame.ReplaceAllString(sibling, ""), nil
+		return trailingGame.ReplaceAllString(sibling, ""), true, nil
 	}
 	if err != pgx.ErrNoRows {
-		return "", err
+		return "", false, err
 	}
 	var stage int64
 	if err := tx.QueryRow(ctx, "SELECT stage_id FROM groups WHERE group_id = $1", group).Scan(&stage); err != nil {
-		return "", err
+		return "", false, err
 	}
 	first, ok := stages[stage]
 	if !ok {
@@ -316,7 +330,7 @@ func groupPrefix(ctx context.Context, tx pgx.Tx, group int64, g cgeextract.Game,
 		err := tx.QueryRow(ctx, `SELECT g.name FROM games g JOIN groups gr USING (group_id)
 			WHERE gr.stage_id = $1 ORDER BY g.game_id LIMIT 1`, stage).Scan(&name)
 		if err != nil && err != pgx.ErrNoRows {
-			return "", err
+			return "", false, err
 		}
 		if err == nil {
 			first = &name
@@ -325,14 +339,10 @@ func groupPrefix(ctx context.Context, tx pgx.Tx, group int64, g cgeextract.Game,
 	}
 	if first != nil {
 		if prefix, _, ok := strings.Cut(*first, " - "); ok {
-			return prefix + " - " + g.GroupName, nil
+			return prefix + " - " + groupName, true, nil
 		}
 	}
-	name := fmt.Sprintf("%s Stage %d", g.Seats[0].TournamentName, g.StageNumber)
-	if g.GroupName != "" {
-		name += " - " + g.GroupName
-	}
-	return name, nil
+	return "", false, nil
 }
 
 // gameState is a CGE game's state as ours: never played when cancelled or no one finished or resigned.
