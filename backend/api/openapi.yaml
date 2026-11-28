@@ -1920,10 +1920,45 @@ paths:
     get:
       operationId: getMovies
       tags: [community]
-      summary: Recent TTA community YouTube videos and their creators
+      summary: One page of TTA community YouTube videos, 24 to a page, and every creator
+      description: |
+        The videos the Movies page shows, from the creators named by
+        `creator` or `player` (every creator when neither is given), in the
+        order `sort` names. Each creator carries the count of all their
+        shown videos. A page past the last gives the last; a creator or
+        player with no linked channel is a 404.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: sort
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/MovieSort"
+        - name: creator
+          in: query
+          required: false
+          description: A linked channel's id; repeat it for several creators
+          schema:
+            type: array
+            maxItems: 50
+            items:
+              type: string
+        - name: player
+          in: query
+          required: false
+          description: A player's name, in any case, for every channel linked to them
+          schema:
+            type: string
+            maxLength: 200
       responses:
         "200":
-          description: Chronological feed of community videos (newest first) and active creators
+          description: One page of community videos and every creator
           headers:
             Cache-Control:
               $ref: "#/components/headers/CacheControl"
@@ -1931,6 +1966,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MoviesFeed"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /v1/movies/hub:
     get:
       operationId: confirmMovieHub
@@ -13094,9 +13133,14 @@ components:
           type: string
           maxLength: 500
 
+    MovieSort:
+      type: string
+      enum: [newest, oldest, title, creator]
+      default: newest
+      description: Newest or oldest first, by title, or by creator and then newest first
     MovieCreator:
       type: object
-      required: [channel_id, name]
+      required: [channel_id, name, videos]
       properties:
         channel_id:
           type: string
@@ -13105,6 +13149,9 @@ components:
         player:
           type: string
           nullable: true
+        videos:
+          type: integer
+          description: All of the creator's videos the Movies page shows
     MovieVideo:
       type: object
       required: [video_id, channel_id, creator_name, title, published_at, thumbnail_url]
@@ -13127,8 +13174,15 @@ components:
           type: string
     MoviesFeed:
       type: object
-      required: [creators, videos]
+      required: [creators, page, pages, total, videos]
       properties:
+        page:
+          type: integer
+        pages:
+          type: integer
+        total:
+          type: integer
+          description: The videos from the chosen creators, on every page
         creators:
           type: array
           items:

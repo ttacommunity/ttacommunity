@@ -44,6 +44,9 @@ type fakeRatings struct {
 	gotFmt     int
 	gotWindow  string
 	gotRanking string
+
+	gotMovies store.MoviesQuery
+	moviesErr error
 }
 
 func (f *fakeRatings) History(_ context.Context, run int64, model string, format int, window string) (time.Time, []store.HistoryRow, error) {

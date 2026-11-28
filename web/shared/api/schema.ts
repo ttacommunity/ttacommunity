@@ -1394,7 +1394,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Recent TTA community YouTube videos and their creators */
+        /**
+         * One page of TTA community YouTube videos, 24 to a page, and every creator
+         * @description The videos the Movies page shows, from the creators named by
+         *     `creator` or `player` (every creator when neither is given), in the
+         *     order `sort` names. Each creator carries the count of all their
+         *     shown videos. A page past the last gives the last; a creator or
+         *     player with no linked channel is a 404.
+         */
         get: operations["getMovies"];
         put?: never;
         post?: never;
@@ -7900,10 +7907,18 @@ export interface components {
             /** @description Shown to the player; may be empty */
             reason: string;
         };
+        /**
+         * @description Newest or oldest first, by title, or by creator and then newest first
+         * @default newest
+         * @enum {string}
+         */
+        MovieSort: "newest" | "oldest" | "title" | "creator";
         MovieCreator: {
             channel_id: string;
             name: string;
             player?: string | null;
+            /** @description All of the creator's videos the Movies page shows */
+            videos: number;
         };
         MovieVideo: {
             video_id: string;
@@ -7916,6 +7931,10 @@ export interface components {
             thumbnail_url: string;
         };
         MoviesFeed: {
+            page: number;
+            pages: number;
+            /** @description The videos from the chosen creators, on every page */
+            total: number;
             creators: components["schemas"]["MovieCreator"][];
             videos: components["schemas"]["MovieVideo"][];
         };
@@ -10109,14 +10128,21 @@ export interface operations {
     };
     getMovies: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                sort?: components["schemas"]["MovieSort"];
+                /** @description A linked channel's id; repeat it for several creators */
+                creator?: string[];
+                /** @description A player's name, in any case, for every channel linked to them */
+                player?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Chronological feed of community videos (newest first) and active creators */
+            /** @description One page of community videos and every creator */
             200: {
                 headers: {
                     "Cache-Control": components["headers"]["CacheControl"];
@@ -10126,6 +10152,8 @@ export interface operations {
                     "application/json": components["schemas"]["MoviesFeed"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     confirmMovieHub: {
@@ -14673,6 +14701,7 @@ export const trophyRowTitleValues: ReadonlyArray<FlattenedDeepRequired<component
 export const loginProviderValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["LoginProvider"]> = ["discord", "email", "microsoft", "google"];
 export const emailSignedInOutcomeValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["EmailSignedIn"]["outcome"]> = ["first", "ok", "added"];
 export const mySignUpStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MySignUp"]["status"]> = ["none", "entered", "pending"];
+export const movieSortValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MovieSort"]> = ["newest", "oldest", "title", "creator"];
 export const nostradamusQuestionKindValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["NostradamusQuestion"]["kind"]> = ["pick", "set", "number"];
 export const myNostradamusStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamus"]["status"]> = ["none", "requested", "accepted", "refused"];
 export const myNostradamusEntryStatusValues: ReadonlyArray<FlattenedDeepRequired<components>["schemas"]["MyNostradamusEntry"]["status"]> = ["requested", "accepted", "refused"];

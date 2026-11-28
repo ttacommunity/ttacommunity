@@ -16,12 +16,18 @@ import (
 	"ttacommunity/backend/internal/store"
 )
 
-func (f *fakeRatings) Movies(_ context.Context) (store.MoviesFeed, error) {
+func (f *fakeRatings) Movies(_ context.Context, q store.MoviesQuery) (store.MoviesFeed, error) {
+	f.calls++
+	f.gotMovies = q
+	if f.moviesErr != nil {
+		return store.MoviesFeed{}, f.moviesErr
+	}
 	p := "Alice"
 	return store.MoviesFeed{
 		Creators: []store.MovieCreator{
-			{ChannelID: "UC0000000000000000000001", Name: "Alice Casts", Player: &p},
+			{ChannelID: "UC0000000000000000000001", Name: "Alice Casts", Player: &p, Videos: 30},
 		},
+		Page: 2, Pages: 2, Total: 30,
 		Videos: []store.MovieVideo{
 			{
 				VideoID:       "vid00000001",
@@ -36,7 +42,7 @@ func (f *fakeRatings) Movies(_ context.Context) (store.MoviesFeed, error) {
 	}, nil
 }
 
-func (readsOnly) Movies(_ context.Context) (store.MoviesFeed, error) {
+func (readsOnly) Movies(_ context.Context, _ store.MoviesQuery) (store.MoviesFeed, error) {
 	return store.MoviesFeed{}, nil
 }
 
@@ -293,13 +299,74 @@ func TestMoviesFeedAndMarkSeen(t *testing.T) {
 		t.Fatalf("GET /v1/movies = %d %s", rec.Code, rec.Body)
 	}
 	wantJSON(t, rec.Body.Bytes(), "videos.0", `{"video_id": "vid00000001", "creator_name": "Alice Casts"}`)
-	wantJSON(t, rec.Body.Bytes(), "creators.0", `{"channel_id": "UC0000000000000000000001", "player": "Alice"}`)
+	wantJSON(t, rec.Body.Bytes(), "creators.0", `{"channel_id": "UC0000000000000000000001", "player": "Alice", "videos": 30}`)
+	wantJSON(t, rec.Body.Bytes(), "", `{"page": 2, "pages": 2, "total": 30}`)
 
 	signIns := newFakeSignIns()
 	cookie := sessionFor(signIns, "session-token", store.Account{ID: 7})
 	w := playerDo(t, signIns, http.MethodPost, "/v1/me/movies/seen", siteOrigin, "", cookie)
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("POST /v1/me/movies/seen = %d %s, want 204", w.Code, w.Body)
+	}
+}
+
+func TestMoviesPassesTheQueryToTheStore(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want store.MoviesQuery
+	}{
+		{"nothing chosen", "/v1/movies", store.MoviesQuery{Page: 1}},
+		{"a page and a sort", "/v1/movies?page=3&sort=title", store.MoviesQuery{Page: 3, Sort: "title"}},
+		{"several creators", "/v1/movies?creator=UC0000000000000000000001&creator=UC0000000000000000000002",
+			store.MoviesQuery{Page: 1, Channels: []string{"UC0000000000000000000001", "UC0000000000000000000002"}}},
+		{"a player", "/v1/movies?player=Alice", store.MoviesQuery{Page: 1, Player: "Alice"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeRatings{}
+			rec, _ := serve(t, f, tt.path)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("GET %s = %d %s", tt.path, rec.Code, rec.Body)
+			}
+			if fmt.Sprint(f.gotMovies) != fmt.Sprint(tt.want) {
+				t.Errorf("GET %s: got query = %+v, want %+v", tt.path, f.gotMovies, tt.want)
+			}
+		})
+	}
+}
+
+func TestMoviesRefusesABadQuery(t *testing.T) {
+	tooMany := "/v1/movies?" + strings.Repeat("creator=UC0000000000000000000001&", 51)
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"page zero", "/v1/movies?page=0"},
+		{"unknown sort", "/v1/movies?sort=views"},
+		{"a creator that is not a channel id", "/v1/movies?creator=alice"},
+		{"too many creators", tooMany},
+		{"a blank player", "/v1/movies?player=%20"},
+		{"a player name too long", "/v1/movies?player=" + strings.Repeat("a", 201)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeRatings{}
+			rec, _ := serve(t, f, tt.path)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("GET %s = %d, want 400", tt.path, rec.Code)
+			}
+			if f.calls != 0 {
+				t.Errorf("GET %s reached the store", tt.path)
+			}
+		})
+	}
+}
+
+func TestMoviesForAnUnknownCreatorIsNotFound(t *testing.T) {
+	rec, _ := serve(t, &fakeRatings{moviesErr: store.ErrNoChannel}, "/v1/movies?player=Nobody")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET /v1/movies?player=Nobody = %d, want 404", rec.Code)
 	}
 }
 
